@@ -1,7 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:excel/excel.dart' hide Border;
+import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../services/excel_service.dart';
+import '../../utils/timetable_data_source.dart';
+import '../../models/time_slot.dart';
 
 /// 교체 관리 화면
 class ExchangeScreen extends StatefulWidget {
@@ -13,7 +16,10 @@ class ExchangeScreen extends StatefulWidget {
 
 class _ExchangeScreenState extends State<ExchangeScreen> {
   File? _selectedFile;        // 선택된 엑셀 파일
-  Excel? _excelData;         // 읽은 엑셀 데이터
+  TimetableData? _timetableData; // 파싱된 시간표 데이터
+  TimetableDataSource? _dataSource; // Syncfusion DataGrid 데이터 소스
+  List<GridColumn> _columns = []; // 그리드 컬럼
+  List<StackedHeaderRow> _stackedHeaders = []; // 스택된 헤더
   bool _isLoading = false;    // 로딩 상태
   String? _errorMessage;     // 오류 메시지
 
@@ -40,8 +46,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
           
           const SizedBox(height: 24),
           
-          // 엑셀 데이터 표시 섹션
-          if (_excelData != null) _buildExcelDataSection(),
+          // 시간표 그리드 표시 섹션
+          if (_timetableData != null) _buildTimetableGridSection(),
           
           // 오류 메시지 표시
           if (_errorMessage != null) _buildErrorMessageSection(),
@@ -186,8 +192,11 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
   }
 
 
-  /// 엑셀 데이터 표시 섹션 UI
-  Widget _buildExcelDataSection() {
+
+  /// 시간표 그리드 섹션 UI
+  Widget _buildTimetableGridSection() {
+    if (_timetableData == null || _dataSource == null) return const SizedBox.shrink();
+    
     return Card(
       elevation: 2,
       child: Padding(
@@ -198,63 +207,273 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
             Row(
               children: [
                 Icon(
-                  Icons.table_chart,
-                  color: Colors.purple.shade600,
+                  Icons.grid_on,
+                  color: Colors.green.shade600,
                   size: 24,
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  '엑셀 데이터',
+                  '시간표 그리드 (Syncfusion)',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.purple.shade600,
+                    color: Colors.green.shade600,
+                  ),
+                ),
+                const Spacer(),
+                // 파싱 통계 표시
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.green.shade200),
+                  ),
+                  child: Text(
+                    '교사 ${_timetableData!.teachers.length}명 | 슬롯 ${_timetableData!.timeSlots.length}개',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.green.shade700,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+            
+            // Syncfusion DataGrid 위젯
             Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
+              height: 500, // 높이 증가
               decoration: BoxDecoration(
-                color: Colors.purple.shade50,
+                border: Border.all(color: Colors.grey.shade300),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.purple.shade200),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '워크시트 개수: ${_excelData!.tables.length}',
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '워크시트 이름: ${_excelData!.tables.keys.join(', ')}',
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _showExcelInfo,
-                icon: const Icon(Icons.info_outline),
-                label: const Text('상세 정보 보기'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.purple.shade600,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                ),
+              child: SfDataGrid(
+                source: _dataSource!,
+                columns: _columns,
+                stackedHeaderRows: _stackedHeaders,
+                gridLinesVisibility: GridLinesVisibility.both,
+                headerGridLinesVisibility: GridLinesVisibility.both,
+                headerRowHeight: 40,
+                rowHeight: 50,
+                allowColumnsResizing: true,
+                allowSorting: false,
+                allowEditing: false,
+                allowTriStateSorting: false,
+                allowPullToRefresh: false,
+                selectionMode: SelectionMode.none,
+                columnWidthMode: ColumnWidthMode.fitByColumnName,
               ),
             ),
           ],
         ),
       ),
     );
+  }
+  
+  /// Syncfusion DataGrid 컬럼 및 헤더 생성
+  void _createSyncfusionGridData() {
+    if (_timetableData == null) return;
+    
+    // 요일별로 데이터 그룹화
+    Map<String, Map<int, Map<String, TimeSlot?>>> groupedData = _groupTimeSlotsByDayAndPeriod();
+    
+    // 요일 목록 추출 및 정렬
+    List<String> days = groupedData.keys.toList()..sort(_compareDays);
+    
+    // 교시 목록 추출 및 정렬
+    Set<int> allPeriods = {};
+    for (var dayData in groupedData.values) {
+      allPeriods.addAll(dayData.keys);
+    }
+    List<int> periods = allPeriods.toList()..sort();
+    
+    // 컬럼 생성
+    _columns = _createColumns(days, periods);
+    
+    // 스택된 헤더 생성
+    _stackedHeaders = _createStackedHeaders(days, periods);
+    
+    // 데이터 소스 생성
+    _dataSource = TimetableDataSource(
+      timeSlots: _timetableData!.timeSlots,
+      teachers: _timetableData!.teachers,
+    );
+  }
+  
+  /// TimeSlot 리스트를 요일별, 교시별로 그룹화
+  Map<String, Map<int, Map<String, TimeSlot?>>> _groupTimeSlotsByDayAndPeriod() {
+    Map<String, Map<int, Map<String, TimeSlot?>>> groupedData = {};
+    
+    for (TimeSlot slot in _timetableData!.timeSlots) {
+      if (slot.dayOfWeek == null || slot.period == null || slot.teacher == null) {
+        continue;
+      }
+      
+      String dayName = _getDayName(slot.dayOfWeek!);
+      int period = slot.period!;
+      String teacherName = slot.teacher!;
+      
+      // 요일별 데이터 초기화
+      groupedData.putIfAbsent(dayName, () => {});
+      
+      // 교시별 데이터 초기화
+      groupedData[dayName]!.putIfAbsent(period, () => {});
+      
+      // 교사별 데이터 저장
+      groupedData[dayName]![period]![teacherName] = slot;
+    }
+    
+    return groupedData;
+  }
+  
+  /// 요일 번호를 요일명으로 변환
+  String _getDayName(int dayOfWeek) {
+    const dayNames = ['월', '화', '수', '목', '금'];
+    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+      return dayNames[dayOfWeek - 1];
+    }
+    return '월'; // 기본값
+  }
+  
+  /// 요일 정렬을 위한 비교 함수
+  int _compareDays(String a, String b) {
+    const dayOrder = ['월', '화', '수', '목', '금'];
+    int indexA = dayOrder.indexOf(a);
+    int indexB = dayOrder.indexOf(b);
+    
+    if (indexA == -1) indexA = 999;
+    if (indexB == -1) indexB = 999;
+    
+    return indexA.compareTo(indexB);
+  }
+  
+  /// Syncfusion DataGrid 컬럼 생성
+  List<GridColumn> _createColumns(List<String> days, List<int> periods) {
+    List<GridColumn> columns = [];
+    
+    // 첫 번째 컬럼: 교사명
+    columns.add(
+      GridColumn(
+        columnName: 'teacher',
+        width: 120,
+        label: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          alignment: Alignment.center,
+          decoration: const BoxDecoration(
+            color: Color(0xFFF5F5F5),
+            border: Border(
+              right: BorderSide(color: Colors.grey, width: 1),
+              bottom: BorderSide(color: Colors.grey, width: 1),
+            ),
+          ),
+          child: const Text(
+            '교사',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
+    );
+    
+    // 요일별 교시 컬럼 생성
+    for (String day in days) {
+      for (int period in periods) {
+        columns.add(
+          GridColumn(
+            columnName: '${day}_$period',
+            width: 100,
+            label: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                color: Color(0xFFFAFAFA),
+                border: Border(
+                  right: BorderSide(color: Colors.grey, width: 1),
+                  bottom: BorderSide(color: Colors.grey, width: 1),
+                ),
+              ),
+              child: Text(
+                period.toString(),
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+    }
+    
+    return columns;
+  }
+  
+  /// 스택된 헤더 생성 (요일별 셀 병합 효과)
+  List<StackedHeaderRow> _createStackedHeaders(List<String> days, List<int> periods) {
+    List<StackedHeaderRow> stackedHeaders = [];
+    
+    // 요일 헤더 행 생성
+    List<StackedHeaderCell> headerCells = [];
+    
+    // 교사명 헤더 (병합되지 않음)
+    headerCells.add(
+      StackedHeaderCell(
+        columnNames: ['teacher'],
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          alignment: Alignment.center,
+          decoration: const BoxDecoration(
+            color: Color(0xFFE3F2FD),
+            border: Border(
+              right: BorderSide(color: Colors.grey, width: 1),
+              bottom: BorderSide(color: Colors.grey, width: 1),
+            ),
+          ),
+          child: const Text(
+            '교사',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
+    );
+    
+    // 요일별 헤더 (교시 수만큼 병합)
+    for (String day in days) {
+      headerCells.add(
+        StackedHeaderCell(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: Color(0xFFE3F2FD),
+              border: Border(
+                right: BorderSide(color: Colors.grey, width: 1),
+                bottom: BorderSide(color: Colors.grey, width: 1),
+              ),
+            ),
+            child: Text(
+              day,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          columnNames: periods.map((period) => '${day}_$period').toList(),
+        ),
+      );
+    }
+    
+    stackedHeaders.add(StackedHeaderRow(cells: headerCells));
+    
+    return stackedHeaders;
   }
 
   /// 오류 메시지 섹션 UI
@@ -307,7 +526,6 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       if (selectedFile != null) {
         setState(() {
           _selectedFile = selectedFile;
-          _excelData = null; // 새로운 파일 선택 시 기존 데이터 초기화
         });
         
         // 파일 선택 성공 메시지 표시
@@ -347,10 +565,6 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
         bool isValid = ExcelService.isValidExcelFile(excel);
         
         if (isValid) {
-          setState(() {
-            _excelData = excel;
-          });
-          
           // 시간표 데이터 파싱 시도
           await _parseTimetableData(excel);
           
@@ -387,7 +601,15 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       TimetableData? timetableData = ExcelService.parseTimetableData(excel);
       
       if (timetableData != null) {
-        // 파싱 성공 - 콘솔에 로그가 출력됨
+        // 파싱된 데이터를 상태에 저장
+        setState(() {
+          _timetableData = timetableData;
+        });
+        
+        // Syncfusion DataGrid 데이터 생성
+        _createSyncfusionGridData();
+        
+        // 파싱 성공 메시지 표시
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -410,27 +632,15 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     }
   }
 
-  /// 엑셀 상세 정보 보기 메서드
-  void _showExcelInfo() {
-    if (_excelData == null) return;
-    
-    ExcelService.printExcelInfo(_excelData!);
-    
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('콘솔에서 상세 정보를 확인하세요.'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    }
-  }
 
   /// 선택 해제 메서드
   void _clearSelection() {
     setState(() {
       _selectedFile = null;
-      _excelData = null;
+      _timetableData = null;
+      _dataSource = null;
+      _columns = [];
+      _stackedHeaders = [];
       _errorMessage = null;
     });
   }
