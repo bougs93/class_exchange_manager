@@ -269,7 +269,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
                   allowTriStateSorting: false,
                   allowPullToRefresh: false,
                   selectionMode: SelectionMode.none,
-                  columnWidthMode: ColumnWidthMode.none  ,
+                  columnWidthMode: ColumnWidthMode.none,
+                  frozenColumnsCount: 1, // 교사명 열(첫 번째 열) 고정
                 ),
               ),
             ),

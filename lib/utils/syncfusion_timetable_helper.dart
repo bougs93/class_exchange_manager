@@ -102,7 +102,7 @@ class SyncfusionTimetableHelper {
   static List<GridColumn> _createColumns(List<String> days, List<int> periods) {
     List<GridColumn> columns = [];
     
-    // 첫 번째 컬럼: 교사명
+    // 첫 번째 컬럼: 교사명 (고정 열)
     columns.add(
       GridColumn(
         columnName: 'teacher',
@@ -233,7 +233,7 @@ class SyncfusionTimetableHelper {
     // 요일 헤더 행 생성
     List<StackedHeaderCell> headerCells = [];
     
-    // 교사명 헤더 (병합되지 않음)
+    // 교사명 헤더 (병합되지 않음, 고정 열)
     headerCells.add(
       StackedHeaderCell(
         columnNames: ['teacher'],
