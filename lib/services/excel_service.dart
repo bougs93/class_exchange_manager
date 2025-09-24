@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:developer' as developer;
 import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import '../models/teacher.dart';
 import '../models/time_slot.dart';
 
@@ -77,9 +78,19 @@ class ExcelService {
 
       // 사용자가 파일을 선택했는지 확인
       if (result != null && result.files.isNotEmpty) {
-        // 선택된 파일의 경로를 File 객체로 변환
-        String filePath = result.files.first.path!;
-        return File(filePath);
+        // Web 플랫폼에서는 다른 방식으로 처리
+        if (kIsWeb) {
+          // Web에서는 bytes를 직접 사용
+          final bytes = result.files.first.bytes;
+          if (bytes != null) {
+            // 임시 파일로 저장 (Web에서는 실제 파일 시스템 접근 불가)
+            return null; // Web에서는 File 객체 대신 bytes를 직접 사용
+          }
+        } else {
+          // 선택된 파일의 경로를 File 객체로 변환
+          String filePath = result.files.first.path!;
+          return File(filePath);
+        }
       }
       
       // 파일을 선택하지 않았거나 취소한 경우
@@ -107,6 +118,25 @@ class ExcelService {
   ///   // 엑셀 파일 읽기 성공
   /// }
   /// ```
+  
+  /// Web에서 bytes로 엑셀 파일을 읽어서 Excel 객체로 변환
+  /// 
+  /// 매개변수:
+  /// - List<int> bytes: 엑셀 파일의 바이트 데이터
+  /// 
+  /// 반환값:
+  /// - Excel?: 파싱된 엑셀 데이터 (실패 시 null)
+  static Future<Excel?> readExcelFromBytes(List<int> bytes) async {
+    try {
+      // bytes를 Excel 객체로 변환
+      Excel excel = Excel.decodeBytes(bytes);
+      return excel;
+    } catch (e) {
+      developer.log('엑셀 파일 파싱 실패: $e', name: 'ExcelService');
+      return null;
+    }
+  }
+
   static Future<Excel?> readExcelFile(File file) async {
     try {
       // 파일이 존재하는지 확인

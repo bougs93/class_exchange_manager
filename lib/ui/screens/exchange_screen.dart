@@ -1,11 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:excel/excel.dart' hide Border;
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../services/excel_service.dart';
 import '../../utils/timetable_data_source.dart';
+import '../../utils/syncfusion_timetable_helper.dart';
 import '../../utils/constants.dart';
-import '../../models/time_slot.dart';
 
 /// 교체 관리 화면
 class ExchangeScreen extends StatefulWidget {
@@ -261,13 +263,13 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
                   headerGridLinesVisibility: GridLinesVisibility.both,
                   headerRowHeight: AppConstants.headerRowHeight,
                   rowHeight: AppConstants.dataRowHeight,
-                  allowColumnsResizing: true,
+                  allowColumnsResizing: false,
                   allowSorting: false,
                   allowEditing: false,
                   allowTriStateSorting: false,
                   allowPullToRefresh: false,
                   selectionMode: SelectionMode.none,
-                  columnWidthMode: ColumnWidthMode.none,
+                  columnWidthMode: ColumnWidthMode.none  ,
                 ),
               ),
             ),
@@ -281,24 +283,14 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
   void _createSyncfusionGridData() {
     if (_timetableData == null) return;
     
-    // 요일별로 데이터 그룹화
-    Map<String, Map<int, Map<String, TimeSlot?>>> groupedData = _groupTimeSlotsByDayAndPeriod();
+    // SyncfusionTimetableHelper를 사용하여 데이터 생성
+    final result = SyncfusionTimetableHelper.convertToSyncfusionData(
+      _timetableData!.timeSlots,
+      _timetableData!.teachers,
+    );
     
-    // 요일 목록 추출 및 정렬
-    List<String> days = groupedData.keys.toList()..sort(_compareDays);
-    
-    // 교시 목록 추출 및 정렬
-    Set<int> allPeriods = {};
-    for (var dayData in groupedData.values) {
-      allPeriods.addAll(dayData.keys);
-    }
-    List<int> periods = allPeriods.toList()..sort();
-    
-    // 컬럼 생성
-    _columns = _createColumns(days, periods);
-    
-    // 스택된 헤더 생성
-    _stackedHeaders = _createStackedHeaders(days, periods);
+    _columns = result.columns;
+    _stackedHeaders = result.stackedHeaders;
     
     // 데이터 소스 생성
     _dataSource = TimetableDataSource(
@@ -307,179 +299,6 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     );
   }
   
-  /// TimeSlot 리스트를 요일별, 교시별로 그룹화
-  Map<String, Map<int, Map<String, TimeSlot?>>> _groupTimeSlotsByDayAndPeriod() {
-    Map<String, Map<int, Map<String, TimeSlot?>>> groupedData = {};
-    
-    for (TimeSlot slot in _timetableData!.timeSlots) {
-      if (slot.dayOfWeek == null || slot.period == null || slot.teacher == null) {
-        continue;
-      }
-      
-      String dayName = _getDayName(slot.dayOfWeek!);
-      int period = slot.period!;
-      String teacherName = slot.teacher!;
-      
-      // 요일별 데이터 초기화
-      groupedData.putIfAbsent(dayName, () => {});
-      
-      // 교시별 데이터 초기화
-      groupedData[dayName]!.putIfAbsent(period, () => {});
-      
-      // 교사별 데이터 저장
-      groupedData[dayName]![period]![teacherName] = slot;
-    }
-    
-    return groupedData;
-  }
-  
-  /// 요일 번호를 요일명으로 변환
-  String _getDayName(int dayOfWeek) {
-    const dayNames = ['월', '화', '수', '목', '금'];
-    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-      return dayNames[dayOfWeek - 1];
-    }
-    return '월'; // 기본값
-  }
-  
-  /// 요일 정렬을 위한 비교 함수
-  int _compareDays(String a, String b) {
-    const dayOrder = ['월', '화', '수', '목', '금'];
-    int indexA = dayOrder.indexOf(a);
-    int indexB = dayOrder.indexOf(b);
-    
-    if (indexA == -1) indexA = 999;
-    if (indexB == -1) indexB = 999;
-    
-    return indexA.compareTo(indexB);
-  }
-  
-  /// Syncfusion DataGrid 컬럼 생성
-  List<GridColumn> _createColumns(List<String> days, List<int> periods) {
-    List<GridColumn> columns = [];
-    
-    // 첫 번째 컬럼: 교사명
-    columns.add(
-      GridColumn(
-        columnName: 'teacher',
-        width: 120,
-        label: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          alignment: Alignment.center,
-          decoration: const BoxDecoration(
-            color: Color(0xFFF5F5F5),
-            border: Border(
-              right: BorderSide(color: Colors.grey, width: 1),
-              bottom: BorderSide(color: Colors.grey, width: 1),
-            ),
-          ),
-          child: const Text(
-            '교사',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ),
-    );
-    
-    // 요일별 교시 컬럼 생성
-    for (String day in days) {
-      for (int period in periods) {
-        columns.add(
-          GridColumn(
-            columnName: '${day}_$period',
-            width: 100,
-            label: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-              alignment: Alignment.center,
-              decoration: const BoxDecoration(
-                color: Color(0xFFFAFAFA),
-                border: Border(
-                  right: BorderSide(color: Colors.grey, width: 1),
-                  bottom: BorderSide(color: Colors.grey, width: 1),
-                ),
-              ),
-              child: Text(
-                period.toString(),
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ),
-        );
-      }
-    }
-    
-    return columns;
-  }
-  
-  /// 스택된 헤더 생성 (요일별 셀 병합 효과)
-  List<StackedHeaderRow> _createStackedHeaders(List<String> days, List<int> periods) {
-    List<StackedHeaderRow> stackedHeaders = [];
-    
-    // 요일 헤더 행 생성
-    List<StackedHeaderCell> headerCells = [];
-    
-    // 교사명 헤더 (병합되지 않음)
-    headerCells.add(
-      StackedHeaderCell(
-        columnNames: ['teacher'],
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          alignment: Alignment.center,
-          decoration: const BoxDecoration(
-            color: Color(0xFFE3F2FD),
-            border: Border(
-              right: BorderSide(color: Colors.grey, width: 1),
-              bottom: BorderSide(color: Colors.grey, width: 1),
-            ),
-          ),
-          child: const Text(
-            '교사',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ),
-    );
-    
-    // 요일별 헤더 (교시 수만큼 병합)
-    for (String day in days) {
-      headerCells.add(
-        StackedHeaderCell(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              color: Color(0xFFE3F2FD),
-              border: Border(
-                right: BorderSide(color: Colors.grey, width: 1),
-                bottom: BorderSide(color: Colors.grey, width: 1),
-              ),
-            ),
-            child: Text(
-              day,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          columnNames: periods.map((period) => '${day}_$period').toList(),
-        ),
-      );
-    }
-    
-    stackedHeaders.add(StackedHeaderRow(cells: headerCells));
-    
-    return stackedHeaders;
-  }
 
   /// 오류 메시지 섹션 UI
   Widget _buildErrorMessageSection() {
@@ -526,26 +345,55 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     });
 
     try {
-      File? selectedFile = await ExcelService.pickExcelFile();
-      
-      if (selectedFile != null) {
-        setState(() {
-          _selectedFile = selectedFile;
-        });
+      if (kIsWeb) {
+        // Web 플랫폼에서는 직접 파일 선택
+        FilePickerResult? result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['xlsx', 'xls'],
+          allowMultiple: false,
+        );
         
-        // 파일 선택 성공 메시지 표시
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('파일이 선택되었습니다: ${selectedFile.path.split('/').last}'),
-              backgroundColor: Colors.green.shade600,
-              duration: const Duration(seconds: 1),
-            ),
-          );
+        if (result != null && result.files.isNotEmpty) {
+          final bytes = result.files.first.bytes;
+          if (bytes != null) {
+            // 파일 선택 성공 메시지 표시
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('파일이 선택되었습니다: ${result.files.first.name}'),
+                  backgroundColor: Colors.green.shade600,
+                  duration: const Duration(seconds: 1),
+                ),
+              );
+            }
+            
+            // Web에서 bytes로 엑셀 파일 처리
+            await _processExcelBytes(bytes);
+          }
         }
+      } else {
+        // 데스크톱/모바일 플랫폼
+        File? selectedFile = await ExcelService.pickExcelFile();
         
-        // 자동으로 엑셀 데이터 읽기
-        await _loadExcelData();
+        if (selectedFile != null) {
+          setState(() {
+            _selectedFile = selectedFile;
+          });
+          
+          // 파일 선택 성공 메시지 표시
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('파일이 선택되었습니다: ${selectedFile.path.split('/').last}'),
+                backgroundColor: Colors.green.shade600,
+                duration: const Duration(seconds: 1),
+              ),
+            );
+          }
+          
+          // 자동으로 엑셀 데이터 읽기
+          await _loadExcelData();
+        }
       }
     } catch (e) {
       setState(() {
@@ -637,6 +485,36 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     }
   }
 
+
+  /// Web에서 bytes로 엑셀 파일 처리
+  Future<void> _processExcelBytes(List<int> bytes) async {
+    try {
+      // 엑셀 파일 읽기
+      Excel? excel = await ExcelService.readExcelFromBytes(bytes);
+      
+      if (excel != null) {
+        // 파일 유효성 검사
+        bool isValid = ExcelService.isValidExcelFile(excel);
+        
+        if (isValid) {
+          // 시간표 데이터 파싱 시도
+          await _parseTimetableData(excel);
+        } else {
+          setState(() {
+            _errorMessage = '유효하지 않은 엑셀 파일입니다.';
+          });
+        }
+      } else {
+        setState(() {
+          _errorMessage = '엑셀 파일을 읽을 수 없습니다.';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = '엑셀 파일 처리 중 오류가 발생했습니다: $e';
+      });
+    }
+  }
 
   /// 선택 해제 메서드
   void _clearSelection() {
