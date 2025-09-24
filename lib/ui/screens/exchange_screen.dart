@@ -290,10 +290,12 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
   void _createSyncfusionGridData() {
     if (_timetableData == null) return;
     
-    // SyncfusionTimetableHelper를 사용하여 데이터 생성
+    // SyncfusionTimetableHelper를 사용하여 데이터 생성 (테마 기반)
     final result = SyncfusionTimetableHelper.convertToSyncfusionData(
       _timetableData!.timeSlots,
       _timetableData!.teachers,
+      selectedDay: _selectedDay,      // 선택된 요일 전달
+      selectedPeriod: _selectedPeriod, // 선택된 교시 전달
     );
     
     _columns = result.columns;
@@ -358,6 +360,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       
       // 데이터 소스에 선택 상태 업데이트
       _dataSource?.updateSelection(_selectedTeacher, _selectedDay, _selectedPeriod);
+      
+      // 테마 기반 헤더 업데이트 (선택된 교시 헤더를 연한 파란색으로 표시)
+      _updateHeaderTheme();
     }
   }
 
@@ -591,6 +596,11 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       _selectedDay = null;
       _selectedPeriod = null;
     });
+    
+    // 선택 해제 시에도 헤더 테마 업데이트
+    if (_timetableData != null) {
+      _updateHeaderTheme();
+    }
   }
 
   /// 오류 메시지 제거 메서드
@@ -598,5 +608,21 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     setState(() {
       _errorMessage = null;
     });
+  }
+  
+  /// 테마 기반 헤더 업데이트 (선택된 교시 헤더를 연한 파란색으로 표시)
+  void _updateHeaderTheme() {
+    if (_timetableData == null) return;
+    
+    // 선택된 교시 정보를 전달하여 헤더만 업데이트
+    final result = SyncfusionTimetableHelper.convertToSyncfusionData(
+      _timetableData!.timeSlots,
+      _timetableData!.teachers,
+      selectedDay: _selectedDay,      // 테마에서 사용할 선택 정보
+      selectedPeriod: _selectedPeriod,
+    );
+    
+    _columns = result.columns; // 헤더만 업데이트
+    setState(() {}); // UI 갱신
   }
 }

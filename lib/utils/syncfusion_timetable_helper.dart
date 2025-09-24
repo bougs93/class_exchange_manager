@@ -3,6 +3,7 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../models/time_slot.dart';
 import '../models/teacher.dart';
 import 'constants.dart';
+import 'timetable_grid_header_theme.dart';
 
 /// Syncfusion DataGrid를 사용한 시간표 데이터 변환 헬퍼 클래스
 class SyncfusionTimetableHelper {
@@ -22,8 +23,10 @@ class SyncfusionTimetableHelper {
     List<StackedHeaderRow> stackedHeaders
   }) convertToSyncfusionData(
     List<TimeSlot> timeSlots,
-    List<Teacher> teachers,
-  ) {
+    List<Teacher> teachers, {
+    String? selectedDay,      // 선택된 요일
+    int? selectedPeriod,      // 선택된 교시
+  }) {
     // 요일별로 데이터 그룹화
     Map<String, Map<int, Map<String, TimeSlot?>>> groupedData = _groupTimeSlotsByDayAndPeriod(timeSlots);
     
@@ -37,8 +40,8 @@ class SyncfusionTimetableHelper {
     }
     List<int> periods = allPeriods.toList()..sort();
     
-    // Syncfusion DataGrid 컬럼 생성
-    List<GridColumn> columns = _createColumns(days, periods);
+    // Syncfusion DataGrid 컬럼 생성 (테마 기반)
+    List<GridColumn> columns = _createColumns(days, periods, selectedDay, selectedPeriod);
     
     // Syncfusion DataGrid 행 생성
     List<DataGridRow> rows = _createRows(teachers, groupedData, days, periods);
@@ -98,8 +101,8 @@ class SyncfusionTimetableHelper {
     return indexA.compareTo(indexB);
   }
   
-  /// Syncfusion DataGrid 컬럼 생성
-  static List<GridColumn> _createColumns(List<String> days, List<int> periods) {
+  /// Syncfusion DataGrid 컬럼 생성 (테마 기반)
+  static List<GridColumn> _createColumns(List<String> days, List<int> periods, String? selectedDay, int? selectedPeriod) {
     List<GridColumn> columns = [];
     
     // 첫 번째 컬럼: 교사명 (고정 열)
@@ -137,6 +140,9 @@ class SyncfusionTimetableHelper {
         int period = periods[periodIndex];
         bool isLastPeriod = periodIndex == periods.length - 1; // 마지막 교시인지 확인
         
+        // 테마를 사용하여 선택 상태 확인
+        bool isSelected = TimetableGridHeaderTheme.isPeriodSelected(day, period, selectedDay, selectedPeriod);
+        
         columns.add(
           GridColumn(
             columnName: '${day}_$period',
@@ -145,22 +151,21 @@ class SyncfusionTimetableHelper {
               padding: EdgeInsets.zero,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: const Color(AppConstants.periodHeaderColor),
-                border: Border(
-                  // 요일 간 구분선을 두껍게 (마지막 요일의 마지막 교시 제외)
-                  right: BorderSide(
-                    color: Colors.grey, 
-                    width: (isLastDay && isLastPeriod) ? 1 : (isLastPeriod ? 3 : 1),
-                  ),
-                  bottom: const BorderSide(color: Colors.grey, width: 1),
-                ),
+                // 테마 기반 배경색
+                color: isSelected 
+                  ? TimetableGridHeaderTheme.getSelectedHeaderBackground()
+                  : TimetableGridHeaderTheme.getNormalHeaderBackground(),
+                // 테마 기반 테두리
+                border: isSelected 
+                  ? TimetableGridHeaderTheme.getSelectedHeaderBorder(isLastDay, isLastPeriod)
+                  : TimetableGridHeaderTheme.getNormalHeaderBorder(isLastDay, isLastPeriod),
               ),
               child: Text(
                 period.toString(),
-                style: const TextStyle(
-                  fontSize: AppConstants.headerFontSize,
-                  fontWeight: FontWeight.w500,
-                ),
+                // 테마 기반 텍스트 스타일
+                style: isSelected 
+                  ? TimetableGridHeaderTheme.getSelectedHeaderStyle()
+                  : TimetableGridHeaderTheme.getNormalHeaderStyle(),
               ),
             ),
           ),
