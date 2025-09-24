@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../models/time_slot.dart';
 import '../models/teacher.dart';
+import 'constants.dart';
 
 /// Syncfusion DataGrid를 사용한 시간표 데이터 변환 헬퍼 클래스
 class SyncfusionTimetableHelper {
@@ -105,12 +106,12 @@ class SyncfusionTimetableHelper {
     columns.add(
       GridColumn(
         columnName: 'teacher',
-        width: 120,
+        width: AppConstants.teacherColumnWidth,
         label: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: EdgeInsets.zero,
           alignment: Alignment.center,
           decoration: const BoxDecoration(
-            color: Color(0xFFF5F5F5),
+            color: Color(AppConstants.teacherHeaderColor),
             border: Border(
               right: BorderSide(color: Colors.grey, width: 1),
               bottom: BorderSide(color: Colors.grey, width: 1),
@@ -119,7 +120,7 @@ class SyncfusionTimetableHelper {
           child: const Text(
             '교사',
             style: TextStyle(
-              fontSize: 12,
+              fontSize: AppConstants.headerFontSize,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -133,12 +134,12 @@ class SyncfusionTimetableHelper {
         columns.add(
           GridColumn(
             columnName: '${day}_$period',
-            width: 100,
+            width: AppConstants.periodColumnWidth,
             label: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              padding: EdgeInsets.zero,
               alignment: Alignment.center,
               decoration: const BoxDecoration(
-                color: Color(0xFFFAFAFA),
+                color: Color(AppConstants.periodHeaderColor),
                 border: Border(
                   right: BorderSide(color: Colors.grey, width: 1),
                   bottom: BorderSide(color: Colors.grey, width: 1),
@@ -147,7 +148,7 @@ class SyncfusionTimetableHelper {
               child: Text(
                 period.toString(),
                 style: const TextStyle(
-                  fontSize: 11,
+                  fontSize: AppConstants.headerFontSize,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -227,10 +228,10 @@ class SyncfusionTimetableHelper {
       StackedHeaderCell(
         columnNames: ['teacher'],
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: EdgeInsets.zero,
           alignment: Alignment.center,
           decoration: const BoxDecoration(
-            color: Color(0xFFE3F2FD),
+            color: Color(AppConstants.stackedHeaderColor),
             border: Border(
               right: BorderSide(color: Colors.grey, width: 1),
               bottom: BorderSide(color: Colors.grey, width: 1),
@@ -239,7 +240,7 @@ class SyncfusionTimetableHelper {
           child: const Text(
             '교사',
             style: TextStyle(
-              fontSize: 12,
+              fontSize: AppConstants.headerFontSize,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -252,10 +253,10 @@ class SyncfusionTimetableHelper {
       headerCells.add(
         StackedHeaderCell(
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: EdgeInsets.zero,
             alignment: Alignment.center,
             decoration: const BoxDecoration(
-              color: Color(0xFFE3F2FD),
+              color: Color(AppConstants.stackedHeaderColor),
               border: Border(
                 right: BorderSide(color: Colors.grey, width: 1),
                 bottom: BorderSide(color: Colors.grey, width: 1),
@@ -264,7 +265,7 @@ class SyncfusionTimetableHelper {
             child: Text(
               day,
               style: const TextStyle(
-                fontSize: 12,
+                fontSize: AppConstants.headerFontSize,
                 fontWeight: FontWeight.bold,
               ),
             ),

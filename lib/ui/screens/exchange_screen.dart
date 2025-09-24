@@ -4,6 +4,7 @@ import 'package:excel/excel.dart' hide Border;
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../services/excel_service.dart';
 import '../../utils/timetable_data_source.dart';
+import '../../utils/constants.dart';
 import '../../models/time_slot.dart';
 
 /// 교체 관리 화면
@@ -258,15 +259,15 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
                   stackedHeaderRows: _stackedHeaders,
                   gridLinesVisibility: GridLinesVisibility.both,
                   headerGridLinesVisibility: GridLinesVisibility.both,
-                  headerRowHeight: 40,
-                  rowHeight: 50,
+                  headerRowHeight: AppConstants.headerRowHeight,
+                  rowHeight: AppConstants.dataRowHeight,
                   allowColumnsResizing: true,
                   allowSorting: false,
                   allowEditing: false,
                   allowTriStateSorting: false,
                   allowPullToRefresh: false,
                   selectionMode: SelectionMode.none,
-                  columnWidthMode: ColumnWidthMode.fitByColumnName,
+                  columnWidthMode: ColumnWidthMode.none,
                 ),
               ),
             ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../models/time_slot.dart';
 import '../models/teacher.dart';
+import 'constants.dart';
 
 /// Syncfusion DataGrid용 시간표 데이터 소스
 class TimetableDataSource extends DataGridSource {
@@ -146,12 +147,12 @@ class TimetableDataSource extends DataGridSource {
       cells: row.getCells().map<Widget>((dataGridCell) {
         // 셀과 텍스트 간 여백을 최소화
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          padding: EdgeInsets.zero,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: dataGridCell.columnName == 'teacher' 
-                ? const Color(0xFFF5F5F5) 
-                : Colors.white,
+                ? const Color(AppConstants.teacherHeaderColor) 
+                : const Color(AppConstants.dataCellColor),
             border: const Border(
               right: BorderSide(color: Colors.grey, width: 0.5),
               bottom: BorderSide(color: Colors.grey, width: 0.5),
@@ -160,8 +161,8 @@ class TimetableDataSource extends DataGridSource {
           child: Text(
             dataGridCell.value.toString(),
             style: const TextStyle(
-              fontSize: 10,
-              height: 1.2, // 줄 간격 최소화
+              fontSize: AppConstants.dataFontSize,
+              height: AppConstants.dataLineHeight, // 줄 간격 최소화
             ),
             textAlign: TextAlign.center,
             maxLines: 2, // 최대 2줄까지 표시
