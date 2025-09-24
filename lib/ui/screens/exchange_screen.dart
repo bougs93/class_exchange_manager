@@ -46,8 +46,11 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
           
           const SizedBox(height: 24),
           
-          // 시간표 그리드 표시 섹션
-          if (_timetableData != null) _buildTimetableGridSection(),
+          // 시간표 그리드 표시 섹션 (나머지 영역 전체 차지)
+          if (_timetableData != null) 
+            Expanded(child: _buildTimetableGridSection())
+          else
+            const Expanded(child: SizedBox.shrink()),
           
           // 오류 메시지 표시
           if (_errorMessage != null) _buildErrorMessageSection(),
@@ -242,28 +245,29 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
             ),
             const SizedBox(height: 16),
             
-            // Syncfusion DataGrid 위젯
-            Container(
-              height: 500, // 높이 증가
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: SfDataGrid(
-                source: _dataSource!,
-                columns: _columns,
-                stackedHeaderRows: _stackedHeaders,
-                gridLinesVisibility: GridLinesVisibility.both,
-                headerGridLinesVisibility: GridLinesVisibility.both,
-                headerRowHeight: 40,
-                rowHeight: 50,
-                allowColumnsResizing: true,
-                allowSorting: false,
-                allowEditing: false,
-                allowTriStateSorting: false,
-                allowPullToRefresh: false,
-                selectionMode: SelectionMode.none,
-                columnWidthMode: ColumnWidthMode.fitByColumnName,
+            // Syncfusion DataGrid 위젯 (전체 영역 차지)
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: SfDataGrid(
+                  source: _dataSource!,
+                  columns: _columns,
+                  stackedHeaderRows: _stackedHeaders,
+                  gridLinesVisibility: GridLinesVisibility.both,
+                  headerGridLinesVisibility: GridLinesVisibility.both,
+                  headerRowHeight: 40,
+                  rowHeight: 50,
+                  allowColumnsResizing: true,
+                  allowSorting: false,
+                  allowEditing: false,
+                  allowTriStateSorting: false,
+                  allowPullToRefresh: false,
+                  selectionMode: SelectionMode.none,
+                  columnWidthMode: ColumnWidthMode.fitByColumnName,
+                ),
               ),
             ),
           ],
