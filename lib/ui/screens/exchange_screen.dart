@@ -25,6 +25,11 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
   List<StackedHeaderRow> _stackedHeaders = []; // 스택된 헤더
   bool _isLoading = false;    // 로딩 상태
   String? _errorMessage;     // 오류 메시지
+  
+  // 셀 선택 관련 변수들
+  String? _selectedTeacher;   // 선택된 교사명
+  String? _selectedDay;       // 선택된 요일
+  int? _selectedPeriod;       // 선택된 교시
 
   @override
   Widget build(BuildContext context) {
@@ -271,6 +276,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
                   selectionMode: SelectionMode.none,
                   columnWidthMode: ColumnWidthMode.none,
                   frozenColumnsCount: 1, // 교사명 열(첫 번째 열) 고정
+                  onCellTap: _onCellTap, // 셀 탭 이벤트 핸들러
                 ),
               ),
             ),
@@ -300,6 +306,60 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     );
   }
   
+  /// 셀 탭 이벤트 핸들러 - 클릭 시 선택/해제 토글
+  void _onCellTap(DataGridCellTapDetails details) {
+    // 교사명 열은 선택하지 않음
+    if (details.column.columnName == 'teacher') return;
+    
+    // 컬럼명에서 요일과 교시 추출 (예: "월_1", "화_2")
+    List<String> parts = details.column.columnName.split('_');
+    if (parts.length == 2) {
+      String day = parts[0];
+      int period = int.tryParse(parts[1]) ?? 0;
+      
+      // 선택된 셀의 교사명 찾기 (헤더를 고려한 행 인덱스 계산)
+      String teacherName = '';
+      if (_dataSource != null) {
+        // Syncfusion DataGrid에서 헤더는 다음과 같이 구성됨:
+        // - 일반 헤더: 1개 (컬럼명 표시)
+        // - 스택된 헤더: 1개 (요일별 병합)
+        // 총 2개의 헤더 행이 있으므로 실제 데이터 행 인덱스는 2를 빼야 함
+        int actualRowIndex = details.rowColumnIndex.rowIndex - 2;
+        
+        if (actualRowIndex >= 0 && actualRowIndex < _dataSource!.dataGridRows.length) {
+          DataGridRow row = _dataSource!.dataGridRows[actualRowIndex];
+          for (DataGridCell rowCell in row.getCells()) {
+            if (rowCell.columnName == 'teacher') {
+              teacherName = rowCell.value.toString();
+              break;
+            }
+          }
+        }
+      }
+      
+      // 동일한 셀을 다시 클릭했는지 확인 (토글 기능)
+      bool isSameCell = _selectedTeacher == teacherName && 
+                       _selectedDay == day && 
+                       _selectedPeriod == period;
+      
+      setState(() {
+        if (isSameCell) {
+          // 동일한 셀 클릭 시 선택 해제
+          _selectedTeacher = null;
+          _selectedDay = null;
+          _selectedPeriod = null;
+        } else {
+          // 새로운 셀 선택
+          _selectedTeacher = teacherName;
+          _selectedDay = day;
+          _selectedPeriod = period;
+        }
+      });
+      
+      // 데이터 소스에 선택 상태 업데이트
+      _dataSource?.updateSelection(_selectedTeacher, _selectedDay, _selectedPeriod);
+    }
+  }
 
   /// 오류 메시지 섹션 UI
   Widget _buildErrorMessageSection() {
@@ -526,6 +586,10 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       _columns = [];
       _stackedHeaders = [];
       _errorMessage = null;
+      // 셀 선택 상태도 초기화
+      _selectedTeacher = null;
+      _selectedDay = null;
+      _selectedPeriod = null;
     });
   }
 

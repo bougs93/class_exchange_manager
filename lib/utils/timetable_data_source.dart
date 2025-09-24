@@ -18,6 +18,11 @@ class TimetableDataSource extends DataGridSource {
   List<TimeSlot> _timeSlots = [];
   List<Teacher> _teachers = [];
   List<DataGridRow> _dataGridRows = [];
+  
+  // 셀 선택 관련 변수들
+  String? _selectedTeacher;
+  String? _selectedDay;
+  int? _selectedPeriod;
 
   /// DataGrid 행 데이터 빌드
   void _buildDataGridRows() {
@@ -140,64 +145,127 @@ class TimetableDataSource extends DataGridSource {
 
   @override
   List<DataGridRow> get rows => _dataGridRows;
+  
+  /// DataGrid 행에 접근할 수 있는 getter
+  List<DataGridRow> get dataGridRows => _dataGridRows;
 
   @override
   DataGridRowAdapter? buildRow(DataGridRow row) {
-    return DataGridRowAdapter(
-      cells: row.getCells().asMap().entries.map<Widget>((entry) {
-        DataGridCell dataGridCell = entry.value;
-        
-        // 요일별 구분선을 위한 로직
-        bool isLastColumnOfDay = false;
-        if (dataGridCell.columnName != 'teacher') {
-          // 컬럼명에서 요일과 교시 추출 (예: "월_1", "월_2", ..., "월_7", "화_1", ...)
-          List<String> parts = dataGridCell.columnName.split('_');
-          if (parts.length == 2) {
-            String day = parts[0];
-            int period = int.tryParse(parts[1]) ?? 0;
-            
-            // 현재 요일의 마지막 교시인지 확인 (7교시)
-            isLastColumnOfDay = period == 7;
-            
-            // 마지막 요일(금요일)의 마지막 교시는 전체 테이블의 마지막이므로 구분선을 두껍게 하지 않음
-            if (day == '금' && period == 7) {
-              isLastColumnOfDay = false;
+      return DataGridRowAdapter(
+        cells: row.getCells().asMap().entries.map<Widget>((entry) {
+          DataGridCell dataGridCell = entry.value;
+          
+          // 선택 상태 확인
+          bool isSelected = false;
+          bool isTeacherColumn = dataGridCell.columnName == 'teacher';
+          
+          if (isTeacherColumn) {
+            // 교사명 열: 해당 교사가 선택된 경우
+            isSelected = _isTeacherSelected(dataGridCell.value.toString());
+          } else {
+            // 교시 열: 해당 요일의 교시가 선택된 경우 또는 선택된 셀인 경우
+            List<String> parts = dataGridCell.columnName.split('_');
+            if (parts.length == 2) {
+              String day = parts[0];
+              int period = int.tryParse(parts[1]) ?? 0;
+              
+              // 교사명 찾기
+              String teacherName = '';
+              for (DataGridCell rowCell in row.getCells()) {
+                if (rowCell.columnName == 'teacher') {
+                  teacherName = rowCell.value.toString();
+                  break;
+                }
+              }
+              
+              // 선택된 셀인지 확인
+              isSelected = _isCellSelected(teacherName, day, period);
             }
           }
-        }
-        
-        // 셀과 텍스트 간 여백을 최소화
-        return Container(
-          padding: EdgeInsets.zero,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: dataGridCell.columnName == 'teacher' 
-                ? const Color(AppConstants.teacherHeaderColor) 
-                : const Color(AppConstants.dataCellColor),
-            border: Border(
-              right: BorderSide(
-                color: Colors.grey, 
-                width: dataGridCell.columnName == 'teacher' 
-                    ? 3  // 교사명과 월요일 사이 구분선을 두껍게
-                    : (isLastColumnOfDay ? 3 : 0.5), // 요일별 구분선을 두껍게
+          
+          // 요일별 구분선을 위한 로직
+          bool isLastColumnOfDay = false;
+          if (!isTeacherColumn) {
+            // 컬럼명에서 요일과 교시 추출 (예: "월_1", "월_2", ..., "월_7", "화_1", ...)
+            List<String> parts = dataGridCell.columnName.split('_');
+            if (parts.length == 2) {
+              String day = parts[0];
+              int period = int.tryParse(parts[1]) ?? 0;
+              
+              // 현재 요일의 마지막 교시인지 확인 (7교시)
+              isLastColumnOfDay = period == 7;
+              
+              // 마지막 요일(금요일)의 마지막 교시는 전체 테이블의 마지막이므로 구분선을 두껍게 하지 않음
+              if (day == '금' && period == 7) {
+                isLastColumnOfDay = false;
+              }
+            }
+          }
+          
+          // 배경색 결정
+          Color backgroundColor;
+          if (isTeacherColumn) {
+            backgroundColor = isSelected 
+                ? Colors.blue.shade100  // 선택된 교사명 열 - 연한 파란색
+                : const Color(AppConstants.teacherHeaderColor);
+          } else {
+            backgroundColor = isSelected 
+                ? Colors.blue.shade100  // 선택된 교시 셀 - 연한 파란색
+                : const Color(AppConstants.dataCellColor);
+          }
+          
+          // 셀과 텍스트 간 여백을 최소화
+          return Container(
+            padding: EdgeInsets.zero,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              border: Border(
+                right: BorderSide(
+                  color: Colors.grey, 
+                  width: isTeacherColumn 
+                      ? 3  // 교사명과 월요일 사이 구분선을 두껍게
+                      : (isLastColumnOfDay ? 3 : 0.5), // 요일별 구분선을 두껍게
+                ),
+                bottom: const BorderSide(color: Colors.grey, width: 0.5),
               ),
-              bottom: const BorderSide(color: Colors.grey, width: 0.5),
             ),
-          ),
-          child: Text(
-            dataGridCell.value.toString(),
-            style: const TextStyle(
-              fontSize: AppConstants.dataFontSize,
-              height: AppConstants.dataLineHeight, // 줄 간격 최소화
+            child: Text(
+              dataGridCell.value.toString(),
+              style: TextStyle(
+                fontSize: AppConstants.dataFontSize,
+                height: AppConstants.dataLineHeight, // 줄 간격 최소화
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, // 선택된 셀은 굵게
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2, // 최대 2줄까지 표시
+              overflow: TextOverflow.ellipsis,
             ),
-            textAlign: TextAlign.center,
-            maxLines: 2, // 최대 2줄까지 표시
-            overflow: TextOverflow.ellipsis,
-          ),
-        );
-      }).toList(),
-    );
+          );
+        }).toList(),
+      );
   }
+
+  /// 선택 상태 업데이트
+  void updateSelection(String? teacher, String? day, int? period) {
+    _selectedTeacher = teacher;
+    _selectedDay = day;
+    _selectedPeriod = period;
+    notifyListeners(); // UI 갱신
+  }
+  
+  /// 특정 셀이 선택된 상태인지 확인
+  bool _isCellSelected(String teacherName, String day, int period) {
+    return _selectedTeacher == teacherName && 
+           _selectedDay == day && 
+           _selectedPeriod == period;
+  }
+  
+  /// 특정 교사가 선택된 상태인지 확인
+  bool _isTeacherSelected(String teacherName) {
+    return _selectedTeacher == teacherName;
+  }
+  
 
   /// 데이터 업데이트
   void updateData(List<TimeSlot> timeSlots, List<Teacher> teachers) {
