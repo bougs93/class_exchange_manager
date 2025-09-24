@@ -144,7 +144,28 @@ class TimetableDataSource extends DataGridSource {
   @override
   DataGridRowAdapter? buildRow(DataGridRow row) {
     return DataGridRowAdapter(
-      cells: row.getCells().map<Widget>((dataGridCell) {
+      cells: row.getCells().asMap().entries.map<Widget>((entry) {
+        DataGridCell dataGridCell = entry.value;
+        
+        // 요일별 구분선을 위한 로직
+        bool isLastColumnOfDay = false;
+        if (dataGridCell.columnName != 'teacher') {
+          // 컬럼명에서 요일과 교시 추출 (예: "월_1", "월_2", ..., "월_7", "화_1", ...)
+          List<String> parts = dataGridCell.columnName.split('_');
+          if (parts.length == 2) {
+            String day = parts[0];
+            int period = int.tryParse(parts[1]) ?? 0;
+            
+            // 현재 요일의 마지막 교시인지 확인 (7교시)
+            isLastColumnOfDay = period == 7;
+            
+            // 마지막 요일(금요일)의 마지막 교시는 전체 테이블의 마지막이므로 구분선을 두껍게 하지 않음
+            if (day == '금' && period == 7) {
+              isLastColumnOfDay = false;
+            }
+          }
+        }
+        
         // 셀과 텍스트 간 여백을 최소화
         return Container(
           padding: EdgeInsets.zero,
@@ -153,9 +174,14 @@ class TimetableDataSource extends DataGridSource {
             color: dataGridCell.columnName == 'teacher' 
                 ? const Color(AppConstants.teacherHeaderColor) 
                 : const Color(AppConstants.dataCellColor),
-            border: const Border(
-              right: BorderSide(color: Colors.grey, width: 0.5),
-              bottom: BorderSide(color: Colors.grey, width: 0.5),
+            border: Border(
+              right: BorderSide(
+                color: Colors.grey, 
+                width: dataGridCell.columnName == 'teacher' 
+                    ? 3  // 교사명과 월요일 사이 구분선을 두껍게
+                    : (isLastColumnOfDay ? 3 : 0.5), // 요일별 구분선을 두껍게
+              ),
+              bottom: const BorderSide(color: Colors.grey, width: 0.5),
             ),
           ),
           child: Text(

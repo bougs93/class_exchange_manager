@@ -113,12 +113,12 @@ class SyncfusionTimetableHelper {
           decoration: const BoxDecoration(
             color: Color(AppConstants.teacherHeaderColor),
             border: Border(
-              right: BorderSide(color: Colors.grey, width: 1),
+              right: BorderSide(color: Colors.grey, width: 3), // 교사명과 월요일 사이 구분선을 두껍게
               bottom: BorderSide(color: Colors.grey, width: 1),
             ),
           ),
           child: const Text(
-            '교사',
+            '교시',
             style: TextStyle(
               fontSize: AppConstants.headerFontSize,
               fontWeight: FontWeight.bold,
@@ -129,8 +129,14 @@ class SyncfusionTimetableHelper {
     );
     
     // 요일별 교시 컬럼 생성
-    for (String day in days) {
-      for (int period in periods) {
+    for (int dayIndex = 0; dayIndex < days.length; dayIndex++) {
+      String day = days[dayIndex];
+      bool isLastDay = dayIndex == days.length - 1; // 마지막 요일(금요일)인지 확인
+      
+      for (int periodIndex = 0; periodIndex < periods.length; periodIndex++) {
+        int period = periods[periodIndex];
+        bool isLastPeriod = periodIndex == periods.length - 1; // 마지막 교시인지 확인
+        
         columns.add(
           GridColumn(
             columnName: '${day}_$period',
@@ -138,11 +144,15 @@ class SyncfusionTimetableHelper {
             label: Container(
               padding: EdgeInsets.zero,
               alignment: Alignment.center,
-              decoration: const BoxDecoration(
-                color: Color(AppConstants.periodHeaderColor),
+              decoration: BoxDecoration(
+                color: const Color(AppConstants.periodHeaderColor),
                 border: Border(
-                  right: BorderSide(color: Colors.grey, width: 1),
-                  bottom: BorderSide(color: Colors.grey, width: 1),
+                  // 요일 간 구분선을 두껍게 (마지막 요일의 마지막 교시 제외)
+                  right: BorderSide(
+                    color: Colors.grey, 
+                    width: (isLastDay && isLastPeriod) ? 1 : (isLastPeriod ? 3 : 1),
+                  ),
+                  bottom: const BorderSide(color: Colors.grey, width: 1),
                 ),
               ),
               child: Text(
@@ -233,12 +243,12 @@ class SyncfusionTimetableHelper {
           decoration: const BoxDecoration(
             color: Color(AppConstants.stackedHeaderColor),
             border: Border(
-              right: BorderSide(color: Colors.grey, width: 1),
+              right: BorderSide(color: Colors.grey, width: 3), // 교사명과 월요일 사이 구분선을 두껍게
               bottom: BorderSide(color: Colors.grey, width: 1),
             ),
           ),
           child: const Text(
-            '교사',
+            '',
             style: TextStyle(
               fontSize: AppConstants.headerFontSize,
               fontWeight: FontWeight.bold,
@@ -249,17 +259,24 @@ class SyncfusionTimetableHelper {
     );
     
     // 요일별 헤더 (교시 수만큼 병합)
-    for (String day in days) {
+    for (int i = 0; i < days.length; i++) {
+      String day = days[i];
+      bool isLastDay = i == days.length - 1; // 마지막 요일(금요일)인지 확인
+      
       headerCells.add(
         StackedHeaderCell(
           child: Container(
             padding: EdgeInsets.zero,
             alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              color: Color(AppConstants.stackedHeaderColor),
+            decoration: BoxDecoration(
+              color: const Color(AppConstants.stackedHeaderColor),
               border: Border(
-                right: BorderSide(color: Colors.grey, width: 1),
-                bottom: BorderSide(color: Colors.grey, width: 1),
+                // 요일 간 구분선을 두껍게 (마지막 요일 제외)
+                right: BorderSide(
+                  color: Colors.grey, 
+                  width: isLastDay ? 1 : 3, // 마지막 요일이 아니면 3px, 마지막 요일이면 1px
+                ),
+                bottom: const BorderSide(color: Colors.grey, width: 1),
               ),
             ),
             child: Text(

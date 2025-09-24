@@ -33,7 +33,7 @@ class AppConstants {
   
   // 그리드 레이아웃 설정
   static const double teacherColumnWidth = 40.0;    // 교사명 컬럼 폭
-  static const double periodColumnWidth = 30.0;     // 교시 컬럼 폭
+  static const double periodColumnWidth = 35.0;     // 교시 컬럼 폭
   static const double headerRowHeight = 25.0;       // 헤더 행 높이
   static const double dataRowHeight = 25.0;          // 데이터 행 높이
   
