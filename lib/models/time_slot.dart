@@ -22,6 +22,11 @@ class TimeSlot {
   /// 비어있지 않은 슬롯인지 확인
   bool get isNotEmpty => !isEmpty;
   
+  /// 빈 TimeSlot 생성
+  static TimeSlot empty() {
+    return TimeSlot();
+  }
+  
   /// 교체 가능한 슬롯인지 확인
   bool get canExchange => isExchangeable && isNotEmpty;
   

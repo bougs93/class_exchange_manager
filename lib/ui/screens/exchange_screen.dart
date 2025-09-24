@@ -8,6 +8,8 @@ import '../../services/excel_service.dart';
 import '../../utils/timetable_data_source.dart';
 import '../../utils/syncfusion_timetable_helper.dart';
 import '../../utils/constants.dart';
+import '../../utils/exchange_algorithm.dart';
+import '../../utils/exchange_visualizer.dart';
 
 /// 교체 관리 화면
 class ExchangeScreen extends StatefulWidget {
@@ -30,6 +32,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
   String? _selectedTeacher;   // 선택된 교사명
   String? _selectedDay;       // 선택된 요일
   int? _selectedPeriod;       // 선택된 교시
+  
+  // 교체 가능한 시간 관련 변수들
+  List<ExchangeOption> _exchangeOptions = []; // 교체 가능한 시간 옵션들
 
   @override
   Widget build(BuildContext context) {
@@ -249,6 +254,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
                     ),
                   ),
                 ),
+                const SizedBox(width: 8),
+                // 교체 가능한 시간 개수 표시
+                ExchangeVisualizer.buildExchangeableCountWidget(_exchangeOptions.length),
               ],
             ),
             const SizedBox(height: 16),
@@ -360,6 +368,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       
       // 데이터 소스에 선택 상태 업데이트
       _dataSource?.updateSelection(_selectedTeacher, _selectedDay, _selectedPeriod);
+      
+      // 교체 가능한 시간 탐색 및 표시
+      _updateExchangeableTimes();
       
       // 테마 기반 헤더 업데이트 (선택된 교시 헤더를 연한 파란색으로 표시)
       _updateHeaderTheme();
@@ -609,6 +620,35 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       _errorMessage = null;
     });
   }
+  
+  /// 교체 가능한 시간 업데이트
+  void _updateExchangeableTimes() {
+    if (_timetableData == null || _selectedTeacher == null || _selectedDay == null || _selectedPeriod == null) {
+      setState(() {
+        _exchangeOptions = [];
+      });
+      _dataSource?.updateExchangeOptions(_exchangeOptions);
+      return;
+    }
+    
+    // 교체 가능한 시간 탐색
+    List<ExchangeOption> options = ExchangeAlgorithm.findExchangeableTimes(
+      _timetableData!.timeSlots,
+      _timetableData!.teachers,
+      _selectedTeacher!,
+      _selectedDay!,
+      _selectedPeriod!,
+    );
+    
+    setState(() {
+      _exchangeOptions = options;
+    });
+    
+    // 데이터 소스에 교체 옵션 업데이트
+    _dataSource?.updateExchangeOptions(_exchangeOptions);
+    
+  }
+  
   
   /// 테마 기반 헤더 업데이트 (선택된 교시 헤더를 연한 파란색으로 표시)
   void _updateHeaderTheme() {

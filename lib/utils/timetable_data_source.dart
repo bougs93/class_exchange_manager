@@ -3,6 +3,7 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../models/time_slot.dart';
 import '../models/teacher.dart';
 import 'constants.dart';
+import 'exchange_algorithm.dart';
 
 /// Syncfusion DataGrid용 시간표 데이터 소스
 class TimetableDataSource extends DataGridSource {
@@ -23,6 +24,9 @@ class TimetableDataSource extends DataGridSource {
   String? _selectedTeacher;
   String? _selectedDay;
   int? _selectedPeriod;
+  
+  // 교체 가능한 시간 관련 변수들
+  List<ExchangeOption> _exchangeOptions = [];
 
   /// DataGrid 행 데이터 빌드
   void _buildDataGridRows() {
@@ -202,16 +206,18 @@ class TimetableDataSource extends DataGridSource {
             }
           }
           
-          // 배경색 결정
+          // 배경색 결정 (교체 가능한 시간 고려)
           Color backgroundColor;
           if (isTeacherColumn) {
             backgroundColor = isSelected 
                 ? Colors.blue.shade100  // 선택된 교사명 열 - 연한 파란색
                 : const Color(AppConstants.teacherHeaderColor);
           } else {
-            backgroundColor = isSelected 
-                ? Colors.blue.shade100  // 선택된 교시 셀 - 연한 파란색
-                : const Color(AppConstants.dataCellColor);
+            if (isSelected) {
+              backgroundColor = Colors.blue.shade100; // 선택된 교시 셀 - 연한 파란색
+            } else {
+              backgroundColor = const Color(AppConstants.dataCellColor); // 기본 색상
+            }
           }
           
           // 셀과 텍스트 간 여백을 최소화
@@ -230,16 +236,24 @@ class TimetableDataSource extends DataGridSource {
                 bottom: const BorderSide(color: Colors.grey, width: 0.5),
               ),
             ),
-            child: Text(
-              dataGridCell.value.toString(),
-              style: TextStyle(
-                fontSize: AppConstants.dataFontSize,
-                height: AppConstants.dataLineHeight, // 줄 간격 최소화
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, // 선택된 셀은 굵게
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2, // 최대 2줄까지 표시
-              overflow: TextOverflow.ellipsis,
+            child: Stack(
+              children: [
+                Text(
+                  dataGridCell.value.toString(),
+                  style: TextStyle(
+                    fontSize: AppConstants.dataFontSize,
+                    height: AppConstants.dataLineHeight, // 줄 간격 최소화
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, // 선택된 셀은 굵게
+                    color: _getTextColor(dataGridCell, row, isSelected), // 교체 가능한 시간 텍스트 색상
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2, // 최대 2줄까지 표시
+                  overflow: TextOverflow.ellipsis,
+                ),
+                // 교체 가능한 시간 아이콘 표시
+                if (!isTeacherColumn && !isSelected)
+                  _buildExchangeIcon(dataGridCell, row),
+              ],
             ),
           );
         }).toList(),
@@ -266,6 +280,110 @@ class TimetableDataSource extends DataGridSource {
     return _selectedTeacher == teacherName;
   }
   
+
+  /// 교체 가능한 시간 옵션 업데이트
+  void updateExchangeOptions(List<ExchangeOption> exchangeOptions) {
+    _exchangeOptions = exchangeOptions;
+    notifyListeners(); // UI 갱신
+  }
+  
+  /// 현재 셀의 TimeSlot 가져오기
+  TimeSlot? _getCurrentTimeSlot(DataGridCell dataGridCell, DataGridRow row) {
+    if (dataGridCell.columnName == 'teacher') return null;
+    
+    List<String> parts = dataGridCell.columnName.split('_');
+    if (parts.length != 2) return null;
+    
+    String day = parts[0];
+    int period = int.tryParse(parts[1]) ?? 0;
+    
+    // 교사명 찾기
+    String teacherName = '';
+    for (DataGridCell rowCell in row.getCells()) {
+      if (rowCell.columnName == 'teacher') {
+        teacherName = rowCell.value.toString();
+        break;
+      }
+    }
+    
+    // 해당 TimeSlot 찾기
+    return _timeSlots.firstWhere(
+      (slot) => slot.teacher == teacherName && 
+                _getDayName(slot.dayOfWeek!) == day && 
+                slot.period == period,
+      orElse: () => TimeSlot.empty(),
+    );
+  }
+  
+  /// 교체 가능한 시간인지 확인
+  bool _isExchangeableSlot(TimeSlot slot) {
+    return _exchangeOptions.any((option) => 
+      option.timeSlot.dayOfWeek == slot.dayOfWeek && 
+      option.timeSlot.period == slot.period && 
+      option.timeSlot.teacher == slot.teacher
+    );
+  }
+  
+  /// 텍스트 색상 결정
+  Color _getTextColor(DataGridCell dataGridCell, DataGridRow row, bool isSelected) {
+    if (isSelected) return Colors.black;
+    
+    TimeSlot? currentSlot = _getCurrentTimeSlot(dataGridCell, row);
+    if (currentSlot != null && _isExchangeableSlot(currentSlot)) {
+      return Colors.red.shade700; // 교체 가능한 시간은 빨간색 텍스트
+    }
+    
+    return Colors.black; // 기본 텍스트 색상
+  }
+  
+  /// 교체 가능한 시간 아이콘 빌드
+  Widget _buildExchangeIcon(DataGridCell dataGridCell, DataGridRow row) {
+    TimeSlot? currentSlot = _getCurrentTimeSlot(dataGridCell, row);
+    if (currentSlot == null || !_isExchangeableSlot(currentSlot)) {
+      return const SizedBox.shrink();
+    }
+    
+    // 교체 옵션에서 해당 슬롯의 교체 유형 찾기
+    ExchangeOption? option = _exchangeOptions.firstWhere(
+      (opt) => opt.timeSlot.dayOfWeek == currentSlot.dayOfWeek && 
+               opt.timeSlot.period == currentSlot.period && 
+               opt.timeSlot.teacher == currentSlot.teacher,
+      orElse: () => ExchangeOption(
+        timeSlot: currentSlot,
+        teacherName: currentSlot.teacher ?? '',
+        type: ExchangeType.notExchangeable,
+        priority: 999,
+        reason: '교체 불가',
+      ),
+    );
+    
+    if (!option.isExchangeable) {
+      return const SizedBox.shrink();
+    }
+    
+    // 교체 유형에 따른 아이콘
+    IconData iconData;
+    Color iconColor;
+    
+    switch (option.type) {
+      case ExchangeType.sameClass:
+        iconData = Icons.swap_horiz;
+        iconColor = Colors.red.shade600;
+        break;
+      case ExchangeType.notExchangeable:
+        return const SizedBox.shrink();
+    }
+    
+    return Positioned(
+      top: 2,
+      right: 2,
+      child: Icon(
+        iconData,
+        color: iconColor,
+        size: 12,
+      ),
+    );
+  }
 
   /// 데이터 업데이트
   void updateData(List<TimeSlot> timeSlots, List<Teacher> teachers) {
