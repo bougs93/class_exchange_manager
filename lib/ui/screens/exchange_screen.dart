@@ -351,6 +351,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
             _excelData = excel;
           });
           
+          // 시간표 데이터 파싱 시도
+          await _parseTimetableData(excel);
+          
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -373,6 +376,36 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     } catch (e) {
       setState(() {
         _errorMessage = '엑셀 파일 읽기 중 오류가 발생했습니다: $e';
+      });
+    }
+  }
+
+  /// 시간표 데이터 파싱 메서드
+  Future<void> _parseTimetableData(Excel excel) async {
+    try {
+      // 시간표 데이터 파싱
+      TimetableData? timetableData = ExcelService.parseTimetableData(excel);
+      
+      if (timetableData != null) {
+        // 파싱 성공 - 콘솔에 로그가 출력됨
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('시간표 파싱 완료! 교사 ${timetableData.teachers.length}명, 슬롯 ${timetableData.timeSlots.length}개'),
+              backgroundColor: Colors.blue.shade600,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      } else {
+        // 파싱 실패
+        setState(() {
+          _errorMessage = '시간표 데이터를 파싱할 수 없습니다. 파일 형식을 확인해주세요.';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = '시간표 파싱 중 오류가 발생했습니다: $e';
       });
     }
   }
