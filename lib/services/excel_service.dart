@@ -122,7 +122,7 @@ class ExcelService {
   /// Web에서 bytes로 엑셀 파일을 읽어서 Excel 객체로 변환
   /// 
   /// 매개변수:
-  /// - List<int> bytes: 엑셀 파일의 바이트 데이터
+  /// - `List<int>` bytes: 엑셀 파일의 바이트 데이터
   /// 
   /// 반환값:
   /// - Excel?: 파싱된 엑셀 데이터 (실패 시 null)
