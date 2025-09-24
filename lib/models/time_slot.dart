@@ -3,8 +3,10 @@ class TimeSlot {
   String? teacher;    // 교사명: "김영희", null
   String? subject;    // 과목명: "수학", null  
   String? className;  // 학급명: "1-1", null
+  int? dayOfWeek;    // 요일: 1(월) ~ 5(금)
+  int? period;       // 교시: 1 ~ 7
   
-  TimeSlot({this.teacher, this.subject, this.className});
+  TimeSlot({this.teacher, this.subject, this.className, this.dayOfWeek, this.period});
   
   /// 빈 슬롯인지 확인
   bool get isEmpty => teacher == null && subject == null && className == null;
@@ -23,17 +25,21 @@ class TimeSlot {
     String? teacher,
     String? subject,
     String? className,
+    int? dayOfWeek,
+    int? period,
   }) {
     return TimeSlot(
       teacher: teacher ?? this.teacher,
       subject: subject ?? this.subject,
       className: className ?? this.className,
+      dayOfWeek: dayOfWeek ?? this.dayOfWeek,
+      period: period ?? this.period,
     );
   }
   
   @override
   String toString() {
-    return 'TimeSlot(teacher: $teacher, subject: $subject, className: $className)';
+    return 'TimeSlot(teacher: $teacher, subject: $subject, className: $className, dayOfWeek: $dayOfWeek, period: $period)';
   }
   
   @override
