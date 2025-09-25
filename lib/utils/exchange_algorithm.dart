@@ -164,18 +164,4 @@ class ExchangeAlgorithm {
       return a.teacherName.compareTo(b.teacherName);
     });
   }
-  
-  
-  /// 특정 교사의 교체 가능한 시간만 필터링
-  static List<ExchangeOption> getTeacherExchangeableTimes(
-    List<ExchangeOption> allOptions,
-    String teacherName,
-  ) {
-    return allOptions.where((option) => option.teacherName == teacherName).toList();
-  }
-  
-  /// 교체 가능한 시간의 총 개수
-  static int getExchangeableCount(List<ExchangeOption> options) {
-    return options.where((option) => option.isExchangeable).length;
-  }
 }

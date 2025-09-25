@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'constants.dart';
-import 'logger.dart';
 
 /// 단순화된 시간표 테마 클래스
 /// 기존의 TimetableTheme와 SelectedPeriodTheme를 통합
@@ -76,7 +75,6 @@ class SimplifiedTimetableTheme {
   }) {
     // 선택된 셀의 경우 빨간색 테두리
     if (isSelected) {
-      AppLogger.debug('빨간색 테두리 적용: 교사열=$isTeacherColumn, 선택됨=$isSelected');
       return Border.all(color: Colors.red, width: 3.0); // 더 두껍게 설정
     }
     
@@ -88,6 +86,11 @@ class SimplifiedTimetableTheme {
       ),
       bottom: const BorderSide(color: Colors.grey, width: 0.5),
     );
+  }
+  
+  /// 특정 교시가 선택되었는지 확인
+  static bool isPeriodSelected(String day, int period, String? selectedDay, int? selectedPeriod) {
+    return selectedDay == day && selectedPeriod == period;
   }
 }
 

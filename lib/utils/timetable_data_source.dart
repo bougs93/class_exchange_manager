@@ -26,7 +26,6 @@ class TimetableDataSource extends DataGridSource {
   String? _selectedDay;
   int? _selectedPeriod;
   
-  
   // 교체 가능한 교사 정보 (교사명, 요일, 교시)
   List<Map<String, dynamic>> _exchangeableTeachers = [];
   
@@ -135,9 +134,6 @@ class TimetableDataSource extends DataGridSource {
   @override
   List<DataGridRow> get rows => _dataGridRows;
   
-  /// DataGrid 행에 접근할 수 있는 getter
-  List<DataGridRow> get dataGridRows => _dataGridRows;
-
   @override
   DataGridRowAdapter? buildRow(DataGridRow row) {
       return DataGridRowAdapter(
@@ -253,8 +249,6 @@ class TimetableDataSource extends DataGridSource {
   bool _isTeacherSelected(String teacherName) {
     return _selectedTeacher == teacherName;
   }
-  
-
   
   /// 교체 가능한 교사 정보 업데이트
   void updateExchangeableTeachers(List<Map<String, dynamic>> exchangeableTeachers) {

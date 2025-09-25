@@ -348,8 +348,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
         // 총 2개의 헤더 행이 있으므로 실제 데이터 행 인덱스는 2를 빼야 함
         int actualRowIndex = details.rowColumnIndex.rowIndex - 2;
         
-        if (actualRowIndex >= 0 && actualRowIndex < _dataSource!.dataGridRows.length) {
-          DataGridRow row = _dataSource!.dataGridRows[actualRowIndex];
+        if (actualRowIndex >= 0 && actualRowIndex < _dataSource!.rows.length) {
+          DataGridRow row = _dataSource!.rows[actualRowIndex];
           for (DataGridCell rowCell in row.getCells()) {
             if (rowCell.columnName == 'teacher') {
               teacherName = rowCell.value.toString();

@@ -3,7 +3,6 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../models/time_slot.dart';
 import '../models/teacher.dart';
 import 'constants.dart';
-import 'timetable_grid_header_theme.dart';
 import 'simplified_timetable_theme.dart';
 import 'day_utils.dart';
 
@@ -14,6 +13,8 @@ class SyncfusionTimetableHelper {
   static const Color _borderColor = Colors.grey;
   static const double _thickBorderWidth = 3.0;
   static const double _thinBorderWidth = 1.0;
+  static const BorderSide _thickBorder = BorderSide(color: _borderColor, width: _thickBorderWidth);
+  static const BorderSide _thinBorder = BorderSide(color: _borderColor, width: _thinBorderWidth);
   /// TimeSlot 리스트를 Syncfusion DataGrid 데이터로 변환
   /// 
   /// 매개변수:
@@ -102,9 +103,9 @@ class SyncfusionTimetableHelper {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: SimplifiedTimetableTheme.teacherHeaderColor,
-            border: Border(
-              right: BorderSide(color: _borderColor, width: _thickBorderWidth), // 교사명과 월요일 사이 구분선을 두껍게
-              bottom: BorderSide(color: _borderColor, width: _thinBorderWidth),
+            border: const Border(
+              right: _thickBorder, // 교사명과 월요일 사이 구분선을 두껍게
+              bottom: _thinBorder,
             ),
           ),
           child: const Text(
@@ -120,12 +121,12 @@ class SyncfusionTimetableHelper {
     
     // 요일별 교시 컬럼 생성
     for (String day in days) {
-      for (int periodIndex = 0; periodIndex < periods.length; periodIndex++) {
-        int period = periods[periodIndex];
-        bool isLastPeriod = periodIndex == periods.length - 1; // 마지막 교시인지 확인
+      for (int i = 0; i < periods.length; i++) {
+        int period = periods[i];
+        bool isLastPeriod = i == periods.length - 1; // 마지막 교시인지 확인
         
         // 테마를 사용하여 선택 상태 확인
-        bool isSelected = TimetableGridHeaderTheme.isPeriodSelected(day, period, selectedDay, selectedPeriod);
+        bool isSelected = SimplifiedTimetableTheme.isPeriodSelected(day, period, selectedDay, selectedPeriod);
         
         // 교체 가능한 교시인지 확인
         bool isExchangeablePeriod = _isExchangeablePeriod(day, period, exchangeableTeachers);
@@ -235,8 +236,8 @@ class SyncfusionTimetableHelper {
           decoration: const BoxDecoration(
             color: _stackedHeaderColor, // 스택된 헤더 배경색
             border: Border(
-              right: BorderSide(color: _borderColor, width: _thickBorderWidth), // 교사명과 월요일 사이 구분선을 두껍게
-              bottom: BorderSide(color: _borderColor, width: _thinBorderWidth),
+              right: _thickBorder, // 교사명과 월요일 사이 구분선을 두껍게
+              bottom: _thinBorder,
             ),
           ),
           child: const SizedBox.shrink(), // 빈 공간
@@ -258,11 +259,8 @@ class SyncfusionTimetableHelper {
               color: _stackedHeaderColor, // 스택된 헤더 배경색
               border: Border(
                 // 요일 간 구분선을 두껍게 (마지막 요일 제외)
-                right: BorderSide(
-                  color: Colors.grey, 
-                  width: isLastDay ? 1 : 3, // 마지막 요일이 아니면 3px, 마지막 요일이면 1px
-                ),
-                bottom: const BorderSide(color: _borderColor, width: _thinBorderWidth),
+                right: isLastDay ? _thinBorder : _thickBorder, // 마지막 요일이 아니면 3px, 마지막 요일이면 1px
+                bottom: _thinBorder,
               ),
             ),
             child: Text(
@@ -281,26 +279,6 @@ class SyncfusionTimetableHelper {
     stackedHeaders.add(StackedHeaderRow(cells: headerCells));
     
     return stackedHeaders;
-  }
-  
-  /// 특정 교사의 시간표 슬롯을 필터링
-  static List<TimeSlot> getTeacherTimeSlots(List<TimeSlot> timeSlots, String teacherName) {
-    return timeSlots.where((slot) => slot.teacher == teacherName).toList();
-  }
-  
-  /// 특정 요일의 시간표 슬롯을 필터링
-  static List<TimeSlot> getDayTimeSlots(List<TimeSlot> timeSlots, int dayOfWeek) {
-    return timeSlots.where((slot) => slot.dayOfWeek == dayOfWeek).toList();
-  }
-  
-  /// 특정 교시의 시간표 슬롯을 필터링
-  static List<TimeSlot> getPeriodTimeSlots(List<TimeSlot> timeSlots, int period) {
-    return timeSlots.where((slot) => slot.period == period).toList();
-  }
-  
-  /// 교체 가능한 시간표 슬롯만 필터링
-  static List<TimeSlot> getExchangeableTimeSlots(List<TimeSlot> timeSlots) {
-    return timeSlots.where((slot) => slot.canExchange).toList();
   }
   
   /// 교체 가능한 교시인지 확인

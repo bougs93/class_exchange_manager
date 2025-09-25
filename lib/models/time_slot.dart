@@ -30,59 +30,9 @@ class TimeSlot {
   /// 교체 가능한 슬롯인지 확인
   bool get canExchange => isExchangeable && isNotEmpty;
   
-  /// 교체 불가능한 슬롯인지 확인
-  bool get cannotExchange => !isExchangeable;
-  
   /// 표시용 문자열 생성 (UI에서 사용)
   String get displayText {
     if (isEmpty) return '';
     return '${className ?? ''}\n${subject ?? ''}';
   }
-  
-  /// 복사본 생성
-  TimeSlot copyWith({
-    String? teacher,
-    String? subject,
-    String? className,
-    int? dayOfWeek,
-    int? period,
-    bool? isExchangeable,
-  }) {
-    return TimeSlot(
-      teacher: teacher ?? this.teacher,
-      subject: subject ?? this.subject,
-      className: className ?? this.className,
-      dayOfWeek: dayOfWeek ?? this.dayOfWeek,
-      period: period ?? this.period,
-      isExchangeable: isExchangeable ?? this.isExchangeable,
-    );
-  }
-  
-  @override
-  String toString() {
-    return 'TimeSlot(teacher: $teacher, subject: $subject, className: $className, dayOfWeek: $dayOfWeek, period: $period, isExchangeable: $isExchangeable)';
-  }
-  
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is TimeSlot &&
-        other.teacher == teacher &&
-        other.subject == subject &&
-        other.className == className &&
-        other.dayOfWeek == dayOfWeek &&
-        other.period == period &&
-        other.isExchangeable == isExchangeable;
-  }
-  
-  @override
-  int get hashCode {
-    return teacher.hashCode ^ 
-           subject.hashCode ^ 
-           className.hashCode ^ 
-           dayOfWeek.hashCode ^ 
-           period.hashCode ^ 
-           isExchangeable.hashCode;
-  }
 }
-
