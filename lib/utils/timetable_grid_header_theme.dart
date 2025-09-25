@@ -28,7 +28,7 @@ class TimetableGridHeaderTheme {
   
   /// 일반 교시 헤더 배경색
   static Color getNormalHeaderBackground() {
-    return const Color(AppConstants.periodHeaderColor);
+    return const Color(0xFFFAFAFA); // 교시 헤더 배경색
   }
   
   /// 특정 교시가 선택되었는지 확인

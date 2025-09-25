@@ -4,11 +4,16 @@ import '../models/time_slot.dart';
 import '../models/teacher.dart';
 import 'constants.dart';
 import 'timetable_grid_header_theme.dart';
-import 'selected_period_theme.dart';
+import 'simplified_timetable_theme.dart';
 import 'day_utils.dart';
 
 /// Syncfusion DataGrid를 사용한 시간표 데이터 변환 헬퍼 클래스
 class SyncfusionTimetableHelper {
+  // 상수 정의
+  static const Color _stackedHeaderColor = Color(0xFFE3F2FD);
+  static const Color _borderColor = Colors.grey;
+  static const double _thickBorderWidth = 3.0;
+  static const double _thinBorderWidth = 1.0;
   /// TimeSlot 리스트를 Syncfusion DataGrid 데이터로 변환
   /// 
   /// 매개변수:
@@ -83,7 +88,6 @@ class SyncfusionTimetableHelper {
     return groupedData;
   }
   
-  
   /// Syncfusion DataGrid 컬럼 생성 (테마 기반)
   static List<GridColumn> _createColumns(List<String> days, List<int> periods, String? selectedDay, int? selectedPeriod, List<Map<String, dynamic>>? exchangeableTeachers) {
     List<GridColumn> columns = [];
@@ -96,11 +100,11 @@ class SyncfusionTimetableHelper {
         label: Container(
           padding: EdgeInsets.zero,
           alignment: Alignment.center,
-          decoration: const BoxDecoration(
-            color: Color(AppConstants.teacherHeaderColor),
+          decoration: BoxDecoration(
+            color: SimplifiedTimetableTheme.teacherHeaderColor,
             border: Border(
-              right: BorderSide(color: Colors.grey, width: 3), // 교사명과 월요일 사이 구분선을 두껍게
-              bottom: BorderSide(color: Colors.grey, width: 1),
+              right: BorderSide(color: _borderColor, width: _thickBorderWidth), // 교사명과 월요일 사이 구분선을 두껍게
+              bottom: BorderSide(color: _borderColor, width: _thinBorderWidth),
             ),
           ),
           child: const Text(
@@ -115,10 +119,7 @@ class SyncfusionTimetableHelper {
     );
     
     // 요일별 교시 컬럼 생성
-    for (int dayIndex = 0; dayIndex < days.length; dayIndex++) {
-      String day = days[dayIndex];
-      bool isLastDay = dayIndex == days.length - 1; // 마지막 요일(금요일)인지 확인
-      
+    for (String day in days) {
       for (int periodIndex = 0; periodIndex < periods.length; periodIndex++) {
         int period = periods[periodIndex];
         bool isLastPeriod = periodIndex == periods.length - 1; // 마지막 교시인지 확인
@@ -130,11 +131,12 @@ class SyncfusionTimetableHelper {
         bool isExchangeablePeriod = _isExchangeablePeriod(day, period, exchangeableTeachers);
         
         // 통합 함수를 사용하여 헤더 스타일 가져오기
-        HeaderStyles headerStyles = SelectedPeriodTheme.getHeaderStyles(
+        CellStyle headerStyles = SimplifiedTimetableTheme.getCellStyle(
+          isTeacherColumn: false,
           isSelected: isSelected,
-          isLastDay: isLastDay,
-          isLastPeriod: isLastPeriod,
-          isExchangeablePeriod: isExchangeablePeriod,
+          isExchangeable: isExchangeablePeriod,
+          isLastColumnOfDay: isLastPeriod,
+          isHeader: true,
         );
         
         columns.add(
@@ -231,19 +233,13 @@ class SyncfusionTimetableHelper {
           padding: EdgeInsets.zero,
           alignment: Alignment.center,
           decoration: const BoxDecoration(
-            color: Color(AppConstants.stackedHeaderColor),
+            color: _stackedHeaderColor, // 스택된 헤더 배경색
             border: Border(
-              right: BorderSide(color: Colors.grey, width: 3), // 교사명과 월요일 사이 구분선을 두껍게
-              bottom: BorderSide(color: Colors.grey, width: 1),
+              right: BorderSide(color: _borderColor, width: _thickBorderWidth), // 교사명과 월요일 사이 구분선을 두껍게
+              bottom: BorderSide(color: _borderColor, width: _thinBorderWidth),
             ),
           ),
-          child: const Text(
-            '',
-            style: TextStyle(
-              fontSize: AppConstants.headerFontSize,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          child: const SizedBox.shrink(), // 빈 공간
         ),
       ),
     );
@@ -259,14 +255,14 @@ class SyncfusionTimetableHelper {
             padding: EdgeInsets.zero,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: const Color(AppConstants.stackedHeaderColor),
+              color: _stackedHeaderColor, // 스택된 헤더 배경색
               border: Border(
                 // 요일 간 구분선을 두껍게 (마지막 요일 제외)
                 right: BorderSide(
                   color: Colors.grey, 
                   width: isLastDay ? 1 : 3, // 마지막 요일이 아니면 3px, 마지막 요일이면 1px
                 ),
-                bottom: const BorderSide(color: Colors.grey, width: 1),
+                bottom: const BorderSide(color: _borderColor, width: _thinBorderWidth),
               ),
             ),
             child: Text(
