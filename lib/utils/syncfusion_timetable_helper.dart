@@ -4,6 +4,7 @@ import '../models/time_slot.dart';
 import '../models/teacher.dart';
 import 'constants.dart';
 import 'timetable_grid_header_theme.dart';
+import 'selected_period_theme.dart';
 
 /// Syncfusion DataGrid를 사용한 시간표 데이터 변환 헬퍼 클래스
 class SyncfusionTimetableHelper {
@@ -143,6 +144,13 @@ class SyncfusionTimetableHelper {
         // 테마를 사용하여 선택 상태 확인
         bool isSelected = TimetableGridHeaderTheme.isPeriodSelected(day, period, selectedDay, selectedPeriod);
         
+        // 통합 함수를 사용하여 헤더 스타일 가져오기
+        HeaderStyles headerStyles = SelectedPeriodTheme.getHeaderStyles(
+          isSelected: isSelected,
+          isLastDay: isLastDay,
+          isLastPeriod: isLastPeriod,
+        );
+        
         columns.add(
           GridColumn(
             columnName: '${day}_$period',
@@ -151,21 +159,12 @@ class SyncfusionTimetableHelper {
               padding: EdgeInsets.zero,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                // 테마 기반 배경색
-                color: isSelected 
-                  ? TimetableGridHeaderTheme.getSelectedHeaderBackground()
-                  : TimetableGridHeaderTheme.getNormalHeaderBackground(),
-                // 테마 기반 테두리
-                border: isSelected 
-                  ? TimetableGridHeaderTheme.getSelectedHeaderBorder(isLastDay, isLastPeriod)
-                  : TimetableGridHeaderTheme.getNormalHeaderBorder(isLastDay, isLastPeriod),
+                color: headerStyles.backgroundColor,
+                border: headerStyles.border,
               ),
               child: Text(
                 period.toString(),
-                // 테마 기반 텍스트 스타일
-                style: isSelected 
-                  ? TimetableGridHeaderTheme.getSelectedHeaderStyle()
-                  : TimetableGridHeaderTheme.getNormalHeaderStyle(),
+                style: headerStyles.textStyle,
               ),
             ),
           ),

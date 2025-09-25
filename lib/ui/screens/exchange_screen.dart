@@ -669,6 +669,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     // 선택된 셀의 학급 정보 가져오기
     String? selectedClassName = _getSelectedClassName();
     if (selectedClassName == null) {
+      // 빈 교시인 경우 교체 가능한 교사 정보 초기화
+      _dataSource?.updateExchangeableTeachers([]);
+      AppLogger.teacherEmptySlotsInfo('빈 교시입니다. 교체 가능한 교사 정보를 초기화합니다.');
       return;
     }
     

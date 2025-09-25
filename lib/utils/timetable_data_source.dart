@@ -4,6 +4,7 @@ import '../models/time_slot.dart';
 import '../models/teacher.dart';
 import 'constants.dart';
 import 'exchange_algorithm.dart';
+import 'selected_period_theme.dart';
 
 /// Syncfusion DataGrid용 시간표 데이터 소스
 class TimetableDataSource extends DataGridSource {
@@ -209,13 +210,9 @@ class TimetableDataSource extends DataGridSource {
             }
           }
           
-          // 배경색 결정 (교체 가능한 시간 고려)
-          Color backgroundColor;
-          if (isTeacherColumn) {
-            backgroundColor = isSelected 
-                ? Colors.blue.shade100  // 선택된 교사명 열 - 연한 파란색
-                : const Color(AppConstants.teacherHeaderColor);
-          } else {
+          // 교체 가능한 교사인지 확인 (교사명 열이 아닌 경우에만)
+          bool isExchangeableTeacher = false;
+          if (!isTeacherColumn) {
             // 교사명과 요일, 교시 정보 추출
             String teacherName = '';
             String day = '';
@@ -237,16 +234,15 @@ class TimetableDataSource extends DataGridSource {
             }
             
             // 교체 가능한 교사인지 확인
-            bool isExchangeableTeacher = _isExchangeableTeacher(teacherName, day, period);
-            
-            if (isSelected) {
-              backgroundColor = Colors.blue.shade100; // 선택된 교시 셀 - 연한 파란색
-            } else if (isExchangeableTeacher) {
-              backgroundColor = Colors.green.shade200; // 교체 가능한 교사 셀 - 이미지 색상
-            } else {
-              backgroundColor = const Color(AppConstants.dataCellColor); // 기본 색상
-            }
+            isExchangeableTeacher = _isExchangeableTeacher(teacherName, day, period);
           }
+          
+          // 통합 함수를 사용하여 배경색 결정
+          Color backgroundColor = SelectedPeriodTheme.getBackgroundColor(
+            isTeacherColumn: isTeacherColumn,
+            isSelected: isSelected,
+            isExchangeableTeacher: isExchangeableTeacher,
+          );
           
           // 셀과 텍스트 간 여백을 최소화
           return Container(
