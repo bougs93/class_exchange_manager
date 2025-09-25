@@ -660,6 +660,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
   void _checkTeacherEmptySlots() {
     if (_timetableData == null || _selectedTeacher == null) return;
     
+    // 현재 선택된 교사, 요일, 시간 정보를 첫 번째 줄에 출력
+    AppLogger.teacherEmptySlotsInfo('선택된 셀: $_selectedTeacher 교사, $_selectedDay요일, $_selectedPeriod교시');
+    
     // 선택된 셀의 학급 정보 가져오기
     String? selectedClassName = _getSelectedClassName();
     if (selectedClassName == null) {
@@ -761,14 +764,46 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       }
       
       if (sameClassTeachers.isNotEmpty) {
-        allSameClassTeachers.add('$period교시: ${sameClassTeachers.join(', ')}');
+        // 교체 가능한 교사들이 선택된 시간에 실제로 빈 시간인지 검사
+        List<String> actuallyAvailableTeachers = _checkTeacherAvailabilityAtSelectedTime(sameClassTeachers, day, period);
+        
+        if (actuallyAvailableTeachers.isNotEmpty) {
+          allSameClassTeachers.add('$period교시: ${actuallyAvailableTeachers.join(', ')}');
+        }
       }
     }
     
-    // 같은 반 교사가 있는 경우에만 출력
+    // 실제로 교체 가능한 교사가 있는 경우에만 출력
     if (allSameClassTeachers.isNotEmpty) {
       AppLogger.teacherEmptySlotsInfo('$day요일 교체 가능한 교사: ${allSameClassTeachers.join(' | ')}');
     }
+  }
+  
+  /// 교체 가능한 교사들이 선택된 시간에 실제로 빈 시간인지 검사
+  List<String> _checkTeacherAvailabilityAtSelectedTime(List<String> sameClassTeachers, String day, int period) {
+    if (_selectedDay == null || _selectedPeriod == null) return sameClassTeachers;
+    
+    List<String> actuallyAvailableTeachers = [];
+    
+    for (String teacherInfo in sameClassTeachers) {
+      // 교사명 추출 (예: "박지혜(사회)" -> "박지혜")
+      String teacherName = teacherInfo.split('(')[0];
+      
+      // 해당 교사가 선택된 시간에 수업이 있는지 확인
+      bool hasClassAtSelectedTime = _timetableData!.timeSlots.any((slot) => 
+        slot.teacher == teacherName &&
+        slot.dayOfWeek == _getDayNumber(_selectedDay!) &&
+        slot.period == _selectedPeriod &&
+        slot.isNotEmpty
+      );
+      
+      // 선택된 시간에 수업이 없는 교사만 실제 교체 가능한 교사로 추가
+      if (!hasClassAtSelectedTime) {
+        actuallyAvailableTeachers.add(teacherInfo);
+      }
+    }
+    
+    return actuallyAvailableTeachers;
   }
   
   /// 요일명을 숫자로 변환
