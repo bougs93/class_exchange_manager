@@ -1,5 +1,6 @@
 import '../models/time_slot.dart';
 import '../models/teacher.dart';
+import 'day_utils.dart';
 
 /// 교체 옵션을 나타내는 클래스
 class ExchangeOption {
@@ -74,7 +75,7 @@ class ExchangeAlgorithm {
     String targetDay,
     int targetPeriod,
   ) {
-    int targetDayNumber = _getDayNumber(targetDay);
+    int targetDayNumber = DayUtils.getDayNumber(targetDay);
     
     return allTimeSlots.firstWhere(
       (slot) => slot.teacher == targetTeacher &&
@@ -96,7 +97,7 @@ class ExchangeAlgorithm {
     if (!slot.canExchange) return null;
     
     // 동일한 시간대인지 확인 (자기 자신 제외)
-    if (slot.dayOfWeek == _getDayNumber(targetDay) && slot.period == targetPeriod) {
+    if (slot.dayOfWeek == DayUtils.getDayNumber(targetDay) && slot.period == targetPeriod) {
       return null;
     }
     
@@ -164,17 +165,6 @@ class ExchangeAlgorithm {
     });
   }
   
-  /// 요일명을 숫자로 변환
-  static int _getDayNumber(String day) {
-    const dayMap = {
-      '월': 1,
-      '화': 2,
-      '수': 3,
-      '목': 4,
-      '금': 5,
-    };
-    return dayMap[day] ?? 1;
-  }
   
   /// 특정 교사의 교체 가능한 시간만 필터링
   static List<ExchangeOption> getTeacherExchangeableTimes(

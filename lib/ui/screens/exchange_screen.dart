@@ -11,6 +11,7 @@ import '../../utils/constants.dart';
 import '../../utils/exchange_algorithm.dart';
 import '../../utils/exchange_visualizer.dart';
 import '../../utils/logger.dart';
+import '../../utils/day_utils.dart';
 import '../../models/time_slot.dart';
 import '../../models/teacher.dart';
 
@@ -383,9 +384,6 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       // 교체 가능한 시간 탐색 및 표시
       _updateExchangeableTimes();
       
-      // 해당 교사의 빈시간 검사 및 디버그 출력
-      _checkTeacherEmptySlots();
-      
       // 테마 기반 헤더 업데이트 (선택된 교시 헤더를 연한 파란색으로 표시)
       _updateHeaderTheme();
     }
@@ -664,68 +662,43 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     // 데이터 소스에 교체 옵션 업데이트
     _dataSource?.updateExchangeOptions(_exchangeOptions);
     
+    // 교체 가능한 교사 정보를 별도로 업데이트
+    List<Map<String, dynamic>> exchangeableTeachers = _getCurrentExchangeableTeachers();
+    _dataSource?.updateExchangeableTeachers(exchangeableTeachers);
+    
+    // 디버그 로그 출력 (교체 가능한 교사 정보를 재사용)
+    _logExchangeableInfo(exchangeableTeachers);
   }
   
-  
-  /// 해당 교사의 빈시간 검사 및 디버그 출력
-  void _checkTeacherEmptySlots() {
+  /// 교체 가능한 교사 정보 로그 출력
+  void _logExchangeableInfo(List<Map<String, dynamic>> exchangeableTeachers) {
     if (_timetableData == null || _selectedTeacher == null) return;
     
     // 현재 선택된 교사, 요일, 시간 정보를 첫 번째 줄에 출력
     AppLogger.teacherEmptySlotsInfo('선택된 셀: $_selectedTeacher 교사, $_selectedDay요일, $_selectedPeriod교시');
     
-    // 선택된 셀의 학급 정보 가져오기
-    String? selectedClassName = _getSelectedClassName();
-    if (selectedClassName == null) {
-      // 빈 교시인 경우 교체 가능한 교사 정보 초기화
-      _dataSource?.updateExchangeableTeachers([]);
-      AppLogger.teacherEmptySlotsInfo('빈 교시입니다. 교체 가능한 교사 정보를 초기화합니다.');
-      return;
-    }
-    
-    // 요일별로 빈시간 검사
-    List<String> days = ['월', '화', '수', '목', '금'];
-    List<int> periods = [1, 2, 3, 4, 5, 6, 7];
-    
-    // 교사 빈시간 검사
-    List<String> allEmptySlots = [];
-    List<Map<String, dynamic>> exchangeableTeachers = []; // 교체 가능한 교사 정보 수집
-    
-    for (String day in days) {
-      List<String> emptySlots = [];
-      
-      for (int period in periods) {
-        // 해당 교사의 해당 요일, 교시에 수업이 있는지 확인
-        bool hasClass = _timetableData!.timeSlots.any((slot) => 
-          slot.teacher == _selectedTeacher &&
-          slot.dayOfWeek == _getDayNumber(day) &&
-          slot.period == period &&
-          slot.isNotEmpty
-        );
-        
-        if (!hasClass) {
-          emptySlots.add('$period교시');
-        }
-      }
-      
-      if (emptySlots.isNotEmpty) {
-        allEmptySlots.add('$day요일: ${emptySlots.join(', ')}');
-        // 빈시간에 같은 반을 가르치는 교사 찾기 및 교체 가능한 교사 정보 수집
-        List<Map<String, dynamic>> dayExchangeableTeachers = _findSameClassTeachers(day, emptySlots, selectedClassName);
-        exchangeableTeachers.addAll(dayExchangeableTeachers);
-      }
-    }
-    
-    // 교체 가능한 교사 정보를 데이터 소스에 전달
-    _dataSource?.updateExchangeableTeachers(exchangeableTeachers);
-    
-    // 빈시간이 있는 경우에만 결과 출력
-    if (allEmptySlots.isNotEmpty) {
-      AppLogger.teacherEmptySlotsInfo('$_selectedTeacher 교사 빈시간: ${allEmptySlots.join(' | ')}');
+    if (exchangeableTeachers.isEmpty) {
+      AppLogger.teacherEmptySlotsInfo('교체 가능한 교사가 없습니다.');
     } else {
-      AppLogger.teacherEmptySlotsInfo('$_selectedTeacher 교사: 빈시간 없음');
+      // 교체 가능한 교사들을 요일별로 그룹화하여 출력
+      Map<String, List<String>> teachersByDay = {};
+      for (var teacher in exchangeableTeachers) {
+        String day = teacher['day'];
+        String teacherName = teacher['teacherName'];
+        String subject = teacher['subject'];
+        int period = teacher['period'];
+        
+        teachersByDay.putIfAbsent(day, () => []);
+        teachersByDay[day]!.add('$period교시: $teacherName($subject)');
+      }
+      
+      for (String day in teachersByDay.keys) {
+        AppLogger.teacherEmptySlotsInfo('$day요일 교체 가능한 교사: ${teachersByDay[day]!.join(', ')}');
+      }
     }
   }
+  
+  
   
   /// 선택된 셀의 학급 정보 가져오기
   String? _getSelectedClassName() {
@@ -736,7 +709,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     // 선택된 셀의 TimeSlot 찾기
     TimeSlot? selectedSlot = _timetableData!.timeSlots.firstWhere(
       (slot) => slot.teacher == _selectedTeacher &&
-                slot.dayOfWeek == _getDayNumber(_selectedDay!) &&
+                slot.dayOfWeek == DayUtils.getDayNumber(_selectedDay!) &&
                 slot.period == _selectedPeriod,
       orElse: () => TimeSlot.empty(),
     );
@@ -762,7 +735,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
         // 해당 교사가 해당 시간에 같은 반을 가르치는지 확인
         bool hasSameClass = _timetableData!.timeSlots.any((slot) => 
           slot.teacher == teacher.name &&
-          slot.dayOfWeek == _getDayNumber(day) &&
+          slot.dayOfWeek == DayUtils.getDayNumber(day) &&
           slot.period == period &&
           slot.className == selectedClassName &&
           slot.isNotEmpty
@@ -772,7 +745,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
           // 해당 교사의 과목 정보도 함께 출력
           TimeSlot? teacherSlot = _timetableData!.timeSlots.firstWhere(
             (slot) => slot.teacher == teacher.name &&
-                      slot.dayOfWeek == _getDayNumber(day) &&
+                      slot.dayOfWeek == DayUtils.getDayNumber(day) &&
                       slot.period == period &&
                       slot.className == selectedClassName,
             orElse: () => TimeSlot.empty(),
@@ -825,7 +798,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       // 해당 교사가 선택된 시간에 수업이 있는지 확인
       bool hasClassAtSelectedTime = _timetableData!.timeSlots.any((slot) => 
         slot.teacher == teacherName &&
-        slot.dayOfWeek == _getDayNumber(_selectedDay!) &&
+        slot.dayOfWeek == DayUtils.getDayNumber(_selectedDay!) &&
         slot.period == _selectedPeriod &&
         slot.isNotEmpty
       );
@@ -839,17 +812,6 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     return actuallyAvailableTeachers;
   }
   
-  /// 요일명을 숫자로 변환
-  int _getDayNumber(String day) {
-    const dayMap = {
-      '월': 1,
-      '화': 2,
-      '수': 3,
-      '목': 4,
-      '금': 5,
-    };
-    return dayMap[day] ?? 1;
-  }
   
   /// 현재 교체 가능한 교사 정보 가져오기
   List<Map<String, dynamic>> _getCurrentExchangeableTeachers() {
@@ -862,8 +824,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     List<Map<String, dynamic>> exchangeableTeachers = [];
     
     // 요일별로 빈시간 검사
-    List<String> days = ['월', '화', '수', '목', '금'];
-    List<int> periods = [1, 2, 3, 4, 5, 6, 7];
+    const List<String> days = ['월', '화', '수', '목', '금'];
+    const List<int> periods = [1, 2, 3, 4, 5, 6, 7];
     
     for (String day in days) {
       List<String> emptySlots = [];
@@ -872,7 +834,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
         // 해당 교사의 해당 요일, 교시에 수업이 있는지 확인
         bool hasClass = _timetableData!.timeSlots.any((slot) => 
           slot.teacher == _selectedTeacher &&
-          slot.dayOfWeek == _getDayNumber(day) &&
+          slot.dayOfWeek == DayUtils.getDayNumber(day) &&
           slot.period == period &&
           slot.isNotEmpty
         );

@@ -5,6 +5,7 @@ import '../models/teacher.dart';
 import 'constants.dart';
 import 'timetable_grid_header_theme.dart';
 import 'selected_period_theme.dart';
+import 'day_utils.dart';
 
 /// Syncfusion DataGrid를 사용한 시간표 데이터 변환 헬퍼 클래스
 class SyncfusionTimetableHelper {
@@ -33,7 +34,7 @@ class SyncfusionTimetableHelper {
     Map<String, Map<int, Map<String, TimeSlot?>>> groupedData = _groupTimeSlotsByDayAndPeriod(timeSlots);
     
     // 요일 목록 추출 및 정렬
-    List<String> days = groupedData.keys.toList()..sort(_compareDays);
+    List<String> days = groupedData.keys.toList()..sort(DayUtils.compareDays);
     
     // 교시 목록 추출 및 정렬
     Set<int> allPeriods = {};
@@ -65,7 +66,7 @@ class SyncfusionTimetableHelper {
         continue;
       }
       
-      String dayName = _getDayName(slot.dayOfWeek!);
+      String dayName = DayUtils.getDayName(slot.dayOfWeek!);
       int period = slot.period!;
       String teacherName = slot.teacher!;
       
@@ -82,26 +83,6 @@ class SyncfusionTimetableHelper {
     return groupedData;
   }
   
-  /// 요일 번호를 요일명으로 변환
-  static String _getDayName(int dayOfWeek) {
-    const dayNames = ['월', '화', '수', '목', '금'];
-    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-      return dayNames[dayOfWeek - 1];
-    }
-    return '월'; // 기본값
-  }
-  
-  /// 요일 정렬을 위한 비교 함수
-  static int _compareDays(String a, String b) {
-    const dayOrder = ['월', '화', '수', '목', '금'];
-    int indexA = dayOrder.indexOf(a);
-    int indexB = dayOrder.indexOf(b);
-    
-    if (indexA == -1) indexA = 999;
-    if (indexB == -1) indexB = 999;
-    
-    return indexA.compareTo(indexB);
-  }
   
   /// Syncfusion DataGrid 컬럼 생성 (테마 기반)
   static List<GridColumn> _createColumns(List<String> days, List<int> periods, String? selectedDay, int? selectedPeriod, List<Map<String, dynamic>>? exchangeableTeachers) {

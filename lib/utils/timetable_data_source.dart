@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../models/time_slot.dart';
 import '../models/teacher.dart';
-import 'constants.dart';
+import '../ui/widgets/simplified_timetable_cell.dart';
 import 'exchange_algorithm.dart';
-import 'selected_period_theme.dart';
+import 'day_utils.dart';
 
 /// Syncfusion DataGrid용 시간표 데이터 소스
 class TimetableDataSource extends DataGridSource {
@@ -26,11 +26,13 @@ class TimetableDataSource extends DataGridSource {
   String? _selectedDay;
   int? _selectedPeriod;
   
-  // 교체 가능한 시간 관련 변수들
-  List<ExchangeOption> _exchangeOptions = [];
   
   // 교체 가능한 교사 정보 (교사명, 요일, 교시)
   List<Map<String, dynamic>> _exchangeableTeachers = [];
+  
+  // 교체 옵션 정보 (향후 확장을 위해 보관)
+  // ignore: unused_field
+  List<ExchangeOption> _exchangeOptions = [];
 
   /// DataGrid 행 데이터 빌드
   void _buildDataGridRows() {
@@ -38,7 +40,7 @@ class TimetableDataSource extends DataGridSource {
     Map<String, Map<int, Map<String, TimeSlot?>>> groupedData = _groupTimeSlotsByDayAndPeriod();
     
     // 요일 목록 추출 및 정렬
-    List<String> days = groupedData.keys.toList()..sort(_compareDays);
+    List<String> days = groupedData.keys.toList()..sort(DayUtils.compareDays);
     
     // 교시 목록 추출 및 정렬
     Set<int> allPeriods = {};
@@ -59,7 +61,7 @@ class TimetableDataSource extends DataGridSource {
         continue;
       }
       
-      String dayName = _getDayName(slot.dayOfWeek!);
+      String dayName = DayUtils.getDayName(slot.dayOfWeek!);
       int period = slot.period!;
       String teacherName = slot.teacher!;
       
@@ -76,26 +78,6 @@ class TimetableDataSource extends DataGridSource {
     return groupedData;
   }
 
-  /// 요일 번호를 요일명으로 변환
-  String _getDayName(int dayOfWeek) {
-    const dayNames = ['월', '화', '수', '목', '금'];
-    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-      return dayNames[dayOfWeek - 1];
-    }
-    return '월'; // 기본값
-  }
-
-  /// 요일 정렬을 위한 비교 함수
-  int _compareDays(String a, String b) {
-    const dayOrder = ['월', '화', '수', '목', '금'];
-    int indexA = dayOrder.indexOf(a);
-    int indexB = dayOrder.indexOf(b);
-    
-    if (indexA == -1) indexA = 999;
-    if (indexB == -1) indexB = 999;
-    
-    return indexA.compareTo(indexB);
-  }
 
   /// DataGrid 행 생성
   List<DataGridRow> _createRows(
@@ -241,48 +223,13 @@ class TimetableDataSource extends DataGridSource {
             isExchangeableTeacher = _isExchangeableTeacher(teacherName, day, period);
           }
           
-          // 통합 함수를 사용하여 배경색 결정
-          Color backgroundColor = SelectedPeriodTheme.getBackgroundColor(
+          // SimplifiedTimetableCell을 사용하여 일관된 스타일 적용
+          return SimplifiedTimetableCell(
+            content: dataGridCell.value.toString(),
             isTeacherColumn: isTeacherColumn,
             isSelected: isSelected,
-            isExchangeableTeacher: isExchangeableTeacher,
-          );
-          
-          // 셀과 텍스트 간 여백을 최소화
-          return Container(
-            padding: EdgeInsets.zero,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: backgroundColor,
-              border: Border(
-                right: BorderSide(
-                  color: Colors.grey, 
-                  width: isTeacherColumn 
-                      ? 3  // 교사명과 월요일 사이 구분선을 두껍게
-                      : (isLastColumnOfDay ? 3 : 0.5), // 요일별 구분선을 두껍게
-                ),
-                bottom: const BorderSide(color: Colors.grey, width: 0.5),
-              ),
-            ),
-            child: Stack(
-              children: [
-                Text(
-                  dataGridCell.value.toString(),
-                  style: TextStyle(
-                    fontSize: AppConstants.dataFontSize,
-                    height: AppConstants.dataLineHeight, // 줄 간격 최소화
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, // 선택된 셀은 굵게
-                    color: _getTextColor(dataGridCell, row, isSelected), // 교체 가능한 시간 텍스트 색상
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2, // 최대 2줄까지 표시
-                  overflow: TextOverflow.ellipsis,
-                ),
-                // 교체 가능한 시간 아이콘 표시
-                if (!isTeacherColumn && !isSelected)
-                  _buildExchangeIcon(dataGridCell, row),
-              ],
-            ),
+            isExchangeable: isExchangeableTeacher,
+            isLastColumnOfDay: isLastColumnOfDay,
           );
         }).toList(),
       );
@@ -309,11 +256,6 @@ class TimetableDataSource extends DataGridSource {
   }
   
 
-  /// 교체 가능한 시간 옵션 업데이트
-  void updateExchangeOptions(List<ExchangeOption> exchangeOptions) {
-    _exchangeOptions = exchangeOptions;
-    notifyListeners(); // UI 갱신
-  }
   
   /// 교체 가능한 교사 정보 업데이트
   void updateExchangeableTeachers(List<Map<String, dynamic>> exchangeableTeachers) {
@@ -321,42 +263,12 @@ class TimetableDataSource extends DataGridSource {
     notifyListeners(); // UI 갱신
   }
   
-  /// 현재 셀의 TimeSlot 가져오기
-  TimeSlot? _getCurrentTimeSlot(DataGridCell dataGridCell, DataGridRow row) {
-    if (dataGridCell.columnName == 'teacher') return null;
-    
-    List<String> parts = dataGridCell.columnName.split('_');
-    if (parts.length != 2) return null;
-    
-    String day = parts[0];
-    int period = int.tryParse(parts[1]) ?? 0;
-    
-    // 교사명 찾기
-    String teacherName = '';
-    for (DataGridCell rowCell in row.getCells()) {
-      if (rowCell.columnName == 'teacher') {
-        teacherName = rowCell.value.toString();
-        break;
-      }
-    }
-    
-    // 해당 TimeSlot 찾기
-    return _timeSlots.firstWhere(
-      (slot) => slot.teacher == teacherName && 
-                _getDayName(slot.dayOfWeek!) == day && 
-                slot.period == period,
-      orElse: () => TimeSlot.empty(),
-    );
+  /// 교체 옵션 업데이트
+  void updateExchangeOptions(List<ExchangeOption> exchangeOptions) {
+    _exchangeOptions = exchangeOptions;
+    notifyListeners(); // UI 갱신
   }
   
-  /// 교체 가능한 시간인지 확인
-  bool _isExchangeableSlot(TimeSlot slot) {
-    return _exchangeOptions.any((option) => 
-      option.timeSlot.dayOfWeek == slot.dayOfWeek && 
-      option.timeSlot.period == slot.period && 
-      option.timeSlot.teacher == slot.teacher
-    );
-  }
   
   /// 교체 가능한 교사인지 확인 (교사명, 요일, 교시 기준)
   bool _isExchangeableTeacher(String teacherName, String day, int period) {
@@ -374,66 +286,6 @@ class TimetableDataSource extends DataGridSource {
     );
   }
   
-  /// 텍스트 색상 결정
-  Color _getTextColor(DataGridCell dataGridCell, DataGridRow row, bool isSelected) {
-    if (isSelected) return Colors.black;
-    
-    TimeSlot? currentSlot = _getCurrentTimeSlot(dataGridCell, row);
-    if (currentSlot != null && _isExchangeableSlot(currentSlot)) {
-      return Colors.red.shade700; // 교체 가능한 시간은 빨간색 텍스트
-    }
-    
-    return Colors.black; // 기본 텍스트 색상
-  }
-  
-  /// 교체 가능한 시간 아이콘 빌드
-  Widget _buildExchangeIcon(DataGridCell dataGridCell, DataGridRow row) {
-    TimeSlot? currentSlot = _getCurrentTimeSlot(dataGridCell, row);
-    if (currentSlot == null || !_isExchangeableSlot(currentSlot)) {
-      return const SizedBox.shrink();
-    }
-    
-    // 교체 옵션에서 해당 슬롯의 교체 유형 찾기
-    ExchangeOption? option = _exchangeOptions.firstWhere(
-      (opt) => opt.timeSlot.dayOfWeek == currentSlot.dayOfWeek && 
-               opt.timeSlot.period == currentSlot.period && 
-               opt.timeSlot.teacher == currentSlot.teacher,
-      orElse: () => ExchangeOption(
-        timeSlot: currentSlot,
-        teacherName: currentSlot.teacher ?? '',
-        type: ExchangeType.notExchangeable,
-        priority: 999,
-        reason: '교체 불가',
-      ),
-    );
-    
-    if (!option.isExchangeable) {
-      return const SizedBox.shrink();
-    }
-    
-    // 교체 유형에 따른 아이콘
-    IconData iconData;
-    Color iconColor;
-    
-    switch (option.type) {
-      case ExchangeType.sameClass:
-        iconData = Icons.swap_horiz;
-        iconColor = Colors.red.shade600;
-        break;
-      case ExchangeType.notExchangeable:
-        return const SizedBox.shrink();
-    }
-    
-    return Positioned(
-      top: 2,
-      right: 2,
-      child: Icon(
-        iconData,
-        color: iconColor,
-        size: 12,
-      ),
-    );
-  }
 
   /// 데이터 업데이트
   void updateData(List<TimeSlot> timeSlots, List<Teacher> teachers) {

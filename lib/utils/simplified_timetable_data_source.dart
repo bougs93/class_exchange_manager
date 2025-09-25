@@ -3,6 +3,7 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../models/time_slot.dart';
 import '../models/teacher.dart';
 import '../ui/widgets/simplified_timetable_cell.dart';
+import 'day_utils.dart';
 import 'logger.dart';
 
 /// 단순화된 시간표 데이터 소스
@@ -31,7 +32,7 @@ class SimplifiedTimetableDataSource extends DataGridSource {
   /// DataGrid 행 데이터 빌드
   void _buildDataGridRows() {
     Map<String, Map<int, Map<String, TimeSlot?>>> groupedData = _groupTimeSlotsByDayAndPeriod();
-    List<String> days = groupedData.keys.toList()..sort(_compareDays);
+    List<String> days = groupedData.keys.toList()..sort(DayUtils.compareDays);
     
     Set<int> allPeriods = {};
     for (var dayData in groupedData.values) {
@@ -51,7 +52,7 @@ class SimplifiedTimetableDataSource extends DataGridSource {
         continue;
       }
       
-      String dayName = _getDayName(slot.dayOfWeek!);
+      String dayName = DayUtils.getDayName(slot.dayOfWeek!);
       int period = slot.period!;
       String teacherName = slot.teacher!;
       
@@ -63,26 +64,6 @@ class SimplifiedTimetableDataSource extends DataGridSource {
     return groupedData;
   }
 
-  /// 요일 번호를 요일명으로 변환
-  String _getDayName(int dayOfWeek) {
-    const dayNames = ['월', '화', '수', '목', '금'];
-    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-      return dayNames[dayOfWeek - 1];
-    }
-    return '월';
-  }
-
-  /// 요일 정렬을 위한 비교 함수
-  int _compareDays(String a, String b) {
-    const dayOrder = ['월', '화', '수', '목', '금'];
-    int indexA = dayOrder.indexOf(a);
-    int indexB = dayOrder.indexOf(b);
-    
-    if (indexA == -1) indexA = 999;
-    if (indexB == -1) indexB = 999;
-    
-    return indexA.compareTo(indexB);
-  }
 
   /// DataGrid 행 생성
   List<DataGridRow> _createRows(

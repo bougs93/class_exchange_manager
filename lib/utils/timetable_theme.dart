@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
 import 'constants.dart';
+import 'simplified_timetable_theme.dart';
 
 /// 시간표 관련 모든 스타일을 통합 관리하는 클래스
 class TimetableTheme {
-  // 색상 정의 (단순화)
+  // 색상 정의 (SimplifiedTimetableTheme 참조)
   static const Color selectedColor = Colors.blue;
   static const Color exchangeableColor = Colors.green;
-  static const Color defaultColor = Colors.white;
-  static const Color teacherHeaderColor = Color(0xFFF5F5F5);
+  static const Color defaultColor = SimplifiedTimetableTheme.defaultColor;
+  static const Color teacherHeaderColor = SimplifiedTimetableTheme.teacherHeaderColor;
   static const Color periodHeaderColor = Color(0xFFFAFAFA);
   
-  // 색상 변형 정의
-  static const Color selectedColorLight = Color(0xFFE3F2FD); // blue.shade100
-  static const Color exchangeableColorLight = Color(0xFFC8E6C9); // green.shade200
-  static const Color selectedColorDark = Color(0xFF1976D2); // blue.shade700
+  // 색상 변형 정의 (SimplifiedTimetableTheme 참조)
+  static const Color selectedColorLight = SimplifiedTimetableTheme.selectedColorLight;
+  static const Color exchangeableColorLight = SimplifiedTimetableTheme.exchangeableColorLight;
+  static const Color selectedColorDark = SimplifiedTimetableTheme.selectedColorDark;
   static const Color exchangeableColorDark = Color(0xFF388E3C); // green.shade700
   static const Color exchangeableColorMedium = Color(0xFF66BB6A); // green.shade400
   
@@ -51,14 +52,6 @@ class TimetableTheme {
     required bool isLastColumnOfDay,
     CellState state = CellState.normal,
   }) {
-    // 선택된 셀의 경우 빨간색 테두리 적용
-    if (state == CellState.selected) {
-      return Border.all(
-        color: Colors.red,
-        width: 2.0,
-      );
-    }
-    
     // 일반 셀의 경우 기존 테두리 스타일 적용
     return Border(
       right: BorderSide(

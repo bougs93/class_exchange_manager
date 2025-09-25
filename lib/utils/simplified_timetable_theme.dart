@@ -5,14 +5,14 @@ import 'logger.dart';
 /// 단순화된 시간표 테마 클래스
 /// 기존의 TimetableTheme와 SelectedPeriodTheme를 통합
 class SimplifiedTimetableTheme {
-  // 색상 정의
-  static const Color _defaultColor = Colors.white;
-  static const Color _teacherHeaderColor = Color(0xFFF5F5F5);
+  // 색상 정의 (public으로 변경하여 다른 테마에서 참조 가능)
+  static const Color defaultColor = Colors.white;
+  static const Color teacherHeaderColor = Color(0xFFF5F5F5);
   
-  // 색상 변형
-  static const Color _selectedColorLight = Color(0xFFE3F2FD);
-  static const Color _exchangeableColorLight = Color(0xFFC8E6C9);
-  static const Color _selectedColorDark = Color(0xFF1976D2);
+  // 색상 변형 (public으로 변경하여 다른 테마에서 참조 가능)
+  static const Color selectedColorLight = Color(0xFFE3F2FD);
+  static const Color exchangeableColorLight = Color(0xFFC8E6C9);
+  static const Color selectedColorDark = Color(0xFF1976D2);
   
   /// 통합된 셀 스타일 생성
   static CellStyle getCellStyle({
@@ -47,11 +47,11 @@ class SimplifiedTimetableTheme {
     required bool isExchangeable,
   }) {
     if (isSelected) {
-      return _selectedColorLight;
+      return selectedColorLight;
     } else if (isExchangeable) {
-      return _exchangeableColorLight;
+      return exchangeableColorLight;
     } else {
-      return isTeacherColumn ? _teacherHeaderColor : _defaultColor;
+      return isTeacherColumn ? teacherHeaderColor : defaultColor;
     }
   }
   
@@ -63,7 +63,7 @@ class SimplifiedTimetableTheme {
     return TextStyle(
       fontSize: isHeader ? AppConstants.headerFontSize : AppConstants.dataFontSize,
       fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-      color: isSelected ? _selectedColorDark : Colors.black,
+      color: isSelected ? selectedColorDark : Colors.black,
       height: AppConstants.dataLineHeight,
     );
   }

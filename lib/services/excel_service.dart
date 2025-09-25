@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import '../models/teacher.dart';
 import '../models/time_slot.dart';
+import '../utils/day_utils.dart';
 
 /// 엑셀 파일 파싱 설정을 위한 클래스
 class ExcelParsingConfig {
@@ -572,7 +573,7 @@ class ExcelService {
           int? dayStartCol = dayColumnMapping[day];
           if (dayStartCol == null) continue;
           
-          int dayOfWeek = _getDayOfWeekNumber(day);
+          int dayOfWeek = DayUtils.getDayNumber(day);
           
           // 각 교시별로 데이터 추출
           for (int period in periods) {
@@ -660,17 +661,6 @@ class ExcelService {
     }
   }
 
-  /// 요일명을 숫자로 변환하는 메서드
-  static int _getDayOfWeekNumber(String day) {
-    Map<String, int> dayMapping = {
-      '월': 1,
-      '화': 2,
-      '수': 3,
-      '목': 4,
-      '금': 5,
-    };
-    return dayMapping[day] ?? 1;
-  }
 
   /// 학급번호를 표준 형식으로 변환하는 메서드
   /// 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'constants.dart';
+import 'simplified_timetable_theme.dart';
 
 /// 선택된 교시 관련 모든 스타일을 관리하는 통합 클래스
 class SelectedPeriodTheme {
@@ -11,19 +12,19 @@ class SelectedPeriodTheme {
   }) {
     if (isTeacherColumn) {
       if (isSelected) {
-        return Colors.blue.shade100; // 선택된 교사명 열
+        return SimplifiedTimetableTheme.selectedColorLight; // 선택된 교사명 열
       } else if (isExchangeableTeacher) {
-        return Colors.green.shade200; // 교체 가능한 교사명 열
+        return SimplifiedTimetableTheme.exchangeableColorLight; // 교체 가능한 교사명 열
       } else {
-        return const Color(AppConstants.teacherHeaderColor); // 기본 교사명 열 색상
+        return SimplifiedTimetableTheme.teacherHeaderColor; // 기본 교사명 열 색상
       }
     } else {
       if (isSelected) {
-        return Colors.blue.shade100; // 선택된 교시 셀
+        return SimplifiedTimetableTheme.selectedColorLight; // 선택된 교시 셀
       } else if (isExchangeableTeacher) {
-        return Colors.green.shade200; // 교체 가능한 교사 셀
+        return SimplifiedTimetableTheme.exchangeableColorLight; // 교체 가능한 교사 셀
       } else {
-        return const Color(AppConstants.dataCellColor); // 기본 색상
+        return SimplifiedTimetableTheme.defaultColor; // 기본 색상
       }
     }
   }
@@ -36,7 +37,7 @@ class SelectedPeriodTheme {
     return TextStyle(
       fontSize: isHeader ? AppConstants.headerFontSize : AppConstants.dataFontSize,
       fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-      color: isSelected ? Colors.blue.shade700 : Colors.black,
+      color: isSelected ? SimplifiedTimetableTheme.selectedColorDark : Colors.black,
     );
   }
   
@@ -100,15 +101,15 @@ class SelectedPeriodTheme {
   }) {
     return HeaderStyles(
       backgroundColor: isSelected 
-          ? Colors.blue.shade100  // 선택된 교시
+          ? SimplifiedTimetableTheme.selectedColorLight  // 선택된 교시
           : isExchangeablePeriod 
-              ? Colors.green.shade200  // 교체 가능한 교시
+              ? SimplifiedTimetableTheme.exchangeableColorLight  // 교체 가능한 교시
               : const Color(AppConstants.periodHeaderColor), // 기본 교시
       textStyle: TextStyle(
         fontSize: AppConstants.headerFontSize,
         fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
         color: isSelected 
-            ? Colors.blue.shade700 
+            ? SimplifiedTimetableTheme.selectedColorDark 
             : isExchangeablePeriod 
                 ? Colors.green.shade700  // 교체 가능한 교시 텍스트 색상
                 : Colors.black,
