@@ -338,12 +338,26 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       );
     }
     
+    // 선택된 요일과 교시 결정 (1:1 교체 또는 순환교체 모드에 따라)
+    String? selectedDay;
+    int? selectedPeriod;
+    
+    if (_isExchangeModeEnabled && _exchangeService.hasSelectedCell()) {
+      // 1:1 교체 모드
+      selectedDay = _exchangeService.selectedDay;
+      selectedPeriod = _exchangeService.selectedPeriod;
+    } else if (_isCircularExchangeModeEnabled && _circularExchangeService.hasSelectedCell()) {
+      // 순환교체 모드
+      selectedDay = _circularExchangeService.selectedDay;
+      selectedPeriod = _circularExchangeService.selectedPeriod;
+    }
+    
     // SyncfusionTimetableHelper를 사용하여 데이터 생성 (테마 기반)
     final result = SyncfusionTimetableHelper.convertToSyncfusionData(
       _timetableData!.timeSlots,
       _timetableData!.teachers,
-      selectedDay: _exchangeService.selectedDay,      // 선택된 요일 전달
-      selectedPeriod: _exchangeService.selectedPeriod, // 선택된 교시 전달
+      selectedDay: selectedDay,      // 선택된 요일 전달
+      selectedPeriod: selectedPeriod, // 선택된 교시 전달
       exchangeableTeachers: exchangeableTeachers, // 교체 가능한 교사 정보 전달
     );
     
@@ -410,32 +424,14 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       return; // 아무 동작하지 않음
     }
     
-    if (result.isModeInactive) {
-      // 순환교체 모드가 비활성화된 경우
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result.message ?? '순환교체 모드가 비활성화되어 있습니다.'),
-          backgroundColor: Colors.orange,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-      return;
-    }
+    setState(() {
+      // UI 상태 업데이트
+    });
     
-    if (result.isSuccess) {
-      // 순환교체 셀 선택 성공
-      setState(() {
-        // UI 상태 업데이트
-      });
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${result.teacherName} 교사의 ${result.day}요일 ${result.period}교시가 선택되었습니다.'),
-          backgroundColor: Colors.indigo,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
+    // 교체 대상 선택 후 교체 가능한 시간 탐색 및 표시
+    _processCircularCellSelection();
+    
+    // 메시지 표시 제거 - 셀 선택 시 메시지 없이 동작
   }
   
   
@@ -450,6 +446,19 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     
     // 교체 가능한 시간 탐색 및 표시
     _updateExchangeableTimes();
+    
+    // 테마 기반 헤더 업데이트 (선택된 교시 헤더를 연한 파란색으로 표시)
+    _updateHeaderTheme();
+  }
+  
+  /// 순환교체 셀 선택 후 처리 로직
+  void _processCircularCellSelection() {
+    // 데이터 소스에 선택 상태 업데이트
+    _dataSource?.updateSelection(
+      _circularExchangeService.selectedTeacher, 
+      _circularExchangeService.selectedDay, 
+      _circularExchangeService.selectedPeriod
+    );
     
     // 테마 기반 헤더 업데이트 (선택된 교시 헤더를 연한 파란색으로 표시)
     _updateHeaderTheme();
@@ -492,9 +501,6 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       }
       
       _isCircularExchangeModeEnabled = !_isCircularExchangeModeEnabled;
-      
-      // 순환교체 서비스에 모드 상태 전달
-      _circularExchangeService.setCircularModeActive(_isCircularExchangeModeEnabled);
       
       // 순환교체 모드가 비활성화되면 UI를 기본값으로 복원
       if (!_isCircularExchangeModeEnabled) {
@@ -835,12 +841,26 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       _timetableData!.teachers,
     );
     
+    // 선택된 요일과 교시 결정 (1:1 교체 또는 순환교체 모드에 따라)
+    String? selectedDay;
+    int? selectedPeriod;
+    
+    if (_isExchangeModeEnabled && _exchangeService.hasSelectedCell()) {
+      // 1:1 교체 모드
+      selectedDay = _exchangeService.selectedDay;
+      selectedPeriod = _exchangeService.selectedPeriod;
+    } else if (_isCircularExchangeModeEnabled && _circularExchangeService.hasSelectedCell()) {
+      // 순환교체 모드
+      selectedDay = _circularExchangeService.selectedDay;
+      selectedPeriod = _circularExchangeService.selectedPeriod;
+    }
+    
     // 선택된 교시 정보를 전달하여 헤더만 업데이트
     final result = SyncfusionTimetableHelper.convertToSyncfusionData(
       _timetableData!.timeSlots,
       _timetableData!.teachers,
-      selectedDay: _exchangeService.selectedDay,      // 테마에서 사용할 선택 정보
-      selectedPeriod: _exchangeService.selectedPeriod,
+      selectedDay: selectedDay,      // 테마에서 사용할 선택 정보
+      selectedPeriod: selectedPeriod,
       exchangeableTeachers: exchangeableTeachers, // 교체 가능한 교사 정보 전달
     );
     
