@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../utils/simplified_timetable_theme.dart';
+import '../../utils/logger.dart';
 
 /// 단순화된 시간표 셀 위젯
 class SimplifiedTimetableCell extends StatelessWidget {
@@ -31,6 +32,11 @@ class SimplifiedTimetableCell extends StatelessWidget {
       isLastColumnOfDay: isLastColumnOfDay,
       isHeader: isHeader,
     );
+    
+    // 디버깅을 위한 로그
+    if (isSelected) {
+      AppLogger.exchangeDebug('선택된 셀 렌더링: $content, 교사열=$isTeacherColumn, 선택됨=$isSelected');
+    }
     
     return GestureDetector(
       onTap: onTap,

@@ -3,6 +3,7 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../utils/simplified_timetable_data_source.dart';
 import '../models/time_slot.dart';
 import '../models/teacher.dart';
+import '../utils/logger.dart';
 
 /// 단순화된 시간표 사용 예시
 class SimplifiedTimetableExample extends StatefulWidget {
@@ -42,7 +43,7 @@ class _SimplifiedTimetableExampleState extends State<SimplifiedTimetableExample>
       teachers: teachers,
     );
 
-    // 컬럼 생성 (간단한 예시)
+    // 컬럼 생성 (완전한 예시)
     _columns = [
       GridColumn(
         columnName: 'teacher',
@@ -58,6 +59,22 @@ class _SimplifiedTimetableExampleState extends State<SimplifiedTimetableExample>
           padding: const EdgeInsets.all(8.0),
           alignment: Alignment.center,
           child: const Text('월 1교시'),
+        ),
+      ),
+      GridColumn(
+        columnName: '월_2',
+        label: Container(
+          padding: const EdgeInsets.all(8.0),
+          alignment: Alignment.center,
+          child: const Text('월 2교시'),
+        ),
+      ),
+      GridColumn(
+        columnName: '화_1',
+        label: Container(
+          padding: const EdgeInsets.all(8.0),
+          alignment: Alignment.center,
+          child: const Text('화 1교시'),
         ),
       ),
     ];
@@ -111,9 +128,11 @@ class _SimplifiedTimetableExampleState extends State<SimplifiedTimetableExample>
   }
 
   void _selectCell(String teacher, String day, int period) {
+    AppLogger.exchangeInfo('선택 시도: 교사=$teacher, 요일=$day, 교시=$period');
     setState(() {
       _dataSource?.updateSelection(teacher, day, period);
     });
+    AppLogger.exchangeDebug('선택 완료');
   }
 
   void _clearSelection() {
@@ -133,6 +152,6 @@ class _SimplifiedTimetableExampleState extends State<SimplifiedTimetableExample>
 
   void _onCellTap(DataGridCellTapDetails details) {
     // 셀 탭 이벤트 처리
-    print('셀 탭: ${details.column.columnName}');
+    AppLogger.exchangeDebug('셀 탭: ${details.column.columnName}');
   }
 }

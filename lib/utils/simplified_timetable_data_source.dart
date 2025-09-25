@@ -3,6 +3,7 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../models/time_slot.dart';
 import '../models/teacher.dart';
 import '../ui/widgets/simplified_timetable_cell.dart';
+import 'logger.dart';
 
 /// 단순화된 시간표 데이터 소스
 class SimplifiedTimetableDataSource extends DataGridSource {
@@ -150,6 +151,8 @@ class SimplifiedTimetableDataSource extends DataGridSource {
         bool isExchangeable = _isExchangeableCell(dataGridCell, row);
         bool isLastColumnOfDay = _isLastColumnOfDay(dataGridCell);
         
+        AppLogger.exchangeDebug('셀 빌드: ${dataGridCell.columnName}, 값=${dataGridCell.value}, 선택됨=$isSelected');
+        
         return SimplifiedTimetableCell(
           content: dataGridCell.value.toString(),
           isTeacherColumn: isTeacherColumn,
@@ -163,9 +166,11 @@ class SimplifiedTimetableDataSource extends DataGridSource {
 
   /// 선택 상태 업데이트
   void updateSelection(String? teacher, String? day, int? period) {
+    AppLogger.exchangeInfo('데이터소스 선택 업데이트: 교사=$teacher, 요일=$day, 교시=$period');
     _selectedTeacher = teacher;
     _selectedDay = day;
     _selectedPeriod = period;
+    AppLogger.exchangeDebug('현재 선택 상태: $_selectedTeacher, $_selectedDay, $_selectedPeriod');
     notifyListeners();
   }
   
@@ -178,7 +183,9 @@ class SimplifiedTimetableDataSource extends DataGridSource {
   /// 특정 셀이 선택된 상태인지 확인
   bool _isCellSelected(DataGridCell dataGridCell, DataGridRow row) {
     if (dataGridCell.columnName == 'teacher') {
-      return _selectedTeacher == dataGridCell.value.toString();
+      bool isSelected = _selectedTeacher == dataGridCell.value.toString();
+      AppLogger.exchangeDebug('교사 셀 선택 확인: ${dataGridCell.value} == $_selectedTeacher = $isSelected');
+      return isSelected;
     }
     
     List<String> parts = dataGridCell.columnName.split('_');
@@ -187,9 +194,11 @@ class SimplifiedTimetableDataSource extends DataGridSource {
       int period = int.tryParse(parts[1]) ?? 0;
       String teacherName = _getTeacherNameFromRow(row);
       
-      return _selectedTeacher == teacherName && 
-             _selectedDay == day && 
-             _selectedPeriod == period;
+      bool isSelected = _selectedTeacher == teacherName && 
+                       _selectedDay == day && 
+                       _selectedPeriod == period;
+      AppLogger.exchangeDebug('시간표 셀 선택 확인: $teacherName/$day/$period == $_selectedTeacher/$_selectedDay/$_selectedPeriod = $isSelected');
+      return isSelected;
     }
     
     return false;
