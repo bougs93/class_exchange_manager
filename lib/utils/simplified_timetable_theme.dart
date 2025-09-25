@@ -75,7 +75,10 @@ class SimplifiedTimetableTheme {
   }) {
     // 선택된 셀의 경우 빨간색 테두리
     if (isSelected) {
-      return Border.all(color: Colors.red, width: 3.0); // 더 두껍게 설정
+      return Border.all(
+        color: Color(AppConstants.selectedCellColor), 
+        width: AppConstants.selectedCellBorderWidth
+      );
     }
     
     // 일반 셀의 경우 기존 테두리 스타일

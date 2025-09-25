@@ -21,10 +21,6 @@ class ExcelParsingConfig {
     this.dataStartRow = 4,
   });
   
-  @override
-  String toString() {
-    return 'ExcelParsingConfig(dayHeaderRow: $dayHeaderRow, periodHeaderRow: $periodHeaderRow, teacherColumn: $teacherColumn, dataStartRow: $dataStartRow)';
-  }
 }
 
 /// 시간표 파싱 결과를 담는 클래스
@@ -48,10 +44,6 @@ class TimetableData {
   /// 파싱 성공률 계산
   double get successRate => totalParsedCells > 0 ? successCount / totalParsedCells : 0.0;
   
-  @override
-  String toString() {
-    return 'TimetableData(teachers: ${teachers.length}, timeSlots: ${timeSlots.length}, successRate: ${(successRate * 100).toStringAsFixed(1)}%)';
-  }
 }
 
 /// 엑셀 파일을 읽고 처리하는 서비스 클래스
