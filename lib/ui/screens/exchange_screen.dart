@@ -301,12 +301,20 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
   void _createSyncfusionGridData() {
     if (_timetableData == null) return;
     
+    // 교체 가능한 교사 정보 수집 (현재 선택된 교사가 있는 경우에만)
+    List<Map<String, dynamic>> exchangeableTeachers = [];
+    if (_selectedTeacher != null && _selectedDay != null && _selectedPeriod != null) {
+      // 현재 교체 가능한 교사 정보를 가져옴
+      exchangeableTeachers = _getCurrentExchangeableTeachers();
+    }
+    
     // SyncfusionTimetableHelper를 사용하여 데이터 생성 (테마 기반)
     final result = SyncfusionTimetableHelper.convertToSyncfusionData(
       _timetableData!.timeSlots,
       _timetableData!.teachers,
       selectedDay: _selectedDay,      // 선택된 요일 전달
       selectedPeriod: _selectedPeriod, // 선택된 교시 전달
+      exchangeableTeachers: exchangeableTeachers, // 교체 가능한 교사 정보 전달
     );
     
     _columns = result.columns;
@@ -843,9 +851,53 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     return dayMap[day] ?? 1;
   }
   
+  /// 현재 교체 가능한 교사 정보 가져오기
+  List<Map<String, dynamic>> _getCurrentExchangeableTeachers() {
+    if (_timetableData == null || _selectedTeacher == null) return [];
+    
+    // 선택된 셀의 학급 정보 가져오기
+    String? selectedClassName = _getSelectedClassName();
+    if (selectedClassName == null) return [];
+    
+    List<Map<String, dynamic>> exchangeableTeachers = [];
+    
+    // 요일별로 빈시간 검사
+    List<String> days = ['월', '화', '수', '목', '금'];
+    List<int> periods = [1, 2, 3, 4, 5, 6, 7];
+    
+    for (String day in days) {
+      List<String> emptySlots = [];
+      
+      for (int period in periods) {
+        // 해당 교사의 해당 요일, 교시에 수업이 있는지 확인
+        bool hasClass = _timetableData!.timeSlots.any((slot) => 
+          slot.teacher == _selectedTeacher &&
+          slot.dayOfWeek == _getDayNumber(day) &&
+          slot.period == period &&
+          slot.isNotEmpty
+        );
+        
+        if (!hasClass) {
+          emptySlots.add('$period교시');
+        }
+      }
+      
+      if (emptySlots.isNotEmpty) {
+        // 빈시간에 같은 반을 가르치는 교사 찾기
+        List<Map<String, dynamic>> dayExchangeableTeachers = _findSameClassTeachers(day, emptySlots, selectedClassName);
+        exchangeableTeachers.addAll(dayExchangeableTeachers);
+      }
+    }
+    
+    return exchangeableTeachers;
+  }
+  
   /// 테마 기반 헤더 업데이트 (선택된 교시 헤더를 연한 파란색으로 표시)
   void _updateHeaderTheme() {
     if (_timetableData == null) return;
+    
+    // 교체 가능한 교사 정보 수집
+    List<Map<String, dynamic>> exchangeableTeachers = _getCurrentExchangeableTeachers();
     
     // 선택된 교시 정보를 전달하여 헤더만 업데이트
     final result = SyncfusionTimetableHelper.convertToSyncfusionData(
@@ -853,6 +905,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       _timetableData!.teachers,
       selectedDay: _selectedDay,      // 테마에서 사용할 선택 정보
       selectedPeriod: _selectedPeriod,
+      exchangeableTeachers: exchangeableTeachers, // 교체 가능한 교사 정보 전달
     );
     
     _columns = result.columns; // 헤더만 업데이트

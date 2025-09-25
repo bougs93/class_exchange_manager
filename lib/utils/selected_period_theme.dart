@@ -10,9 +10,13 @@ class SelectedPeriodTheme {
     required bool isExchangeableTeacher,
   }) {
     if (isTeacherColumn) {
-      return isSelected 
-          ? Colors.blue.shade100  // 선택된 교사명 열
-          : const Color(AppConstants.teacherHeaderColor);
+      if (isSelected) {
+        return Colors.blue.shade100; // 선택된 교사명 열
+      } else if (isExchangeableTeacher) {
+        return Colors.green.shade200; // 교체 가능한 교사명 열
+      } else {
+        return const Color(AppConstants.teacherHeaderColor); // 기본 교사명 열 색상
+      }
     } else {
       if (isSelected) {
         return Colors.blue.shade100; // 선택된 교시 셀
@@ -92,15 +96,22 @@ class SelectedPeriodTheme {
     required bool isSelected,
     required bool isLastDay,
     required bool isLastPeriod,
+    bool isExchangeablePeriod = false, // 교체 가능한 교시인지 여부
   }) {
     return HeaderStyles(
       backgroundColor: isSelected 
-          ? Colors.blue.shade100
-          : const Color(AppConstants.periodHeaderColor),
+          ? Colors.blue.shade100  // 선택된 교시
+          : isExchangeablePeriod 
+              ? Colors.green.shade200  // 교체 가능한 교시
+              : const Color(AppConstants.periodHeaderColor), // 기본 교시
       textStyle: TextStyle(
         fontSize: AppConstants.headerFontSize,
         fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-        color: isSelected ? Colors.blue.shade700 : Colors.black,
+        color: isSelected 
+            ? Colors.blue.shade700 
+            : isExchangeablePeriod 
+                ? Colors.green.shade700  // 교체 가능한 교시 텍스트 색상
+                : Colors.black,
       ),
       border: Border(
         right: BorderSide(

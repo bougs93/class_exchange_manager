@@ -210,21 +210,25 @@ class TimetableDataSource extends DataGridSource {
             }
           }
           
-          // 교체 가능한 교사인지 확인 (교사명 열이 아닌 경우에만)
+          // 교체 가능한 교사인지 확인
           bool isExchangeableTeacher = false;
-          if (!isTeacherColumn) {
-            // 교사명과 요일, 교시 정보 추출
-            String teacherName = '';
+          
+          // 교사명 찾기
+          String teacherName = '';
+          for (DataGridCell rowCell in row.getCells()) {
+            if (rowCell.columnName == 'teacher') {
+              teacherName = rowCell.value.toString();
+              break;
+            }
+          }
+          
+          if (isTeacherColumn) {
+            // 교사명 열인 경우: 해당 교사가 교체 가능한 교사인지 확인
+            isExchangeableTeacher = _isExchangeableTeacherForTeacher(teacherName);
+          } else {
+            // 데이터 셀인 경우: 해당 교사와 시간이 교체 가능한지 확인
             String day = '';
             int period = 0;
-            
-            // 교사명 찾기
-            for (DataGridCell rowCell in row.getCells()) {
-              if (rowCell.columnName == 'teacher') {
-                teacherName = rowCell.value.toString();
-                break;
-              }
-            }
             
             // 요일과 교시 추출
             List<String> parts = dataGridCell.columnName.split('_');
@@ -360,6 +364,13 @@ class TimetableDataSource extends DataGridSource {
       teacher['teacherName'] == teacherName &&
       teacher['day'] == day &&
       teacher['period'] == period
+    );
+  }
+  
+  /// 교체 가능한 교사인지 확인 (교사명만 기준)
+  bool _isExchangeableTeacherForTeacher(String teacherName) {
+    return _exchangeableTeachers.any((teacher) => 
+      teacher['teacherName'] == teacherName
     );
   }
   
