@@ -6,6 +6,7 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../services/excel_service.dart';
 import '../../services/exchange_service.dart';
+import '../../services/circular_exchange_service.dart';
 import '../../utils/timetable_data_source.dart';
 import '../../utils/syncfusion_timetable_helper.dart';
 import '../../utils/constants.dart';
@@ -29,8 +30,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
   bool _isLoading = false;    // 로딩 상태
   String? _errorMessage;     // 오류 메시지
   
-  // 교체 서비스 인스턴스
+  // 교체 서비스 인스턴스들
   final ExchangeService _exchangeService = ExchangeService();
+  final CircularExchangeService _circularExchangeService = CircularExchangeService(); // 순환교체 구현 예정
   
   // 교체 모드 관련 변수들
   bool _isExchangeModeEnabled = false; // 1:1교체 모드 활성화 상태
@@ -366,16 +368,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     if (_isExchangeModeEnabled) {
       _startOneToOneExchange(details);
     }
-    // 순환교체 모드는 아직 구현되지 않음
+    // 순환교체 모드인 경우 순환교체 처리 시작
     else if (_isCircularExchangeModeEnabled) {
-      // TODO: 순환교체 로직 구현 예정
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('순환교체 기능은 아직 구현 중입니다.'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 2),
-        ),
-      );
+      _startCircularExchange(details);
     }
   }
   
@@ -399,6 +394,27 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     
     // 교체 대상 선택 후 교체 가능한 시간 탐색 및 표시
     _processCellSelection();
+  }
+  
+  /// 순환교체 처리 시작 - 순환교체 모드에서만 호출됨
+  void _startCircularExchange(DataGridCellTapDetails details) {
+    // 데이터 소스가 없는 경우 처리하지 않음
+    if (_dataSource == null) {
+      return;
+    }
+    
+    // CircularExchangeService를 사용하여 순환교체 처리
+    // TODO: CircularExchangeService의 메서드 구현 후 호출
+    // CircularExchangeResult result = _circularExchangeService.startCircularExchange(details, _dataSource!);
+    
+    // 임시로 구현 중 메시지 표시
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('순환교체 기능 구현 중입니다.'),
+        backgroundColor: Colors.orange,
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
   
   
@@ -476,8 +492,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
   
   /// UI를 기본값으로 복원
   void _restoreUIToDefault() {
-    // ExchangeService의 모든 선택 상태 초기화
+    // 모든 교체 서비스의 선택 상태 초기화
     _exchangeService.clearAllSelections();
+    // TODO: _circularExchangeService.clearAllSelections(); // CircularExchangeService 구현 후 활성화
     
     // 데이터 소스에 선택 상태 해제
     _dataSource?.updateSelection(null, null, null);
@@ -725,8 +742,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       _columns = [];
       _stackedHeaders = [];
       _errorMessage = null;
-      // ExchangeService의 모든 선택 상태 초기화
+      // 모든 교체 서비스의 선택 상태 초기화
       _exchangeService.clearAllSelections();
+      // TODO: _circularExchangeService.clearAllSelections(); // CircularExchangeService 구현 후 활성화
       // 모든 교체 모드도 함께 종료
       _isExchangeModeEnabled = false;
       _isCircularExchangeModeEnabled = false;
