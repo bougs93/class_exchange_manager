@@ -36,6 +36,11 @@ class SimplifiedTimetableTheme {
         isSelected: isSelected,
         isLastColumnOfDay: isLastColumnOfDay,
       ),
+      overlayWidget: _getOverlayWidget(
+        isExchangeable: isExchangeable,
+        isTeacherColumn: isTeacherColumn,
+        isHeader: isHeader,
+      ),
     );
   }
   
@@ -95,6 +100,61 @@ class SimplifiedTimetableTheme {
   static bool isPeriodSelected(String day, int period, String? selectedDay, int? selectedPeriod) {
     return selectedDay == day && selectedPeriod == period;
   }
+  
+  /// 교체 가능한 셀에 표시할 오버레이 위젯 생성 (내부용)
+  static Widget? _getOverlayWidget({
+    required bool isExchangeable,
+    required bool isTeacherColumn,
+    required bool isHeader,
+  }) {
+    // 교체 가능한 셀이고, 교사명 열이 아니고, 헤더가 아닌 경우에만 표시
+    if (!isExchangeable || isTeacherColumn || isHeader) {
+      return null;
+    }
+    
+    // 기본값으로 1:1 교체용 오버레이 생성
+    return createExchangeableOverlay(
+      color: Colors.red.shade600,
+      number: '1',
+    );
+  }
+  
+  /// 교체 가능한 셀에 표시할 오버레이 위젯 생성 (공용 함수)
+  /// 다른 서비스에서도 사용할 수 있도록 public으로 제공
+  static Widget createExchangeableOverlay({
+    required Color color,
+    required String number,
+    double size = 10.0,
+    double fontSize = 8.0,
+  }) {
+    return Positioned(
+      top: 0,
+      left: 0,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(0), // 왼쪽 상단 모서리는 직각
+            topRight: Radius.circular(2),
+            bottomLeft: Radius.circular(0), // 왼쪽 하단 모서리는 직각
+            bottomRight: Radius.circular(2),
+          ),
+        ),
+        child: Center(
+          child: Text(
+            number,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: fontSize,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// 통합된 셀 스타일 데이터 클래스
@@ -102,10 +162,12 @@ class CellStyle {
   final Color backgroundColor;
   final TextStyle textStyle;
   final Border border;
+  final Widget? overlayWidget; // 교체 가능한 셀에 표시할 오버레이 위젯
   
   CellStyle({
     required this.backgroundColor,
     required this.textStyle,
     required this.border,
+    this.overlayWidget,
   });
 }

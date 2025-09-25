@@ -47,12 +47,21 @@ class SimplifiedTimetableCell extends StatelessWidget {
           color: style.backgroundColor,
           border: style.border,
         ),
-        child: Text(
-          content,
-          style: style.textStyle,
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
+        child: Stack(
+          children: [
+            // 기본 셀 내용
+            Center(
+              child: Text(
+                content,
+                style: style.textStyle,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            // 테마에서 제공하는 오버레이 위젯 (교체 가능한 셀에 숫자 1 표시)
+            if (style.overlayWidget != null) style.overlayWidget!,
+          ],
         ),
       ),
     );

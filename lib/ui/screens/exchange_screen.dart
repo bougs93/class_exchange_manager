@@ -404,17 +404,38 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     }
     
     // CircularExchangeService를 사용하여 순환교체 처리
-    // TODO: CircularExchangeService의 메서드 구현 후 호출
-    // CircularExchangeResult result = _circularExchangeService.startCircularExchange(details, _dataSource!);
+    CircularExchangeResult result = _circularExchangeService.startCircularExchange(details, _dataSource!);
     
-    // 임시로 구현 중 메시지 표시
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('순환교체 기능 구현 중입니다.'),
-        backgroundColor: Colors.orange,
-        duration: Duration(seconds: 2),
-      ),
-    );
+    if (result.isNoAction) {
+      return; // 아무 동작하지 않음
+    }
+    
+    if (result.isModeInactive) {
+      // 순환교체 모드가 비활성화된 경우
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.message ?? '순환교체 모드가 비활성화되어 있습니다.'),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+    
+    if (result.isSuccess) {
+      // 순환교체 셀 선택 성공
+      setState(() {
+        // UI 상태 업데이트
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${result.teacherName} 교사의 ${result.day}요일 ${result.period}교시가 선택되었습니다.'),
+          backgroundColor: Colors.indigo,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
   
   
@@ -472,6 +493,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       
       _isCircularExchangeModeEnabled = !_isCircularExchangeModeEnabled;
       
+      // 순환교체 서비스에 모드 상태 전달
+      _circularExchangeService.setCircularModeActive(_isCircularExchangeModeEnabled);
+      
       // 순환교체 모드가 비활성화되면 UI를 기본값으로 복원
       if (!_isCircularExchangeModeEnabled) {
         _restoreUIToDefault();
@@ -494,7 +518,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
   void _restoreUIToDefault() {
     // 모든 교체 서비스의 선택 상태 초기화
     _exchangeService.clearAllSelections();
-    // TODO: _circularExchangeService.clearAllSelections(); // CircularExchangeService 구현 후 활성화
+    _circularExchangeService.clearAllSelections();
     
     // 데이터 소스에 선택 상태 해제
     _dataSource?.updateSelection(null, null, null);
@@ -744,7 +768,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       _errorMessage = null;
       // 모든 교체 서비스의 선택 상태 초기화
       _exchangeService.clearAllSelections();
-      // TODO: _circularExchangeService.clearAllSelections(); // CircularExchangeService 구현 후 활성화
+      _circularExchangeService.clearAllSelections();
       // 모든 교체 모드도 함께 종료
       _isExchangeModeEnabled = false;
       _isCircularExchangeModeEnabled = false;
