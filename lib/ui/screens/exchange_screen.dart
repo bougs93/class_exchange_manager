@@ -39,6 +39,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
   
   // 교체 가능한 시간 관련 변수들
   List<ExchangeOption> _exchangeOptions = []; // 교체 가능한 시간 옵션들
+  
+  // 교체 모드 관련 변수들
+  bool _isExchangeModeEnabled = false; // 1:1교체 모드 활성화 상태
 
   @override
   Widget build(BuildContext context) {
@@ -191,17 +194,32 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _clearSelection,
-                      icon: const Icon(Icons.clear),
-                      label: const Text('선택 해제'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red.shade600,
-                        side: BorderSide(color: Colors.red.shade300),
+                    child: ElevatedButton.icon(
+                      onPressed: _toggleExchangeMode,
+                      icon: Icon(_isExchangeModeEnabled ? Icons.swap_horiz : Icons.swap_horiz_outlined),
+                      label: Text(_isExchangeModeEnabled ? '교체 모드 종료' : '1:1교체'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _isExchangeModeEnabled ? Colors.orange.shade600 : Colors.green.shade600,
+                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  // 교체 모드가 활성화된 경우에만 선택 해제 버튼 표시
+                  if (_isExchangeModeEnabled)
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _clearSelection,
+                        icon: const Icon(Icons.clear),
+                        label: const Text('선택 해제'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red.shade600,
+                          side: BorderSide(color: Colors.red.shade300),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ],
@@ -259,8 +277,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                // 교체 가능한 시간 개수 표시
-                ExchangeVisualizer.buildExchangeableCountWidget(_exchangeOptions.length),
+                // 교체 모드가 활성화된 경우에만 교체 가능한 시간 개수 표시
+                if (_isExchangeModeEnabled)
+                  ExchangeVisualizer.buildExchangeableCountWidget(_exchangeOptions.length),
               ],
             ),
             const SizedBox(height: 16),
@@ -328,8 +347,19 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     );
   }
   
-  /// 셀 탭 이벤트 핸들러 - 클릭 시 선택/해제 토글
+  /// 셀 탭 이벤트 핸들러 - 교체 모드가 활성화된 경우만 동작
   void _onCellTap(DataGridCellTapDetails details) {
+    // 교체 모드가 비활성화된 경우 아무 동작하지 않음
+    if (!_isExchangeModeEnabled) {
+      return;
+    }
+    
+    // 교체 모드가 활성화된 경우에만 셀 선택 로직 실행
+    _handleCellSelection(details);
+  }
+  
+  /// 셀 선택 처리 로직 - 교체 모드에서만 호출됨
+  void _handleCellSelection(DataGridCellTapDetails details) {
     // 교사명 열은 선택하지 않음
     if (details.column.columnName == 'teacher') return;
     
@@ -340,24 +370,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       int period = int.tryParse(parts[1]) ?? 0;
       
       // 선택된 셀의 교사명 찾기 (헤더를 고려한 행 인덱스 계산)
-      String teacherName = '';
-      if (_dataSource != null) {
-        // Syncfusion DataGrid에서 헤더는 다음과 같이 구성됨:
-        // - 일반 헤더: 1개 (컬럼명 표시)
-        // - 스택된 헤더: 1개 (요일별 병합)
-        // 총 2개의 헤더 행이 있으므로 실제 데이터 행 인덱스는 2를 빼야 함
-        int actualRowIndex = details.rowColumnIndex.rowIndex - 2;
-        
-        if (actualRowIndex >= 0 && actualRowIndex < _dataSource!.rows.length) {
-          DataGridRow row = _dataSource!.rows[actualRowIndex];
-          for (DataGridCell rowCell in row.getCells()) {
-            if (rowCell.columnName == 'teacher') {
-              teacherName = rowCell.value.toString();
-              break;
-            }
-          }
-        }
-      }
+      String teacherName = _getTeacherNameFromCell(details);
       
       // 동일한 셀을 다시 클릭했는지 확인 (토글 기능)
       bool isSameCell = _selectedTeacher == teacherName && 
@@ -367,25 +380,101 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       setState(() {
         if (isSameCell) {
           // 동일한 셀 클릭 시 선택 해제
-          _selectedTeacher = null;
-          _selectedDay = null;
-          _selectedPeriod = null;
+          _clearCellSelection();
         } else {
           // 새로운 셀 선택
-          _selectedTeacher = teacherName;
-          _selectedDay = day;
-          _selectedPeriod = period;
+          _selectCell(teacherName, day, period);
         }
       });
       
-      // 데이터 소스에 선택 상태 업데이트
-      _dataSource?.updateSelection(_selectedTeacher, _selectedDay, _selectedPeriod);
+      // 선택 상태에 따른 후속 처리
+      _processCellSelection();
+    }
+  }
+  
+  /// 셀에서 교사명 추출
+  String _getTeacherNameFromCell(DataGridCellTapDetails details) {
+    String teacherName = '';
+    if (_dataSource != null) {
+      // Syncfusion DataGrid에서 헤더는 다음과 같이 구성됨:
+      // - 일반 헤더: 1개 (컬럼명 표시)
+      // - 스택된 헤더: 1개 (요일별 병합)
+      // 총 2개의 헤더 행이 있으므로 실제 데이터 행 인덱스는 2를 빼야 함
+      int actualRowIndex = details.rowColumnIndex.rowIndex - 2;
       
-      // 교체 가능한 시간 탐색 및 표시
-      _updateExchangeableTimes();
+      if (actualRowIndex >= 0 && actualRowIndex < _dataSource!.rows.length) {
+        DataGridRow row = _dataSource!.rows[actualRowIndex];
+        for (DataGridCell rowCell in row.getCells()) {
+          if (rowCell.columnName == 'teacher') {
+            teacherName = rowCell.value.toString();
+            break;
+          }
+        }
+      }
+    }
+    return teacherName;
+  }
+  
+  /// 셀 선택 상태 설정
+  void _selectCell(String teacherName, String day, int period) {
+    _selectedTeacher = teacherName;
+    _selectedDay = day;
+    _selectedPeriod = period;
+  }
+  
+  /// 셀 선택 해제
+  void _clearCellSelection() {
+    _selectedTeacher = null;
+    _selectedDay = null;
+    _selectedPeriod = null;
+  }
+  
+  /// 셀 선택 후 처리 로직
+  void _processCellSelection() {
+    // 데이터 소스에 선택 상태 업데이트
+    _dataSource?.updateSelection(_selectedTeacher, _selectedDay, _selectedPeriod);
+    
+    // 교체 가능한 시간 탐색 및 표시
+    _updateExchangeableTimes();
+    
+    // 테마 기반 헤더 업데이트 (선택된 교시 헤더를 연한 파란색으로 표시)
+    _updateHeaderTheme();
+  }
+  
+  /// 교체 모드 토글
+  void _toggleExchangeMode() {
+    setState(() {
+      _isExchangeModeEnabled = !_isExchangeModeEnabled;
       
-      // 테마 기반 헤더 업데이트 (선택된 교시 헤더를 연한 파란색으로 표시)
-      _updateHeaderTheme();
+      // 교체 모드가 비활성화되면 UI를 기본값으로 복원
+      if (!_isExchangeModeEnabled) {
+        _restoreUIToDefault();
+      }
+    });
+  }
+  
+  /// UI를 기본값으로 복원
+  void _restoreUIToDefault() {
+    // 선택된 셀 정보 초기화
+    _clearCellSelection();
+    
+    // 교체 옵션 목록 초기화
+    _exchangeOptions.clear();
+    
+    // 데이터 소스에 선택 상태 해제
+    _dataSource?.updateSelection(null, null, null);
+    _dataSource?.updateExchangeOptions([]);
+    _dataSource?.updateExchangeableTeachers([]);
+    
+    // 교체 가능한 시간 업데이트 (빈 목록으로)
+    _updateExchangeableTimes();
+    
+    // 헤더 테마를 기본값으로 복원
+    _updateHeaderTheme();
+    
+    // 오류 메시지가 있다면 초기화
+    if (_errorMessage != null) {
+      _errorMessage = null;
     }
   }
 
@@ -618,6 +707,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       _selectedTeacher = null;
       _selectedDay = null;
       _selectedPeriod = null;
+      // 교체 모드도 함께 종료
+      _isExchangeModeEnabled = false;
     });
     
     // 교체 가능한 교사 정보도 초기화
