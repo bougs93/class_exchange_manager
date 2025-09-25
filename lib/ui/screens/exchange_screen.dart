@@ -614,6 +614,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       _selectedPeriod = null;
     });
     
+    // 교체 가능한 교사 정보도 초기화
+    _dataSource?.updateExchangeableTeachers([]);
+    
     // 선택 해제 시에도 헤더 테마 업데이트
     if (_timetableData != null) {
       _updateHeaderTheme();
@@ -675,6 +678,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     
     // 교사 빈시간 검사
     List<String> allEmptySlots = [];
+    List<Map<String, dynamic>> exchangeableTeachers = []; // 교체 가능한 교사 정보 수집
     
     for (String day in days) {
       List<String> emptySlots = [];
@@ -695,10 +699,14 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       
       if (emptySlots.isNotEmpty) {
         allEmptySlots.add('$day요일: ${emptySlots.join(', ')}');
-        // 빈시간에 같은 반을 가르치는 교사 찾기
-        _findSameClassTeachers(day, emptySlots, selectedClassName);
+        // 빈시간에 같은 반을 가르치는 교사 찾기 및 교체 가능한 교사 정보 수집
+        List<Map<String, dynamic>> dayExchangeableTeachers = _findSameClassTeachers(day, emptySlots, selectedClassName);
+        exchangeableTeachers.addAll(dayExchangeableTeachers);
       }
     }
+    
+    // 교체 가능한 교사 정보를 데이터 소스에 전달
+    _dataSource?.updateExchangeableTeachers(exchangeableTeachers);
     
     // 빈시간이 있는 경우에만 결과 출력
     if (allEmptySlots.isNotEmpty) {
@@ -726,8 +734,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
   }
   
   /// 빈시간에 같은 반을 가르치는 교사 찾기
-  void _findSameClassTeachers(String day, List<String> emptySlots, String selectedClassName) {
+  List<Map<String, dynamic>> _findSameClassTeachers(String day, List<String> emptySlots, String selectedClassName) {
     List<String> allSameClassTeachers = [];
+    List<Map<String, dynamic>> exchangeableTeachers = []; // 교체 가능한 교사 정보 수집
     
     for (String emptySlot in emptySlots) {
       int period = int.tryParse(emptySlot.replaceAll('교시', '')) ?? 0;
@@ -769,6 +778,17 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
         
         if (actuallyAvailableTeachers.isNotEmpty) {
           allSameClassTeachers.add('$period교시: ${actuallyAvailableTeachers.join(', ')}');
+          
+          // 교체 가능한 교사 정보를 수집 (UI 표시용)
+          for (String teacherInfo in actuallyAvailableTeachers) {
+            String teacherName = teacherInfo.split('(')[0];
+            exchangeableTeachers.add({
+              'teacherName': teacherName,
+              'day': day,
+              'period': period,
+              'subject': teacherInfo.split('(')[1].replaceAll(')', ''),
+            });
+          }
         }
       }
     }
@@ -777,6 +797,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     if (allSameClassTeachers.isNotEmpty) {
       AppLogger.teacherEmptySlotsInfo('$day요일 교체 가능한 교사: ${allSameClassTeachers.join(' | ')}');
     }
+    
+    return exchangeableTeachers;
   }
   
   /// 교체 가능한 교사들이 선택된 시간에 실제로 빈 시간인지 검사

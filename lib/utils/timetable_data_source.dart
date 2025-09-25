@@ -27,6 +27,9 @@ class TimetableDataSource extends DataGridSource {
   
   // 교체 가능한 시간 관련 변수들
   List<ExchangeOption> _exchangeOptions = [];
+  
+  // 교체 가능한 교사 정보 (교사명, 요일, 교시)
+  List<Map<String, dynamic>> _exchangeableTeachers = [];
 
   /// DataGrid 행 데이터 빌드
   void _buildDataGridRows() {
@@ -213,8 +216,33 @@ class TimetableDataSource extends DataGridSource {
                 ? Colors.blue.shade100  // 선택된 교사명 열 - 연한 파란색
                 : const Color(AppConstants.teacherHeaderColor);
           } else {
+            // 교사명과 요일, 교시 정보 추출
+            String teacherName = '';
+            String day = '';
+            int period = 0;
+            
+            // 교사명 찾기
+            for (DataGridCell rowCell in row.getCells()) {
+              if (rowCell.columnName == 'teacher') {
+                teacherName = rowCell.value.toString();
+                break;
+              }
+            }
+            
+            // 요일과 교시 추출
+            List<String> parts = dataGridCell.columnName.split('_');
+            if (parts.length == 2) {
+              day = parts[0];
+              period = int.tryParse(parts[1]) ?? 0;
+            }
+            
+            // 교체 가능한 교사인지 확인
+            bool isExchangeableTeacher = _isExchangeableTeacher(teacherName, day, period);
+            
             if (isSelected) {
               backgroundColor = Colors.blue.shade100; // 선택된 교시 셀 - 연한 파란색
+            } else if (isExchangeableTeacher) {
+              backgroundColor = Colors.green.shade200; // 교체 가능한 교사 셀 - 이미지 색상
             } else {
               backgroundColor = const Color(AppConstants.dataCellColor); // 기본 색상
             }
@@ -287,6 +315,12 @@ class TimetableDataSource extends DataGridSource {
     notifyListeners(); // UI 갱신
   }
   
+  /// 교체 가능한 교사 정보 업데이트
+  void updateExchangeableTeachers(List<Map<String, dynamic>> exchangeableTeachers) {
+    _exchangeableTeachers = exchangeableTeachers;
+    notifyListeners(); // UI 갱신
+  }
+  
   /// 현재 셀의 TimeSlot 가져오기
   TimeSlot? _getCurrentTimeSlot(DataGridCell dataGridCell, DataGridRow row) {
     if (dataGridCell.columnName == 'teacher') return null;
@@ -321,6 +355,15 @@ class TimetableDataSource extends DataGridSource {
       option.timeSlot.dayOfWeek == slot.dayOfWeek && 
       option.timeSlot.period == slot.period && 
       option.timeSlot.teacher == slot.teacher
+    );
+  }
+  
+  /// 교체 가능한 교사인지 확인 (교사명, 요일, 교시 기준)
+  bool _isExchangeableTeacher(String teacherName, String day, int period) {
+    return _exchangeableTeachers.any((teacher) => 
+      teacher['teacherName'] == teacherName &&
+      teacher['day'] == day &&
+      teacher['period'] == period
     );
   }
   
