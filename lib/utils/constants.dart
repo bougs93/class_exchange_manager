@@ -8,10 +8,8 @@ class AppConstants {
   static const int defaultDays = 5;      // 기본 요일 수 (월~금)
   static const int defaultPeriods = 7;   // 기본 교시 수
   
-  // 요일 이름
-  static const List<String> dayNames = [
-    '월', '화', '수', '목', '금'
-  ];
+  // 요일 이름 (DayUtils에서 관리)
+  // static const List<String> dayNames = ['월', '화', '수', '목', '금'];
   
   // 교시 이름
   static const List<String> periodNames = [

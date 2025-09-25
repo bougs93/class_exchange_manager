@@ -30,8 +30,7 @@ class TimetableDataSource extends DataGridSource {
   // 교체 가능한 교사 정보 (교사명, 요일, 교시)
   List<Map<String, dynamic>> _exchangeableTeachers = [];
   
-  // 교체 옵션 정보 (향후 확장을 위해 보관)
-  // ignore: unused_field
+  // 교체 옵션 정보
   List<ExchangeOption> _exchangeOptions = [];
 
   /// DataGrid 행 데이터 빌드
@@ -268,6 +267,12 @@ class TimetableDataSource extends DataGridSource {
     _exchangeOptions = exchangeOptions;
     notifyListeners(); // UI 갱신
   }
+  
+  /// 교체 옵션 가져오기
+  List<ExchangeOption> get exchangeOptions => _exchangeOptions;
+  
+  /// 교체 가능한 옵션 개수
+  int get exchangeableCount => _exchangeOptions.where((option) => option.isExchangeable).length;
   
   
   /// 교체 가능한 교사인지 확인 (교사명, 요일, 교시 기준)

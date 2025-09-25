@@ -2,6 +2,15 @@ import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
 
+/// 로그 레벨 열거형
+enum LogLevel {
+  debug,
+  info,
+  warning,
+  error,
+  fatal,
+}
+
 /// 애플리케이션 전용 로깅 유틸리티 클래스
 /// 
 /// 이 클래스는 프로덕션 환경에서 안전한 로깅을 제공합니다.
@@ -73,24 +82,34 @@ class AppLogger {
     error('❌ [교체관리] $message', error, stackTrace);
   }
 
-  /// 교사 빈시간 검사 관련 로그
-  static void teacherEmptySlotsDebug(String message) {
+  /// 교사 빈시간 검사 관련 로그 (통합)
+  static void teacherEmptySlots(String message, {LogLevel level = LogLevel.info}) {
     if (kDebugMode) {
-      developer.log('[교사빈시간] $message', name: 'AppLogger');
+      String prefix = _getLogPrefix(level);
+      developer.log('$prefix[교사빈시간] $message', name: 'AppLogger');
     }
   }
-
-  static void teacherEmptySlotsInfo(String message) {
-    if (kDebugMode) {
-      developer.log('[교사빈시간] $message', name: 'AppLogger');
+  
+  /// 로그 레벨별 접두사 반환
+  static String _getLogPrefix(LogLevel level) {
+    switch (level) {
+      case LogLevel.debug:
+        return '🐛 ';
+      case LogLevel.info:
+        return 'ℹ️ ';
+      case LogLevel.warning:
+        return '⚠️ ';
+      case LogLevel.error:
+        return '❌ ';
+      case LogLevel.fatal:
+        return '💀 ';
     }
   }
-
-  static void teacherEmptySlotsWarning(String message) {
-    if (kDebugMode) {
-      developer.log('[교사빈시간] $message', name: 'AppLogger');
-    }
-  }
+  
+  /// 기존 메서드들 (하위 호환성을 위해 유지)
+  static void teacherEmptySlotsDebug(String message) => teacherEmptySlots(message, level: LogLevel.debug);
+  static void teacherEmptySlotsInfo(String message) => teacherEmptySlots(message, level: LogLevel.info);
+  static void teacherEmptySlotsWarning(String message) => teacherEmptySlots(message, level: LogLevel.warning);
 
   /// Flutter의 기본 debugPrint를 사용한 안전한 출력
   /// 
