@@ -42,6 +42,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
   
   // 교체 모드 관련 변수들
   bool _isExchangeModeEnabled = false; // 1:1교체 모드 활성화 상태
+  bool _isCircularExchangeModeEnabled = false; // 순환교체 모드 활성화 상태
 
   @override
   Widget build(BuildContext context) {
@@ -206,20 +207,32 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  // 교체 모드가 활성화된 경우에만 선택 해제 버튼 표시
-                  if (_isExchangeModeEnabled)
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _clearSelection,
-                        icon: const Icon(Icons.clear),
-                        label: const Text('선택 해제'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red.shade600,
-                          side: BorderSide(color: Colors.red.shade300),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _toggleCircularExchangeMode,
+                      icon: Icon(_isCircularExchangeModeEnabled ? Icons.refresh : Icons.refresh_outlined),
+                      label: Text(_isCircularExchangeModeEnabled ? '순환교체 종료' : '순환교체'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _isCircularExchangeModeEnabled ? Colors.purple.shade600 : Colors.indigo.shade600,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  // 선택 해제 버튼 (항상 표시)
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _clearSelection,
+                      icon: const Icon(Icons.clear),
+                      label: const Text('선택 해제'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red.shade600,
+                        side: BorderSide(color: Colors.red.shade300),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -350,7 +363,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
   /// 셀 탭 이벤트 핸들러 - 교체 모드가 활성화된 경우만 동작
   void _onCellTap(DataGridCellTapDetails details) {
     // 교체 모드가 비활성화된 경우 아무 동작하지 않음
-    if (!_isExchangeModeEnabled) {
+    if (!_isExchangeModeEnabled && !_isCircularExchangeModeEnabled) {
       return;
     }
     
@@ -444,6 +457,11 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
   /// 교체 모드 토글
   void _toggleExchangeMode() {
     setState(() {
+      // 순환교체 모드가 활성화되어 있다면 비활성화
+      if (_isCircularExchangeModeEnabled) {
+        _isCircularExchangeModeEnabled = false;
+      }
+      
       _isExchangeModeEnabled = !_isExchangeModeEnabled;
       
       // 교체 모드가 비활성화되면 UI를 기본값으로 복원
@@ -451,6 +469,45 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
         _restoreUIToDefault();
       }
     });
+    
+    // 1:1교체 모드 활성화 시 사용자에게 안내 메시지 표시
+    if (_isExchangeModeEnabled && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('1:1교체 모드가 활성화되었습니다. 두 교사의 시간을 서로 교체할 수 있습니다.'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+  
+  /// 순환교체 모드 토글
+  void _toggleCircularExchangeMode() {
+    setState(() {
+      // 1:1교체 모드가 활성화되어 있다면 비활성화
+      if (_isExchangeModeEnabled) {
+        _isExchangeModeEnabled = false;
+      }
+      
+      _isCircularExchangeModeEnabled = !_isCircularExchangeModeEnabled;
+      
+      // 순환교체 모드가 비활성화되면 UI를 기본값으로 복원
+      if (!_isCircularExchangeModeEnabled) {
+        _restoreUIToDefault();
+      }
+    });
+    
+    // 순환교체 모드 활성화 시 사용자에게 안내 메시지 표시
+    if (_isCircularExchangeModeEnabled && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('순환교체 모드가 활성화되었습니다. 여러 교사의 시간을 순환하여 교체할 수 있습니다.'),
+          backgroundColor: Colors.indigo,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
   }
   
   /// UI를 기본값으로 복원
@@ -476,6 +533,10 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     if (_errorMessage != null) {
       _errorMessage = null;
     }
+    
+    // 모든 교체 모드 초기화
+    _isExchangeModeEnabled = false;
+    _isCircularExchangeModeEnabled = false;
   }
 
   /// 오류 메시지 섹션 UI
@@ -707,8 +768,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       _selectedTeacher = null;
       _selectedDay = null;
       _selectedPeriod = null;
-      // 교체 모드도 함께 종료
+      // 모든 교체 모드도 함께 종료
       _isExchangeModeEnabled = false;
+      _isCircularExchangeModeEnabled = false;
     });
     
     // 교체 가능한 교사 정보도 초기화
