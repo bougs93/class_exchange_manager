@@ -10,6 +10,9 @@ import '../../utils/syncfusion_timetable_helper.dart';
 import '../../utils/constants.dart';
 import '../../utils/exchange_algorithm.dart';
 import '../../utils/exchange_visualizer.dart';
+import '../../utils/logger.dart';
+import '../../models/time_slot.dart';
+import '../../models/teacher.dart';
 
 /// 교체 관리 화면
 class ExchangeScreen extends StatefulWidget {
@@ -372,6 +375,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       // 교체 가능한 시간 탐색 및 표시
       _updateExchangeableTimes();
       
+      // 해당 교사의 빈시간 검사 및 디버그 출력
+      _checkTeacherEmptySlots();
+      
       // 테마 기반 헤더 업데이트 (선택된 교시 헤더를 연한 파란색으로 표시)
       _updateHeaderTheme();
     }
@@ -649,6 +655,133 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     
   }
   
+  
+  /// 해당 교사의 빈시간 검사 및 디버그 출력
+  void _checkTeacherEmptySlots() {
+    if (_timetableData == null || _selectedTeacher == null) return;
+    
+    // 선택된 셀의 학급 정보 가져오기
+    String? selectedClassName = _getSelectedClassName();
+    if (selectedClassName == null) {
+      return;
+    }
+    
+    // 요일별로 빈시간 검사
+    List<String> days = ['월', '화', '수', '목', '금'];
+    List<int> periods = [1, 2, 3, 4, 5, 6, 7];
+    
+    // 교사 빈시간 검사
+    List<String> allEmptySlots = [];
+    
+    for (String day in days) {
+      List<String> emptySlots = [];
+      
+      for (int period in periods) {
+        // 해당 교사의 해당 요일, 교시에 수업이 있는지 확인
+        bool hasClass = _timetableData!.timeSlots.any((slot) => 
+          slot.teacher == _selectedTeacher &&
+          slot.dayOfWeek == _getDayNumber(day) &&
+          slot.period == period &&
+          slot.isNotEmpty
+        );
+        
+        if (!hasClass) {
+          emptySlots.add('$period교시');
+        }
+      }
+      
+      if (emptySlots.isNotEmpty) {
+        allEmptySlots.add('$day요일: ${emptySlots.join(', ')}');
+        // 빈시간에 같은 반을 가르치는 교사 찾기
+        _findSameClassTeachers(day, emptySlots, selectedClassName);
+      }
+    }
+    
+    // 빈시간이 있는 경우에만 결과 출력
+    if (allEmptySlots.isNotEmpty) {
+      AppLogger.teacherEmptySlotsInfo('$_selectedTeacher 교사 빈시간: ${allEmptySlots.join(' | ')}');
+    } else {
+      AppLogger.teacherEmptySlotsInfo('$_selectedTeacher 교사: 빈시간 없음');
+    }
+  }
+  
+  /// 선택된 셀의 학급 정보 가져오기
+  String? _getSelectedClassName() {
+    if (_timetableData == null || _selectedTeacher == null || _selectedDay == null || _selectedPeriod == null) {
+      return null;
+    }
+    
+    // 선택된 셀의 TimeSlot 찾기
+    TimeSlot? selectedSlot = _timetableData!.timeSlots.firstWhere(
+      (slot) => slot.teacher == _selectedTeacher &&
+                slot.dayOfWeek == _getDayNumber(_selectedDay!) &&
+                slot.period == _selectedPeriod,
+      orElse: () => TimeSlot.empty(),
+    );
+    
+    return selectedSlot.className;
+  }
+  
+  /// 빈시간에 같은 반을 가르치는 교사 찾기
+  void _findSameClassTeachers(String day, List<String> emptySlots, String selectedClassName) {
+    List<String> allSameClassTeachers = [];
+    
+    for (String emptySlot in emptySlots) {
+      int period = int.tryParse(emptySlot.replaceAll('교시', '')) ?? 0;
+      if (period == 0) continue;
+      
+      // 모든 교사 중에서 해당 시간에 같은 반을 가르치는 교사 찾기
+      List<String> sameClassTeachers = [];
+      
+      for (Teacher teacher in _timetableData!.teachers) {
+        if (teacher.name == _selectedTeacher) continue; // 자기 자신 제외
+        
+        // 해당 교사가 해당 시간에 같은 반을 가르치는지 확인
+        bool hasSameClass = _timetableData!.timeSlots.any((slot) => 
+          slot.teacher == teacher.name &&
+          slot.dayOfWeek == _getDayNumber(day) &&
+          slot.period == period &&
+          slot.className == selectedClassName &&
+          slot.isNotEmpty
+        );
+        
+        if (hasSameClass) {
+          // 해당 교사의 과목 정보도 함께 출력
+          TimeSlot? teacherSlot = _timetableData!.timeSlots.firstWhere(
+            (slot) => slot.teacher == teacher.name &&
+                      slot.dayOfWeek == _getDayNumber(day) &&
+                      slot.period == period &&
+                      slot.className == selectedClassName,
+            orElse: () => TimeSlot.empty(),
+          );
+          
+          String subject = teacherSlot.subject ?? '과목 없음';
+          sameClassTeachers.add('${teacher.name}($subject)');
+        }
+      }
+      
+      if (sameClassTeachers.isNotEmpty) {
+        allSameClassTeachers.add('$period교시: ${sameClassTeachers.join(', ')}');
+      }
+    }
+    
+    // 같은 반 교사가 있는 경우에만 출력
+    if (allSameClassTeachers.isNotEmpty) {
+      AppLogger.teacherEmptySlotsInfo('$day요일 교체 가능한 교사: ${allSameClassTeachers.join(' | ')}');
+    }
+  }
+  
+  /// 요일명을 숫자로 변환
+  int _getDayNumber(String day) {
+    const dayMap = {
+      '월': 1,
+      '화': 2,
+      '수': 3,
+      '목': 4,
+      '금': 5,
+    };
+    return dayMap[day] ?? 1;
+  }
   
   /// 테마 기반 헤더 업데이트 (선택된 교시 헤더를 연한 파란색으로 표시)
   void _updateHeaderTheme() {
