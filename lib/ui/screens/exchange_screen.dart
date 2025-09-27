@@ -369,6 +369,10 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
                   columnWidthMode: ColumnWidthMode.none,
                   frozenColumnsCount: 1, // 교사명 열(첫 번째 열) 고정
                   onCellTap: _onCellTap, // 셀 탭 이벤트 핸들러
+                  // 스크롤바 설정 - 명확하게 보이도록 설정
+                  isScrollbarAlwaysShown: true, // 스크롤바 항상 표시
+                  horizontalScrollPhysics: const AlwaysScrollableScrollPhysics(), // 가로 스크롤 활성화
+                  verticalScrollPhysics: const AlwaysScrollableScrollPhysics(), // 세로 스크롤 활성화
                 ),
               ),
             ),
