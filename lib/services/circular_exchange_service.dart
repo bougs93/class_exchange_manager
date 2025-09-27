@@ -340,7 +340,7 @@ class CircularExchangeService {
       // 최대 단계 수 초과 시 종료
       if (currentStep > maxSteps) return;
       
-      // 순환 완료 확인 (시작점으로 돌아옴)
+      // 연쇄 교체 완료 확인 (시작점으로 돌아옴)
       if (currentStep >= 2 && currentNode.nodeId == startNode.nodeId) {
         // exactSteps 옵션에 따라 조건 확인
         bool shouldAddPath = exactSteps ? 
@@ -348,10 +348,9 @@ class CircularExchangeService {
           (currentStep <= maxSteps);   // 해당 단계까지
         
         if (shouldAddPath) {
-          // 시작점을 경로 끝에 추가하여 완전한 순환 경로 생성
+          // 시작점을 경로 끝에 추가하여 완전한 연쇄 교체 경로 생성
           List<ExchangeNode> completePath = List.from(currentPath)..add(startNode);
           allPaths.add(completePath);
-          // 디버그 로그 제거 (최종 결과에서 출력됨)
         }
         return;
       }
@@ -375,8 +374,8 @@ class CircularExchangeService {
           continue;
         }
         
-        // 교체 가능성 검증
-        if (_isMutuallyExchangeable(currentNode, nextNode, timeSlots)) {
+        // 방향 그래프 교체 가능성 검증 (한 방향만)
+        if (_isOneWayExchangeable(currentNode, nextNode, timeSlots)) {
           dfs(nextNode, List.from(currentPath), Set.from(visited), currentStep + 1);
         }
       }
@@ -396,13 +395,14 @@ class CircularExchangeService {
     → 이선생 - 화요일 3교시 - 3-1반
     → 박선생 - 수요일 2교시 - 3-1반
   */
-  /// 동일 학급의 교체 가능한 인접 노드들을 찾는 메서드
+  /// 방향 그래프를 위한 인접 노드들을 찾는 메서드
   /// 
   /// 조건:
   /// 1. 같은 학급을 가르치는 교사들
   /// 2. 다른 시간대 (요일 또는 교시가 다름)
   /// 3. 교체 가능한 상태 (isExchangeable = true)
   /// 4. 실제 수업이 있는 상태 (isNotEmpty = true)
+  /// 5. 한 방향 교체 가능 (다음 교사가 현재 교사의 시간에 수업 가능)
   List<ExchangeNode> findAdjacentNodes(
     ExchangeNode currentNode,
     List<TimeSlot> timeSlots,
@@ -420,7 +420,7 @@ class CircularExchangeService {
       slot.teacher != currentNode.teacherName // 같은 교사 제외
     ).toList();
     
-    // 각 슬롯을 ExchangeNode로 변환 (중복 제거)
+    // 각 슬롯을 ExchangeNode로 변환하고 한 방향 교체 가능성 확인
     for (TimeSlot slot in sameClassSlots) {
       String dayString = _getDayString(slot.dayOfWeek ?? 0);
       
@@ -434,8 +434,11 @@ class CircularExchangeService {
         
         // 중복 노드 방지
         if (!addedNodeIds.contains(node.nodeId)) {
-          adjacentNodes.add(node);
-          addedNodeIds.add(node.nodeId);
+          // 한 방향 교체 가능성 확인 (다음 교사가 현재 교사의 시간에 수업 가능한가?)
+          if (_isOneWayExchangeable(currentNode, node, timeSlots)) {
+            adjacentNodes.add(node);
+            addedNodeIds.add(node.nodeId);
+          }
         }
       }
     }
@@ -449,39 +452,32 @@ class CircularExchangeService {
 
 
   /* 
-  4단계: 교체 가능성 검증 (_isMutuallyExchangeable)
-    조건: 서로의 시간에 빈 시간이어야 함
+  4단계: 교체 가능성 검증 (_isOneWayExchangeable)
+    조건: 한 방향 교체 가능 (다음 교사가 현재 교사의 시간에 수업 가능)
   */
-  /// 두 노드 간 상호 교체 가능성을 확인하는 메서드
+  
+  /// 방향 그래프를 위한 한 방향 교체 가능성을 확인하는 메서드
   /// 
   /// 조건:
-  /// 1. 두 교사 모두 해당 시간에 빈 시간이어야 함
-  /// 2. 교체 가능한 상태여야 함
-  bool _isMutuallyExchangeable(
-    ExchangeNode node1,
-    ExchangeNode node2,
+  /// 1. to 교사가 from 교사의 시간에 수업 가능해야 함
+  /// 2. 연쇄 교체 방식: from이 결강할 때 to가 from 대신 수업
+  bool _isOneWayExchangeable(
+    ExchangeNode from,
+    ExchangeNode to,
     List<TimeSlot> timeSlots,
   ) {
-    // node1의 교사가 node2의 시간에 빈 시간인지 확인
-    bool node1EmptyAtNode2Time = !timeSlots.any((slot) => 
-      slot.teacher == node1.teacherName &&
-      slot.dayOfWeek == _getDayNumber(node2.day) &&
-      slot.period == node2.period &&
+    // to 교사가 from 교사의 시간에 수업 가능한지 확인
+    // (to 교사가 from 교사의 시간에 빈 시간이어야 함)
+    bool toEmptyAtFromTime = !timeSlots.any((slot) => 
+      slot.teacher == to.teacherName &&
+      slot.dayOfWeek == _getDayNumber(from.day) &&
+      slot.period == from.period &&
       slot.isNotEmpty
     );
     
-    // node2의 교사가 node1의 시간에 빈 시간인지 확인
-    bool node2EmptyAtNode1Time = !timeSlots.any((slot) => 
-      slot.teacher == node2.teacherName &&
-      slot.dayOfWeek == _getDayNumber(node1.day) &&
-      slot.period == node1.period &&
-      slot.isNotEmpty
-    );
-    
-    bool isExchangeable = node1EmptyAtNode2Time && node2EmptyAtNode1Time;
-    
-    return isExchangeable;
+    return toEmptyAtFromTime;
   }
+  
 
   /// 노드에 과목 정보를 포함한 문자열 생성
   String _getNodeWithSubject(ExchangeNode node, List<TimeSlot> timeSlots) {
