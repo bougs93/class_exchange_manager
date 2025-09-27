@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../models/time_slot.dart';
 import '../models/teacher.dart';
+import '../models/circular_exchange_path.dart';
 import '../ui/widgets/simplified_timetable_cell.dart';
 import 'exchange_algorithm.dart';
 import 'day_utils.dart';
@@ -31,6 +32,9 @@ class TimetableDataSource extends DataGridSource {
   
   // 교체 옵션 정보
   List<ExchangeOption> _exchangeOptions = [];
+  
+  // 선택된 순환교체 경로
+  CircularExchangePath? _selectedCircularPath;
 
   /// DataGrid 행 데이터 빌드
   void _buildDataGridRows() {
@@ -190,6 +194,9 @@ class TimetableDataSource extends DataGridSource {
           // 교체 가능한 교사인지 확인
           bool isExchangeableTeacher = false;
           
+          // 순환교체 경로에 포함된 셀인지 확인
+          bool isInCircularPath = false;
+          
           // 교사명 찾기
           String teacherName = '';
           for (DataGridCell rowCell in row.getCells()) {
@@ -202,6 +209,7 @@ class TimetableDataSource extends DataGridSource {
           if (isTeacherColumn) {
             // 교사명 열인 경우: 해당 교사가 교체 가능한 교사인지 확인
             isExchangeableTeacher = _isExchangeableTeacherForTeacher(teacherName);
+            isInCircularPath = _isTeacherInCircularPath(teacherName);
           } else {
             // 데이터 셀인 경우: 해당 교사와 시간이 교체 가능한지 확인
             String day = '';
@@ -216,6 +224,8 @@ class TimetableDataSource extends DataGridSource {
             
             // 교체 가능한 교사인지 확인
             isExchangeableTeacher = _isExchangeableTeacher(teacherName, day, period);
+            // 순환교체 경로에 포함된 셀인지 확인
+            isInCircularPath = _isInCircularPath(teacherName, day, period);
           }
           
           // SimplifiedTimetableCell을 사용하여 일관된 스타일 적용
@@ -225,6 +235,7 @@ class TimetableDataSource extends DataGridSource {
             isSelected: isSelected,
             isExchangeable: isExchangeableTeacher,
             isLastColumnOfDay: isLastColumnOfDay,
+            isInCircularPath: isInCircularPath,
           );
         }).toList(),
       );
@@ -268,6 +279,12 @@ class TimetableDataSource extends DataGridSource {
   /// 교체 가능한 옵션 개수
   int get exchangeableCount => _exchangeOptions.where((option) => option.isExchangeable).length;
   
+  /// 선택된 순환교체 경로 업데이트
+  void updateSelectedCircularPath(CircularExchangePath? path) {
+    _selectedCircularPath = path;
+    notifyListeners(); // UI 갱신
+  }
+  
   
   /// 교체 가능한 교사인지 확인 (교사명, 요일, 교시 기준)
   bool _isExchangeableTeacher(String teacherName, String day, int period) {
@@ -282,6 +299,26 @@ class TimetableDataSource extends DataGridSource {
   bool _isExchangeableTeacherForTeacher(String teacherName) {
     return _exchangeableTeachers.any((teacher) => 
       teacher['teacherName'] == teacherName
+    );
+  }
+  
+  /// 순환교체 경로에 포함된 셀인지 확인
+  bool _isInCircularPath(String teacherName, String day, int period) {
+    if (_selectedCircularPath == null) return false;
+    
+    return _selectedCircularPath!.nodes.any((node) => 
+      node.teacherName == teacherName &&
+      node.day == day &&
+      node.period == period
+    );
+  }
+  
+  /// 순환교체 경로에 포함된 교사인지 확인
+  bool _isTeacherInCircularPath(String teacherName) {
+    if (_selectedCircularPath == null) return false;
+    
+    return _selectedCircularPath!.nodes.any((node) => 
+      node.teacherName == teacherName
     );
   }
   

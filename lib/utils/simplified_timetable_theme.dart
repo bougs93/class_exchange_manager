@@ -13,6 +13,10 @@ class SimplifiedTimetableTheme {
   static const Color exchangeableColorLight = Color(0xFFC8E6C9);
   static const Color selectedColorDark = Color(0xFF1976D2);
   
+  // 순환교체 경로 색상
+  static const Color circularPathColorLight = Color(0xFFE1BEE7); // 연한 보라색
+  static const Color circularPathColorDark = Color(0xFF7B1FA2); // 진한 보라색
+  
   /// 통합된 셀 스타일 생성
   static CellStyle getCellStyle({
     required bool isTeacherColumn,
@@ -20,26 +24,31 @@ class SimplifiedTimetableTheme {
     required bool isExchangeable,
     required bool isLastColumnOfDay,
     bool isHeader = false,
+    bool isInCircularPath = false, // 순환교체 경로에 포함된 셀인지 여부
   }) {
     return CellStyle(
       backgroundColor: _getBackgroundColor(
         isTeacherColumn: isTeacherColumn,
         isSelected: isSelected,
         isExchangeable: isExchangeable,
+        isInCircularPath: isInCircularPath,
       ),
       textStyle: _getTextStyle(
         isSelected: isSelected,
         isHeader: isHeader,
+        isInCircularPath: isInCircularPath,
       ),
       border: _getBorder(
         isTeacherColumn: isTeacherColumn,
         isSelected: isSelected,
         isLastColumnOfDay: isLastColumnOfDay,
+        isInCircularPath: isInCircularPath,
       ),
       overlayWidget: _getOverlayWidget(
         isExchangeable: isExchangeable,
         isTeacherColumn: isTeacherColumn,
         isHeader: isHeader,
+        isInCircularPath: isInCircularPath,
       ),
     );
   }
@@ -49,9 +58,12 @@ class SimplifiedTimetableTheme {
     required bool isTeacherColumn,
     required bool isSelected,
     required bool isExchangeable,
+    required bool isInCircularPath,
   }) {
     if (isSelected) {
       return selectedColorLight;
+    } else if (isInCircularPath) {
+      return circularPathColorLight;
     } else if (isExchangeable) {
       return exchangeableColorLight;
     } else {
@@ -63,11 +75,23 @@ class SimplifiedTimetableTheme {
   static TextStyle _getTextStyle({
     required bool isSelected,
     required bool isHeader,
+    required bool isInCircularPath,
   }) {
+    Color textColor = Colors.black;
+    FontWeight fontWeight = FontWeight.normal;
+    
+    if (isSelected) {
+      textColor = selectedColorDark;
+      fontWeight = FontWeight.bold;
+    } else if (isInCircularPath) {
+      textColor = circularPathColorDark;
+      fontWeight = FontWeight.w600;
+    }
+    
     return TextStyle(
       fontSize: isHeader ? AppConstants.headerFontSize : AppConstants.dataFontSize,
-      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-      color: isSelected ? selectedColorDark : Colors.black,
+      fontWeight: fontWeight,
+      color: textColor,
       height: AppConstants.dataLineHeight,
     );
   }
@@ -77,12 +101,24 @@ class SimplifiedTimetableTheme {
     required bool isTeacherColumn,
     required bool isSelected,
     required bool isLastColumnOfDay,
+    required bool isInCircularPath,
   }) {
     // 선택된 셀의 경우 빨간색 테두리
     if (isSelected) {
       return Border.all(
         color: Color(AppConstants.selectedCellColor), 
         width: AppConstants.selectedCellBorderWidth
+      );
+    }
+    
+    // 순환교체 경로에 포함된 셀의 경우 일반 테두리 (보라색 테두리 제거)
+    if (isInCircularPath) {
+      return Border(
+        right: BorderSide(
+          color: Colors.grey,
+          width: isTeacherColumn ? 3 : (isLastColumnOfDay ? 3 : 0.5),
+        ),
+        bottom: const BorderSide(color: Colors.grey, width: 0.5),
       );
     }
     
@@ -106,10 +142,19 @@ class SimplifiedTimetableTheme {
     required bool isExchangeable,
     required bool isTeacherColumn,
     required bool isHeader,
+    required bool isInCircularPath,
   }) {
     // 교체 가능한 셀이고, 교사명 열이 아니고, 헤더가 아닌 경우에만 표시
     if (!isExchangeable || isTeacherColumn || isHeader) {
       return null;
+    }
+    
+    // 순환교체 경로에 포함된 셀인 경우 보라색 오버레이
+    if (isInCircularPath) {
+      return createExchangeableOverlay(
+        color: circularPathColorDark,
+        number: 'C', // Circular의 C
+      );
     }
     
     // 기본값으로 1:1 교체용 오버레이 생성

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../models/time_slot.dart';
 import '../models/teacher.dart';
+import '../models/circular_exchange_path.dart';
 import 'constants.dart';
 import 'simplified_timetable_theme.dart';
 import 'day_utils.dart';
@@ -35,6 +36,7 @@ class SyncfusionTimetableHelper {
     String? selectedDay,      // 선택된 요일
     int? selectedPeriod,      // 선택된 교시
     List<Map<String, dynamic>>? exchangeableTeachers, // 교체 가능한 교사 정보
+    CircularExchangePath? selectedCircularPath, // 선택된 순환교체 경로
   }) {
     // 요일별로 데이터 그룹화
     Map<String, Map<int, Map<String, TimeSlot?>>> groupedData = _groupTimeSlotsByDayAndPeriod(timeSlots);
@@ -50,7 +52,7 @@ class SyncfusionTimetableHelper {
     List<int> periods = allPeriods.toList()..sort();
     
     // Syncfusion DataGrid 컬럼 생성 (테마 기반)
-    List<GridColumn> columns = _createColumns(days, periods, selectedDay, selectedPeriod, exchangeableTeachers);
+    List<GridColumn> columns = _createColumns(days, periods, selectedDay, selectedPeriod, exchangeableTeachers, selectedCircularPath);
     
     // Syncfusion DataGrid 행 생성
     List<DataGridRow> rows = _createRows(teachers, groupedData, days, periods);
@@ -90,7 +92,7 @@ class SyncfusionTimetableHelper {
   }
   
   /// Syncfusion DataGrid 컬럼 생성 (테마 기반)
-  static List<GridColumn> _createColumns(List<String> days, List<int> periods, String? selectedDay, int? selectedPeriod, List<Map<String, dynamic>>? exchangeableTeachers) {
+  static List<GridColumn> _createColumns(List<String> days, List<int> periods, String? selectedDay, int? selectedPeriod, List<Map<String, dynamic>>? exchangeableTeachers, CircularExchangePath? selectedCircularPath) {
     List<GridColumn> columns = [];
     
     // 첫 번째 컬럼: 교사명 (고정 열)
@@ -131,6 +133,9 @@ class SyncfusionTimetableHelper {
         // 교체 가능한 교시인지 확인
         bool isExchangeablePeriod = _isExchangeablePeriod(day, period, exchangeableTeachers);
         
+        // 순환교체 경로에 포함된 교시인지 확인
+        bool isInCircularPath = _isPeriodInCircularPath(day, period, selectedCircularPath);
+        
         // 통합 함수를 사용하여 헤더 스타일 가져오기
         CellStyle headerStyles = SimplifiedTimetableTheme.getCellStyle(
           isTeacherColumn: false,
@@ -138,6 +143,7 @@ class SyncfusionTimetableHelper {
           isExchangeable: isExchangeablePeriod,
           isLastColumnOfDay: isLastPeriod,
           isHeader: true,
+          isInCircularPath: isInCircularPath,
         );
         
         columns.add(
@@ -287,6 +293,15 @@ class SyncfusionTimetableHelper {
     
     return exchangeableTeachers.any((teacher) => 
       teacher['day'] == day && teacher['period'] == period
+    );
+  }
+  
+  /// 순환교체 경로에 포함된 교시인지 확인
+  static bool _isPeriodInCircularPath(String day, int period, CircularExchangePath? selectedCircularPath) {
+    if (selectedCircularPath == null) return false;
+    
+    return selectedCircularPath.nodes.any((node) => 
+      node.day == day && node.period == period
     );
   }
 }

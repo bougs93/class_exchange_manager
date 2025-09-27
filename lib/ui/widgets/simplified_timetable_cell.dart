@@ -10,6 +10,7 @@ class SimplifiedTimetableCell extends StatelessWidget {
   final bool isExchangeable;
   final bool isLastColumnOfDay;
   final bool isHeader;
+  final bool isInCircularPath; // 순환교체 경로에 포함된 셀인지 여부
   final VoidCallback? onTap;
   
   const SimplifiedTimetableCell({
@@ -20,6 +21,7 @@ class SimplifiedTimetableCell extends StatelessWidget {
     required this.isExchangeable,
     this.isLastColumnOfDay = false,
     this.isHeader = false,
+    this.isInCircularPath = false,
     this.onTap,
   });
   
@@ -31,6 +33,7 @@ class SimplifiedTimetableCell extends StatelessWidget {
       isExchangeable: isExchangeable,
       isLastColumnOfDay: isLastColumnOfDay,
       isHeader: isHeader,
+      isInCircularPath: isInCircularPath,
     );
     
     // 디버깅을 위한 로그
