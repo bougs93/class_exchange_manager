@@ -136,6 +136,9 @@ class SyncfusionTimetableHelper {
         // 순환교체 경로에 포함된 교시인지 확인
         bool isInCircularPath = _isPeriodInCircularPath(day, period, selectedCircularPath);
         
+        // 순환교체 경로의 두 번째 시간인지 확인
+        bool isSecondCircularStep = _isSecondCircularStep(day, period, selectedCircularPath);
+        
         // 통합 함수를 사용하여 헤더 스타일 가져오기
         CellStyle headerStyles = SimplifiedTimetableTheme.getCellStyle(
           isTeacherColumn: false,
@@ -157,9 +160,42 @@ class SyncfusionTimetableHelper {
                 color: headerStyles.backgroundColor,
                 border: headerStyles.border,
               ),
-              child: Text(
-                period.toString(),
-                style: headerStyles.textStyle,
+              child: Stack(
+                children: [
+                  // 기본 교시 번호
+                  Center(
+                    child: Text(
+                      period.toString(),
+                      style: headerStyles.textStyle,
+                    ),
+                  ),
+                  // 순환교체 두 번째 시간에만 교체 아이콘 오버레이
+                  if (isSecondCircularStep)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      child: Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade600,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.3),
+                              blurRadius: 1,
+                              offset: const Offset(0.5, 0.5),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          Icons.refresh,
+                          size: 8,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
@@ -303,5 +339,14 @@ class SyncfusionTimetableHelper {
     return selectedCircularPath.nodes.any((node) => 
       node.day == day && node.period == period
     );
+  }
+  
+  /// 순환교체 경로의 두 번째 시간인지 확인
+  static bool _isSecondCircularStep(String day, int period, CircularExchangePath? selectedCircularPath) {
+    if (selectedCircularPath == null || selectedCircularPath.nodes.length < 2) return false;
+    
+    // 두 번째 노드와 일치하는지 확인 (인덱스 1)
+    var secondNode = selectedCircularPath.nodes[1];
+    return secondNode.day == day && secondNode.period == period;
   }
 }
