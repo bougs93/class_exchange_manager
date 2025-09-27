@@ -12,6 +12,15 @@ import '../models/circular_exchange_path.dart';
 /// 순환교체 서비스 클래스
 /// 여러 교사 간의 순환 교체 비즈니스 로직을 담당
 class CircularExchangeService {
+  // ==================== 상수 정의 ====================
+  
+  /// 기본 최대 단계 수 (순환 교체에서 최대 몇 단계까지 탐색할지)
+  static const int defaultMaxSteps = 3;
+  
+  /// 기본 단계 검사 방식 (false: 해당 단계까지, true: 정확히 해당 단계만)
+  static const bool defaultExactSteps = false;
+  
+  // ==================== 인스턴스 변수 ====================
   // 교체 관련 상태 변수들
   String? _selectedTeacher;   // 선택된 교사명
   String? _selectedDay;       // 선택된 요일
@@ -230,7 +239,8 @@ class CircularExchangeService {
   List<CircularExchangePath> findCircularExchangePaths(
     List<TimeSlot> timeSlots,
     List<Teacher> teachers,
-    {int maxSteps = 3}  // 최대 단계 수
+    {int maxSteps = defaultMaxSteps,  // 최대 단계 수 (기본값: 상수 사용)
+     bool exactSteps = defaultExactSteps}  // 정확히 해당 단계만 검사할지 여부 (기본값: 상수 사용)
   ) {
     List<CircularExchangePath> allPaths = [];
     
@@ -248,7 +258,8 @@ class CircularExchangeService {
       startNode, 
       timeSlots, 
       teachers, 
-      maxSteps
+      maxSteps,
+      exactSteps
     );
     
     // 찾은 경로들을 CircularExchangePath로 변환
@@ -316,6 +327,7 @@ class CircularExchangeService {
     List<TimeSlot> timeSlots,
     List<Teacher> teachers,
     int maxSteps,
+    bool exactSteps,
   ) {
     List<List<ExchangeNode>> allPaths = [];
     
@@ -329,12 +341,18 @@ class CircularExchangeService {
       if (currentStep > maxSteps) return;
       
       // 순환 완료 확인 (시작점으로 돌아옴)
-      if (currentStep > 1 && currentNode.nodeId == startNode.nodeId) {
-        // 시작점을 경로 끝에 추가하여 완전한 순환 경로 생성
-        List<ExchangeNode> completePath = List.from(currentPath)..add(startNode);
-        allPaths.add(completePath);
-        String pathWithSubjects = completePath.map((n) => _getNodeWithSubject(n, timeSlots)).join(' → ');
-        AppLogger.exchangeDebug('순환 경로 발견: $pathWithSubjects');
+      if (currentStep >= 2 && currentNode.nodeId == startNode.nodeId) {
+        // exactSteps 옵션에 따라 조건 확인
+        bool shouldAddPath = exactSteps ? 
+          (currentStep == maxSteps) :  // 정확히 해당 단계만
+          (currentStep <= maxSteps);   // 해당 단계까지
+        
+        if (shouldAddPath) {
+          // 시작점을 경로 끝에 추가하여 완전한 순환 경로 생성
+          List<ExchangeNode> completePath = List.from(currentPath)..add(startNode);
+          allPaths.add(completePath);
+          // 디버그 로그 제거 (최종 결과에서 출력됨)
+        }
         return;
       }
       
@@ -346,7 +364,8 @@ class CircularExchangeService {
       List<ExchangeNode> adjacentNodes = findAdjacentNodes(
         currentNode, 
         timeSlots, 
-        teachers
+        teachers,
+        showLog: currentStep == 0, // 첫 번째 호출에서만 로그 출력
       );
       
       // 각 인접 노드에 대해 재귀 탐색
@@ -363,7 +382,7 @@ class CircularExchangeService {
       }
     }
     
-    // DFS 시작
+    // DFS 시작 (시작점은 visited에 추가하지 않음)
     dfs(startNode, [], {}, 0);
     
     return allPaths;
@@ -387,8 +406,9 @@ class CircularExchangeService {
   List<ExchangeNode> findAdjacentNodes(
     ExchangeNode currentNode,
     List<TimeSlot> timeSlots,
-    List<Teacher> teachers,
-  ) {
+    List<Teacher> teachers, {
+    bool showLog = false, // 로그 출력 여부
+  }) {
     List<ExchangeNode> adjacentNodes = [];
     Set<String> addedNodeIds = {}; // 중복 방지를 위한 Set
     
@@ -420,7 +440,9 @@ class CircularExchangeService {
       }
     }
     
-    AppLogger.exchangeDebug('인접 노드 ${adjacentNodes.length}개 발견: ${adjacentNodes.map((n) => n.displayText).join(', ')}');
+    if (showLog) {
+      AppLogger.exchangeDebug('인접 노드 ${adjacentNodes.length}개 발견: ${adjacentNodes.map((n) => n.displayText).join(', ')}');
+    }
     
     return adjacentNodes;
   }
@@ -480,9 +502,6 @@ class CircularExchangeService {
   void logCircularExchangeInfo(List<CircularExchangePath> paths, List<TimeSlot> timeSlots) {
     if (_selectedTeacher == null) return;
     
-    AppLogger.exchangeInfo('=== 순환 교체 가능한 경로 ===');
-    AppLogger.exchangeInfo('선택된 셀: $_selectedTeacher 교사, $_selectedDay요일, $_selectedPeriod교시');
-    
     if (paths.isEmpty) {
       AppLogger.exchangeInfo('순환 교체 가능한 경로가 없습니다.');
     } else {
@@ -492,10 +511,7 @@ class CircularExchangeService {
         // 과목 정보를 포함한 경로 설명 생성
         String pathWithSubjects = path.nodes.map((n) => _getNodeWithSubject(n, timeSlots)).join(' → ');
         
-        AppLogger.exchangeInfo('경로 ${i + 1}: $pathWithSubjects');
-        AppLogger.exchangeInfo('  - 참여 교사: ${path.participantTeachers.join(', ')}');
-        AppLogger.exchangeInfo('  - 단계 수: ${path.steps}');
-        AppLogger.exchangeInfo('');
+        AppLogger.exchangeInfo('경로 ${i + 1} [${path.steps}단계]: $pathWithSubjects');
       }
     }
   }
