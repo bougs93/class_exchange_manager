@@ -363,8 +363,7 @@ class ExcelService {
       
       developer.log('시간표 파싱 완료: $result', name: 'ExcelService');
       
-      // 디버깅: 특정 교사의 시간표 슬롯 출력
-      _printTeacherTimeSlots(result, maxTeachers: 3);
+      // 디버깅 로그 제거 - 성능 개선
       
       return result;
       
@@ -439,7 +438,7 @@ class ExcelService {
         }
       }
       
-      developer.log('찾은 요일 헤더: $dayHeaders', name: 'ExcelService');
+      // 로그 제거
       return dayHeaders;
     } catch (e) {
       developer.log('요일 헤더 찾기 중 오류 발생: $e', name: 'ExcelService');
@@ -465,7 +464,7 @@ class ExcelService {
       }
       
       periods.sort(); // 오름차순 정렬
-      developer.log('찾은 교시 번호: $periods', name: 'ExcelService');
+      // 로그 제거
       return periods;
     } catch (e) {
       developer.log('교시 번호 찾기 중 오류 발생: $e', name: 'ExcelService');
@@ -493,7 +492,7 @@ class ExcelService {
         }
       }
       
-      developer.log('추출된 교사 수: ${teachers.length}', name: 'ExcelService');
+      // 로그 제거
       return teachers;
     } catch (e) {
       developer.log('교사 정보 추출 중 오류 발생: $e', name: 'ExcelService');
@@ -575,8 +574,7 @@ class ExcelService {
             
             String cellValue = _getCellValue(sheet, teacherRow - 1, periodCol - 1); // 0-based로 변환
             
-            // 디버깅: 읽은 셀 정보 출력
-            developer.log('교사: ${teacher.name}, 요일: $day, 교시: $period, 열: $periodCol, 값: "$cellValue"', name: 'ExcelService');
+            // 디버깅 로그 제거 - 성능 개선
             
             TimeSlot? timeSlot = _parseTimeSlotCell(cellValue, teacher, dayOfWeek, period);
             if (timeSlot != null) {
@@ -586,7 +584,7 @@ class ExcelService {
         }
       }
       
-      developer.log('추출된 시간표 슬롯 수: ${timeSlots.length}', name: 'ExcelService');
+      // 로그 제거
       return timeSlots;
     } catch (e) {
       developer.log('시간표 데이터 추출 중 오류 발생: $e', name: 'ExcelService');
@@ -612,7 +610,7 @@ class ExcelService {
         }
       }
       
-      developer.log('요일별 열 위치: $dayColumnMapping', name: 'ExcelService');
+      // 로그 제거
       return dayColumnMapping;
     } catch (e) {
       developer.log('요일별 열 위치 계산 중 오류 발생: $e', name: 'ExcelService');
@@ -640,12 +638,11 @@ class ExcelService {
         // 숫자로 변환 시도
         int? cellPeriod = int.tryParse(cellValue);
         if (cellPeriod == period) {
-          developer.log('교시 $period 발견: 요일 시작열 $dayStartCol에서 열 $col', name: 'ExcelService');
           return col;
         }
       }
       
-      developer.log('교시 $period를 찾을 수 없습니다. 요일 시작열: $dayStartCol', name: 'ExcelService');
+      // 로그 제거
       return null;
     } catch (e) {
       developer.log('교시 열 위치 찾기 중 오류 발생: $e', name: 'ExcelService');
@@ -681,7 +678,6 @@ class ExcelService {
         }
         
         String converted = '$grade-$classNum';
-        developer.log('학급번호 변환: "$className" → "$converted"', name: 'ExcelService');
         return converted;
       }
       
@@ -735,8 +731,7 @@ class ExcelService {
         subject = lines[1];
       }
       
-      // 디버깅: 파싱된 내용 로그 출력
-      developer.log('셀 파싱: "$cellValue" → 정리 후: "$cleanCellValue" → className: "$className", subject: "$subject"', name: 'ExcelService');
+      // 디버깅 로그 제거 - 성능 개선
       
       return TimeSlot(
         teacher: teacher.name,
@@ -763,94 +758,4 @@ class ExcelService {
     }
   }
 
-  /// 특정 교사들의 시간표 슬롯을 출력하는 디버깅 메서드
-  /// 
-  /// 매개변수:
-  /// - TimetableData data: 파싱된 시간표 데이터
-  /// - int maxTeachers: 출력할 최대 교사 수 (기본값: 3)
-  /// - String? specificTeacher: 특정 교사명 (지정 시 해당 교사만 출력)
-  /// 
-  /// 사용 예시:
-  /// ```dart
-  /// // 처음 3명 교사의 시간표 출력
-  /// _printTeacherTimeSlots(data, maxTeachers: 3);
-  /// 
-  /// // 특정 교사의 시간표만 출력
-  /// _printTeacherTimeSlots(data, specificTeacher: "문유란");
-  /// ```
-  static void _printTeacherTimeSlots(TimetableData data, {int maxTeachers = 3, String? specificTeacher}) {
-    try {
-      developer.log('=== 교사별 시간표 슬롯 출력 시작 ===', name: 'ExcelService');
-      developer.log('총 교사 수: ${data.teachers.length}', name: 'ExcelService');
-      developer.log('총 시간표 슬롯 수: ${data.timeSlots.length}', name: 'ExcelService');
-      
-      List<Teacher> teachersToShow = [];
-      
-      if (specificTeacher != null) {
-        // 특정 교사만 찾기
-        teachersToShow = data.teachers.where((teacher) => teacher.name == specificTeacher).toList();
-        if (teachersToShow.isEmpty) {
-          developer.log('교사 "$specificTeacher"를 찾을 수 없습니다.', name: 'ExcelService');
-          return;
-        }
-      } else {
-        // 처음 N명 교사 선택
-        teachersToShow = data.teachers.take(maxTeachers).toList();
-      }
-      
-      if (teachersToShow.isEmpty) {
-        developer.log('출력할 교사가 없습니다.', name: 'ExcelService');
-        return;
-      }
-      
-      for (Teacher teacher in teachersToShow) {
-        developer.log('\n--- 교사: ${teacher.name} (ID: ${teacher.id ?? "없음"}) ---', name: 'ExcelService');
-        
-        // 해당 교사의 시간표 슬롯 필터링
-        List<TimeSlot> teacherSlots = data.timeSlots
-            .where((slot) => slot.teacher == teacher.name)
-            .toList();
-        
-        if (teacherSlots.isEmpty) {
-          developer.log('  시간표 슬롯이 없습니다.', name: 'ExcelService');
-          continue;
-        }
-        
-        // 요일별로 그룹화
-        Map<int, List<TimeSlot>> slotsByDay = {};
-        for (TimeSlot slot in teacherSlots) {
-          if (slot.dayOfWeek != null) {
-            slotsByDay.putIfAbsent(slot.dayOfWeek!, () => []).add(slot);
-          }
-        }
-        
-        // 요일별로 출력
-        List<String> dayNames = ['월', '화', '수', '목', '금'];
-        for (int day = 1; day <= 5; day++) {
-          List<TimeSlot> daySlots = slotsByDay[day] ?? [];
-          if (daySlots.isEmpty) continue;
-          
-          developer.log('  ${dayNames[day - 1]}요일:', name: 'ExcelService');
-          
-          // 교시순으로 정렬
-          daySlots.sort((a, b) => (a.period ?? 0).compareTo(b.period ?? 0));
-          
-          for (TimeSlot slot in daySlots) {
-            String periodText = '${slot.period}교시';
-            String classText = slot.className?.isNotEmpty == true ? ' (${slot.className})' : '';
-            String subjectText = slot.subject?.isNotEmpty == true ? ' - ${slot.subject}' : '';
-            String exchangeableText = slot.isExchangeable ? '' : ' [교체불가]';
-            
-            developer.log('    $periodText$classText$subjectText$exchangeableText', name: 'ExcelService');
-          }
-        }
-        
-        developer.log('  총 슬롯 수: ${teacherSlots.length}', name: 'ExcelService');
-      }
-      
-      developer.log('\n=== 교사별 시간표 슬롯 출력 완료 ===', name: 'ExcelService');
-    } catch (e) {
-      developer.log('교사별 시간표 슬롯 출력 중 오류 발생: $e', name: 'ExcelService');
-    }
-  }
 }

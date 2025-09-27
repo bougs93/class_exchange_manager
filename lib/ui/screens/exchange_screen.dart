@@ -745,17 +745,6 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
         if (result != null && result.files.isNotEmpty) {
           final bytes = result.files.first.bytes;
           if (bytes != null) {
-            // 파일 선택 성공 메시지 표시
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('파일이 선택되었습니다: ${result.files.first.name}'),
-                  backgroundColor: Colors.green.shade600,
-                  duration: const Duration(seconds: 1),
-                ),
-              );
-            }
-            
             // Web에서 bytes로 엑셀 파일 처리
             await _processExcelBytes(bytes);
           }
@@ -768,17 +757,6 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
           setState(() {
             _selectedFile = selectedFile;
           });
-          
-          // 파일 선택 성공 메시지 표시
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('파일이 선택되었습니다: ${selectedFile.path.split('/').last}'),
-                backgroundColor: Colors.green.shade600,
-                duration: const Duration(seconds: 1),
-              ),
-            );
-          }
           
           // 자동으로 엑셀 데이터 읽기
           await _loadExcelData();
@@ -809,16 +787,6 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
         if (isValid) {
           // 시간표 데이터 파싱 시도
           await _parseTimetableData(excel);
-          
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('엑셀 파일을 성공적으로 읽었습니다!'),
-                backgroundColor: Colors.green,
-                duration: Duration(seconds: 2),
-              ),
-            );
-          }
         } else {
           setState(() {
             _errorMessage = '유효하지 않은 엑셀 파일입니다.';
@@ -850,17 +818,6 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
         
         // Syncfusion DataGrid 데이터 생성
         _createSyncfusionGridData();
-        
-        // 파싱 성공 메시지 표시
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('시간표 파싱 완료! 교사 ${timetableData.teachers.length}명, 슬롯 ${timetableData.timeSlots.length}개'),
-              backgroundColor: Colors.blue.shade600,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        }
       } else {
         // 파싱 실패
         setState(() {
@@ -1246,7 +1203,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
               labelStyle: TextStyle(fontSize: 12),
               unselectedLabelStyle: TextStyle(fontSize: 12),
               tabs: steps.map((step) => Tab(
-                text: '${step}단계 (${pathsByStep[step]!.length})',
+                text: '$step단계 (${pathsByStep[step]!.length})',
                 height: 32,
               )).toList(),
             ),
@@ -1292,19 +1249,47 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 경로 시각화 (세로형 진행 표시, 마지막 노드 제외)
+                // 시작점과 다음 경로들 표시
                 Column(
                   children: [
-                    for (int i = 0; i < path.nodes.length - 1; i++) ...[
-                      if (i > 0) 
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          child: Icon(
-                            Icons.arrow_downward,
-                            size: 14,
-                            color: Colors.purple.shade400,
+                    // 시작점 표시 (첫 번째 화살표 위에)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.purple.shade50,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.purple.shade400),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 2,
+                            offset: const Offset(0, 1),
                           ),
+                        ],
+                      ),
+                      child: Text(
+                        '${path.nodes[0].day}${path.nodes[0].period} | ${path.nodes[0].teacherName} | ${_getSubjectName(path.nodes[0])}',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.purple.shade700,
                         ),
+                      ),
+                    ),
+                    
+                    // 다음 경로들
+                    for (int i = 1; i < path.nodes.length - 1; i++) ...[
+                      // 모든 경로 앞에 화살표 표시
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Icon(
+                          Icons.arrow_downward,
+                          size: 14,
+                          color: Colors.purple.shade400,
+                        ),
+                      ),
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
