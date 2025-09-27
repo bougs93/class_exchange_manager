@@ -3,6 +3,8 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../utils/simplified_timetable_theme.dart';
 import '../utils/exchange_algorithm.dart';
 import '../utils/timetable_data_source.dart';
+import '../models/time_slot.dart';
+import '../models/teacher.dart';
 
 /// 순환교체 서비스 클래스
 /// 여러 교사 간의 순환 교체 비즈니스 로직을 담당
@@ -13,7 +15,7 @@ class CircularExchangeService {
   int? _selectedPeriod;       // 선택된 교시
   
   // 교체 가능한 시간 관련 변수들
-  List<ExchangeOption> _exchangeOptions = []; // 교체 가능한 시간 옵션들
+  final List<ExchangeOption> _exchangeOptions = []; // 교체 가능한 시간 옵션들
   
   // Getters
   String? get selectedTeacher => _selectedTeacher;
@@ -111,6 +113,104 @@ class CircularExchangeService {
   /// 교체 모드 활성화 상태 확인
   bool hasSelectedCell() {
     return _selectedTeacher != null && _selectedDay != null && _selectedPeriod != null;
+  }
+  
+  /// 순환교체용 교체 가능한 교사 정보 가져오기 (1스탭: 같은 학급, 다른 시간대, 양쪽 빈시간)
+  /// 
+  /// 1개 스탭 교체에서는:
+  /// - 같은 학급만 교체 가능
+  /// - 다른 시간대여야 함
+  /// - 양쪽 모두 빈 시간이어야 함
+  /// 예: 김선생(월1교시, 1학년 1반) ↔ 이선생(화2교시, 1학년 1반) - 둘 다 빈시간
+  List<Map<String, dynamic>> getCircularExchangeableTeachers(
+    List<TimeSlot> timeSlots,
+    List<Teacher> teachers,
+  ) {
+    if (_selectedTeacher == null || _selectedDay == null || _selectedPeriod == null) {
+      return [];
+    }
+    
+    // 선택된 셀의 학급 정보 가져오기
+    String? selectedClassName = _getSelectedClassName(timeSlots);
+    if (selectedClassName == null) return [];
+    
+    List<Map<String, dynamic>> exchangeableTeachers = [];
+    
+    // 같은 학급을 가르치는 교사들 중에서 찾기
+    for (Teacher teacher in teachers) {
+      if (teacher.name == _selectedTeacher) continue; // 자기 자신 제외
+      
+      // 해당 교사가 다른 시간대에 같은 학급을 가르치는지 확인
+      List<TimeSlot> teacherSlots = timeSlots.where((slot) => 
+        slot.teacher == teacher.name &&
+        slot.className == selectedClassName &&
+        slot.isNotEmpty &&
+        !(slot.dayOfWeek == _getDayNumber(_selectedDay!) && slot.period == _selectedPeriod) // 다른 시간대
+      ).toList();
+      
+      for (TimeSlot teacherSlot in teacherSlots) {
+        // 양쪽 모두 빈 시간인지 확인
+        bool selectedTeacherHasEmptyTime = _isTeacherEmptyAtTime(
+          _selectedTeacher!, _selectedDay!, _selectedPeriod!, timeSlots);
+        bool otherTeacherHasEmptyTime = _isTeacherEmptyAtTime(
+          teacher.name, _getDayString(teacherSlot.dayOfWeek ?? 0), teacherSlot.period ?? 0, timeSlots);
+        
+        if (selectedTeacherHasEmptyTime && otherTeacherHasEmptyTime) {
+          exchangeableTeachers.add({
+            'teacherName': teacher.name,
+            'day': _getDayString(teacherSlot.dayOfWeek ?? 0),
+            'period': teacherSlot.period ?? 0,
+            'className': selectedClassName,
+            'subject': teacherSlot.subject ?? '과목 없음',
+          });
+        }
+      }
+    }
+    
+    return exchangeableTeachers;
+  }
+  
+  /// 선택된 셀의 학급 정보 가져오기
+  String? _getSelectedClassName(List<TimeSlot> timeSlots) {
+    if (_selectedTeacher == null || _selectedDay == null || _selectedPeriod == null) {
+      return null;
+    }
+    
+    TimeSlot? selectedSlot = timeSlots.firstWhere(
+      (slot) => slot.teacher == _selectedTeacher &&
+                slot.dayOfWeek == _getDayNumber(_selectedDay!) &&
+                slot.period == _selectedPeriod &&
+                slot.isNotEmpty,
+      orElse: () => TimeSlot.empty(),
+    );
+    
+    return selectedSlot.isNotEmpty ? selectedSlot.className : null;
+  }
+  
+  /// 교사가 특정 시간에 빈 시간인지 확인
+  bool _isTeacherEmptyAtTime(String teacherName, String day, int period, List<TimeSlot> timeSlots) {
+    return !timeSlots.any((slot) => 
+      slot.teacher == teacherName &&
+      slot.dayOfWeek == _getDayNumber(day) &&
+      slot.period == period &&
+      slot.isNotEmpty
+    );
+  }
+  
+  /// 요일 문자열을 숫자로 변환하는 헬퍼 메서드
+  int _getDayNumber(String day) {
+    const Map<String, int> dayMap = {
+      '월': 1, '화': 2, '수': 3, '목': 4, '금': 5
+    };
+    return dayMap[day] ?? 0;
+  }
+  
+  /// 요일 숫자를 문자열로 변환하는 헬퍼 메서드
+  String _getDayString(int dayNumber) {
+    const Map<int, String> dayMap = {
+      1: '월', 2: '화', 3: '수', 4: '목', 5: '금'
+    };
+    return dayMap[dayNumber] ?? '알 수 없음';
   }
   
   /// 순환교체용 오버레이 위젯 생성 예시
