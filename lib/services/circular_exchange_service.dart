@@ -262,15 +262,21 @@ class CircularExchangeService {
       exactSteps
     );
     
-    // 찾은 경로들을 CircularExchangePath로 변환
+    // 찾은 경로들을 CircularExchangePath로 변환하고 검증
     for (List<ExchangeNode> path in foundPaths) {
       try {
         CircularExchangePath circularPath = CircularExchangePath.fromNodes(path);
         if (circularPath.isValid) {
-          allPaths.add(circularPath);
+          // 교체 순서 검증
+          if (validateExchangeSequence(circularPath, timeSlots)) {
+            allPaths.add(circularPath);
+          } else {
+            AppLogger.exchangeDebug('유효하지 않은 교체 순서: ${circularPath.nodes.map((n) => n.teacherName).join(' → ')}');
+          }
         }
       } catch (e) {
         // 유효하지 않은 경로는 무시
+        AppLogger.exchangeDebug('경로 생성 오류: $e');
         continue;
       }
     }
@@ -337,10 +343,12 @@ class CircularExchangeService {
       Set<String> visited,
       int currentStep,
     ) {
-      // 최대 단계 수 초과 시 종료
+        // 최대 단계 수 초과 시 종료
       if (currentStep > maxSteps) return;
       
       // 연쇄 교체 완료 확인 (시작점으로 돌아옴)
+      // 조건: 최소 2단계 이상이고, 시작점(결강 교사)으로 돌아옴
+      // 의미: 결강 교사가 마지막 교사의 수업을 대신하여 연쇄 교체 완료
       if (currentStep >= 2 && currentNode.nodeId == startNode.nodeId) {
         // exactSteps 옵션에 따라 조건 확인
         bool shouldAddPath = exactSteps ? 
@@ -348,8 +356,9 @@ class CircularExchangeService {
           (currentStep <= maxSteps);   // 해당 단계까지
         
         if (shouldAddPath) {
-          // 시작점을 경로 끝에 추가하여 완전한 연쇄 교체 경로 생성
-          List<ExchangeNode> completePath = List.from(currentPath)..add(startNode);
+          // 시작점으로 끝나는 완전한 순환 경로 생성
+          // currentPath는 이미 시작점을 포함하고 있으므로 마지막에 시작점만 추가
+          List<ExchangeNode> completePath = [...currentPath, startNode];
           allPaths.add(completePath);
         }
         return;
@@ -369,7 +378,7 @@ class CircularExchangeService {
       
       // 각 인접 노드에 대해 재귀 탐색
       for (ExchangeNode nextNode in adjacentNodes) {
-        // 이미 방문한 노드는 제외 (시작점 제외)
+        // 이미 방문한 노드는 제외 (시작점은 순환 완성을 위해 허용)
         if (visited.contains(nextNode.nodeId) && nextNode.nodeId != startNode.nodeId) {
           continue;
         }
@@ -381,7 +390,7 @@ class CircularExchangeService {
       }
     }
     
-    // DFS 시작 (시작점은 visited에 추가하지 않음)
+    // DFS 시작 (시작점을 경로에 포함하지 않음)
     dfs(startNode, [], {}, 0);
     
     return allPaths;
@@ -458,24 +467,40 @@ class CircularExchangeService {
   
   /// 방향 그래프를 위한 한 방향 교체 가능성을 확인하는 메서드
   /// 
+  /// 교체 시나리오: from 교사가 결강할 때 to 교사가 from 교사의 수업을 대신
+  /// 
   /// 조건:
-  /// 1. to 교사가 from 교사의 시간에 수업 가능해야 함
-  /// 2. 연쇄 교체 방식: from이 결강할 때 to가 from 대신 수업
+  /// 1. to 교사가 from 교사의 시간에 빈 시간이어야 함 (수업 가능)
+  /// 2. 연쇄 교체 방식: A(결강) → B(대신 수업) → C(대신 수업) → D(대신 수업)
+  /// 
+  /// 예시: 정원길(월 1교시) → 이숙기(화 3교시)
+  /// - 정원길이 결강할 때 이숙기가 정원길의 수업(월 1교시)을 대신
+  /// - 이숙기가 월 1교시에 빈 시간이어야 함 (수업 가능)
   bool _isOneWayExchangeable(
     ExchangeNode from,
     ExchangeNode to,
     List<TimeSlot> timeSlots,
   ) {
-    // to 교사가 from 교사의 시간에 수업 가능한지 확인
-    // (to 교사가 from 교사의 시간에 빈 시간이어야 함)
-    bool toEmptyAtFromTime = !timeSlots.any((slot) => 
-      slot.teacher == to.teacherName &&
-      slot.dayOfWeek == _getDayNumber(from.day) &&
-      slot.period == from.period &&
+    // 같은 교사끼리의 교체는 항상 가능 (순환 완료 시)
+    if (from.teacherName == to.teacherName) {
+      return true;
+    }
+    
+    // 순환교체에서 중요한 점: from 교사가 to 교사의 시간에 빈 시간이 있어야 함
+    // (from 교사가 to 교사의 시간에 빈 시간이어야 to 교사의 수업을 대신할 수 있음)
+    bool fromEmptyAtToTime = !timeSlots.any((slot) => 
+      slot.teacher == from.teacherName &&
+      slot.dayOfWeek == _getDayNumber(to.day) &&
+      slot.period == to.period &&
       slot.isNotEmpty
     );
     
-    return toEmptyAtFromTime;
+    // 추가 검증: 같은 학급이어야 순환교체 가능
+    bool sameClass = from.className == to.className;
+    
+    // 디버그 로그 제거 - 필요시에만 활성화
+    
+    return fromEmptyAtToTime && sameClass;
   }
   
 
@@ -492,6 +517,33 @@ class CircularExchangeService {
     
     String subject = slot.isNotEmpty ? (slot.subject ?? '과목없음') : '과목없음';
     return '${node.teacherName}(${node.day}${node.period}교시, ${node.className}, $subject)';
+  }
+
+  /// 순환교체 경로의 교체 과정을 시뮬레이션하여 검증
+  /// 
+  /// 각 단계에서 교사가 실제로 수업할 수 있는지 확인
+  bool validateExchangeSequence(CircularExchangePath path, List<TimeSlot> timeSlots) {
+    if (path.nodes.length < 2) return false;
+    
+    // 각 교체 단계 검증
+    for (int i = 0; i < path.nodes.length - 1; i++) {
+      ExchangeNode from = path.nodes[i];
+      ExchangeNode to = path.nodes[i + 1];
+      
+      if (!_isOneWayExchangeable(from, to, timeSlots)) {
+        return false;
+      }
+    }
+    
+    // 첫 번째 교사가 마지막 교사의 시간에 수업 가능한지 확인 (순환 완료)
+    ExchangeNode lastNode = path.nodes.last;
+    ExchangeNode firstNode = path.nodes.first;
+    
+    if (!_isOneWayExchangeable(lastNode, firstNode, timeSlots)) {
+      return false;
+    }
+    
+    return true;
   }
 
   /// 교체 가능한 교사 정보를 로그로 출력

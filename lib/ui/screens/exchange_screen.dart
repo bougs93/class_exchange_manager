@@ -14,6 +14,7 @@ import '../../utils/syncfusion_timetable_helper.dart';
 import '../../utils/constants.dart';
 import '../../utils/exchange_algorithm.dart';
 import '../../utils/exchange_visualizer.dart';
+import '../../utils/logger.dart';
 
 /// 교체 관리 화면
 class ExchangeScreen extends StatefulWidget {
@@ -46,7 +47,18 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
   
   // 사이드바 관련 변수들
   bool _isSidebarVisible = false; // 사이드바 표시 여부
-  double _sidebarWidth = 180.0; // 사이드바 너비
+  final double _sidebarWidth = 180.0; // 사이드바 너비
+  
+  // 검색 및 필터링 관련 변수들
+  final TextEditingController _searchController = TextEditingController(); // 검색 입력 컨트롤러
+  String _searchQuery = ''; // 검색 쿼리
+  List<CircularExchangePath> _filteredCircularPaths = []; // 필터링된 순환교체 경로들
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -454,13 +466,17 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
   void _startCircularExchange(DataGridCellTapDetails details) {
     // 데이터 소스가 없는 경우 처리하지 않음
     if (_dataSource == null) {
+      AppLogger.exchangeDebug('순환교체: 데이터 소스가 없습니다.');
       return;
     }
+    
+    AppLogger.exchangeDebug('순환교체: 셀 선택 시작 - 컬럼: ${details.column.columnName}, 행: ${details.rowColumnIndex.rowIndex}');
     
     // CircularExchangeService를 사용하여 순환교체 처리
     CircularExchangeResult result = _circularExchangeService.startCircularExchange(details, _dataSource!);
     
     if (result.isNoAction) {
+      AppLogger.exchangeDebug('순환교체: 아무 동작하지 않음 (교사명 열 또는 잘못된 컬럼)');
       return; // 아무 동작하지 않음
     }
     
@@ -470,8 +486,11 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     
     // 새로운 셀 선택 시 기존 선택된 순환교체 경로 초기화
     if (result.isSelected) {
+      AppLogger.exchangeDebug('순환교체: 새로운 셀 선택됨 - 교사: ${result.teacherName}, 요일: ${result.day}, 교시: ${result.period}');
       _selectedCircularPath = null;
       _dataSource?.updateSelectedCircularPath(null);
+    } else if (result.isDeselected) {
+      AppLogger.exchangeDebug('순환교체: 셀 선택 해제됨');
     }
     
     // 교체 대상 선택 후 교체 가능한 시간 탐색 및 표시
@@ -499,6 +518,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
   
   /// 순환교체 셀 선택 후 처리 로직
   void _processCircularCellSelection() {
+    AppLogger.exchangeDebug('순환교체: 셀 선택 후 처리 시작');
+    
     // 데이터 소스에 선택 상태 업데이트
     _dataSource?.updateSelection(
       _circularExchangeService.selectedTeacher, 
@@ -511,6 +532,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     
     // 순환 교체 경로 찾기 및 업데이트
     if (_timetableData != null) {
+      AppLogger.exchangeDebug('순환교체: 경로 탐색 시작 - 교사: ${_circularExchangeService.selectedTeacher}, 요일: ${_circularExchangeService.selectedDay}, 교시: ${_circularExchangeService.selectedPeriod}');
       List<CircularExchangePath> paths = _circularExchangeService.findCircularExchangePaths(
         _timetableData!.timeSlots,
         _timetableData!.teachers,
@@ -522,10 +544,15 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
         _selectedCircularPath = null; // 새로운 경로 탐색 시 기존 선택된 경로 초기화
       });
       
+      // 필터링된 경로도 함께 업데이트 (setState 외부에서)
+      _filterCircularPaths();
+      
       // 데이터 소스에서도 선택된 경로 초기화
       _dataSource?.updateSelectedCircularPath(null);
       
       // 디버그 콘솔에 출력
+      AppLogger.exchangeDebug('순환교체 경로 ${paths.length}개 발견');
+      AppLogger.exchangeDebug('필터링된 경로 ${_filteredCircularPaths.length}개');
       _circularExchangeService.logCircularExchangeInfo(paths, _timetableData!.timeSlots);
       
       // 순환교체 사이드바 표시
@@ -582,6 +609,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
   
   /// 순환교체 모드 토글
   void _toggleCircularExchangeMode() {
+    AppLogger.exchangeDebug('순환교체 모드 토글 시작 - 현재 상태: $_isCircularExchangeModeEnabled');
+    
     setState(() {
       // 1:1교체 모드가 활성화되어 있다면 비활성화
       if (_isExchangeModeEnabled) {
@@ -650,6 +679,11 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     _selectedCircularPath = null;
     _circularPaths = [];
     _isSidebarVisible = false;
+    
+    // 검색 상태 초기화
+    _searchController.clear();
+    _searchQuery = '';
+    _filteredCircularPaths = [];
     
     // 헤더 테마를 기본값으로 복원 (모든 변수 초기화 후)
     _updateHeaderTheme();
@@ -1007,8 +1041,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
         children: [
           // 사이드바 헤더
           Container(
-            height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Colors.purple.shade50,
               border: Border(
@@ -1018,30 +1051,82 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
                 ),
               ),
             ),
-            child: Row(
+            child: Column(
               children: [
-                Icon(
-                  Icons.refresh,
-                  color: Colors.purple.shade600,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '순환교체 ${_circularPaths.length}개',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
+                // 헤더 상단 (제목과 닫기 버튼)
+                Row(
+                  children: [
+                    Icon(
+                      Icons.refresh,
                       color: Colors.purple.shade600,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _searchResultText,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.purple.shade600,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: _toggleSidebar,
+                      icon: Icon(Icons.close, size: 20),
+                      padding: EdgeInsets.zero,
+                      constraints: BoxConstraints(),
+                      tooltip: '사이드바 닫기',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // 검색 입력 필드
+                Container(
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.grey.shade300,
+                      width: 1,
                     ),
                   ),
-                ),
-                IconButton(
-                  onPressed: _toggleSidebar,
-                  icon: Icon(Icons.close, size: 20),
-                  padding: EdgeInsets.zero,
-                  constraints: BoxConstraints(),
-                  tooltip: '사이드바 닫기',
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: _updateSearchQuery,
+                    decoration: InputDecoration(
+                      hintText: '요일, 교사명, 과목 검색...',
+                      hintStyle: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade500,
+                      ),
+                      prefixIcon: Icon(
+                        Icons.search,
+                        size: 16,
+                        color: Colors.grey.shade500,
+                      ),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              onPressed: _clearSearch,
+                              icon: Icon(
+                                Icons.clear,
+                                size: 16,
+                                color: Colors.grey.shade500,
+                              ),
+                              padding: EdgeInsets.zero,
+                              constraints: BoxConstraints(),
+                            )
+                          : null,
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                    ),
+                    style: TextStyle(fontSize: 12),
+                  ),
                 ),
               ],
             ),
@@ -1059,41 +1144,76 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
 
   /// 사이드바용 순환교체 경로 리스트 구성
   Widget _buildSidebarCircularPathsList() {
-    if (_circularPaths.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.refresh,
-              size: 48,
-              color: Colors.grey.shade400,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '순환교체 경로가 없습니다',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey.shade600,
+    // 필터링된 경로가 비어있는 경우 처리
+    if (_filteredCircularPaths.isEmpty) {
+      if (_circularPaths.isEmpty) {
+        // 경로가 전혀 없는 경우
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.refresh,
+                size: 48,
+                color: Colors.grey.shade400,
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '시간표에서 셀을 선택하면\n순환교체 경로를 찾을 수 있습니다',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade500,
+              const SizedBox(height: 16),
+              Text(
+                '순환교체 경로가 없습니다',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey.shade600,
+                ),
               ),
-            ),
-          ],
-        ),
-      );
+              const SizedBox(height: 8),
+              Text(
+                '시간표에서 셀을 선택하면\n순환교체 경로를 찾을 수 있습니다',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade500,
+                ),
+              ),
+            ],
+          ),
+        );
+      } else {
+        // 검색 결과가 없는 경우
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.search_off,
+                size: 48,
+                color: Colors.grey.shade400,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '검색 결과가 없습니다',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '"$_searchQuery"에 대한\n검색 결과를 찾을 수 없습니다',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade500,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
     }
 
-    // 단계별로 분류
+    // 단계별로 분류 (필터링된 경로 사용)
     Map<int, List<CircularExchangePath>> pathsByStep = {};
-    for (var path in _circularPaths) {
+    for (var path in _filteredCircularPaths) {
       pathsByStep.putIfAbsent(path.steps, () => []).add(path);
     }
 
@@ -1267,10 +1387,10 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     _updateHeaderTheme();
     
     // 선택된 경로 정보를 콘솔에 출력
-    print('선택된 순환교체 경로: ${path.nodes.length}단계');
+    AppLogger.exchangeInfo('선택된 순환교체 경로: ${path.nodes.length}단계');
     for (int i = 0; i < path.nodes.length; i++) {
       final node = path.nodes[i];
-      print('  ${i + 1}단계: ${node.day}${node.period} | ${node.teacherName}');
+      AppLogger.exchangeDebug('  ${i + 1}단계: ${node.day}${node.period} | ${node.teacherName}');
     }
   }
 
@@ -1279,5 +1399,55 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     setState(() {
       _isSidebarVisible = !_isSidebarVisible;
     });
+  }
+
+  /// 검색 쿼리 업데이트 및 필터링
+  void _updateSearchQuery(String query) {
+    _searchQuery = query;
+    _filterCircularPaths();
+  }
+
+  /// 순환교체 경로 필터링
+  void _filterCircularPaths() {
+    setState(() {
+      if (_searchQuery.isEmpty) {
+        _filteredCircularPaths = List.from(_circularPaths);
+      } else {
+        _filteredCircularPaths = _circularPaths.where((path) {
+          // 경로의 모든 노드에서 검색 쿼리와 일치하는지 확인
+          return path.nodes.any((node) {
+            final day = node.day.toLowerCase();
+            final teacherName = node.teacherName.toLowerCase();
+            final subject = _getSubjectName(node).toLowerCase();
+            final query = _searchQuery.toLowerCase();
+            
+            return day.contains(query) || 
+                   teacherName.contains(query) || 
+                   subject.contains(query);
+          });
+        }).toList();
+      }
+      
+      // 디버그 로그
+      AppLogger.exchangeDebug('필터링 완료: 원본 ${_circularPaths.length}개 → 필터링 ${_filteredCircularPaths.length}개');
+    });
+  }
+
+  /// 검색 입력 필드 초기화
+  void _clearSearch() {
+    _searchController.clear();
+    _updateSearchQuery('');
+  }
+
+  /// 필터링된 경로 개수 반환
+  int get _filteredPathsCount => _filteredCircularPaths.length;
+
+  /// 검색 결과 통계 텍스트 반환
+  String get _searchResultText {
+    if (_searchQuery.isEmpty) {
+      return '순환교체 ${_circularPaths.length}개';
+    } else {
+      return '검색 결과 ${_filteredPathsCount}개 / 전체 ${_circularPaths.length}개';
+    }
   }
 }
