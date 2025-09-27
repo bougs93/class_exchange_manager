@@ -7,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import '../../services/excel_service.dart';
 import '../../services/exchange_service.dart';
 import '../../services/circular_exchange_service.dart';
+import '../../models/circular_exchange_path.dart';
 import '../../utils/timetable_data_source.dart';
 import '../../utils/syncfusion_timetable_helper.dart';
 import '../../utils/constants.dart';
@@ -462,6 +463,15 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     
     // 테마 기반 헤더 업데이트 (선택된 교시 헤더를 연한 파란색으로 표시)
     _updateHeaderTheme();
+    
+    // 순환 교체 경로 찾기 및 디버그 콘솔에 출력
+    if (_timetableData != null) {
+      List<CircularExchangePath> paths = _circularExchangeService.findCircularExchangePaths(
+        _timetableData!.timeSlots,
+        _timetableData!.teachers,
+      );
+      _circularExchangeService.logCircularExchangeInfo(paths, _timetableData!.timeSlots);
+    }
   }
   
   /// 교체 모드 토글

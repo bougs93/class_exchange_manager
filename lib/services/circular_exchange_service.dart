@@ -3,8 +3,11 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../utils/simplified_timetable_theme.dart';
 import '../utils/exchange_algorithm.dart';
 import '../utils/timetable_data_source.dart';
+import '../utils/logger.dart';
 import '../models/time_slot.dart';
 import '../models/teacher.dart';
+import '../models/exchange_node.dart';
+import '../models/circular_exchange_path.dart';
 
 /// 순환교체 서비스 클래스
 /// 여러 교사 간의 순환 교체 비즈니스 로직을 담당
@@ -212,7 +215,295 @@ class CircularExchangeService {
     };
     return dayMap[dayNumber] ?? '알 수 없음';
   }
+
+  // ==================== 그래프 구성 메서드들 START ====================
+  /*
+  [순환 경로 찾기]
+    모든 가능한 교체 경로를 찾아서 리스트로 만듦
+    예: "김선생 → 이선생 → 박선생 → 김선생" 같은 순환 경로
+  */
+
+  /// 그래프를 구성하고 모든 교체 가능한 경로를 찾는 메서드
+  /// 
+  /// 반환값:
+  /// - `List<CircularExchangePath>`: 찾은 모든 순환 교체 경로들
+  List<CircularExchangePath> findCircularExchangePaths(
+    List<TimeSlot> timeSlots,
+    List<Teacher> teachers,
+    {int maxSteps = 3}  // 최대 단계 수
+  ) {
+    List<CircularExchangePath> allPaths = [];
+    
+    // 선택된 노드가 없으면 빈 리스트 반환
+    ExchangeNode? startNode = getSelectedNode(timeSlots);  // 1단계 : 시작 노트 찾기 (getSelectedNode)
+    if (startNode == null) {
+      AppLogger.exchangeDebug('시작 노드를 찾을 수 없습니다.');
+      return allPaths;
+    }
+    
+    AppLogger.exchangeDebug('순환 경로 탐색 시작: ${startNode.displayText}');
+    
+    // DFS로 순환 경로 탐색
+    List<List<ExchangeNode>> foundPaths = _findCircularPathsDFS(  //2단계: DFS 탐색 (_findCircularPathsDFS)
+      startNode, 
+      timeSlots, 
+      teachers, 
+      maxSteps
+    );
+    
+    // 찾은 경로들을 CircularExchangePath로 변환
+    for (List<ExchangeNode> path in foundPaths) {
+      try {
+        CircularExchangePath circularPath = CircularExchangePath.fromNodes(path);
+        if (circularPath.isValid) {
+          allPaths.add(circularPath);
+        }
+      } catch (e) {
+        // 유효하지 않은 경로는 무시
+        continue;
+      }
+    }
+    
+    // 우선순위별로 정렬 (단계 수가 적은 것부터)
+    allPaths.sort((a, b) => a.steps.compareTo(b.steps));
+    
+    return allPaths;
+  }
+
+  /* 1단계 : 시작 노트 찾기
+    시작 노트 찾기 : 사용자가 클릭한 셀 정보를 노드로 만듦
+    예: "김선생님, 월요일 1교시, 3-1반" → ExchangeNode 생성
+  */
+  /// 선택된 셀을 ExchangeNode로 변환
+  /// 
+  /// 
+  ExchangeNode? getSelectedNode(List<TimeSlot> timeSlots) {
+    if (_selectedTeacher == null || _selectedDay == null || _selectedPeriod == null) {
+      return null;
+    }
+    
+    // 선택된 셀의 학급 정보 가져오기
+    String? className = _getSelectedClassName(timeSlots);
+    if (className == null) {
+      AppLogger.exchangeDebug('학급 정보를 찾을 수 없습니다: $_selectedTeacher, $_selectedDay, $_selectedPeriod');
+      return null;
+    }
+    
+    return ExchangeNode(
+      teacherName: _selectedTeacher!,
+      day: _selectedDay!,
+      period: _selectedPeriod!,
+      className: className,
+    );
+  }
+
+
+  /*
+  2단계: DFS 탐색 (_findCircularPathsDFS)
+  깊이 우선 탐색으로 모든 경우의 수를 체크:
+  김선생(시작)
+  ├── 이선생 탐색
+  │   ├── 박선생 탐색
+  │   │   └── 김선생(끝) ✅ 순환 완성!
+  │   └── 최선생 탐색
+  │       └── ... 계속 탐색
+  └── 박선생 탐색
+      └── ... 계속 탐색
+  */
+  /// DFS를 사용하여 순환 경로를 찾는 재귀 메서드
+  List<List<ExchangeNode>> _findCircularPathsDFS(
+    ExchangeNode startNode,
+    List<TimeSlot> timeSlots,
+    List<Teacher> teachers,
+    int maxSteps,
+  ) {
+    List<List<ExchangeNode>> allPaths = [];
+    
+    void dfs(
+      ExchangeNode currentNode,
+      List<ExchangeNode> currentPath,
+      Set<String> visited,
+      int currentStep,
+    ) {
+      // 최대 단계 수 초과 시 종료
+      if (currentStep > maxSteps) return;
+      
+      // 순환 완료 확인 (시작점으로 돌아옴)
+      if (currentStep > 1 && currentNode.nodeId == startNode.nodeId) {
+        // 시작점을 경로 끝에 추가하여 완전한 순환 경로 생성
+        List<ExchangeNode> completePath = List.from(currentPath)..add(startNode);
+        allPaths.add(completePath);
+        String pathWithSubjects = completePath.map((n) => _getNodeWithSubject(n, timeSlots)).join(' → ');
+        AppLogger.exchangeDebug('순환 경로 발견: $pathWithSubjects');
+        return;
+      }
+      
+      // 현재 노드를 경로에 추가
+      currentPath.add(currentNode);
+      visited.add(currentNode.nodeId);
+      
+      // 인접 노드들 찾기
+      List<ExchangeNode> adjacentNodes = findAdjacentNodes(
+        currentNode, 
+        timeSlots, 
+        teachers
+      );
+      
+      // 각 인접 노드에 대해 재귀 탐색
+      for (ExchangeNode nextNode in adjacentNodes) {
+        // 이미 방문한 노드는 제외 (시작점 제외)
+        if (visited.contains(nextNode.nodeId) && nextNode.nodeId != startNode.nodeId) {
+          continue;
+        }
+        
+        // 교체 가능성 검증
+        if (_isMutuallyExchangeable(currentNode, nextNode, timeSlots)) {
+          dfs(nextNode, List.from(currentPath), Set.from(visited), currentStep + 1);
+        }
+      }
+    }
+    
+    // DFS 시작
+    dfs(startNode, [], {}, 0);
+    
+    return allPaths;
+  }
+
+
+  /*
+  3단계 : 같은 학급(3-1반)을 가르치는 다른 교사들 찾기
+    시작: 김선생 - 월요일 1교시 - 3-1반
+    찾은 친구들:
+    → 이선생 - 화요일 3교시 - 3-1반
+    → 박선생 - 수요일 2교시 - 3-1반
+  */
+  /// 동일 학급의 교체 가능한 인접 노드들을 찾는 메서드
+  /// 
+  /// 조건:
+  /// 1. 같은 학급을 가르치는 교사들
+  /// 2. 다른 시간대 (요일 또는 교시가 다름)
+  /// 3. 교체 가능한 상태 (isExchangeable = true)
+  /// 4. 실제 수업이 있는 상태 (isNotEmpty = true)
+  List<ExchangeNode> findAdjacentNodes(
+    ExchangeNode currentNode,
+    List<TimeSlot> timeSlots,
+    List<Teacher> teachers,
+  ) {
+    List<ExchangeNode> adjacentNodes = [];
+    Set<String> addedNodeIds = {}; // 중복 방지를 위한 Set
+    
+    // 같은 학급을 가르치는 모든 시간표 슬롯 찾기
+    List<TimeSlot> sameClassSlots = timeSlots.where((slot) => 
+      slot.className == currentNode.className &&
+      slot.isNotEmpty &&
+      slot.canExchange &&
+      slot.teacher != currentNode.teacherName // 같은 교사 제외
+    ).toList();
+    
+    // 각 슬롯을 ExchangeNode로 변환 (중복 제거)
+    for (TimeSlot slot in sameClassSlots) {
+      String dayString = _getDayString(slot.dayOfWeek ?? 0);
+      
+      if (dayString != '알 수 없음') {
+        ExchangeNode node = ExchangeNode(
+          teacherName: slot.teacher ?? '',
+          day: dayString,
+          period: slot.period ?? 0,
+          className: slot.className ?? '',
+        );
+        
+        // 중복 노드 방지
+        if (!addedNodeIds.contains(node.nodeId)) {
+          adjacentNodes.add(node);
+          addedNodeIds.add(node.nodeId);
+        }
+      }
+    }
+    
+    AppLogger.exchangeDebug('인접 노드 ${adjacentNodes.length}개 발견: ${adjacentNodes.map((n) => n.displayText).join(', ')}');
+    
+    return adjacentNodes;
+  }
+
+
+  /* 
+  4단계: 교체 가능성 검증 (_isMutuallyExchangeable)
+    조건: 서로의 시간에 빈 시간이어야 함
+  */
+  /// 두 노드 간 상호 교체 가능성을 확인하는 메서드
+  /// 
+  /// 조건:
+  /// 1. 두 교사 모두 해당 시간에 빈 시간이어야 함
+  /// 2. 교체 가능한 상태여야 함
+  bool _isMutuallyExchangeable(
+    ExchangeNode node1,
+    ExchangeNode node2,
+    List<TimeSlot> timeSlots,
+  ) {
+    // node1의 교사가 node2의 시간에 빈 시간인지 확인
+    bool node1EmptyAtNode2Time = !timeSlots.any((slot) => 
+      slot.teacher == node1.teacherName &&
+      slot.dayOfWeek == _getDayNumber(node2.day) &&
+      slot.period == node2.period &&
+      slot.isNotEmpty
+    );
+    
+    // node2의 교사가 node1의 시간에 빈 시간인지 확인
+    bool node2EmptyAtNode1Time = !timeSlots.any((slot) => 
+      slot.teacher == node2.teacherName &&
+      slot.dayOfWeek == _getDayNumber(node1.day) &&
+      slot.period == node1.period &&
+      slot.isNotEmpty
+    );
+    
+    bool isExchangeable = node1EmptyAtNode2Time && node2EmptyAtNode1Time;
+    
+    return isExchangeable;
+  }
+
+  /// 노드에 과목 정보를 포함한 문자열 생성
+  String _getNodeWithSubject(ExchangeNode node, List<TimeSlot> timeSlots) {
+    // 해당 노드의 TimeSlot 찾기
+    TimeSlot? slot = timeSlots.firstWhere(
+      (s) => s.teacher == node.teacherName &&
+             s.dayOfWeek == _getDayNumber(node.day) &&
+             s.period == node.period &&
+             s.className == node.className,
+      orElse: () => TimeSlot.empty(),
+    );
+    
+    String subject = slot.isNotEmpty ? (slot.subject ?? '과목없음') : '과목없음';
+    return '${node.teacherName}(${node.day}${node.period}교시, ${node.className}, $subject)';
+  }
+
+  /// 교체 가능한 교사 정보를 로그로 출력
+  void logCircularExchangeInfo(List<CircularExchangePath> paths, List<TimeSlot> timeSlots) {
+    if (_selectedTeacher == null) return;
+    
+    AppLogger.exchangeInfo('=== 순환 교체 가능한 경로 ===');
+    AppLogger.exchangeInfo('선택된 셀: $_selectedTeacher 교사, $_selectedDay요일, $_selectedPeriod교시');
+    
+    if (paths.isEmpty) {
+      AppLogger.exchangeInfo('순환 교체 가능한 경로가 없습니다.');
+    } else {
+      for (int i = 0; i < paths.length; i++) {
+        CircularExchangePath path = paths[i];
+        
+        // 과목 정보를 포함한 경로 설명 생성
+        String pathWithSubjects = path.nodes.map((n) => _getNodeWithSubject(n, timeSlots)).join(' → ');
+        
+        AppLogger.exchangeInfo('경로 ${i + 1}: $pathWithSubjects');
+        AppLogger.exchangeInfo('  - 참여 교사: ${path.participantTeachers.join(', ')}');
+        AppLogger.exchangeInfo('  - 단계 수: ${path.steps}');
+        AppLogger.exchangeInfo('');
+      }
+    }
+  }
   
+
+  // ==================== 그래프 구성 메서드들 END====================
+
+
   /// 순환교체용 오버레이 위젯 생성 예시
   /// 
   /// 사용법:
