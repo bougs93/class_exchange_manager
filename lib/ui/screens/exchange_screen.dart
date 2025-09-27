@@ -44,6 +44,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
   // 순환교체 관련 변수들
   List<CircularExchangePath> _circularPaths = []; // 순환교체 경로들
   CircularExchangePath? _selectedCircularPath; // 선택된 순환교체 경로
+  bool _isCircularPathsLoading = false; // 순환교체 경로 탐색 로딩 상태
+  double _loadingProgress = 0.0; // 진행률 (0.0 ~ 1.0)
   
   // 사이드바 관련 변수들
   bool _isSidebarVisible = false; // 사이드바 표시 여부
@@ -68,8 +70,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
         backgroundColor: Colors.blue.shade50,
         elevation: 0,
         actions: [
-          // 순환교체 사이드바 토글 버튼 (순환교체 모드가 활성화되고 경로가 있을 때만 표시)
-          if (_isCircularExchangeModeEnabled && _circularPaths.isNotEmpty)
+          // 순환교체 사이드바 토글 버튼 (순환교체 모드가 활성화되고 경로가 있거나 로딩 중일 때 표시)
+          if (_isCircularExchangeModeEnabled && (_circularPaths.isNotEmpty || _isCircularPathsLoading))
             Container(
               margin: const EdgeInsets.only(right: 8),
               child: TextButton.icon(
@@ -78,7 +80,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
                   _isSidebarVisible ? Icons.chevron_right : Icons.chevron_left,
                   size: 16,
                 ),
-                label: Text('${_circularPaths.length}개'),
+                label: Text(_isCircularPathsLoading ? '${(_loadingProgress * 100).round()}%' : '${_circularPaths.length}개'),
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.purple.shade600,
                 ),
@@ -93,8 +95,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
             child: _buildTimetableTab(),
           ),
           
-          // 순환교체 사이드바 (순환교체 모드가 활성화되고 경로가 있을 때만 표시)
-          if (_isCircularExchangeModeEnabled && _isSidebarVisible && _circularPaths.isNotEmpty)
+          // 순환교체 사이드바 (순환교체 모드가 활성화되고 경로가 있거나 로딩 중일 때 표시)
+          if (_isCircularExchangeModeEnabled && _isSidebarVisible && (_circularPaths.isNotEmpty || _isCircularPathsLoading))
             _buildCircularExchangeSidebar(),
         ],
       ),
@@ -517,7 +519,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
   }
   
   /// 순환교체 셀 선택 후 처리 로직
-  void _processCircularCellSelection() {
+  Future<void> _processCircularCellSelection() async {
     AppLogger.exchangeDebug('순환교체: 셀 선택 후 처리 시작');
     
     // 데이터 소스에 선택 상태 업데이트
@@ -530,21 +532,91 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     // 테마 기반 헤더 업데이트 (선택된 교시 헤더를 연한 파란색으로 표시)
     _updateHeaderTheme();
     
+    // 선택된 셀이 빈 셀인지 확인
+    if (_timetableData != null && _isSelectedCellEmpty()) {
+      AppLogger.exchangeDebug('순환교체: 빈 셀이 선택됨 - 경로 탐색 건너뜀');
+      // 빈 셀인 경우 사이드바 숨김
+      setState(() {
+        _circularPaths = [];
+        _selectedCircularPath = null;
+        _isSidebarVisible = false;
+        _isCircularPathsLoading = false;
+        _loadingProgress = 0.0;
+      });
+      return;
+    }
+    
     // 순환 교체 경로 찾기 및 업데이트
     if (_timetableData != null) {
-      AppLogger.exchangeDebug('순환교체: 경로 탐색 시작 - 교사: ${_circularExchangeService.selectedTeacher}, 요일: ${_circularExchangeService.selectedDay}, 교시: ${_circularExchangeService.selectedPeriod}');
-      List<CircularExchangePath> paths = _circularExchangeService.findCircularExchangePaths(
-        _timetableData!.timeSlots,
-        _timetableData!.teachers,
-      );
-      
-      // 경로 업데이트 (기존 선택된 경로는 자동으로 초기화됨)
+      // 로딩 시작
       setState(() {
-        _circularPaths = paths;
-        _selectedCircularPath = null; // 새로운 경로 탐색 시 기존 선택된 경로 초기화
+        _isCircularPathsLoading = true;
+        _loadingProgress = 0.0;
+        _circularPaths = []; // 기존 경로 초기화
+        _selectedCircularPath = null;
+        _isSidebarVisible = true; // 사이드바 표시 (로딩 화면 표시)
       });
       
-      // 필터링된 경로도 함께 업데이트 (setState 외부에서)
+      AppLogger.exchangeDebug('순환교체: 경로 탐색 시작 - 교사: ${_circularExchangeService.selectedTeacher}, 요일: ${_circularExchangeService.selectedDay}, 교시: ${_circularExchangeService.selectedPeriod}');
+      
+      try {
+        // 백그라운드에서 경로 탐색 실행
+        await _findCircularPathsWithProgress();
+        
+      } catch (e) {
+        // 오류 발생 시 로딩 상태 해제
+        setState(() {
+          _isCircularPathsLoading = false;
+          _loadingProgress = 0.0;
+        });
+        AppLogger.exchangeDebug('순환교체 경로 탐색 중 오류 발생: $e');
+      }
+    }
+  }
+  
+  /// 진행률과 함께 순환교체 경로 탐색
+  Future<void> _findCircularPathsWithProgress() async {
+    try {
+      // 1단계: 초기화 (10%)
+      setState(() => _loadingProgress = 0.1);
+      await Future.delayed(const Duration(milliseconds: 50));
+      
+      // 2단계: 교사 정보 수집 (20%)
+      setState(() => _loadingProgress = 0.2);
+      await Future.delayed(const Duration(milliseconds: 50));
+      
+      // 3단계: 시간표 분석 (40%)
+      setState(() => _loadingProgress = 0.4);
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      // 4단계: DFS 경로 탐색 (80%)
+      setState(() => _loadingProgress = 0.8);
+      
+      // 실제 경로 탐색 실행 (메인 처리)
+      List<CircularExchangePath> paths = await Future(() {
+        return _circularExchangeService.findCircularExchangePaths(
+          _timetableData!.timeSlots,
+          _timetableData!.teachers,
+        );
+      });
+      
+      // 5단계: 결과 처리 (90%)
+      setState(() => _loadingProgress = 0.9);
+      await Future.delayed(const Duration(milliseconds: 50));
+      
+      // 6단계: 완료 (100%)
+      setState(() => _loadingProgress = 1.0);
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      // 경로 업데이트 및 로딩 완료
+      setState(() {
+        _circularPaths = paths;
+        _selectedCircularPath = null;
+        _isCircularPathsLoading = false;
+        _loadingProgress = 0.0;
+      });
+      
+      // 필터링된 경로도 함께 업데이트
       _filterCircularPaths();
       
       // 데이터 소스에서도 선택된 경로 초기화
@@ -555,12 +627,21 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       AppLogger.exchangeDebug('필터링된 경로 ${_filteredCircularPaths.length}개');
       _circularExchangeService.logCircularExchangeInfo(paths, _timetableData!.timeSlots);
       
-      // 순환교체 사이드바 표시
-      if (paths.isNotEmpty) {
+      // 경로가 없으면 사이드바 숨김
+      if (paths.isEmpty) {
         setState(() {
-          _isSidebarVisible = true;
+          _isSidebarVisible = false;
         });
       }
+      
+    } catch (e) {
+      // 오류 처리
+      setState(() {
+        _isCircularPathsLoading = false;
+        _loadingProgress = 0.0;
+        _isSidebarVisible = false;
+      });
+      throw e;
     }
   }
   
@@ -575,6 +656,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
         _selectedCircularPath = null;
         _circularPaths = [];
         _isSidebarVisible = false;
+        _isCircularPathsLoading = false;
+        _loadingProgress = 0.0;
         _dataSource?.updateSelectedCircularPath(null);
       }
       
@@ -634,6 +717,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
         _circularExchangeService.clearAllSelections();
         _selectedCircularPath = null;
         _circularPaths = [];
+        _isCircularPathsLoading = false;
+        _loadingProgress = 0.0;
         _dataSource?.updateSelectedCircularPath(null);
       }
     });
@@ -679,6 +764,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     _selectedCircularPath = null;
     _circularPaths = [];
     _isSidebarVisible = false;
+    _isCircularPathsLoading = false;
+    _loadingProgress = 0.0;
     
     // 검색 상태 초기화
     _searchController.clear();
@@ -1101,6 +1188,85 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
 
   /// 사이드바용 순환교체 경로 리스트 구성
   Widget _buildSidebarCircularPathsList() {
+    // 로딩 중인 경우 진행률 표시
+    if (_isCircularPathsLoading) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // 원형 진행률 표시기
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 64,
+                  height: 64,
+                  child: CircularProgressIndicator(
+                    value: _loadingProgress,
+                    strokeWidth: 4,
+                    backgroundColor: Colors.grey.shade300,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.purple.shade600),
+                  ),
+                ),
+                Text(
+                  '${(_loadingProgress * 100).round()}%',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.purple.shade600,
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 20),
+            
+            // 로딩 상태 텍스트
+            Text(
+              '순환교체 경로 탐색 중...',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.purple.shade600,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            
+            const SizedBox(height: 8),
+            
+            // 진행률에 따른 상세 메시지
+            Text(
+              _getLoadingMessage(_loadingProgress),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            
+            const SizedBox(height: 20),
+            
+            // 선형 진행률 표시기
+            Container(
+              width: 140,
+              height: 6,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(3),
+                color: Colors.grey.shade300,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: LinearProgressIndicator(
+                  value: _loadingProgress,
+                  backgroundColor: Colors.transparent,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.purple.shade600),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
     // 필터링된 경로가 비어있는 경우 처리
     if (_filteredCircularPaths.isEmpty) {
       if (_circularPaths.isEmpty) {
@@ -1434,5 +1600,52 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     } else {
       return '검색 결과 ${_filteredPathsCount}개 / 전체 ${_circularPaths.length}개';
     }
+  }
+  
+  /// 진행률에 따른 로딩 메시지 반환
+  String _getLoadingMessage(double progress) {
+    if (progress < 0.2) {
+      return '초기화 중...';
+    } else if (progress < 0.4) {
+      return '교사 정보 수집 중...';
+    } else if (progress < 0.8) {
+      return '시간표 분석 중...';
+    } else if (progress < 0.9) {
+      return 'DFS 경로 탐색 중...';
+    } else if (progress < 1.0) {
+      return '결과 처리 중...';
+    } else {
+      return '완료!';
+    }
+  }
+  
+  /// 선택된 셀이 빈 셀인지 확인
+  bool _isSelectedCellEmpty() {
+    if (_circularExchangeService.selectedTeacher == null || 
+        _circularExchangeService.selectedDay == null || 
+        _circularExchangeService.selectedPeriod == null ||
+        _timetableData == null) {
+      return true;
+    }
+    
+    // 선택된 교사, 요일, 교시에 해당하는 시간표 슬롯 찾기
+    String teacherName = _circularExchangeService.selectedTeacher!;
+    String selectedDay = _circularExchangeService.selectedDay!;
+    int selectedPeriod = _circularExchangeService.selectedPeriod!;
+    
+    // 요일을 숫자로 변환
+    int dayOfWeek = _getDayOfWeekNumber(selectedDay);
+    
+    // 해당 시간에 수업이 있는지 확인
+    bool hasClass = _timetableData!.timeSlots.any((slot) =>
+      slot.teacher == teacherName &&
+      slot.dayOfWeek == dayOfWeek &&
+      slot.period == selectedPeriod &&
+      slot.isNotEmpty
+    );
+    
+    AppLogger.exchangeDebug('빈 셀 확인: 교사=$teacherName, 요일=$selectedDay($dayOfWeek), 교시=$selectedPeriod, 수업있음=$hasClass');
+    
+    return !hasClass; // 수업이 없으면 빈 셀
   }
 }
