@@ -15,6 +15,7 @@ import '../../utils/constants.dart';
 import '../../utils/exchange_algorithm.dart';
 import '../../utils/exchange_visualizer.dart';
 import '../../utils/logger.dart';
+import '../../utils/day_utils.dart';
 
 /// 교체 관리 화면
 class ExchangeScreen extends StatefulWidget {
@@ -641,7 +642,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
         _loadingProgress = 0.0;
         _isSidebarVisible = false;
       });
-      throw e;
+      rethrow;
     }
   }
   
@@ -1500,7 +1501,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     // 시간표 데이터에서 해당 교사, 요일, 교시의 과목 정보 찾기
     for (var timeSlot in _timetableData!.timeSlots) {
       if (timeSlot.teacher == node.teacherName &&
-          timeSlot.dayOfWeek == _getDayOfWeekNumber(node.day) &&
+          timeSlot.dayOfWeek == DayUtils.getDayNumber(node.day) &&
           timeSlot.period == node.period) {
         return timeSlot.subject ?? '과목';
       }
@@ -1509,17 +1510,6 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     return '과목';
   }
 
-  /// 요일 문자열을 숫자로 변환
-  int _getDayOfWeekNumber(String day) {
-    switch (day) {
-      case '월': return 1;
-      case '화': return 2;
-      case '수': return 3;
-      case '목': return 4;
-      case '금': return 5;
-      default: return 1;
-    }
-  }
 
 
 
@@ -1598,7 +1588,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     if (_searchQuery.isEmpty) {
       return '순환교체 ${_circularPaths.length}개';
     } else {
-      return '검색 결과 ${_filteredPathsCount}개 / 전체 ${_circularPaths.length}개';
+      return '검색 결과 $_filteredPathsCount개 / 전체 ${_circularPaths.length}개';
     }
   }
   
@@ -1634,7 +1624,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     int selectedPeriod = _circularExchangeService.selectedPeriod!;
     
     // 요일을 숫자로 변환
-    int dayOfWeek = _getDayOfWeekNumber(selectedDay);
+    int dayOfWeek = DayUtils.getDayNumber(selectedDay);
     
     // 해당 시간에 수업이 있는지 확인
     bool hasClass = _timetableData!.timeSlots.any((slot) =>

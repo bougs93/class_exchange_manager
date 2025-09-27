@@ -4,6 +4,7 @@ import '../utils/simplified_timetable_theme.dart';
 import '../utils/exchange_algorithm.dart';
 import '../utils/timetable_data_source.dart';
 import '../utils/logger.dart';
+import '../utils/day_utils.dart';
 import '../models/time_slot.dart';
 import '../models/teacher.dart';
 import '../models/exchange_node.dart';
@@ -157,7 +158,7 @@ class CircularExchangeService {
         slot.teacher == teacher.name &&
         slot.className == selectedClassName &&
         slot.isNotEmpty &&
-        !(slot.dayOfWeek == _getDayNumber(_selectedDay!) && slot.period == _selectedPeriod) // 다른 시간대
+        !(slot.dayOfWeek == DayUtils.getDayNumber(_selectedDay!) && slot.period == _selectedPeriod) // 다른 시간대
       ).toList();
       
       for (TimeSlot teacherSlot in teacherSlots) {
@@ -190,7 +191,7 @@ class CircularExchangeService {
     
     TimeSlot? selectedSlot = timeSlots.firstWhere(
       (slot) => slot.teacher == _selectedTeacher &&
-                slot.dayOfWeek == _getDayNumber(_selectedDay!) &&
+                slot.dayOfWeek == DayUtils.getDayNumber(_selectedDay!) &&
                 slot.period == _selectedPeriod &&
                 slot.isNotEmpty,
       orElse: () => TimeSlot.empty(),
@@ -203,26 +204,15 @@ class CircularExchangeService {
   bool _isTeacherEmptyAtTime(String teacherName, String day, int period, List<TimeSlot> timeSlots) {
     return !timeSlots.any((slot) => 
       slot.teacher == teacherName &&
-      slot.dayOfWeek == _getDayNumber(day) &&
+      slot.dayOfWeek == DayUtils.getDayNumber(day) &&
       slot.period == period &&
       slot.isNotEmpty
     );
   }
   
-  /// 요일 문자열을 숫자로 변환하는 헬퍼 메서드
-  int _getDayNumber(String day) {
-    const Map<String, int> dayMap = {
-      '월': 1, '화': 2, '수': 3, '목': 4, '금': 5
-    };
-    return dayMap[day] ?? 0;
-  }
-  
   /// 요일 숫자를 문자열로 변환하는 헬퍼 메서드
   String _getDayString(int dayNumber) {
-    const Map<int, String> dayMap = {
-      1: '월', 2: '화', 3: '수', 4: '목', 5: '금'
-    };
-    return dayMap[dayNumber] ?? '알 수 없음';
+    return DayUtils.getDayName(dayNumber);
   }
 
   // ==================== 그래프 구성 메서드들 START ====================
@@ -490,7 +480,7 @@ class CircularExchangeService {
     // (from 교사가 to 교사의 시간에 빈 시간이어야 to 교사의 수업을 대신할 수 있음)
     bool fromEmptyAtToTime = !timeSlots.any((slot) => 
       slot.teacher == from.teacherName &&
-      slot.dayOfWeek == _getDayNumber(to.day) &&
+      slot.dayOfWeek == DayUtils.getDayNumber(to.day) &&
       slot.period == to.period &&
       slot.isNotEmpty
     );
@@ -509,7 +499,7 @@ class CircularExchangeService {
     // 해당 노드의 TimeSlot 찾기
     TimeSlot? slot = timeSlots.firstWhere(
       (s) => s.teacher == node.teacherName &&
-             s.dayOfWeek == _getDayNumber(node.day) &&
+             s.dayOfWeek == DayUtils.getDayNumber(node.day) &&
              s.period == node.period &&
              s.className == node.className,
       orElse: () => TimeSlot.empty(),
