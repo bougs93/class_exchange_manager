@@ -329,7 +329,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
                     border: Border.all(color: Colors.green.shade200),
                   ),
                   child: Text(
-                    '교사 ${_timetableData!.teachers.length}명 | 슬롯 ${_timetableData!.timeSlots.length}개',
+                    '교사 ${_timetableData!.teachers.length}명',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.green.shade700,
@@ -338,9 +338,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                // 교체 모드가 활성화된 경우에만 교체 가능한 시간 개수 표시
+                // 교체 모드가 활성화된 경우에만 교체 가능한 수업 개수 표시
                 if (_isExchangeModeEnabled)
-                  ExchangeVisualizer.buildExchangeableCountWidget(_exchangeService.exchangeOptions.length),
+                  ExchangeVisualizer.buildExchangeableCountWidget(_getActualExchangeableCount()),
               ],
             ),
             const SizedBox(height: 16),
@@ -1609,6 +1609,23 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     }
   }
   
+  /// 실제 교체 가능한 수업 개수 반환
+  int _getActualExchangeableCount() {
+    // 1:1 교체 모드가 비활성화되어 있거나 선택된 셀이 없으면 0 반환
+    if (!_isExchangeModeEnabled || !_exchangeService.hasSelectedCell() || _timetableData == null) {
+      return 0;
+    }
+    
+    // 실제 교체 가능한 교사 정보를 가져와서 수업 개수 계산
+    List<Map<String, dynamic>> exchangeableTeachers = _exchangeService.getCurrentExchangeableTeachers(
+      _timetableData!.timeSlots,
+      _timetableData!.teachers,
+    );
+    
+    // 각 교체 가능한 교사 정보가 하나의 수업을 의미하므로 전체 길이가 수업 개수
+    return exchangeableTeachers.length;
+  }
+
   /// 선택된 셀이 빈 셀인지 확인
   bool _isSelectedCellEmpty() {
     if (_circularExchangeService.selectedTeacher == null || 
