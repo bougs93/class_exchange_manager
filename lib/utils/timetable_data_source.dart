@@ -196,6 +196,7 @@ class TimetableDataSource extends DataGridSource {
           
           // 순환교체 경로에 포함된 셀인지 확인
           bool isInCircularPath = false;
+          int? circularPathStep;
           
           // 교사명 찾기
           String teacherName = '';
@@ -226,6 +227,8 @@ class TimetableDataSource extends DataGridSource {
             isExchangeableTeacher = _isExchangeableTeacher(teacherName, day, period);
             // 순환교체 경로에 포함된 셀인지 확인
             isInCircularPath = _isInCircularPath(teacherName, day, period);
+            // 순환교체 경로에서의 단계 번호 가져오기
+            circularPathStep = _getCircularPathStep(teacherName, day, period);
           }
           
           // SimplifiedTimetableCell을 사용하여 일관된 스타일 적용
@@ -236,6 +239,7 @@ class TimetableDataSource extends DataGridSource {
             isExchangeable: isExchangeableTeacher,
             isLastColumnOfDay: isLastColumnOfDay,
             isInCircularPath: isInCircularPath,
+            circularPathStep: circularPathStep,
           );
         }).toList(),
       );
@@ -311,6 +315,27 @@ class TimetableDataSource extends DataGridSource {
       node.day == day &&
       node.period == period
     );
+  }
+  
+  /// 순환교체 경로에서 해당 셀의 단계 번호 가져오기
+  int? _getCircularPathStep(String teacherName, String day, int period) {
+    if (_selectedCircularPath == null) return null;
+    
+    for (int i = 0; i < _selectedCircularPath!.nodes.length; i++) {
+      final node = _selectedCircularPath!.nodes[i];
+      if (node.teacherName == teacherName &&
+          node.day == day &&
+          node.period == period) {
+        // 첫 번째 노드(시작점)는 오버레이 표시하지 않음 (null 반환)
+        if (i == 0) {
+          return null;
+        }
+        // 두 번째 노드부터는 1, 2, 3... 순서로 표시
+        return i;
+      }
+    }
+    
+    return null;
   }
   
   /// 순환교체 경로에 포함된 교사인지 확인

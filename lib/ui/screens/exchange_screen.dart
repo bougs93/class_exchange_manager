@@ -543,6 +543,12 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       // 순환교체 모드가 활성화되어 있다면 비활성화
       if (_isCircularExchangeModeEnabled) {
         _isCircularExchangeModeEnabled = false;
+        // 순환교체 모드의 선택 상태와 경로 정보 초기화
+        _circularExchangeService.clearAllSelections();
+        _selectedCircularPath = null;
+        _circularPaths = [];
+        _isSidebarVisible = false;
+        _dataSource?.updateSelectedCircularPath(null);
       }
       
       _isExchangeModeEnabled = !_isExchangeModeEnabled;
@@ -550,8 +556,17 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       // 교체 모드가 비활성화되면 UI를 기본값으로 복원
       if (!_isExchangeModeEnabled) {
         _restoreUIToDefault();
+      } else {
+        // 1:1 교체 모드가 활성화되면 선택 상태 초기화
+        _exchangeService.clearAllSelections();
+        _dataSource?.updateSelection(null, null, null);
+        _dataSource?.updateExchangeOptions([]);
+        _dataSource?.updateExchangeableTeachers([]);
       }
     });
+    
+    // 헤더 테마 업데이트 (모든 상태 초기화 후)
+    _updateHeaderTheme();
     
     // 1:1교체 모드 활성화 시 사용자에게 안내 메시지 표시
     if (_isExchangeModeEnabled && mounted) {
@@ -571,6 +586,11 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       // 1:1교체 모드가 활성화되어 있다면 비활성화
       if (_isExchangeModeEnabled) {
         _isExchangeModeEnabled = false;
+        // 1:1 교체 모드의 선택 상태와 교체 가능한 시간 정보 초기화
+        _exchangeService.clearAllSelections();
+        _dataSource?.updateSelection(null, null, null);
+        _dataSource?.updateExchangeOptions([]);
+        _dataSource?.updateExchangeableTeachers([]);
       }
       
       _isCircularExchangeModeEnabled = !_isCircularExchangeModeEnabled;
@@ -581,8 +601,16 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
       } else {
         // 순환교체 모드가 활성화되면 사이드바도 숨김 (새로운 경로 탐색 전까지)
         _isSidebarVisible = false;
+        // 순환교체 모드의 선택 상태도 초기화
+        _circularExchangeService.clearAllSelections();
+        _selectedCircularPath = null;
+        _circularPaths = [];
+        _dataSource?.updateSelectedCircularPath(null);
       }
     });
+    
+    // 헤더 테마 업데이트 (모든 상태 초기화 후)
+    _updateHeaderTheme();
     
     // 순환교체 모드 활성화 시 사용자에게 안내 메시지 표시
     if (_isCircularExchangeModeEnabled && mounted) {

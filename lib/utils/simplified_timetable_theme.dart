@@ -25,6 +25,7 @@ class SimplifiedTimetableTheme {
     required bool isLastColumnOfDay,
     bool isHeader = false,
     bool isInCircularPath = false, // 순환교체 경로에 포함된 셀인지 여부
+    int? circularPathStep, // 순환교체 경로에서의 단계 (1, 2, 3...)
   }) {
     return CellStyle(
       backgroundColor: _getBackgroundColor(
@@ -49,6 +50,7 @@ class SimplifiedTimetableTheme {
         isTeacherColumn: isTeacherColumn,
         isHeader: isHeader,
         isInCircularPath: isInCircularPath,
+        circularPathStep: circularPathStep,
       ),
     );
   }
@@ -143,25 +145,31 @@ class SimplifiedTimetableTheme {
     required bool isTeacherColumn,
     required bool isHeader,
     required bool isInCircularPath,
+    int? circularPathStep, // 순환교체 경로에서의 단계 (1, 2, 3...)
   }) {
-    // 교체 가능한 셀이고, 교사명 열이 아니고, 헤더가 아닌 경우에만 표시
-    if (!isExchangeable || isTeacherColumn || isHeader) {
+    // 교사명 열이거나 헤더인 경우 표시하지 않음
+    if (isTeacherColumn || isHeader) {
       return null;
     }
     
-    // 순환교체 경로에 포함된 셀인 경우 보라색 오버레이
-    if (isInCircularPath) {
+    // 순환교체 경로에 포함된 셀인 경우 단계별 숫자 오버레이
+    if (isInCircularPath && circularPathStep != null) {
       return createExchangeableOverlay(
-        color: circularPathColorDark,
-        number: 'C', // Circular의 C
+        color: Colors.red.shade600, // 1:1 교체와 동일한 빨간색
+        number: circularPathStep.toString(), // 단계별 숫자 (1, 2, 3...)
       );
     }
     
-    // 기본값으로 1:1 교체용 오버레이 생성
-    return createExchangeableOverlay(
-      color: Colors.red.shade600,
-      number: '1',
-    );
+    // 1:1 교체 가능한 셀인 경우 오버레이 표시
+    if (isExchangeable) {
+      return createExchangeableOverlay(
+        color: Colors.red.shade600,
+        number: '1',
+      );
+    }
+    
+    // 그 외의 경우 오버레이 표시하지 않음
+    return null;
   }
   
   /// 교체 가능한 셀에 표시할 오버레이 위젯 생성 (공용 함수)
