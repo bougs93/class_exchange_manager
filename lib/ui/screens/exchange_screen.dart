@@ -226,6 +226,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       selectedPeriod: selectedPeriod, // 선택된 교시 전달
       exchangeableTeachers: exchangeableTeachers, // 교체 가능한 교사 정보 전달
       selectedCircularPath: _selectedCircularPath, // 선택된 순환교체 경로 전달
+      selectedOneToOnePath: _selectedOneToOnePath, // 선택된 1:1 교체 경로 전달
     );
     
     _columns = result.columns;
@@ -340,6 +341,21 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
   void clearPreviousCircularExchangeState() {
     // onEmptyCellSelected와 동일한 로직 재사용
     onEmptyCellSelected();
+  }
+  
+  @override
+  void processCellSelection() {
+    // 새로운 셀 선택시 이전 1:1 교체 관련 상태 초기화
+    setState(() {
+      _selectedOneToOnePath = null;
+      _oneToOnePaths = [];
+    });
+    
+    // 데이터 소스에서 이전 1:1 교체 관련 상태 초기화
+    _dataSource?.updateSelectedOneToOnePath(null);
+    
+    // 부모 클래스의 processCellSelection 호출
+    super.processCellSelection();
   }
 
   @override
@@ -536,6 +552,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         _dataSource?.updateSelection(null, null, null);
         _dataSource?.updateExchangeOptions([]);
         _dataSource?.updateExchangeableTeachers([]);
+        _dataSource?.updateSelectedOneToOnePath(null);
+        _selectedOneToOnePath = null;
+        _oneToOnePaths = [];
       }
     });
     
@@ -567,6 +586,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         _dataSource?.updateSelection(null, null, null);
         _dataSource?.updateExchangeOptions([]);
         _dataSource?.updateExchangeableTeachers([]);
+        _dataSource?.updateSelectedOneToOnePath(null);
+        _selectedOneToOnePath = null;
+        _oneToOnePaths = [];
       }
       
       _isCircularExchangeModeEnabled = !_isCircularExchangeModeEnabled;
@@ -613,6 +635,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     _dataSource?.updateExchangeOptions([]);
     _dataSource?.updateExchangeableTeachers([]);
     _dataSource?.updateSelectedCircularPath(null);
+    _dataSource?.updateSelectedOneToOnePath(null);
     
     // 교체 가능한 시간 업데이트 (빈 목록으로)
     updateExchangeableTimes();
@@ -626,7 +649,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     _isExchangeModeEnabled = false;
     _isCircularExchangeModeEnabled = false;
     _selectedCircularPath = null;
+    _selectedOneToOnePath = null;
     _circularPaths = [];
+    _oneToOnePaths = [];
     _isSidebarVisible = false;
     _isCircularPathsLoading = false;
     _loadingProgress = 0.0;
@@ -830,13 +855,16 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       _isCircularExchangeModeEnabled = false;
       // 선택된 순환교체 경로도 초기화
       _selectedCircularPath = null;
+      _selectedOneToOnePath = null;
       _circularPaths = [];
+      _oneToOnePaths = [];
       _isSidebarVisible = false;
     });
     
     // 교체 가능한 교사 정보도 초기화
     _dataSource?.updateExchangeableTeachers([]);
     _dataSource?.updateSelectedCircularPath(null);
+    _dataSource?.updateSelectedOneToOnePath(null);
     
     // 선택 해제 시에도 헤더 테마 업데이트
     if (_timetableData != null) {
@@ -885,6 +913,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       selectedPeriod: selectedPeriod,
       exchangeableTeachers: exchangeableTeachers, // 교체 가능한 교사 정보 전달
       selectedCircularPath: _isCircularExchangeModeEnabled ? _selectedCircularPath : null, // 순환교체 모드가 활성화된 경우에만 전달
+      selectedOneToOnePath: _isExchangeModeEnabled ? _selectedOneToOnePath : null, // 1:1 교체 모드가 활성화된 경우에만 전달
     );
     
     _columns = result.columns; // 헤더만 업데이트
@@ -930,12 +959,41 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     AppLogger.exchangeDebug('통합 경로 선택: ${path.id}, 타입: ${path.type}');
     
     if (path is OneToOneExchangePath) {
-      // 1:1교체 경로 선택
-      AppLogger.exchangeDebug('1:1교체 경로 선택: ${path.id}');
-      setState(() {
-        _selectedOneToOnePath = path;
-      });
-      // TODO: 1:1교체 실행 로직 추가
+      // 이미 선택된 경로를 다시 클릭하면 선택 해제 (토글 기능)
+      bool isSamePathSelected = _selectedOneToOnePath != null && 
+                               _selectedOneToOnePath!.id == path.id;
+      
+      if (isSamePathSelected) {
+        // 선택 해제
+        AppLogger.exchangeDebug('1:1교체 경로 선택 해제: ${path.id}');
+        setState(() {
+          _selectedOneToOnePath = null;
+        });
+        
+        // 데이터 소스에서 선택된 1:1 경로 정보 제거
+        _dataSource?.updateSelectedOneToOnePath(null);
+        
+        // 시간표 그리드 업데이트
+        _updateHeaderTheme();
+        
+        // 사용자에게 선택 해제 알림
+        showSnackBar(
+          '1:1교체 경로 선택이 해제되었습니다.',
+          backgroundColor: Colors.grey.shade600,
+        );
+      } else {
+        // 새로운 경로 선택
+        AppLogger.exchangeDebug('1:1교체 경로 선택: ${path.id}');
+        setState(() {
+          _selectedOneToOnePath = path;
+        });
+        
+        // 데이터 소스에 선택된 1:1 경로 정보 전달
+        _dataSource?.updateSelectedOneToOnePath(path);
+        
+        // 시간표 그리드 업데이트
+        _updateHeaderTheme();
+      }
     } else if (path is CircularExchangePath) {
       // 순환교체 경로 선택
       AppLogger.exchangeDebug('순환교체 경로 선택: ${path.id}');

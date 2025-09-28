@@ -3,6 +3,7 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../models/time_slot.dart';
 import '../models/teacher.dart';
 import '../models/circular_exchange_path.dart';
+import '../models/one_to_one_exchange_path.dart';
 import 'constants.dart';
 import 'simplified_timetable_theme.dart';
 import 'day_utils.dart';
@@ -37,6 +38,7 @@ class SyncfusionTimetableHelper {
     int? selectedPeriod,      // 선택된 교시
     List<Map<String, dynamic>>? exchangeableTeachers, // 교체 가능한 교사 정보
     CircularExchangePath? selectedCircularPath, // 선택된 순환교체 경로
+    OneToOneExchangePath? selectedOneToOnePath, // 선택된 1:1 교체 경로
   }) {
     // 요일별로 데이터 그룹화
     Map<String, Map<int, Map<String, TimeSlot?>>> groupedData = _groupTimeSlotsByDayAndPeriod(timeSlots);
@@ -52,7 +54,7 @@ class SyncfusionTimetableHelper {
     List<int> periods = allPeriods.toList()..sort();
     
     // Syncfusion DataGrid 컬럼 생성 (테마 기반)
-    List<GridColumn> columns = _createColumns(days, periods, selectedDay, selectedPeriod, exchangeableTeachers, selectedCircularPath);
+    List<GridColumn> columns = _createColumns(days, periods, selectedDay, selectedPeriod, exchangeableTeachers, selectedCircularPath, selectedOneToOnePath);
     
     // Syncfusion DataGrid 행 생성
     List<DataGridRow> rows = _createRows(teachers, groupedData, days, periods);
@@ -92,7 +94,7 @@ class SyncfusionTimetableHelper {
   }
   
   /// Syncfusion DataGrid 컬럼 생성 (테마 기반)
-  static List<GridColumn> _createColumns(List<String> days, List<int> periods, String? selectedDay, int? selectedPeriod, List<Map<String, dynamic>>? exchangeableTeachers, CircularExchangePath? selectedCircularPath) {
+  static List<GridColumn> _createColumns(List<String> days, List<int> periods, String? selectedDay, int? selectedPeriod, List<Map<String, dynamic>>? exchangeableTeachers, CircularExchangePath? selectedCircularPath, OneToOneExchangePath? selectedOneToOnePath) {
     List<GridColumn> columns = [];
     
     // 첫 번째 컬럼: 교사명 (고정 열)
@@ -139,6 +141,9 @@ class SyncfusionTimetableHelper {
         // 순환교체 경로의 두 번째 시간인지 확인
         bool isSecondCircularStep = _isSecondCircularStep(day, period, selectedCircularPath);
         
+        // 선택된 1:1 경로에 포함된 교시인지 확인
+        bool isInSelectedOneToOnePath = _isPeriodInSelectedOneToOnePath(day, period, selectedOneToOnePath);
+        
         // 통합 함수를 사용하여 헤더 스타일 가져오기
         CellStyle headerStyles = SimplifiedTimetableTheme.getCellStyle(
           isTeacherColumn: false,
@@ -147,6 +152,7 @@ class SyncfusionTimetableHelper {
           isLastColumnOfDay: isLastPeriod,
           isHeader: true,
           isInCircularPath: isInCircularPath,
+          isInSelectedPath: isInSelectedOneToOnePath,
         );
         
         columns.add(
@@ -348,5 +354,14 @@ class SyncfusionTimetableHelper {
     // 두 번째 노드와 일치하는지 확인 (인덱스 1)
     var secondNode = selectedCircularPath.nodes[1];
     return secondNode.day == day && secondNode.period == period;
+  }
+  
+  /// 선택된 1:1 경로에 포함된 교시인지 확인
+  static bool _isPeriodInSelectedOneToOnePath(String day, int period, OneToOneExchangePath? selectedOneToOnePath) {
+    if (selectedOneToOnePath == null) return false;
+    
+    return selectedOneToOnePath.nodes.any((node) => 
+      node.day == day && node.period == period
+    );
   }
 }

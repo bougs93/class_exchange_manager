@@ -3,6 +3,7 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../models/time_slot.dart';
 import '../models/teacher.dart';
 import '../models/circular_exchange_path.dart';
+import '../models/one_to_one_exchange_path.dart';
 import '../ui/widgets/simplified_timetable_cell.dart';
 import 'exchange_algorithm.dart';
 import 'day_utils.dart';
@@ -35,6 +36,9 @@ class TimetableDataSource extends DataGridSource {
   
   // 선택된 순환교체 경로
   CircularExchangePath? _selectedCircularPath;
+  
+  // 선택된 1:1 교체 경로
+  OneToOneExchangePath? _selectedOneToOnePath;
 
   /// DataGrid 행 데이터 빌드
   void _buildDataGridRows() {
@@ -207,14 +211,16 @@ class TimetableDataSource extends DataGridSource {
             }
           }
           
+          // 요일과 교시 변수 선언 (전체 스코프에서 사용)
+          String day = '';
+          int period = 0;
+          
           if (isTeacherColumn) {
             // 교사명 열인 경우: 해당 교사가 교체 가능한 교사인지 확인
             isExchangeableTeacher = _isExchangeableTeacherForTeacher(teacherName);
             isInCircularPath = _isTeacherInCircularPath(teacherName);
           } else {
             // 데이터 셀인 경우: 해당 교사와 시간이 교체 가능한지 확인
-            String day = '';
-            int period = 0;
             
             // 요일과 교시 추출
             List<String> parts = dataGridCell.columnName.split('_');
@@ -231,6 +237,9 @@ class TimetableDataSource extends DataGridSource {
             circularPathStep = _getCircularPathStep(teacherName, day, period);
           }
           
+          // 선택된 1:1 경로에 포함된 셀인지 확인
+          bool isInSelectedPath = _isInSelectedOneToOnePath(teacherName, day, period);
+          
           // SimplifiedTimetableCell을 사용하여 일관된 스타일 적용
           return SimplifiedTimetableCell(
             content: dataGridCell.value.toString(),
@@ -240,6 +249,7 @@ class TimetableDataSource extends DataGridSource {
             isLastColumnOfDay: isLastColumnOfDay,
             isInCircularPath: isInCircularPath,
             circularPathStep: circularPathStep,
+            isInSelectedPath: isInSelectedPath,
           );
         }).toList(),
       );
@@ -286,6 +296,12 @@ class TimetableDataSource extends DataGridSource {
   /// 선택된 순환교체 경로 업데이트
   void updateSelectedCircularPath(CircularExchangePath? path) {
     _selectedCircularPath = path;
+    notifyListeners(); // UI 갱신
+  }
+  
+  /// 선택된 1:1 교체 경로 업데이트
+  void updateSelectedOneToOnePath(OneToOneExchangePath? path) {
+    _selectedOneToOnePath = path;
     notifyListeners(); // UI 갱신
   }
   
@@ -344,6 +360,17 @@ class TimetableDataSource extends DataGridSource {
     
     return _selectedCircularPath!.nodes.any((node) => 
       node.teacherName == teacherName
+    );
+  }
+  
+  /// 선택된 1:1 경로에 포함된 셀인지 확인
+  bool _isInSelectedOneToOnePath(String teacherName, String day, int period) {
+    if (_selectedOneToOnePath == null) return false;
+    
+    return _selectedOneToOnePath!.nodes.any((node) => 
+      node.teacherName == teacherName &&
+      node.day == day &&
+      node.period == period
     );
   }
   
