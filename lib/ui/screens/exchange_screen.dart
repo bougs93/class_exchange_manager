@@ -1408,10 +1408,31 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
 
   /// 사이드바용 경로 아이템 구성
   Widget _buildSidebarPathItem(CircularExchangePath path, int index) {
+    // 선택된 경로인지 확인 (노드 비교를 통해 동일한 경로인지 판단)
+    bool isSelected = _selectedCircularPath != null && 
+                     _selectedCircularPath!.nodes.length == path.nodes.length &&
+                     _selectedCircularPath!.nodes.asMap().entries.every((entry) {
+                       int idx = entry.key;
+                       var selectedNode = entry.value;
+                       var pathNode = path.nodes[idx];
+                       return selectedNode.teacherName == pathNode.teacherName &&
+                              selectedNode.day == pathNode.day &&
+                              selectedNode.period == pathNode.period &&
+                              selectedNode.className == pathNode.className;
+                     });
+    
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       child: Card(
-        elevation: 1,
+        elevation: isSelected ? 4 : 1, // 선택된 경로는 더 높은 그림자
+        color: isSelected ? Colors.purple.shade50 : Colors.white, // 선택된 경로는 배경색 변경
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(
+            color: isSelected ? Colors.purple.shade600 : Colors.grey.shade300,
+            width: isSelected ? 2 : 1, // 선택된 경로는 테두리 두께 증가
+          ),
+        ),
         child: InkWell(
           onTap: () => _selectPath(path),
           borderRadius: BorderRadius.circular(8),
@@ -1420,6 +1441,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+
                 // 시작점과 다음 경로들 표시
                 Column(
                   children: [
@@ -1428,13 +1450,16 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.purple.shade50,
+                        color: isSelected ? Colors.purple.shade100 : Colors.purple.shade50,
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.purple.shade400),
+                        border: Border.all(
+                          color: isSelected ? Colors.purple.shade600 : Colors.purple.shade400,
+                          width: isSelected ? 2 : 1,
+                        ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
-                            blurRadius: 2,
+                            color: Colors.black.withValues(alpha: isSelected ? 0.1 : 0.05),
+                            blurRadius: isSelected ? 3 : 2,
                             offset: const Offset(0, 1),
                           ),
                         ],
@@ -1445,7 +1470,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: Colors.purple.shade700,
+                          color: isSelected ? Colors.purple.shade800 : Colors.purple.shade700,
                         ),
                       ),
                     ),
@@ -1458,20 +1483,23 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
                         child: Icon(
                           Icons.arrow_downward,
                           size: 14,
-                          color: Colors.purple.shade400,
+                          color: isSelected ? Colors.purple.shade600 : Colors.purple.shade400,
                         ),
                       ),
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: isSelected ? Colors.purple.shade50 : Colors.white,
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.purple.shade300),
+                          border: Border.all(
+                            color: isSelected ? Colors.purple.shade500 : Colors.purple.shade300,
+                            width: isSelected ? 2 : 1,
+                          ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 2,
+                              color: Colors.black.withValues(alpha: isSelected ? 0.1 : 0.05),
+                              blurRadius: isSelected ? 3 : 2,
                               offset: const Offset(0, 1),
                             ),
                           ],
@@ -1482,7 +1510,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: Colors.purple.shade700,
+                            color: isSelected ? Colors.purple.shade800 : Colors.purple.shade700,
                           ),
                         ),
                       ),
@@ -1519,8 +1547,50 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
 
 
 
-  /// 경로 선택 처리
+  /// 경로 선택 처리 (토글 기능 포함)
   void _selectPath(CircularExchangePath path) {
+    // 이미 선택된 경로를 다시 클릭하면 선택 해제 (토글 기능)
+    bool isSamePathSelected = _selectedCircularPath != null && 
+                             _selectedCircularPath!.nodes.length == path.nodes.length &&
+                             _selectedCircularPath!.nodes.asMap().entries.every((entry) {
+                               int idx = entry.key;
+                               var selectedNode = entry.value;
+                               var pathNode = path.nodes[idx];
+                               return selectedNode.teacherName == pathNode.teacherName &&
+                                      selectedNode.day == pathNode.day &&
+                                      selectedNode.period == pathNode.period &&
+                                      selectedNode.className == pathNode.className;
+                             });
+    
+    if (isSamePathSelected) {
+      // 선택 해제
+      setState(() {
+        _selectedCircularPath = null;
+      });
+      
+      // 데이터 소스에서 선택된 경로 제거
+      _dataSource?.updateSelectedCircularPath(null);
+      
+      // 시간표 그리드 업데이트
+      _updateHeaderTheme();
+      
+      AppLogger.exchangeInfo('순환교체 경로 선택이 해제되었습니다.');
+      
+      // 사용자에게 선택 해제 알림
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('순환교체 경로 선택이 해제되었습니다.'),
+            backgroundColor: Colors.grey.shade600,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+      
+      return;
+    }
+    
+    // 새로운 경로 선택
     setState(() {
       _selectedCircularPath = path;
     });
