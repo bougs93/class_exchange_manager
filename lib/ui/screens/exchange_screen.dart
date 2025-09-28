@@ -278,6 +278,13 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
   
   @override
   Future<void> findCircularPathsWithProgress() async {
+    // 로딩 상태 시작
+    setState(() {
+      _isCircularPathsLoading = true;
+      _loadingProgress = 0.0;
+      _isSidebarVisible = true; // 로딩 중에도 사이드바 표시
+    });
+    
     await _findCircularPathsWithProgress();
   }
   
@@ -361,12 +368,16 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       AppLogger.exchangeDebug('필터링된 경로 ${_filteredCircularPaths.length}개');
       _circularExchangeService.logCircularExchangeInfo(paths, _timetableData!.timeSlots);
       
-      // 경로가 없으면 사이드바 숨김
-      if (paths.isEmpty) {
-        setState(() {
-          _isSidebarVisible = false;
-        });
-      }
+      // 경로에 따른 사이드바 표시 설정
+      setState(() {
+        if (paths.isEmpty) {
+          _isSidebarVisible = false; // 경로가 없으면 사이드바 숨김
+          AppLogger.exchangeDebug('순환교체 경로가 없어서 사이드바를 숨김니다.');
+        } else {
+          _isSidebarVisible = true; // 경로가 있으면 사이드바 표시
+          AppLogger.exchangeDebug('순환교체 경로 ${paths.length}개를 찾았습니다. 사이드바를 표시합니다.');
+        }
+      });
       
     } catch (e) {
       // 오류 처리
