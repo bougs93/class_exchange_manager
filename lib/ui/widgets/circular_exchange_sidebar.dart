@@ -42,7 +42,59 @@ class CircularExchangeSidebar extends StatefulWidget {
   State<CircularExchangeSidebar> createState() => _CircularExchangeSidebarState();
 }
 
-class _CircularExchangeSidebarState extends State<CircularExchangeSidebar> {
+class _CircularExchangeSidebarState extends State<CircularExchangeSidebar> 
+    with TickerProviderStateMixin {
+  
+  // 반짝임 효과를 위한 애니메이션 컨트롤러들
+  final Map<String, AnimationController> _flashControllers = {};
+  final Map<String, Animation<double>> _flashAnimations = {};
+  
+  @override
+  void dispose() {
+    // 모든 애니메이션 컨트롤러 정리
+    for (var controller in _flashControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+  
+  /// 특정 노드에 대한 반짝임 효과 실행
+  void _triggerFlashEffect(String nodeKey) {
+    // 기존 컨트롤러가 있으면 정리
+    _flashControllers[nodeKey]?.dispose();
+    
+    // 새로운 애니메이션 컨트롤러 생성
+    final controller = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+    
+    final animation = Tween<double>(
+      begin: 1.0,
+      end: 0.3,
+    ).animate(CurvedAnimation(
+      parent: controller,
+      curve: Curves.easeInOut,
+    ));
+    
+    _flashControllers[nodeKey] = controller;
+    _flashAnimations[nodeKey] = animation;
+    
+    // 애니메이션 실행 (앞뒤로 한 번씩)
+    controller.forward().then((_) {
+      controller.reverse().then((_) {
+        // 애니메이션 완료 후 정리
+        setState(() {
+          _flashControllers.remove(nodeKey);
+          _flashAnimations.remove(nodeKey);
+        });
+        controller.dispose();
+      });
+    });
+    
+    setState(() {});
+  }
+  
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
@@ -444,17 +496,34 @@ class _CircularExchangeSidebarState extends State<CircularExchangeSidebar> {
                   children: [
                     // 시작점 표시 (첫 번째 화살표 위에) - 클릭 가능
                     GestureDetector(
-                      onTap: () {
-                        // 해당 셀로 스크롤
-                        if (widget.onScrollToCell != null) {
-                          widget.onScrollToCell!(
-                            path.nodes[0].teacherName,
-                            path.nodes[0].day,
-                            path.nodes[0].period,
-                          );
-                        }
-                      },
-                      child: Container(
+                       onTap: () {
+                         // 경로가 선택되지 않은 상태라면 경로만 선택
+                         if (!isSelected) {
+                           widget.onSelectPath(path);
+                           return; // 경로 선택만 하고 스크롤은 하지 않음
+                         }
+                         
+                         // 이미 선택된 경로의 노드를 클릭한 경우에만 반짝임 효과와 스크롤 실행
+                         String nodeKey = '${index}_0'; // 경로인덱스_노드인덱스
+                         _triggerFlashEffect(nodeKey);
+                         
+                         // 해당 셀로 스크롤
+                         if (widget.onScrollToCell != null) {
+                           widget.onScrollToCell!(
+                             path.nodes[0].teacherName,
+                             path.nodes[0].day,
+                             path.nodes[0].period,
+                           );
+                         }
+                       },
+                      child: AnimatedBuilder(
+                        animation: _flashAnimations['${index}_0'] ?? 
+                                  const AlwaysStoppedAnimation(1.0),
+                        builder: (context, child) {
+                          final opacity = _flashAnimations['${index}_0']?.value ?? 1.0;
+                          return Opacity(
+                            opacity: opacity,
+                            child: Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
@@ -472,15 +541,18 @@ class _CircularExchangeSidebarState extends State<CircularExchangeSidebar> {
                             ),
                           ],
                         ),
-                        child: Text(
-                          '${path.nodes[0].day}${path.nodes[0].period} | ${path.nodes[0].teacherName} | ${widget.getSubjectName(path.nodes[0])}',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: isSelected ? Colors.purple.shade800 : Colors.purple.shade700,
-                          ),
-                        ),
+                              child: Text(
+                                '${path.nodes[0].day}${path.nodes[0].period} | ${path.nodes[0].teacherName} | ${widget.getSubjectName(path.nodes[0])}',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: isSelected ? Colors.purple.shade800 : Colors.purple.shade700,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
                     
@@ -496,17 +568,34 @@ class _CircularExchangeSidebarState extends State<CircularExchangeSidebar> {
                         ),
                       ),
                       GestureDetector(
-                        onTap: () {
-                          // 해당 셀로 스크롤
-                          if (widget.onScrollToCell != null) {
-                            widget.onScrollToCell!(
-                              path.nodes[i].teacherName,
-                              path.nodes[i].day,
-                              path.nodes[i].period,
-                            );
-                          }
-                        },
-                        child: Container(
+                         onTap: () {
+                           // 경로가 선택되지 않은 상태라면 경로만 선택
+                           if (!isSelected) {
+                             widget.onSelectPath(path);
+                             return; // 경로 선택만 하고 스크롤은 하지 않음
+                           }
+                           
+                           // 이미 선택된 경로의 노드를 클릭한 경우에만 반짝임 효과와 스크롤 실행
+                           String nodeKey = '${index}_$i'; // 경로인덱스_노드인덱스
+                           _triggerFlashEffect(nodeKey);
+                           
+                           // 해당 셀로 스크롤
+                           if (widget.onScrollToCell != null) {
+                             widget.onScrollToCell!(
+                               path.nodes[i].teacherName,
+                               path.nodes[i].day,
+                               path.nodes[i].period,
+                             );
+                           }
+                         },
+                        child: AnimatedBuilder(
+                          animation: _flashAnimations['${index}_$i'] ?? 
+                                    const AlwaysStoppedAnimation(1.0),
+                          builder: (context, child) {
+                            final opacity = _flashAnimations['${index}_$i']?.value ?? 1.0;
+                            return Opacity(
+                              opacity: opacity,
+                              child: Container(
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
@@ -524,15 +613,18 @@ class _CircularExchangeSidebarState extends State<CircularExchangeSidebar> {
                               ),
                             ],
                           ),
-                          child: Text(
-                            '${path.nodes[i].day}${path.nodes[i].period} | ${path.nodes[i].teacherName} | ${widget.getSubjectName(path.nodes[i])}',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: isSelected ? Colors.purple.shade800 : Colors.purple.shade700,
-                            ),
-                          ),
+                                child: Text(
+                                  '${path.nodes[i].day}${path.nodes[i].period} | ${path.nodes[i].teacherName} | ${widget.getSubjectName(path.nodes[i])}',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: isSelected ? Colors.purple.shade800 : Colors.purple.shade700,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ],

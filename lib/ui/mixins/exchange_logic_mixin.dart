@@ -70,10 +70,16 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
       // UI 상태 업데이트
     });
     
-    // 새로운 셀 선택 시 기존 선택된 순환교체 경로 초기화
+    // 새로운 셀 선택 시 기존 선택된 순환교체 경로와 관련 상태 초기화
     if (result.isSelected) {
       AppLogger.exchangeDebug('순환교체: 새로운 셀 선택됨 - 교사: ${result.teacherName}, 요일: ${result.day}, 교시: ${result.period}');
+      
+      // 이전 순환교체 경로 관련 상태 완전 초기화
       dataSource?.updateSelectedCircularPath(null);
+      
+      // 구현 클래스에서 순환교체 관련 상태 초기화
+      clearPreviousCircularExchangeState();
+      
     } else if (result.isDeselected) {
       AppLogger.exchangeDebug('순환교체: 셀 선택 해제됨');
     }
@@ -253,4 +259,5 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
   Future<void> findCircularPathsWithProgress();
   void onPathSelected(CircularExchangePath path);
   void onPathDeselected();
+  void clearPreviousCircularExchangeState();
 }

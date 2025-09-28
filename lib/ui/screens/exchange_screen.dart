@@ -268,12 +268,20 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
   @override
   void onEmptyCellSelected() {
     setState(() {
+      // 순환교체 경로와 관련된 모든 상태 초기화
       _circularPaths = [];
       _selectedCircularPath = null;
       _isSidebarVisible = false;
       _isCircularPathsLoading = false;
       _loadingProgress = 0.0;
+      _filteredCircularPaths = [];
     });
+    
+    // 데이터 소스에서도 순환교체 관련 상태 초기화
+    _dataSource?.updateSelectedCircularPath(null);
+    
+    // 시간표 그리드 테마 업데이트 (이전 경로 표시 제거)
+    _updateHeaderTheme();
   }
   
   @override
@@ -312,6 +320,12 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     
     // 시간표 그리드 업데이트
     _updateHeaderTheme();
+  }
+  
+  @override
+  void clearPreviousCircularExchangeState() {
+    // onEmptyCellSelected와 동일한 로직 재사용
+    onEmptyCellSelected();
   }
   
   
@@ -844,15 +858,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     AppLogger.exchangeDebug('테이블 위치 - 교사:$teacherIndex, 컬럼:$columnName($columnIndex), 행:${teacherIndex + 2}, 열:$columnIndex');
     
     // 사용자에게 시각적 피드백 제공
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('셀 스크롤: $teacherName 선생님 ($day $period교시)'),
-          backgroundColor: Colors.blue.shade600,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
+    
   }
 
 
