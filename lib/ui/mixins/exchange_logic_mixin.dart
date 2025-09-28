@@ -148,6 +148,9 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
       timetableData!.teachers,
     );
     
+    // 1:1교체 경로 생성 (구현 클래스에서 처리)
+    generateOneToOnePaths(options);
+    
     setState(() {
       // UI 상태 업데이트
     });
@@ -257,6 +260,7 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
   // 추상 메서드들 - 구현 클래스에서 구현해야 함
   void onEmptyCellSelected();
   Future<void> findCircularPathsWithProgress();
+  void generateOneToOnePaths(List<dynamic> options); // ExchangeOption 리스트
   void onPathSelected(CircularExchangePath path);
   void onPathDeselected();
   void clearPreviousCircularExchangeState();

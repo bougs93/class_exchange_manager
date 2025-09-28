@@ -13,7 +13,10 @@ import '../../utils/timetable_data_source.dart';
 import '../../utils/syncfusion_timetable_helper.dart';
 import '../../utils/logger.dart';
 import '../../utils/day_utils.dart';
-import '../widgets/circular_exchange_sidebar.dart';
+import '../widgets/unified_exchange_sidebar.dart';
+import '../../models/exchange_path.dart';
+import '../../models/one_to_one_exchange_path.dart';
+import '../../utils/exchange_path_converter.dart';
 import '../widgets/file_selection_section.dart';
 import '../widgets/timetable_grid_section.dart';
 import '../mixins/exchange_logic_mixin.dart';
@@ -74,14 +77,18 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
   bool _isCircularPathsLoading = false; // 순환교체 경로 탐색 로딩 상태
   double _loadingProgress = 0.0; // 진행률 (0.0 ~ 1.0)
   
-  // 사이드바 관련 변수들
+  // 1:1교체 관련 변수들
+  List<OneToOneExchangePath> _oneToOnePaths = []; // 1:1교체 경로들
+  OneToOneExchangePath? _selectedOneToOnePath; // 선택된 1:1교체 경로
+  
+  // 통합 사이드바 관련 변수들
   bool _isSidebarVisible = false; // 사이드바 표시 여부
   final double _sidebarWidth = 180.0; // 사이드바 너비
   
   // 검색 및 필터링 관련 변수들
   final TextEditingController _searchController = TextEditingController(); // 검색 입력 컨트롤러
   String _searchQuery = ''; // 검색 쿼리
-  List<CircularExchangePath> _filteredCircularPaths = []; // 필터링된 순환교체 경로들
+  List<ExchangePath> _filteredPaths = []; // 필터링된 경로들 (통합)
 
   @override
   void dispose() {
@@ -100,9 +107,12 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
             child: _buildTimetableTab(),
           ),
           
-          // 순환교체 사이드바
-          if (_isCircularExchangeModeEnabled && _isSidebarVisible && (_circularPaths.isNotEmpty || _isCircularPathsLoading))
-            _buildCircularExchangeSidebar(),
+          // 통합 교체 사이드바 (1:1교체 및 순환교체)
+          if (_isSidebarVisible && (
+            (_isExchangeModeEnabled && _oneToOnePaths.isNotEmpty) ||
+            (_isCircularExchangeModeEnabled && (_circularPaths.isNotEmpty || _isCircularPathsLoading))
+          ))
+            _buildUnifiedExchangeSidebar(),
         ],
       ),
     );
@@ -278,7 +288,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       _isSidebarVisible = false;
       _isCircularPathsLoading = false;
       _loadingProgress = 0.0;
-      _filteredCircularPaths = [];
+      _filteredPaths = [];
     });
     
     // 데이터 소스에서도 순환교체 관련 상태 초기화
@@ -331,6 +341,71 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     // onEmptyCellSelected와 동일한 로직 재사용
     onEmptyCellSelected();
   }
+
+  @override
+  void generateOneToOnePaths(List<dynamic> options) {
+    if (!exchangeService.hasSelectedCell() || timetableData == null) {
+      setState(() {
+        _oneToOnePaths = [];
+        _selectedOneToOnePath = null;
+        _isSidebarVisible = false;
+      });
+      return;
+    }
+
+    // 선택된 셀의 학급명 추출
+    String selectedClassName = ExchangePathConverter.extractClassNameFromTimeSlots(
+      timeSlots: timetableData!.timeSlots,
+      teacherName: exchangeService.selectedTeacher!,
+      day: exchangeService.selectedDay!,
+      period: exchangeService.selectedPeriod!,
+    );
+
+    // ExchangeOption을 OneToOneExchangePath로 변환
+    List<OneToOneExchangePath> paths = ExchangePathConverter.convertToOneToOnePaths(
+      selectedTeacher: exchangeService.selectedTeacher!,
+      selectedDay: exchangeService.selectedDay!,
+      selectedPeriod: exchangeService.selectedPeriod!,
+      selectedClassName: selectedClassName,
+      options: options.cast(), // dynamic을 ExchangeOption으로 캐스팅
+    );
+
+    setState(() {
+      _oneToOnePaths = paths;
+      _selectedOneToOnePath = null;
+      
+      // 필터링된 경로 업데이트
+      _updateFilteredPaths();
+      
+      // 경로가 있으면 사이드바 표시
+      _isSidebarVisible = paths.isNotEmpty;
+    });
+  }
+
+  /// 필터링된 경로 업데이트 (통합)
+  void _updateFilteredPaths() {
+    List<ExchangePath> allPaths = [];
+    
+    if (_isExchangeModeEnabled) {
+      // 1:1교체 모드
+      allPaths.addAll(_oneToOnePaths);
+    } else if (_isCircularExchangeModeEnabled) {
+      // 순환교체 모드
+      allPaths.addAll(_circularPaths);
+    }
+
+    // 검색 쿼리로 필터링
+    if (_searchQuery.isEmpty) {
+      _filteredPaths = allPaths;
+    } else {
+      _filteredPaths = allPaths.where((path) {
+        return path.nodes.any((node) =>
+          node.teacherName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          node.className.toLowerCase().contains(_searchQuery.toLowerCase())
+        );
+      }).toList();
+    }
+  }
   
   
   /// 진행률과 함께 순환교체 경로 탐색
@@ -376,14 +451,14 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       });
       
       // 필터링된 경로도 함께 업데이트
-      _filterCircularPaths();
+      _updateFilteredPaths();
       
       // 데이터 소스에서도 선택된 경로 초기화
       _dataSource?.updateSelectedCircularPath(null);
       
       // 디버그 콘솔에 출력
       AppLogger.exchangeDebug('순환교체 경로 ${paths.length}개 발견');
-      AppLogger.exchangeDebug('필터링된 경로 ${_filteredCircularPaths.length}개');
+      AppLogger.exchangeDebug('필터링된 경로 ${_filteredPaths.length}개');
       _circularExchangeService.logCircularExchangeInfo(paths, _timetableData!.timeSlots);
       
       // 경로에 따른 사이드바 표시 설정
@@ -533,7 +608,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     // 검색 상태 초기화
     _searchController.clear();
     _searchQuery = '';
-    _filteredCircularPaths = [];
+    _filteredPaths = [];
     
     // 헤더 테마를 기본값으로 복원 (모든 변수 초기화 후)
     _updateHeaderTheme();
@@ -791,23 +866,51 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
   }
 
   /// 순환교체 사이드바 구성
-  Widget _buildCircularExchangeSidebar() {
-    return CircularExchangeSidebar(
+  Widget _buildUnifiedExchangeSidebar() {
+    // 현재 모드 결정
+    ExchangePathType currentMode = _isExchangeModeEnabled 
+        ? ExchangePathType.oneToOne 
+        : ExchangePathType.circular;
+    
+    // 선택된 경로 결정
+    ExchangePath? selectedPath;
+    if (_isExchangeModeEnabled) {
+      selectedPath = _selectedOneToOnePath;
+    } else if (_isCircularExchangeModeEnabled) {
+      selectedPath = _selectedCircularPath;
+    }
+    
+    return UnifiedExchangeSidebar(
       width: _sidebarWidth,
-      circularPaths: _circularPaths,
-      filteredCircularPaths: _filteredCircularPaths,
-      selectedCircularPath: _selectedCircularPath,
-      isLoading: _isCircularPathsLoading,
+      paths: _isExchangeModeEnabled ? _oneToOnePaths : _circularPaths,
+      filteredPaths: _filteredPaths,
+      selectedPath: selectedPath,
+      mode: currentMode,
+      isLoading: _isCircularPathsLoading, // 1:1교체는 즉시 로딩되므로 순환교체 로딩만 사용
       loadingProgress: _loadingProgress,
       searchQuery: _searchQuery,
       searchController: _searchController,
       onToggleSidebar: _toggleSidebar,
-      onSelectPath: (path) => selectPath(path),
+      onSelectPath: _onUnifiedPathSelected,
       onUpdateSearchQuery: _updateSearchQuery,
       onClearSearch: _clearSearch,
       getSubjectName: _getSubjectName,
-      onScrollToCell: _scrollToCellCenter, // 셀 스크롤 콜백 추가
+      onScrollToCell: _scrollToCellCenter,
     );
+  }
+
+  /// 통합 경로 선택 처리
+  void _onUnifiedPathSelected(ExchangePath path) {
+    if (path is OneToOneExchangePath) {
+      // 1:1교체 경로 선택
+      setState(() {
+        _selectedOneToOnePath = path;
+      });
+      // TODO: 1:1교체 실행 로직 추가
+    } else if (path is CircularExchangePath) {
+      // 순환교체 경로 선택
+      selectPath(path);
+    }
   }
 
 
@@ -857,40 +960,20 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
 
   /// 검색 쿼리 업데이트 및 필터링
   void _updateSearchQuery(String query) {
-    _searchQuery = query;
-    _filterCircularPaths();
-  }
-
-  /// 순환교체 경로 필터링
-  void _filterCircularPaths() {
     setState(() {
-      if (_searchQuery.isEmpty) {
-        _filteredCircularPaths = List.from(_circularPaths);
-      } else {
-        _filteredCircularPaths = _circularPaths.where((path) {
-          // 경로의 모든 노드에서 검색 쿼리와 일치하는지 확인
-          return path.nodes.any((node) {
-            final day = node.day.toLowerCase();
-            final teacherName = node.teacherName.toLowerCase();
-            final subject = _getSubjectName(node).toLowerCase();
-            final query = _searchQuery.toLowerCase();
-            
-            return day.contains(query) || 
-                   teacherName.contains(query) || 
-                   subject.contains(query);
-          });
-        }).toList();
-      }
-      
-      // 디버그 로그
-      AppLogger.exchangeDebug('필터링 완료: 원본 ${_circularPaths.length}개 → 필터링 ${_filteredCircularPaths.length}개');
+      _searchQuery = query;
+      _updateFilteredPaths(); // 통합 필터링 사용
     });
   }
+
 
   /// 검색 입력 필드 초기화
   void _clearSearch() {
     _searchController.clear();
-    _updateSearchQuery('');
+    setState(() {
+      _searchQuery = '';
+      _updateFilteredPaths(); // 통합 필터링 사용
+    });
   }
 
   
