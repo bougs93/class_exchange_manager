@@ -9,6 +9,8 @@ import '../../services/exchange_service.dart';
 import '../../services/circular_exchange_service.dart';
 import '../../models/circular_exchange_path.dart';
 import '../../models/exchange_node.dart';
+import '../../models/time_slot.dart';
+import '../../models/teacher.dart';
 import '../../utils/timetable_data_source.dart';
 import '../../utils/syncfusion_timetable_helper.dart';
 import '../../utils/logger.dart';
@@ -505,13 +507,16 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       
       AppLogger.exchangeDebug('경로 탐색 실행 시작 - 선택된 셀: ${_circularExchangeService.selectedTeacher}, ${_circularExchangeService.selectedDay}, ${_circularExchangeService.selectedPeriod}');
       
-      // 실제 경로 탐색 실행 (디버깅을 위해 메인 스레드에서 실행)
-      List<CircularExchangePath> paths = await Future(() {
-        return _circularExchangeService.findCircularExchangePaths(
-          _timetableData!.timeSlots,
-          _timetableData!.teachers,
-        );
-      });
+      // 백그라운드에서 경로 탐색 실행 (compute 사용)
+      Map<String, dynamic> data = {
+        'timeSlots': _timetableData!.timeSlots,
+        'teachers': _timetableData!.teachers,
+        'selectedTeacher': _circularExchangeService.selectedTeacher,
+        'selectedDay': _circularExchangeService.selectedDay,
+        'selectedPeriod': _circularExchangeService.selectedPeriod,
+      };
+      
+      List<CircularExchangePath> paths = await compute(_findCircularExchangePathsInBackground, data);
       
       AppLogger.exchangeDebug('경로 탐색 완료 - 발견된 경로 수: ${paths.length}');
       
@@ -1217,4 +1222,24 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
   }
 
   
+}
+
+/// 백그라운드에서 순환교체 경로 탐색을 실행하는 함수
+/// compute 함수에서 사용하기 위해 클래스 외부에 정의
+List<CircularExchangePath> _findCircularExchangePathsInBackground(Map<String, dynamic> data) {
+  // 백그라운드에서 새로운 CircularExchangeService 인스턴스 생성
+  CircularExchangeService service = CircularExchangeService();
+  
+  // 선택된 셀 정보 설정
+  service.setSelectedCell(
+    data['selectedTeacher'] as String,
+    data['selectedDay'] as String,
+    data['selectedPeriod'] as int,
+  );
+  
+  // 경로 탐색 실행
+  return service.findCircularExchangePaths(
+    data['timeSlots'] as List<TimeSlot>,
+    data['teachers'] as List<Teacher>,
+  );
 }

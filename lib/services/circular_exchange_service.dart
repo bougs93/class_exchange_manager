@@ -21,6 +21,9 @@ class CircularExchangeService {
   /// 기본 단계 검사 방식 (false: 해당 단계까지, true: 정확히 해당 단계만)
   static const bool defaultExactSteps = false;
   
+  /// 순환교체 경로 디버그 콘솔 출력 여부
+  static const bool enablePathDebugLogging = false;
+  
   // ==================== 인스턴스 변수 ====================
   // 교체 관련 상태 변수들
   String? _selectedTeacher;   // 선택된 교사명
@@ -561,7 +564,9 @@ class CircularExchangeService {
         // 과목 정보를 포함한 경로 설명 생성
         String pathWithSubjects = path.nodes.map((n) => _getNodeWithSubject(n, timeSlots)).join(' → ');
         
-        AppLogger.exchangeInfo('경로 ${i + 1} [${path.steps}단계]: $pathWithSubjects');
+        if (enablePathDebugLogging) {
+          AppLogger.exchangeInfo('경로 ${i + 1} [${path.steps}단계]: $pathWithSubjects');
+        }
       }
     }
   }
