@@ -45,7 +45,7 @@ class CircularExchangeSidebar extends StatefulWidget {
 class _CircularExchangeSidebarState extends State<CircularExchangeSidebar> 
     with TickerProviderStateMixin {
   
-  // 반짝임 효과를 위한 애니메이션 컨트롤러들
+  // 물결 효과를 위한 애니메이션 컨트롤러들
   final Map<String, AnimationController> _flashControllers = {};
   final Map<String, Animation<double>> _flashAnimations = {};
   
@@ -58,29 +58,30 @@ class _CircularExchangeSidebarState extends State<CircularExchangeSidebar>
     super.dispose();
   }
   
-  /// 특정 노드에 대한 반짝임 효과 실행
-  void _triggerFlashEffect(String nodeKey) {
+  /// 특정 노드에 대한 물결 효과 실행
+  void _triggerRippleEffect(String nodeKey) {
     // 기존 컨트롤러가 있으면 정리
     _flashControllers[nodeKey]?.dispose();
     
-    // 새로운 애니메이션 컨트롤러 생성
+    // 새로운 애니메이션 컨트롤러 생성 (더 빠른 물결 효과)
     final controller = AnimationController(
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 600),
       vsync: this,
     );
     
-    final animation = Tween<double>(
+    // 물결 효과를 위한 스케일 애니메이션 (크기 변화)
+    final scaleAnimation = Tween<double>(
       begin: 1.0,
-      end: 0.3,
+      end: 1.05, // 5% 확대로 줄임 (기존 15%에서 감소)
     ).animate(CurvedAnimation(
       parent: controller,
-      curve: Curves.easeInOut,
+      curve: Curves.elasticOut, // 탄성 있는 물결 효과
     ));
     
     _flashControllers[nodeKey] = controller;
-    _flashAnimations[nodeKey] = animation;
+    _flashAnimations[nodeKey] = scaleAnimation;
     
-    // 애니메이션 실행 (앞뒤로 한 번씩)
+    // 물결 애니메이션 실행 (확대 후 원래 크기로)
     controller.forward().then((_) {
       controller.reverse().then((_) {
         // 애니메이션 완료 후 정리
@@ -503,9 +504,9 @@ class _CircularExchangeSidebarState extends State<CircularExchangeSidebar>
                            return; // 경로 선택만 하고 스크롤은 하지 않음
                          }
                          
-                         // 이미 선택된 경로의 노드를 클릭한 경우에만 반짝임 효과와 스크롤 실행
+                         // 이미 선택된 경로의 노드를 클릭한 경우에만 물결 효과와 스크롤 실행
                          String nodeKey = '${index}_0'; // 경로인덱스_노드인덱스
-                         _triggerFlashEffect(nodeKey);
+                         _triggerRippleEffect(nodeKey);
                          
                          // 해당 셀로 스크롤
                          if (widget.onScrollToCell != null) {
@@ -516,14 +517,15 @@ class _CircularExchangeSidebarState extends State<CircularExchangeSidebar>
                            );
                          }
                        },
-                      child: AnimatedBuilder(
-                        animation: _flashAnimations['${index}_0'] ?? 
-                                  const AlwaysStoppedAnimation(1.0),
-                        builder: (context, child) {
-                          final opacity = _flashAnimations['${index}_0']?.value ?? 1.0;
-                          return Opacity(
-                            opacity: opacity,
-                            child: Container(
+                       child: AnimatedBuilder(
+                         animation: _flashAnimations['${index}_0'] ??
+                                   const AlwaysStoppedAnimation(1.0),
+                         builder: (context, child) {
+                           final scale = _flashAnimations['${index}_0']?.value ?? 1.0;
+                           
+                           return Transform.scale(
+                             scale: scale,
+                             child: Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
@@ -575,9 +577,9 @@ class _CircularExchangeSidebarState extends State<CircularExchangeSidebar>
                              return; // 경로 선택만 하고 스크롤은 하지 않음
                            }
                            
-                           // 이미 선택된 경로의 노드를 클릭한 경우에만 반짝임 효과와 스크롤 실행
+                           // 이미 선택된 경로의 노드를 클릭한 경우에만 물결 효과와 스크롤 실행
                            String nodeKey = '${index}_$i'; // 경로인덱스_노드인덱스
-                           _triggerFlashEffect(nodeKey);
+                           _triggerRippleEffect(nodeKey);
                            
                            // 해당 셀로 스크롤
                            if (widget.onScrollToCell != null) {
@@ -588,14 +590,15 @@ class _CircularExchangeSidebarState extends State<CircularExchangeSidebar>
                              );
                            }
                          },
-                        child: AnimatedBuilder(
-                          animation: _flashAnimations['${index}_$i'] ?? 
-                                    const AlwaysStoppedAnimation(1.0),
-                          builder: (context, child) {
-                            final opacity = _flashAnimations['${index}_$i']?.value ?? 1.0;
-                            return Opacity(
-                              opacity: opacity,
-                              child: Container(
+                         child: AnimatedBuilder(
+                           animation: _flashAnimations['${index}_$i'] ??
+                                     const AlwaysStoppedAnimation(1.0),
+                           builder: (context, child) {
+                             final scale = _flashAnimations['${index}_$i']?.value ?? 1.0;
+                             
+                             return Transform.scale(
+                               scale: scale,
+                               child: Container(
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
