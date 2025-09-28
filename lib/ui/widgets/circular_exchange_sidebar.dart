@@ -18,6 +18,7 @@ class CircularExchangeSidebar extends StatefulWidget {
   final Function(String) onUpdateSearchQuery;
   final VoidCallback onClearSearch;
   final Function(ExchangeNode) getSubjectName;
+  final Function(String teacherName, String day, int period)? onScrollToCell; // 셀 스크롤 콜백 추가
 
   const CircularExchangeSidebar({
     super.key,
@@ -34,6 +35,7 @@ class CircularExchangeSidebar extends StatefulWidget {
     required this.onUpdateSearchQuery,
     required this.onClearSearch,
     required this.getSubjectName,
+    this.onScrollToCell, // 선택적 매개변수로 추가
   });
 
   @override
@@ -440,32 +442,44 @@ class _CircularExchangeSidebarState extends State<CircularExchangeSidebar> {
                 // 시작점과 다음 경로들 표시
                 Column(
                   children: [
-                    // 시작점 표시 (첫 번째 화살표 위에)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: isSelected ? Colors.purple.shade100 : Colors.purple.shade50,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: isSelected ? Colors.purple.shade600 : Colors.purple.shade400,
-                          width: isSelected ? 2 : 1,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: isSelected ? 0.1 : 0.05),
-                            blurRadius: isSelected ? 3 : 2,
-                            offset: const Offset(0, 1),
+                    // 시작점 표시 (첫 번째 화살표 위에) - 클릭 가능
+                    GestureDetector(
+                      onTap: () {
+                        // 해당 셀로 스크롤
+                        if (widget.onScrollToCell != null) {
+                          widget.onScrollToCell!(
+                            path.nodes[0].teacherName,
+                            path.nodes[0].day,
+                            path.nodes[0].period,
+                          );
+                        }
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isSelected ? Colors.purple.shade100 : Colors.purple.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: isSelected ? Colors.purple.shade600 : Colors.purple.shade400,
+                            width: isSelected ? 2 : 1,
                           ),
-                        ],
-                      ),
-                      child: Text(
-                        '${path.nodes[0].day}${path.nodes[0].period} | ${path.nodes[0].teacherName} | ${widget.getSubjectName(path.nodes[0])}',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: isSelected ? Colors.purple.shade800 : Colors.purple.shade700,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: isSelected ? 0.1 : 0.05),
+                              blurRadius: isSelected ? 3 : 2,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          '${path.nodes[0].day}${path.nodes[0].period} | ${path.nodes[0].teacherName} | ${widget.getSubjectName(path.nodes[0])}',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isSelected ? Colors.purple.shade800 : Colors.purple.shade700,
+                          ),
                         ),
                       ),
                     ),
@@ -481,31 +495,43 @@ class _CircularExchangeSidebarState extends State<CircularExchangeSidebar> {
                           color: isSelected ? Colors.purple.shade600 : Colors.purple.shade400,
                         ),
                       ),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: isSelected ? Colors.purple.shade50 : Colors.white,
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: isSelected ? Colors.purple.shade500 : Colors.purple.shade300,
-                            width: isSelected ? 2 : 1,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: isSelected ? 0.1 : 0.05),
-                              blurRadius: isSelected ? 3 : 2,
-                              offset: const Offset(0, 1),
+                      GestureDetector(
+                        onTap: () {
+                          // 해당 셀로 스크롤
+                          if (widget.onScrollToCell != null) {
+                            widget.onScrollToCell!(
+                              path.nodes[i].teacherName,
+                              path.nodes[i].day,
+                              path.nodes[i].period,
+                            );
+                          }
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isSelected ? Colors.purple.shade50 : Colors.white,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: isSelected ? Colors.purple.shade500 : Colors.purple.shade300,
+                              width: isSelected ? 2 : 1,
                             ),
-                          ],
-                        ),
-                        child: Text(
-                          '${path.nodes[i].day}${path.nodes[i].period} | ${path.nodes[i].teacherName} | ${widget.getSubjectName(path.nodes[i])}',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: isSelected ? Colors.purple.shade800 : Colors.purple.shade700,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: isSelected ? 0.1 : 0.05),
+                                blurRadius: isSelected ? 3 : 2,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            '${path.nodes[i].day}${path.nodes[i].period} | ${path.nodes[i].teacherName} | ${widget.getSubjectName(path.nodes[i])}',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: isSelected ? Colors.purple.shade800 : Colors.purple.shade700,
+                            ),
                           ),
                         ),
                       ),

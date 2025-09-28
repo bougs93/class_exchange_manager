@@ -788,6 +788,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       onUpdateSearchQuery: _updateSearchQuery,
       onClearSearch: _clearSearch,
       getSubjectName: _getSubjectName,
+      onScrollToCell: _scrollToCellCenter, // 셀 스크롤 콜백 추가
     );
   }
 
@@ -807,6 +808,51 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     }
     
     return '과목';
+  }
+
+  /// 사이드바에서 클릭한 셀을 화면 중앙으로 스크롤
+  void _scrollToCellCenter(String teacherName, String day, int period) {
+    
+    if (_timetableData == null) {
+      AppLogger.exchangeDebug('오류: timetableData가 null입니다.');
+      return;
+    }
+
+    // 시간표에서 해당 셀의 상세 정보 찾기
+    int dayOfWeek = DayUtils.getDayNumber(day);
+    String? className;
+    String? subject;
+    
+    for (var timeSlot in _timetableData!.timeSlots) {
+      if (timeSlot.teacher == teacherName &&
+          timeSlot.dayOfWeek == dayOfWeek &&
+          timeSlot.period == period) {
+        className = timeSlot.className;
+        subject = timeSlot.subject;
+        break;
+      }
+    }
+    AppLogger.exchangeDebug('시간표 셀 정보 - 교사: $teacherName, 요일: $day ($dayOfWeek번째), 교시: $period교시, 반: ${className ?? "미지정"}, 과목: ${subject ?? "미지정"}');
+    
+    // 시간표 그리드에서의 위치 계산
+    int teacherIndex = _timetableData!.teachers
+        .indexWhere((teacher) => teacher.name == teacherName);
+    String columnName = '${day}_$period';
+    int columnIndex = _columns
+        .indexWhere((column) => column.columnName == columnName);
+    
+    AppLogger.exchangeDebug('테이블 위치 - 교사:$teacherIndex, 컬럼:$columnName($columnIndex), 행:${teacherIndex + 2}, 열:$columnIndex');
+    
+    // 사용자에게 시각적 피드백 제공
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('셀 스크롤: $teacherName 선생님 ($day $period교시)'),
+          backgroundColor: Colors.blue.shade600,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
 
