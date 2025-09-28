@@ -10,7 +10,7 @@ class SimplifiedTimetableTheme {
   
   // 색상 변형 (public으로 변경하여 다른 테마에서 참조 가능)
   static const Color selectedColorLight = Color(0xFFE3F2FD);
-  static const Color exchangeableColorLight = Color(0xFFC8E6C9);
+  static const Color exchangeableColorLight = Color(0xFFE0E0E0);
   static const Color selectedColorDark = Color(0xFF1976D2);
   
   // 순환교체 경로 색상
@@ -163,7 +163,7 @@ class SimplifiedTimetableTheme {
     // 1:1 교체 가능한 셀인 경우 오버레이 표시
     if (isExchangeable) {
       return createExchangeableOverlay(
-        color: Colors.red.shade600,
+        color: Colors.red.shade200, // 연한 빨간색
         number: '1',
       );
     }
