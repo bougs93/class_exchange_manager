@@ -237,8 +237,12 @@ class TimetableDataSource extends DataGridSource {
             circularPathStep = _getCircularPathStep(teacherName, day, period);
           }
           
-          // 선택된 1:1 경로에 포함된 셀인지 확인
-          bool isInSelectedPath = _isInSelectedOneToOnePath(teacherName, day, period);
+          // 선택된 1:1 경로에 포함된 셀인지 확인 (통합된 메서드 사용)
+          bool isInSelectedPath = _isInSelectedOneToOnePath(
+            teacherName, 
+            day: isTeacherColumn ? null : day, 
+            period: isTeacherColumn ? null : period
+          );
           
           // SimplifiedTimetableCell을 사용하여 일관된 스타일 적용
           return SimplifiedTimetableCell(
@@ -363,15 +367,22 @@ class TimetableDataSource extends DataGridSource {
     );
   }
   
-  /// 선택된 1:1 경로에 포함된 셀인지 확인
-  bool _isInSelectedOneToOnePath(String teacherName, String day, int period) {
+  /// 선택된 1:1 경로에 포함된 셀인지 확인 (통합 메서드)
+  /// 교사명 열인 경우 day와 period는 null로 전달
+  bool _isInSelectedOneToOnePath(String teacherName, {String? day, int? period}) {
     if (_selectedOneToOnePath == null) return false;
     
-    return _selectedOneToOnePath!.nodes.any((node) => 
-      node.teacherName == teacherName &&
-      node.day == day &&
-      node.period == period
-    );
+    return _selectedOneToOnePath!.nodes.any((node) {
+      if (day != null && period != null) {
+        // 데이터 셀: 교사명, 요일, 교시 모두 확인
+        return node.teacherName == teacherName && 
+               node.day == day && 
+               node.period == period;
+      } else {
+        // 교사명 열: 교사명만 확인
+        return node.teacherName == teacherName;
+      }
+    });
   }
   
 
