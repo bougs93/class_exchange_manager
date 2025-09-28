@@ -13,9 +13,6 @@ class AppConstants {
   static const double dataFontSize = 11.0;           // 데이터 폰트 크기
   static const double dataLineHeight = 1;          // 데이터 텍스트 줄 간격
   
-  // 선택된 셀 스타일
-  static const int selectedCellColor = 0xFFFF0000;  // 선택된 셀 테두리 색상 (빨간색)
-  static const double selectedCellBorderWidth = 1.0; // 선택된 셀 테두리 두께
   
   // 스크롤 위치 설정
   static const ScrollAlignment scrollAlignment = ScrollAlignment.center; // 스크롤 위치 (현재뷰/중앙뷰)

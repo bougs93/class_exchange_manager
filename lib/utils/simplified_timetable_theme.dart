@@ -9,21 +9,28 @@ class SimplifiedTimetableTheme {
   static const Color teacherHeaderColor = Color(0xFFF5F5F5);
   
   // 색상 변형 (public으로 변경하여 다른 테마에서 참조 가능)
-  static const Color selectedColorLight = Color(0xFFE3F2FD);
+  static const Color selectedColorLight = Color.fromARGB(255, 255, 174, 0); // 진한 오렌지색
   static const Color exchangeableColorLight = Color(0xFFE0E0E0);
   static const Color selectedColorDark = Color(0xFF1976D2);
+    // 텍스트 색상 상수
+  static const Color selectedTextColor = Colors.black; // 선택된 셀의 텍스트 색상 (흰색)
   
   // 순환교체 경로 색상
-  static const Color circularPathColorLight = Color(0xFFE1BEE7); // 연한 보라색
+  static const Color circularPathColorLight = Color.fromARGB(255, 203, 142, 214); // 연한 보라색
   static const Color circularPathColorDark = Color(0xFF7B1FA2); // 진한 보라색
   
   // 선택된 경로 색상 (1:1 교체 모드에서 경로 선택시)
-  static const Color selectedPathColorLight = Color(0xFF4CAF50); // 진한 녹색 (더 명확한 구분)
+  static const Color selectedPathColorLight = Color.fromARGB(255, 117, 190, 119); // 진한 녹색 (더 명확한 구분)
   static const Color selectedPathColorDark = Color(0xFF2E7D32); // 더 진한 녹색
   
   // 오버레이 색상 상수
   static const Color overlayColorSelected = Color(0xFFD32F2F); // 진한 빨간색
   static const Color overlayColorExchangeable = Color.fromARGB(255, 250, 160, 169); // 연한 빨간색 (Colors.red.shade200의 실제 색상값)
+  
+  // 선택된 셀 테두리 색상 상수
+  static const Color selectedCellBorderColor = Color(0xFFFF0000); // 선택된 셀 테두리 색상 (빨간색)
+  static const double selectedCellBorderWidth = 1.0; // 선택된 셀 테두리 두께
+  static const bool showSelectedCellBorder = false; // 선택된 셀 테두리 표시 여부
   
   /// 통합된 셀 스타일 생성
   static CellStyle getCellStyle({
@@ -98,7 +105,7 @@ class SimplifiedTimetableTheme {
     FontWeight fontWeight = FontWeight.normal;
     
     if (isSelected) {
-      textColor = selectedColorDark;
+      textColor = selectedTextColor; // 선택된 셀의 텍스트 색상 상수 사용
       fontWeight = FontWeight.bold;
     } else if (isInCircularPath) {
       textColor = circularPathColorDark;
@@ -120,11 +127,11 @@ class SimplifiedTimetableTheme {
     required bool isLastColumnOfDay,
     required bool isInCircularPath,
   }) {
-    // 선택된 셀의 경우 빨간색 테두리
-    if (isSelected) {
+    // 선택된 셀의 경우 빨간색 테두리 (표시 여부 설정에 따라)
+    if (isSelected && showSelectedCellBorder) {
       return Border.all(
-        color: Color(AppConstants.selectedCellColor), 
-        width: AppConstants.selectedCellBorderWidth
+        color: selectedCellBorderColor, 
+        width: selectedCellBorderWidth
       );
     }
     
