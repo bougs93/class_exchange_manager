@@ -193,34 +193,70 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
       return; // 컬럼을 찾을 수 없음
     }
 
-    // 스크롤 컨트롤러를 통해 해당 셀로 스크롤
-    // 행 스크롤 (세로) - 헤더는 고정되어 있으므로 데이터 행만 계산
+    // 스크롤 위치 계산 (설정에 따라 중앙 또는 좌상단)
+    _scrollToPosition(teacherIndex, columnIndex);
+  }
+  
+  /// 스크롤 위치 계산 및 실행
+  void _scrollToPosition(int teacherIndex, int columnIndex) {
+    // 세로 스크롤 계산
+    _scrollVertically(teacherIndex);
+    
+    // 가로 스크롤 계산 (첫 번째 열은 고정)
+    if (columnIndex > 0) {
+      _scrollHorizontally(columnIndex - 1);
+    }
+  }
+  
+  /// 세로 스크롤 실행
+  void _scrollVertically(int teacherIndex) {
+    if (!_verticalScrollController.hasClients) return;
+    
     double targetRowOffset = teacherIndex * AppConstants.dataRowHeight;
     
-    if (_verticalScrollController.hasClients) {
-      _verticalScrollController.animateTo(
-        targetRowOffset,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
+    // 중앙 정렬인 경우 뷰포트 높이의 절반만큼 조정
+    if (AppConstants.scrollAlignment == ScrollAlignment.center) {
+      double viewportHeight = _verticalScrollController.position.viewportDimension;
+      double cellHeight = AppConstants.dataRowHeight;
+      targetRowOffset = targetRowOffset - (viewportHeight / 2) + (cellHeight / 2);
+      
+      // 스크롤 범위 내로 제한
+      targetRowOffset = targetRowOffset.clamp(
+        _verticalScrollController.position.minScrollExtent,
+        _verticalScrollController.position.maxScrollExtent,
       );
     }
     
-    // 열 스크롤 (가로) - 첫 번째 열(교사명)은 고정되어 있으므로 스크롤되지 않음
-    if (columnIndex > 0) { // 첫 번째 열(교사명)은 고정되어 있음
-      // 실제 교시 컬럼 인덱스 계산 (고정 컬럼 제외)
-      int scrollableColumnIndex = columnIndex - 1;
+    _verticalScrollController.animateTo(
+      targetRowOffset,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+    );
+  }
+  
+  /// 가로 스크롤 실행
+  void _scrollHorizontally(int scrollableColumnIndex) {
+    if (!_horizontalScrollController.hasClients) return;
+    
+    double targetColumnOffset = scrollableColumnIndex * AppConstants.periodColumnWidth;
+    
+    // 중앙 정렬인 경우 뷰포트 너비의 절반만큼 조정
+    if (AppConstants.scrollAlignment == ScrollAlignment.center) {
+      double viewportWidth = _horizontalScrollController.position.viewportDimension;
+      double cellWidth = AppConstants.periodColumnWidth;
+      targetColumnOffset = targetColumnOffset - (viewportWidth / 2) + (cellWidth / 2);
       
-      // 교시 컬럼 너비 사용
-      double columnWidth = AppConstants.periodColumnWidth; // 35.0
-      double targetColumnOffset = scrollableColumnIndex * columnWidth;
-      
-      if (_horizontalScrollController.hasClients) {
-        _horizontalScrollController.animateTo(
-          targetColumnOffset,
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeInOut,
-        );
-      }
+      // 스크롤 범위 내로 제한
+      targetColumnOffset = targetColumnOffset.clamp(
+        _horizontalScrollController.position.minScrollExtent,
+        _horizontalScrollController.position.maxScrollExtent,
+      );
     }
+    
+    _horizontalScrollController.animateTo(
+      targetColumnOffset,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+    );
   }
 }

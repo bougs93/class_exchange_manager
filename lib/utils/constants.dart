@@ -16,5 +16,14 @@ class AppConstants {
   // 선택된 셀 스타일
   static const int selectedCellColor = 0xFFFF0000;  // 선택된 셀 테두리 색상 (빨간색)
   static const double selectedCellBorderWidth = 1.0; // 선택된 셀 테두리 두께
+  
+  // 스크롤 위치 설정
+  static const ScrollAlignment scrollAlignment = ScrollAlignment.center; // 스크롤 위치 (현재뷰/중앙뷰)
+}
+
+/// 스크롤 위치 정렬 옵션
+enum ScrollAlignment {
+  topLeft,    // 좌상단 기준 (현재 뷰)
+  center,     // 중앙 기준 (중앙 뷰)
 }
 
