@@ -36,6 +36,13 @@ class CircularExchangeService {
   int? get selectedPeriod => _selectedPeriod;
   List<ExchangeOption> get exchangeOptions => _exchangeOptions;
   
+  /// 백그라운드 실행을 위한 선택된 셀 정보 설정 메서드
+  void setSelectedCell(String teacher, String day, int period) {
+    _selectedTeacher = teacher;
+    _selectedDay = day;
+    _selectedPeriod = period;
+  }
+  
   /// 순환교체 모드에서 셀 탭 처리
   /// 
   /// 매개변수:
@@ -285,7 +292,10 @@ class CircularExchangeService {
   /// 
   /// 
   ExchangeNode? getSelectedNode(List<TimeSlot> timeSlots) {
+    AppLogger.exchangeDebug('getSelectedNode 호출 - 선택된 셀: $_selectedTeacher, $_selectedDay, $_selectedPeriod');
+    
     if (_selectedTeacher == null || _selectedDay == null || _selectedPeriod == null) {
+      AppLogger.exchangeDebug('선택된 셀 정보가 불완전합니다: teacher=$_selectedTeacher, day=$_selectedDay, period=$_selectedPeriod');
       return null;
     }
     
@@ -295,6 +305,8 @@ class CircularExchangeService {
       AppLogger.exchangeDebug('학급 정보를 찾을 수 없습니다: $_selectedTeacher, $_selectedDay, $_selectedPeriod');
       return null;
     }
+    
+    AppLogger.exchangeDebug('시작 노드 생성 성공: $_selectedTeacher, $_selectedDay, $_selectedPeriod, $className');
     
     return ExchangeNode(
       teacherName: _selectedTeacher!,

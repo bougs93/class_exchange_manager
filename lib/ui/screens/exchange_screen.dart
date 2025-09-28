@@ -29,7 +29,7 @@ class ExchangeScreen extends StatefulWidget {
   State<ExchangeScreen> createState() => _ExchangeScreenState();
 }
 
-class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin {
+class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin, TickerProviderStateMixin {
   File? _selectedFile;        // 선택된 엑셀 파일
   TimetableData? _timetableData; // 파싱된 시간표 데이터
   TimetableDataSource? _dataSource; // Syncfusion DataGrid 데이터 소스
@@ -93,10 +93,34 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
   // 순환교체 단계 필터 관련 변수들
   List<int> _availableSteps = []; // 사용 가능한 단계들 (예: [2, 3, 4])
   int? _selectedStep; // 선택된 단계 (null이면 모든 단계 표시)
+  
+  // 진행률 애니메이션 관련 변수들
+  AnimationController? _progressAnimationController;
+  Animation<double>? _progressAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    
+    // 진행률 애니메이션 컨트롤러 초기화
+    _progressAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    
+    _progressAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _progressAnimationController!,
+      curve: Curves.easeInOut,
+    ));
+  }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _progressAnimationController?.dispose();
     super.dispose();
   }
 
@@ -462,22 +486,26 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
   /// 진행률과 함께 순환교체 경로 탐색
   Future<void> _findCircularPathsWithProgress() async {
     try {
+      AppLogger.exchangeDebug('순환교체 경로 탐색 시작');
+      
       // 1단계: 초기화 (10%)
-      setState(() => _loadingProgress = 0.1);
-      await Future.delayed(const Duration(milliseconds: 50));
-      
-      // 2단계: 교사 정보 수집 (20%)
-      setState(() => _loadingProgress = 0.2);
-      await Future.delayed(const Duration(milliseconds: 50));
-      
-      // 3단계: 시간표 분석 (40%)
-      setState(() => _loadingProgress = 0.4);
+      _updateProgressSmoothly(0.1);
       await Future.delayed(const Duration(milliseconds: 100));
       
-      // 4단계: DFS 경로 탐색 (80%)
-      setState(() => _loadingProgress = 0.8);
+      // 2단계: 교사 정보 수집 (20%)
+      _updateProgressSmoothly(0.2);
+      await Future.delayed(const Duration(milliseconds: 100));
       
-      // 실제 경로 탐색 실행 (메인 처리)
+      // 3단계: 시간표 분석 (40%)
+      _updateProgressSmoothly(0.4);
+      await Future.delayed(const Duration(milliseconds: 150));
+      
+      // 4단계: DFS 경로 탐색 시작 (80%)
+      _updateProgressSmoothly(0.8);
+      
+      AppLogger.exchangeDebug('경로 탐색 실행 시작 - 선택된 셀: ${_circularExchangeService.selectedTeacher}, ${_circularExchangeService.selectedDay}, ${_circularExchangeService.selectedPeriod}');
+      
+      // 실제 경로 탐색 실행 (디버깅을 위해 메인 스레드에서 실행)
       List<CircularExchangePath> paths = await Future(() {
         return _circularExchangeService.findCircularExchangePaths(
           _timetableData!.timeSlots,
@@ -485,13 +513,15 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         );
       });
       
+      AppLogger.exchangeDebug('경로 탐색 완료 - 발견된 경로 수: ${paths.length}');
+      
       // 5단계: 결과 처리 (90%)
-      setState(() => _loadingProgress = 0.9);
-      await Future.delayed(const Duration(milliseconds: 50));
+      _updateProgressSmoothly(0.9);
+      await Future.delayed(const Duration(milliseconds: 100));
       
       // 6단계: 완료 (100%)
-      setState(() => _loadingProgress = 1.0);
-      await Future.delayed(const Duration(milliseconds: 100));
+      _updateProgressSmoothly(1.0);
+      await Future.delayed(const Duration(milliseconds: 150));
       
       // 순환교체 경로에 순차적인 ID 부여
       for (int i = 0; i < paths.length; i++) {
@@ -531,14 +561,28 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         }
       });
       
-    } catch (e) {
+    } catch (e, stackTrace) {
       // 오류 처리
+      AppLogger.exchangeDebug('순환교체 경로 탐색 중 오류 발생: $e');
+      AppLogger.exchangeDebug('스택 트레이스: $stackTrace');
+      
       setState(() {
         _isCircularPathsLoading = false;
         _loadingProgress = 0.0;
         _isSidebarVisible = false;
+        _circularPaths = [];
+        _filteredPaths = [];
       });
-      rethrow;
+      
+      // 사용자에게 오류 알림
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('순환교체 경로 탐색 중 오류가 발생했습니다: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
   
@@ -1026,6 +1070,63 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       AppLogger.exchangeDebug('순환교체 경로 선택: ${path.id}');
       selectPath(path);
     }
+  }
+
+  /// 백그라운드에서 순환교체 경로 탐색을 실행하는 정적 함수 (현재 비활성화)
+  // static List<CircularExchangePath> _findCircularExchangePathsInBackground(Map<String, dynamic> data) {
+  //   List<dynamic> timeSlotsData = data['timeSlots'] as List<dynamic>;
+  //   List<dynamic> teachersData = data['teachers'] as List<dynamic>;
+  //   String? selectedTeacher = data['selectedTeacher'] as String?;
+  //   String? selectedDay = data['selectedDay'] as String?;
+  //   int? selectedPeriod = data['selectedPeriod'] as int?;
+  //   
+  //   // 동적 리스트를 적절한 타입으로 변환
+  //   List<TimeSlot> timeSlots = timeSlotsData.cast<TimeSlot>();
+  //   List<Teacher> teachers = teachersData.cast<Teacher>();
+  //   
+  //   // 새로운 CircularExchangeService 인스턴스 생성 (백그라운드에서 실행)
+  //   CircularExchangeService service = CircularExchangeService();
+  //   
+  //   // 선택된 셀 정보를 백그라운드 서비스에 설정
+  //   if (selectedTeacher != null && selectedDay != null && selectedPeriod != null) {
+  //     service.setSelectedCell(selectedTeacher, selectedDay, selectedPeriod);
+  //   }
+  //   
+  //   return service.findCircularExchangePaths(timeSlots, teachers);
+  // }
+
+  /// 부드러운 진행률 업데이트
+  void _updateProgressSmoothly(double targetProgress) {
+    // 애니메이션 컨트롤러가 초기화되지 않은 경우 즉시 진행률 업데이트
+    if (_progressAnimationController == null) {
+      setState(() {
+        _loadingProgress = targetProgress;
+      });
+      return;
+    }
+    
+    // 현재 진행률에서 목표 진행률로 부드럽게 애니메이션
+    _progressAnimationController!.reset();
+    _progressAnimation = Tween<double>(
+      begin: _loadingProgress,
+      end: targetProgress,
+    ).animate(CurvedAnimation(
+      parent: _progressAnimationController!,
+      curve: Curves.easeInOut,
+    ));
+    
+    _progressAnimationController!.forward().then((_) {
+      setState(() {
+        _loadingProgress = targetProgress;
+      });
+    });
+    
+    // 애니메이션 중에도 진행률 업데이트
+    _progressAnimation!.addListener(() {
+      setState(() {
+        _loadingProgress = _progressAnimation!.value;
+      });
+    });
   }
 
   /// 순환교체 단계 필터 변경 처리
