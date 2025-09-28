@@ -171,18 +171,14 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
   
   /// 경로 선택 처리 (토글 기능 포함)
   void selectPath(CircularExchangePath path) {
+    AppLogger.exchangeDebug('경로 선택 시도: ${path.id}');
+    
     // 이미 선택된 경로를 다시 클릭하면 선택 해제 (토글 기능)
+    // 경로 ID를 사용한 정확한 비교
     bool isSamePathSelected = selectedCircularPath != null && 
-                             selectedCircularPath!.nodes.length == path.nodes.length &&
-                             selectedCircularPath!.nodes.asMap().entries.every((entry) {
-                               int idx = entry.key;
-                               var selectedNode = entry.value;
-                               var pathNode = path.nodes[idx];
-                               return selectedNode.teacherName == pathNode.teacherName &&
-                                      selectedNode.day == pathNode.day &&
-                                      selectedNode.period == pathNode.period &&
-                                      selectedNode.className == pathNode.className;
-                             });
+                             selectedCircularPath!.id == path.id;
+    
+    AppLogger.exchangeDebug('현재 선택된 경로: ${selectedCircularPath?.id}, 클릭한 경로: ${path.id}, 같은 경로: $isSamePathSelected');
     
     if (isSamePathSelected) {
       // 선택 해제

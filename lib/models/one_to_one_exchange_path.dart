@@ -9,14 +9,17 @@ class OneToOneExchangePath implements ExchangePath {
   final ExchangeNode _targetNode;      // 교체 대상 노드
   final ExchangeOption _option;        // 원본 교체 옵션
   bool _isSelected = false;            // 선택 상태
+  String? _customId;                   // 사용자 정의 ID
   
   OneToOneExchangePath({
     required ExchangeNode sourceNode,
     required ExchangeNode targetNode,
     required ExchangeOption option,
+    String? customId,
   }) : _sourceNode = sourceNode,
        _targetNode = targetNode,
-       _option = option;
+       _option = option,
+       _customId = customId;
   
   /// ExchangeOption에서 OneToOneExchangePath 생성하는 팩토리 메서드
   factory OneToOneExchangePath.fromExchangeOption(
@@ -51,7 +54,15 @@ class OneToOneExchangePath implements ExchangePath {
   }
   
   @override
-  String get id => '${_sourceNode.nodeId}_${_targetNode.nodeId}';
+  String get id {
+    // 사용자 정의 ID가 있으면 사용, 없으면 해시코드 기반
+    return _customId ?? 'onetoone_${hashCode.abs()}';
+  }
+  
+  /// 사용자 정의 ID 설정
+  void setCustomId(String id) {
+    _customId = id;
+  }
   
   @override
   String get displayTitle => '1:1 교체';

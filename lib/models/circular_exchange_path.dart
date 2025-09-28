@@ -8,13 +8,16 @@ class CircularExchangePath implements ExchangePath {
   final int steps;                   // 순환 단계 수 (시작 교사 제외)
   final String _description;        // 사람이 읽기 쉬운 경로 설명
   bool _isSelected = false;         // 선택 상태
+  String? _customId;                // 사용자 정의 ID
   
   CircularExchangePath({
     required List<ExchangeNode> nodes,
     required this.steps,
     required String description,
+    String? customId,
   }) : _nodes = nodes,
-       _description = description;
+       _description = description,
+       _customId = customId;
 
   /// 노드 리스트로부터 자동으로 경로 생성
   factory CircularExchangePath.fromNodes(List<ExchangeNode> nodes) {
@@ -39,10 +42,18 @@ class CircularExchangePath implements ExchangePath {
 
   // ExchangePath 인터페이스 구현
   @override
-  String get id => _nodes.map((node) => node.nodeId).join('_');
+  String get id {
+    // 사용자 정의 ID가 있으면 사용, 없으면 해시코드 기반
+    return _customId ?? 'circular_${hashCode.abs()}';
+  }
+  
+  /// 사용자 정의 ID 설정
+  void setCustomId(String id) {
+    _customId = id;
+  }
   
   @override
-  String get displayTitle => '순환교체 경로 ${steps}단계';
+  String get displayTitle => '순환교체 경로 $steps단계';
   
   @override
   List<ExchangeNode> get nodes => _nodes;

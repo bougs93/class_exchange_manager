@@ -370,6 +370,11 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       options: options.cast(), // dynamic을 ExchangeOption으로 캐스팅
     );
 
+    // 순차적인 ID 부여
+    for (int i = 0; i < paths.length; i++) {
+      paths[i].setCustomId('onetoone_path_${i + 1}');
+    }
+
     setState(() {
       _oneToOnePaths = paths;
       _selectedOneToOnePath = null;
@@ -394,15 +399,31 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       allPaths.addAll(_circularPaths);
     }
 
-    // 검색 쿼리로 필터링
+    // 검색 쿼리로 필터링 (요일, 교사명, 학급, 과목)
     if (_searchQuery.isEmpty) {
       _filteredPaths = allPaths;
     } else {
+      String query = _searchQuery.toLowerCase();
       _filteredPaths = allPaths.where((path) {
-        return path.nodes.any((node) =>
-          node.teacherName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          node.className.toLowerCase().contains(_searchQuery.toLowerCase())
-        );
+        return path.nodes.any((node) {
+          // 요일 검색 (월, 화, 수, 목, 금)
+          String day = node.day.toLowerCase();
+          
+          // 교사명 검색
+          String teacherName = node.teacherName.toLowerCase();
+          
+          // 학급명 검색
+          String className = node.className.toLowerCase();
+          
+          // 과목명 검색
+          String subjectName = _getSubjectName(node).toLowerCase();
+          
+          // 모든 필드에서 검색어 포함 여부 확인
+          return day.contains(query) ||
+                 teacherName.contains(query) ||
+                 className.contains(query) ||
+                 subjectName.contains(query);
+        });
       }).toList();
     }
   }
@@ -442,6 +463,11 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       setState(() => _loadingProgress = 1.0);
       await Future.delayed(const Duration(milliseconds: 100));
       
+      // 순환교체 경로에 순차적인 ID 부여
+      for (int i = 0; i < paths.length; i++) {
+        paths[i].setCustomId('circular_path_${i + 1}');
+      }
+
       // 경로 업데이트 및 로딩 완료
       setState(() {
         _circularPaths = paths;
@@ -901,14 +927,18 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
 
   /// 통합 경로 선택 처리
   void _onUnifiedPathSelected(ExchangePath path) {
+    AppLogger.exchangeDebug('통합 경로 선택: ${path.id}, 타입: ${path.type}');
+    
     if (path is OneToOneExchangePath) {
       // 1:1교체 경로 선택
+      AppLogger.exchangeDebug('1:1교체 경로 선택: ${path.id}');
       setState(() {
         _selectedOneToOnePath = path;
       });
       // TODO: 1:1교체 실행 로직 추가
     } else if (path is CircularExchangePath) {
       // 순환교체 경로 선택
+      AppLogger.exchangeDebug('순환교체 경로 선택: ${path.id}');
       selectPath(path);
     }
   }
