@@ -89,6 +89,10 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
   final TextEditingController _searchController = TextEditingController(); // 검색 입력 컨트롤러
   String _searchQuery = ''; // 검색 쿼리
   List<ExchangePath> _filteredPaths = []; // 필터링된 경로들 (통합)
+  
+  // 순환교체 단계 필터 관련 변수들
+  List<int> _availableSteps = []; // 사용 가능한 단계들 (예: [2, 3, 4])
+  int? _selectedStep; // 선택된 단계 (null이면 모든 단계 표시)
 
   @override
   void dispose() {
@@ -415,6 +419,16 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       allPaths.addAll(_circularPaths);
     }
 
+    // 단계 필터링 적용 (순환교체 모드에서만)
+    if (_isCircularExchangeModeEnabled && _selectedStep != null) {
+      allPaths = allPaths.where((path) {
+        if (path is CircularExchangePath) {
+          return path.nodes.length == _selectedStep;
+        }
+        return false;
+      }).toList();
+    }
+
     // 검색 쿼리로 필터링 (요일, 교사명, 학급, 과목)
     if (_searchQuery.isEmpty) {
       _filteredPaths = allPaths;
@@ -490,6 +504,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         _selectedCircularPath = null;
         _isCircularPathsLoading = false;
         _loadingProgress = 0.0;
+        
+        // 사용 가능한 단계들 업데이트
+        _updateAvailableSteps(paths);
       });
       
       // 필터링된 경로도 함께 업데이트
@@ -596,6 +613,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       // 순환교체 모드가 비활성화되면 UI를 기본값으로 복원
       if (!_isCircularExchangeModeEnabled) {
         _restoreUIToDefault();
+        // 단계 필터 관련 상태 초기화
+        _availableSteps = [];
+        _selectedStep = null;
       } else {
         // 순환교체 모드가 활성화되면 사이드바도 숨김 (새로운 경로 탐색 전까지)
         _isSidebarVisible = false;
@@ -604,6 +624,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         _selectedCircularPath = null;
         _circularPaths = [];
         _isCircularPathsLoading = false;
+        // 단계 필터 관련 상태 초기화
+        _availableSteps = [];
+        _selectedStep = null;
         _loadingProgress = 0.0;
         _dataSource?.updateSelectedCircularPath(null);
       }
@@ -951,6 +974,10 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       onClearSearch: _clearSearch,
       getSubjectName: _getSubjectName,
       onScrollToCell: _scrollToCellCenter,
+      // 순환교체 모드에서만 사용되는 단계 필터 매개변수들
+      availableSteps: _isCircularExchangeModeEnabled ? _availableSteps : null,
+      selectedStep: _isCircularExchangeModeEnabled ? _selectedStep : null,
+      onStepChanged: _isCircularExchangeModeEnabled ? _onStepChanged : null,
     );
   }
 
@@ -1001,7 +1028,31 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     }
   }
 
+  /// 순환교체 단계 필터 변경 처리
+  void _onStepChanged(int? step) {
+    setState(() {
+      _selectedStep = step;
+    });
+    
+    // 필터링된 경로 업데이트
+    _updateFilteredPaths();
+    
+    AppLogger.exchangeDebug('순환교체 단계 필터 변경: ${step ?? "전체"}');
+  }
 
+  /// 사용 가능한 단계들 업데이트
+  void _updateAvailableSteps(List<CircularExchangePath> paths) {
+    Set<int> steps = {};
+    for (var path in paths) {
+      steps.add(path.nodes.length);
+    }
+    _availableSteps = steps.toList()..sort();
+    
+    // 첫 번째 단계를 기본 선택으로 설정
+    _selectedStep = _availableSteps.isNotEmpty ? _availableSteps.first : null;
+    
+    AppLogger.exchangeDebug('사용 가능한 단계들: $_availableSteps, 선택된 단계: $_selectedStep');
+  }
 
   /// 교사 정보에서 과목명 추출
   String _getSubjectName(ExchangeNode node) {

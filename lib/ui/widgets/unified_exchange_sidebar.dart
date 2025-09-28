@@ -99,6 +99,11 @@ class UnifiedExchangeSidebar extends StatefulWidget {
   final VoidCallback onClearSearch;
   final Function(ExchangeNode) getSubjectName;
   final Function(String teacherName, String day, int period)? onScrollToCell;
+  
+  // 순환교체 모드에서만 사용되는 단계 필터 관련 매개변수
+  final List<int>? availableSteps;                    // 사용 가능한 단계들 (예: [2, 3, 4])
+  final int? selectedStep;                           // 선택된 단계 (null이면 모든 단계 표시)
+  final Function(int?)? onStepChanged;               // 단계 변경 콜백
 
   const UnifiedExchangeSidebar({
     super.key,
@@ -117,6 +122,9 @@ class UnifiedExchangeSidebar extends StatefulWidget {
     required this.onClearSearch,
     required this.getSubjectName,
     this.onScrollToCell,
+    this.availableSteps,
+    this.selectedStep,
+    this.onStepChanged,
   });
 
   @override
@@ -197,6 +205,9 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
         children: [
           _buildHeader(),
           _buildSearchBar(),
+          // 순환교체 모드에서만 단계 필터 표시
+          if (widget.mode == ExchangePathType.circular && widget.availableSteps != null)
+            _buildStepFilter(),
           Expanded(
             child: _buildContent(),
           ),
@@ -287,6 +298,76 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
           height: 3, // 줄 높이 조정으로 텍스트 영역 축소
         ),
         onChanged: widget.onUpdateSearchQuery,
+      ),
+    );
+  }
+
+  /// 단계 필터 구성 (순환교체 모드에서만 표시)
+  Widget _buildStepFilter() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 필터 제목
+
+          const SizedBox(height: 4),
+          // 단계 선택 버튼들
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: [
+              // 각 단계별 버튼
+              ...widget.availableSteps!.map((step) => _buildStepButton(
+                label: '${step-2}단계(${_getStepCount(step)})',
+                step: step,
+                isSelected: widget.selectedStep == step,
+              )),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 특정 단계의 경로 개수 계산
+  int _getStepCount(int step) {
+    if (widget.mode != ExchangePathType.circular) return 0;
+    
+    return widget.paths.where((path) {
+      if (path is CircularExchangePath) {
+        return path.nodes.length == step;
+      }
+      return false;
+    }).length;
+  }
+
+  /// 단계 선택 버튼 구성
+  Widget _buildStepButton({
+    required String label,
+    required int? step,
+    required bool isSelected,
+  }) {
+    return GestureDetector(
+      onTap: () => widget.onStepChanged?.call(step),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.purple.shade100 : Colors.grey.shade100,
+          border: Border.all(
+            color: isSelected ? Colors.purple.shade300 : Colors.grey.shade300,
+            width: 1,
+          ),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: isSelected ? Colors.purple.shade700 : Colors.grey.shade600,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
       ),
     );
   }
