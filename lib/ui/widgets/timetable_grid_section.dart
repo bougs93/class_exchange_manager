@@ -7,7 +7,7 @@ import '../../utils/exchange_visualizer.dart';
 
 /// 시간표 그리드 섹션 위젯
 /// Syncfusion DataGrid를 사용한 시간표 표시를 담당
-class TimetableGridSection extends StatelessWidget {
+class TimetableGridSection extends StatefulWidget {
   final TimetableData? timetableData;
   final TimetableDataSource? dataSource;
   final List<GridColumn> columns;
@@ -28,8 +28,35 @@ class TimetableGridSection extends StatelessWidget {
   });
 
   @override
+  State<TimetableGridSection> createState() => _TimetableGridSectionState();
+  
+  /// 외부에서 스크롤 기능에 접근할 수 있도록 하는 static 메서드
+  static void scrollToCellCenter(GlobalKey<State<TimetableGridSection>> key, String teacherName, String day, int period) {
+    final state = key.currentState;
+    if (state is _TimetableGridSectionState) {
+      state.scrollToCellCenter(teacherName, day, period);
+    }
+  }
+}
+
+class _TimetableGridSectionState extends State<TimetableGridSection> {
+  // DataGrid 컨트롤을 위한 GlobalKey
+  final GlobalKey<SfDataGridState> _dataGridKey = GlobalKey<SfDataGridState>();
+  
+  // 스크롤 컨트롤러들
+  final ScrollController _verticalScrollController = ScrollController();
+  final ScrollController _horizontalScrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _verticalScrollController.dispose();
+    _horizontalScrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (timetableData == null || dataSource == null) {
+    if (widget.timetableData == null || widget.dataSource == null) {
       return const SizedBox.shrink();
     }
     
@@ -81,8 +108,8 @@ class TimetableGridSection extends StatelessWidget {
         const SizedBox(width: 8),
         
         // 교체 모드가 활성화된 경우에만 교체 가능한 수업 개수 표시
-        if (isExchangeModeEnabled)
-          ExchangeVisualizer.buildExchangeableCountWidget(exchangeableCount),
+        if (widget.isExchangeModeEnabled)
+          ExchangeVisualizer.buildExchangeableCountWidget(widget.exchangeableCount),
       ],
     );
   }
@@ -97,7 +124,7 @@ class TimetableGridSection extends StatelessWidget {
         border: Border.all(color: Colors.green.shade200),
       ),
       child: Text(
-        '교사 ${timetableData!.teachers.length}명',
+        '교사 ${widget.timetableData!.teachers.length}명',
         style: TextStyle(
           fontSize: 12,
           color: Colors.green.shade700,
@@ -115,9 +142,10 @@ class TimetableGridSection extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: SfDataGrid(
-        source: dataSource!,
-        columns: columns,
-        stackedHeaderRows: stackedHeaders,
+        key: _dataGridKey, // 스크롤 제어를 위한 GlobalKey 추가
+        source: widget.dataSource!,
+        columns: widget.columns,
+        stackedHeaderRows: widget.stackedHeaders,
         gridLinesVisibility: GridLinesVisibility.both,
         headerGridLinesVisibility: GridLinesVisibility.both,
         headerRowHeight: AppConstants.headerRowHeight,
@@ -130,12 +158,69 @@ class TimetableGridSection extends StatelessWidget {
         selectionMode: SelectionMode.none,
         columnWidthMode: ColumnWidthMode.none,
         frozenColumnsCount: 1, // 교사명 열(첫 번째 열) 고정
-        onCellTap: onCellTap, // 셀 탭 이벤트 핸들러
+        onCellTap: widget.onCellTap, // 셀 탭 이벤트 핸들러
+        // 스크롤 컨트롤러 설정
+        verticalScrollController: _verticalScrollController,
+        horizontalScrollController: _horizontalScrollController,
         // 스크롤바 설정 - 명확하게 보이도록 설정
         isScrollbarAlwaysShown: true, // 스크롤바 항상 표시
         horizontalScrollPhysics: const AlwaysScrollableScrollPhysics(), // 가로 스크롤 활성화
         verticalScrollPhysics: const AlwaysScrollableScrollPhysics(), // 세로 스크롤 활성화
       ),
     );
+  }
+
+  /// 특정 셀을 화면 중앙으로 스크롤하는 메서드
+  void scrollToCellCenter(String teacherName, String day, int period) {
+    if (widget.timetableData == null) {
+      return;
+    }
+
+    // 교사 인덱스 찾기
+    int teacherIndex = widget.timetableData!.teachers
+        .indexWhere((teacher) => teacher.name == teacherName);
+    
+    if (teacherIndex == -1) {
+      return; // 교사를 찾을 수 없음
+    }
+
+    // 컬럼 인덱스 찾기
+    String columnName = '${day}_$period';
+    int columnIndex = widget.columns
+        .indexWhere((column) => column.columnName == columnName);
+    
+    if (columnIndex == -1) {
+      return; // 컬럼을 찾을 수 없음
+    }
+
+    // 스크롤 컨트롤러를 통해 해당 셀로 스크롤
+    // 행 스크롤 (세로) - 헤더는 고정되어 있으므로 데이터 행만 계산
+    double targetRowOffset = teacherIndex * AppConstants.dataRowHeight;
+    
+    if (_verticalScrollController.hasClients) {
+      _verticalScrollController.animateTo(
+        targetRowOffset,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    }
+    
+    // 열 스크롤 (가로) - 첫 번째 열(교사명)은 고정되어 있으므로 스크롤되지 않음
+    if (columnIndex > 0) { // 첫 번째 열(교사명)은 고정되어 있음
+      // 실제 교시 컬럼 인덱스 계산 (고정 컬럼 제외)
+      int scrollableColumnIndex = columnIndex - 1;
+      
+      // 교시 컬럼 너비 사용
+      double columnWidth = AppConstants.periodColumnWidth; // 35.0
+      double targetColumnOffset = scrollableColumnIndex * columnWidth;
+      
+      if (_horizontalScrollController.hasClients) {
+        _horizontalScrollController.animateTo(
+          targetColumnOffset,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+      }
+    }
   }
 }

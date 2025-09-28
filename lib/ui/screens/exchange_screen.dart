@@ -65,6 +65,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
   bool _isExchangeModeEnabled = false; // 1:1교체 모드 활성화 상태
   bool _isCircularExchangeModeEnabled = false; // 순환교체 모드 활성화 상태
   
+  // 시간표 그리드 제어를 위한 GlobalKey
+  final GlobalKey<State<TimetableGridSection>> _timetableGridKey = GlobalKey<State<TimetableGridSection>>();
+  
   // 순환교체 관련 변수들
   List<CircularExchangePath> _circularPaths = []; // 순환교체 경로들
   CircularExchangePath? _selectedCircularPath; // 선택된 순환교체 경로
@@ -156,6 +159,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
           if (_timetableData != null) 
             Expanded(
               child: TimetableGridSection(
+                key: _timetableGridKey, // 스크롤 제어를 위한 GlobalKey 추가
                 timetableData: _timetableData,
                 dataSource: _dataSource,
                 columns: _columns,
@@ -832,33 +836,10 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       return;
     }
 
-    // 시간표에서 해당 셀의 상세 정보 찾기
-    int dayOfWeek = DayUtils.getDayNumber(day);
-    String? className;
-    String? subject;
+    // TimetableGridSection의 scrollToCellCenter 메서드 호출
+    TimetableGridSection.scrollToCellCenter(_timetableGridKey, teacherName, day, period);
     
-    for (var timeSlot in _timetableData!.timeSlots) {
-      if (timeSlot.teacher == teacherName &&
-          timeSlot.dayOfWeek == dayOfWeek &&
-          timeSlot.period == period) {
-        className = timeSlot.className;
-        subject = timeSlot.subject;
-        break;
-      }
-    }
-    AppLogger.exchangeDebug('시간표 셀 정보 - 교사: $teacherName, 요일: $day ($dayOfWeek번째), 교시: $period교시, 반: ${className ?? "미지정"}, 과목: ${subject ?? "미지정"}');
-    
-    // 시간표 그리드에서의 위치 계산
-    int teacherIndex = _timetableData!.teachers
-        .indexWhere((teacher) => teacher.name == teacherName);
-    String columnName = '${day}_$period';
-    int columnIndex = _columns
-        .indexWhere((column) => column.columnName == columnName);
-    
-    AppLogger.exchangeDebug('테이블 위치 - 교사:$teacherIndex, 컬럼:$columnName($columnIndex), 행:${teacherIndex + 2}, 열:$columnIndex');
-    
-    // 사용자에게 시각적 피드백 제공
-    
+    AppLogger.exchangeDebug('셀 스크롤 요청: $teacherName 선생님 ($day $period교시)');
   }
 
 
