@@ -109,17 +109,110 @@ class ExchangeService {
       return _exchangeOptions;
     }
     
-    // 교체 가능한 시간 탐색
-    List<ExchangeOption> options = ExchangeAlgorithm.findExchangeableTimes(
+    // 시간표 그리드 교체가능 표시 로직을 기반으로 교체 옵션 생성
+    List<ExchangeOption> options = _generateExchangeOptionsFromGridLogic(
       timeSlots,
       teachers,
-      _selectedTeacher!,
-      _selectedDay!,
-      _selectedPeriod!,
     );
     
     _exchangeOptions = options;
     return _exchangeOptions;
+  }
+  
+  /// 시간표 그리드 교체가능 표시 로직을 기반으로 교체 옵션 생성
+  /// 이 메서드는 시간표 그리드에 표시되는 교체가능한 교사 정보와 동일한 로직을 사용
+  List<ExchangeOption> _generateExchangeOptionsFromGridLogic(
+    List<TimeSlot> timeSlots,
+    List<Teacher> teachers,
+  ) {
+    if (_selectedTeacher == null) return [];
+    
+    // 선택된 셀의 학급 정보 가져오기
+    String? selectedClassName = _getSelectedClassName(timeSlots);
+    if (selectedClassName == null) return [];
+    
+    List<ExchangeOption> exchangeOptions = [];
+    
+    // 요일별로 빈시간 검사
+    const List<String> days = ['월', '화', '수', '목', '금'];
+    const List<int> periods = [1, 2, 3, 4, 5, 6, 7];
+    
+    for (String day in days) {
+      for (int period in periods) {
+        // 해당 교사의 해당 요일, 교시에 수업이 있는지 확인
+        bool hasClass = timeSlots.any((slot) => 
+          slot.teacher == _selectedTeacher &&
+          slot.dayOfWeek == DayUtils.getDayNumber(day) &&
+          slot.period == period &&
+          slot.isNotEmpty
+        );
+        
+        if (!hasClass) {
+          // 빈시간에 같은 반을 가르치는 교사 찾기
+          List<ExchangeOption> dayExchangeOptions = _findSameClassTeachersForExchangeOptions(
+            day, period, selectedClassName, timeSlots, teachers
+          );
+          exchangeOptions.addAll(dayExchangeOptions);
+        }
+      }
+    }
+    
+    return exchangeOptions;
+  }
+  
+  /// 빈시간에 같은 반을 가르치는 교사를 찾아서 ExchangeOption으로 변환
+  List<ExchangeOption> _findSameClassTeachersForExchangeOptions(
+    String day, 
+    int period, 
+    String selectedClassName,
+    List<TimeSlot> timeSlots,
+    List<Teacher> teachers,
+  ) {
+    List<ExchangeOption> exchangeOptions = [];
+    
+    // 모든 교사 중에서 해당 시간에 같은 반을 가르치는 교사 찾기
+    for (Teacher teacher in teachers) {
+      if (teacher.name == _selectedTeacher) continue; // 자기 자신 제외
+      
+      // 해당 교사가 해당 시간에 같은 반을 가르치는지 확인
+      bool hasSameClass = timeSlots.any((slot) => 
+        slot.teacher == teacher.name &&
+        slot.dayOfWeek == DayUtils.getDayNumber(day) &&
+        slot.period == period &&
+        slot.className == selectedClassName &&
+        slot.isNotEmpty
+      );
+      
+      if (hasSameClass) {
+        // 해당 교사의 과목 정보도 함께 가져오기
+        TimeSlot? teacherSlot = timeSlots.firstWhere(
+          (slot) => slot.teacher == teacher.name &&
+                    slot.dayOfWeek == DayUtils.getDayNumber(day) &&
+                    slot.period == period &&
+                    slot.className == selectedClassName,
+          orElse: () => TimeSlot.empty(),
+        );
+        
+        // 교체 가능한 교사들이 선택된 시간에 실제로 빈 시간인지 검사
+        bool isAvailableAtSelectedTime = _checkTeacherAvailabilityAtSelectedTime(
+          [teacher.name], day, period, timeSlots
+        ).isNotEmpty;
+        
+        if (isAvailableAtSelectedTime && teacherSlot.isNotEmpty) {
+          // ExchangeOption 생성
+          ExchangeOption option = ExchangeOption(
+            timeSlot: teacherSlot,
+            teacherName: teacher.name,
+            type: ExchangeType.sameClass,
+            priority: 1,
+            reason: '${teacher.name} 교사 - 동일 학급 (${selectedClassName})',
+          );
+          exchangeOptions.add(option);
+        }
+      }
+    }
+    
+    return exchangeOptions;
   }
   
   /// 교체 가능한 교사 정보 가져오기
@@ -265,8 +358,10 @@ class ExchangeService {
     List<String> actuallyAvailableTeachers = [];
     
     for (String teacherInfo in sameClassTeachers) {
-      // 교사명 추출 (예: "박지혜(사회)" -> "박지혜")
-      String teacherName = teacherInfo.split('(')[0];
+      // 교사명 추출 (예: "박지혜(사회)" -> "박지혜" 또는 단순히 "박지혜")
+      String teacherName = teacherInfo.contains('(') 
+          ? teacherInfo.split('(')[0] 
+          : teacherInfo;
       
       // 해당 교사가 선택된 시간에 수업이 있는지 확인
       bool hasClassAtSelectedTime = timeSlots.any((slot) => 
