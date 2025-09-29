@@ -335,65 +335,49 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
   int _getStepCount(int step) {
     if (widget.mode != ExchangePathType.circular) return 0;
     
-    // 해당 단계의 경로들만 먼저 필터링
-    List<ExchangePath> stepPaths = widget.paths.where((path) {
-      if (path is CircularExchangePath) {
-        return path.nodes.length == step;
+    // 단계별 경로를 먼저 필터링 (가장 제한적인 조건)
+    final stepPaths = widget.paths.where((path) => 
+      path is CircularExchangePath && path.nodes.length == step
+    ).toList();
+    
+    // 필터가 없으면 단계별 경로 수만 반환
+    if (widget.selectedDay == null && widget.searchQuery.isEmpty) {
+      return stepPaths.length;
+    }
+    
+    // 추가 필터링 적용
+    return stepPaths.where((path) {
+      if (path.nodes.length < 2) return false;
+      
+      final secondNode = path.nodes[1];
+      
+      // 요일 필터링
+      if (widget.selectedDay != null && secondNode.day != widget.selectedDay) {
+        return false;
       }
-      return false;
-    }).toList();
+      
+      // 검색 필터링
+      if (widget.searchQuery.isNotEmpty && !_matchesSearchQuery(secondNode)) {
+        return false;
+      }
+      
+      return true;
+    }).length;
+  }
+  
+  /// 검색 쿼리와 노드가 일치하는지 확인하는 통합 메서드
+  bool _matchesSearchQuery(ExchangeNode node) {
+    String query = widget.searchQuery.toLowerCase().trim();
     
-    // 요일 필터가 있으면 해당 단계 경로들에 요일 필터링 적용
-    if (widget.selectedDay != null) {
-      stepPaths = stepPaths.where((path) {
-        // 경로에 2번째 노드가 있는지 확인
-        if (path.nodes.length < 2) {
-          return false;
-        }
-        
-        // 2번째 노드의 요일이 선택된 요일과 일치하는지 확인
-        ExchangeNode secondNode = path.nodes[1];
-        return secondNode.day == widget.selectedDay;
-      }).toList();
+    if (query.length == 1) {
+      return node.day.toLowerCase().contains(query);
+    } else if (query.length == 2 && RegExp(r'^[월화수목금토일][1-9]$').hasMatch(query)) {
+      return node.day.toLowerCase().contains(query[0]) && node.period.toString() == query[1];
+    } else {
+      String teacherName = node.teacherName.toLowerCase();
+      String subjectName = widget.getSubjectName(node).toLowerCase();
+      return teacherName.contains(query) || subjectName.contains(query);
     }
-    
-    // 검색 쿼리가 있으면 해당 단계 경로들에 검색 필터링 적용
-    if (widget.searchQuery.isNotEmpty) {
-      String query = widget.searchQuery.toLowerCase().trim();
-      stepPaths = stepPaths.where((path) {
-        // 경로에 2번째 노드가 있는지 확인
-        if (path.nodes.length < 2) {
-          return false; // 2번째 노드가 없으면 필터링에서 제외
-        }
-        
-        // 2번째 노드만 검색 (인덱스 1)
-        ExchangeNode secondNode = path.nodes[1];
-        
-        // 검색어 패턴 분석
-        if (query.length == 1) {
-          // 단일 글자인 경우 -> 요일 검색 (월, 화, 수, 목, 금)
-          String day = secondNode.day.toLowerCase();
-          return day.contains(query);
-          
-        } else if (query.length == 2 && RegExp(r'^[월화수목금토일][1-9]$').hasMatch(query)) {
-          // 월1, 화2 형태인 경우 -> 요일+교시 검색
-          String day = secondNode.day.toLowerCase();
-          String period = secondNode.period.toString();
-          
-          // 요일과 교시가 모두 일치하는지 확인
-          return day.contains(query[0]) && period == query[1];
-          
-        } else {
-          // 2글자 이상인 경우 -> 교사이름, 과목 검색
-          String teacherName = secondNode.teacherName.toLowerCase();
-          String subjectName = widget.getSubjectName(secondNode).toLowerCase();
-          
-          return teacherName.contains(query) || subjectName.contains(query);
-        }
-      }).toList();
-    }
-    
-    return stepPaths.length;
   }
 
   /// 단계 선택 버튼 구성
@@ -414,12 +398,14 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
           ),
           borderRadius: BorderRadius.circular(5),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            color: isSelected ? Colors.purple.shade700 : Colors.grey.shade600,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: isSelected ? Colors.purple.shade700 : Colors.grey.shade600,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+            ),
           ),
         ),
       ),

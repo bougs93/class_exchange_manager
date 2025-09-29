@@ -328,6 +328,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     // 데이터 소스에서도 순환교체 관련 상태 초기화
     _dataSource?.updateSelectedCircularPath(null);
     
+    // 필터 초기화
+    _resetFilters();
+    
     // 시간표 그리드 테마 업데이트 (이전 경로 표시 제거)
     _updateHeaderTheme();
   }
@@ -386,6 +389,11 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     
     // 데이터 소스에서 이전 1:1 교체 관련 상태 초기화
     _dataSource?.updateSelectedOneToOnePath(null);
+    
+    // 순환교체 모드에서 필터 초기화
+    if (_isCircularExchangeModeEnabled) {
+      _resetFilters();
+    }
     
     // 부모 클래스의 processCellSelection 호출
     super.processCellSelection();
@@ -472,45 +480,34 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       }).toList();
     }
 
-    // 검색 쿼리로 필터링 - 패턴별 검색 로직 적용
-    if (_searchQuery.isEmpty) {
-      _filteredPaths = allPaths;
-    } else {
-      String query = _searchQuery.toLowerCase().trim();
-      _filteredPaths = allPaths.where((path) {
-        // 경로에 2번째 노드가 있는지 확인
-        if (path.nodes.length < 2) {
-          return false; // 2번째 노드가 없으면 필터링에서 제외
-        }
-        
-        // 2번째 노드만 검색 (인덱스 1)
-        ExchangeNode secondNode = path.nodes[1];
-        
-        // 검색어 패턴 분석
-        if (query.length == 1) {
-          // 단일 글자인 경우 -> 요일 검색 (월, 화, 수, 목, 금)
-          String day = secondNode.day.toLowerCase();
-          return day.contains(query);
-          
-        } else if (query.length == 2 && RegExp(r'^[월화수목금토일][1-9]$').hasMatch(query)) {
-          // 월1, 화2 형태인 경우 -> 요일+교시 검색
-          String day = secondNode.day.toLowerCase();
-          String period = secondNode.period.toString();
-          
-          // 요일과 교시가 모두 일치하는지 확인
-          return day.contains(query[0]) && period == query[1];
-          
-        } else {
-          // 2글자 이상인 경우 -> 교사이름, 과목 검색
-          String teacherName = secondNode.teacherName.toLowerCase();
-          String subjectName = _getSubjectName(secondNode).toLowerCase();
-          
-          return teacherName.contains(query) || subjectName.contains(query);
-        }
+    // 검색 쿼리로 필터링
+    if (_searchQuery.isNotEmpty) {
+      allPaths = allPaths.where((path) {
+        if (path.nodes.length < 2) return false;
+        return _matchesSearchQuery(path.nodes[1]);
       }).toList();
     }
+    
+    _filteredPaths = allPaths;
   }
   
+  /// 검색 쿼리와 노드가 일치하는지 확인하는 통합 메서드
+  bool _matchesSearchQuery(ExchangeNode node) {
+    String query = _searchQuery.toLowerCase().trim();
+    
+    if (query.length == 1) {
+      // 단일 글자인 경우 -> 요일 검색
+      return node.day.toLowerCase().contains(query);
+    } else if (query.length == 2 && RegExp(r'^[월화수목금토일][1-9]$').hasMatch(query)) {
+      // 월1, 화2 형태인 경우 -> 요일+교시 검색
+      return node.day.toLowerCase().contains(query[0]) && node.period.toString() == query[1];
+    } else {
+      // 2글자 이상인 경우 -> 교사이름, 과목 검색
+      String teacherName = node.teacherName.toLowerCase();
+      String subjectName = _getSubjectName(node).toLowerCase();
+      return teacherName.contains(query) || subjectName.contains(query);
+    }
+  }
   
   /// 진행률과 함께 순환교체 경로 탐색
   Future<void> _findCircularPathsWithProgress() async {
@@ -571,8 +568,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         _updateAvailableSteps(paths);
       });
       
-      // 필터링된 경로도 함께 업데이트
-      _updateFilteredPaths();
+      // 필터 초기화 (새로운 경로 탐색 완료 후)
+      _resetFilters();
       
       // 데이터 소스에서도 선택된 경로 초기화
       _dataSource?.updateSelectedCircularPath(null);
@@ -1185,6 +1182,26 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     _updateFilteredPaths();
     
     AppLogger.exchangeDebug('순환교체 요일 필터 변경: ${day ?? "전체"}');
+  }
+  
+  /// 필터 초기화 (셀 선택 시 호출)
+  void _resetFilters() {
+    setState(() {
+      // 검색 텍스트 초기화
+      _searchQuery = '';
+      _searchController.clear();
+      
+      // 단계 필터 초기화 (첫 번째 단계로 설정)
+      _selectedStep = _availableSteps.isNotEmpty ? _availableSteps.first : null;
+      
+      // 요일 필터 초기화
+      _selectedDay = null;
+    });
+    
+    // 필터링된 경로 업데이트
+    _updateFilteredPaths();
+    
+    AppLogger.exchangeDebug('필터 초기화 완료');
   }
 
   /// 사용 가능한 단계들 업데이트
