@@ -96,6 +96,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
   List<int> _availableSteps = []; // 사용 가능한 단계들 (예: [2, 3, 4])
   int? _selectedStep; // 선택된 단계 (null이면 모든 단계 표시)
   
+  // 순환교체 요일 필터 관련 변수들
+  String? _selectedDay; // 선택된 요일 (null이면 모든 요일 표시)
+  
   // 진행률 애니메이션 관련 변수들
   AnimationController? _progressAnimationController;
   Animation<double>? _progressAnimation;
@@ -452,6 +455,20 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
           return path.nodes.length == _selectedStep;
         }
         return false;
+      }).toList();
+    }
+    
+    // 요일 필터링 적용 (순환교체 모드에서만)
+    if (_isCircularExchangeModeEnabled && _selectedDay != null) {
+      allPaths = allPaths.where((path) {
+        // 경로에 2번째 노드가 있는지 확인
+        if (path.nodes.length < 2) {
+          return false;
+        }
+        
+        // 2번째 노드의 요일이 선택된 요일과 일치하는지 확인
+        ExchangeNode secondNode = path.nodes[1];
+        return secondNode.day == _selectedDay;
       }).toList();
     }
 
@@ -1036,7 +1053,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       // 순환교체 모드에서만 사용되는 단계 필터 매개변수들
       availableSteps: _isCircularExchangeModeEnabled ? _availableSteps : null,
       selectedStep: _isCircularExchangeModeEnabled ? _selectedStep : null,
-      onStepChanged: _isCircularExchangeModeEnabled ? _onStepChanged : null,
+        onStepChanged: _isCircularExchangeModeEnabled ? _onStepChanged : null,
+        selectedDay: _isCircularExchangeModeEnabled ? _selectedDay : null,
+        onDayChanged: _isCircularExchangeModeEnabled ? _onDayChanged : null,
     );
   }
 
@@ -1154,6 +1173,18 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     _updateFilteredPaths();
     
     AppLogger.exchangeDebug('순환교체 단계 필터 변경: ${step ?? "전체"}');
+  }
+  
+  /// 요일 변경 처리
+  void _onDayChanged(String? day) {
+    setState(() {
+      _selectedDay = day;
+    });
+    
+    // 필터링된 경로 업데이트
+    _updateFilteredPaths();
+    
+    AppLogger.exchangeDebug('순환교체 요일 필터 변경: ${day ?? "전체"}');
   }
 
   /// 사용 가능한 단계들 업데이트

@@ -105,6 +105,10 @@ class UnifiedExchangeSidebar extends StatefulWidget {
   final List<int>? availableSteps;                    // 사용 가능한 단계들 (예: [2, 3, 4])
   final int? selectedStep;                           // 선택된 단계 (null이면 모든 단계 표시)
   final Function(int?)? onStepChanged;               // 단계 변경 콜백
+  
+  // 순환교체 모드에서만 사용되는 요일 필터 관련 매개변수
+  final String? selectedDay;                          // 선택된 요일 (null이면 모든 요일 표시)
+  final Function(String?)? onDayChanged;              // 요일 변경 콜백
 
   const UnifiedExchangeSidebar({
     super.key,
@@ -126,6 +130,9 @@ class UnifiedExchangeSidebar extends StatefulWidget {
     this.availableSteps,
     this.selectedStep,
     this.onStepChanged,
+    // 순환교체 모드에서만 사용되는 요일 필터 매개변수들
+    this.selectedDay,
+    this.onDayChanged,
   });
 
   @override
@@ -206,9 +213,9 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
         children: [
           _buildHeader(),
           _buildSearchBar(),
-          // 순환교체 모드에서만 단계 필터 표시
-          if (widget.mode == ExchangePathType.circular && widget.availableSteps != null)
-            _buildStepFilter(),
+          // 순환교체 모드에서만 검색 필터 그룹 표시
+          if (widget.mode == ExchangePathType.circular)
+            _buildSearchFilterGroup(),
           Expanded(
             child: _buildContent(),
           ),
@@ -305,33 +312,26 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
 
   /// 단계 필터 구성 (순환교체 모드에서만 표시)
   Widget _buildStepFilter() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 필터 제목
-
-          const SizedBox(height: 4),
-          // 단계 선택 버튼들
-          Wrap(
-            spacing: 4,
-            runSpacing: 4,
-            children: [
-              // 각 단계별 버튼
-              ...widget.availableSteps!.map((step) => _buildStepButton(
-                label: '${step-2}단계(${_getStepCount(step)})',
-                step: step,
-                isSelected: widget.selectedStep == step,
-              )),
-            ],
+    return Row(
+      children: [
+        // 각 단계별 버튼을 Expanded로 감싸서 전체 너비 채우기
+        ...widget.availableSteps!.map((step) => Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(
+              right: step == widget.availableSteps!.last ? 0 : 2, // 마지막 버튼은 오른쪽 패딩 없음
+            ),
+            child: _buildStepButton(
+              label: '${step-2}단계(${_getStepCount(step)})',
+              step: step,
+              isSelected: widget.selectedStep == step,
+            ),
           ),
-        ],
-      ),
+        )),
+      ],
     );
   }
 
-  /// 특정 단계의 경로 개수 계산 (검색 필터링 반영)
+  /// 특정 단계의 경로 개수 계산 (검색 및 요일 필터링 반영)
   int _getStepCount(int step) {
     if (widget.mode != ExchangePathType.circular) return 0;
     
@@ -342,6 +342,20 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
       }
       return false;
     }).toList();
+    
+    // 요일 필터가 있으면 해당 단계 경로들에 요일 필터링 적용
+    if (widget.selectedDay != null) {
+      stepPaths = stepPaths.where((path) {
+        // 경로에 2번째 노드가 있는지 확인
+        if (path.nodes.length < 2) {
+          return false;
+        }
+        
+        // 2번째 노드의 요일이 선택된 요일과 일치하는지 확인
+        ExchangeNode secondNode = path.nodes[1];
+        return secondNode.day == widget.selectedDay;
+      }).toList();
+    }
     
     // 검색 쿼리가 있으면 해당 단계 경로들에 검색 필터링 적용
     if (widget.searchQuery.isNotEmpty) {
@@ -391,19 +405,19 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
     return GestureDetector(
       onTap: () => widget.onStepChanged?.call(step),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
         decoration: BoxDecoration(
           color: isSelected ? Colors.purple.shade100 : Colors.grey.shade100,
           border: Border.all(
             color: isSelected ? Colors.purple.shade300 : Colors.grey.shade300,
             width: 1,
           ),
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(5),
         ),
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 11,
             color: isSelected ? Colors.purple.shade700 : Colors.grey.shade600,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
@@ -763,6 +777,111 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
         },
       ),
     );
+  }
+  
+  /// 검색 필터 그룹 구성 (순환교체 모드에서만 표시)
+  Widget _buildSearchFilterGroup() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        border: Border.all(
+          color: Colors.grey.shade200,
+          width: 1,
+        ),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 필터 그룹 제목
+          Row(
+            children: [
+              Icon(
+                Icons.filter_list,
+                size: 14,
+                color: Colors.grey.shade600,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '검색 필터',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          
+          // 단계 필터 (사용 가능한 단계가 있을 때만 표시)
+          if (widget.availableSteps != null) ...[
+            _buildStepFilter(),
+            const SizedBox(height: 4),
+          ],
+          
+          // 요일 필터
+          _buildDayFilter(),
+        ],
+      ),
+    );
+  }
+  
+  /// 요일 필터 구성 (순환교체 모드에서만 표시)
+  Widget _buildDayFilter() {
+    final List<String> days = ['월', '화', '수', '목', '금'];
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 요일 선택 버튼들
+        Wrap(
+          spacing: 3,
+          runSpacing: 3,
+          children: [
+            // 각 요일별 버튼
+            ...days.map((day) => _buildDayButton(day)),
+          ],
+        ),
+      ],
+    );
+  }
+  
+  /// 요일 선택 버튼 구성
+  Widget _buildDayButton(String day) {
+    bool isSelected = widget.selectedDay == day;
+    
+    return GestureDetector(
+      onTap: () => _toggleDayFilter(day),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blue.shade100 : Colors.grey.shade100,
+          border: Border.all(
+            color: isSelected ? Colors.blue.shade300 : Colors.grey.shade300,
+            width: 1,
+          ),
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: Text(
+          day,
+          style: TextStyle(
+            fontSize: 11,
+            color: isSelected ? Colors.blue.shade700 : Colors.grey.shade600,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+  
+  /// 요일 필터 토글 처리 (단일 선택)
+  void _toggleDayFilter(String day) {
+    // 현재 선택된 요일과 같으면 선택 해제, 다르면 선택
+    String? newSelectedDay = widget.selectedDay == day ? null : day;
+    widget.onDayChanged?.call(newSelectedDay);
   }
   
   /// 색상을 진하게 만드는 헬퍼 메서드 (투명도 변경 없이)
