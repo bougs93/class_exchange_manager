@@ -245,7 +245,7 @@ class CircularExchangeService {
     List<CircularExchangePath> allPaths = [];
     
     // 선택된 노드가 없으면 빈 리스트 반환
-    ExchangeNode? startNode = getSelectedNode(timeSlots);  // 1단계 : 시작 노트 찾기 (getSelectedNode)
+    ExchangeNode? startNode = getSelectedNode(timeSlots);       // [1단계] : 시작 노트 찾기 (getSelectedNode)
     if (startNode == null) {
       AppLogger.exchangeDebug('시작 노드를 찾을 수 없습니다.');
       return allPaths;
@@ -254,7 +254,7 @@ class CircularExchangeService {
     AppLogger.exchangeDebug('순환 경로 탐색 시작: ${startNode.displayText}');
     
     // DFS로 순환 경로 탐색
-    List<List<ExchangeNode>> foundPaths = _findCircularPathsDFS(  //2단계: DFS 탐색 (_findCircularPathsDFS)
+    List<List<ExchangeNode>> foundPaths = _findCircularPathsDFS(  // [2단계]: DFS 탐색 (_findCircularPathsDFS)
       startNode, 
       timeSlots, 
       teachers, 
@@ -263,13 +263,14 @@ class CircularExchangeService {
     );
     
     // 찾은 경로들을 CircularExchangePath로 변환하고 검증
+    List<CircularExchangePath> validPaths = [];
     for (List<ExchangeNode> path in foundPaths) {
       try {
         CircularExchangePath circularPath = CircularExchangePath.fromNodes(path);
         if (circularPath.isValid) {
           // 교체 순서 검증
           if (validateExchangeSequence(circularPath, timeSlots)) {
-            allPaths.add(circularPath);
+            validPaths.add(circularPath);
           } else {
             AppLogger.exchangeDebug('유효하지 않은 교체 순서: ${circularPath.nodes.map((n) => n.teacherName).join(' → ')}');
           }
@@ -282,12 +283,15 @@ class CircularExchangeService {
     }
     
     // 우선순위별로 정렬 (단계 수가 적은 것부터)
-    allPaths.sort((a, b) => a.steps.compareTo(b.steps));
+    validPaths.sort((a, b) => a.steps.compareTo(b.steps));
+    
+    // 불필요한 긴 단계 경로 제외 (더 짧은 단계로 같은 결과를 얻을 수 있는 경우)
+    allPaths = _removeRedundantPaths(validPaths);         // [5단계] : 불필요한 긴 단계 경로 제외 (_removeRedundantPaths)
     
     return allPaths;
   }
 
-  /* 1단계 : 시작 노트 찾기
+  /* [1단계] : 시작 노트 찾기
     시작 노트 찾기 : 사용자가 클릭한 셀 정보를 노드로 만듦
     예: "김선생님, 월요일 1교시, 3-1반" → ExchangeNode 생성
   */
@@ -321,7 +325,7 @@ class CircularExchangeService {
 
 
   /*
-  2단계: DFS 탐색 (_findCircularPathsDFS)
+  [2단계]: DFS 탐색 (_findCircularPathsDFS)
   깊이 우선 탐색으로 모든 경우의 수를 체크:
   김선생(시작)
   ├── 이선생 탐색
@@ -337,8 +341,8 @@ class CircularExchangeService {
     ExchangeNode startNode,
     List<TimeSlot> timeSlots,
     List<Teacher> teachers,
-    int maxSteps,
-    bool exactSteps,
+    int maxSteps,         // 최대 단계 수
+    bool exactSteps,     // 정확히 해당 단계만 검사할지 여부
   ) {
     List<List<ExchangeNode>> allPaths = [];
     
@@ -374,7 +378,7 @@ class CircularExchangeService {
       visited.add(currentNode.nodeId);
       
       // 인접 노드들 찾기
-      List<ExchangeNode> adjacentNodes = findAdjacentNodes(
+      List<ExchangeNode> adjacentNodes = findAdjacentNodes(    // [3단계] : 인접 노드들 찾기 (findAdjacentNodes)  
         currentNode, 
         timeSlots, 
         teachers,
@@ -403,7 +407,7 @@ class CircularExchangeService {
 
 
   /*
-  3단계 : 같은 학급(3-1반)을 가르치는 다른 교사들 찾기
+  [3단계] : 같은 학급(3-1반)을 가르치는 다른 교사들 찾기
     시작: 김선생 - 월요일 1교시 - 3-1반
     찾은 친구들:
     → 이선생 - 화요일 3교시 - 3-1반
@@ -449,7 +453,7 @@ class CircularExchangeService {
         // 중복 노드 방지
         if (!addedNodeIds.contains(node.nodeId)) {
           // 한 방향 교체 가능성 확인 (다음 교사가 현재 교사의 시간에 수업 가능한가?)
-          if (_isOneWayExchangeable(currentNode, node, timeSlots)) {
+          if (_isOneWayExchangeable(currentNode, node, timeSlots)) {    // [4단계] : 한 방향 교체 가능성 확인 (_isOneWayExchangeable)
             adjacentNodes.add(node);
             addedNodeIds.add(node.nodeId);
           }
@@ -466,7 +470,7 @@ class CircularExchangeService {
 
 
   /* 
-  4단계: 교체 가능성 검증 (_isOneWayExchangeable)
+  [4단계]: 교체 가능성 검증 (_isOneWayExchangeable)
     조건: 한 방향 교체 가능 (다음 교사가 현재 교사의 시간에 수업 가능)
   */
   
@@ -571,6 +575,69 @@ class CircularExchangeService {
     }
   }
   
+
+  /// 불필요한 긴 단계 경로를 제거하는 메서드
+  /// 더 짧은 단계로 같은 결과를 얻을 수 있다면 긴 단계 경로는 제외
+  List<CircularExchangePath> _removeRedundantPaths(List<CircularExchangePath> paths) {
+    List<CircularExchangePath> optimizedPaths = [];
+    
+    for (int i = 0; i < paths.length; i++) {
+      CircularExchangePath currentPath = paths[i];
+      bool isRedundant = false;
+      
+      // 현재 경로보다 짧은 경로들과 비교
+      for (int j = 0; j < i; j++) {
+        CircularExchangePath shorterPath = paths[j];
+        
+        // 더 짧은 경로가 현재 경로의 결과를 포함하는지 확인
+        if (_isPathRedundant(currentPath, shorterPath)) {
+          isRedundant = true;
+          AppLogger.exchangeDebug('불필요한 긴 단계 경로 제외: ${currentPath.nodes.length}단계 → ${shorterPath.nodes.length}단계로 충분');
+          break;
+        }
+      }
+      
+      if (!isRedundant) {
+        optimizedPaths.add(currentPath);
+      }
+    }
+    
+    return optimizedPaths;
+  }
+  
+  /// 현재 경로가 더 짧은 경로로 대체 가능한지 확인
+  /// 두 경로의 시작점과 끝점이 같고, 중간에 불필요한 단계가 있는지 확인
+  bool _isPathRedundant(CircularExchangePath longerPath, CircularExchangePath shorterPath) {
+    // 길이가 같거나 더 긴 경로는 중복이 아님
+    if (longerPath.nodes.length <= shorterPath.nodes.length) {
+      return false;
+    }
+    
+    // 시작점과 끝점이 같아야 함
+    ExchangeNode longerStart = longerPath.nodes.first;
+    ExchangeNode longerEnd = longerPath.nodes.last;
+    ExchangeNode shorterStart = shorterPath.nodes.first;
+    ExchangeNode shorterEnd = shorterPath.nodes.last;
+    
+    if (longerStart.nodeId != shorterStart.nodeId || longerEnd.nodeId != shorterEnd.nodeId) {
+      return false;
+    }
+    
+    // 더 긴 경로가 더 짧은 경로의 모든 노드를 포함하는지 확인
+    // (순서는 다를 수 있지만, 같은 교체 결과를 얻을 수 있는지 확인)
+    Set<String> shorterNodeIds = shorterPath.nodes.map((n) => n.nodeId).toSet();
+    Set<String> longerNodeIds = longerPath.nodes.map((n) => n.nodeId).toSet();
+    
+    // 더 짧은 경로의 모든 노드가 더 긴 경로에 포함되어 있는지 확인
+    bool containsAllNodes = shorterNodeIds.every((nodeId) => longerNodeIds.contains(nodeId));
+    
+    if (containsAllNodes) {
+      AppLogger.exchangeDebug('중복 경로 감지: ${longerPath.nodes.length}단계 경로는 ${shorterPath.nodes.length}단계로 충분');
+      return true;
+    }
+    
+    return false;
+  }
 
   // ==================== 그래프 구성 메서드들 END====================
 

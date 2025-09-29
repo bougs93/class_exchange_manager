@@ -581,8 +581,8 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
           ),
         ),
         
-        // 두 번째 노드 (교체 대상 셀)
-        _buildNodeContainer(path.nodes[1], '${index}_1', isSelected, false, colorScheme),
+        // 두 번째 노드 (교체 대상 셀, 진한 색상 적용)
+        _buildNodeContainer(path.nodes[1], '${index}_1', isSelected, false, colorScheme, isSecondNode: true),
       ],
     );
   }
@@ -610,8 +610,8 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
         ),
       );
       
-      // 두 번째 노드 (마지막으로 표시되는 노드)
-      nodeWidgets.add(_buildNodeContainer(path.nodes[1], '${index}_1', isSelected, false, colorScheme));
+      // 두 번째 노드 (마지막으로 표시되는 노드, 진한 색상 적용)
+      nodeWidgets.add(_buildNodeContainer(path.nodes[1], '${index}_1', isSelected, false, colorScheme, isSecondNode: true));
       
       // 3번째 노드는 표시하지 않음 (숨김)
       
@@ -631,8 +631,9 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
           ),
         );
         
-        // 노드
-        nodeWidgets.add(_buildNodeContainer(path.nodes[i], '${index}_$i', isSelected, false, colorScheme));
+        // 노드 (2번째 노드인 경우 진한 색상 적용)
+        bool isSecondNode = (i == 1);  // 인덱스 1이 2번째 노드
+        nodeWidgets.add(_buildNodeContainer(path.nodes[i], '${index}_$i', isSelected, false, colorScheme, isSecondNode: isSecondNode));
       }
       
       // 마지막 노드 추가 (4개 이상인 경우)
@@ -649,8 +650,8 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
           ),
         );
         
-        // 마지막 노드
-        nodeWidgets.add(_buildNodeContainer(path.nodes.last, '${index}_${path.nodes.length - 1}', isSelected, false, colorScheme));
+        // 마지막 노드 (연하게 표시)
+        nodeWidgets.add(_buildNodeContainer(path.nodes.last, '${index}_${path.nodes.length - 1}', isSelected, false, colorScheme, isLastNode: true));
       }
     }
     
@@ -658,7 +659,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
   }
 
   /// 노드 컨테이너 구성 (공통)
-  Widget _buildNodeContainer(ExchangeNode node, String nodeKey, bool isSelected, bool isStartNode, _PathColorScheme colorScheme) {
+  Widget _buildNodeContainer(ExchangeNode node, String nodeKey, bool isSelected, bool isStartNode, _PathColorScheme colorScheme, {bool isLastNode = false, bool isSecondNode = false}) {
     return GestureDetector(
       onTap: () {
         // 경로가 선택되지 않은 상태라면 경로만 선택
@@ -700,22 +701,36 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
                width: double.infinity,
                padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1), // 4,2 → 3,1로 축소
                decoration: BoxDecoration(
-                 // 선택 상태에 따른 노드 배경색
-                 // 선택됨: 각 경로 타입별 색상, 선택안됨: 회색으로 통일
-                 color: isSelected 
-                     ? colorScheme.nodeBackground
-                     : Colors.grey.shade100,
+                 // 노드 타입별 배경색 적용
+                 color: isLastNode 
+                     ? (isSelected 
+                         ? colorScheme.nodeBackground.withOpacity(0.3)  // 선택된 마지막 노드: 매우 연한 배경
+                         : Colors.grey.shade50)  // 선택되지 않은 마지막 노드: 매우 연한 회색
+                     : isSecondNode 
+                         ? (isSelected 
+                             ? _getDarkerColor(colorScheme.nodeBackground)  // 선택된 2번째 노드: 진한 배경
+                             : Colors.grey.shade300)  // 선택되지 않은 2번째 노드: 더 진한 회색
+                         : (isSelected 
+                             ? colorScheme.nodeBackground  // 일반 노드: 기존 색상
+                             : Colors.grey.shade100),  // 일반 노드: 기존 색상
                  borderRadius: BorderRadius.circular(3),
                  border: Border.all(
-                   // 선택 상태에 따른 노드 테두리색
-                   // 선택됨: 각 경로 타입별 색상, 선택안됨: 회색으로 통일
-                   color: isSelected 
-                       ? colorScheme.nodeBorder
-                       : Colors.grey.shade400,
+                   // 노드 타입별 테두리색 적용
+                   color: isLastNode 
+                       ? (isSelected 
+                           ? colorScheme.nodeBorder.withOpacity(0.3)  // 선택된 마지막 노드: 매우 연한 테두리
+                           : Colors.grey.shade300)  // 선택되지 않은 마지막 노드: 연한 회색 테두리
+                       : isSecondNode 
+                           ? (isSelected 
+                               ? _getDarkerColor(colorScheme.nodeBorder)  // 선택된 2번째 노드: 진한 테두리
+                               : Colors.grey.shade500)  // 선택되지 않은 2번째 노드: 더 진한 회색 테두리
+                           : (isSelected 
+                               ? colorScheme.nodeBorder  // 일반 노드: 기존 색상
+                               : Colors.grey.shade400),  // 일반 노드: 기존 색상
                    width: isSelected ? 2 : 1,
                  ),
                  boxShadow: [
-                   if (isSelected)
+                   if (isSelected && !isLastNode)  // 마지막 노드는 그림자 제거
                      BoxShadow(
                        color: colorScheme.shadow,
                        blurRadius: 1,
@@ -728,11 +743,18 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
                 style: TextStyle(
                   fontSize: _SidebarFontSizes.nodeText,
                   fontWeight: FontWeight.w500,
-                  // 선택 상태에 따른 노드 텍스트 색상
-                  // 선택됨: 각 경로 타입별 색상, 선택안됨: 회색으로 통일
-                  color: isSelected 
-                      ? colorScheme.nodeText 
-                      : Colors.grey.shade600,
+                   // 노드 타입별 텍스트 색상 적용
+                   color: isLastNode 
+                       ? (isSelected 
+                           ? colorScheme.nodeText.withOpacity(0.4)  // 선택된 마지막 노드: 매우 연한 텍스트
+                           : Colors.grey.shade400)  // 선택되지 않은 마지막 노드: 연한 회색 텍스트
+                       : isSecondNode 
+                           ? (isSelected 
+                               ? _getDarkerColor(colorScheme.nodeText)  // 선택된 2번째 노드: 진한 텍스트
+                               : Colors.grey.shade800)  // 선택되지 않은 2번째 노드: 더 진한 회색 텍스트
+                           : (isSelected 
+                               ? colorScheme.nodeText  // 일반 노드: 기존 색상
+                               : Colors.grey.shade600),  // 일반 노드: 기존 색상
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -741,5 +763,12 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
         },
       ),
     );
+  }
+  
+  /// 색상을 진하게 만드는 헬퍼 메서드 (투명도 변경 없이)
+  Color _getDarkerColor(Color originalColor) {
+    // HSL 색상 공간에서 명도(Lightness)를 낮춰서 진하게 만듦 (0.7 → 0.85로 조정하여 덜 진하게)
+    HSLColor hsl = HSLColor.fromColor(originalColor);
+    return hsl.withLightness((hsl.lightness * 0.85).clamp(0.0, 1.0)).toColor();
   }
 }
