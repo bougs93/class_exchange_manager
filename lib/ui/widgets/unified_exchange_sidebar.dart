@@ -331,11 +331,16 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
     );
   }
 
-  /// 특정 단계의 경로 개수 계산
+  /// 특정 단계의 경로 개수 계산 (검색 필터링 반영)
   int _getStepCount(int step) {
     if (widget.mode != ExchangePathType.circular) return 0;
     
-    return widget.paths.where((path) {
+    // 검색 쿼리가 있으면 필터링된 경로에서 계산, 없으면 원본 경로에서 계산
+    List<ExchangePath> pathsToCount = widget.searchQuery.isNotEmpty 
+        ? widget.filteredPaths 
+        : widget.paths;
+    
+    return pathsToCount.where((path) {
       if (path is CircularExchangePath) {
         return path.nodes.length == step;
       }
