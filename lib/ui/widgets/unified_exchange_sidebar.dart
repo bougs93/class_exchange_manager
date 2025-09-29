@@ -335,17 +335,51 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
   int _getStepCount(int step) {
     if (widget.mode != ExchangePathType.circular) return 0;
     
-    // 검색 쿼리가 있으면 필터링된 경로에서 계산, 없으면 원본 경로에서 계산
-    List<ExchangePath> pathsToCount = widget.searchQuery.isNotEmpty 
-        ? widget.filteredPaths 
-        : widget.paths;
-    
-    return pathsToCount.where((path) {
+    // 해당 단계의 경로들만 먼저 필터링
+    List<ExchangePath> stepPaths = widget.paths.where((path) {
       if (path is CircularExchangePath) {
         return path.nodes.length == step;
       }
       return false;
-    }).length;
+    }).toList();
+    
+    // 검색 쿼리가 있으면 해당 단계 경로들에 검색 필터링 적용
+    if (widget.searchQuery.isNotEmpty) {
+      String query = widget.searchQuery.toLowerCase().trim();
+      stepPaths = stepPaths.where((path) {
+        // 경로에 2번째 노드가 있는지 확인
+        if (path.nodes.length < 2) {
+          return false; // 2번째 노드가 없으면 필터링에서 제외
+        }
+        
+        // 2번째 노드만 검색 (인덱스 1)
+        ExchangeNode secondNode = path.nodes[1];
+        
+        // 검색어 패턴 분석
+        if (query.length == 1) {
+          // 단일 글자인 경우 -> 요일 검색 (월, 화, 수, 목, 금)
+          String day = secondNode.day.toLowerCase();
+          return day.contains(query);
+          
+        } else if (query.length == 2 && RegExp(r'^[월화수목금토일][1-9]$').hasMatch(query)) {
+          // 월1, 화2 형태인 경우 -> 요일+교시 검색
+          String day = secondNode.day.toLowerCase();
+          String period = secondNode.period.toString();
+          
+          // 요일과 교시가 모두 일치하는지 확인
+          return day.contains(query[0]) && period == query[1];
+          
+        } else {
+          // 2글자 이상인 경우 -> 교사이름, 과목 검색
+          String teacherName = secondNode.teacherName.toLowerCase();
+          String subjectName = widget.getSubjectName(secondNode).toLowerCase();
+          
+          return teacherName.contains(query) || subjectName.contains(query);
+        }
+      }).toList();
+    }
+    
+    return stepPaths.length;
   }
 
   /// 단계 선택 버튼 구성
@@ -559,26 +593,65 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
   Widget _buildCircularNodes(CircularExchangePath path, int index, bool isSelected, _PathColorScheme colorScheme) {
     List<Widget> nodeWidgets = [];
     
-    // 시작점 표시 (첫 번째 화살표 위에)
+    // 시작점 표시 (첫 번째 노드)
     nodeWidgets.add(_buildNodeContainer(path.nodes[0], '${index}_0', isSelected, true, colorScheme));
     
-    // 중간 노드들과 화살표들
-    for (int i = 1; i < path.nodes.length - 1; i++) {
-      // 단방향 화살표 (순환교체 특징)
-      // 선택됨: 각 경로 타입별 색상, 선택안됨: 회색으로 통일
+    // 노드 길이가 3인 경우: 1번째와 2번째 노드 사이를 상하 화살표로 (3번째 노드는 숨김)
+    if (path.nodes.length == 3) {
+      // 상하 화살표 (1번째와 2번째 노드 사이)
       nodeWidgets.add(
         Container(
-          margin: const EdgeInsets.symmetric(vertical: 1),
+          margin: const EdgeInsets.symmetric(vertical: 2),
           child: Icon(
-            Icons.arrow_downward,
+            Icons.swap_vert,  // 상하 화살표
             color: isSelected ? colorScheme.primary : Colors.grey.shade500,
-            size: 12,
+            size: 14,
           ),
         ),
       );
       
-      // 노드
-      nodeWidgets.add(_buildNodeContainer(path.nodes[i], '${index}_$i', isSelected, false, colorScheme));
+      // 두 번째 노드 (마지막으로 표시되는 노드)
+      nodeWidgets.add(_buildNodeContainer(path.nodes[1], '${index}_1', isSelected, false, colorScheme));
+      
+      // 3번째 노드는 표시하지 않음 (숨김)
+      
+    } else {
+      // 노드 길이가 4 이상인 경우: 기존 로직 유지 (모든 화살표가 단방향)
+      for (int i = 1; i < path.nodes.length - 1; i++) {
+        // 단방향 화살표 (순환교체 특징)
+        // 선택됨: 각 경로 타입별 색상, 선택안됨: 회색으로 통일
+        nodeWidgets.add(
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 1),
+            child: Icon(
+              Icons.arrow_downward,
+              color: isSelected ? colorScheme.primary : Colors.grey.shade500,
+              size: 12,
+            ),
+          ),
+        );
+        
+        // 노드
+        nodeWidgets.add(_buildNodeContainer(path.nodes[i], '${index}_$i', isSelected, false, colorScheme));
+      }
+      
+      // 마지막 노드 추가 (4개 이상인 경우)
+      if (path.nodes.length > 3) {
+        // 마지막 화살표
+        nodeWidgets.add(
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 1),
+            child: Icon(
+              Icons.arrow_downward,
+              color: isSelected ? colorScheme.primary : Colors.grey.shade500,
+              size: 12,
+            ),
+          ),
+        );
+        
+        // 마지막 노드
+        nodeWidgets.add(_buildNodeContainer(path.nodes.last, '${index}_${path.nodes.length - 1}', isSelected, false, colorScheme));
+      }
     }
     
     return Column(children: nodeWidgets);
