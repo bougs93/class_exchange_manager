@@ -205,7 +205,7 @@ class ExchangeService {
             teacherName: teacher.name,
             type: ExchangeType.sameClass,
             priority: 1,
-            reason: '${teacher.name} 교사 - 동일 학급 (${selectedClassName})',
+            reason: '${teacher.name} 교사 - 동일 학급 ($selectedClassName)',
           );
           exchangeOptions.add(option);
         }

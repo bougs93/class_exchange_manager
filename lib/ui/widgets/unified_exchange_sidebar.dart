@@ -3,6 +3,7 @@ import '../../models/exchange_path.dart';
 import '../../models/circular_exchange_path.dart';
 import '../../models/one_to_one_exchange_path.dart';
 import '../../models/exchange_node.dart';
+import '../../utils/logger.dart';
 
 /// 사이드바 폰트 사이즈 상수
 class _SidebarFontSizes {
@@ -496,7 +497,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
       child: InkWell(
         onTap: () {
           String pathTypeName = path.type == ExchangePathType.oneToOne ? '1:1교체' : '순환교체';
-          print('사이드바에서 $pathTypeName 경로 클릭: 인덱스=$index, 경로ID=${path.id}');
+          AppLogger.exchangeDebug('사이드바에서 $pathTypeName 경로 클릭: 인덱스=$index, 경로ID=${path.id}');
           widget.onSelectPath(path);
         },
         borderRadius: BorderRadius.circular(6),
@@ -590,7 +591,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
             int pathIndex = int.tryParse(keyParts[0]) ?? -1;
             if (pathIndex >= 0 && pathIndex < widget.filteredPaths.length) {
               ExchangePath targetPath = widget.filteredPaths[pathIndex];
-              print('노드 클릭으로 경로 선택: 인덱스=$pathIndex, 경로ID=${targetPath.id}');
+              AppLogger.exchangeDebug('노드 클릭으로 경로 선택: 인덱스=$pathIndex, 경로ID=${targetPath.id}');
               widget.onSelectPath(targetPath);
             }
           }

@@ -455,31 +455,41 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       }).toList();
     }
 
-    // 검색 쿼리로 필터링 (요일, 교사명, 학급, 과목)
+    // 검색 쿼리로 필터링 - 패턴별 검색 로직 적용
     if (_searchQuery.isEmpty) {
       _filteredPaths = allPaths;
     } else {
-      String query = _searchQuery.toLowerCase();
+      String query = _searchQuery.toLowerCase().trim();
       _filteredPaths = allPaths.where((path) {
-        return path.nodes.any((node) {
-          // 요일 검색 (월, 화, 수, 목, 금)
-          String day = node.day.toLowerCase();
+        // 경로에 2번째 노드가 있는지 확인
+        if (path.nodes.length < 2) {
+          return false; // 2번째 노드가 없으면 필터링에서 제외
+        }
+        
+        // 2번째 노드만 검색 (인덱스 1)
+        ExchangeNode secondNode = path.nodes[1];
+        
+        // 검색어 패턴 분석
+        if (query.length == 1) {
+          // 단일 글자인 경우 -> 요일 검색 (월, 화, 수, 목, 금)
+          String day = secondNode.day.toLowerCase();
+          return day.contains(query);
           
-          // 교사명 검색
-          String teacherName = node.teacherName.toLowerCase();
+        } else if (query.length == 2 && RegExp(r'^[월화수목금토일][1-9]$').hasMatch(query)) {
+          // 월1, 화2 형태인 경우 -> 요일+교시 검색
+          String day = secondNode.day.toLowerCase();
+          String period = secondNode.period.toString();
           
-          // 학급명 검색
-          String className = node.className.toLowerCase();
+          // 요일과 교시가 모두 일치하는지 확인
+          return day.contains(query[0]) && period == query[1];
           
-          // 과목명 검색
-          String subjectName = _getSubjectName(node).toLowerCase();
+        } else {
+          // 2글자 이상인 경우 -> 교사이름, 과목 검색
+          String teacherName = secondNode.teacherName.toLowerCase();
+          String subjectName = _getSubjectName(secondNode).toLowerCase();
           
-          // 모든 필드에서 검색어 포함 여부 확인
-          return day.contains(query) ||
-                 teacherName.contains(query) ||
-                 className.contains(query) ||
-                 subjectName.contains(query);
-        });
+          return teacherName.contains(query) || subjectName.contains(query);
+        }
       }).toList();
     }
   }
