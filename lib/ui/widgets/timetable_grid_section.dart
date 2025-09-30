@@ -430,11 +430,11 @@ class ExchangeArrowPainter extends CustomPainter {
     final sourceNode = oneToOnePath.sourceNode;
     final targetNode = oneToOnePath.targetNode;
 
-    // A → B 방향 화살표 그리기 (세로 우선)
-    _drawArrowBetweenNodes(canvas, size, sourceNode, targetNode, priority: ArrowPriority.verticalFirst);
+    // A → B 방향 화살표 그리기 (세로 우선, 머리 사이즈 12)
+    _drawArrowBetweenNodes(canvas, size, sourceNode, targetNode, priority: ArrowPriority.verticalFirst, arrowHeadSize: 12.0);
     
-    // B → A 방향 화살표 그리기 (세로 우선)
-    _drawArrowBetweenNodes(canvas, size, targetNode, sourceNode, priority: ArrowPriority.verticalFirst);
+    // B → A 방향 화살표 그리기 (세로 우선, 머리 사이즈 12)
+    _drawArrowBetweenNodes(canvas, size, targetNode, sourceNode, priority: ArrowPriority.verticalFirst, arrowHeadSize: 12.0);
   }
 
   /// 순환 교체 화살표 그리기
@@ -442,9 +442,9 @@ class ExchangeArrowPainter extends CustomPainter {
     final circularPath = selectedPath as CircularExchangePath;
     final nodes = circularPath.nodes;
 
-    // 순환 경로의 각 단계별로 화살표 그리기 (가로 우선)
+    // 순환 경로의 각 단계별로 화살표 그리기 (가로 우선, 머리 사이즈 10, 단계별 텍스트)
     for (int i = 0; i < nodes.length - 1; i++) {
-      _drawArrowBetweenNodes(canvas, size, nodes[i], nodes[i + 1], priority: ArrowPriority.horizontalFirst);
+      _drawArrowBetweenNodes(canvas, size, nodes[i], nodes[i + 1], priority: ArrowPriority.horizontalFirst, arrowHeadSize: 10.0, text: "${i + 1}");
     }
   }
 
@@ -452,16 +452,18 @@ class ExchangeArrowPainter extends CustomPainter {
   void _drawChainArrows(Canvas canvas, Size size) {
     final chainPath = selectedPath as ChainExchangePath;
     
-    // 연쇄 교체의 각 단계별로 화살표 그리기 (가로 우선)
+    // 연쇄 교체의 각 단계별로 화살표 그리기 (가로 우선, 머리 사이즈 8, 단계별 텍스트)
+    int stepNumber = 1;
     for (final step in chainPath.steps) {
       if (step.stepType == 'exchange') {
-        _drawArrowBetweenNodes(canvas, size, step.fromNode, step.toNode, priority: ArrowPriority.horizontalFirst);
+        _drawArrowBetweenNodes(canvas, size, step.fromNode, step.toNode, priority: ArrowPriority.horizontalFirst, arrowHeadSize: 8.0, text: "S$stepNumber");
+        stepNumber++;
       }
     }
   }
 
   /// 두 노드 간의 화살표 그리기
-  void _drawArrowBetweenNodes(Canvas canvas, Size size, ExchangeNode sourceNode, ExchangeNode targetNode, {ArrowPriority priority = ArrowPriority.horizontalFirst}) {
+  void _drawArrowBetweenNodes(Canvas canvas, Size size, ExchangeNode sourceNode, ExchangeNode targetNode, {ArrowPriority priority = ArrowPriority.horizontalFirst, double? arrowHeadSize, String? text}) {
     // 교사 인덱스 찾기
     int sourceTeacherIndex = timetableData.teachers
         .indexWhere((teacher) => teacher.name == sourceNode.teacherName);
@@ -514,8 +516,8 @@ class ExchangeArrowPainter extends CustomPainter {
     canvas.save();
     _applyFrozenAreaClipping(canvas, size);
 
-    // 교체 경로 타입에 따른 스타일 적용하여 화살표 그리기 (우선 방향 지정)
-    _drawStyledArrow(canvas, sourcePos, targetPos, priority: priority);
+    // 교체 경로 타입에 따른 스타일 적용하여 화살표 그리기 (우선 방향, 머리 사이즈, 텍스트 지정)
+    _drawStyledArrow(canvas, sourcePos, targetPos, priority: priority, arrowHeadSize: arrowHeadSize, text: text);
     
     canvas.restore();
   }
@@ -747,12 +749,24 @@ class ExchangeArrowPainter extends CustomPainter {
   }
 
   /// 스타일이 적용된 화살표 그리기
-  void _drawStyledArrow(Canvas canvas, Offset start, Offset end, {ArrowPriority priority = ArrowPriority.horizontalFirst}) {
+  void _drawStyledArrow(Canvas canvas, Offset start, Offset end, {ArrowPriority priority = ArrowPriority.horizontalFirst, double? arrowHeadSize, String? text}) {
     // 교체 경로 타입에 따른 스타일 결정
     ExchangeArrowStyle style = _getArrowStyle();
     
+    // 커스텀 머리 사이즈가 있으면 스타일에 적용
+    if (arrowHeadSize != null) {
+      style = ExchangeArrowStyle(
+        color: style.color,
+        strokeWidth: style.strokeWidth,
+        outlineColor: style.outlineColor,
+        outlineWidth: style.outlineWidth,
+        arrowHeadSize: arrowHeadSize,
+        direction: style.direction,
+      );
+    }
+    
     // 우선 방향에 따라 직각 화살표 그리기
-    _drawRightAngleArrowWithStyle(canvas, start, end, style, priority: priority);
+    _drawRightAngleArrowWithStyle(canvas, start, end, style, priority: priority, text: text);
   }
 
 
@@ -775,7 +789,7 @@ class ExchangeArrowPainter extends CustomPainter {
   }
 
   /// 직각 방향 화살표 그리기 (외곽선과 내부선) - 스타일 적용 버전
-  void _drawRightAngleArrowWithStyle(Canvas canvas, Offset start, Offset end, ExchangeArrowStyle style, {ArrowPriority priority = ArrowPriority.horizontalFirst}) {
+  void _drawRightAngleArrowWithStyle(Canvas canvas, Offset start, Offset end, ExchangeArrowStyle style, {ArrowPriority priority = ArrowPriority.horizontalFirst, String? text}) {
     // 우선 방향에 따라 중간점 계산
     Offset midPoint;
     if (priority == ArrowPriority.verticalFirst) {
@@ -826,8 +840,53 @@ class ExchangeArrowPainter extends CustomPainter {
         _drawArrowHeadWithStyle(canvas, midPoint, start, style); // 시작점 방향
         break;
     }
+    
+    // 텍스트가 있으면 중간점에 텍스트 그리기
+    if (text != null && text.isNotEmpty) {
+      _drawArrowText(canvas, midPoint, text, style);
+    }
   }
 
+  /// 화살표 중간점에 텍스트 그리기
+  void _drawArrowText(Canvas canvas, Offset position, String text, ExchangeArrowStyle style) {
+    // 텍스트 스타일 설정
+    final textStyle = TextStyle(
+      fontSize: 12.0,
+      fontWeight: FontWeight.bold,
+      color: style.color,
+    );
+    
+    // 텍스트 페인트 설정
+    final textPaint = Paint()
+      ..color = Colors.white  // 배경색 (외곽선)
+      ..style = PaintingStyle.fill;
+    
+    final outlinePaint = Paint()
+      ..color = style.color  // 텍스트 색상
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+    
+    // 텍스트 크기 계산
+    final textPainter = TextPainter(
+      text: TextSpan(text: text, style: textStyle),
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+    
+    // 텍스트 위치 계산 (중간점을 중심으로)
+    final textOffset = Offset(
+      position.dx - textPainter.width / 2,
+      position.dy - textPainter.height / 2,
+    );
+    
+    // 텍스트 배경 원 그리기
+    final backgroundRadius = math.max(textPainter.width, textPainter.height) / 2 + 4;
+    canvas.drawCircle(position, backgroundRadius, textPaint);
+    canvas.drawCircle(position, backgroundRadius, outlinePaint);
+    
+    // 텍스트 그리기
+    textPainter.paint(canvas, textOffset);
+  }
 
   /// 화살표 머리 그리기 (외곽선과 내부선) - 스타일 적용 버전
   void _drawArrowHeadWithStyle(Canvas canvas, Offset from, Offset to, ExchangeArrowStyle style) {
