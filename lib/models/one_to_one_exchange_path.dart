@@ -105,6 +105,12 @@ class OneToOneExchangePath implements ExchangePath {
   /// 교체 사유
   String get reason => _option.reason;
   
+  /// 원본 노드 접근자
+  ExchangeNode get sourceNode => _sourceNode;
+  
+  /// 대상 노드 접근자
+  ExchangeNode get targetNode => _targetNode;
+  
   /// 요일 번호를 문자열로 변환하는 헬퍼 메서드
   static String _getDayString(int dayOfWeek) {
     switch (dayOfWeek) {

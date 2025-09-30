@@ -24,8 +24,8 @@ class SimplifiedTimetableTheme {
   static const Color selectedPathColorDark = Color(0xFF2E7D32); // 더 진한 녹색
   
   // 연쇄교체 경로 색상
-  static const Color chainPathColorLight = Color.fromARGB(255, 255, 193, 7); // 연한 노란색
-  static const Color chainPathColorDark = Color(0xFFFF8F00); // 진한 노란색
+  static const Color chainPathColorLight = Color(0xFFFF8A65); // 연한 주황색
+  static const Color chainPathColorDark = Color(0xFFFF5722); // 주황색
   
   // 오버레이 색상 상수
   static const Color overlayColorSelected = Color(0xFFD32F2F); // 진한 빨간색

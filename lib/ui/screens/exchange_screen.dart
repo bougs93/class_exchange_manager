@@ -231,6 +231,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
                 isExchangeModeEnabled: _isExchangeModeEnabled,
                 exchangeableCount: getActualExchangeableCount(),
                 onCellTap: _onCellTap,
+                selectedOneToOnePath: _selectedOneToOnePath, // 선택된 1:1 교체 경로 전달
               ),
             )
           else

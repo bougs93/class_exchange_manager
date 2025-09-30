@@ -1,9 +1,11 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../services/excel_service.dart';
 import '../../utils/timetable_data_source.dart';
 import '../../utils/constants.dart';
 import '../../utils/exchange_visualizer.dart';
+import '../../models/one_to_one_exchange_path.dart';
 
 /// 시간표 그리드 섹션 위젯
 /// Syncfusion DataGrid를 사용한 시간표 표시를 담당
@@ -15,6 +17,7 @@ class TimetableGridSection extends StatefulWidget {
   final bool isExchangeModeEnabled;
   final int exchangeableCount;
   final Function(DataGridCellTapDetails) onCellTap;
+  final OneToOneExchangePath? selectedOneToOnePath; // 선택된 1:1 교체 경로
 
   const TimetableGridSection({
     super.key,
@@ -25,6 +28,7 @@ class TimetableGridSection extends StatefulWidget {
     required this.isExchangeModeEnabled,
     required this.exchangeableCount,
     required this.onCellTap,
+    this.selectedOneToOnePath, // 선택된 1:1 교체 경로
   });
 
   @override
@@ -72,9 +76,9 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
             
             const SizedBox(height: 16),
             
-            // Syncfusion DataGrid 위젯
+            // Syncfusion DataGrid 위젯 (화살표와 함께)
             Expanded(
-              child: _buildDataGrid(),
+              child: _buildDataGridWithArrows(),
             ),
           ],
         ),
@@ -132,6 +136,34 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
         ),
       ),
     );
+  }
+
+  /// DataGrid와 화살표를 함께 구성
+  Widget _buildDataGridWithArrows() {
+    Widget dataGrid = _buildDataGrid();
+    
+    // 1:1 교체 경로가 선택된 경우에만 화살표 표시
+    if (widget.selectedOneToOnePath != null && widget.isExchangeModeEnabled) {
+      return Stack(
+        children: [
+          dataGrid,
+          // 화살표를 그리는 CustomPainter 오버레이 (터치 이벤트 무시)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: ExchangeArrowPainter(
+                  selectedPath: widget.selectedOneToOnePath!,
+                  timetableData: widget.timetableData!,
+                  columns: widget.columns,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    
+    return dataGrid;
   }
 
   /// DataGrid 구성
@@ -258,5 +290,303 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
       duration: const Duration(milliseconds: 500),
       curve: Curves.easeInOut,
     );
+  }
+}
+
+/// 교체 경로 화살표를 그리는 CustomPainter
+class ExchangeArrowPainter extends CustomPainter {
+  final OneToOneExchangePath selectedPath;
+  final TimetableData timetableData;
+  final List<GridColumn> columns;
+
+  ExchangeArrowPainter({
+    required this.selectedPath,
+    required this.timetableData,
+    required this.columns,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final sourceNode = selectedPath.sourceNode;
+    final targetNode = selectedPath.targetNode;
+
+    // 교사 인덱스 찾기
+    int sourceTeacherIndex = timetableData.teachers
+        .indexWhere((teacher) => teacher.name == sourceNode.teacherName);
+    int targetTeacherIndex = timetableData.teachers
+        .indexWhere((teacher) => teacher.name == targetNode.teacherName);
+
+    if (sourceTeacherIndex == -1 || targetTeacherIndex == -1) {
+      return;
+    }
+
+    // 컬럼 인덱스 찾기
+    String sourceColumnName = '${sourceNode.day}_${sourceNode.period}';
+    String targetColumnName = '${targetNode.day}_${targetNode.period}';
+    
+    int sourceColumnIndex = columns
+        .indexWhere((column) => column.columnName == sourceColumnName);
+    int targetColumnIndex = columns
+        .indexWhere((column) => column.columnName == targetColumnName);
+
+    if (sourceColumnIndex == -1 || targetColumnIndex == -1) {
+      return;
+    }
+
+    // 셀 경계면 중앙 위치 계산 (시작점과 끝점의 상대적 위치에 따라 결정)
+    Offset sourcePos = _getCellEdgePosition(sourceColumnIndex, sourceTeacherIndex, targetColumnIndex, targetTeacherIndex, true);
+    Offset targetPos = _getCellEdgePosition(targetColumnIndex, targetTeacherIndex, sourceColumnIndex, sourceTeacherIndex, false);
+
+    // 직각 방향 화살표 그리기 (외곽선과 내부선)
+    _drawRightAngleArrowWithOutline(canvas, sourcePos, targetPos);
+  }
+
+  /// 셀의 위치 계산 (고정된 헤더 행들 고려)
+  Offset _getCellPosition(int columnIndex, int teacherIndex) {
+    double x = 0;
+    for (int i = 0; i < columnIndex; i++) {
+      if (i == 0) {
+        // 교사명 열 너비
+        x += AppConstants.teacherColumnWidth;
+      } else {
+        // 교시 열 너비
+        x += AppConstants.periodColumnWidth;
+      }
+    }
+    // 셀 중앙 위치로 조정
+    if (columnIndex == 0) {
+      x += AppConstants.teacherColumnWidth / 2;
+    } else {
+      x += AppConstants.periodColumnWidth / 2;
+    }
+
+    // Y 좌표 계산 (고정된 헤더 행들 고려)
+    // stackedHeaderRows가 있으면 헤더 행이 2개
+    double y = AppConstants.headerRowHeight * 2; // 헤더 행 2개 높이
+    y += teacherIndex * AppConstants.dataRowHeight; // 교사 인덱스에 따른 행 높이
+    y += AppConstants.dataRowHeight / 2; // 셀 중앙 위치로 조정
+
+    return Offset(x, y);
+  }
+
+  /// 셀의 경계면 중앙 위치 계산 (화살표 시작점/끝점용, 상대적 위치 고려)
+  Offset _getCellEdgePosition(int columnIndex, int teacherIndex, int otherColumnIndex, int otherTeacherIndex, bool isSource) {
+    double x = 0;
+    for (int i = 0; i < columnIndex; i++) {
+      if (i == 0) {
+        // 교사명 열 너비
+        x += AppConstants.teacherColumnWidth;
+      } else {
+        // 교시 열 너비
+        x += AppConstants.periodColumnWidth;
+      }
+    }
+
+    // Y 좌표 계산 (고정된 헤더 행들 고려)
+    double y = AppConstants.headerRowHeight * 2; // 헤더 행 2개 높이
+    y += teacherIndex * AppConstants.dataRowHeight; // 교사 인덱스에 따른 행 높이
+
+    // 상대적 위치에 따라 시작점/끝점 결정
+    bool isTargetBelow = otherTeacherIndex > teacherIndex; // 목표가 아래쪽에 있는지
+    bool isTargetRight = otherColumnIndex > columnIndex; // 목표가 오른쪽에 있는지
+
+    // 셀의 경계면 중앙 위치 계산
+    if (columnIndex == 0) {
+      // 교사명 열의 경우
+      if (isSource) {
+        if (isTargetBelow) {
+          // 목표가 아래쪽: 하단 중앙에서 시작
+          x += AppConstants.teacherColumnWidth / 2; // 가로 중앙
+          y += AppConstants.dataRowHeight; // 하단
+        } else {
+          // 목표가 위쪽: 상단 중앙에서 시작
+          x += AppConstants.teacherColumnWidth / 2; // 가로 중앙
+          y += 0; // 상단
+        }
+      } else {
+        // 끝점: 교사명 열의 경계면 중앙 (상대적 위치에 따라 결정)
+        if (isTargetRight) {
+          // 목표가 오른쪽: 오른쪽 경계면 중앙
+          x += AppConstants.teacherColumnWidth; // 오른쪽 경계
+          y += AppConstants.dataRowHeight / 2; // 세로 중앙
+        } else {
+          // 목표가 왼쪽: 왼쪽 경계면 중앙
+          x += 0; // 왼쪽 경계
+          y += AppConstants.dataRowHeight / 2; // 세로 중앙
+        }
+      }
+    } else {
+      // 교시 열의 경우
+      if (isSource) {
+        if (isTargetBelow) {
+          // 목표가 아래쪽: 하단 중앙에서 시작
+          x += AppConstants.periodColumnWidth / 2; // 가로 중앙
+          y += AppConstants.dataRowHeight; // 하단
+        } else {
+          // 목표가 위쪽: 상단 중앙에서 시작
+          x += AppConstants.periodColumnWidth / 2; // 가로 중앙
+          y += 0; // 상단
+        }
+      } else {
+        // 끝점: 셀의 경계면 중앙 (상대적 위치에 따라 결정)
+        if (isTargetRight) {
+          // 목표가 오른쪽: 오른쪽 경계면 중앙
+          x += AppConstants.periodColumnWidth; // 오른쪽 경계
+          y += AppConstants.dataRowHeight / 2; // 세로 중앙
+        } else {
+          // 목표가 왼쪽: 왼쪽 경계면 중앙
+          x += 0; // 왼쪽 경계
+          y += AppConstants.dataRowHeight / 2; // 세로 중앙
+        }
+      }
+    }
+
+    return Offset(x, y);
+  }
+
+  /// 직각 방향 화살표 그리기 (외곽선과 내부선)
+  void _drawRightAngleArrowWithOutline(Canvas canvas, Offset start, Offset end) {
+    // 직각 방향으로 그리기 위해 중간점 계산
+    Offset midPoint = Offset(start.dx, end.dy);
+    
+    // 외곽선용 Paint (흰색, 더 두꺼운 선)
+    final outlinePaint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 5.0
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    
+    // 내부선용 Paint (연한 녹색, 얇은 선)
+    final innerPaint = Paint()
+      ..color = Colors.green.withOpacity(0.7) // 연한 녹색
+      ..strokeWidth = 3.0
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    
+    // 직선 그리기 (시작점 -> 중간점 -> 끝점)
+    Path path = Path();
+    path.moveTo(start.dx, start.dy);
+    path.lineTo(midPoint.dx, midPoint.dy);
+    path.lineTo(end.dx, end.dy);
+    
+    // 외곽선 먼저 그리기
+    canvas.drawPath(path, outlinePaint);
+    
+    // 내부선 그리기
+    canvas.drawPath(path, innerPaint);
+    
+    // 화살표 머리 그리기 (외곽선과 내부선)
+    _drawArrowHeadWithOutline(canvas, midPoint, end);
+  }
+
+  /// 직각 방향 화살표 그리기
+  void _drawRightAngleArrow(Canvas canvas, Paint paint, Offset start, Offset end) {
+    // 직각 방향으로 그리기 위해 중간점 계산
+    Offset midPoint = Offset(start.dx, end.dy);
+    
+    // 직선 그리기 (시작점 -> 중간점 -> 끝점)
+    Path path = Path();
+    path.moveTo(start.dx, start.dy);
+    path.lineTo(midPoint.dx, midPoint.dy);
+    path.lineTo(end.dx, end.dy);
+    
+    canvas.drawPath(path, paint);
+    
+    // 화살표 머리 그리기
+    _drawArrowHead(canvas, paint, midPoint, end);
+  }
+
+  /// 화살표 머리 그리기 (외곽선과 내부선)
+  void _drawArrowHeadWithOutline(Canvas canvas, Offset from, Offset to) {
+    // 화살표 머리 크기
+    double headLength = 12.0;
+    double headAngle = 0.5; // 라디안
+
+    // 방향 벡터 계산
+    double dx = to.dx - from.dx;
+    double dy = to.dy - from.dy;
+    double distance = math.sqrt(dx * dx + dy * dy);
+
+    if (distance == 0) return;
+
+    // 정규화
+    dx /= distance;
+    dy /= distance;
+
+    // 화살표 머리 점들 계산
+    double x1 = to.dx - headLength * (dx * math.cos(headAngle) + dy * math.sin(headAngle));
+    double y1 = to.dy - headLength * (dy * math.cos(headAngle) - dx * math.sin(headAngle));
+    
+    double x2 = to.dx - headLength * (dx * math.cos(-headAngle) + dy * math.sin(-headAngle));
+    double y2 = to.dy - headLength * (dy * math.cos(-headAngle) - dx * math.sin(-headAngle));
+
+    // 외곽선용 Paint (흰색, 더 두꺼운 선)
+    final outlinePaint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 5.0
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    // 내부선용 Paint (연한 녹색, 얇은 선)
+    final innerPaint = Paint()
+      ..color = Colors.green.withOpacity(0.7) // 연한 녹색
+      ..strokeWidth = 3.0
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    // 화살표 머리 그리기 (외곽선 먼저)
+    Path arrowHead = Path();
+    arrowHead.moveTo(to.dx, to.dy);
+    arrowHead.lineTo(x1, y1);
+    arrowHead.moveTo(to.dx, to.dy);
+    arrowHead.lineTo(x2, y2);
+    
+    // 외곽선 먼저 그리기
+    canvas.drawPath(arrowHead, outlinePaint);
+    
+    // 내부선 그리기
+    canvas.drawPath(arrowHead, innerPaint);
+  }
+
+  /// 화살표 머리 그리기
+  void _drawArrowHead(Canvas canvas, Paint paint, Offset from, Offset to) {
+    // 화살표 머리 크기
+    double headLength = 12.0;
+    double headAngle = 0.5; // 라디안
+
+    // 방향 벡터 계산
+    double dx = to.dx - from.dx;
+    double dy = to.dy - from.dy;
+    double distance = math.sqrt(dx * dx + dy * dy);
+
+    if (distance == 0) return;
+
+    // 정규화
+    dx /= distance;
+    dy /= distance;
+
+    // 화살표 머리 점들 계산
+    double x1 = to.dx - headLength * (dx * math.cos(headAngle) + dy * math.sin(headAngle));
+    double y1 = to.dy - headLength * (dy * math.cos(headAngle) - dx * math.sin(headAngle));
+    
+    double x2 = to.dx - headLength * (dx * math.cos(-headAngle) + dy * math.sin(-headAngle));
+    double y2 = to.dy - headLength * (dy * math.cos(-headAngle) - dx * math.sin(-headAngle));
+
+    // 화살표 머리 그리기
+    Path arrowHead = Path();
+    arrowHead.moveTo(to.dx, to.dy);
+    arrowHead.lineTo(x1, y1);
+    arrowHead.moveTo(to.dx, to.dy);
+    arrowHead.lineTo(x2, y2);
+    
+    canvas.drawPath(arrowHead, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return oldDelegate is ExchangeArrowPainter &&
+           oldDelegate.selectedPath != selectedPath;
   }
 }
