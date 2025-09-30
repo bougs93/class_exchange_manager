@@ -406,21 +406,25 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
 
   @override
   void clearPreviousChainExchangeState() {
-    // 연쇄교체 관련 상태 초기화
     setState(() {
-      _selectedChainPath = null;
+      // 연쇄교체 경로와 관련된 모든 상태 초기화
       _chainPaths = [];
+      _selectedChainPath = null;
+      _isSidebarVisible = false;
       _isChainPathsLoading = false;
+      _loadingProgress = 0.0;
+      _filteredPaths = [];
     });
-
-    // 데이터 소스 초기화 (필요시)
-    _dataSource?.updateSelectedCircularPath(null);
-
-    // 순환교체 모드에서 필터 초기화
-    if (_isChainExchangeModeEnabled) {
-      _resetFilters();
-    }
-
+    
+    // 데이터 소스에서도 연쇄교체 관련 상태 초기화
+    _dataSource?.updateSelectedChainPath(null);
+    
+    // 필터 초기화
+    _resetFilters();
+    
+    // 시간표 그리드 테마 업데이트 (이전 경로 표시 제거)
+    _updateHeaderTheme();
+    
     AppLogger.exchangeDebug('연쇄교체: 이전 상태 초기화 완료');
   }
 
@@ -771,6 +775,17 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         _dataSource?.updateSelectedCircularPath(null);
       }
       
+      // 연쇄교체 모드가 활성화되어 있다면 비활성화
+      if (_isChainExchangeModeEnabled) {
+        _isChainExchangeModeEnabled = false;
+        _chainExchangeService.clearAllSelections();
+        _selectedChainPath = null;
+        _chainPaths = [];
+        _isChainPathsLoading = false;
+        _loadingProgress = 0.0;
+        _dataSource?.updateSelectedChainPath(null);
+      }
+      
       _isExchangeModeEnabled = !_isExchangeModeEnabled;
       
       // 교체 모드가 비활성화되면 UI를 기본값으로 복원
@@ -828,6 +843,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         _selectedChainPath = null;
         _chainPaths = [];
         _isChainPathsLoading = false;
+        _loadingProgress = 0.0;
+        _dataSource?.updateSelectedChainPath(null);
       }
 
       _isCircularExchangeModeEnabled = !_isCircularExchangeModeEnabled;
@@ -899,6 +916,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       // 연쇄교체 모드가 비활성화되면 UI를 기본값으로 복원
       if (!_isChainExchangeModeEnabled) {
         _restoreUIToDefault();
+        // 연쇄교체 관련 상태 완전 초기화
+        _dataSource?.updateSelectedChainPath(null);
+        _filteredPaths = [];
       } else {
         // 연쇄교체 모드가 활성화되면 사이드바도 숨김
         _isSidebarVisible = false;
@@ -938,6 +958,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     _dataSource?.updateExchangeableTeachers([]);
     _dataSource?.updateSelectedCircularPath(null);
     _dataSource?.updateSelectedOneToOnePath(null);
+    _dataSource?.updateSelectedChainPath(null);
     
     // 교체 가능한 시간 업데이트 (빈 목록으로)
     updateExchangeableTimes();
@@ -950,10 +971,13 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     // 모든 교체 모드 및 선택된 경로 초기화
     _isExchangeModeEnabled = false;
     _isCircularExchangeModeEnabled = false;
+    _isChainExchangeModeEnabled = false;
     _selectedCircularPath = null;
     _selectedOneToOnePath = null;
+    _selectedChainPath = null;
     _circularPaths = [];
     _oneToOnePaths = [];
+    _chainPaths = [];
     _isSidebarVisible = false;
     _isCircularPathsLoading = false;
     _loadingProgress = 0.0;
@@ -1152,14 +1176,18 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       // 모든 교체 서비스의 선택 상태 초기화
       _exchangeService.clearAllSelections();
       _circularExchangeService.clearAllSelections();
+      _chainExchangeService.clearAllSelections();
       // 모든 교체 모드도 함께 종료
       _isExchangeModeEnabled = false;
       _isCircularExchangeModeEnabled = false;
-      // 선택된 순환교체 경로도 초기화
+      _isChainExchangeModeEnabled = false;
+      // 선택된 교체 경로들도 초기화
       _selectedCircularPath = null;
       _selectedOneToOnePath = null;
+      _selectedChainPath = null;
       _circularPaths = [];
       _oneToOnePaths = [];
+      _chainPaths = [];
       _isSidebarVisible = false;
     });
     
@@ -1205,6 +1233,10 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       // 순환교체 모드
       selectedDay = _circularExchangeService.selectedDay;
       selectedPeriod = _circularExchangeService.selectedPeriod;
+    } else if (_isChainExchangeModeEnabled && chainExchangeService.hasSelectedCell()) {
+      // 연쇄교체 모드
+      selectedDay = chainExchangeService.nodeADay;
+      selectedPeriod = chainExchangeService.nodeAPeriod;
     }
     
     // 선택된 교시 정보를 전달하여 헤더만 업데이트
@@ -1216,6 +1248,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       exchangeableTeachers: exchangeableTeachers, // 교체 가능한 교사 정보 전달
       selectedCircularPath: _isCircularExchangeModeEnabled ? _selectedCircularPath : null, // 순환교체 모드가 활성화된 경우에만 전달
       selectedOneToOnePath: _isExchangeModeEnabled ? _selectedOneToOnePath : null, // 1:1 교체 모드가 활성화된 경우에만 전달
+      selectedChainPath: _isChainExchangeModeEnabled ? _selectedChainPath : null, // 연쇄교체 모드가 활성화된 경우에만 전달
     );
     
     _columns = result.columns; // 헤더만 업데이트
@@ -1332,11 +1365,41 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       AppLogger.exchangeDebug('순환교체 경로 선택: ${path.id}');
       selectPath(path);
     } else if (path is ChainExchangePath) {
-      // 연쇄교체 경로 선택
-      AppLogger.exchangeDebug('연쇄교체 경로 선택: ${path.id}');
-      setState(() {
-        _selectedChainPath = path;
-      });
+      // 이미 선택된 경로를 다시 클릭하면 선택 해제 (토글 기능)
+      bool isSamePathSelected = _selectedChainPath != null && 
+                               _selectedChainPath!.id == path.id;
+      
+      if (isSamePathSelected) {
+        // 선택 해제
+        AppLogger.exchangeDebug('연쇄교체 경로 선택 해제: ${path.id}');
+        setState(() {
+          _selectedChainPath = null;
+        });
+        
+        // 데이터 소스에서 선택된 연쇄교체 경로 정보 제거
+        _dataSource?.updateSelectedChainPath(null);
+        
+        // 시간표 그리드 업데이트
+        _updateHeaderTheme();
+        
+        // 사용자에게 선택 해제 알림
+        showSnackBar(
+          '연쇄교체 경로 선택이 해제되었습니다.',
+          backgroundColor: Colors.grey.shade600,
+        );
+      } else {
+        // 새로운 경로 선택
+        AppLogger.exchangeDebug('연쇄교체 경로 선택: ${path.id}');
+        setState(() {
+          _selectedChainPath = path;
+        });
+        
+        // 데이터 소스에 선택된 연쇄교체 경로 정보 전달
+        _dataSource?.updateSelectedChainPath(path);
+        
+        // 시간표 그리드 업데이트
+        _updateHeaderTheme();
+      }
     }
   }
 

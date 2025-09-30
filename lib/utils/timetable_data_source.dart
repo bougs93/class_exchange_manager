@@ -4,6 +4,7 @@ import '../models/time_slot.dart';
 import '../models/teacher.dart';
 import '../models/circular_exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
+import '../models/chain_exchange_path.dart';
 import '../ui/widgets/simplified_timetable_cell.dart';
 import 'exchange_algorithm.dart';
 import 'day_utils.dart';
@@ -39,6 +40,9 @@ class TimetableDataSource extends DataGridSource {
   
   // 선택된 1:1 교체 경로
   OneToOneExchangePath? _selectedOneToOnePath;
+  
+  // 선택된 연쇄교체 경로
+  ChainExchangePath? _selectedChainPath;
 
   /// DataGrid 행 데이터 빌드
   void _buildDataGridRows() {
@@ -202,6 +206,10 @@ class TimetableDataSource extends DataGridSource {
           bool isInCircularPath = false;
           int? circularPathStep;
           
+          // 연쇄교체 경로에 포함된 셀인지 확인
+          bool isInChainPath = false;
+          int? chainPathStep;
+          
           // 교사명 찾기
           String teacherName = '';
           for (DataGridCell rowCell in row.getCells()) {
@@ -219,6 +227,7 @@ class TimetableDataSource extends DataGridSource {
             // 교사명 열인 경우: 해당 교사가 교체 가능한 교사인지 확인
             isExchangeableTeacher = _isExchangeableTeacherForTeacher(teacherName);
             isInCircularPath = _isTeacherInCircularPath(teacherName);
+            isInChainPath = _isTeacherInChainPath(teacherName);
           } else {
             // 데이터 셀인 경우: 해당 교사와 시간이 교체 가능한지 확인
             
@@ -235,6 +244,10 @@ class TimetableDataSource extends DataGridSource {
             isInCircularPath = _isInCircularPath(teacherName, day, period);
             // 순환교체 경로에서의 단계 번호 가져오기
             circularPathStep = _getCircularPathStep(teacherName, day, period);
+            // 연쇄교체 경로에 포함된 셀인지 확인
+            isInChainPath = _isInChainPath(teacherName, day, period);
+            // 연쇄교체 경로에서의 단계 번호 가져오기
+            chainPathStep = _getChainPathStep(teacherName, day, period);
           }
           
           // 선택된 1:1 경로에 포함된 셀인지 확인 (통합된 메서드 사용)
@@ -254,6 +267,8 @@ class TimetableDataSource extends DataGridSource {
             isInCircularPath: isInCircularPath,
             circularPathStep: circularPathStep,
             isInSelectedPath: isInSelectedPath,
+            isInChainPath: isInChainPath,
+            chainPathStep: chainPathStep,
           );
         }).toList(),
       );
@@ -306,6 +321,12 @@ class TimetableDataSource extends DataGridSource {
   /// 선택된 1:1 교체 경로 업데이트
   void updateSelectedOneToOnePath(OneToOneExchangePath? path) {
     _selectedOneToOnePath = path;
+    notifyListeners(); // UI 갱신
+  }
+  
+  /// 선택된 연쇄교체 경로 업데이트
+  void updateSelectedChainPath(ChainExchangePath? path) {
+    _selectedChainPath = path;
     notifyListeners(); // UI 갱신
   }
   
@@ -383,6 +404,48 @@ class TimetableDataSource extends DataGridSource {
         return node.teacherName == teacherName;
       }
     });
+  }
+  
+  /// 연쇄교체 경로에 포함된 셀인지 확인
+  bool _isInChainPath(String teacherName, String day, int period) {
+    if (_selectedChainPath == null) return false;
+    
+    return _selectedChainPath!.nodes.any((node) => 
+      node.teacherName == teacherName &&
+      node.day == day &&
+      node.period == period
+    );
+  }
+  
+  /// 연쇄교체 경로에서 해당 셀의 단계 번호 가져오기
+  int? _getChainPathStep(String teacherName, String day, int period) {
+    if (_selectedChainPath == null) return null;
+    
+    // 연쇄교체의 노드 순서: [node1, node2, nodeA, nodeB]
+    for (int i = 0; i < _selectedChainPath!.nodes.length; i++) {
+      final node = _selectedChainPath!.nodes[i];
+      if (node.teacherName == teacherName &&
+          node.day == day &&
+          node.period == period) {
+        // node1, node2는 1단계, nodeA, nodeB는 2단계
+        if (i < 2) {
+          return 1; // 1단계
+        } else {
+          return 2; // 2단계
+        }
+      }
+    }
+    
+    return null;
+  }
+  
+  /// 연쇄교체 경로에 포함된 교사인지 확인
+  bool _isTeacherInChainPath(String teacherName) {
+    if (_selectedChainPath == null) return false;
+    
+    return _selectedChainPath!.nodes.any((node) => 
+      node.teacherName == teacherName
+    );
   }
   
 

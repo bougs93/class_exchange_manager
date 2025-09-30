@@ -4,6 +4,7 @@ import '../models/time_slot.dart';
 import '../models/teacher.dart';
 import '../models/circular_exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
+import '../models/chain_exchange_path.dart';
 import 'constants.dart';
 import 'simplified_timetable_theme.dart';
 import 'day_utils.dart';
@@ -39,6 +40,7 @@ class SyncfusionTimetableHelper {
     List<Map<String, dynamic>>? exchangeableTeachers, // 교체 가능한 교사 정보
     CircularExchangePath? selectedCircularPath, // 선택된 순환교체 경로
     OneToOneExchangePath? selectedOneToOnePath, // 선택된 1:1 교체 경로
+    ChainExchangePath? selectedChainPath, // 선택된 연쇄교체 경로
   }) {
     // 요일별로 데이터 그룹화
     Map<String, Map<int, Map<String, TimeSlot?>>> groupedData = _groupTimeSlotsByDayAndPeriod(timeSlots);
@@ -53,48 +55,27 @@ class SyncfusionTimetableHelper {
     }
     List<int> periods = allPeriods.toList()..sort();
     
-    // Syncfusion DataGrid 컬럼 생성 (테마 기반)
-    List<GridColumn> columns = _createColumns(days, periods, selectedDay, selectedPeriod, exchangeableTeachers, selectedCircularPath, selectedOneToOnePath);
-    
-    // Syncfusion DataGrid 행 생성
-    List<DataGridRow> rows = _createRows(teachers, groupedData, days, periods);
-    
-    // 스택된 헤더 생성 (요일별 셀 병합 효과)
-    List<StackedHeaderRow> stackedHeaders = _createStackedHeaders(days, periods);
-    
-    return (rows: rows, columns: columns, stackedHeaders: stackedHeaders);
-  }
-  
-  /// TimeSlot 리스트를 요일별, 교시별로 그룹화
-  static Map<String, Map<int, Map<String, TimeSlot?>>> _groupTimeSlotsByDayAndPeriod(
-    List<TimeSlot> timeSlots,
-  ) {
-    Map<String, Map<int, Map<String, TimeSlot?>>> groupedData = {};
-    
-    for (TimeSlot slot in timeSlots) {
-      if (slot.dayOfWeek == null || slot.period == null || slot.teacher == null) {
-        continue;
+    // 행 데이터 생성
+    List<DataGridRow> rows = [];
+    for (Teacher teacher in teachers) {
+      List<DataGridCell> cells = [];
+      
+      // 교사명 셀 (첫 번째 컬럼)
+      cells.add(DataGridCell(columnName: 'teacher', value: teacher.name));
+      
+      // 각 요일의 각 교시에 대한 셀 생성
+      for (String day in days) {
+        for (int period in periods) {
+          String columnName = '${day}_$period';
+          TimeSlot? timeSlot = groupedData[day]?[period]?[teacher.name];
+          cells.add(DataGridCell(columnName: columnName, value: timeSlot));
+        }
       }
       
-      String dayName = DayUtils.getDayName(slot.dayOfWeek!);
-      int period = slot.period!;
-      String teacherName = slot.teacher!;
-      
-      // 요일별 데이터 초기화
-      groupedData.putIfAbsent(dayName, () => {});
-      
-      // 교시별 데이터 초기화
-      groupedData[dayName]!.putIfAbsent(period, () => {});
-      
-      // 교사별 데이터 저장
-      groupedData[dayName]![period]![teacherName] = slot;
+      rows.add(DataGridRow(cells: cells));
     }
     
-    return groupedData;
-  }
-  
-  /// Syncfusion DataGrid 컬럼 생성 (테마 기반)
-  static List<GridColumn> _createColumns(List<String> days, List<int> periods, String? selectedDay, int? selectedPeriod, List<Map<String, dynamic>>? exchangeableTeachers, CircularExchangePath? selectedCircularPath, OneToOneExchangePath? selectedOneToOnePath) {
+    // 컬럼 데이터 생성
     List<GridColumn> columns = [];
     
     // 첫 번째 컬럼: 교사명 (고정 열)
@@ -138,11 +119,11 @@ class SyncfusionTimetableHelper {
         // 순환교체 경로에 포함된 교시인지 확인
         bool isInCircularPath = _isPeriodInCircularPath(day, period, selectedCircularPath);
         
-        // 순환교체 경로의 두 번째 시간인지 확인
-        bool isSecondCircularStep = _isSecondCircularStep(day, period, selectedCircularPath);
-        
         // 선택된 1:1 경로에 포함된 교시인지 확인
         bool isInSelectedOneToOnePath = _isPeriodInSelectedOneToOnePath(day, period, selectedOneToOnePath);
+        
+        // 연쇄교체 경로에 포함된 교시인지 확인
+        bool isInChainPath = _isPeriodInChainPath(day, period, selectedChainPath);
         
         // 통합 함수를 사용하여 헤더 스타일 가져오기
         CellStyle headerStyles = SimplifiedTimetableTheme.getCellStyle(
@@ -153,6 +134,7 @@ class SyncfusionTimetableHelper {
           isHeader: true,
           isInCircularPath: isInCircularPath,
           isInSelectedPath: isInSelectedOneToOnePath,
+          isInChainPath: isInChainPath,
         );
         
         columns.add(
@@ -164,44 +146,21 @@ class SyncfusionTimetableHelper {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: headerStyles.backgroundColor,
-                border: headerStyles.border,
-              ),
-              child: Stack(
-                children: [
-                  // 기본 교시 번호
-                  Center(
-                    child: Text(
-                      period.toString(),
-                      style: headerStyles.textStyle,
-                    ),
+                border: Border(
+                  right: BorderSide(
+                    color: _borderColor,
+                    width: isLastPeriod ? _thickBorderWidth : _thinBorderWidth,
                   ),
-                  // 순환교체 두 번째 시간에만 교체 아이콘 오버레이
-                  if (isSecondCircularStep)
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      child: Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: Colors.orange.shade600,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.3),
-                              blurRadius: 1,
-                              offset: const Offset(0.5, 0.5),
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          Icons.refresh,
-                          size: 8,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                ],
+                  bottom: _thinBorder,
+                ),
+              ),
+              child: Text(
+                '$period',
+                style: TextStyle(
+                  fontSize: AppConstants.headerFontSize,
+                  fontWeight: FontWeight.bold,
+                  color: headerStyles.textStyle.color ?? Colors.black,
+                ),
               ),
             ),
           ),
@@ -209,105 +168,50 @@ class SyncfusionTimetableHelper {
       }
     }
     
-    return columns;
-  }
-  
-  /// Syncfusion DataGrid 행 생성
-  static List<DataGridRow> _createRows(
-    List<Teacher> teachers,
-    Map<String, Map<int, Map<String, TimeSlot?>>> groupedData,
-    List<String> days,
-    List<int> periods,
-  ) {
-    List<DataGridRow> rows = [];
-    
-    for (Teacher teacher in teachers) {
-      List<DataGridCell> cells = [];
-      
-      // 교사명 셀
-      cells.add(
-        DataGridCell<String>(
-          columnName: 'teacher',
-          value: teacher.name,
-        ),
-      );
-      
-      // 각 요일별 교시 데이터 추가
-      for (String day in days) {
-        for (int period in periods) {
-          String columnName = '${day}_$period';
-          TimeSlot? slot = groupedData[day]?[period]?[teacher.name];
-          
-          String cellValue = '';
-          if (slot != null && slot.isNotEmpty) {
-            // 학급번호와 과목명을 줄바꿈으로 구분하여 표시
-            if (slot.className != null && slot.className!.isNotEmpty) {
-              cellValue += slot.className!;
-            }
-            if (slot.subject != null && slot.subject!.isNotEmpty) {
-              if (cellValue.isNotEmpty) {
-                cellValue += '\n';
-              }
-              cellValue += slot.subject!;
-            }
-          }
-          
-          cells.add(
-            DataGridCell<String>(
-              columnName: columnName,
-              value: cellValue,
-            ),
-          );
-        }
-      }
-      
-      rows.add(DataGridRow(cells: cells));
-    }
-    
-    return rows;
-  }
-  
-  /// 스택된 헤더 생성 (요일별 셀 병합 효과)
-  static List<StackedHeaderRow> _createStackedHeaders(List<String> days, List<int> periods) {
+    // 스택된 헤더 생성
     List<StackedHeaderRow> stackedHeaders = [];
-    
-    // 요일 헤더 행 생성
     List<StackedHeaderCell> headerCells = [];
     
-    // 교사명 헤더 (병합되지 않음, 고정 열)
+    // 교사명 헤더
     headerCells.add(
       StackedHeaderCell(
-        columnNames: ['teacher'],
         child: Container(
           padding: EdgeInsets.zero,
           alignment: Alignment.center,
           decoration: const BoxDecoration(
-            color: _stackedHeaderColor, // 스택된 헤더 배경색
+            color: _stackedHeaderColor,
             border: Border(
-              right: _thickBorder, // 교사명과 월요일 사이 구분선을 두껍게
+              right: _thickBorder,
               bottom: _thinBorder,
             ),
           ),
-          child: const SizedBox.shrink(), // 빈 공간
+          child: const Text(
+            '교사명',
+            style: TextStyle(
+              fontSize: AppConstants.headerFontSize,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
+        columnNames: ['teacher'],
       ),
     );
     
-    // 요일별 헤더 (교시 수만큼 병합)
-    for (int i = 0; i < days.length; i++) {
-      String day = days[i];
-      bool isLastDay = i == days.length - 1; // 마지막 요일(금요일)인지 확인
-      
+    // 요일별 헤더
+    for (String day in days) {
+      List<String> dayColumnNames = periods.map((period) => '${day}_$period').toList();
       headerCells.add(
         StackedHeaderCell(
           child: Container(
             padding: EdgeInsets.zero,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: _stackedHeaderColor, // 스택된 헤더 배경색
+              color: _stackedHeaderColor,
               border: Border(
-                // 요일 간 구분선을 두껍게 (마지막 요일 제외)
-                right: isLastDay ? _thinBorder : _thickBorder, // 마지막 요일이 아니면 3px, 마지막 요일이면 1px
+                right: BorderSide(
+                  color: _borderColor,
+                  width: _thickBorderWidth,
+                ),
                 bottom: _thinBorder,
               ),
             ),
@@ -319,19 +223,48 @@ class SyncfusionTimetableHelper {
               ),
             ),
           ),
-          columnNames: periods.map((period) => '${day}_$period').toList(),
+          columnNames: dayColumnNames,
         ),
       );
     }
     
     stackedHeaders.add(StackedHeaderRow(cells: headerCells));
     
-    return stackedHeaders;
+    return (
+      rows: rows,
+      columns: columns,
+      stackedHeaders: stackedHeaders,
+    );
+  }
+  
+  /// TimeSlot 리스트를 요일과 교시별로 그룹화
+  static Map<String, Map<int, Map<String, TimeSlot?>>> _groupTimeSlotsByDayAndPeriod(List<TimeSlot> timeSlots) {
+    Map<String, Map<int, Map<String, TimeSlot?>>> groupedData = {};
+    
+    for (TimeSlot timeSlot in timeSlots) {
+      int? dayOfWeek = timeSlot.dayOfWeek;
+      int period = timeSlot.period ?? 0;
+      String teacherName = timeSlot.teacher ?? '';
+      
+      if (dayOfWeek == null) continue; // 요일이 없으면 건너뛰기
+      
+      String day = _convertDayOfWeekToString(dayOfWeek);
+      
+      if (!groupedData.containsKey(day)) {
+        groupedData[day] = {};
+      }
+      if (!groupedData[day]!.containsKey(period)) {
+        groupedData[day]![period] = {};
+      }
+      groupedData[day]![period]![teacherName] = timeSlot;
+    }
+    
+    return groupedData;
   }
   
   /// 교체 가능한 교시인지 확인
   static bool _isExchangeablePeriod(String day, int period, List<Map<String, dynamic>>? exchangeableTeachers) {
-    if (exchangeableTeachers == null || exchangeableTeachers.isEmpty) return false;
+    if (exchangeableTeachers == null) return false;
     
     return exchangeableTeachers.any((teacher) => 
       teacher['day'] == day && teacher['period'] == period
@@ -347,15 +280,6 @@ class SyncfusionTimetableHelper {
     );
   }
   
-  /// 순환교체 경로의 두 번째 시간인지 확인
-  static bool _isSecondCircularStep(String day, int period, CircularExchangePath? selectedCircularPath) {
-    if (selectedCircularPath == null || selectedCircularPath.nodes.length < 2) return false;
-    
-    // 두 번째 노드와 일치하는지 확인 (인덱스 1)
-    var secondNode = selectedCircularPath.nodes[1];
-    return secondNode.day == day && secondNode.period == period;
-  }
-  
   /// 선택된 1:1 경로에 포함된 교시인지 확인
   static bool _isPeriodInSelectedOneToOnePath(String day, int period, OneToOneExchangePath? selectedOneToOnePath) {
     if (selectedOneToOnePath == null) return false;
@@ -363,5 +287,26 @@ class SyncfusionTimetableHelper {
     return selectedOneToOnePath.nodes.any((node) => 
       node.day == day && node.period == period
     );
+  }
+  
+  /// 연쇄교체 경로에 포함된 교시인지 확인
+  static bool _isPeriodInChainPath(String day, int period, ChainExchangePath? selectedChainPath) {
+    if (selectedChainPath == null) return false;
+    
+    return selectedChainPath.nodes.any((node) => 
+      node.day == day && node.period == period
+    );
+  }
+  
+  /// 요일 숫자를 문자열로 변환
+  static String _convertDayOfWeekToString(int dayOfWeek) {
+    switch (dayOfWeek) {
+      case 1: return '월';
+      case 2: return '화';
+      case 3: return '수';
+      case 4: return '목';
+      case 5: return '금';
+      default: return '월';
+    }
   }
 }

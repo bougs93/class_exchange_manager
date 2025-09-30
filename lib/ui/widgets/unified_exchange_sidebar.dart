@@ -611,7 +611,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
     // 1단계: node2 ↔ node1 (순서 수정)
     nodeWidgets.add(_buildNodeContainer(path.node2, '${index}_2', isSelected, false, colorScheme));
     
-    // 1단계 양방향 화살표
+    // 1단계 양방향 화살표와 빨간색 숫자 박스
     nodeWidgets.add(
       Container(
         margin: const EdgeInsets.symmetric(vertical: 2),
@@ -624,11 +624,27 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
               size: 14,
             ),
             const SizedBox(width: 4),
-            Text(
-              '1단계',
-              style: TextStyle(
-                fontSize: 9,
-                color: isSelected ? colorScheme.primary : Colors.grey.shade500,
+            // 숫자 1 박스 (선택 상태에 따라 색상 변경)
+            Container(
+              width: 20,
+              height: 16,
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.red : Colors.grey.shade500,
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(
+                  color: isSelected ? Colors.red : Colors.grey.shade500, 
+                  width: 1
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  '1',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
               ),
             ),
           ],
@@ -650,7 +666,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
     // 2단계: nodeA ↔ nodeB
     nodeWidgets.add(_buildNodeContainer(path.nodeA, '${index}_A', isSelected, false, colorScheme));
     
-    // 2단계 양방향 화살표
+    // 2단계 양방향 화살표와 빨간색 숫자 박스
     nodeWidgets.add(
       Container(
         margin: const EdgeInsets.symmetric(vertical: 2),
@@ -663,11 +679,27 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
               size: 14,
             ),
             const SizedBox(width: 4),
-            Text(
-              '2단계',
-              style: TextStyle(
-                fontSize: 9,
-                color: isSelected ? colorScheme.primary : Colors.grey.shade500,
+            // 숫자 2 박스 (선택 상태에 따라 색상 변경)
+            Container(
+              width: 20,
+              height: 16,
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.red : Colors.grey.shade500,
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(
+                  color: isSelected ? Colors.red : Colors.grey.shade500, 
+                  width: 1
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  '2',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
               ),
             ),
           ],

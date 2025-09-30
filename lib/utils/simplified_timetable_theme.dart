@@ -23,6 +23,10 @@ class SimplifiedTimetableTheme {
   static const Color selectedPathColorLight = Color.fromARGB(255, 117, 190, 119); // 진한 녹색 (더 명확한 구분)
   static const Color selectedPathColorDark = Color(0xFF2E7D32); // 더 진한 녹색
   
+  // 연쇄교체 경로 색상
+  static const Color chainPathColorLight = Color.fromARGB(255, 255, 193, 7); // 연한 노란색
+  static const Color chainPathColorDark = Color(0xFFFF8F00); // 진한 노란색
+  
   // 오버레이 색상 상수
   static const Color overlayColorSelected = Color(0xFFD32F2F); // 진한 빨간색
   static const Color overlayColorExchangeable = Color.fromARGB(255, 250, 160, 169); // 연한 빨간색 (Colors.red.shade200의 실제 색상값)
@@ -42,6 +46,8 @@ class SimplifiedTimetableTheme {
     bool isInCircularPath = false, // 순환교체 경로에 포함된 셀인지 여부
     int? circularPathStep, // 순환교체 경로에서의 단계 (1, 2, 3...)
     bool isInSelectedPath = false, // 선택된 경로에 포함된 셀인지 여부 (1:1 교체 모드)
+    bool isInChainPath = false, // 연쇄교체 경로에 포함된 셀인지 여부
+    int? chainPathStep, // 연쇄교체 경로에서의 단계 (1, 2)
   }) {
     return CellStyle(
       backgroundColor: _getBackgroundColor(
@@ -50,6 +56,7 @@ class SimplifiedTimetableTheme {
         isExchangeable: isExchangeable,
         isInCircularPath: isInCircularPath,
         isInSelectedPath: isInSelectedPath,
+        isInChainPath: isInChainPath,
       ),
       textStyle: _getTextStyle(
         isSelected: isSelected,
@@ -70,6 +77,8 @@ class SimplifiedTimetableTheme {
         circularPathStep: circularPathStep,
         isInSelectedPath: isInSelectedPath,
         isSelected: isSelected,
+        isInChainPath: isInChainPath,
+        chainPathStep: chainPathStep,
       ),
     );
   }
@@ -81,11 +90,14 @@ class SimplifiedTimetableTheme {
     required bool isExchangeable,
     required bool isInCircularPath,
     required bool isInSelectedPath,
+    required bool isInChainPath,
   }) {
     if (isSelected) {
       return selectedColorLight;
     } else if (isInCircularPath) {
       return circularPathColorLight;
+    } else if (isInChainPath) {
+      return chainPathColorLight;
     } else if (isInSelectedPath) {
       return selectedPathColorLight; // 선택된 경로에 포함된 셀은 연한 녹색
     } else if (isExchangeable) {
@@ -170,6 +182,8 @@ class SimplifiedTimetableTheme {
     int? circularPathStep, // 순환교체 경로에서의 단계 (1, 2, 3...)
     required bool isInSelectedPath, // 선택된 경로에 포함된 셀인지 여부
     required bool isSelected, // 셀이 선택된 상태인지 여부
+    required bool isInChainPath, // 연쇄교체 경로에 포함된 셀인지 여부
+    int? chainPathStep, // 연쇄교체 경로에서의 단계 (1, 2)
   }) {
     // 교사명 열이거나 헤더인 경우 표시하지 않음
     if (isTeacherColumn || isHeader) {
@@ -181,6 +195,14 @@ class SimplifiedTimetableTheme {
       return createExchangeableOverlay(
         color: overlayColorSelected, // 순환교체는 진한 빨간색
         number: circularPathStep.toString(), // 단계별 숫자 (1, 2, 3...)
+      );
+    }
+    
+    // 연쇄교체 경로에 포함된 셀인 경우 단계별 숫자 오버레이
+    if (isInChainPath && chainPathStep != null) {
+      return createExchangeableOverlay(
+        color: overlayColorSelected, // 연쇄교체도 진한 빨간색
+        number: chainPathStep.toString(), // 단계별 숫자 (1, 2)
       );
     }
     
