@@ -32,6 +32,7 @@ abstract class ExchangePath {
 enum ExchangePathType {
   oneToOne,    // 1:1교체 (2개 노드)
   circular,    // 순환교체 (3+ 노드)
+  chain,       // 연쇄교체 (4개 노드: A, B, 1, 2)
 }
 
 /// 교체 경로 타입별 확장 메서드
@@ -43,9 +44,11 @@ extension ExchangePathTypeExtension on ExchangePathType {
         return '1:1 교체';
       case ExchangePathType.circular:
         return '순환교체';
+      case ExchangePathType.chain:
+        return '연쇄교체';
     }
   }
-  
+
   /// 타입별 아이콘
   String get icon {
     switch (this) {
@@ -53,6 +56,8 @@ extension ExchangePathTypeExtension on ExchangePathType {
         return '🔄';
       case ExchangePathType.circular:
         return '🔄';
+      case ExchangePathType.chain:
+        return '🔗';
     }
   }
 }

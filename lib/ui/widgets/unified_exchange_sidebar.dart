@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/exchange_path.dart';
 import '../../models/circular_exchange_path.dart';
 import '../../models/one_to_one_exchange_path.dart';
+import '../../models/chain_exchange_path.dart';
 import '../../models/exchange_node.dart';
 import '../../utils/logger.dart';
 
@@ -70,7 +71,19 @@ class _PathColorScheme {
     nodeTextUnselected: Color(0xFF9C27B0),         // 보라색 노드 텍스트 (선택안됨)
     shadow: Color(0xFFE1BEE7),                     // 보라색 그림자
   );
-  
+
+  /// 연쇄교체 색상 스키마 (주황색 계열)
+  static const chain = _PathColorScheme(
+    primary: Color(0xFFFF5722),                    // 주황색 화살표
+    nodeBackground: Color(0xFFFBE9E7),             // 연한 주황색 노드 배경 (선택됨)
+    nodeBackgroundUnselected: Color(0xFFFFF8F8),   // 매우 연한 주황색 노드 배경 (선택안됨)
+    nodeBorder: Color(0xFFFF5722),                 // 주황색 노드 테두리 (선택됨)
+    nodeBorderUnselected: Color(0xFFFFCCBC),       // 연한 주황색 노드 테두리 (선택안됨)
+    nodeText: Color(0xFFD84315),                   // 진한 주황색 노드 텍스트 (선택됨)
+    nodeTextUnselected: Color(0xFFFF5722),         // 주황색 노드 텍스트 (선택안됨)
+    shadow: Color(0xFFFFCCBC),                     // 주황색 그림자
+  );
+
   /// 경로 타입에 따른 색상 스키마 반환
   static _PathColorScheme getScheme(ExchangePathType type) {
     switch (type) {
@@ -78,6 +91,8 @@ class _PathColorScheme {
         return oneToOne;
       case ExchangePathType.circular:
         return circular;
+      case ExchangePathType.chain:
+        return chain;
     }
   }
 }
@@ -505,18 +520,14 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
       decoration: BoxDecoration(
         // 선택 상태에 따른 배경색
         // 선택됨: 각 경로 타입별 색상, 선택안됨: 회색으로 통일
-        color: isSelected 
-            ? (path.type == ExchangePathType.oneToOne 
-                ? Colors.green.shade50 
-                : Colors.purple.shade50)
+        color: isSelected
+            ? _getPathBackgroundColor(path.type)
             : Colors.grey.shade50,
         border: Border.all(
           // 선택 상태에 따른 테두리색
           // 선택됨: 각 경로 타입별 색상, 선택안됨: 더 진한 회색으로 통일
-          color: isSelected 
-              ? (path.type == ExchangePathType.oneToOne 
-                  ? Colors.green.shade400 
-                  : Colors.purple.shade400)
+          color: isSelected
+              ? _getPathBorderColor(path.type)
               : Colors.grey.shade600,
           width: isSelected ? 2 : 1,
         ),
@@ -525,9 +536,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
           if (isSelected)
             BoxShadow(
               // 선택된 상태에서 각 경로 타입별 그림자 색상
-              color: path.type == ExchangePathType.oneToOne 
-                  ? Colors.green.shade200 
-                  : Colors.purple.shade200,
+              color: _getPathShadowColor(path.type),
               blurRadius: 2,
               offset: const Offset(0, 1),
             ),
@@ -535,7 +544,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
       ),
       child: InkWell(
         onTap: () {
-          String pathTypeName = path.type == ExchangePathType.oneToOne ? '1:1교체' : '순환교체';
+          String pathTypeName = _getPathTypeName(path.type);
           AppLogger.exchangeDebug('사이드바에서 $pathTypeName 경로 클릭: 인덱스=$index, 경로ID=${path.id}');
           widget.onSelectPath(path);
         },
@@ -558,8 +567,10 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
   Widget _buildPathNodes(ExchangePath path, int index, bool isSelected, _PathColorScheme colorScheme) {
     if (path.type == ExchangePathType.oneToOne) {
       return _buildOneToOneNodes(path as OneToOneExchangePath, index, isSelected, colorScheme);
-    } else {
+    } else if (path.type == ExchangePathType.circular) {
       return _buildCircularNodes(path as CircularExchangePath, index, isSelected, colorScheme);
+    } else {
+      return _buildChainNodes(path as ChainExchangePath, index, isSelected, colorScheme);
     }
   }
 
@@ -588,6 +599,40 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
   }
 
   // 기존 _buildCircularPathItem 메서드 제거 (공통 메서드로 통합됨)
+
+  /// 연쇄교체 노드들 구성
+  Widget _buildChainNodes(ChainExchangePath path, int index, bool isSelected, _PathColorScheme colorScheme) {
+    return Column(
+      children: [
+        // 첫 번째 노드 (결석 수업 - nodeA)
+        _buildNodeContainer(path.nodeA, '${index}_0', isSelected, true, colorScheme),
+
+        // 연쇄 화살표 (2단계 표시)
+        Container(
+          margin: const EdgeInsets.symmetric(vertical: 2),
+          child: Column(
+            children: [
+              Icon(
+                Icons.link,
+                color: isSelected ? colorScheme.primary : Colors.grey.shade500,
+                size: 14,
+              ),
+              Text(
+                '2단계',
+                style: TextStyle(
+                  fontSize: 9,
+                  color: isSelected ? colorScheme.primary : Colors.grey.shade500,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // 두 번째 노드 (대체 선생님 - nodeB, 진한 색상 적용)
+        _buildNodeContainer(path.nodeB, '${index}_1', isSelected, false, colorScheme, isSecondNode: true),
+      ],
+    );
+  }
 
   /// 순환교체 노드들 구성
   Widget _buildCircularNodes(CircularExchangePath path, int index, bool isSelected, _PathColorScheme colorScheme) {
@@ -704,7 +749,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
                  // 노드 타입별 배경색 적용
                  color: isLastNode 
                      ? (isSelected 
-                         ? colorScheme.nodeBackground.withOpacity(0.3)  // 선택된 마지막 노드: 매우 연한 배경
+                         ? colorScheme.nodeBackground.withValues(alpha: 0.3)  // 선택된 마지막 노드: 매우 연한 배경
                          : Colors.grey.shade50)  // 선택되지 않은 마지막 노드: 매우 연한 회색
                      : isSecondNode 
                          ? (isSelected 
@@ -718,7 +763,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
                    // 노드 타입별 테두리색 적용
                    color: isLastNode 
                        ? (isSelected 
-                           ? colorScheme.nodeBorder.withOpacity(0.3)  // 선택된 마지막 노드: 매우 연한 테두리
+                           ? colorScheme.nodeBorder.withValues(alpha: 0.3)  // 선택된 마지막 노드: 매우 연한 테두리
                            : Colors.grey.shade300)  // 선택되지 않은 마지막 노드: 연한 회색 테두리
                        : isSecondNode 
                            ? (isSelected 
@@ -746,7 +791,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
                    // 노드 타입별 텍스트 색상 적용
                    color: isLastNode 
                        ? (isSelected 
-                           ? colorScheme.nodeText.withOpacity(0.4)  // 선택된 마지막 노드: 매우 연한 텍스트
+                           ? colorScheme.nodeText.withValues(alpha: 0.4)  // 선택된 마지막 노드: 매우 연한 텍스트
                            : Colors.grey.shade400)  // 선택되지 않은 마지막 노드: 연한 회색 텍스트
                        : isSecondNode 
                            ? (isSelected 
@@ -875,5 +920,53 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
     // HSL 색상 공간에서 명도(Lightness)를 낮춰서 진하게 만듦 (0.7 → 0.85로 조정하여 덜 진하게)
     HSLColor hsl = HSLColor.fromColor(originalColor);
     return hsl.withLightness((hsl.lightness * 0.85).clamp(0.0, 1.0)).toColor();
+  }
+
+  /// 경로 타입별 배경색 반환
+  Color _getPathBackgroundColor(ExchangePathType type) {
+    switch (type) {
+      case ExchangePathType.oneToOne:
+        return Colors.green.shade50;
+      case ExchangePathType.circular:
+        return Colors.purple.shade50;
+      case ExchangePathType.chain:
+        return Colors.deepOrange.shade50;
+    }
+  }
+
+  /// 경로 타입별 테두리색 반환
+  Color _getPathBorderColor(ExchangePathType type) {
+    switch (type) {
+      case ExchangePathType.oneToOne:
+        return Colors.green.shade400;
+      case ExchangePathType.circular:
+        return Colors.purple.shade400;
+      case ExchangePathType.chain:
+        return Colors.deepOrange.shade400;
+    }
+  }
+
+  /// 경로 타입별 그림자 색상 반환
+  Color _getPathShadowColor(ExchangePathType type) {
+    switch (type) {
+      case ExchangePathType.oneToOne:
+        return Colors.green.shade200;
+      case ExchangePathType.circular:
+        return Colors.purple.shade200;
+      case ExchangePathType.chain:
+        return Colors.deepOrange.shade200;
+    }
+  }
+
+  /// 경로 타입별 이름 반환
+  String _getPathTypeName(ExchangePathType type) {
+    switch (type) {
+      case ExchangePathType.oneToOne:
+        return '1:1교체';
+      case ExchangePathType.circular:
+        return '순환교체';
+      case ExchangePathType.chain:
+        return '연쇄교체';
+    }
   }
 }

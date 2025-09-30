@@ -1,6 +1,7 @@
 import '../models/exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
 import '../models/circular_exchange_path.dart';
+import '../models/chain_exchange_path.dart';
 import '../utils/exchange_algorithm.dart';
 
 /// ExchangeOption을 ExchangePath로 변환하는 유틸리티 클래스
@@ -39,10 +40,12 @@ class ExchangePathConverter {
   static ({
     List<OneToOneExchangePath> oneToOnePaths,
     List<CircularExchangePath> circularPaths,
+    List<ChainExchangePath> chainPaths,
   }) separatePathsByType(List<ExchangePath> paths) {
     List<OneToOneExchangePath> oneToOnePaths = [];
     List<CircularExchangePath> circularPaths = [];
-    
+    List<ChainExchangePath> chainPaths = [];
+
     for (ExchangePath path in paths) {
       switch (path.type) {
         case ExchangePathType.oneToOne:
@@ -55,10 +58,19 @@ class ExchangePathConverter {
             circularPaths.add(path);
           }
           break;
+        case ExchangePathType.chain:
+          if (path is ChainExchangePath) {
+            chainPaths.add(path);
+          }
+          break;
       }
     }
-    
-    return (oneToOnePaths: oneToOnePaths, circularPaths: circularPaths);
+
+    return (
+      oneToOnePaths: oneToOnePaths,
+      circularPaths: circularPaths,
+      chainPaths: chainPaths,
+    );
   }
   
   /// 선택된 셀 정보에서 학급명을 추출하는 헬퍼 메서드

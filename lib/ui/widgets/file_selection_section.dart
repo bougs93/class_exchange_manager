@@ -8,9 +8,11 @@ class FileSelectionSection extends StatelessWidget {
   final bool isLoading;
   final bool isExchangeModeEnabled;
   final bool isCircularExchangeModeEnabled;
+  final bool isChainExchangeModeEnabled;
   final VoidCallback onSelectExcelFile;
   final VoidCallback onToggleExchangeMode;
   final VoidCallback onToggleCircularExchangeMode;
+  final VoidCallback onToggleChainExchangeMode;
   final VoidCallback onClearSelection;
 
   const FileSelectionSection({
@@ -19,9 +21,11 @@ class FileSelectionSection extends StatelessWidget {
     required this.isLoading,
     required this.isExchangeModeEnabled,
     required this.isCircularExchangeModeEnabled,
+    required this.isChainExchangeModeEnabled,
     required this.onSelectExcelFile,
     required this.onToggleExchangeMode,
     required this.onToggleCircularExchangeMode,
+    required this.onToggleChainExchangeMode,
     required this.onClearSelection,
   });
 
@@ -215,9 +219,25 @@ class FileSelectionSection extends StatelessWidget {
             ),
           ),
         ),
-        
+
         const SizedBox(width: 8),
-        
+
+        // 연쇄교체 버튼
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: onToggleChainExchangeMode,
+            icon: Icon(isChainExchangeModeEnabled ? Icons.link : Icons.link_off_outlined),
+            label: Text(isChainExchangeModeEnabled ? '연쇄교체 종료' : '연쇄교체'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isChainExchangeModeEnabled ? Colors.deepOrange.shade700 : Colors.deepOrange.shade600,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ),
+
+        const SizedBox(width: 8),
+
         // 선택 해제 버튼
         Expanded(
           child: OutlinedButton.icon(

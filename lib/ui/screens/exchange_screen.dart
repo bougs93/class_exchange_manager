@@ -7,7 +7,9 @@ import 'package:file_picker/file_picker.dart';
 import '../../services/excel_service.dart';
 import '../../services/exchange_service.dart';
 import '../../services/circular_exchange_service.dart';
+import '../../services/chain_exchange_service.dart';
 import '../../models/circular_exchange_path.dart';
+import '../../models/chain_exchange_path.dart';
 import '../../models/exchange_node.dart';
 import '../../models/time_slot.dart';
 import '../../models/teacher.dart';
@@ -43,32 +45,43 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
   // 교체 서비스 인스턴스들
   final ExchangeService _exchangeService = ExchangeService();
   final CircularExchangeService _circularExchangeService = CircularExchangeService();
-  
+  final ChainExchangeService _chainExchangeService = ChainExchangeService();
+
   // Mixin에서 요구하는 getter들
   @override
   ExchangeService get exchangeService => _exchangeService;
-  
+
   @override
   CircularExchangeService get circularExchangeService => _circularExchangeService;
-  
+
+  @override
+  ChainExchangeService get chainExchangeService => _chainExchangeService;
+
   @override
   TimetableData? get timetableData => _timetableData;
-  
+
   @override
   TimetableDataSource? get dataSource => _dataSource;
-  
+
   @override
   bool get isExchangeModeEnabled => _isExchangeModeEnabled;
-  
+
   @override
   bool get isCircularExchangeModeEnabled => _isCircularExchangeModeEnabled;
-  
+
+  @override
+  bool get isChainExchangeModeEnabled => _isChainExchangeModeEnabled;
+
   @override
   CircularExchangePath? get selectedCircularPath => _selectedCircularPath;
-  
+
+  @override
+  ChainExchangePath? get selectedChainPath => _selectedChainPath;
+
   // 교체 모드 관련 변수들
   bool _isExchangeModeEnabled = false; // 1:1교체 모드 활성화 상태
   bool _isCircularExchangeModeEnabled = false; // 순환교체 모드 활성화 상태
+  bool _isChainExchangeModeEnabled = false; // 연쇄교체 모드 활성화 상태
   
   // 시간표 그리드 제어를 위한 GlobalKey
   final GlobalKey<State<TimetableGridSection>> _timetableGridKey = GlobalKey<State<TimetableGridSection>>();
@@ -78,7 +91,12 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
   CircularExchangePath? _selectedCircularPath; // 선택된 순환교체 경로
   bool _isCircularPathsLoading = false; // 순환교체 경로 탐색 로딩 상태
   double _loadingProgress = 0.0; // 진행률 (0.0 ~ 1.0)
-  
+
+  // 연쇄교체 관련 변수들
+  List<ChainExchangePath> _chainPaths = []; // 연쇄교체 경로들
+  ChainExchangePath? _selectedChainPath; // 선택된 연쇄교체 경로
+  bool _isChainPathsLoading = false; // 연쇄교체 경로 탐색 로딩 상태
+
   // 1:1교체 관련 변수들
   List<OneToOneExchangePath> _oneToOnePaths = []; // 1:1교체 경로들
   OneToOneExchangePath? _selectedOneToOnePath; // 선택된 1:1교체 경로
@@ -190,9 +208,11 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
             isLoading: _isLoading,
             isExchangeModeEnabled: _isExchangeModeEnabled,
             isCircularExchangeModeEnabled: _isCircularExchangeModeEnabled,
+            isChainExchangeModeEnabled: _isChainExchangeModeEnabled,
             onSelectExcelFile: _selectExcelFile,
             onToggleExchangeMode: _toggleExchangeMode,
             onToggleCircularExchangeMode: _toggleCircularExchangeMode,
+            onToggleChainExchangeMode: _toggleChainExchangeMode,
             onClearSelection: _clearSelection,
           ),
           
@@ -275,10 +295,10 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
   /// 셀 탭 이벤트 핸들러 - 교체 모드가 활성화된 경우만 동작
   void _onCellTap(DataGridCellTapDetails details) {
     // 교체 모드가 비활성화된 경우 아무 동작하지 않음
-    if (!_isExchangeModeEnabled && !_isCircularExchangeModeEnabled) {
+    if (!_isExchangeModeEnabled && !_isCircularExchangeModeEnabled && !_isChainExchangeModeEnabled) {
       return;
     }
-    
+
     // 1:1 교체 모드인 경우에만 교체 처리 시작
     if (_isExchangeModeEnabled) {
       startOneToOneExchange(details);
@@ -286,6 +306,10 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     // 순환교체 모드인 경우 순환교체 처리 시작
     else if (_isCircularExchangeModeEnabled) {
       startCircularExchange(details);
+    }
+    // 연쇄교체 모드인 경우 연쇄교체 처리 시작
+    else if (_isChainExchangeModeEnabled) {
+      startChainExchange(details);
     }
   }
   
@@ -377,6 +401,110 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
   void clearPreviousCircularExchangeState() {
     // onEmptyCellSelected와 동일한 로직 재사용
     onEmptyCellSelected();
+  }
+
+  @override
+  void clearPreviousChainExchangeState() {
+    // 연쇄교체 관련 상태 초기화
+    setState(() {
+      _selectedChainPath = null;
+      _chainPaths = [];
+      _isChainPathsLoading = false;
+    });
+
+    // 데이터 소스 초기화 (필요시)
+    _dataSource?.updateSelectedCircularPath(null);
+
+    // 순환교체 모드에서 필터 초기화
+    if (_isChainExchangeModeEnabled) {
+      _resetFilters();
+    }
+
+    AppLogger.exchangeDebug('연쇄교체: 이전 상태 초기화 완료');
+  }
+
+  @override
+  void onEmptyChainCellSelected() {
+    // 빈 셀 선택 시 처리
+    setState(() {
+      _chainPaths = [];
+      _selectedChainPath = null;
+      _isChainPathsLoading = false;
+      _isSidebarVisible = false;
+    });
+
+    showSnackBar('빈 셀은 연쇄교체할 수 없습니다.');
+    AppLogger.exchangeInfo('연쇄교체: 빈 셀 선택됨 - 경로 탐색 건너뜀');
+  }
+
+  @override
+  Future<void> findChainPathsWithProgress() async {
+    if (_timetableData == null || !chainExchangeService.hasSelectedCell()) {
+      AppLogger.warning('연쇄교체: 시간표 데이터 없음 또는 셀 미선택');
+      return;
+    }
+
+    AppLogger.exchangeInfo('연쇄교체: 경로 탐색 시작');
+
+    setState(() {
+      _isChainPathsLoading = true;
+      _loadingProgress = 0.0;
+      _chainPaths = [];
+      _selectedChainPath = null;
+      _isSidebarVisible = true;
+    });
+
+    try {
+      // 백그라운드에서 연쇄교체 경로 탐색
+      List<ChainExchangePath> paths = await compute(
+        _findChainPathsInBackground,
+        {
+          'timeSlots': _timetableData!.timeSlots,
+          'teachers': _timetableData!.teachers,
+          'teacher': chainExchangeService.nodeATeacher!,
+          'day': chainExchangeService.nodeADay!,
+          'period': chainExchangeService.nodeAPeriod!,
+          'className': chainExchangeService.nodeAClass!,
+        },
+      );
+
+      setState(() {
+        _chainPaths = paths;
+        _filteredPaths = paths.cast<ExchangePath>();
+        _isChainPathsLoading = false;
+        _loadingProgress = 1.0;
+      });
+
+      if (paths.isEmpty) {
+        showSnackBar('연쇄교체 가능한 경로가 없습니다.');
+        AppLogger.exchangeInfo('연쇄교체: 경로 없음');
+      } else {
+        showSnackBar('연쇄교체 경로 ${paths.length}개를 찾았습니다.');
+        AppLogger.exchangeInfo('연쇄교체: ${paths.length}개 경로 발견');
+      }
+    } catch (e) {
+      setState(() {
+        _isChainPathsLoading = false;
+        _chainPaths = [];
+      });
+      showSnackBar('연쇄교체 경로 탐색 중 오류가 발생했습니다: $e');
+      AppLogger.error('연쇄교체 경로 탐색 오류: $e');
+    }
+  }
+
+  // 백그라운드에서 실행할 함수
+  static List<ChainExchangePath> _findChainPathsInBackground(Map<String, dynamic> data) {
+    List<TimeSlot> timeSlots = data['timeSlots'];
+    List<Teacher> teachers = data['teachers'];
+    String teacher = data['teacher'];
+    String day = data['day'];
+    int period = data['period'];
+    String className = data['className'];
+
+    ChainExchangeService service = ChainExchangeService();
+    service.setSelectedCell(teacher, day, period, className);
+
+    return service.findChainExchangePaths(timeSlots, teachers);
   }
   
   @override
@@ -666,7 +794,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
   /// 순환교체 모드 토글
   void _toggleCircularExchangeMode() {
     AppLogger.exchangeDebug('순환교체 모드 토글 시작 - 현재 상태: $_isCircularExchangeModeEnabled');
-    
+
     setState(() {
       // 1:1교체 모드가 활성화되어 있다면 비활성화
       if (_isExchangeModeEnabled) {
@@ -680,9 +808,18 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         _selectedOneToOnePath = null;
         _oneToOnePaths = [];
       }
-      
+
+      // 연쇄교체 모드가 활성화되어 있다면 비활성화
+      if (_isChainExchangeModeEnabled) {
+        _isChainExchangeModeEnabled = false;
+        _chainExchangeService.clearAllSelections();
+        _selectedChainPath = null;
+        _chainPaths = [];
+        _isChainPathsLoading = false;
+      }
+
       _isCircularExchangeModeEnabled = !_isCircularExchangeModeEnabled;
-      
+
       // 순환교체 모드가 비활성화되면 UI를 기본값으로 복원
       if (!_isCircularExchangeModeEnabled) {
         _restoreUIToDefault();
@@ -704,10 +841,10 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         _dataSource?.updateSelectedCircularPath(null);
       }
     });
-    
+
     // 헤더 테마 업데이트 (모든 상태 초기화 후)
     _updateHeaderTheme();
-    
+
     // 순환교체 모드 활성화 시 사용자에게 안내 메시지 표시
     if (_isCircularExchangeModeEnabled && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -719,12 +856,69 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       );
     }
   }
+
+  void _toggleChainExchangeMode() {
+    AppLogger.exchangeDebug('연쇄교체 모드 토글 시작 - 현재 상태: $_isChainExchangeModeEnabled');
+
+    setState(() {
+      // 1:1교체 모드가 활성화되어 있다면 비활성화
+      if (_isExchangeModeEnabled) {
+        _isExchangeModeEnabled = false;
+        _exchangeService.clearAllSelections();
+        _dataSource?.updateSelection(null, null, null);
+        _dataSource?.updateExchangeOptions([]);
+        _dataSource?.updateExchangeableTeachers([]);
+        _dataSource?.updateSelectedOneToOnePath(null);
+        _selectedOneToOnePath = null;
+        _oneToOnePaths = [];
+      }
+
+      // 순환교체 모드가 활성화되어 있다면 비활성화
+      if (_isCircularExchangeModeEnabled) {
+        _isCircularExchangeModeEnabled = false;
+        _circularExchangeService.clearAllSelections();
+        _selectedCircularPath = null;
+        _circularPaths = [];
+        _isCircularPathsLoading = false;
+      }
+
+      _isChainExchangeModeEnabled = !_isChainExchangeModeEnabled;
+
+      // 연쇄교체 모드가 비활성화되면 UI를 기본값으로 복원
+      if (!_isChainExchangeModeEnabled) {
+        _restoreUIToDefault();
+      } else {
+        // 연쇄교체 모드가 활성화되면 사이드바도 숨김
+        _isSidebarVisible = false;
+        _chainExchangeService.clearAllSelections();
+        _selectedChainPath = null;
+        _chainPaths = [];
+        _isChainPathsLoading = false;
+        _loadingProgress = 0.0;
+      }
+    });
+
+    // 헤더 테마 업데이트
+    _updateHeaderTheme();
+
+    // 연쇄교체 모드 활성화 시 안내 메시지
+    if (_isChainExchangeModeEnabled && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('연쇄교체 모드가 활성화되었습니다. 2단계 교체로 결강을 해결할 수 있습니다.'),
+          backgroundColor: Colors.deepOrange,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+  }
   
   /// UI를 기본값으로 복원
   void _restoreUIToDefault() {
     // 모든 교체 서비스의 선택 상태 초기화
     _exchangeService.clearAllSelections();
     _circularExchangeService.clearAllSelections();
+    _chainExchangeService.clearAllSelections();
     
     // 데이터 소스에 선택 상태 해제
     _dataSource?.updateSelection(null, null, null);
@@ -1019,25 +1213,50 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
   /// 순환교체 사이드바 구성
   Widget _buildUnifiedExchangeSidebar() {
     // 현재 모드 결정
-    ExchangePathType currentMode = _isExchangeModeEnabled 
-        ? ExchangePathType.oneToOne 
-        : ExchangePathType.circular;
-    
+    ExchangePathType currentMode;
+    if (_isExchangeModeEnabled) {
+      currentMode = ExchangePathType.oneToOne;
+    } else if (_isCircularExchangeModeEnabled) {
+      currentMode = ExchangePathType.circular;
+    } else {
+      currentMode = ExchangePathType.chain;
+    }
+
     // 선택된 경로 결정
     ExchangePath? selectedPath;
     if (_isExchangeModeEnabled) {
       selectedPath = _selectedOneToOnePath;
     } else if (_isCircularExchangeModeEnabled) {
       selectedPath = _selectedCircularPath;
+    } else if (_isChainExchangeModeEnabled) {
+      selectedPath = _selectedChainPath;
     }
-    
+
+    // 경로 리스트 결정
+    List<ExchangePath> paths;
+    if (_isExchangeModeEnabled) {
+      paths = _oneToOnePaths;
+    } else if (_isCircularExchangeModeEnabled) {
+      paths = _circularPaths;
+    } else {
+      paths = _chainPaths;
+    }
+
+    // 로딩 상태 결정
+    bool isLoading = false;
+    if (_isCircularExchangeModeEnabled) {
+      isLoading = _isCircularPathsLoading;
+    } else if (_isChainExchangeModeEnabled) {
+      isLoading = _isChainPathsLoading;
+    }
+
     return UnifiedExchangeSidebar(
       width: _sidebarWidth,
-      paths: _isExchangeModeEnabled ? _oneToOnePaths : _circularPaths,
+      paths: paths,
       filteredPaths: _filteredPaths,
       selectedPath: selectedPath,
       mode: currentMode,
-      isLoading: _isCircularPathsLoading, // 1:1교체는 즉시 로딩되므로 순환교체 로딩만 사용
+      isLoading: isLoading,
       loadingProgress: _loadingProgress,
       searchQuery: _searchQuery,
       searchController: _searchController,
@@ -1100,6 +1319,12 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       // 순환교체 경로 선택
       AppLogger.exchangeDebug('순환교체 경로 선택: ${path.id}');
       selectPath(path);
+    } else if (path is ChainExchangePath) {
+      // 연쇄교체 경로 선택
+      AppLogger.exchangeDebug('연쇄교체 경로 선택: ${path.id}');
+      setState(() {
+        _selectedChainPath = path;
+      });
     }
   }
 

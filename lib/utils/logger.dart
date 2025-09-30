@@ -31,4 +31,23 @@ class AppLogger {
       developer.log('ℹ️ [교사빈시간] $message', name: 'AppLogger');
     }
   }
+
+  /// 일반 로그 메서드들
+  static void debug(String message) {
+    if (kDebugMode) {
+      _logger.d(message);
+    }
+  }
+
+  static void info(String message) {
+    _logger.i(message);
+  }
+
+  static void warning(String message) {
+    _logger.w(message);
+  }
+
+  static void error(String message, [dynamic error, StackTrace? stackTrace]) {
+    _logger.e(message, error: error, stackTrace: stackTrace);
+  }
 }
