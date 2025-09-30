@@ -6,6 +6,10 @@ import '../../utils/timetable_data_source.dart';
 import '../../utils/constants.dart';
 import '../../utils/exchange_visualizer.dart';
 import '../../models/one_to_one_exchange_path.dart';
+import '../../models/exchange_path.dart';
+import '../../models/exchange_node.dart';
+import '../../models/circular_exchange_path.dart';
+import '../../models/chain_exchange_path.dart';
 
 /// 화살표의 시작점과 끝점이 어느 경계면에서 나야 하는지 결정하는 열거형
 enum ArrowEdge {
@@ -13,6 +17,67 @@ enum ArrowEdge {
   bottom, // 하단 경계면 중앙
   left,   // 왼쪽 경계면 중앙
   right,  // 오른쪽 경계면 중앙
+}
+
+/// 화살표의 방향을 정의하는 열거형
+enum ArrowDirection {
+  forward,    // 시작 → 끝 방향 (단방향)
+  bidirectional, // 양쪽 방향 (↔)
+}
+
+/// 화살표의 우선 방향을 정의하는 열거형
+enum ArrowPriority {
+  verticalFirst,  // 세로 우선 (먼저 수직 이동, 그 다음 수평 이동)
+  horizontalFirst, // 가로 우선 (먼저 수평 이동, 그 다음 수직 이동)
+}
+
+/// 교체 모드별 화살표 스타일을 정의하는 클래스
+class ExchangeArrowStyle {
+  final Color color;           // 화살표 색상
+  final double strokeWidth;    // 선 두께
+  final Color outlineColor;    // 외곽선 색상
+  final double outlineWidth;   // 외곽선 두께
+  final double arrowHeadSize;  // 화살표 머리 크기
+  final ArrowDirection direction; // 화살표 방향
+
+  const ExchangeArrowStyle({
+    required this.color,
+    this.strokeWidth = 3.0,
+    this.outlineColor = Colors.white,
+    this.outlineWidth = 5.0,
+    this.arrowHeadSize = 12.0,
+    this.direction = ArrowDirection.forward,
+  });
+
+  /// 1:1 교체 모드용 스타일 (단방향 - 별도 화살표로 양방향 구현)
+  static const ExchangeArrowStyle oneToOne = ExchangeArrowStyle(
+    color: Colors.green,
+    strokeWidth: 3.0,
+    outlineColor: Colors.white,
+    outlineWidth: 5.0,
+    arrowHeadSize: 12.0,
+    direction: ArrowDirection.forward,
+  );
+
+  /// 순환 교체 모드용 스타일 (단방향)
+  static const ExchangeArrowStyle circular = ExchangeArrowStyle(
+    color: Colors.blue,
+    strokeWidth: 2.5,
+    outlineColor: Colors.white,
+    outlineWidth: 4.5,
+    arrowHeadSize: 10.0,
+    direction: ArrowDirection.forward,
+  );
+
+  /// 연쇄 교체 모드용 스타일 (단방향)
+  static const ExchangeArrowStyle chain = ExchangeArrowStyle(
+    color: Colors.orange,
+    strokeWidth: 2.0,
+    outlineColor: Colors.white,
+    outlineWidth: 4.0,
+    arrowHeadSize: 8.0,
+    direction: ArrowDirection.forward,
+  );
 }
 
 /// 시간표 그리드 섹션 위젯
@@ -25,7 +90,8 @@ class TimetableGridSection extends StatefulWidget {
   final bool isExchangeModeEnabled;
   final int exchangeableCount;
   final Function(DataGridCellTapDetails) onCellTap;
-  final OneToOneExchangePath? selectedOneToOnePath; // 선택된 1:1 교체 경로
+  final ExchangePath? selectedExchangePath; // 선택된 교체 경로 (모든 타입 지원)
+  final ExchangeArrowStyle? customArrowStyle; // 커스텀 화살표 스타일
 
   const TimetableGridSection({
     super.key,
@@ -36,7 +102,8 @@ class TimetableGridSection extends StatefulWidget {
     required this.isExchangeModeEnabled,
     required this.exchangeableCount,
     required this.onCellTap,
-    this.selectedOneToOnePath, // 선택된 1:1 교체 경로
+    this.selectedExchangePath, // 선택된 교체 경로 (모든 타입 지원)
+    this.customArrowStyle, // 커스텀 화살표 스타일
   });
 
   @override
@@ -78,7 +145,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
 
   /// 스크롤 변경 시 화살표 재그리기를 위한 콜백
   void _onScrollChanged() {
-    if (widget.selectedOneToOnePath != null && widget.isExchangeModeEnabled) {
+    if (widget.selectedExchangePath != null && widget.isExchangeModeEnabled) {
       setState(() {
         // 화살표가 표시되는 경우에만 재그리기
       });
@@ -169,8 +236,8 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
   Widget _buildDataGridWithArrows() {
     Widget dataGrid = _buildDataGrid();
     
-    // 1:1 교체 경로가 선택된 경우에만 화살표 표시
-    if (widget.selectedOneToOnePath != null && widget.isExchangeModeEnabled) {
+    // 교체 경로가 선택된 경우에만 화살표 표시 (모든 타입 지원)
+    if (widget.selectedExchangePath != null && widget.isExchangeModeEnabled) {
       return Stack(
         children: [
           dataGrid,
@@ -179,11 +246,12 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
             child: IgnorePointer(
               child: CustomPaint(
                 painter: ExchangeArrowPainter(
-                  selectedPath: widget.selectedOneToOnePath!,
+                  selectedPath: widget.selectedExchangePath!,
                   timetableData: widget.timetableData!,
                   columns: widget.columns,
                   verticalScrollController: _verticalScrollController,
                   horizontalScrollController: _horizontalScrollController,
+                  customArrowStyle: widget.customArrowStyle,
                 ),
               ),
             ),
@@ -324,11 +392,12 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
 
 /// 교체 경로 화살표를 그리는 CustomPainter
 class ExchangeArrowPainter extends CustomPainter {
-  final OneToOneExchangePath selectedPath;
+  final ExchangePath selectedPath;
   final TimetableData timetableData;
   final List<GridColumn> columns;
   final ScrollController verticalScrollController;
   final ScrollController horizontalScrollController;
+  final ExchangeArrowStyle? customArrowStyle;
 
   ExchangeArrowPainter({
     required this.selectedPath,
@@ -336,13 +405,63 @@ class ExchangeArrowPainter extends CustomPainter {
     required this.columns,
     required this.verticalScrollController,
     required this.horizontalScrollController,
+    this.customArrowStyle,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final sourceNode = selectedPath.sourceNode;
-    final targetNode = selectedPath.targetNode;
+    // 교체 경로 타입에 따라 다른 화살표 그리기
+    switch (selectedPath.type) {
+      case ExchangePathType.oneToOne:
+        _drawOneToOneArrows(canvas, size);
+        break;
+      case ExchangePathType.circular:
+        _drawCircularArrows(canvas, size);
+        break;
+      case ExchangePathType.chain:
+        _drawChainArrows(canvas, size);
+        break;
+    }
+  }
 
+  /// 1:1 교체 화살표 그리기 (2개의 단방향 화살표)
+  void _drawOneToOneArrows(Canvas canvas, Size size) {
+    final oneToOnePath = selectedPath as OneToOneExchangePath;
+    final sourceNode = oneToOnePath.sourceNode;
+    final targetNode = oneToOnePath.targetNode;
+
+    // A → B 방향 화살표 그리기 (세로 우선)
+    _drawArrowBetweenNodes(canvas, size, sourceNode, targetNode, priority: ArrowPriority.verticalFirst);
+    
+    // B → A 방향 화살표 그리기 (세로 우선)
+    _drawArrowBetweenNodes(canvas, size, targetNode, sourceNode, priority: ArrowPriority.verticalFirst);
+  }
+
+  /// 순환 교체 화살표 그리기
+  void _drawCircularArrows(Canvas canvas, Size size) {
+    final circularPath = selectedPath as CircularExchangePath;
+    final nodes = circularPath.nodes;
+
+    // 순환 경로의 각 단계별로 화살표 그리기 (가로 우선)
+    for (int i = 0; i < nodes.length - 1; i++) {
+      _drawArrowBetweenNodes(canvas, size, nodes[i], nodes[i + 1], priority: ArrowPriority.horizontalFirst);
+    }
+  }
+
+  /// 연쇄 교체 화살표 그리기
+  void _drawChainArrows(Canvas canvas, Size size) {
+    final chainPath = selectedPath as ChainExchangePath;
+    
+    // 연쇄 교체의 각 단계별로 화살표 그리기 (가로 우선)
+    for (final step in chainPath.steps) {
+      if (step.stepType == 'exchange') {
+        _drawArrowBetweenNodes(canvas, size, step.fromNode, step.toNode, priority: ArrowPriority.horizontalFirst);
+      }
+    }
+  }
+
+  /// 두 노드 간의 화살표 그리기
+  void _drawArrowBetweenNodes(Canvas canvas, Size size, ExchangeNode sourceNode, ExchangeNode targetNode, {ArrowPriority priority = ArrowPriority.horizontalFirst}) {
     // 교사 인덱스 찾기
     int sourceTeacherIndex = timetableData.teachers
         .indexWhere((teacher) => teacher.name == sourceNode.teacherName);
@@ -366,26 +485,9 @@ class ExchangeArrowPainter extends CustomPainter {
       return;
     }
 
-    // 화살표의 시작점과 끝점 경계면 결정
-    Map<String, ArrowEdge> edges = _determineArrowEdges(
-      sourceColumnIndex,
-      sourceTeacherIndex,
-      targetColumnIndex,
-      targetTeacherIndex,
-    );
-
-    // 시작점과 끝점 위치 계산
-    Offset sourcePos = _getCellEdgePosition(
-      sourceColumnIndex,
-      sourceTeacherIndex,
-      edges['start']!,
-    );
-
-    Offset targetPos = _getCellEdgePosition(
-      targetColumnIndex,
-      targetTeacherIndex,
-      edges['end']!,
-    );
+    // 화살표의 시작점과 끝점을 셀의 중앙으로 단순화
+    Offset sourcePos = _getCellCenterPosition(sourceColumnIndex, sourceTeacherIndex);
+    Offset targetPos = _getCellCenterPosition(targetColumnIndex, targetTeacherIndex);
 
     // 화면 영역 내에 화살표가 있는지 검사
     if (!_isArrowVisible(sourcePos, targetPos, size)) {
@@ -396,11 +498,12 @@ class ExchangeArrowPainter extends CustomPainter {
     canvas.save();
     _applyFrozenAreaClipping(canvas, size);
 
-    // 직각 방향 화살표 그리기 (외곽선과 내부선)
-    _drawRightAngleArrowWithOutline(canvas, sourcePos, targetPos);
+    // 교체 경로 타입에 따른 스타일 적용하여 화살표 그리기 (우선 방향 지정)
+    _drawStyledArrow(canvas, sourcePos, targetPos, priority: priority);
     
     canvas.restore();
   }
+
 
   /// 고정 영역 클리핑을 적용하는 메서드
   /// 스크롤 가능한 영역에서만 화살표 그리기를 허용 (고정 영역에서는 가림)
@@ -477,75 +580,15 @@ class ExchangeArrowPainter extends CustomPainter {
     return inScrollableArea;
   }
 
-  /// 셀의 상대적 위치에 따라 화살표의 시작점과 끝점 경계면을 결정하는 함수
-  /// 
-  /// [sourceColumnIndex] 시작 셀의 열 인덱스
-  /// [sourceTeacherIndex] 시작 셀의 교사 인덱스
-  /// [targetColumnIndex] 목표 셀의 열 인덱스
-  /// [targetTeacherIndex] 목표 셀의 교사 인덱스
-  /// 
-  /// Returns: Map&lt;String, ArrowEdge&gt; - 'start'와 'end' 키로 시작점과 끝점의 경계면 반환
-  Map<String, ArrowEdge> _determineArrowEdges(
-    int sourceColumnIndex,
-    int sourceTeacherIndex,
-    int targetColumnIndex,
-    int targetTeacherIndex,
-  ) {
-    // 상대적 위치 계산
-    bool isTargetBelow = targetTeacherIndex > sourceTeacherIndex; // 목표가 아래쪽에 있는지
-    bool isTargetRight = targetColumnIndex > sourceColumnIndex;   // 목표가 오른쪽에 있는지
-    bool isTargetAbove = targetTeacherIndex < sourceTeacherIndex; // 목표가 위쪽에 있는지
-    bool isTargetLeft = targetColumnIndex < sourceColumnIndex;   // 목표가 왼쪽에 있는지
 
-    // 시작점 경계면 결정
-    ArrowEdge startEdge;
-    if (isTargetBelow) {
-      startEdge = ArrowEdge.bottom; // 목표가 아래쪽: 하단에서 시작
-    } else if (isTargetAbove) {
-      startEdge = ArrowEdge.top;    // 목표가 위쪽: 상단에서 시작
-    } else {
-      // 같은 행에 있는 경우, 열 위치에 따라 결정
-      if (isTargetRight) {
-        startEdge = ArrowEdge.right; // 목표가 오른쪽: 오른쪽에서 시작
-      } else if (isTargetLeft) {
-        startEdge = ArrowEdge.left;  // 목표가 왼쪽: 왼쪽에서 시작
-      } else {
-        startEdge = ArrowEdge.right; // 같은 위치 (기본값)
-      }
-    }
-
-    // 끝점 경계면 결정
-    ArrowEdge endEdge;
-    if (isTargetRight) {
-      endEdge = ArrowEdge.left;   // 목표가 오른쪽: 왼쪽 경계면에서 끝
-    } else if (isTargetLeft) {
-      endEdge = ArrowEdge.right;  // 목표가 왼쪽: 오른쪽 경계면에서 끝
-    } else {
-      // 같은 열에 있는 경우, 행 위치에 따라 결정
-      if (isTargetBelow) {
-        endEdge = ArrowEdge.top;    // 목표가 아래쪽: 상단에서 끝
-      } else if (isTargetAbove) {
-        endEdge = ArrowEdge.bottom; // 목표가 위쪽: 하단에서 끝
-      } else {
-        endEdge = ArrowEdge.left;   // 같은 위치 (기본값)
-      }
-    }
-
-    return {
-      'start': startEdge,
-      'end': endEdge,
-    };
-  }
-
-  /// 셀의 경계면 중앙 위치 계산 (화살표 시작점/끝점용)
+  /// 셀의 중앙 위치 계산 (화살표 시작점/끝점용)
   /// 스크롤 오프셋과 고정 영역을 반영하여 실제 화면상의 위치를 계산
   /// 
   /// [columnIndex] 셀의 열 인덱스
   /// [teacherIndex] 셀의 교사 인덱스
-  /// [edge] 경계면 종류 (상, 하, 좌, 우)
   /// 
-  /// Returns: Offset - 경계면 중앙의 좌표 (스크롤 오프셋 및 고정 영역 반영)
-  Offset _getCellEdgePosition(int columnIndex, int teacherIndex, ArrowEdge edge) {
+  /// Returns: Offset - 셀 중앙의 좌표 (스크롤 오프셋 및 고정 영역 반영)
+  Offset _getCellCenterPosition(int columnIndex, int teacherIndex) {
     // 기본 X 좌표 계산
     double x = 0;
     for (int i = 0; i < columnIndex; i++) {
@@ -579,69 +622,73 @@ class ExchangeArrowPainter extends CustomPainter {
     x -= horizontalOffset;
     y -= verticalOffset;
 
-    // 셀의 경계면 중앙 위치 계산
+    // 셀의 중앙 위치 계산
     if (columnIndex == 0) {
       // 교사명 열의 경우
-      switch (edge) {
-        case ArrowEdge.top:
-          x += AppConstants.teacherColumnWidth / 2; // 가로 중앙
-          y += 0; // 상단
-          break;
-        case ArrowEdge.bottom:
-          x += AppConstants.teacherColumnWidth / 2; // 가로 중앙
-          y += AppConstants.dataRowHeight; // 하단
-          break;
-        case ArrowEdge.left:
-          x += 0; // 왼쪽 경계
-          y += AppConstants.dataRowHeight / 2; // 세로 중앙
-          break;
-        case ArrowEdge.right:
-          x += AppConstants.teacherColumnWidth; // 오른쪽 경계
-          y += AppConstants.dataRowHeight / 2; // 세로 중앙
-          break;
-      }
+      x += AppConstants.teacherColumnWidth / 2; // 가로 중앙
+      y += AppConstants.dataRowHeight / 2; // 세로 중앙
     } else {
       // 교시 열의 경우
-      switch (edge) {
-        case ArrowEdge.top:
-          x += AppConstants.periodColumnWidth / 2; // 가로 중앙
-          y += 0; // 상단
-          break;
-        case ArrowEdge.bottom:
-          x += AppConstants.periodColumnWidth / 2; // 가로 중앙
-          y += AppConstants.dataRowHeight; // 하단
-          break;
-        case ArrowEdge.left:
-          x += 0; // 왼쪽 경계
-          y += AppConstants.dataRowHeight / 2; // 세로 중앙
-          break;
-        case ArrowEdge.right:
-          x += AppConstants.periodColumnWidth; // 오른쪽 경계
-          y += AppConstants.dataRowHeight / 2; // 세로 중앙
-          break;
-      }
+      x += AppConstants.periodColumnWidth / 2; // 가로 중앙
+      y += AppConstants.dataRowHeight / 2; // 세로 중앙
     }
 
     return Offset(x, y);
   }
 
-  /// 직각 방향 화살표 그리기 (외곽선과 내부선)
-  void _drawRightAngleArrowWithOutline(Canvas canvas, Offset start, Offset end) {
-    // 직각 방향으로 그리기 위해 중간점 계산
-    Offset midPoint = Offset(start.dx, end.dy);
+
+  /// 스타일이 적용된 화살표 그리기
+  void _drawStyledArrow(Canvas canvas, Offset start, Offset end, {ArrowPriority priority = ArrowPriority.horizontalFirst}) {
+    // 교체 경로 타입에 따른 스타일 결정
+    ExchangeArrowStyle style = _getArrowStyle();
     
-    // 외곽선용 Paint (흰색, 더 두꺼운 선)
+    // 우선 방향에 따라 직각 화살표 그리기
+    _drawRightAngleArrowWithStyle(canvas, start, end, style, priority: priority);
+  }
+
+
+  /// 교체 경로 타입에 따른 화살표 스타일 결정
+  ExchangeArrowStyle _getArrowStyle() {
+    // 커스텀 스타일이 있으면 사용
+    if (customArrowStyle != null) {
+      return customArrowStyle!;
+    }
+    
+    // 교체 경로 타입에 따른 기본 스타일
+    switch (selectedPath.type) {
+      case ExchangePathType.oneToOne:
+        return ExchangeArrowStyle.oneToOne;
+      case ExchangePathType.circular:
+        return ExchangeArrowStyle.circular;
+      case ExchangePathType.chain:
+        return ExchangeArrowStyle.chain;
+    }
+  }
+
+  /// 직각 방향 화살표 그리기 (외곽선과 내부선) - 스타일 적용 버전
+  void _drawRightAngleArrowWithStyle(Canvas canvas, Offset start, Offset end, ExchangeArrowStyle style, {ArrowPriority priority = ArrowPriority.horizontalFirst}) {
+    // 우선 방향에 따라 중간점 계산
+    Offset midPoint;
+    if (priority == ArrowPriority.verticalFirst) {
+      // 세로 우선: 먼저 수직 이동, 그 다음 수평 이동
+      midPoint = Offset(start.dx, end.dy);
+    } else {
+      // 가로 우선: 먼저 수평 이동, 그 다음 수직 이동
+      midPoint = Offset(end.dx, start.dy);
+    }
+    
+    // 외곽선용 Paint (설정된 외곽선 색상과 두께)
     final outlinePaint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 5.0
+      ..color = style.outlineColor
+      ..strokeWidth = style.outlineWidth
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     
-    // 내부선용 Paint (연한 녹색, 얇은 선)
+    // 내부선용 Paint (설정된 색상과 두께)
     final innerPaint = Paint()
-      ..color = Colors.green.withValues(alpha: 0.7) // 연한 녹색
-      ..strokeWidth = 3.0
+      ..color = style.color
+      ..strokeWidth = style.strokeWidth
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
@@ -658,15 +705,25 @@ class ExchangeArrowPainter extends CustomPainter {
     // 내부선 그리기
     canvas.drawPath(path, innerPaint);
     
-    // 화살표 머리 그리기 (외곽선과 내부선)
-    _drawArrowHeadWithOutline(canvas, midPoint, end);
+    // 화살표 방향에 따른 머리 그리기
+    switch (style.direction) {
+      case ArrowDirection.forward:
+        // 시작 → 끝 방향만 화살표 머리 그리기
+        _drawArrowHeadWithStyle(canvas, midPoint, end, style);
+        break;
+      case ArrowDirection.bidirectional:
+        // 양쪽 방향 화살표 머리 그리기
+        _drawArrowHeadWithStyle(canvas, midPoint, end, style); // 끝점 방향
+        _drawArrowHeadWithStyle(canvas, midPoint, start, style); // 시작점 방향
+        break;
+    }
   }
 
 
-  /// 화살표 머리 그리기 (외곽선과 내부선)
-  void _drawArrowHeadWithOutline(Canvas canvas, Offset from, Offset to) {
-    // 화살표 머리 크기
-    double headLength = 12.0;
+  /// 화살표 머리 그리기 (외곽선과 내부선) - 스타일 적용 버전
+  void _drawArrowHeadWithStyle(Canvas canvas, Offset from, Offset to, ExchangeArrowStyle style) {
+    // 화살표 머리 크기 (스타일에서 설정)
+    double headLength = style.arrowHeadSize;
     double headAngle = 0.5; // 라디안
 
     // 방향 벡터 계산
@@ -687,17 +744,17 @@ class ExchangeArrowPainter extends CustomPainter {
     double x2 = to.dx - headLength * (dx * math.cos(-headAngle) + dy * math.sin(-headAngle));
     double y2 = to.dy - headLength * (dy * math.cos(-headAngle) - dx * math.sin(-headAngle));
 
-    // 외곽선용 Paint (흰색, 더 두꺼운 선)
+    // 외곽선용 Paint (설정된 외곽선 색상과 두께)
     final outlinePaint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 5.0
+      ..color = style.outlineColor
+      ..strokeWidth = style.outlineWidth
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
-    // 내부선용 Paint (연한 녹색, 얇은 선)
+    // 내부선용 Paint (설정된 색상과 두께)
     final innerPaint = Paint()
-      ..color = Colors.green.withValues(alpha: 0.7) // 연한 녹색
-      ..strokeWidth = 3.0
+      ..color = style.color
+      ..strokeWidth = style.strokeWidth
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
@@ -719,6 +776,7 @@ class ExchangeArrowPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
     return oldDelegate is ExchangeArrowPainter &&
-           oldDelegate.selectedPath != selectedPath;
+           (oldDelegate.selectedPath != selectedPath ||
+            oldDelegate.customArrowStyle != customArrowStyle);
   }
 }
