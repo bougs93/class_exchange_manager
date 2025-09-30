@@ -602,36 +602,82 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
 
   /// 연쇄교체 노드들 구성
   Widget _buildChainNodes(ChainExchangePath path, int index, bool isSelected, _PathColorScheme colorScheme) {
-    return Column(
-      children: [
-        // 첫 번째 노드 (결석 수업 - nodeA)
-        _buildNodeContainer(path.nodeA, '${index}_0', isSelected, true, colorScheme),
-
-        // 연쇄 화살표 (2단계 표시)
-        Container(
-          margin: const EdgeInsets.symmetric(vertical: 2),
-          child: Column(
-            children: [
-              Icon(
-                Icons.link,
+    List<Widget> nodeWidgets = [];
+    
+    // 연쇄교체 단계별 표시:
+    // 1단계: node1 ↔ node2
+    // 2단계: nodeA ↔ nodeB
+    
+    // 1단계: node2 ↔ node1 (순서 수정)
+    nodeWidgets.add(_buildNodeContainer(path.node2, '${index}_2', isSelected, false, colorScheme));
+    
+    // 1단계 양방향 화살표
+    nodeWidgets.add(
+      Container(
+        margin: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.swap_vert,
+              color: isSelected ? colorScheme.primary : Colors.grey.shade500,
+              size: 14,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '1단계',
+              style: TextStyle(
+                fontSize: 9,
                 color: isSelected ? colorScheme.primary : Colors.grey.shade500,
-                size: 14,
               ),
-              Text(
-                '2단계',
-                style: TextStyle(
-                  fontSize: 9,
-                  color: isSelected ? colorScheme.primary : Colors.grey.shade500,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
-
-        // 두 번째 노드 (대체 선생님 - nodeB, 진한 색상 적용)
-        _buildNodeContainer(path.nodeB, '${index}_1', isSelected, false, colorScheme, isSecondNode: true),
-      ],
+      ),
     );
+    
+    nodeWidgets.add(_buildNodeContainer(path.node1, '${index}_1', isSelected, false, colorScheme));
+    
+    // 단계 간 구분선 (선택사항)
+    nodeWidgets.add(
+      Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        height: 1,
+        color: Colors.grey.shade300,
+      ),
+    );
+    
+    // 2단계: nodeA ↔ nodeB
+    nodeWidgets.add(_buildNodeContainer(path.nodeA, '${index}_A', isSelected, false, colorScheme));
+    
+    // 2단계 양방향 화살표
+    nodeWidgets.add(
+      Container(
+        margin: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.swap_vert,
+              color: isSelected ? colorScheme.primary : Colors.grey.shade500,
+              size: 14,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '2단계',
+              style: TextStyle(
+                fontSize: 9,
+                color: isSelected ? colorScheme.primary : Colors.grey.shade500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    
+    nodeWidgets.add(_buildNodeContainer(path.nodeB, '${index}_B', isSelected, false, colorScheme, isSecondNode: true));
+    
+    return Column(children: nodeWidgets);
   }
 
   /// 순환교체 노드들 구성
@@ -784,7 +830,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
                  ],
                ),
               child: Text(
-                '${node.day}${node.period} | ${node.teacherName} | ${widget.getSubjectName(node)}',
+                '${node.day}${node.period}|${node.teacherName}|${widget.getSubjectName(node)}(${node.className})',
                 style: TextStyle(
                   fontSize: _SidebarFontSizes.nodeText,
                   fontWeight: FontWeight.w500,

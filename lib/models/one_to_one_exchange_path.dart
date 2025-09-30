@@ -35,6 +35,7 @@ class OneToOneExchangePath implements ExchangePath {
       day: selectedDay,
       period: selectedPeriod,
       className: selectedClassName,
+      subjectName: '과목', // 기본값, 실제로는 서비스에서 설정해야 함
     );
     
     // 교체 대상 셀의 노드 생성
@@ -44,6 +45,7 @@ class OneToOneExchangePath implements ExchangePath {
       day: targetDay,
       period: option.timeSlot.period ?? 0,
       className: option.timeSlot.className ?? '',
+      subjectName: option.timeSlot.subject ?? '과목',
     );
     
     return OneToOneExchangePath(

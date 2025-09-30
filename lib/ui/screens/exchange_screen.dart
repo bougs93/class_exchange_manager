@@ -158,10 +158,11 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
             child: _buildTimetableTab(),
           ),
           
-          // 통합 교체 사이드바 (1:1교체 및 순환교체)
+          // 통합 교체 사이드바 (1:1교체, 순환교체, 연쇄교체)
           if (_isSidebarVisible && (
             (_isExchangeModeEnabled && _oneToOnePaths.isNotEmpty) ||
-            (_isCircularExchangeModeEnabled && (_circularPaths.isNotEmpty || _isCircularPathsLoading))
+            (_isCircularExchangeModeEnabled && (_circularPaths.isNotEmpty || _isCircularPathsLoading)) ||
+            (_isChainExchangeModeEnabled && (_chainPaths.isNotEmpty || _isChainPathsLoading))
           ))
             _buildUnifiedExchangeSidebar(),
         ],
@@ -473,6 +474,17 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         _filteredPaths = paths.cast<ExchangePath>();
         _isChainPathsLoading = false;
         _loadingProgress = 1.0;
+      });
+
+      // 경로에 따른 사이드바 표시 설정
+      setState(() {
+        if (paths.isEmpty) {
+          _isSidebarVisible = false; // 경로가 없으면 사이드바 숨김
+          AppLogger.exchangeDebug('연쇄교체 경로가 없어서 사이드바를 숨김니다.');
+        } else {
+          _isSidebarVisible = true; // 경로가 있으면 사이드바 표시
+          AppLogger.exchangeDebug('연쇄교체 경로 ${paths.length}개를 찾았습니다. 사이드바를 표시합니다.');
+        }
       });
 
       if (paths.isEmpty) {

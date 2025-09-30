@@ -132,6 +132,22 @@ class ChainExchangeService {
     return slot?.className ?? '';
   }
 
+  /// 해당 시간의 과목 정보 가져오기
+  String _getSubjectFromTimeSlot(String teacherName, String day, int period, List<TimeSlot> timeSlots) {
+    int dayNumber = DayUtils.getDayNumber(day);
+
+    TimeSlot? slot = timeSlots.cast<TimeSlot?>().firstWhere(
+      (slot) => slot != null &&
+                slot.teacher == teacherName &&
+                slot.dayOfWeek == dayNumber &&
+                slot.period == period &&
+                slot.isNotEmpty,
+      orElse: () => null,
+    );
+
+    return slot?.subject ?? '과목';
+  }
+
   /// 연쇄 교체 가능한 경로들 찾기
   ///
   /// 매개변수:
@@ -156,12 +172,14 @@ class ChainExchangeService {
 
     List<ChainExchangePath> paths = [];
 
-    // A 위치 노드 생성
+    // A 위치 노드 생성 (과목명 포함)
+    String nodeASubject = _getSubjectFromTimeSlot(_nodeATeacher!, _nodeADay!, _nodeAPeriod!, timeSlots);
     ExchangeNode nodeA = ExchangeNode(
       teacherName: _nodeATeacher!,
       day: _nodeADay!,
       period: _nodeAPeriod!,
       className: _nodeAClass!,
+      subjectName: nodeASubject,
     );
 
     // B 위치 후보들 찾기 (A와 같은 학급, B 교사가 A 시간 비어있음)
@@ -262,6 +280,7 @@ class ChainExchangeService {
         day: DayUtils.getDayName(slotDay),
         period: slotPeriod,
         className: slot.className ?? '',
+        subjectName: slot.subject ?? '과목',
       );
 
       if (!addedNodeIds.contains(node.nodeId)) {
@@ -298,6 +317,7 @@ class ChainExchangeService {
       day: DayUtils.getDayName(blockingSlot.dayOfWeek ?? 0),
       period: blockingSlot.period ?? 0,
       className: blockingSlot.className ?? '',
+      subjectName: blockingSlot.subject ?? '과목',
     );
   }
 

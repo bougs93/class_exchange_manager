@@ -95,7 +95,21 @@ class ChainExchangePath implements ExchangePath {
   }
 
   @override
-  String get description => steps.map((step) => step.description).join(' → ');
+  String get description {
+    // 새로운 형식: [T] 목표노드→대체노드, [1] 1단계교체, [2] 2단계교체
+    StringBuffer buffer = StringBuffer();
+    
+    // 목표 노드와 대체 노드 표시 (학급 정보 포함)
+    buffer.write('[T] ${nodeA.day}${nodeA.period}|${nodeA.teacherName}|${nodeA.subjectName}(${nodeA.className})→${nodeB.day}${nodeB.period}|${nodeB.teacherName}|${nodeB.subjectName}(${nodeB.className}), ');
+    
+    // 각 단계별 교체 정보
+    for (int i = 0; i < steps.length; i++) {
+      if (i > 0) buffer.write(', ');
+      buffer.write(steps[i].description);
+    }
+    
+    return buffer.toString();
+  }
 
   @override
   int get priority => chainDepth; // 깊이가 적을수록 높은 우선순위

@@ -7,12 +7,14 @@ class ExchangeNode {
   final String day;           // 요일 (월, 화, 수, 목, 금)
   final int period;           // 교시 (1-7)
   final String className;     // 학급명 (1-1, 2-3 등)
+  final String subjectName;   // 과목명 (수학, 국어 등)
 
   ExchangeNode({
     required this.teacherName,
     required this.day,
     required this.period,
     required this.className,
+    this.subjectName = '과목',  // 기본값 설정
   });
 
   /// TimeSlot에서 ExchangeNode 생성
@@ -22,6 +24,7 @@ class ExchangeNode {
       day: day,
       period: timeSlot.period ?? 0,
       className: timeSlot.className ?? '',
+      subjectName: timeSlot.subject ?? '과목',
     );
   }
 
@@ -39,7 +42,8 @@ class ExchangeNode {
         other.teacherName == teacherName &&
         other.day == day &&
         other.period == period &&
-        other.className == className;
+        other.className == className &&
+        other.subjectName == subjectName;
   }
 
   /// 해시코드 생성
@@ -54,13 +58,14 @@ class ExchangeNode {
     return teacherName.hashCode ^
         day.hashCode ^
         period.hashCode ^
-        className.hashCode;
+        className.hashCode ^
+        subjectName.hashCode;
   }
 
   /// 문자열 표현
   @override
   String toString() {
-    return 'ExchangeNode(teacher: $teacherName, day: $day, period: $period, class: $className)';
+    return 'ExchangeNode(teacher: $teacherName, day: $day, period: $period, class: $className, subject: $subjectName)';
   }
 
 }

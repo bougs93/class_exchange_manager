@@ -209,6 +209,23 @@ class CircularExchangeService {
     
     return selectedSlot.isNotEmpty ? selectedSlot.className : null;
   }
+
+  /// 선택된 셀의 과목 정보 가져오기
+  String _getSelectedSubjectName(List<TimeSlot> timeSlots) {
+    if (_selectedTeacher == null || _selectedDay == null || _selectedPeriod == null) {
+      return '과목';
+    }
+    
+    TimeSlot? selectedSlot = timeSlots.firstWhere(
+      (slot) => slot.teacher == _selectedTeacher &&
+                slot.dayOfWeek == DayUtils.getDayNumber(_selectedDay!) &&
+                slot.period == _selectedPeriod &&
+                slot.isNotEmpty,
+      orElse: () => TimeSlot.empty(),
+    );
+    
+    return selectedSlot.isNotEmpty ? (selectedSlot.subject ?? '과목') : '과목';
+  }
   
   /// 교사가 특정 시간에 빈 시간인지 확인
   bool _isTeacherEmptyAtTime(String teacherName, String day, int period, List<TimeSlot> timeSlots) {
@@ -315,11 +332,15 @@ class CircularExchangeService {
     
     AppLogger.exchangeDebug('시작 노드 생성 성공: $_selectedTeacher, $_selectedDay, $_selectedPeriod, $className');
     
+    // 과목명 가져오기
+    String subjectName = _getSelectedSubjectName(timeSlots);
+    
     return ExchangeNode(
       teacherName: _selectedTeacher!,
       day: _selectedDay!,
       period: _selectedPeriod!,
       className: className,
+      subjectName: subjectName,
     );
   }
 
@@ -448,6 +469,7 @@ class CircularExchangeService {
           day: dayString,
           period: slot.period ?? 0,
           className: slot.className ?? '',
+          subjectName: slot.subject ?? '과목',
         );
         
         // 중복 노드 방지
