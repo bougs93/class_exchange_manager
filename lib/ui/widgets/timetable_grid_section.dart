@@ -7,6 +7,14 @@ import '../../utils/constants.dart';
 import '../../utils/exchange_visualizer.dart';
 import '../../models/one_to_one_exchange_path.dart';
 
+/// 화살표의 시작점과 끝점이 어느 경계면에서 나야 하는지 결정하는 열거형
+enum ArrowEdge {
+  top,    // 상단 경계면 중앙
+  bottom, // 하단 경계면 중앙
+  left,   // 왼쪽 경계면 중앙
+  right,  // 오른쪽 경계면 중앙
+}
+
 /// 시간표 그리드 섹션 위젯
 /// Syncfusion DataGrid를 사용한 시간표 표시를 담당
 class TimetableGridSection extends StatefulWidget {
@@ -52,10 +60,29 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
   final ScrollController _horizontalScrollController = ScrollController();
 
   @override
+  void initState() {
+    super.initState();
+    // 스크롤 이벤트 리스너 추가 - 화살표 재그리기를 위해
+    _verticalScrollController.addListener(_onScrollChanged);
+    _horizontalScrollController.addListener(_onScrollChanged);
+  }
+
+  @override
   void dispose() {
+    _verticalScrollController.removeListener(_onScrollChanged);
+    _horizontalScrollController.removeListener(_onScrollChanged);
     _verticalScrollController.dispose();
     _horizontalScrollController.dispose();
     super.dispose();
+  }
+
+  /// 스크롤 변경 시 화살표 재그리기를 위한 콜백
+  void _onScrollChanged() {
+    if (widget.selectedOneToOnePath != null && widget.isExchangeModeEnabled) {
+      setState(() {
+        // 화살표가 표시되는 경우에만 재그리기
+      });
+    }
   }
 
   @override
@@ -155,6 +182,8 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
                   selectedPath: widget.selectedOneToOnePath!,
                   timetableData: widget.timetableData!,
                   columns: widget.columns,
+                  verticalScrollController: _verticalScrollController,
+                  horizontalScrollController: _horizontalScrollController,
                 ),
               ),
             ),
@@ -298,11 +327,15 @@ class ExchangeArrowPainter extends CustomPainter {
   final OneToOneExchangePath selectedPath;
   final TimetableData timetableData;
   final List<GridColumn> columns;
+  final ScrollController verticalScrollController;
+  final ScrollController horizontalScrollController;
 
   ExchangeArrowPainter({
     required this.selectedPath,
     required this.timetableData,
     required this.columns,
+    required this.verticalScrollController,
+    required this.horizontalScrollController,
   });
 
   @override
@@ -333,48 +366,191 @@ class ExchangeArrowPainter extends CustomPainter {
       return;
     }
 
-    // 셀 경계면 중앙 위치 계산 (시작점과 끝점의 상대적 위치에 따라 결정)
-    Offset sourcePos = _getCellEdgePosition(sourceColumnIndex, sourceTeacherIndex, targetColumnIndex, targetTeacherIndex, true);
-    Offset targetPos = _getCellEdgePosition(targetColumnIndex, targetTeacherIndex, sourceColumnIndex, sourceTeacherIndex, false);
+    // 화살표의 시작점과 끝점 경계면 결정
+    Map<String, ArrowEdge> edges = _determineArrowEdges(
+      sourceColumnIndex,
+      sourceTeacherIndex,
+      targetColumnIndex,
+      targetTeacherIndex,
+    );
+
+    // 시작점과 끝점 위치 계산
+    Offset sourcePos = _getCellEdgePosition(
+      sourceColumnIndex,
+      sourceTeacherIndex,
+      edges['start']!,
+    );
+
+    Offset targetPos = _getCellEdgePosition(
+      targetColumnIndex,
+      targetTeacherIndex,
+      edges['end']!,
+    );
+
+    // 화면 영역 내에 화살표가 있는지 검사
+    if (!_isArrowVisible(sourcePos, targetPos, size)) {
+      return; // 화면 밖에 있으면 그리지 않음
+    }
+
+    // 고정 영역 클리핑 적용
+    canvas.save();
+    _applyFrozenAreaClipping(canvas, size);
 
     // 직각 방향 화살표 그리기 (외곽선과 내부선)
     _drawRightAngleArrowWithOutline(canvas, sourcePos, targetPos);
+    
+    canvas.restore();
   }
 
-  /// 셀의 위치 계산 (고정된 헤더 행들 고려)
-  Offset _getCellPosition(int columnIndex, int teacherIndex) {
-    double x = 0;
-    for (int i = 0; i < columnIndex; i++) {
-      if (i == 0) {
-        // 교사명 열 너비
-        x += AppConstants.teacherColumnWidth;
-      } else {
-        // 교시 열 너비
-        x += AppConstants.periodColumnWidth;
+  /// 고정 영역 클리핑을 적용하는 메서드
+  /// 스크롤 가능한 영역에서만 화살표 그리기를 허용 (고정 영역에서는 가림)
+  /// 
+  /// [canvas] 그리기 캔버스
+  /// [size] 캔버스 크기
+  void _applyFrozenAreaClipping(Canvas canvas, Size size) {
+    // 고정 영역 경계 계산
+    const double frozenColumnWidth = AppConstants.teacherColumnWidth; // 고정 열 너비
+    const double headerHeight = AppConstants.headerRowHeight * 2; // 헤더 행 높이 (2개 행)
+    
+    // 스크롤 가능한 영역만 허용하는 클리핑 경로 생성
+    Path clippingPath = Path();
+    
+    // 스크롤 가능한 영역만 허용: 고정 열 오른쪽, 헤더 아래쪽
+    clippingPath.addRect(Rect.fromLTWH(
+      frozenColumnWidth,  // 고정 열 오른쪽부터
+      headerHeight,       // 헤더 아래쪽부터
+      size.width - frozenColumnWidth,  // 나머지 너비
+      size.height - headerHeight,     // 나머지 높이
+    ));
+    
+    // 클리핑 적용 - 스크롤 영역에서만 그리기 허용
+    canvas.clipPath(clippingPath);
+  }
+
+  /// 화살표가 화면 영역 내에 있는지 검사하는 메서드
+  /// 고정 영역과 스크롤 영역을 모두 고려
+  /// 
+  /// [sourcePos] 화살표 시작점 좌표
+  /// [targetPos] 화살표 끝점 좌표
+  /// [canvasSize] 캔버스 크기
+  /// 
+  /// Returns: bool - 화살표가 화면에 보이는지 여부
+  bool _isArrowVisible(Offset sourcePos, Offset targetPos, Size canvasSize) {
+    // 고정 영역 경계
+    const double frozenColumnWidth = AppConstants.teacherColumnWidth;
+    const double headerHeight = AppConstants.headerRowHeight * 2;
+    
+    // 화살표의 모든 점들 (시작점, 끝점, 중간점)
+    List<Offset> arrowPoints = [
+      sourcePos,
+      targetPos,
+      Offset(sourcePos.dx, targetPos.dy), // 직각 화살표의 중간점
+    ];
+    
+    // 각 점이 보이는 영역에 있는지 검사
+    for (Offset point in arrowPoints) {
+      if (_isPointInVisibleArea(point, canvasSize, frozenColumnWidth, headerHeight)) {
+        return true; // 하나라도 보이는 영역에 있으면 화살표를 그림
       }
     }
-    // 셀 중앙 위치로 조정
-    if (columnIndex == 0) {
-      x += AppConstants.teacherColumnWidth / 2;
+    
+    return false; // 모든 점이 보이지 않는 영역에 있으면 그리지 않음
+  }
+
+  /// 특정 점이 보이는 영역에 있는지 검사하는 메서드
+  /// 스크롤 가능한 영역에서만 화살표를 그리도록 함
+  /// 
+  /// [point] 검사할 점의 좌표
+  /// [canvasSize] 캔버스 크기
+  /// [frozenColumnWidth] 고정 열 너비
+  /// [headerHeight] 헤더 높이
+  /// 
+  /// Returns: bool - 점이 스크롤 영역에 있는지 여부
+  bool _isPointInVisibleArea(Offset point, Size canvasSize, double frozenColumnWidth, double headerHeight) {
+    // 스크롤 가능한 영역에서만 화살표 그리기 허용
+    // 고정 열 오른쪽, 헤더 아래쪽 영역만 허용
+    bool inScrollableArea = point.dx > frozenColumnWidth && 
+                           point.dy > headerHeight &&
+                           point.dx <= canvasSize.width && 
+                           point.dy <= canvasSize.height;
+    
+    return inScrollableArea;
+  }
+
+  /// 셀의 상대적 위치에 따라 화살표의 시작점과 끝점 경계면을 결정하는 함수
+  /// 
+  /// [sourceColumnIndex] 시작 셀의 열 인덱스
+  /// [sourceTeacherIndex] 시작 셀의 교사 인덱스
+  /// [targetColumnIndex] 목표 셀의 열 인덱스
+  /// [targetTeacherIndex] 목표 셀의 교사 인덱스
+  /// 
+  /// Returns: Map&lt;String, ArrowEdge&gt; - 'start'와 'end' 키로 시작점과 끝점의 경계면 반환
+  Map<String, ArrowEdge> _determineArrowEdges(
+    int sourceColumnIndex,
+    int sourceTeacherIndex,
+    int targetColumnIndex,
+    int targetTeacherIndex,
+  ) {
+    // 상대적 위치 계산
+    bool isTargetBelow = targetTeacherIndex > sourceTeacherIndex; // 목표가 아래쪽에 있는지
+    bool isTargetRight = targetColumnIndex > sourceColumnIndex;   // 목표가 오른쪽에 있는지
+    bool isTargetAbove = targetTeacherIndex < sourceTeacherIndex; // 목표가 위쪽에 있는지
+    bool isTargetLeft = targetColumnIndex < sourceColumnIndex;   // 목표가 왼쪽에 있는지
+
+    // 시작점 경계면 결정
+    ArrowEdge startEdge;
+    if (isTargetBelow) {
+      startEdge = ArrowEdge.bottom; // 목표가 아래쪽: 하단에서 시작
+    } else if (isTargetAbove) {
+      startEdge = ArrowEdge.top;    // 목표가 위쪽: 상단에서 시작
     } else {
-      x += AppConstants.periodColumnWidth / 2;
+      // 같은 행에 있는 경우, 열 위치에 따라 결정
+      if (isTargetRight) {
+        startEdge = ArrowEdge.right; // 목표가 오른쪽: 오른쪽에서 시작
+      } else if (isTargetLeft) {
+        startEdge = ArrowEdge.left;  // 목표가 왼쪽: 왼쪽에서 시작
+      } else {
+        startEdge = ArrowEdge.right; // 같은 위치 (기본값)
+      }
     }
 
-    // Y 좌표 계산 (고정된 헤더 행들 고려)
-    // stackedHeaderRows가 있으면 헤더 행이 2개
-    double y = AppConstants.headerRowHeight * 2; // 헤더 행 2개 높이
-    y += teacherIndex * AppConstants.dataRowHeight; // 교사 인덱스에 따른 행 높이
-    y += AppConstants.dataRowHeight / 2; // 셀 중앙 위치로 조정
+    // 끝점 경계면 결정
+    ArrowEdge endEdge;
+    if (isTargetRight) {
+      endEdge = ArrowEdge.left;   // 목표가 오른쪽: 왼쪽 경계면에서 끝
+    } else if (isTargetLeft) {
+      endEdge = ArrowEdge.right;  // 목표가 왼쪽: 오른쪽 경계면에서 끝
+    } else {
+      // 같은 열에 있는 경우, 행 위치에 따라 결정
+      if (isTargetBelow) {
+        endEdge = ArrowEdge.top;    // 목표가 아래쪽: 상단에서 끝
+      } else if (isTargetAbove) {
+        endEdge = ArrowEdge.bottom; // 목표가 위쪽: 하단에서 끝
+      } else {
+        endEdge = ArrowEdge.left;   // 같은 위치 (기본값)
+      }
+    }
 
-    return Offset(x, y);
+    return {
+      'start': startEdge,
+      'end': endEdge,
+    };
   }
 
-  /// 셀의 경계면 중앙 위치 계산 (화살표 시작점/끝점용, 상대적 위치 고려)
-  Offset _getCellEdgePosition(int columnIndex, int teacherIndex, int otherColumnIndex, int otherTeacherIndex, bool isSource) {
+  /// 셀의 경계면 중앙 위치 계산 (화살표 시작점/끝점용)
+  /// 스크롤 오프셋과 고정 영역을 반영하여 실제 화면상의 위치를 계산
+  /// 
+  /// [columnIndex] 셀의 열 인덱스
+  /// [teacherIndex] 셀의 교사 인덱스
+  /// [edge] 경계면 종류 (상, 하, 좌, 우)
+  /// 
+  /// Returns: Offset - 경계면 중앙의 좌표 (스크롤 오프셋 및 고정 영역 반영)
+  Offset _getCellEdgePosition(int columnIndex, int teacherIndex, ArrowEdge edge) {
+    // 기본 X 좌표 계산
     double x = 0;
     for (int i = 0; i < columnIndex; i++) {
       if (i == 0) {
-        // 교사명 열 너비
+        // 교사명 열 너비 (고정 열)
         x += AppConstants.teacherColumnWidth;
       } else {
         // 교시 열 너비
@@ -382,62 +558,67 @@ class ExchangeArrowPainter extends CustomPainter {
       }
     }
 
-    // Y 좌표 계산 (고정된 헤더 행들 고려)
+    // 기본 Y 좌표 계산 (고정된 헤더 행들 고려)
     double y = AppConstants.headerRowHeight * 2; // 헤더 행 2개 높이
     y += teacherIndex * AppConstants.dataRowHeight; // 교사 인덱스에 따른 행 높이
 
-    // 상대적 위치에 따라 시작점/끝점 결정
-    bool isTargetBelow = otherTeacherIndex > teacherIndex; // 목표가 아래쪽에 있는지
-    bool isTargetRight = otherColumnIndex > columnIndex; // 목표가 오른쪽에 있는지
+    // 스크롤 오프셋 반영 (고정 영역 고려)
+    double horizontalOffset = 0.0;
+    double verticalOffset = verticalScrollController.hasClients 
+        ? verticalScrollController.offset 
+        : 0.0;
+
+    // 고정 열(교사명 열)이 아닌 경우에만 가로 스크롤 오프셋 적용
+    if (columnIndex > 0) {
+      horizontalOffset = horizontalScrollController.hasClients 
+          ? horizontalScrollController.offset 
+          : 0.0;
+    }
+
+    // 스크롤 오프셋을 좌표에 반영
+    x -= horizontalOffset;
+    y -= verticalOffset;
 
     // 셀의 경계면 중앙 위치 계산
     if (columnIndex == 0) {
       // 교사명 열의 경우
-      if (isSource) {
-        if (isTargetBelow) {
-          // 목표가 아래쪽: 하단 중앙에서 시작
-          x += AppConstants.teacherColumnWidth / 2; // 가로 중앙
-          y += AppConstants.dataRowHeight; // 하단
-        } else {
-          // 목표가 위쪽: 상단 중앙에서 시작
+      switch (edge) {
+        case ArrowEdge.top:
           x += AppConstants.teacherColumnWidth / 2; // 가로 중앙
           y += 0; // 상단
-        }
-      } else {
-        // 끝점: 교사명 열의 경계면 중앙 (상대적 위치에 따라 결정)
-        if (isTargetRight) {
-          // 목표가 오른쪽: 오른쪽 경계면 중앙
-          x += AppConstants.teacherColumnWidth; // 오른쪽 경계
-          y += AppConstants.dataRowHeight / 2; // 세로 중앙
-        } else {
-          // 목표가 왼쪽: 왼쪽 경계면 중앙
+          break;
+        case ArrowEdge.bottom:
+          x += AppConstants.teacherColumnWidth / 2; // 가로 중앙
+          y += AppConstants.dataRowHeight; // 하단
+          break;
+        case ArrowEdge.left:
           x += 0; // 왼쪽 경계
           y += AppConstants.dataRowHeight / 2; // 세로 중앙
-        }
+          break;
+        case ArrowEdge.right:
+          x += AppConstants.teacherColumnWidth; // 오른쪽 경계
+          y += AppConstants.dataRowHeight / 2; // 세로 중앙
+          break;
       }
     } else {
       // 교시 열의 경우
-      if (isSource) {
-        if (isTargetBelow) {
-          // 목표가 아래쪽: 하단 중앙에서 시작
-          x += AppConstants.periodColumnWidth / 2; // 가로 중앙
-          y += AppConstants.dataRowHeight; // 하단
-        } else {
-          // 목표가 위쪽: 상단 중앙에서 시작
+      switch (edge) {
+        case ArrowEdge.top:
           x += AppConstants.periodColumnWidth / 2; // 가로 중앙
           y += 0; // 상단
-        }
-      } else {
-        // 끝점: 셀의 경계면 중앙 (상대적 위치에 따라 결정)
-        if (isTargetRight) {
-          // 목표가 오른쪽: 오른쪽 경계면 중앙
-          x += AppConstants.periodColumnWidth; // 오른쪽 경계
-          y += AppConstants.dataRowHeight / 2; // 세로 중앙
-        } else {
-          // 목표가 왼쪽: 왼쪽 경계면 중앙
+          break;
+        case ArrowEdge.bottom:
+          x += AppConstants.periodColumnWidth / 2; // 가로 중앙
+          y += AppConstants.dataRowHeight; // 하단
+          break;
+        case ArrowEdge.left:
           x += 0; // 왼쪽 경계
           y += AppConstants.dataRowHeight / 2; // 세로 중앙
-        }
+          break;
+        case ArrowEdge.right:
+          x += AppConstants.periodColumnWidth; // 오른쪽 경계
+          y += AppConstants.dataRowHeight / 2; // 세로 중앙
+          break;
       }
     }
 
@@ -459,7 +640,7 @@ class ExchangeArrowPainter extends CustomPainter {
     
     // 내부선용 Paint (연한 녹색, 얇은 선)
     final innerPaint = Paint()
-      ..color = Colors.green.withOpacity(0.7) // 연한 녹색
+      ..color = Colors.green.withValues(alpha: 0.7) // 연한 녹색
       ..strokeWidth = 3.0
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
@@ -481,22 +662,6 @@ class ExchangeArrowPainter extends CustomPainter {
     _drawArrowHeadWithOutline(canvas, midPoint, end);
   }
 
-  /// 직각 방향 화살표 그리기
-  void _drawRightAngleArrow(Canvas canvas, Paint paint, Offset start, Offset end) {
-    // 직각 방향으로 그리기 위해 중간점 계산
-    Offset midPoint = Offset(start.dx, end.dy);
-    
-    // 직선 그리기 (시작점 -> 중간점 -> 끝점)
-    Path path = Path();
-    path.moveTo(start.dx, start.dy);
-    path.lineTo(midPoint.dx, midPoint.dy);
-    path.lineTo(end.dx, end.dy);
-    
-    canvas.drawPath(path, paint);
-    
-    // 화살표 머리 그리기
-    _drawArrowHead(canvas, paint, midPoint, end);
-  }
 
   /// 화살표 머리 그리기 (외곽선과 내부선)
   void _drawArrowHeadWithOutline(Canvas canvas, Offset from, Offset to) {
@@ -531,7 +696,7 @@ class ExchangeArrowPainter extends CustomPainter {
 
     // 내부선용 Paint (연한 녹색, 얇은 선)
     final innerPaint = Paint()
-      ..color = Colors.green.withOpacity(0.7) // 연한 녹색
+      ..color = Colors.green.withValues(alpha: 0.7) // 연한 녹색
       ..strokeWidth = 3.0
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
@@ -550,39 +715,6 @@ class ExchangeArrowPainter extends CustomPainter {
     canvas.drawPath(arrowHead, innerPaint);
   }
 
-  /// 화살표 머리 그리기
-  void _drawArrowHead(Canvas canvas, Paint paint, Offset from, Offset to) {
-    // 화살표 머리 크기
-    double headLength = 12.0;
-    double headAngle = 0.5; // 라디안
-
-    // 방향 벡터 계산
-    double dx = to.dx - from.dx;
-    double dy = to.dy - from.dy;
-    double distance = math.sqrt(dx * dx + dy * dy);
-
-    if (distance == 0) return;
-
-    // 정규화
-    dx /= distance;
-    dy /= distance;
-
-    // 화살표 머리 점들 계산
-    double x1 = to.dx - headLength * (dx * math.cos(headAngle) + dy * math.sin(headAngle));
-    double y1 = to.dy - headLength * (dy * math.cos(headAngle) - dx * math.sin(headAngle));
-    
-    double x2 = to.dx - headLength * (dx * math.cos(-headAngle) + dy * math.sin(-headAngle));
-    double y2 = to.dy - headLength * (dy * math.cos(-headAngle) - dx * math.sin(-headAngle));
-
-    // 화살표 머리 그리기
-    Path arrowHead = Path();
-    arrowHead.moveTo(to.dx, to.dy);
-    arrowHead.lineTo(x1, y1);
-    arrowHead.moveTo(to.dx, to.dy);
-    arrowHead.lineTo(x2, y2);
-    
-    canvas.drawPath(arrowHead, paint);
-  }
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
