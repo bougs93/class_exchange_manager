@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/simplified_timetable_theme.dart';
+import '../utils/logger.dart';
 
 /// 타겟 셀 배경색 상수 예시
 /// 
@@ -9,28 +10,28 @@ class TargetCellBackgroundExample {
   
   /// 현재 설정된 배경색 정보 출력
   static void printCurrentSettings() {
-    print('=== 타겟 셀 배경색 설정 (상수) ===');
-    print('배경색: ${SimplifiedTimetableTheme.targetCellBackgroundColor}');
-    print('표시 여부: ${SimplifiedTimetableTheme.showTargetCellBackground}');
-    print('테두리 색상: ${SimplifiedTimetableTheme.targetCellBorderColor}');
-    print('테두리 표시 여부: ${SimplifiedTimetableTheme.showTargetCellBorder}');
+    AppLogger.exchangeInfo('=== 타겟 셀 배경색 설정 (상수) ===');
+    AppLogger.exchangeInfo('배경색: ${SimplifiedTimetableTheme.targetCellBackgroundColor}');
+    AppLogger.exchangeInfo('표시 여부: ${SimplifiedTimetableTheme.showTargetCellBackground}');
+    AppLogger.exchangeInfo('테두리 색상: ${SimplifiedTimetableTheme.targetCellBorderColor}');
+    AppLogger.exchangeInfo('테두리 표시 여부: ${SimplifiedTimetableTheme.showTargetCellBorder}');
   }
   
   /// 타겟 셀 배경색 변경 방법 안내
   static void showHowToChangeBackgroundColor() {
-    print('=== 타겟 셀 배경색 변경 방법 ===');
-    print('1. lib/utils/simplified_timetable_theme.dart 파일을 열어주세요.');
-    print('2. 다음 상수를 찾아주세요:');
-    print('   static const Color targetCellBackgroundColor = Color.fromARGB(255, 200, 255, 200);');
-    print('3. 원하는 색상으로 변경해주세요.');
-    print('');
-    print('예시 색상들:');
-    print('- 연한 녹색: Color.fromARGB(255, 200, 255, 200)');
-    print('- 연한 파란색: Color.fromARGB(255, 227, 242, 253)');
-    print('- 연한 노란색: Color.fromARGB(255, 255, 249, 196)');
-    print('- 연한 주황색: Color.fromARGB(255, 255, 224, 178)');
-    print('- 연한 빨간색: Color.fromARGB(255, 255, 235, 238)');
-    print('- 연한 보라색: Color.fromARGB(255, 243, 229, 245)');
+    AppLogger.exchangeInfo('=== 타겟 셀 배경색 변경 방법 ===');
+    AppLogger.exchangeInfo('1. lib/utils/simplified_timetable_theme.dart 파일을 열어주세요.');
+    AppLogger.exchangeInfo('2. 다음 상수를 찾아주세요:');
+    AppLogger.exchangeInfo('   static const Color targetCellBackgroundColor = Color.fromARGB(255, 200, 255, 200);');
+    AppLogger.exchangeInfo('3. 원하는 색상으로 변경해주세요.');
+    AppLogger.exchangeInfo('');
+    AppLogger.exchangeInfo('예시 색상들:');
+    AppLogger.exchangeInfo('- 연한 녹색: Color.fromARGB(255, 200, 255, 200)');
+    AppLogger.exchangeInfo('- 연한 파란색: Color.fromARGB(255, 227, 242, 253)');
+    AppLogger.exchangeInfo('- 연한 노란색: Color.fromARGB(255, 255, 249, 196)');
+    AppLogger.exchangeInfo('- 연한 주황색: Color.fromARGB(255, 255, 224, 178)');
+    AppLogger.exchangeInfo('- 연한 빨간색: Color.fromARGB(255, 255, 235, 238)');
+    AppLogger.exchangeInfo('- 연한 보라색: Color.fromARGB(255, 243, 229, 245)');
   }
 }
 

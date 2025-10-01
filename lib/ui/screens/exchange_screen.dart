@@ -341,18 +341,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
   
   @override
   void onEmptyCellSelected() {
-    setState(() {
-      // 순환교체 경로와 관련된 모든 상태 초기화
-      _circularPaths = [];
-      _selectedCircularPath = null;
-      _isSidebarVisible = false;
-      _isCircularPathsLoading = false;
-      _loadingProgress = 0.0;
-      _filteredPaths = [];
-    });
-    
-    // 데이터 소스에서도 순환교체 관련 상태 초기화
-    _dataSource?.updateSelectedCircularPath(null);
+    // 빈 셀 선택 시 이전 교체 관련 상태만 초기화
+    _clearPreviousExchangeStates();
     
     // 필터 초기화
     _resetFilters();
@@ -405,24 +395,20 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
   
   @override
   void clearPreviousCircularExchangeState() {
-    // onEmptyCellSelected와 동일한 로직 재사용
-    onEmptyCellSelected();
+    // 순환교체 이전 상태만 초기화 (현재 선택된 셀은 유지)
+    _clearPreviousExchangeStates();
+    
+    // 필터 초기화
+    _resetFilters();
+    
+    // 시간표 그리드 테마 업데이트 (이전 경로 표시 제거)
+    _updateHeaderTheme();
   }
 
   @override
   void clearPreviousChainExchangeState() {
-    setState(() {
-      // 연쇄교체 경로와 관련된 모든 상태 초기화
-      _chainPaths = [];
-      _selectedChainPath = null;
-      _isSidebarVisible = false;
-      _isChainPathsLoading = false;
-      _loadingProgress = 0.0;
-      _filteredPaths = [];
-    });
-    
-    // 데이터 소스에서도 연쇄교체 관련 상태 초기화
-    _dataSource?.updateSelectedChainPath(null);
+    // 연쇄교체 이전 상태만 초기화 (현재 선택된 셀은 유지)
+    _clearPreviousExchangeStates();
     
     // 필터 초기화
     _resetFilters();
@@ -483,10 +469,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         _filteredPaths = paths.cast<ExchangePath>();
         _isChainPathsLoading = false;
         _loadingProgress = 1.0;
-      });
-
-      // 경로에 따른 사이드바 표시 설정
-      setState(() {
+        
+        // 경로에 따른 사이드바 표시 설정
         if (paths.isEmpty) {
           _isSidebarVisible = false; // 경로가 없으면 사이드바 숨김
           AppLogger.exchangeDebug('연쇄교체 경로가 없어서 사이드바를 숨김니다.');
@@ -530,17 +514,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
   
   @override
   void processCellSelection() {
-    // 새로운 셀 선택시 이전 1:1 교체 관련 상태 초기화
-    setState(() {
-      _selectedOneToOnePath = null;
-      _oneToOnePaths = [];
-    });
-    
-    // 데이터 소스에서 이전 1:1 교체 관련 상태 초기화
-    _dataSource?.updateSelectedOneToOnePath(null);
-    
-    // 타겟 셀 해제
-    _clearTargetCell();
+    // 새로운 셀 선택시 이전 교체 관련 상태만 초기화 (현재 선택된 셀은 유지)
+    _clearPreviousExchangeStates();
     
     // 순환교체 모드에서 필터 초기화
     if (_isCircularExchangeModeEnabled) {
@@ -770,32 +745,12 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
   /// 교체 모드 토글
   void _toggleExchangeMode() {
     setState(() {
-      // 순환교체 모드가 활성화되어 있다면 비활성화
-      if (_isCircularExchangeModeEnabled) {
+      // 다른 모드가 활성화되어 있다면 비활성화
+      if (_isCircularExchangeModeEnabled || _isChainExchangeModeEnabled) {
         _isCircularExchangeModeEnabled = false;
-        // 순환교체 모드의 선택 상태와 경로 정보 초기화
-        _circularExchangeService.clearAllSelections();
-        _selectedCircularPath = null;
-        _circularPaths = [];
-        _isSidebarVisible = false;
-        _isCircularPathsLoading = false;
-        _loadingProgress = 0.0;
-        _dataSource?.updateSelectedCircularPath(null);
-        // 타겟 셀 초기화
-        _clearTargetCell();
-      }
-      
-      // 연쇄교체 모드가 활성화되어 있다면 비활성화
-      if (_isChainExchangeModeEnabled) {
         _isChainExchangeModeEnabled = false;
-        _chainExchangeService.clearAllSelections();
-        _selectedChainPath = null;
-        _chainPaths = [];
-        _isChainPathsLoading = false;
-        _loadingProgress = 0.0;
-        _dataSource?.updateSelectedChainPath(null);
-        // 타겟 셀 초기화
-        _clearTargetCell();
+        // 모든 교체 모드 상태 초기화
+        _clearAllExchangeStates();
       }
       
       _isExchangeModeEnabled = !_isExchangeModeEnabled;
@@ -805,15 +760,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         _restoreUIToDefault();
       } else {
         // 1:1 교체 모드가 활성화되면 선택 상태 초기화
-        _exchangeService.clearAllSelections();
-        _dataSource?.updateSelection(null, null, null);
-        _dataSource?.updateExchangeOptions([]);
-        _dataSource?.updateExchangeableTeachers([]);
-        _dataSource?.updateSelectedOneToOnePath(null);
-        _selectedOneToOnePath = null;
-        _oneToOnePaths = [];
-        // 타겟 셀 초기화
-        _clearTargetCell();
+        _clearAllExchangeStates();
       }
     });
     
@@ -837,32 +784,12 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     AppLogger.exchangeDebug('순환교체 모드 토글 시작 - 현재 상태: $_isCircularExchangeModeEnabled');
 
     setState(() {
-      // 1:1교체 모드가 활성화되어 있다면 비활성화
-      if (_isExchangeModeEnabled) {
+      // 다른 모드가 활성화되어 있다면 비활성화
+      if (_isExchangeModeEnabled || _isChainExchangeModeEnabled) {
         _isExchangeModeEnabled = false;
-        // 1:1 교체 모드의 선택 상태와 교체 가능한 시간 정보 초기화
-        _exchangeService.clearAllSelections();
-        _dataSource?.updateSelection(null, null, null);
-        _dataSource?.updateExchangeOptions([]);
-        _dataSource?.updateExchangeableTeachers([]);
-        _dataSource?.updateSelectedOneToOnePath(null);
-        _selectedOneToOnePath = null;
-        _oneToOnePaths = [];
-        // 타겟 셀 초기화
-        _clearTargetCell();
-      }
-
-      // 연쇄교체 모드가 활성화되어 있다면 비활성화
-      if (_isChainExchangeModeEnabled) {
         _isChainExchangeModeEnabled = false;
-        _chainExchangeService.clearAllSelections();
-        _selectedChainPath = null;
-        _chainPaths = [];
-        _isChainPathsLoading = false;
-        _loadingProgress = 0.0;
-        _dataSource?.updateSelectedChainPath(null);
-        // 타겟 셀 초기화
-        _clearTargetCell();
+        // 모든 교체 모드 상태 초기화
+        _clearAllExchangeStates();
       }
 
       _isCircularExchangeModeEnabled = !_isCircularExchangeModeEnabled;
@@ -874,18 +801,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         _availableSteps = [];
         _selectedStep = null;
       } else {
-        // 순환교체 모드가 활성화되면 사이드바도 숨김 (새로운 경로 탐색 전까지)
-        _isSidebarVisible = false;
-        // 순환교체 모드의 선택 상태도 초기화
-        _circularExchangeService.clearAllSelections();
-        _selectedCircularPath = null;
-        _circularPaths = [];
-        _isCircularPathsLoading = false;
-        // 단계 필터 관련 상태 초기화
-        _availableSteps = [];
-        _selectedStep = null;
-        _loadingProgress = 0.0;
-        _dataSource?.updateSelectedCircularPath(null);
+        // 순환교체 모드가 활성화되면 선택 상태 초기화
+        _clearAllExchangeStates();
       }
     });
 
@@ -908,29 +825,12 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     AppLogger.exchangeDebug('연쇄교체 모드 토글 시작 - 현재 상태: $_isChainExchangeModeEnabled');
 
     setState(() {
-      // 1:1교체 모드가 활성화되어 있다면 비활성화
-      if (_isExchangeModeEnabled) {
+      // 다른 모드가 활성화되어 있다면 비활성화
+      if (_isExchangeModeEnabled || _isCircularExchangeModeEnabled) {
         _isExchangeModeEnabled = false;
-        _exchangeService.clearAllSelections();
-        _dataSource?.updateSelection(null, null, null);
-        _dataSource?.updateExchangeOptions([]);
-        _dataSource?.updateExchangeableTeachers([]);
-        _dataSource?.updateSelectedOneToOnePath(null);
-        _selectedOneToOnePath = null;
-        _oneToOnePaths = [];
-        // 타겟 셀 초기화
-        _clearTargetCell();
-      }
-
-      // 순환교체 모드가 활성화되어 있다면 비활성화
-      if (_isCircularExchangeModeEnabled) {
         _isCircularExchangeModeEnabled = false;
-        _circularExchangeService.clearAllSelections();
-        _selectedCircularPath = null;
-        _circularPaths = [];
-        _isCircularPathsLoading = false;
-        // 타겟 셀 초기화
-        _clearTargetCell();
+        // 모든 교체 모드 상태 초기화
+        _clearAllExchangeStates();
       }
 
       _isChainExchangeModeEnabled = !_isChainExchangeModeEnabled;
@@ -942,13 +842,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         _dataSource?.updateSelectedChainPath(null);
         _filteredPaths = [];
       } else {
-        // 연쇄교체 모드가 활성화되면 사이드바도 숨김
-        _isSidebarVisible = false;
-        _chainExchangeService.clearAllSelections();
-        _selectedChainPath = null;
-        _chainPaths = [];
-        _isChainPathsLoading = false;
-        _loadingProgress = 0.0;
+        // 연쇄교체 모드가 활성화되면 선택 상태 초기화
+        _clearAllExchangeStates();
       }
     });
 
@@ -969,21 +864,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
   
   /// UI를 기본값으로 복원
   void _restoreUIToDefault() {
-    // 모든 교체 서비스의 선택 상태 초기화
-    _exchangeService.clearAllSelections();
-    _circularExchangeService.clearAllSelections();
-    _chainExchangeService.clearAllSelections();
-    
-    // 타겟 셀 초기화
-    _clearTargetCell();
-    
-    // 데이터 소스에 선택 상태 해제
-    _dataSource?.updateSelection(null, null, null);
-    _dataSource?.updateExchangeOptions([]);
-    _dataSource?.updateExchangeableTeachers([]);
-    _dataSource?.updateSelectedCircularPath(null);
-    _dataSource?.updateSelectedOneToOnePath(null);
-    _dataSource?.updateSelectedChainPath(null);
+    // 모든 교체 모드 상태 초기화
+    _clearAllExchangeStates();
     
     // 교체 가능한 시간 업데이트 (빈 목록으로)
     updateExchangeableTimes();
@@ -993,24 +875,14 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       _errorMessage = null;
     }
     
-    // 모든 교체 모드 및 선택된 경로 초기화
+    // 모든 교체 모드 비활성화
     _isExchangeModeEnabled = false;
     _isCircularExchangeModeEnabled = false;
     _isChainExchangeModeEnabled = false;
-    _selectedCircularPath = null;
-    _selectedOneToOnePath = null;
-    _selectedChainPath = null;
-    _circularPaths = [];
-    _oneToOnePaths = [];
-    _chainPaths = [];
-    _isSidebarVisible = false;
-    _isCircularPathsLoading = false;
-    _loadingProgress = 0.0;
     
     // 검색 상태 초기화
     _searchController.clear();
     _searchQuery = '';
-    _filteredPaths = [];
     
     // 헤더 테마를 기본값으로 복원 (모든 변수 초기화 후)
     _updateHeaderTheme();
@@ -1625,47 +1497,131 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
   /// 타겟 셀 설정 (교체 대상의 같은 행 셀)
   /// 교체 대상이 월1교시라면, 선택된 셀의 같은 행의 월1교시를 타겟으로 설정
   void _setTargetCellFromPath(OneToOneExchangePath path) {
-    if (_exchangeService.hasSelectedCell() && _timetableData != null) {
-      // 교체 대상의 요일과 교시 가져오기
-      String targetDay = path.targetNode.day;
-      int targetPeriod = path.targetNode.period;
-      
-      // 선택된 셀의 교사명 가져오기
-      String selectedTeacher = _exchangeService.selectedTeacher!;
-      
-      // ExchangeService에 타겟 셀 설정
-      _exchangeService.setTargetCell(selectedTeacher, targetDay, targetPeriod);
-      
-      // 데이터 소스에 타겟 셀 정보 전달
-      _dataSource?.updateTargetCell(selectedTeacher, targetDay, targetPeriod);
-      
-      AppLogger.exchangeDebug('타겟 셀 설정: $selectedTeacher $targetDay $targetPeriod교시');
+    if (!_exchangeService.hasSelectedCell() || _timetableData == null) {
+      AppLogger.exchangeDebug('1:1 교체 타겟 셀 설정 실패: 조건 불충족');
+      return;
     }
+    
+    // 교체 대상의 요일과 교시 가져오기
+    String targetDay = path.targetNode.day;
+    int targetPeriod = path.targetNode.period;
+    
+    // 선택된 셀의 교사명 가져오기
+    String selectedTeacher = _exchangeService.selectedTeacher!;
+    
+    // ExchangeService에 타겟 셀 설정
+    _exchangeService.setTargetCell(selectedTeacher, targetDay, targetPeriod);
+    
+    // 데이터 소스에 타겟 셀 정보 전달
+    _dataSource?.updateTargetCell(selectedTeacher, targetDay, targetPeriod);
+    
+    AppLogger.exchangeDebug('타겟 셀 설정: $selectedTeacher $targetDay $targetPeriod교시');
   }
   
   /// 순환교체 경로에서 타겟 셀 설정 (교체 대상의 같은 행 셀)
   /// 교체 대상이 월1교시라면, 선택된 셀의 같은 행의 월1교시를 타겟으로 설정
   void _setTargetCellFromCircularPath(CircularExchangePath path) {
-    if (_circularExchangeService.hasSelectedCell() && _timetableData != null && path.nodes.length >= 2) {
-      // 순환교체 경로의 첫 번째 노드는 선택된 셀, 두 번째 노드는 교체 대상
-      ExchangeNode sourceNode = path.nodes[0]; // 선택된 셀
-      ExchangeNode targetNode = path.nodes[1]; // 교체 대상
-      
-      // 교체 대상의 요일과 교시 가져오기
-      String targetDay = targetNode.day;
-      int targetPeriod = targetNode.period;
-      
-      // 선택된 셀의 교사명 가져오기
-      String selectedTeacher = sourceNode.teacherName;
-      
-      // ExchangeService에 타겟 셀 설정
-      _exchangeService.setTargetCell(selectedTeacher, targetDay, targetPeriod);
-      
-      // 데이터 소스에 타겟 셀 정보 전달
-      _dataSource?.updateTargetCell(selectedTeacher, targetDay, targetPeriod);
-      
-      AppLogger.exchangeDebug('순환교체 타겟 셀 설정: $selectedTeacher $targetDay $targetPeriod교시');
+    if (!_circularExchangeService.hasSelectedCell() || _timetableData == null || path.nodes.length < 2) {
+      AppLogger.exchangeDebug('순환교체 타겟 셀 설정 실패: 조건 불충족');
+      return;
     }
+    
+    // 순환교체 경로의 첫 번째 노드는 선택된 셀, 두 번째 노드는 교체 대상
+    ExchangeNode sourceNode = path.nodes[0]; // 선택된 셀
+    ExchangeNode targetNode = path.nodes[1]; // 교체 대상
+    
+    // 교체 대상의 요일과 교시 가져오기
+    String targetDay = targetNode.day;
+    int targetPeriod = targetNode.period;
+    
+    // 선택된 셀의 교사명 가져오기
+    String selectedTeacher = sourceNode.teacherName;
+    
+    // ExchangeService에 타겟 셀 설정
+    _exchangeService.setTargetCell(selectedTeacher, targetDay, targetPeriod);
+    
+    // 데이터 소스에 타겟 셀 정보 전달
+    _dataSource?.updateTargetCell(selectedTeacher, targetDay, targetPeriod);
+    
+    AppLogger.exchangeDebug('순환교체 타겟 셀 설정: $selectedTeacher $targetDay $targetPeriod교시');
+  }
+  
+  /// 이전 교체 관련 상태만 초기화 (현재 선택된 셀은 유지)
+  /// 새로운 셀 선택 시 이전 경로와 타겟 셀만 초기화
+  void _clearPreviousExchangeStates() {
+    // 타겟 셀 초기화
+    _clearTargetCell();
+    
+    // 데이터 소스에 이전 경로 정보만 해제 (현재 선택된 셀은 유지)
+    _dataSource?.updateSelectedCircularPath(null);
+    _dataSource?.updateSelectedOneToOnePath(null);
+    _dataSource?.updateSelectedChainPath(null);
+    
+    // 이전 선택된 경로 초기화
+    _selectedCircularPath = null;
+    _selectedOneToOnePath = null;
+    _selectedChainPath = null;
+    
+    // 이전 경로 리스트 초기화
+    _circularPaths = [];
+    _oneToOnePaths = [];
+    _chainPaths = [];
+    
+    // UI 상태 초기화
+    _isSidebarVisible = false;
+    _isCircularPathsLoading = false;
+    _isChainPathsLoading = false;
+    _loadingProgress = 0.0;
+    
+    // 필터 상태 초기화
+    _filteredPaths = [];
+    _availableSteps = [];
+    _selectedStep = null;
+    
+    AppLogger.exchangeDebug('이전 교체 관련 상태 초기화 완료');
+  }
+  
+  /// 모든 교체 모드 공통 초기화
+  /// 모드 전환 시 모든 교체 관련 상태를 초기화
+  void _clearAllExchangeStates() {
+    // 모든 교체 서비스의 선택 상태 초기화
+    _exchangeService.clearAllSelections();
+    _circularExchangeService.clearAllSelections();
+    _chainExchangeService.clearAllSelections();
+    
+    // 타겟 셀 초기화
+    _clearTargetCell();
+    
+    // 데이터 소스에 모든 선택 상태 해제
+    _dataSource?.updateSelection(null, null, null);
+    _dataSource?.updateExchangeOptions([]);
+    _dataSource?.updateExchangeableTeachers([]);
+    _dataSource?.updateSelectedCircularPath(null);
+    _dataSource?.updateSelectedOneToOnePath(null);
+    _dataSource?.updateSelectedChainPath(null);
+    
+    // 모든 선택된 경로 초기화
+    _selectedCircularPath = null;
+    _selectedOneToOnePath = null;
+    _selectedChainPath = null;
+    
+    // 모든 경로 리스트 초기화
+    _circularPaths = [];
+    _oneToOnePaths = [];
+    _chainPaths = [];
+    
+    // UI 상태 초기화
+    _isSidebarVisible = false;
+    _isCircularPathsLoading = false;
+    _isChainPathsLoading = false;
+    _loadingProgress = 0.0;
+    
+    // 필터 상태 초기화
+    _filteredPaths = [];
+    _availableSteps = [];
+    _selectedStep = null;
+    
+    AppLogger.exchangeDebug('모든 교체 모드 상태 초기화 완료');
   }
   
   /// 타겟 셀 해제
