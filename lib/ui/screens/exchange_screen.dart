@@ -231,7 +231,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
                 isExchangeModeEnabled: _isExchangeModeEnabled,
                 exchangeableCount: getActualExchangeableCount(),
                 onCellTap: _onCellTap,
-                selectedExchangePath: _selectedOneToOnePath, // 선택된 1:1 교체 경로 전달 (올바른 매개변수명 사용)
+                selectedExchangePath: _getCurrentSelectedPath(), // 현재 선택된 교체 경로 전달
               ),
             )
           else
@@ -377,6 +377,10 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
   void onPathSelected(CircularExchangePath path) {
     setState(() {
       _selectedCircularPath = path;
+      // 순환 교체 경로가 선택되면 순환 교체 모드 자동 활성화
+      if (!_isCircularExchangeModeEnabled) {
+        _isCircularExchangeModeEnabled = true;
+      }
     });
     
     // 데이터 소스에 선택된 경로 업데이트
@@ -1321,6 +1325,19 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     );
   }
 
+  /// 현재 선택된 교체 경로 반환 (모든 타입 지원)
+  ExchangePath? _getCurrentSelectedPath() {
+    // 우선순위: 순환교체 > 연쇄교체 > 1:1교체
+    if (_selectedCircularPath != null) {
+      return _selectedCircularPath;
+    } else if (_selectedChainPath != null) {
+      return _selectedChainPath;
+    } else if (_selectedOneToOnePath != null) {
+      return _selectedOneToOnePath;
+    }
+    return null;
+  }
+
   /// 통합 경로 선택 처리
   void _onUnifiedPathSelected(ExchangePath path) {
     AppLogger.exchangeDebug('통합 경로 선택: ${path.id}, 타입: ${path.type}');
@@ -1364,7 +1381,7 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     } else if (path is CircularExchangePath) {
       // 순환교체 경로 선택
       AppLogger.exchangeDebug('순환교체 경로 선택: ${path.id}');
-      selectPath(path);
+      onPathSelected(path);
     } else if (path is ChainExchangePath) {
       // 이미 선택된 경로를 다시 클릭하면 선택 해제 (토글 기능)
       bool isSamePathSelected = _selectedChainPath != null && 

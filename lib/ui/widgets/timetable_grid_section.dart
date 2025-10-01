@@ -145,7 +145,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
 
   /// 스크롤 변경 시 화살표 재그리기를 위한 콜백
   void _onScrollChanged() {
-    if (widget.selectedExchangePath != null && widget.isExchangeModeEnabled) {
+    if (widget.selectedExchangePath != null) {
       setState(() {
         // 화살표가 표시되는 경우에만 재그리기
       });
@@ -236,8 +236,11 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
   Widget _buildDataGridWithArrows() {
     Widget dataGrid = _buildDataGrid();
     
+    
     // 교체 경로가 선택된 경우에만 화살표 표시 (모든 타입 지원)
-    if (widget.selectedExchangePath != null && widget.isExchangeModeEnabled) {
+    print('화살표 조건 확인: selectedPath=${widget.selectedExchangePath != null}, exchangeMode=${widget.isExchangeModeEnabled}');
+    if (widget.selectedExchangePath != null) {
+      print('화살표 표시 조건 만족 - CustomPainter 생성');
       return Stack(
         children: [
           dataGrid,
@@ -260,6 +263,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
       );
     }
     
+    print('화살표 표시 조건 불만족 - DataGrid만 반환');
     return dataGrid;
   }
 
@@ -410,15 +414,19 @@ class ExchangeArrowPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    print('ExchangeArrowPainter.paint() 호출됨 - 경로 타입: ${selectedPath.type}');
     // 교체 경로 타입에 따라 다른 화살표 그리기
     switch (selectedPath.type) {
       case ExchangePathType.oneToOne:
+        print('1:1 교체 화살표 그리기');
         _drawOneToOneArrows(canvas, size);
         break;
       case ExchangePathType.circular:
+        print('순환 교체 화살표 그리기');
         _drawCircularArrows(canvas, size);
         break;
       case ExchangePathType.chain:
+        print('연쇄 교체 화살표 그리기');
         _drawChainArrows(canvas, size);
         break;
     }
@@ -442,9 +450,18 @@ class ExchangeArrowPainter extends CustomPainter {
     final circularPath = selectedPath as CircularExchangePath;
     final nodes = circularPath.nodes;
 
+    print('순환 교체 화살표 그리기 시작: 노드 개수 = ${nodes.length}');
+
     // 순환 경로의 각 단계별로 화살표 그리기 (가로 우선, 머리 사이즈 10, 단계별 텍스트)
     for (int i = 0; i < nodes.length - 1; i++) {
+      print('순환 화살표 그리기: ${i + 1}단계 (${nodes[i].teacherName} → ${nodes[i + 1].teacherName})');
       _drawArrowBetweenNodes(canvas, size, nodes[i], nodes[i + 1], priority: ArrowPriority.horizontalFirst, arrowHeadSize: 10.0, text: "${i + 1}");
+    }
+    
+    // 순환 교체의 핵심: 마지막 노드에서 첫 번째 노드로 돌아가는 화살표 그리기
+    if (nodes.length > 2) { // 최소 3개 노드가 있어야 순환 가능
+      print('순환 화살표 그리기: ${nodes.length}단계 (${nodes.last.teacherName} → ${nodes.first.teacherName})');
+      _drawArrowBetweenNodes(canvas, size, nodes.last, nodes.first, priority: ArrowPriority.horizontalFirst, arrowHeadSize: 10.0, text: "${nodes.length}");
     }
   }
 
@@ -695,7 +712,7 @@ class ExchangeArrowPainter extends CustomPainter {
   /// [targetColumnIndex] 목표 셀의 열 인덱스
   /// [targetTeacherIndex] 목표 셀의 교사 인덱스
   /// 
-  /// Returns: Map<String, ArrowEdge> - 'start'와 'end' 키로 시작점과 끝점의 경계면 반환
+  /// Returns: `Map<String, ArrowEdge>` - 'start'와 'end' 키로 시작점과 끝점의 경계면 반환
   Map<String, ArrowEdge> _determineArrowEdges(
     int sourceColumnIndex,
     int sourceTeacherIndex,
