@@ -8,11 +8,27 @@ class SimplifiedTimetableTheme {
   static const Color defaultColor = Colors.white;
   static const Color teacherHeaderColor = Color(0xFFF5F5F5);
   
-  // 색상 변형 (public으로 변경하여 다른 테마에서 참조 가능)
-  static const Color selectedColorLight = Color.fromARGB(255, 255, 174, 0); // 진한 오렌지색
+  // 선택된 셀 색상 (마우스 클릭, 교체할 셀 선택시)
+  static const Color selectedColorLight = Color.fromARGB(255, 255, 255, 0); // 노란색
   static const Color exchangeableColorLight = Color(0xFFE0E0E0);
   static const Color selectedColorDark = Color(0xFF1976D2);
-    // 텍스트 색상 상수
+  // 선택된 셀 테두리 색상 상수
+  static const Color selectedCellBorderColor = Color(0xFFFF0000); // 선택된 셀 테두리 색상 (빨간색)
+  static const double selectedCellBorderWidth = 2; // 선택된 셀 테두리 두께
+  static BorderStyle selectedCellBorderStyle = BorderStyle.solid; // 선택된 셀 테두리 스타일 (solid, dashed)
+  static const bool showSelectedCellBorder = true; // 선택된 셀 테두리 표시 여부
+
+// 타겟 셀 테두리 색상 상수 (이동할 같은 교사의 셀 테두리)
+  static const Color targetCellBorderColor = Color(0xFFFF0000); // 타겟 셀 테두리 색상 (녹색)
+  static const double targetCellBorderWidth = 2.5; // 타겟 셀 테두리 두께
+  static BorderStyle targetCellBorderStyle = BorderStyle.solid; // 타겟 셀 테두리 스타일 (solid만 지원, 점선은 CustomPainter 사용)
+  static const bool showTargetCellBorder = true; // 타겟 셀 테두리 표시 여부
+  
+  // 타겟 셀 배경색 상수 (교체 대상의 같은 행 셀 배경색)
+  static const Color targetCellBackgroundColor = Color.fromARGB(255, 255, 0, 0); // 타겟 셀 배경색 (연한 녹색)
+  static const bool showTargetCellBackground = false; // 타겟 셀 배경색 표시 여부
+
+  // 텍스트 색상 상수
   static const Color selectedTextColor = Colors.black; // 선택된 셀의 텍스트 색상 (흰색)
   
   // 순환교체 경로 색상
@@ -31,10 +47,13 @@ class SimplifiedTimetableTheme {
   static const Color overlayColorSelected = Color(0xFFD32F2F); // 진한 빨간색
   static const Color overlayColorExchangeable = Color.fromARGB(255, 250, 160, 169); // 연한 빨간색 (Colors.red.shade200의 실제 색상값)
   
-  // 선택된 셀 테두리 색상 상수
-  static const Color selectedCellBorderColor = Color(0xFFFF0000); // 선택된 셀 테두리 색상 (빨간색)
-  static const double selectedCellBorderWidth = 1.0; // 선택된 셀 테두리 두께
-  static const bool showSelectedCellBorder = false; // 선택된 셀 테두리 표시 여부
+  
+  
+  
+  
+
+  
+  
   
   /// 통합된 셀 스타일 생성
   static CellStyle getCellStyle({
@@ -48,6 +67,7 @@ class SimplifiedTimetableTheme {
     bool isInSelectedPath = false, // 선택된 경로에 포함된 셀인지 여부 (1:1 교체 모드)
     bool isInChainPath = false, // 연쇄교체 경로에 포함된 셀인지 여부
     int? chainPathStep, // 연쇄교체 경로에서의 단계 (1, 2)
+    bool isTargetCell = false, // 타겟 셀인지 여부 (교체 대상의 같은 행 셀)
   }) {
     return CellStyle(
       backgroundColor: _getBackgroundColor(
@@ -57,6 +77,7 @@ class SimplifiedTimetableTheme {
         isInCircularPath: isInCircularPath,
         isInSelectedPath: isInSelectedPath,
         isInChainPath: isInChainPath,
+        isTargetCell: isTargetCell, // 타겟 셀 정보 전달
       ),
       textStyle: _getTextStyle(
         isSelected: isSelected,
@@ -68,6 +89,8 @@ class SimplifiedTimetableTheme {
         isSelected: isSelected,
         isLastColumnOfDay: isLastColumnOfDay,
         isInCircularPath: isInCircularPath,
+        isHeader: isHeader,
+        isTargetCell: isTargetCell,
       ),
       overlayWidget: _getOverlayWidget(
         isExchangeable: isExchangeable,
@@ -91,7 +114,14 @@ class SimplifiedTimetableTheme {
     required bool isInCircularPath,
     required bool isInSelectedPath,
     required bool isInChainPath,
+    required bool isTargetCell, // 타겟 셀인지 여부 추가
   }) {
+    // 타겟 셀 배경색이 표시 여부가 true인 경우 (최우선순위)
+    if (isTargetCell && showTargetCellBackground) {
+      return targetCellBackgroundColor;
+    }
+    
+    // 다른 상태들 (타겟 셀이 아닌 경우에만 적용)
     if (isSelected) {
       return selectedColorLight;
     } else if (isInCircularPath) {
@@ -138,12 +168,26 @@ class SimplifiedTimetableTheme {
     required bool isSelected,
     required bool isLastColumnOfDay,
     required bool isInCircularPath,
+    required bool isHeader,
+    required bool isTargetCell,
   }) {
+    // 타겟 셀의 경우 녹색 테두리 (표시 여부 설정에 따라)
+    // 헤더 셀과 일반 셀 모두에 적용 (최우선순위)
+    if (isTargetCell && showTargetCellBorder) {
+      return Border.all(
+        color: targetCellBorderColor, 
+        width: targetCellBorderWidth,
+        style: targetCellBorderStyle, // 점선 또는 실선 스타일 적용
+      );
+    }
+    
     // 선택된 셀의 경우 빨간색 테두리 (표시 여부 설정에 따라)
+    // 헤더 셀과 일반 셀 모두에 적용
     if (isSelected && showSelectedCellBorder) {
       return Border.all(
         color: selectedCellBorderColor, 
-        width: selectedCellBorderWidth
+        width: selectedCellBorderWidth,
+        style: selectedCellBorderStyle, // 점선 또는 실선 스타일 적용
       );
     }
     
@@ -171,6 +215,53 @@ class SimplifiedTimetableTheme {
   /// 특정 교시가 선택되었는지 확인
   static bool isPeriodSelected(String day, int period, String? selectedDay, int? selectedPeriod) {
     return selectedDay == day && selectedPeriod == period;
+  }
+  
+  /// 특정 교시가 타겟 셀인지 확인
+  static bool isPeriodTarget(String day, int period, String? targetDay, int? targetPeriod) {
+    return targetDay == day && targetPeriod == period;
+  }
+  
+  /// 타겟 셀 테두리를 점선으로 설정 (실제로는 solid로 설정, 점선은 CustomPainter 사용)
+  static void setTargetCellDashedBorder() {
+    targetCellBorderStyle = BorderStyle.solid; // Flutter에서는 BorderStyle.solid만 지원
+    // 점선 효과를 위해서는 CustomPainter를 사용해야 함
+  }
+  
+  /// 타겟 셀 테두리를 실선으로 설정
+  static void setTargetCellSolidBorder() {
+    targetCellBorderStyle = BorderStyle.solid;
+  }
+  
+  /// 선택된 셀 테두리를 점선으로 설정 (실제로는 solid로 설정, 점선은 CustomPainter 사용)
+  static void setSelectedCellDashedBorder() {
+    selectedCellBorderStyle = BorderStyle.solid; // Flutter에서는 BorderStyle.solid만 지원
+    // 점선 효과를 위해서는 CustomPainter를 사용해야 함
+  }
+  
+  /// 선택된 셀 테두리를 실선으로 설정
+  static void setSelectedCellSolidBorder() {
+    selectedCellBorderStyle = BorderStyle.solid;
+  }
+  
+  
+  /// 점선 테두리를 가진 컨테이너 생성 (CustomPainter 사용)
+  static Widget createDashedBorderContainer({
+    required Widget child,
+    required Color borderColor,
+    required double borderWidth,
+    double dashWidth = 5.0,
+    double dashSpace = 3.0,
+  }) {
+    return CustomPaint(
+      painter: DashedBorderPainter(
+        color: borderColor,
+        strokeWidth: borderWidth,
+        dashWidth: dashWidth,
+        dashSpace: dashSpace,
+      ),
+      child: child,
+    );
   }
   
   /// 교체 가능한 셀에 표시할 오버레이 위젯 생성 (내부용)
@@ -277,4 +368,59 @@ class CellStyle {
     required this.border,
     this.overlayWidget,
   });
+}
+
+/// 점선 테두리를 그리는 CustomPainter
+class DashedBorderPainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+  final double dashWidth;
+  final double dashSpace;
+  
+  DashedBorderPainter({
+    required this.color,
+    required this.strokeWidth,
+    required this.dashWidth,
+    required this.dashSpace,
+  });
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke;
+    
+    final path = Path();
+    final dashLength = dashWidth + dashSpace;
+    
+    // 상단 테두리
+    for (double i = 0; i < size.width; i += dashLength) {
+      path.moveTo(i, 0);
+      path.lineTo((i + dashWidth).clamp(0, size.width), 0);
+    }
+    
+    // 우측 테두리
+    for (double i = 0; i < size.height; i += dashLength) {
+      path.moveTo(size.width, i);
+      path.lineTo(size.width, (i + dashWidth).clamp(0, size.height));
+    }
+    
+    // 하단 테두리
+    for (double i = 0; i < size.width; i += dashLength) {
+      path.moveTo(i, size.height);
+      path.lineTo((i + dashWidth).clamp(0, size.width), size.height);
+    }
+    
+    // 좌측 테두리
+    for (double i = 0; i < size.height; i += dashLength) {
+      path.moveTo(0, i);
+      path.lineTo(0, (i + dashWidth).clamp(0, size.height));
+    }
+    
+    canvas.drawPath(path, paint);
+  }
+  
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }

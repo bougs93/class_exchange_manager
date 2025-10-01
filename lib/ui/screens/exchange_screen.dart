@@ -539,6 +539,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     // 데이터 소스에서 이전 1:1 교체 관련 상태 초기화
     _dataSource?.updateSelectedOneToOnePath(null);
     
+    // 타겟 셀 해제
+    _clearTargetCell();
+    
     // 순환교체 모드에서 필터 초기화
     if (_isCircularExchangeModeEnabled) {
       _resetFilters();
@@ -778,6 +781,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         _isCircularPathsLoading = false;
         _loadingProgress = 0.0;
         _dataSource?.updateSelectedCircularPath(null);
+        // 타겟 셀 초기화
+        _clearTargetCell();
       }
       
       // 연쇄교체 모드가 활성화되어 있다면 비활성화
@@ -789,6 +794,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         _isChainPathsLoading = false;
         _loadingProgress = 0.0;
         _dataSource?.updateSelectedChainPath(null);
+        // 타겟 셀 초기화
+        _clearTargetCell();
       }
       
       _isExchangeModeEnabled = !_isExchangeModeEnabled;
@@ -805,6 +812,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         _dataSource?.updateSelectedOneToOnePath(null);
         _selectedOneToOnePath = null;
         _oneToOnePaths = [];
+        // 타겟 셀 초기화
+        _clearTargetCell();
       }
     });
     
@@ -839,6 +848,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         _dataSource?.updateSelectedOneToOnePath(null);
         _selectedOneToOnePath = null;
         _oneToOnePaths = [];
+        // 타겟 셀 초기화
+        _clearTargetCell();
       }
 
       // 연쇄교체 모드가 활성화되어 있다면 비활성화
@@ -850,6 +861,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         _isChainPathsLoading = false;
         _loadingProgress = 0.0;
         _dataSource?.updateSelectedChainPath(null);
+        // 타겟 셀 초기화
+        _clearTargetCell();
       }
 
       _isCircularExchangeModeEnabled = !_isCircularExchangeModeEnabled;
@@ -905,6 +918,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         _dataSource?.updateSelectedOneToOnePath(null);
         _selectedOneToOnePath = null;
         _oneToOnePaths = [];
+        // 타겟 셀 초기화
+        _clearTargetCell();
       }
 
       // 순환교체 모드가 활성화되어 있다면 비활성화
@@ -914,6 +929,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         _selectedCircularPath = null;
         _circularPaths = [];
         _isCircularPathsLoading = false;
+        // 타겟 셀 초기화
+        _clearTargetCell();
       }
 
       _isChainExchangeModeEnabled = !_isChainExchangeModeEnabled;
@@ -956,6 +973,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     _exchangeService.clearAllSelections();
     _circularExchangeService.clearAllSelections();
     _chainExchangeService.clearAllSelections();
+    
+    // 타겟 셀 초기화
+    _clearTargetCell();
     
     // 데이터 소스에 선택 상태 해제
     _dataSource?.updateSelection(null, null, null);
@@ -1357,6 +1377,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         // 데이터 소스에서 선택된 1:1 경로 정보 제거
         _dataSource?.updateSelectedOneToOnePath(null);
         
+        // 타겟 셀 해제
+        _clearTargetCell();
+        
         // 시간표 그리드 업데이트
         _updateHeaderTheme();
         
@@ -1375,13 +1398,40 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         // 데이터 소스에 선택된 1:1 경로 정보 전달
         _dataSource?.updateSelectedOneToOnePath(path);
         
+        // 타겟 셀 설정 (교체 대상의 같은 행 셀)
+        _setTargetCellFromPath(path);
+        
         // 시간표 그리드 업데이트
         _updateHeaderTheme();
       }
     } else if (path is CircularExchangePath) {
       // 순환교체 경로 선택
       AppLogger.exchangeDebug('순환교체 경로 선택: ${path.id}');
-      onPathSelected(path);
+      
+      // 이미 선택된 경로를 다시 클릭하면 선택 해제 (토글 기능)
+      bool isSamePathSelected = _selectedCircularPath != null && 
+                               _selectedCircularPath!.id == path.id;
+      
+      if (isSamePathSelected) {
+        // 선택 해제
+        AppLogger.exchangeDebug('순환교체 경로 선택 해제: ${path.id}');
+        onPathDeselected();
+        
+        // 타겟 셀 해제
+        _clearTargetCell();
+        
+        // 사용자에게 선택 해제 알림
+        showSnackBar(
+          '순환교체 경로 선택이 해제되었습니다.',
+          backgroundColor: Colors.grey.shade600,
+        );
+      } else {
+        // 새로운 경로 선택
+        onPathSelected(path);
+        
+        // 타겟 셀 설정 (교체 대상의 같은 행 셀)
+        _setTargetCellFromCircularPath(path);
+      }
     } else if (path is ChainExchangePath) {
       // 이미 선택된 경로를 다시 클릭하면 선택 해제 (토글 기능)
       bool isSamePathSelected = _selectedChainPath != null && 
@@ -1571,6 +1621,63 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
 
 
 
+
+  /// 타겟 셀 설정 (교체 대상의 같은 행 셀)
+  /// 교체 대상이 월1교시라면, 선택된 셀의 같은 행의 월1교시를 타겟으로 설정
+  void _setTargetCellFromPath(OneToOneExchangePath path) {
+    if (_exchangeService.hasSelectedCell() && _timetableData != null) {
+      // 교체 대상의 요일과 교시 가져오기
+      String targetDay = path.targetNode.day;
+      int targetPeriod = path.targetNode.period;
+      
+      // 선택된 셀의 교사명 가져오기
+      String selectedTeacher = _exchangeService.selectedTeacher!;
+      
+      // ExchangeService에 타겟 셀 설정
+      _exchangeService.setTargetCell(selectedTeacher, targetDay, targetPeriod);
+      
+      // 데이터 소스에 타겟 셀 정보 전달
+      _dataSource?.updateTargetCell(selectedTeacher, targetDay, targetPeriod);
+      
+      AppLogger.exchangeDebug('타겟 셀 설정: $selectedTeacher $targetDay $targetPeriod교시');
+    }
+  }
+  
+  /// 순환교체 경로에서 타겟 셀 설정 (교체 대상의 같은 행 셀)
+  /// 교체 대상이 월1교시라면, 선택된 셀의 같은 행의 월1교시를 타겟으로 설정
+  void _setTargetCellFromCircularPath(CircularExchangePath path) {
+    if (_circularExchangeService.hasSelectedCell() && _timetableData != null && path.nodes.length >= 2) {
+      // 순환교체 경로의 첫 번째 노드는 선택된 셀, 두 번째 노드는 교체 대상
+      ExchangeNode sourceNode = path.nodes[0]; // 선택된 셀
+      ExchangeNode targetNode = path.nodes[1]; // 교체 대상
+      
+      // 교체 대상의 요일과 교시 가져오기
+      String targetDay = targetNode.day;
+      int targetPeriod = targetNode.period;
+      
+      // 선택된 셀의 교사명 가져오기
+      String selectedTeacher = sourceNode.teacherName;
+      
+      // ExchangeService에 타겟 셀 설정
+      _exchangeService.setTargetCell(selectedTeacher, targetDay, targetPeriod);
+      
+      // 데이터 소스에 타겟 셀 정보 전달
+      _dataSource?.updateTargetCell(selectedTeacher, targetDay, targetPeriod);
+      
+      AppLogger.exchangeDebug('순환교체 타겟 셀 설정: $selectedTeacher $targetDay $targetPeriod교시');
+    }
+  }
+  
+  /// 타겟 셀 해제
+  void _clearTargetCell() {
+    // ExchangeService에서 타겟 셀 해제
+    _exchangeService.clearTargetCell();
+    
+    // 데이터 소스에서 타겟 셀 정보 제거
+    _dataSource?.updateTargetCell(null, null, null);
+    
+    AppLogger.exchangeDebug('타겟 셀 해제');
+  }
 
   /// 사이드바 토글
   void _toggleSidebar() {

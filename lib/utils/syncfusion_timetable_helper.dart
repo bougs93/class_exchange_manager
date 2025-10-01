@@ -146,13 +146,7 @@ class SyncfusionTimetableHelper {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: headerStyles.backgroundColor,
-                border: Border(
-                  right: BorderSide(
-                    color: _borderColor,
-                    width: isLastPeriod ? _thickBorderWidth : _thinBorderWidth,
-                  ),
-                  bottom: _thinBorder,
-                ),
+                border: headerStyles.border, // 테마에서 제공하는 테두리 사용
               ),
               child: Text(
                 '$period',

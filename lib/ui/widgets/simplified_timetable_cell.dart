@@ -15,6 +15,7 @@ class SimplifiedTimetableCell extends StatelessWidget {
   final bool isInSelectedPath; // 선택된 경로에 포함된 셀인지 여부 (1:1 교체 모드)
   final bool isInChainPath; // 연쇄교체 경로에 포함된 셀인지 여부
   final int? chainPathStep; // 연쇄교체 경로에서의 단계 (1, 2)
+  final bool isTargetCell; // 타겟 셀인지 여부 (교체 대상의 같은 행 셀)
   final VoidCallback? onTap;
   
   const SimplifiedTimetableCell({
@@ -30,6 +31,7 @@ class SimplifiedTimetableCell extends StatelessWidget {
     this.isInSelectedPath = false,
     this.isInChainPath = false,
     this.chainPathStep,
+    this.isTargetCell = false,
     this.onTap,
   });
   
@@ -46,6 +48,7 @@ class SimplifiedTimetableCell extends StatelessWidget {
       isInSelectedPath: isInSelectedPath,
       isInChainPath: isInChainPath,
       chainPathStep: chainPathStep,
+      isTargetCell: isTargetCell, // 타겟 셀 정보 전달
     );
     
     // 디버깅을 위한 로그

@@ -14,6 +14,11 @@ class ExchangeService {
   String? _selectedDay;       // 선택된 요일
   int? _selectedPeriod;       // 선택된 교시
   
+  // 타겟 셀 관련 상태 변수들 (교체 대상의 같은 행 셀)
+  String? _targetTeacher;     // 타겟 교사명
+  String? _targetDay;         // 타겟 요일
+  int? _targetPeriod;        // 타겟 교시
+  
   // 교체 가능한 시간 관련 변수들
   List<ExchangeOption> _exchangeOptions = []; // 교체 가능한 시간 옵션들
   
@@ -21,6 +26,9 @@ class ExchangeService {
   String? get selectedTeacher => _selectedTeacher;
   String? get selectedDay => _selectedDay;
   int? get selectedPeriod => _selectedPeriod;
+  String? get targetTeacher => _targetTeacher;
+  String? get targetDay => _targetDay;
+  int? get targetPeriod => _targetPeriod;
   List<ExchangeOption> get exchangeOptions => _exchangeOptions;
   
   /// 1:1 교체 처리 시작
@@ -408,9 +416,34 @@ class ExchangeService {
     }
   }
   
+  /// 타겟 셀 설정 (교체 대상의 같은 행 셀)
+  /// 교체 대상이 월1교시라면, 선택된 셀의 같은 행의 월1교시를 타겟으로 설정
+  void setTargetCell(String targetTeacher, String targetDay, int targetPeriod) {
+    _targetTeacher = targetTeacher;
+    _targetDay = targetDay;
+    _targetPeriod = targetPeriod;
+    
+    AppLogger.exchangeDebug('타겟 셀 설정: $targetTeacher $targetDay $targetPeriod교시');
+  }
+  
+  /// 타겟 셀 해제
+  void clearTargetCell() {
+    _targetTeacher = null;
+    _targetDay = null;
+    _targetPeriod = null;
+    
+    AppLogger.exchangeDebug('타겟 셀 해제');
+  }
+  
+  /// 타겟 셀이 설정되어 있는지 확인
+  bool hasTargetCell() {
+    return _targetTeacher != null && _targetDay != null && _targetPeriod != null;
+  }
+  
   /// 모든 선택 상태 초기화
   void clearAllSelections() {
     _clearCellSelection();
+    clearTargetCell();
     _exchangeOptions.clear();
   }
   

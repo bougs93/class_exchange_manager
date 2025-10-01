@@ -29,6 +29,11 @@ class TimetableDataSource extends DataGridSource {
   String? _selectedDay;
   int? _selectedPeriod;
   
+  // 타겟 셀 관련 변수들 (교체 대상의 같은 행 셀)
+  String? _targetTeacher;
+  String? _targetDay;
+  int? _targetPeriod;
+  
   // 교체 가능한 교사 정보 (교사명, 요일, 교시)
   List<Map<String, dynamic>> _exchangeableTeachers = [];
   
@@ -154,6 +159,7 @@ class TimetableDataSource extends DataGridSource {
           
           // 선택 상태 확인
           bool isSelected = false;
+          bool isTargetCell = false; // 타겟 셀인지 여부
           bool isTeacherColumn = dataGridCell.columnName == 'teacher';
           
           if (isTeacherColumn) {
@@ -177,6 +183,9 @@ class TimetableDataSource extends DataGridSource {
               
               // 선택된 셀인지 확인
               isSelected = _isCellSelected(teacherName, day, period);
+              
+              // 타겟 셀인지 확인 (교체 대상의 같은 행 셀)
+              isTargetCell = _isCellTarget(teacherName, day, period);
             }
           }
           
@@ -269,6 +278,7 @@ class TimetableDataSource extends DataGridSource {
             isInSelectedPath: isInSelectedPath,
             isInChainPath: isInChainPath,
             chainPathStep: chainPathStep,
+            isTargetCell: isTargetCell, // 타겟 셀 정보 전달
           );
         }).toList(),
       );
@@ -282,11 +292,26 @@ class TimetableDataSource extends DataGridSource {
     notifyListeners(); // UI 갱신
   }
   
+  /// 타겟 셀 상태 업데이트 (교체 대상의 같은 행 셀)
+  void updateTargetCell(String? teacher, String? day, int? period) {
+    _targetTeacher = teacher;
+    _targetDay = day;
+    _targetPeriod = period;
+    notifyListeners(); // UI 갱신
+  }
+  
   /// 특정 셀이 선택된 상태인지 확인
   bool _isCellSelected(String teacherName, String day, int period) {
     return _selectedTeacher == teacherName && 
            _selectedDay == day && 
            _selectedPeriod == period;
+  }
+  
+  /// 특정 셀이 타겟 셀인지 확인 (교체 대상의 같은 행 셀)
+  bool _isCellTarget(String teacherName, String day, int period) {
+    return _targetTeacher == teacherName && 
+           _targetDay == day && 
+           _targetPeriod == period;
   }
   
   /// 특정 교사가 선택된 상태인지 확인
