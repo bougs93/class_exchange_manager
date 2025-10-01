@@ -452,16 +452,16 @@ class ExchangeArrowPainter extends CustomPainter {
 
     print('순환 교체 화살표 그리기 시작: 노드 개수 = ${nodes.length}');
 
-    // 순환 경로의 각 단계별로 화살표 그리기 (가로 우선, 머리 사이즈 10, 단계별 텍스트)
+    // 순환 경로의 각 단계별로 화살표 그리기 (가로 우선, 머리 사이즈 10)
     for (int i = 0; i < nodes.length - 1; i++) {
       print('순환 화살표 그리기: ${i + 1}단계 (${nodes[i].teacherName} → ${nodes[i + 1].teacherName})');
-      _drawArrowBetweenNodes(canvas, size, nodes[i], nodes[i + 1], priority: ArrowPriority.horizontalFirst, arrowHeadSize: 10.0, text: "${i + 1}");
+      _drawArrowBetweenNodes(canvas, size, nodes[i], nodes[i + 1], priority: ArrowPriority.horizontalFirst, arrowHeadSize: 10.0);
     }
     
     // 순환 교체의 핵심: 마지막 노드에서 첫 번째 노드로 돌아가는 화살표 그리기
-    if (nodes.length > 2) { // 최소 3개 노드가 있어야 순환 가능
+    if (nodes.length > 3) { // 4개 이상 노드가 있어야 마지막 화살표 그리기
       print('순환 화살표 그리기: ${nodes.length}단계 (${nodes.last.teacherName} → ${nodes.first.teacherName})');
-      _drawArrowBetweenNodes(canvas, size, nodes.last, nodes.first, priority: ArrowPriority.horizontalFirst, arrowHeadSize: 10.0, text: "${nodes.length}");
+      _drawArrowBetweenNodes(canvas, size, nodes.last, nodes.first, priority: ArrowPriority.horizontalFirst, arrowHeadSize: 10.0);
     }
   }
 
@@ -469,18 +469,18 @@ class ExchangeArrowPainter extends CustomPainter {
   void _drawChainArrows(Canvas canvas, Size size) {
     final chainPath = selectedPath as ChainExchangePath;
     
-    // 연쇄 교체의 각 단계별로 화살표 그리기 (가로 우선, 머리 사이즈 8, 단계별 텍스트)
+    // 연쇄 교체의 각 단계별로 화살표 그리기 (세로 우선, 머리 사이즈 8, 단계별 텍스트)
     int stepNumber = 1;
     for (final step in chainPath.steps) {
       if (step.stepType == 'exchange') {
-        _drawArrowBetweenNodes(canvas, size, step.fromNode, step.toNode, priority: ArrowPriority.horizontalFirst, arrowHeadSize: 8.0, text: "S$stepNumber");
+        _drawArrowBetweenNodes(canvas, size, step.fromNode, step.toNode, priority: ArrowPriority.verticalFirst, arrowHeadSize: 8.0, text: "S$stepNumber");
         stepNumber++;
       }
     }
   }
 
   /// 두 노드 간의 화살표 그리기
-  void _drawArrowBetweenNodes(Canvas canvas, Size size, ExchangeNode sourceNode, ExchangeNode targetNode, {ArrowPriority priority = ArrowPriority.horizontalFirst, double? arrowHeadSize, String? text}) {
+  void _drawArrowBetweenNodes(Canvas canvas, Size size, ExchangeNode sourceNode, ExchangeNode targetNode, {ArrowPriority priority = ArrowPriority.verticalFirst, double? arrowHeadSize, String? text}) {
     // 교사 인덱스 찾기
     int sourceTeacherIndex = timetableData.teachers
         .indexWhere((teacher) => teacher.name == sourceNode.teacherName);
@@ -510,6 +510,7 @@ class ExchangeArrowPainter extends CustomPainter {
       sourceTeacherIndex,
       targetColumnIndex,
       targetTeacherIndex,
+      priority,
     );
 
     Offset sourcePos = _getCellEdgeCenterPosition(
@@ -711,6 +712,7 @@ class ExchangeArrowPainter extends CustomPainter {
   /// [sourceTeacherIndex] 시작 셀의 교사 인덱스
   /// [targetColumnIndex] 목표 셀의 열 인덱스
   /// [targetTeacherIndex] 목표 셀의 교사 인덱스
+  /// [priority] 화살표 우선 방향 (세로 우선 또는 가로 우선)
   /// 
   /// Returns: `Map<String, ArrowEdge>` - 'start'와 'end' 키로 시작점과 끝점의 경계면 반환
   Map<String, ArrowEdge> _determineArrowEdges(
@@ -718,6 +720,7 @@ class ExchangeArrowPainter extends CustomPainter {
     int sourceTeacherIndex,
     int targetColumnIndex,
     int targetTeacherIndex,
+    ArrowPriority priority,
   ) {
     // 상대적 위치 계산
     bool isTargetBelow = targetTeacherIndex > sourceTeacherIndex; // 목표가 아래쪽에 있는지
@@ -725,37 +728,74 @@ class ExchangeArrowPainter extends CustomPainter {
     bool isTargetAbove = targetTeacherIndex < sourceTeacherIndex; // 목표가 위쪽에 있는지
     bool isTargetLeft = targetColumnIndex < sourceColumnIndex;   // 목표가 왼쪽에 있는지
 
-    // 시작점 경계면 결정 (직각 방향으로 나가도록)
     ArrowEdge startEdge;
-    if (isTargetBelow) {
-      startEdge = ArrowEdge.bottom; // 목표가 아래쪽: 하단에서 시작
-    } else if (isTargetAbove) {
-      startEdge = ArrowEdge.top;    // 목표가 위쪽: 상단에서 시작
+    ArrowEdge endEdge;
+
+    if (priority == ArrowPriority.verticalFirst) {
+      // 세로 우선: 먼저 세로 이동, 그 다음 가로 이동
+      // 시작점: 세로 방향으로 나가도록
+      if (isTargetBelow) {
+        startEdge = ArrowEdge.bottom; // 목표가 아래쪽: 하단에서 시작
+      } else if (isTargetAbove) {
+        startEdge = ArrowEdge.top;    // 목표가 위쪽: 상단에서 시작
+      } else {
+        // 같은 행에 있는 경우, 열 위치에 따라 결정
+        if (isTargetRight) {
+          startEdge = ArrowEdge.right; // 목표가 오른쪽: 오른쪽에서 시작
+        } else if (isTargetLeft) {
+          startEdge = ArrowEdge.left;  // 목표가 왼쪽: 왼쪽에서 시작
+        } else {
+          startEdge = ArrowEdge.right; // 같은 위치 (기본값)
+        }
+      }
+
+      // 끝점: 가로 방향으로 들어오도록
+      if (isTargetRight) {
+        endEdge = ArrowEdge.left;   // 목표가 오른쪽: 왼쪽 경계면에서 끝
+      } else if (isTargetLeft) {
+        endEdge = ArrowEdge.right;  // 목표가 왼쪽: 오른쪽 경계면에서 끝
+      } else {
+        // 같은 열에 있는 경우, 행 위치에 따라 결정
+        if (isTargetBelow) {
+          endEdge = ArrowEdge.top;    // 목표가 아래쪽: 상단에서 끝
+        } else if (isTargetAbove) {
+          endEdge = ArrowEdge.bottom; // 목표가 위쪽: 하단에서 끝
+        } else {
+          endEdge = ArrowEdge.left;   // 같은 위치 (기본값)
+        }
+      }
     } else {
-      // 같은 행에 있는 경우, 열 위치에 따라 결정
+      // 가로 우선: 먼저 가로 이동, 그 다음 세로 이동
+      // 시작점: 가로 방향으로 나가도록
       if (isTargetRight) {
         startEdge = ArrowEdge.right; // 목표가 오른쪽: 오른쪽에서 시작
       } else if (isTargetLeft) {
         startEdge = ArrowEdge.left;  // 목표가 왼쪽: 왼쪽에서 시작
       } else {
-        startEdge = ArrowEdge.right; // 같은 위치 (기본값)
+        // 같은 열에 있는 경우, 행 위치에 따라 결정
+        if (isTargetBelow) {
+          startEdge = ArrowEdge.bottom; // 목표가 아래쪽: 하단에서 시작
+        } else if (isTargetAbove) {
+          startEdge = ArrowEdge.top;    // 목표가 위쪽: 상단에서 시작
+        } else {
+          startEdge = ArrowEdge.right; // 같은 위치 (기본값)
+        }
       }
-    }
 
-    // 끝점 경계면 결정 (직각 방향으로 들어오도록)
-    ArrowEdge endEdge;
-    if (isTargetRight) {
-      endEdge = ArrowEdge.left;   // 목표가 오른쪽: 왼쪽 경계면에서 끝
-    } else if (isTargetLeft) {
-      endEdge = ArrowEdge.right;  // 목표가 왼쪽: 오른쪽 경계면에서 끝
-    } else {
-      // 같은 열에 있는 경우, 행 위치에 따라 결정
+      // 끝점: 세로 방향으로 들어오도록
       if (isTargetBelow) {
         endEdge = ArrowEdge.top;    // 목표가 아래쪽: 상단에서 끝
       } else if (isTargetAbove) {
         endEdge = ArrowEdge.bottom; // 목표가 위쪽: 하단에서 끝
       } else {
-        endEdge = ArrowEdge.left;   // 같은 위치 (기본값)
+        // 같은 행에 있는 경우, 열 위치에 따라 결정
+        if (isTargetRight) {
+          endEdge = ArrowEdge.left;   // 목표가 오른쪽: 왼쪽 경계면에서 끝
+        } else if (isTargetLeft) {
+          endEdge = ArrowEdge.right;  // 목표가 왼쪽: 오른쪽 경계면에서 끝
+        } else {
+          endEdge = ArrowEdge.left;   // 같은 위치 (기본값)
+        }
       }
     }
 
@@ -766,7 +806,7 @@ class ExchangeArrowPainter extends CustomPainter {
   }
 
   /// 스타일이 적용된 화살표 그리기
-  void _drawStyledArrow(Canvas canvas, Offset start, Offset end, {ArrowPriority priority = ArrowPriority.horizontalFirst, double? arrowHeadSize, String? text}) {
+  void _drawStyledArrow(Canvas canvas, Offset start, Offset end, {ArrowPriority priority = ArrowPriority.verticalFirst, double? arrowHeadSize, String? text}) {
     // 교체 경로 타입에 따른 스타일 결정
     ExchangeArrowStyle style = _getArrowStyle();
     
@@ -806,7 +846,7 @@ class ExchangeArrowPainter extends CustomPainter {
   }
 
   /// 직각 방향 화살표 그리기 (외곽선과 내부선) - 스타일 적용 버전
-  void _drawRightAngleArrowWithStyle(Canvas canvas, Offset start, Offset end, ExchangeArrowStyle style, {ArrowPriority priority = ArrowPriority.horizontalFirst, String? text}) {
+  void _drawRightAngleArrowWithStyle(Canvas canvas, Offset start, Offset end, ExchangeArrowStyle style, {ArrowPriority priority = ArrowPriority.verticalFirst, String? text}) {
     // 우선 방향에 따라 중간점 계산
     Offset midPoint;
     if (priority == ArrowPriority.verticalFirst) {
