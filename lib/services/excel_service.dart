@@ -485,7 +485,7 @@ class ExcelService {
           break; // 빈 셀이 나오면 중단
         }
         
-        // 교사명 파싱: "문유란(20)" → name: "문유란", id: "20"
+        // 교사명 파싱: "A교사(20)" → name: "A교사", id: "20"
         Teacher? teacher = _parseTeacherName(teacherCell);
         if (teacher != null) {
           teachers.add(teacher);
@@ -505,7 +505,7 @@ class ExcelService {
     try {
       teacherText = teacherText.trim();
       
-      // 괄호가 있는 경우: "문유란(20)" → "문유란"으로 변환
+      // 괄호가 있는 경우: "A교사(20)" → "A교사"로 변환
       if (teacherText.contains('(') && teacherText.contains(')')) {
         int openIndex = teacherText.indexOf('(');
         
@@ -523,7 +523,7 @@ class ExcelService {
         }
       }
       
-      // 괄호가 없는 경우: "문유란"
+      // 괄호가 없는 경우: "A교사"
       if (teacherText.isNotEmpty) {
         return Teacher(
           id: null,

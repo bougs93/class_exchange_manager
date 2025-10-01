@@ -26,15 +26,15 @@ class _SimplifiedTimetableExampleState extends State<SimplifiedTimetableExample>
   void _initializeData() {
     // 샘플 데이터 생성
     List<Teacher> teachers = [
-      Teacher(name: '김교사', subject: '수학'),
-      Teacher(name: '이교사', subject: '국어'),
-      Teacher(name: '박교사', subject: '영어'),
+      Teacher(name: 'A교사', subject: '수학'),
+      Teacher(name: 'B교사', subject: '국어'),
+      Teacher(name: 'C교사', subject: '영어'),
     ];
 
     List<TimeSlot> timeSlots = [
-      TimeSlot(teacher: '김교사', dayOfWeek: 1, period: 1, className: '1-1', subject: '수학'),
-      TimeSlot(teacher: '이교사', dayOfWeek: 1, period: 2, className: '1-2', subject: '국어'),
-      TimeSlot(teacher: '박교사', dayOfWeek: 2, period: 1, className: '1-1', subject: '영어'),
+      TimeSlot(teacher: 'A교사', dayOfWeek: 1, period: 1, className: '1-1', subject: '수학'),
+      TimeSlot(teacher: 'B교사', dayOfWeek: 1, period: 2, className: '1-2', subject: '국어'),
+      TimeSlot(teacher: 'C교사', dayOfWeek: 2, period: 1, className: '1-1', subject: '영어'),
     ];
 
     // 데이터 소스 생성
@@ -96,8 +96,8 @@ class _SimplifiedTimetableExampleState extends State<SimplifiedTimetableExample>
             child: Row(
               children: [
                 ElevatedButton(
-                  onPressed: () => _selectCell('김교사', '월', 1),
-                  child: const Text('김교사 월1교시 선택'),
+                  onPressed: () => _selectCell('A교사', '월', 1),
+                  child: const Text('A교사 월1교시 선택'),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
@@ -144,8 +144,8 @@ class _SimplifiedTimetableExampleState extends State<SimplifiedTimetableExample>
   void _setExchangeableTeachers() {
     setState(() {
       _dataSource?.updateExchangeableTeachers([
-        {'teacherName': '이교사', 'day': '월', 'period': 1},
-        {'teacherName': '박교사', 'day': '화', 'period': 2},
+        {'teacherName': 'B교사', 'day': '월', 'period': 1},
+        {'teacherName': 'C교사', 'day': '화', 'period': 2},
       ]);
     });
   }

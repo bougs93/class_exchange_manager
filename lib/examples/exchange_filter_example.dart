@@ -41,16 +41,16 @@ class _ExchangeFilterExampleState extends State<ExchangeFilterExample> {
   void _initializeExampleData() {
     // 순환교체 예시 경로들
     List<ExchangeNode> circularNodes1 = [
-      ExchangeNode(teacherName: '김교사', day: '월', period: 1, className: '1학년 1반', subjectName: '수학'),
-      ExchangeNode(teacherName: '박교사', day: '화', period: 2, className: '1학년 2반', subjectName: '영어'),
-      ExchangeNode(teacherName: '김교사', day: '월', period: 1, className: '1학년 1반', subjectName: '수학'),
+      ExchangeNode(teacherName: 'A교사', day: '월', period: 1, className: '1학년 1반', subjectName: '수학'),
+      ExchangeNode(teacherName: 'B교사', day: '화', period: 2, className: '1학년 2반', subjectName: '영어'),
+      ExchangeNode(teacherName: 'A교사', day: '월', period: 1, className: '1학년 1반', subjectName: '수학'),
     ];
     
     List<ExchangeNode> circularNodes2 = [
-      ExchangeNode(teacherName: '이교사', day: '수', period: 3, className: '2학년 1반', subjectName: '과학'),
-      ExchangeNode(teacherName: '최교사', day: '목', period: 4, className: '2학년 2반', subjectName: '사회'),
-      ExchangeNode(teacherName: '정교사', day: '금', period: 5, className: '2학년 3반', subjectName: '국어'),
-      ExchangeNode(teacherName: '이교사', day: '수', period: 3, className: '2학년 1반', subjectName: '과학'),
+      ExchangeNode(teacherName: 'C교사', day: '수', period: 3, className: '2학년 1반', subjectName: '과학'),
+      ExchangeNode(teacherName: 'D교사', day: '목', period: 4, className: '2학년 2반', subjectName: '사회'),
+      ExchangeNode(teacherName: 'E교사', day: '금', period: 5, className: '2학년 3반', subjectName: '국어'),
+      ExchangeNode(teacherName: 'C교사', day: '수', period: 3, className: '2학년 1반', subjectName: '과학'),
     ];
     
     _paths = [

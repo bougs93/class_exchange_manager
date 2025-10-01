@@ -1,5 +1,7 @@
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../utils/timetable_data_source.dart';
+import '../models/time_slot.dart';
+import '../utils/day_utils.dart';
 
 /// 교체 서비스의 공통 베이스 클래스
 ///
@@ -73,5 +75,80 @@ abstract class BaseExchangeService {
     return _selectedTeacher == teacherName &&
            _selectedDay == day &&
            _selectedPeriod == period;
+  }
+
+  /// 선택된 셀의 학급 정보 가져오기
+  String? getSelectedClassName(List<TimeSlot> timeSlots) {
+    if (_selectedTeacher == null || _selectedDay == null || _selectedPeriod == null) {
+      return null;
+    }
+
+    TimeSlot? selectedSlot = timeSlots.cast<TimeSlot?>().firstWhere(
+      (slot) => slot != null &&
+                slot.teacher == _selectedTeacher &&
+                slot.dayOfWeek == DayUtils.getDayNumber(_selectedDay!) &&
+                slot.period == _selectedPeriod &&
+                slot.isNotEmpty,
+      orElse: () => null,
+    );
+
+    return selectedSlot?.className;
+  }
+
+  /// 특정 교사가 특정 시간에 비어있는지 확인
+  bool isTeacherEmptyAtTime(
+    String teacherName,
+    String day,
+    int period,
+    List<TimeSlot> timeSlots,
+  ) {
+    return !timeSlots.any((slot) =>
+      slot.teacher == teacherName &&
+      slot.dayOfWeek == DayUtils.getDayNumber(day) &&
+      slot.period == period &&
+      slot.isNotEmpty
+    );
+  }
+
+  /// 특정 시간의 과목 정보 가져오기
+  String getSubjectFromTimeSlot(
+    String teacherName,
+    String day,
+    int period,
+    List<TimeSlot> timeSlots,
+  ) {
+    int dayNumber = DayUtils.getDayNumber(day);
+
+    TimeSlot? slot = timeSlots.cast<TimeSlot?>().firstWhere(
+      (slot) => slot != null &&
+                slot.teacher == teacherName &&
+                slot.dayOfWeek == dayNumber &&
+                slot.period == period &&
+                slot.isNotEmpty,
+      orElse: () => null,
+    );
+
+    return slot?.subject ?? '과목';
+  }
+
+  /// 특정 시간의 학급 정보 가져오기
+  String getClassNameFromTimeSlot(
+    String teacherName,
+    String day,
+    int period,
+    List<TimeSlot> timeSlots,
+  ) {
+    int dayNumber = DayUtils.getDayNumber(day);
+
+    TimeSlot? slot = timeSlots.cast<TimeSlot?>().firstWhere(
+      (slot) => slot != null &&
+                slot.teacher == teacherName &&
+                slot.dayOfWeek == dayNumber &&
+                slot.period == period &&
+                slot.isNotEmpty,
+      orElse: () => null,
+    );
+
+    return slot?.className ?? '';
   }
 }

@@ -61,8 +61,8 @@ class ChainExchangeService extends BaseExchangeService {
     // 교체할 셀의 교사명 찾기 (베이스 클래스 메서드 사용)
     String teacherName = getTeacherNameFromCell(details, dataSource);
 
-    // 해당 시간의 학급 정보 찾기
-    String className = _getClassNameFromCell(teacherName, day, period, timeSlots);
+    // 해당 시간의 학급 정보 찾기 (베이스 클래스 메서드 사용)
+    String className = getClassNameFromTimeSlot(teacherName, day, period, timeSlots);
 
     // 동일한 셀을 다시 클릭했는지 확인 (베이스 클래스 메서드 사용)
     if (isSameCell(teacherName, day, period)) {
@@ -80,37 +80,6 @@ class ChainExchangeService extends BaseExchangeService {
     }
   }
 
-  /// 해당 시간의 학급 정보 가져오기
-  String _getClassNameFromCell(String teacherName, String day, int period, List<TimeSlot> timeSlots) {
-    int dayNumber = DayUtils.getDayNumber(day);
-
-    TimeSlot? slot = timeSlots.cast<TimeSlot?>().firstWhere(
-      (slot) => slot != null &&
-                slot.teacher == teacherName &&
-                slot.dayOfWeek == dayNumber &&
-                slot.period == period &&
-                slot.isNotEmpty,
-      orElse: () => null,
-    );
-
-    return slot?.className ?? '';
-  }
-
-  /// 해당 시간의 과목 정보 가져오기
-  String _getSubjectFromTimeSlot(String teacherName, String day, int period, List<TimeSlot> timeSlots) {
-    int dayNumber = DayUtils.getDayNumber(day);
-
-    TimeSlot? slot = timeSlots.cast<TimeSlot?>().firstWhere(
-      (slot) => slot != null &&
-                slot.teacher == teacherName &&
-                slot.dayOfWeek == dayNumber &&
-                slot.period == period &&
-                slot.isNotEmpty,
-      orElse: () => null,
-    );
-
-    return slot?.subject ?? '과목';
-  }
 
   /// 연쇄 교체 가능한 경로들 찾기
   ///
@@ -130,7 +99,7 @@ class ChainExchangeService extends BaseExchangeService {
     }
 
     // _nodeAClass가 null이면 timeSlots에서 찾기 (백그라운드 실행 시)
-    _nodeAClass ??= _getClassNameFromCell(
+    _nodeAClass ??= getClassNameFromTimeSlot(
       selectedTeacher!,
       selectedDay!,
       selectedPeriod!,
@@ -150,7 +119,7 @@ class ChainExchangeService extends BaseExchangeService {
     List<ChainExchangePath> paths = [];
 
     // A 위치 노드 생성 (과목명 포함)
-    String nodeASubject = _getSubjectFromTimeSlot(selectedTeacher!, selectedDay!, selectedPeriod!, timeSlots);
+    String nodeASubject = getSubjectFromTimeSlot(selectedTeacher!, selectedDay!, selectedPeriod!, timeSlots);
     ExchangeNode nodeA = ExchangeNode(
       teacherName: selectedTeacher!,
       day: selectedDay!,

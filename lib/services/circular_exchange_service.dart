@@ -86,7 +86,7 @@ class CircularExchangeService extends BaseExchangeService {
   /// - 같은 학급만 교체 가능
   /// - 다른 시간대여야 함
   /// - 양쪽 모두 빈 시간이어야 함
-  /// 예: 김선생(월1교시, 1학년 1반) ↔ 이선생(화2교시, 1학년 1반) - 둘 다 빈시간
+  /// 예: A교사(월1교시, 1학년 1반) ↔ B교사(화2교시, 1학년 1반) - 둘 다 빈시간
   List<Map<String, dynamic>> getCircularExchangeableTeachers(
     List<TimeSlot> timeSlots,
     List<Teacher> teachers,
@@ -96,7 +96,7 @@ class CircularExchangeService extends BaseExchangeService {
     }
     
     // 선택된 셀의 학급 정보 가져오기
-    String? selectedClassName = _getSelectedClassName(timeSlots);
+    String? selectedClassName = getSelectedClassName(timeSlots);
     if (selectedClassName == null) return [];
     
     List<Map<String, dynamic>> exchangeableTeachers = [];
@@ -115,9 +115,9 @@ class CircularExchangeService extends BaseExchangeService {
       
       for (TimeSlot teacherSlot in teacherSlots) {
         // 양쪽 모두 빈 시간인지 확인
-        bool selectedTeacherHasEmptyTime = _isTeacherEmptyAtTime(
+        bool selectedTeacherHasEmptyTime = isTeacherEmptyAtTime(
           selectedTeacher!, selectedDay!, selectedPeriod!, timeSlots);
-        bool otherTeacherHasEmptyTime = _isTeacherEmptyAtTime(
+        bool otherTeacherHasEmptyTime = isTeacherEmptyAtTime(
           teacher.name, _getDayString(teacherSlot.dayOfWeek ?? 0), teacherSlot.period ?? 0, timeSlots);
         
         if (selectedTeacherHasEmptyTime && otherTeacherHasEmptyTime) {
@@ -135,50 +135,6 @@ class CircularExchangeService extends BaseExchangeService {
     return exchangeableTeachers;
   }
   
-  /// 선택된 셀의 학급 정보 가져오기
-  String? _getSelectedClassName(List<TimeSlot> timeSlots) {
-    if (selectedTeacher == null || selectedDay == null || selectedPeriod == null) {
-      return null;
-    }
-    
-    TimeSlot? selectedSlot = timeSlots.firstWhere(
-      (slot) => slot.teacher == selectedTeacher &&
-                slot.dayOfWeek == DayUtils.getDayNumber(selectedDay!) &&
-                slot.period == selectedPeriod &&
-                slot.isNotEmpty,
-      orElse: () => TimeSlot.empty(),
-    );
-    
-    return selectedSlot.isNotEmpty ? selectedSlot.className : null;
-  }
-
-  /// 선택된 셀의 과목 정보 가져오기
-  String _getSelectedSubjectName(List<TimeSlot> timeSlots) {
-    if (selectedTeacher == null || selectedDay == null || selectedPeriod == null) {
-      return '과목';
-    }
-    
-    TimeSlot? selectedSlot = timeSlots.firstWhere(
-      (slot) => slot.teacher == selectedTeacher &&
-                slot.dayOfWeek == DayUtils.getDayNumber(selectedDay!) &&
-                slot.period == selectedPeriod &&
-                slot.isNotEmpty,
-      orElse: () => TimeSlot.empty(),
-    );
-    
-    return selectedSlot.isNotEmpty ? (selectedSlot.subject ?? '과목') : '과목';
-  }
-  
-  /// 교사가 특정 시간에 빈 시간인지 확인
-  bool _isTeacherEmptyAtTime(String teacherName, String day, int period, List<TimeSlot> timeSlots) {
-    return !timeSlots.any((slot) => 
-      slot.teacher == teacherName &&
-      slot.dayOfWeek == DayUtils.getDayNumber(day) &&
-      slot.period == period &&
-      slot.isNotEmpty
-    );
-  }
-  
   /// 요일 숫자를 문자열로 변환하는 헬퍼 메서드
   String _getDayString(int dayNumber) {
     return DayUtils.getDayName(dayNumber);
@@ -188,7 +144,7 @@ class CircularExchangeService extends BaseExchangeService {
   /*
   [순환 경로 찾기]
     모든 가능한 교체 경로를 찾아서 리스트로 만듦
-    예: "김선생 → 이선생 → 박선생 → 김선생" 같은 순환 경로
+    예: "A교사 → B교사 → C교사 → A교사" 같은 순환 경로
   */
 
   /// 그래프를 구성하고 모든 교체 가능한 경로를 찾는 메서드
@@ -252,7 +208,7 @@ class CircularExchangeService extends BaseExchangeService {
 
   /* [1단계] : 시작 노트 찾기
     시작 노트 찾기 : 사용자가 클릭한 셀 정보를 노드로 만듦
-    예: "김선생님, 월요일 1교시, 3-1반" → ExchangeNode 생성
+    예: "A교사님, 월요일 1교시, 3-1반" → ExchangeNode 생성
   */
   /// 선택된 셀을 ExchangeNode로 변환
   /// 
@@ -266,7 +222,7 @@ class CircularExchangeService extends BaseExchangeService {
     }
     
     // 선택된 셀의 학급 정보 가져오기
-    String? className = _getSelectedClassName(timeSlots);
+    String? className = getSelectedClassName(timeSlots);
     if (className == null) {
       AppLogger.exchangeDebug('학급 정보를 찾을 수 없습니다: $selectedTeacher, $selectedDay, $selectedPeriod');
       return null;
@@ -274,8 +230,8 @@ class CircularExchangeService extends BaseExchangeService {
     
     AppLogger.exchangeDebug('시작 노드 생성 성공: $selectedTeacher, $selectedDay, $selectedPeriod, $className');
     
-    // 과목명 가져오기
-    String subjectName = _getSelectedSubjectName(timeSlots);
+    // 과목명 가져오기 (베이스 클래스 메서드 사용)
+    String subjectName = getSubjectFromTimeSlot(selectedTeacher!, selectedDay!, selectedPeriod!, timeSlots);
     
     return ExchangeNode(
       teacherName: selectedTeacher!,
@@ -290,13 +246,13 @@ class CircularExchangeService extends BaseExchangeService {
   /*
   [2단계]: DFS 탐색 (_findCircularPathsDFS)
   깊이 우선 탐색으로 모든 경우의 수를 체크:
-  김선생(시작)
-  ├── 이선생 탐색
-  │   ├── 박선생 탐색
-  │   │   └── 김선생(끝) ✅ 순환 완성!
-  │   └── 최선생 탐색
+  A교사(시작)
+  ├── B교사 탐색
+  │   ├── C교사 탐색
+  │   │   └── A교사(끝) ✅ 순환 완성!
+  │   └── D교사 탐색
   │       └── ... 계속 탐색
-  └── 박선생 탐색
+  └── C교사 탐색
       └── ... 계속 탐색
   */
   /// DFS를 사용하여 순환 경로를 찾는 재귀 메서드
@@ -371,10 +327,10 @@ class CircularExchangeService extends BaseExchangeService {
 
   /*
   [3단계] : 같은 학급(3-1반)을 가르치는 다른 교사들 찾기
-    시작: 김선생 - 월요일 1교시 - 3-1반
+    시작: A교사 - 월요일 1교시 - 3-1반
     찾은 친구들:
-    → 이선생 - 화요일 3교시 - 3-1반
-    → 박선생 - 수요일 2교시 - 3-1반
+    → B교사 - 화요일 3교시 - 3-1반
+    → C교사 - 수요일 2교시 - 3-1반
   */
   /// 방향 그래프를 위한 인접 노드들을 찾는 메서드
   /// 
@@ -446,9 +402,9 @@ class CircularExchangeService extends BaseExchangeService {
   /// 1. to 교사가 from 교사의 시간에 빈 시간이어야 함 (수업 가능)
   /// 2. 연쇄 교체 방식: A(결강) → B(대신 수업) → C(대신 수업) → D(대신 수업)
   /// 
-  /// 예시: 정원길(월 1교시) → 이숙기(화 3교시)
-  /// - 정원길이 결강할 때 이숙기가 정원길의 수업(월 1교시)을 대신
-  /// - 이숙기가 월 1교시에 빈 시간이어야 함 (수업 가능)
+  /// 예시: A교사(월 1교시) → B교사(화 3교시)
+  /// - A교사가 결강할 때 B교사가 A교사의 수업(월 1교시)을 대신
+  /// - B교사가 월 1교시에 빈 시간이어야 함 (수업 가능)
   bool _isOneWayExchangeable(
     ExchangeNode from,
     ExchangeNode to,

@@ -90,7 +90,7 @@ class ExchangeService extends BaseExchangeService {
     if (selectedTeacher == null) return [];
     
     // 선택된 셀의 학급 정보 가져오기
-    String? selectedClassName = _getSelectedClassName(timeSlots);
+    String? selectedClassName = getSelectedClassName(timeSlots);
     if (selectedClassName == null) return [];
     
     List<ExchangeOption> exchangeOptions = [];
@@ -185,7 +185,7 @@ class ExchangeService extends BaseExchangeService {
     if (selectedTeacher == null) return [];
     
     // 선택된 셀의 학급 정보 가져오기
-    String? selectedClassName = _getSelectedClassName(timeSlots);
+    String? selectedClassName = getSelectedClassName(timeSlots);
     if (selectedClassName == null) return [];
     
     List<Map<String, dynamic>> exchangeableTeachers = [];
@@ -221,23 +221,6 @@ class ExchangeService extends BaseExchangeService {
     }
     
     return exchangeableTeachers;
-  }
-  
-  /// 선택된 셀의 학급 정보 가져오기
-  String? _getSelectedClassName(List<TimeSlot> timeSlots) {
-    if (selectedTeacher == null || selectedDay == null || selectedPeriod == null) {
-      return null;
-    }
-    
-    // 선택된 셀의 TimeSlot 찾기
-    TimeSlot? selectedSlot = timeSlots.firstWhere(
-      (slot) => slot.teacher == selectedTeacher &&
-                slot.dayOfWeek == DayUtils.getDayNumber(selectedDay!) &&
-                slot.period == selectedPeriod,
-      orElse: () => TimeSlot.empty(),
-    );
-    
-    return selectedSlot.className;
   }
   
   /// 빈시간에 같은 반을 가르치는 교사 찾기
