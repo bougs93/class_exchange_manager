@@ -25,8 +25,8 @@ class SimplifiedTimetableTheme {
   static const bool showTargetCellBorder = true; // 타겟 셀 테두리 표시 여부
   
   // 타겟 셀 배경색 상수 (교체 대상의 같은 행 셀 배경색)
-  static const Color targetCellBackgroundColor = Color.fromARGB(255, 255, 0, 0); // 타겟 셀 배경색 (연한 녹색)
-  static const bool showTargetCellBackground = false; // 타겟 셀 배경색 표시 여부
+  static const Color targetCellBackgroundColor = Color.fromARGB(255, 255, 255, 255); // 타겟 셀 배경색 (연한 녹색)
+  static const bool showTargetCellBackground = true; // 타겟 셀 배경색 표시 여부
 
   // 텍스트 색상 상수
   static const Color selectedTextColor = Colors.black; // 선택된 셀의 텍스트 색상 (흰색)

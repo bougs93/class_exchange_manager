@@ -193,6 +193,22 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
               ),
             ),
           ),
+        // 1:1 교체 사이드바 토글 버튼
+        if (_isExchangeModeEnabled && _oneToOnePaths.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            child: TextButton.icon(
+              onPressed: _toggleSidebar,
+              icon: Icon(
+                _isSidebarVisible ? Icons.chevron_right : Icons.chevron_left,
+                size: 16,
+              ),
+              label: Text('${_oneToOnePaths.length}개'),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.blue.shade600,
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -517,8 +533,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     // 새로운 셀 선택시 이전 교체 관련 상태만 초기화 (현재 선택된 셀은 유지)
     _clearPreviousExchangeStates();
     
-    // 순환교체 모드에서 필터 초기화
-    if (_isCircularExchangeModeEnabled) {
+    // 순환교체, 1:1 교체, 연쇄교체 모드에서 필터 초기화
+    if (_isCircularExchangeModeEnabled || _isExchangeModeEnabled || _isChainExchangeModeEnabled) {
       _resetFilters();
     }
     
@@ -581,37 +597,56 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     } else if (_isCircularExchangeModeEnabled) {
       // 순환교체 모드
       allPaths.addAll(_circularPaths);
+    } else if (_isChainExchangeModeEnabled) {
+      // 연쇄교체 모드
+      allPaths.addAll(_chainPaths);
     }
 
-    // 단계 필터링 적용 (순환교체 모드에서만)
-    if (_isCircularExchangeModeEnabled && _selectedStep != null) {
+    // 단계 필터링 적용 (순환교체, 1:1 교체, 연쇄교체 모드에서)
+    if ((_isCircularExchangeModeEnabled || _isExchangeModeEnabled || _isChainExchangeModeEnabled) && _selectedStep != null) {
       allPaths = allPaths.where((path) {
-        if (path is CircularExchangePath) {
+        if (_isCircularExchangeModeEnabled && path is CircularExchangePath) {
           return path.nodes.length == _selectedStep;
+        } else if (_isExchangeModeEnabled && path is OneToOneExchangePath) {
+          return path.nodes.length == _selectedStep; // 1:1 교체는 항상 2개 노드
+        } else if (_isChainExchangeModeEnabled && path is ChainExchangePath) {
+          return path.chainDepth == _selectedStep; // 연쇄교체는 chainDepth 사용
         }
         return false;
       }).toList();
     }
     
-    // 요일 필터링 적용 (순환교체 모드에서만)
-    if (_isCircularExchangeModeEnabled && _selectedDay != null) {
+    // 요일 필터링 적용 (순환교체, 1:1 교체, 연쇄교체 모드에서)
+    if ((_isCircularExchangeModeEnabled || _isExchangeModeEnabled || _isChainExchangeModeEnabled) && _selectedDay != null) {
       allPaths = allPaths.where((path) {
-        // 경로에 2번째 노드가 있는지 확인
-        if (path.nodes.length < 2) {
-          return false;
+        // 교체 대상 노드의 요일이 선택된 요일과 일치하는지 확인
+        ExchangeNode? targetNode;
+        if (_isExchangeModeEnabled && path is OneToOneExchangePath) {
+          targetNode = path.targetNode; // 1:1 교체의 경우 교체 대상 노드
+        } else if (_isCircularExchangeModeEnabled && path is CircularExchangePath) {
+          targetNode = path.nodes.length >= 2 ? path.nodes[1] : null; // 순환교체의 경우 두 번째 노드
+        } else if (_isChainExchangeModeEnabled && path is ChainExchangePath) {
+          targetNode = path.nodeB; // 연쇄교체의 경우 마지막 교체 대상 노드
         }
         
-        // 2번째 노드의 요일이 선택된 요일과 일치하는지 확인
-        ExchangeNode secondNode = path.nodes[1];
-        return secondNode.day == _selectedDay;
+        return targetNode != null && targetNode.day == _selectedDay;
       }).toList();
     }
 
     // 검색 쿼리로 필터링
     if (_searchQuery.isNotEmpty) {
       allPaths = allPaths.where((path) {
-        if (path.nodes.length < 2) return false;
-        return _matchesSearchQuery(path.nodes[1]);
+        // 교체 대상 노드로 검색
+        ExchangeNode? targetNode;
+        if (_isExchangeModeEnabled && path is OneToOneExchangePath) {
+          targetNode = path.targetNode; // 1:1 교체의 경우 교체 대상 노드
+        } else if (_isCircularExchangeModeEnabled && path is CircularExchangePath) {
+          targetNode = path.nodes.length >= 2 ? path.nodes[1] : null; // 순환교체의 경우 두 번째 노드
+        } else if (_isChainExchangeModeEnabled && path is ChainExchangePath) {
+          targetNode = path.nodeB; // 연쇄교체의 경우 마지막 교체 대상 노드
+        }
+        
+        return targetNode != null && _matchesSearchQuery(targetNode);
       }).toList();
     }
     
@@ -758,9 +793,17 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       // 교체 모드가 비활성화되면 UI를 기본값으로 복원
       if (!_isExchangeModeEnabled) {
         _restoreUIToDefault();
+        // 필터 관련 상태 초기화
+        _availableSteps = [];
+        _selectedStep = null;
+        _selectedDay = null;
       } else {
         // 1:1 교체 모드가 활성화되면 선택 상태 초기화
         _clearAllExchangeStates();
+        // 1:1 교체 모드용 필터 상태 초기화
+        _availableSteps = [2]; // 1:1 교체는 항상 2개 노드
+        _selectedStep = null;
+        _selectedDay = null;
       }
     });
     
@@ -1208,12 +1251,12 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       onClearSearch: _clearSearch,
       getSubjectName: _getSubjectName,
       onScrollToCell: _scrollToCellCenter,
-      // 순환교체 모드에서만 사용되는 단계 필터 매개변수들
-      availableSteps: _isCircularExchangeModeEnabled ? _availableSteps : null,
-      selectedStep: _isCircularExchangeModeEnabled ? _selectedStep : null,
-        onStepChanged: _isCircularExchangeModeEnabled ? _onStepChanged : null,
-        selectedDay: _isCircularExchangeModeEnabled ? _selectedDay : null,
-        onDayChanged: _isCircularExchangeModeEnabled ? _onDayChanged : null,
+      // 순환교체, 1:1 교체, 연쇄교체 모드에서 사용되는 단계 필터 매개변수들
+      availableSteps: (_isCircularExchangeModeEnabled || _isExchangeModeEnabled || _isChainExchangeModeEnabled) ? _availableSteps : null,
+      selectedStep: (_isCircularExchangeModeEnabled || _isExchangeModeEnabled || _isChainExchangeModeEnabled) ? _selectedStep : null,
+      onStepChanged: (_isCircularExchangeModeEnabled || _isExchangeModeEnabled || _isChainExchangeModeEnabled) ? _onStepChanged : null,
+      selectedDay: (_isCircularExchangeModeEnabled || _isExchangeModeEnabled || _isChainExchangeModeEnabled) ? _selectedDay : null,
+      onDayChanged: (_isCircularExchangeModeEnabled || _isExchangeModeEnabled || _isChainExchangeModeEnabled) ? _onDayChanged : null,
     );
   }
 
@@ -1406,7 +1449,8 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     });
   }
 
-  /// 순환교체 단계 필터 변경 처리
+
+  /// 단계 필터 변경 처리 (순환교체, 1:1 교체, 연쇄교체 모드)
   void _onStepChanged(int? step) {
     setState(() {
       _selectedStep = step;
@@ -1415,10 +1459,12 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     // 필터링된 경로 업데이트
     _updateFilteredPaths();
     
-    AppLogger.exchangeDebug('순환교체 단계 필터 변경: ${step ?? "전체"}');
+    String mode = _isExchangeModeEnabled ? '1:1교체' : 
+                  _isCircularExchangeModeEnabled ? '순환교체' : '연쇄교체';
+    AppLogger.exchangeDebug('$mode 단계 필터 변경: ${step ?? "전체"}');
   }
   
-  /// 요일 변경 처리
+  /// 요일 필터 변경 처리 (순환교체, 1:1 교체, 연쇄교체 모드)
   void _onDayChanged(String? day) {
     setState(() {
       _selectedDay = day;
@@ -1427,7 +1473,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     // 필터링된 경로 업데이트
     _updateFilteredPaths();
     
-    AppLogger.exchangeDebug('순환교체 요일 필터 변경: ${day ?? "전체"}');
+    String mode = _isExchangeModeEnabled ? '1:1교체' : 
+                  _isCircularExchangeModeEnabled ? '순환교체' : '연쇄교체';
+    AppLogger.exchangeDebug('$mode 요일 필터 변경: ${day ?? "전체"}');
   }
   
   /// 필터 초기화 (셀 선택 시 호출)
@@ -1437,8 +1485,14 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
       _searchQuery = '';
       _searchController.clear();
       
-      // 단계 필터 초기화 (첫 번째 단계로 설정)
-      _selectedStep = _availableSteps.isNotEmpty ? _availableSteps.first : null;
+      // 단계 필터 초기화
+      if (_isExchangeModeEnabled) {
+        _selectedStep = null; // 1:1 교체는 모든 경로 표시
+      } else if (_isCircularExchangeModeEnabled) {
+        _selectedStep = _availableSteps.isNotEmpty ? _availableSteps.first : null;
+      } else if (_isChainExchangeModeEnabled) {
+        _selectedStep = _availableSteps.isNotEmpty ? _availableSteps.first : null;
+      }
       
       // 요일 필터 초기화
       _selectedDay = null;
