@@ -9,10 +9,11 @@ import '../models/time_slot.dart';
 import '../models/teacher.dart';
 import '../models/exchange_node.dart';
 import '../models/circular_exchange_path.dart';
+import 'base_exchange_service.dart';
 
 /// 순환교체 서비스 클래스
 /// 여러 교사 간의 순환 교체 비즈니스 로직을 담당
-class CircularExchangeService {
+class CircularExchangeService extends BaseExchangeService {
   // ==================== 상수 정의 ====================
   
   /// 기본 최대 단계 수 (순환 교체에서 최대 몇 단계까지 탐색할지)
@@ -23,28 +24,14 @@ class CircularExchangeService {
   
   /// 순환교체 경로 디버그 콘솔 출력 여부
   static const bool enablePathDebugLogging = false;
-  
+
   // ==================== 인스턴스 변수 ====================
-  // 교체 관련 상태 변수들
-  String? _selectedTeacher;   // 선택된 교사명
-  String? _selectedDay;       // 선택된 요일
-  int? _selectedPeriod;       // 선택된 교시
-  
+
   // 교체 가능한 시간 관련 변수들
   final List<ExchangeOption> _exchangeOptions = []; // 교체 가능한 시간 옵션들
-  
+
   // Getters
-  String? get selectedTeacher => _selectedTeacher;
-  String? get selectedDay => _selectedDay;
-  int? get selectedPeriod => _selectedPeriod;
   List<ExchangeOption> get exchangeOptions => _exchangeOptions;
-  
-  /// 백그라운드 실행을 위한 선택된 셀 정보 설정 메서드
-  void setSelectedCell(String teacher, String day, int period) {
-    _selectedTeacher = teacher;
-    _selectedDay = day;
-    _selectedPeriod = period;
-  }
   
   /// 순환교체 모드에서 셀 탭 처리
   /// 
@@ -71,71 +58,26 @@ class CircularExchangeService {
     
     String day = parts[0];
     int period = int.tryParse(parts[1]) ?? 0;
-    
-    // 교체할 셀의 교사명 찾기 (헤더를 고려한 행 인덱스 계산)
-    String teacherName = _getTeacherNameFromCell(details, dataSource);
-    
-    // 동일한 셀을 다시 클릭했는지 확인 (토글 기능)
-    bool isSameCell = _selectedTeacher == teacherName && 
-                     _selectedDay == day && 
-                     _selectedPeriod == period;
-    
-    if (isSameCell) {
+
+    // 교체할 셀의 교사명 찾기 (베이스 클래스 메서드 사용)
+    String teacherName = getTeacherNameFromCell(details, dataSource);
+
+    // 동일한 셀을 다시 클릭했는지 확인 (베이스 클래스 메서드 사용)
+    if (isSameCell(teacherName, day, period)) {
       // 동일한 셀 클릭 시 교체 대상 해제
-      _clearCellSelection();
+      clearCellSelection();
       return CircularExchangeResult.deselected();
     } else {
       // 새로운 교체 대상 선택
-      _selectCell(teacherName, day, period);
+      selectCell(teacherName, day, period);
       return CircularExchangeResult.selected(teacherName, day, period);
     }
   }
-  
-  /// 셀에서 교사명 추출
-  String _getTeacherNameFromCell(DataGridCellTapDetails details, TimetableDataSource dataSource) {
-    String teacherName = '';
-    
-    // Syncfusion DataGrid에서 헤더는 다음과 같이 구성됨:
-    // - 일반 헤더: 1개 (컬럼명 표시)
-    // - 스택된 헤더: 1개 (요일별 병합)
-    // 총 2개의 헤더 행이 있으므로 실제 데이터 행 인덱스는 2를 빼야 함
-    int actualRowIndex = details.rowColumnIndex.rowIndex - 2;
-    
-    if (actualRowIndex >= 0 && actualRowIndex < dataSource.rows.length) {
-      DataGridRow row = dataSource.rows[actualRowIndex];
-      for (DataGridCell rowCell in row.getCells()) {
-        if (rowCell.columnName == 'teacher') {
-          teacherName = rowCell.value.toString();
-          break;
-        }
-      }
-    }
-    return teacherName;
-  }
-  
-  /// 셀 선택 상태 설정
-  void _selectCell(String teacherName, String day, int period) {
-    _selectedTeacher = teacherName;
-    _selectedDay = day;
-    _selectedPeriod = period;
-  }
-  
-  /// 셀 선택 해제
-  void _clearCellSelection() {
-    _selectedTeacher = null;
-    _selectedDay = null;
-    _selectedPeriod = null;
-  }
-  
+
   /// 모든 선택 상태 초기화
   void clearAllSelections() {
-    _clearCellSelection();
+    clearCellSelection();
     _exchangeOptions.clear();
-  }
-  
-  /// 교체 모드 활성화 상태 확인
-  bool hasSelectedCell() {
-    return _selectedTeacher != null && _selectedDay != null && _selectedPeriod != null;
   }
   
   /// 순환교체용 교체 가능한 교사 정보 가져오기 (1스탭: 같은 학급, 다른 시간대, 양쪽 빈시간)
@@ -149,7 +91,7 @@ class CircularExchangeService {
     List<TimeSlot> timeSlots,
     List<Teacher> teachers,
   ) {
-    if (_selectedTeacher == null || _selectedDay == null || _selectedPeriod == null) {
+    if (selectedTeacher == null || selectedDay == null || selectedPeriod == null) {
       return [];
     }
     
@@ -161,20 +103,20 @@ class CircularExchangeService {
     
     // 같은 학급을 가르치는 교사들 중에서 찾기
     for (Teacher teacher in teachers) {
-      if (teacher.name == _selectedTeacher) continue; // 자기 자신 제외
+      if (teacher.name == selectedTeacher) continue; // 자기 자신 제외
       
       // 해당 교사가 다른 시간대에 같은 학급을 가르치는지 확인
       List<TimeSlot> teacherSlots = timeSlots.where((slot) => 
         slot.teacher == teacher.name &&
         slot.className == selectedClassName &&
         slot.isNotEmpty &&
-        !(slot.dayOfWeek == DayUtils.getDayNumber(_selectedDay!) && slot.period == _selectedPeriod) // 다른 시간대
+        !(slot.dayOfWeek == DayUtils.getDayNumber(selectedDay!) && slot.period == selectedPeriod) // 다른 시간대
       ).toList();
       
       for (TimeSlot teacherSlot in teacherSlots) {
         // 양쪽 모두 빈 시간인지 확인
         bool selectedTeacherHasEmptyTime = _isTeacherEmptyAtTime(
-          _selectedTeacher!, _selectedDay!, _selectedPeriod!, timeSlots);
+          selectedTeacher!, selectedDay!, selectedPeriod!, timeSlots);
         bool otherTeacherHasEmptyTime = _isTeacherEmptyAtTime(
           teacher.name, _getDayString(teacherSlot.dayOfWeek ?? 0), teacherSlot.period ?? 0, timeSlots);
         
@@ -195,14 +137,14 @@ class CircularExchangeService {
   
   /// 선택된 셀의 학급 정보 가져오기
   String? _getSelectedClassName(List<TimeSlot> timeSlots) {
-    if (_selectedTeacher == null || _selectedDay == null || _selectedPeriod == null) {
+    if (selectedTeacher == null || selectedDay == null || selectedPeriod == null) {
       return null;
     }
     
     TimeSlot? selectedSlot = timeSlots.firstWhere(
-      (slot) => slot.teacher == _selectedTeacher &&
-                slot.dayOfWeek == DayUtils.getDayNumber(_selectedDay!) &&
-                slot.period == _selectedPeriod &&
+      (slot) => slot.teacher == selectedTeacher &&
+                slot.dayOfWeek == DayUtils.getDayNumber(selectedDay!) &&
+                slot.period == selectedPeriod &&
                 slot.isNotEmpty,
       orElse: () => TimeSlot.empty(),
     );
@@ -212,14 +154,14 @@ class CircularExchangeService {
 
   /// 선택된 셀의 과목 정보 가져오기
   String _getSelectedSubjectName(List<TimeSlot> timeSlots) {
-    if (_selectedTeacher == null || _selectedDay == null || _selectedPeriod == null) {
+    if (selectedTeacher == null || selectedDay == null || selectedPeriod == null) {
       return '과목';
     }
     
     TimeSlot? selectedSlot = timeSlots.firstWhere(
-      (slot) => slot.teacher == _selectedTeacher &&
-                slot.dayOfWeek == DayUtils.getDayNumber(_selectedDay!) &&
-                slot.period == _selectedPeriod &&
+      (slot) => slot.teacher == selectedTeacher &&
+                slot.dayOfWeek == DayUtils.getDayNumber(selectedDay!) &&
+                slot.period == selectedPeriod &&
                 slot.isNotEmpty,
       orElse: () => TimeSlot.empty(),
     );
@@ -316,29 +258,29 @@ class CircularExchangeService {
   /// 
   /// 
   ExchangeNode? getSelectedNode(List<TimeSlot> timeSlots) {
-    AppLogger.exchangeDebug('getSelectedNode 호출 - 선택된 셀: $_selectedTeacher, $_selectedDay, $_selectedPeriod');
+    AppLogger.exchangeDebug('getSelectedNode 호출 - 선택된 셀: $selectedTeacher, $selectedDay, $selectedPeriod');
     
-    if (_selectedTeacher == null || _selectedDay == null || _selectedPeriod == null) {
-      AppLogger.exchangeDebug('선택된 셀 정보가 불완전합니다: teacher=$_selectedTeacher, day=$_selectedDay, period=$_selectedPeriod');
+    if (selectedTeacher == null || selectedDay == null || selectedPeriod == null) {
+      AppLogger.exchangeDebug('선택된 셀 정보가 불완전합니다: teacher=$selectedTeacher, day=$selectedDay, period=$selectedPeriod');
       return null;
     }
     
     // 선택된 셀의 학급 정보 가져오기
     String? className = _getSelectedClassName(timeSlots);
     if (className == null) {
-      AppLogger.exchangeDebug('학급 정보를 찾을 수 없습니다: $_selectedTeacher, $_selectedDay, $_selectedPeriod');
+      AppLogger.exchangeDebug('학급 정보를 찾을 수 없습니다: $selectedTeacher, $selectedDay, $selectedPeriod');
       return null;
     }
     
-    AppLogger.exchangeDebug('시작 노드 생성 성공: $_selectedTeacher, $_selectedDay, $_selectedPeriod, $className');
+    AppLogger.exchangeDebug('시작 노드 생성 성공: $selectedTeacher, $selectedDay, $selectedPeriod, $className');
     
     // 과목명 가져오기
     String subjectName = _getSelectedSubjectName(timeSlots);
     
     return ExchangeNode(
-      teacherName: _selectedTeacher!,
-      day: _selectedDay!,
-      period: _selectedPeriod!,
+      teacherName: selectedTeacher!,
+      day: selectedDay!,
+      period: selectedPeriod!,
       className: className,
       subjectName: subjectName,
     );
@@ -579,7 +521,7 @@ class CircularExchangeService {
 
   /// 교체 가능한 교사 정보를 로그로 출력
   void logCircularExchangeInfo(List<CircularExchangePath> paths, List<TimeSlot> timeSlots) {
-    if (_selectedTeacher == null) return;
+    if (selectedTeacher == null) return;
     
     if (paths.isEmpty) {
       AppLogger.exchangeInfo('순환 교체 가능한 경로가 없습니다.');

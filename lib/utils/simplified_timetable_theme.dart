@@ -221,30 +221,7 @@ class SimplifiedTimetableTheme {
   static bool isPeriodTarget(String day, int period, String? targetDay, int? targetPeriod) {
     return targetDay == day && targetPeriod == period;
   }
-  
-  /// 타겟 셀 테두리를 점선으로 설정 (실제로는 solid로 설정, 점선은 CustomPainter 사용)
-  static void setTargetCellDashedBorder() {
-    targetCellBorderStyle = BorderStyle.solid; // Flutter에서는 BorderStyle.solid만 지원
-    // 점선 효과를 위해서는 CustomPainter를 사용해야 함
-  }
-  
-  /// 타겟 셀 테두리를 실선으로 설정
-  static void setTargetCellSolidBorder() {
-    targetCellBorderStyle = BorderStyle.solid;
-  }
-  
-  /// 선택된 셀 테두리를 점선으로 설정 (실제로는 solid로 설정, 점선은 CustomPainter 사용)
-  static void setSelectedCellDashedBorder() {
-    selectedCellBorderStyle = BorderStyle.solid; // Flutter에서는 BorderStyle.solid만 지원
-    // 점선 효과를 위해서는 CustomPainter를 사용해야 함
-  }
-  
-  /// 선택된 셀 테두리를 실선으로 설정
-  static void setSelectedCellSolidBorder() {
-    selectedCellBorderStyle = BorderStyle.solid;
-  }
-  
-  
+
   /// 점선 테두리를 가진 컨테이너 생성 (CustomPainter 사용)
   static Widget createDashedBorderContainer({
     required Widget child,

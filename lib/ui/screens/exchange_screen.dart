@@ -520,10 +520,14 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     String teacher = data['teacher'];
     String day = data['day'];
     int period = data['period'];
-    String className = data['className'];
 
     ChainExchangeService service = ChainExchangeService();
-    service.setSelectedCell(teacher, day, period, className);
+
+    // startChainExchange를 직접 호출하지 않고,
+    // timeSlots를 전달하여 내부에서 className을 찾도록 함
+    // 임시 DataGridCellTapDetails를 생성할 수 없으므로
+    // findChainExchangePaths에서 timeSlots를 통해 className을 찾음
+    service.selectCell(teacher, day, period);
 
     return service.findChainExchangePaths(timeSlots, teachers);
   }
@@ -1392,29 +1396,6 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     }
   }
 
-  /// 백그라운드에서 순환교체 경로 탐색을 실행하는 정적 함수 (현재 비활성화)
-  // static List<CircularExchangePath> _findCircularExchangePathsInBackground(Map<String, dynamic> data) {
-  //   List<dynamic> timeSlotsData = data['timeSlots'] as List<dynamic>;
-  //   List<dynamic> teachersData = data['teachers'] as List<dynamic>;
-  //   String? selectedTeacher = data['selectedTeacher'] as String?;
-  //   String? selectedDay = data['selectedDay'] as String?;
-  //   int? selectedPeriod = data['selectedPeriod'] as int?;
-  //   
-  //   // 동적 리스트를 적절한 타입으로 변환
-  //   List<TimeSlot> timeSlots = timeSlotsData.cast<TimeSlot>();
-  //   List<Teacher> teachers = teachersData.cast<Teacher>();
-  //   
-  //   // 새로운 CircularExchangeService 인스턴스 생성 (백그라운드에서 실행)
-  //   CircularExchangeService service = CircularExchangeService();
-  //   
-  //   // 선택된 셀 정보를 백그라운드 서비스에 설정
-  //   if (selectedTeacher != null && selectedDay != null && selectedPeriod != null) {
-  //     service.setSelectedCell(selectedTeacher, selectedDay, selectedPeriod);
-  //   }
-  //   
-  //   return service.findCircularExchangePaths(timeSlots, teachers);
-  // }
-
   /// 부드러운 진행률 업데이트
   void _updateProgressSmoothly(double targetProgress) {
     // 애니메이션 컨트롤러가 초기화되지 않은 경우 즉시 진행률 업데이트
@@ -1755,9 +1736,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
 List<CircularExchangePath> _findCircularExchangePathsInBackground(Map<String, dynamic> data) {
   // 백그라운드에서 새로운 CircularExchangeService 인스턴스 생성
   CircularExchangeService service = CircularExchangeService();
-  
+
   // 선택된 셀 정보 설정
-  service.setSelectedCell(
+  service.selectCell(
     data['selectedTeacher'] as String,
     data['selectedDay'] as String,
     data['selectedPeriod'] as int,

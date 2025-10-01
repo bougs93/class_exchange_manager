@@ -6,6 +6,7 @@ import '../models/chain_exchange_path.dart';
 import '../utils/timetable_data_source.dart';
 import '../utils/logger.dart';
 import '../utils/day_utils.dart';
+import 'base_exchange_service.dart';
 
 /// 연쇄교체 서비스 클래스
 ///
@@ -13,7 +14,7 @@ import '../utils/day_utils.dart';
 /// A 교사가 B 시간에 다른 수업이 있어 직접 교체가 불가능한 경우,
 /// A 교사의 해당 시간 수업을 먼저 다른 교사와 교체하여 빈 시간을 만든 후
 /// 최종 교체를 완성하는 방식입니다.
-class ChainExchangeService {
+class ChainExchangeService extends BaseExchangeService {
   // ==================== 상수 정의 ====================
 
   /// 연쇄교체 경로 디버그 콘솔 출력 여부
@@ -21,25 +22,14 @@ class ChainExchangeService {
 
   // ==================== 인스턴스 변수 ====================
 
-  // A 위치 (결강 수업) 관련 상태 변수들
-  String? _nodeATeacher;      // A 교사명
-  String? _nodeADay;          // A 요일
-  int? _nodeAPeriod;          // A 교시
+  // A 위치 (결강 수업) 학급 정보
   String? _nodeAClass;        // A 학급
 
   // Getters
-  String? get nodeATeacher => _nodeATeacher;
-  String? get nodeADay => _nodeADay;
-  int? get nodeAPeriod => _nodeAPeriod;
+  String? get nodeATeacher => selectedTeacher;  // 베이스 클래스 사용
+  String? get nodeADay => selectedDay;          // 베이스 클래스 사용
+  int? get nodeAPeriod => selectedPeriod;       // 베이스 클래스 사용
   String? get nodeAClass => _nodeAClass;
-
-  /// 백그라운드 실행을 위한 선택된 셀 정보 설정 메서드
-  void setSelectedCell(String teacher, String day, int period, String className) {
-    _nodeATeacher = teacher;
-    _nodeADay = day;
-    _nodeAPeriod = period;
-    _nodeAClass = className;
-  }
 
   /// 연쇄교체 모드에서 셀 탭 처리
   ///
@@ -68,52 +58,26 @@ class ChainExchangeService {
     String day = parts[0];
     int period = int.tryParse(parts[1]) ?? 0;
 
-    // 교체할 셀의 교사명 찾기
-    String teacherName = _getTeacherNameFromCell(details, dataSource);
+    // 교체할 셀의 교사명 찾기 (베이스 클래스 메서드 사용)
+    String teacherName = getTeacherNameFromCell(details, dataSource);
 
     // 해당 시간의 학급 정보 찾기
     String className = _getClassNameFromCell(teacherName, day, period, timeSlots);
 
-    // 동일한 셀을 다시 클릭했는지 확인 (토글 기능)
-    bool isSameCell = _nodeATeacher == teacherName &&
-                     _nodeADay == day &&
-                     _nodeAPeriod == period;
-
-    if (isSameCell) {
+    // 동일한 셀을 다시 클릭했는지 확인 (베이스 클래스 메서드 사용)
+    if (isSameCell(teacherName, day, period)) {
       // 동일한 셀 클릭 시 교체 대상 해제
       clearAllSelections();
       return ChainExchangeResult.deselected();
     } else {
       // 새로운 교체 대상 선택
-      _nodeATeacher = teacherName;
-      _nodeADay = day;
-      _nodeAPeriod = period;
+      selectCell(teacherName, day, period);
       _nodeAClass = className;
 
       AppLogger.exchangeInfo('연쇄교체: A 위치 선택 - $teacherName $day $period교시 $className');
 
       return ChainExchangeResult.selected(teacherName, day, period);
     }
-  }
-
-  /// 셀에서 교사명 추출
-  String _getTeacherNameFromCell(DataGridCellTapDetails details, TimetableDataSource dataSource) {
-    String teacherName = '';
-
-    // 헤더 행 수 (일반 헤더 1개 + 스택된 헤더 1개)
-    int headerRowCount = 2;
-    int actualRowIndex = details.rowColumnIndex.rowIndex - headerRowCount;
-
-    if (actualRowIndex >= 0 && actualRowIndex < dataSource.rows.length) {
-      DataGridRow row = dataSource.rows[actualRowIndex];
-      for (DataGridCell rowCell in row.getCells()) {
-        if (rowCell.columnName == 'teacher') {
-          teacherName = rowCell.value.toString();
-          break;
-        }
-      }
-    }
-    return teacherName;
   }
 
   /// 해당 시간의 학급 정보 가져오기
@@ -160,24 +124,37 @@ class ChainExchangeService {
     List<TimeSlot> timeSlots,
     List<Teacher> teachers,
   ) {
-    if (_nodeATeacher == null || _nodeADay == null || _nodeAPeriod == null || _nodeAClass == null) {
+    if (!hasSelectedCell()) {
       AppLogger.exchangeInfo('연쇄교체: A 위치가 선택되지 않았습니다.');
+      return [];
+    }
+
+    // _nodeAClass가 null이면 timeSlots에서 찾기 (백그라운드 실행 시)
+    _nodeAClass ??= _getClassNameFromCell(
+      selectedTeacher!,
+      selectedDay!,
+      selectedPeriod!,
+      timeSlots,
+    );
+
+    if (_nodeAClass == null || _nodeAClass!.isEmpty) {
+      AppLogger.exchangeInfo('연쇄교체: A 위치의 학급 정보를 찾을 수 없습니다.');
       return [];
     }
 
     if (enablePathDebugLogging) {
       AppLogger.exchangeDebug('연쇄교체 경로 탐색 시작');
-      AppLogger.exchangeDebug('A 위치: $_nodeATeacher $_nodeADay $_nodeAPeriod교시 $_nodeAClass');
+      AppLogger.exchangeDebug('A 위치: $selectedTeacher $selectedDay $selectedPeriod교시 $_nodeAClass');
     }
 
     List<ChainExchangePath> paths = [];
 
     // A 위치 노드 생성 (과목명 포함)
-    String nodeASubject = _getSubjectFromTimeSlot(_nodeATeacher!, _nodeADay!, _nodeAPeriod!, timeSlots);
+    String nodeASubject = _getSubjectFromTimeSlot(selectedTeacher!, selectedDay!, selectedPeriod!, timeSlots);
     ExchangeNode nodeA = ExchangeNode(
-      teacherName: _nodeATeacher!,
-      day: _nodeADay!,
-      period: _nodeAPeriod!,
+      teacherName: selectedTeacher!,
+      day: selectedDay!,
+      period: selectedPeriod!,
       className: _nodeAClass!,
       subjectName: nodeASubject,
     );
@@ -193,7 +170,7 @@ class ChainExchangeService {
 
     for (ExchangeNode nodeB in nodeBCandidates) {
       // A 교사가 B 시간에 다른 수업(2번)이 있는지 확인
-      ExchangeNode? node2 = _findBlockingSlot(_nodeATeacher!, nodeB, timeSlots);
+      ExchangeNode? node2 = _findBlockingSlot(selectedTeacher!, nodeB, timeSlots);
 
       if (node2 == null) {
         // A와 B가 직접 교체 가능하면 연쇄교체 불필요
@@ -389,9 +366,7 @@ class ChainExchangeService {
 
   /// 모든 선택 상태 초기화
   void clearAllSelections() {
-    _nodeATeacher = null;
-    _nodeADay = null;
-    _nodeAPeriod = null;
+    clearCellSelection();
     _nodeAClass = null;
 
     if (enablePathDebugLogging) {
@@ -399,13 +374,6 @@ class ChainExchangeService {
     }
   }
 
-  /// A 위치가 선택되었는지 확인
-  bool hasSelectedCell() {
-    return _nodeATeacher != null &&
-           _nodeADay != null &&
-           _nodeAPeriod != null &&
-           _nodeAClass != null;
-  }
 
   /// 연쇄교체 가능한 교사 정보 가져오기 (UI 표시용)
   List<Map<String, dynamic>> getChainExchangeableTeachers(
