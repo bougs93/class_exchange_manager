@@ -1319,6 +1319,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         // 데이터 소스에서 선택된 연쇄교체 경로 정보 제거
         _dataSource?.updateSelectedChainPath(null);
         
+        // 타겟 셀 해제
+        _clearTargetCell();
+        
         // 시간표 그리드 업데이트
         _updateHeaderTheme();
         
@@ -1336,6 +1339,9 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
         
         // 데이터 소스에 선택된 연쇄교체 경로 정보 전달
         _dataSource?.updateSelectedChainPath(path);
+        
+        // 타겟 셀 설정 (마지막 교체 대상의 같은 행 셀)
+        _setTargetCellFromChainPath(path);
         
         // 시간표 그리드 업데이트
         _updateHeaderTheme();
@@ -1544,6 +1550,33 @@ class _ExchangeScreenState extends State<ExchangeScreen> with ExchangeLogicMixin
     _dataSource?.updateTargetCell(selectedTeacher, targetDay, targetPeriod);
     
     AppLogger.exchangeDebug('순환교체 타겟 셀 설정: $selectedTeacher $targetDay $targetPeriod교시');
+  }
+  
+  /// 연쇄교체 경로에서 타겟 셀 설정 (마지막 교체 대상의 같은 행 셀)
+  /// 마지막 교체 대상이 수1교시라면, 선택된 셀의 같은 행의 수1교시를 타겟으로 설정
+  void _setTargetCellFromChainPath(ChainExchangePath path) {
+    if (!chainExchangeService.hasSelectedCell() || _timetableData == null) {
+      AppLogger.exchangeDebug('연쇄교체 타겟 셀 설정 실패: 조건 불충족');
+      return;
+    }
+    
+    // 연쇄교체 경로의 마지막 교체 대상은 nodeB (최종 교체 대상)
+    ExchangeNode targetNode = path.nodeB; // 마지막 교체 대상
+    
+    // 교체 대상의 요일과 교시 가져오기
+    String targetDay = targetNode.day;
+    int targetPeriod = targetNode.period;
+    
+    // 선택된 셀의 교사명 가져오기 (nodeA의 교사명)
+    String selectedTeacher = path.nodeA.teacherName;
+    
+    // ExchangeService에 타겟 셀 설정
+    _exchangeService.setTargetCell(selectedTeacher, targetDay, targetPeriod);
+    
+    // 데이터 소스에 타겟 셀 정보 전달
+    _dataSource?.updateTargetCell(selectedTeacher, targetDay, targetPeriod);
+    
+    AppLogger.exchangeDebug('연쇄교체 타겟 셀 설정: $selectedTeacher $targetDay $targetPeriod교시 (마지막 교체 대상)');
   }
   
   /// 이전 교체 관련 상태만 초기화 (현재 선택된 셀은 유지)
