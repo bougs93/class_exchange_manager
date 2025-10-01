@@ -5,6 +5,7 @@ import '../../services/excel_service.dart';
 import '../../utils/timetable_data_source.dart';
 import '../../utils/constants.dart';
 import '../../utils/exchange_visualizer.dart';
+import '../../utils/logger.dart';
 import '../../models/one_to_one_exchange_path.dart';
 import '../../models/exchange_path.dart';
 import '../../models/exchange_node.dart';
@@ -61,7 +62,7 @@ class ExchangeArrowStyle {
 
   /// 순환 교체 모드용 스타일 (단방향)
   static const ExchangeArrowStyle circular = ExchangeArrowStyle(
-    color: Colors.blue,
+    color: Color(0xFFB894B8), // 보라색 (#B894B8)
     strokeWidth: 2.5,
     outlineColor: Colors.white,
     outlineWidth: 4.5,
@@ -69,14 +70,14 @@ class ExchangeArrowStyle {
     direction: ArrowDirection.forward,
   );
 
-  /// 연쇄 교체 모드용 스타일 (단방향)
+  /// 연쇄 교체 모드용 스타일 (양방향)
   static const ExchangeArrowStyle chain = ExchangeArrowStyle(
-    color: Colors.orange,
+    color: Color(0xFFFF8C69), // 주황색 (#FF8C69)
     strokeWidth: 2.0,
     outlineColor: Colors.white,
     outlineWidth: 4.0,
     arrowHeadSize: 8.0,
-    direction: ArrowDirection.forward,
+    direction: ArrowDirection.bidirectional,
   );
 }
 
@@ -238,9 +239,9 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     
     
     // 교체 경로가 선택된 경우에만 화살표 표시 (모든 타입 지원)
-    print('화살표 조건 확인: selectedPath=${widget.selectedExchangePath != null}, exchangeMode=${widget.isExchangeModeEnabled}');
+    AppLogger.exchangeDebug('화살표 조건 확인: selectedPath=${widget.selectedExchangePath != null}, exchangeMode=${widget.isExchangeModeEnabled}');
     if (widget.selectedExchangePath != null) {
-      print('화살표 표시 조건 만족 - CustomPainter 생성');
+      AppLogger.exchangeDebug('화살표 표시 조건 만족 - CustomPainter 생성');
       return Stack(
         children: [
           dataGrid,
@@ -263,7 +264,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
       );
     }
     
-    print('화살표 표시 조건 불만족 - DataGrid만 반환');
+    AppLogger.exchangeDebug('화살표 표시 조건 불만족 - DataGrid만 반환');
     return dataGrid;
   }
 
@@ -414,19 +415,19 @@ class ExchangeArrowPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    print('ExchangeArrowPainter.paint() 호출됨 - 경로 타입: ${selectedPath.type}');
+    AppLogger.exchangeDebug('ExchangeArrowPainter.paint() 호출됨 - 경로 타입: ${selectedPath.type}');
     // 교체 경로 타입에 따라 다른 화살표 그리기
     switch (selectedPath.type) {
       case ExchangePathType.oneToOne:
-        print('1:1 교체 화살표 그리기');
+        AppLogger.exchangeDebug('1:1 교체 화살표 그리기');
         _drawOneToOneArrows(canvas, size);
         break;
       case ExchangePathType.circular:
-        print('순환 교체 화살표 그리기');
+        AppLogger.exchangeDebug('순환 교체 화살표 그리기');
         _drawCircularArrows(canvas, size);
         break;
       case ExchangePathType.chain:
-        print('연쇄 교체 화살표 그리기');
+        AppLogger.exchangeDebug('연쇄 교체 화살표 그리기');
         _drawChainArrows(canvas, size);
         break;
     }
@@ -450,18 +451,28 @@ class ExchangeArrowPainter extends CustomPainter {
     final circularPath = selectedPath as CircularExchangePath;
     final nodes = circularPath.nodes;
 
-    print('순환 교체 화살표 그리기 시작: 노드 개수 = ${nodes.length}');
+    AppLogger.exchangeDebug('순환 교체 화살표 그리기 시작: 노드 개수 = ${nodes.length}');
 
     // 순환 경로의 각 단계별로 화살표 그리기 (가로 우선, 머리 사이즈 10)
     for (int i = 0; i < nodes.length - 1; i++) {
-      print('순환 화살표 그리기: ${i + 1}단계 (${nodes[i].teacherName} → ${nodes[i + 1].teacherName})');
-      _drawArrowBetweenNodes(canvas, size, nodes[i], nodes[i + 1], priority: ArrowPriority.horizontalFirst, arrowHeadSize: 10.0);
+      AppLogger.exchangeDebug('순환 화살표 그리기: ${i + 1}단계 (${nodes[i].teacherName} → ${nodes[i + 1].teacherName})');
+      
+      // 4단계 이상인 경우에만 화살표 중간점에 숫자 표시
+      String? stepText = nodes.length >= 4 ? "${i + 1}" : null;
+      
+      _drawArrowBetweenNodes(canvas, size, nodes[i], nodes[i + 1], priority: ArrowPriority.horizontalFirst, arrowHeadSize: 10.0, text: stepText);
     }
     
     // 순환 교체의 핵심: 마지막 노드에서 첫 번째 노드로 돌아가는 화살표 그리기
-    if (nodes.length > 3) { // 4개 이상 노드가 있어야 마지막 화살표 그리기
-      print('순환 화살표 그리기: ${nodes.length}단계 (${nodes.last.teacherName} → ${nodes.first.teacherName})');
-      _drawArrowBetweenNodes(canvas, size, nodes.last, nodes.first, priority: ArrowPriority.horizontalFirst, arrowHeadSize: 10.0);
+    AppLogger.exchangeDebug('마지막 화살표 조건 확인: nodes.length = ${nodes.length}, 조건 = ${nodes.length > 4}');
+    if (nodes.length > 4) { // 5개 이상 노드가 있어야 마지막 화살표 그리기
+      AppLogger.exchangeDebug('✅ 순환 화살표 그리기: ${nodes.length}단계 (${nodes.last.teacherName} → ${nodes.first.teacherName})');
+      
+      // 마지막 화살표에도 단계 번호 표시 (마지막 단계 번호)
+      String lastStepText = "${nodes.length}";
+      _drawArrowBetweenNodes(canvas, size, nodes.last, nodes.first, priority: ArrowPriority.horizontalFirst, arrowHeadSize: 10.0, text: lastStepText);
+    } else {
+      AppLogger.exchangeDebug('❌ 마지막 화살표 그리기 건너뜀: 노드 개수 ${nodes.length}개 (5개 이상 필요)');
     }
   }
 
@@ -473,7 +484,7 @@ class ExchangeArrowPainter extends CustomPainter {
     int stepNumber = 1;
     for (final step in chainPath.steps) {
       if (step.stepType == 'exchange') {
-        _drawArrowBetweenNodes(canvas, size, step.fromNode, step.toNode, priority: ArrowPriority.verticalFirst, arrowHeadSize: 8.0, text: "S$stepNumber");
+        _drawArrowBetweenNodes(canvas, size, step.fromNode, step.toNode, priority: ArrowPriority.verticalFirst, arrowHeadSize: 8.0, text: "$stepNumber");
         stepNumber++;
       }
     }
@@ -526,7 +537,10 @@ class ExchangeArrowPainter extends CustomPainter {
     );
 
     // 화면 영역 내에 화살표가 있는지 검사
-    if (!_isArrowVisible(sourcePos, targetPos, size)) {
+    bool isVisible = _isArrowVisible(sourcePos, targetPos, size);
+    AppLogger.exchangeDebug('화살표 가시성 검사: ${sourceNode.teacherName} → ${targetNode.teacherName}, 가시성 = $isVisible');
+    if (!isVisible) {
+      AppLogger.exchangeDebug('❌ 화살표 그리기 건너뜀: 화면 밖에 있음');
       return; // 화면 밖에 있으면 그리지 않음
     }
 
@@ -535,7 +549,9 @@ class ExchangeArrowPainter extends CustomPainter {
     _applyFrozenAreaClipping(canvas, size);
 
     // 교체 경로 타입에 따른 스타일 적용하여 화살표 그리기 (우선 방향, 머리 사이즈, 텍스트 지정)
+    AppLogger.exchangeDebug('✅ 화살표 그리기 시작: ${sourceNode.teacherName} → ${targetNode.teacherName}');
     _drawStyledArrow(canvas, sourcePos, targetPos, priority: priority, arrowHeadSize: arrowHeadSize, text: text);
+    AppLogger.exchangeDebug('✅ 화살표 그리기 완료: ${sourceNode.teacherName} → ${targetNode.teacherName}');
     
     canvas.restore();
   }
@@ -593,7 +609,8 @@ class ExchangeArrowPainter extends CustomPainter {
       }
     }
     
-    return false; // 모든 점이 보이지 않는 영역에 있으면 그리지 않음
+    // 모든 점이 화면 밖에 있어도 화살표가 화면 영역과 교차하는지 확인
+    return _isArrowIntersectingVisibleArea(sourcePos, targetPos, canvasSize, frozenColumnWidth, headerHeight);
   }
 
   /// 특정 점이 보이는 영역에 있는지 검사하는 메서드
@@ -614,6 +631,82 @@ class ExchangeArrowPainter extends CustomPainter {
                            point.dy <= canvasSize.height;
     
     return inScrollableArea;
+  }
+
+  /// 화살표가 화면 영역과 교차하는지 확인하는 메서드
+  /// 직각 화살표의 두 선분이 화면 영역과 교차하는지 검사
+  /// 
+  /// [sourcePos] 화살표 시작점 좌표
+  /// [targetPos] 화살표 끝점 좌표
+  /// [canvasSize] 캔버스 크기
+  /// [frozenColumnWidth] 고정 열 너비
+  /// [headerHeight] 헤더 높이
+  /// 
+  /// Returns: bool - 화살표가 화면 영역과 교차하는지 여부
+  bool _isArrowIntersectingVisibleArea(Offset sourcePos, Offset targetPos, Size canvasSize, double frozenColumnWidth, double headerHeight) {
+    // 화면 영역 정의 (스크롤 가능한 영역)
+    Rect visibleArea = Rect.fromLTWH(
+      frozenColumnWidth,
+      headerHeight,
+      canvasSize.width - frozenColumnWidth,
+      canvasSize.height - headerHeight,
+    );
+
+    // 직각 화살표의 중간점 계산 (세로 우선 기준)
+    Offset midPoint = Offset(sourcePos.dx, targetPos.dy);
+
+    // 첫 번째 선분: 시작점 → 중간점
+    bool firstSegmentIntersects = _lineIntersectsRect(sourcePos, midPoint, visibleArea);
+    
+    // 두 번째 선분: 중간점 → 끝점
+    bool secondSegmentIntersects = _lineIntersectsRect(midPoint, targetPos, visibleArea);
+
+    return firstSegmentIntersects || secondSegmentIntersects;
+  }
+
+  /// 선분이 사각형과 교차하는지 확인하는 메서드
+  /// 
+  /// [start] 선분 시작점
+  /// [end] 선분 끝점
+  /// [rect] 사각형 영역
+  /// 
+  /// Returns: bool - 선분이 사각형과 교차하는지 여부
+  bool _lineIntersectsRect(Offset start, Offset end, Rect rect) {
+    // 선분의 경계 상자
+    Rect lineBounds = Rect.fromPoints(start, end);
+    
+    // 경계 상자가 사각형과 교차하는지 확인
+    if (!rect.overlaps(lineBounds)) {
+      return false;
+    }
+
+    // 선분의 양 끝점이 사각형 내부에 있는지 확인
+    if (rect.contains(start) || rect.contains(end)) {
+      return true;
+    }
+
+    // 선분이 사각형의 경계와 교차하는지 확인
+    // 수직선인 경우
+    if (start.dx == end.dx) {
+      double x = start.dx;
+      if (x >= rect.left && x <= rect.right) {
+        double minY = math.min(start.dy, end.dy);
+        double maxY = math.max(start.dy, end.dy);
+        return !(maxY < rect.top || minY > rect.bottom);
+      }
+    }
+    
+    // 수평선인 경우
+    if (start.dy == end.dy) {
+      double y = start.dy;
+      if (y >= rect.top && y <= rect.bottom) {
+        double minX = math.min(start.dx, end.dx);
+        double maxX = math.max(start.dx, end.dx);
+        return !(maxX < rect.left || minX > rect.right);
+      }
+    }
+
+    return false;
   }
 
 
@@ -936,8 +1029,8 @@ class ExchangeArrowPainter extends CustomPainter {
       position.dy - textPainter.height / 2,
     );
     
-    // 텍스트 배경 원 그리기
-    final backgroundRadius = math.max(textPainter.width, textPainter.height) / 2 + 4;
+    // 텍스트 배경 원 그리기 (원 크기를 더 작게 조정)
+    final backgroundRadius = math.max(textPainter.width, textPainter.height) / 2 + 1;
     canvas.drawCircle(position, backgroundRadius, textPaint);
     canvas.drawCircle(position, backgroundRadius, outlinePaint);
     

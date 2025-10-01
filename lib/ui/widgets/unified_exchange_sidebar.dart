@@ -721,14 +721,19 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
     
     // 노드 길이가 3인 경우: 1번째와 2번째 노드 사이를 상하 화살표로 (3번째 노드는 숨김)
     if (path.nodes.length == 3) {
-      // 상하 화살표 (1번째와 2번째 노드 사이)
+      // 상하 화살표만 표시 (숫자 박스 제거)
       nodeWidgets.add(
         Container(
           margin: const EdgeInsets.symmetric(vertical: 2),
-          child: Icon(
-            Icons.swap_vert,  // 상하 화살표
-            color: isSelected ? colorScheme.primary : Colors.grey.shade500,
-            size: 14,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.swap_vert,  // 상하 화살표
+                color: isSelected ? colorScheme.primary : Colors.grey.shade500,
+                size: 14,
+              ),
+            ],
           ),
         ),
       );
@@ -739,17 +744,45 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
       // 3번째 노드는 표시하지 않음 (숨김)
       
     } else {
-      // 노드 길이가 4 이상인 경우: 기존 로직 유지 (모든 화살표가 단방향)
+      // 노드 길이가 4 이상인 경우: 각 화살표에 단계별 숫자 추가
       for (int i = 1; i < path.nodes.length - 1; i++) {
-        // 단방향 화살표 (순환교체 특징)
-        // 선택됨: 각 경로 타입별 색상, 선택안됨: 회색으로 통일
+        // 단방향 화살표와 숫자 (순환교체 특징)
         nodeWidgets.add(
           Container(
             margin: const EdgeInsets.symmetric(vertical: 1),
-            child: Icon(
-              Icons.arrow_downward,
-              color: isSelected ? colorScheme.primary : Colors.grey.shade500,
-              size: 12,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.arrow_downward,
+                  color: isSelected ? colorScheme.primary : Colors.grey.shade500,
+                  size: 12,
+                ),
+                const SizedBox(width: 4),
+                // 숫자 박스 (선택 상태에 따라 색상 변경)
+                Container(
+                  width: 20,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: isSelected ? colorScheme.primary : Colors.grey.shade500,
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(
+                      color: isSelected ? colorScheme.primary : Colors.grey.shade500, 
+                      width: 1
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '$i',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         );
@@ -761,14 +794,43 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
       
       // 마지막 노드 추가 (4개 이상인 경우)
       if (path.nodes.length > 3) {
-        // 마지막 화살표
+        // 마지막 화살표와 숫자
         nodeWidgets.add(
           Container(
             margin: const EdgeInsets.symmetric(vertical: 1),
-            child: Icon(
-              Icons.arrow_downward,
-              color: isSelected ? colorScheme.primary : Colors.grey.shade500,
-              size: 12,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.arrow_downward,
+                  color: isSelected ? colorScheme.primary : Colors.grey.shade500,
+                  size: 12,
+                ),
+                const SizedBox(width: 4),
+                // 마지막 숫자 박스 (선택 상태에 따라 색상 변경)
+                Container(
+                  width: 20,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: isSelected ? colorScheme.primary : Colors.grey.shade500,
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(
+                      color: isSelected ? colorScheme.primary : Colors.grey.shade500, 
+                      width: 1
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${path.nodes.length - 1}',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         );
