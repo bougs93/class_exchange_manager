@@ -748,37 +748,102 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
     return Column(children: nodeWidgets);
   }
 
+  /// 노드 탭 처리 (경로 선택 또는 스크롤)
+  void _handleNodeTap(ExchangeNode node, String nodeKey, bool isSelected) {
+    // 경로가 선택되지 않은 상태라면 경로만 선택
+    if (!isSelected) {
+      _selectPathFromNodeKey(nodeKey);
+      return; // 경로 선택만 하고 스크롤은 하지 않음
+    }
+
+    // 이미 선택된 경로의 노드를 클릭한 경우에만 물결 효과와 스크롤 실행
+    _triggerRippleEffect(nodeKey);
+
+    // 해당 셀로 스크롤
+    if (widget.onScrollToCell != null) {
+      widget.onScrollToCell!(
+        node.teacherName,
+        node.day,
+        node.period,
+      );
+    }
+  }
+
+  /// nodeKey에서 경로 인덱스를 추출하여 경로 선택
+  void _selectPathFromNodeKey(String nodeKey) {
+    // nodeKey에서 경로 인덱스 추출 (형태: '${pathIndex}_${nodeIndex}')
+    List<String> keyParts = nodeKey.split('_');
+    if (keyParts.length >= 2) {
+      int pathIndex = int.tryParse(keyParts[0]) ?? -1;
+      if (pathIndex >= 0 && pathIndex < widget.filteredPaths.length) {
+        ExchangePath targetPath = widget.filteredPaths[pathIndex];
+        AppLogger.exchangeDebug('노드 클릭으로 경로 선택: 인덱스=$pathIndex, 경로ID=${targetPath.id}');
+        widget.onSelectPath(targetPath);
+      }
+    }
+  }
+
+  /// 노드 배경색 계산
+  Color _getNodeBackgroundColor(bool isSelected, bool isLastNode, bool isSecondNode, _PathColorScheme colorScheme) {
+    if (isLastNode) {
+      return isSelected
+          ? colorScheme.nodeBackground.withValues(alpha: 0.3)
+          : Colors.grey.shade50;
+    }
+
+    if (isSecondNode) {
+      return isSelected
+          ? _getDarkerColor(colorScheme.nodeBackground)
+          : Colors.grey.shade300;
+    }
+
+    return isSelected
+        ? colorScheme.nodeBackground
+        : Colors.grey.shade100;
+  }
+
+  /// 노드 테두리색 계산
+  Color _getNodeBorderColor(bool isSelected, bool isLastNode, bool isSecondNode, _PathColorScheme colorScheme) {
+    if (isLastNode) {
+      return isSelected
+          ? colorScheme.nodeBorder.withValues(alpha: 0.3)
+          : Colors.grey.shade300;
+    }
+
+    if (isSecondNode) {
+      return isSelected
+          ? _getDarkerColor(colorScheme.nodeBorder)
+          : Colors.grey.shade500;
+    }
+
+    return isSelected
+        ? colorScheme.nodeBorder
+        : Colors.grey.shade400;
+  }
+
+  /// 노드 텍스트 색상 계산
+  Color _getNodeTextColor(bool isSelected, bool isLastNode, bool isSecondNode, _PathColorScheme colorScheme) {
+    if (isLastNode) {
+      return isSelected
+          ? colorScheme.nodeText.withValues(alpha: 0.4)
+          : Colors.grey.shade400;
+    }
+
+    if (isSecondNode) {
+      return isSelected
+          ? _getDarkerColor(colorScheme.nodeText)
+          : Colors.grey.shade800;
+    }
+
+    return isSelected
+        ? colorScheme.nodeText
+        : Colors.grey.shade600;
+  }
+
   /// 노드 컨테이너 구성 (공통)
   Widget _buildNodeContainer(ExchangeNode node, String nodeKey, bool isSelected, bool isStartNode, _PathColorScheme colorScheme, {bool isLastNode = false, bool isSecondNode = false}) {
     return GestureDetector(
-      onTap: () {
-        // 경로가 선택되지 않은 상태라면 경로만 선택
-        if (!isSelected) {
-          // nodeKey에서 경로 인덱스 추출 (형태: '${pathIndex}_${nodeIndex}')
-          List<String> keyParts = nodeKey.split('_');
-          if (keyParts.length >= 2) {
-            int pathIndex = int.tryParse(keyParts[0]) ?? -1;
-            if (pathIndex >= 0 && pathIndex < widget.filteredPaths.length) {
-              ExchangePath targetPath = widget.filteredPaths[pathIndex];
-              AppLogger.exchangeDebug('노드 클릭으로 경로 선택: 인덱스=$pathIndex, 경로ID=${targetPath.id}');
-              widget.onSelectPath(targetPath);
-            }
-          }
-          return; // 경로 선택만 하고 스크롤은 하지 않음
-        }
-
-        // 이미 선택된 경로의 노드를 클릭한 경우에만 물결 효과와 스크롤 실행
-        _triggerRippleEffect(nodeKey);
-
-        // 해당 셀로 스크롤
-        if (widget.onScrollToCell != null) {
-          widget.onScrollToCell!(
-            node.teacherName,
-            node.day,
-            node.period,
-          );
-        }
-      },
+      onTap: () => _handleNodeTap(node, nodeKey, isSelected),
       child: AnimatedBuilder(
         animation: _flashAnimations[nodeKey] ??
                   const AlwaysStoppedAnimation(1.0),
@@ -792,31 +857,11 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
                padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1), // 4,2 → 3,1로 축소
                decoration: BoxDecoration(
                  // 노드 타입별 배경색 적용
-                 color: isLastNode 
-                     ? (isSelected 
-                         ? colorScheme.nodeBackground.withValues(alpha: 0.3)  // 선택된 마지막 노드: 매우 연한 배경
-                         : Colors.grey.shade50)  // 선택되지 않은 마지막 노드: 매우 연한 회색
-                     : isSecondNode 
-                         ? (isSelected 
-                             ? _getDarkerColor(colorScheme.nodeBackground)  // 선택된 2번째 노드: 진한 배경
-                             : Colors.grey.shade300)  // 선택되지 않은 2번째 노드: 더 진한 회색
-                         : (isSelected 
-                             ? colorScheme.nodeBackground  // 일반 노드: 기존 색상
-                             : Colors.grey.shade100),  // 일반 노드: 기존 색상
+                 color: _getNodeBackgroundColor(isSelected, isLastNode, isSecondNode, colorScheme),
                  borderRadius: BorderRadius.circular(3),
                  border: Border.all(
                    // 노드 타입별 테두리색 적용
-                   color: isLastNode 
-                       ? (isSelected 
-                           ? colorScheme.nodeBorder.withValues(alpha: 0.3)  // 선택된 마지막 노드: 매우 연한 테두리
-                           : Colors.grey.shade300)  // 선택되지 않은 마지막 노드: 연한 회색 테두리
-                       : isSecondNode 
-                           ? (isSelected 
-                               ? _getDarkerColor(colorScheme.nodeBorder)  // 선택된 2번째 노드: 진한 테두리
-                               : Colors.grey.shade500)  // 선택되지 않은 2번째 노드: 더 진한 회색 테두리
-                           : (isSelected 
-                               ? colorScheme.nodeBorder  // 일반 노드: 기존 색상
-                               : Colors.grey.shade400),  // 일반 노드: 기존 색상
+                   color: _getNodeBorderColor(isSelected, isLastNode, isSecondNode, colorScheme),
                    width: isSelected ? 2 : 1,
                  ),
                  boxShadow: [
@@ -834,17 +879,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
                   fontSize: _SidebarFontSizes.nodeText,
                   fontWeight: FontWeight.w500,
                    // 노드 타입별 텍스트 색상 적용
-                   color: isLastNode 
-                       ? (isSelected 
-                           ? colorScheme.nodeText.withValues(alpha: 0.4)  // 선택된 마지막 노드: 매우 연한 텍스트
-                           : Colors.grey.shade400)  // 선택되지 않은 마지막 노드: 연한 회색 텍스트
-                       : isSecondNode 
-                           ? (isSelected 
-                               ? _getDarkerColor(colorScheme.nodeText)  // 선택된 2번째 노드: 진한 텍스트
-                               : Colors.grey.shade800)  // 선택되지 않은 2번째 노드: 더 진한 회색 텍스트
-                           : (isSelected 
-                               ? colorScheme.nodeText  // 일반 노드: 기존 색상
-                               : Colors.grey.shade600),  // 일반 노드: 기존 색상
+                   color: _getNodeTextColor(isSelected, isLastNode, isSecondNode, colorScheme),
                 ),
                 textAlign: TextAlign.center,
               ),

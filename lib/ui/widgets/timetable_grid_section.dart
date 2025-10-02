@@ -12,6 +12,20 @@ import '../../models/exchange_node.dart';
 import '../../models/circular_exchange_path.dart';
 import '../../models/chain_exchange_path.dart';
 
+/// 화살표 계산 관련 상수
+class ArrowConstants {
+  // 화살표 머리 각도 (라디안)
+  static const double headAngle = 0.5;
+
+  // 텍스트 스타일
+  static const double textFontSize = 12.0;
+  static const double textBackgroundPadding = 1.0;
+  static const double textOutlineWidth = 2.0;
+
+  // 애니메이션 지속 시간
+  static const int scrollAnimationMilliseconds = 500;
+}
+
 /// 화살표의 시작점과 끝점이 어느 경계면에서 나야 하는지 결정하는 열거형
 enum ArrowEdge {
   top,    // 상단 경계면 중앙
@@ -363,7 +377,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     
     _verticalScrollController.animateTo(
       targetRowOffset,
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: ArrowConstants.scrollAnimationMilliseconds),
       curve: Curves.easeInOut,
     );
   }
@@ -389,7 +403,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     
     _horizontalScrollController.animateTo(
       targetColumnOffset,
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: ArrowConstants.scrollAnimationMilliseconds),
       curve: Curves.easeInOut,
     );
   }
@@ -1001,20 +1015,20 @@ class ExchangeArrowPainter extends CustomPainter {
   void _drawArrowText(Canvas canvas, Offset position, String text, ExchangeArrowStyle style) {
     // 텍스트 스타일 설정
     final textStyle = TextStyle(
-      fontSize: 12.0,
+      fontSize: ArrowConstants.textFontSize,
       fontWeight: FontWeight.bold,
       color: style.color,
     );
-    
+
     // 텍스트 페인트 설정
     final textPaint = Paint()
       ..color = Colors.white  // 배경색 (외곽선)
       ..style = PaintingStyle.fill;
-    
+
     final outlinePaint = Paint()
       ..color = style.color  // 텍스트 색상
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
+      ..strokeWidth = ArrowConstants.textOutlineWidth;
     
     // 텍스트 크기 계산
     final textPainter = TextPainter(
@@ -1030,7 +1044,7 @@ class ExchangeArrowPainter extends CustomPainter {
     );
     
     // 텍스트 배경 원 그리기 (원 크기를 더 작게 조정)
-    final backgroundRadius = math.max(textPainter.width, textPainter.height) / 2 + 1;
+    final backgroundRadius = math.max(textPainter.width, textPainter.height) / 2 + ArrowConstants.textBackgroundPadding;
     canvas.drawCircle(position, backgroundRadius, textPaint);
     canvas.drawCircle(position, backgroundRadius, outlinePaint);
     
@@ -1042,7 +1056,7 @@ class ExchangeArrowPainter extends CustomPainter {
   void _drawArrowHeadWithStyle(Canvas canvas, Offset from, Offset to, ExchangeArrowStyle style) {
     // 화살표 머리 크기 (스타일에서 설정)
     double headLength = style.arrowHeadSize;
-    double headAngle = 0.5; // 라디안
+    double headAngle = ArrowConstants.headAngle;
 
     // 방향 벡터 계산
     double dx = to.dx - from.dx;
