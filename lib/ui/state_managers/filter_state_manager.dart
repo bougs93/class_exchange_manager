@@ -11,6 +11,18 @@ typedef FilterChangedCallback = void Function();
 /// 단계 필터, 요일 필터, 검색 필터 등의 상태를 관리하고,
 /// 필터 변경 시 콜백을 통해 알립니다.
 class FilterStateManager {
+  /// 순환교체에서 필터링할 노드 인덱스 상수
+  /// 
+  /// 순환교체 경로에서 요일 필터를 적용할 때 사용하는 노드의 인덱스입니다.
+  /// 0-based index로 1은 두 번째 노드를 의미합니다.
+  static const int circularExchangeFilterNodeIndex = 1;
+  
+  /// 연쇄교체에서 필터링할 단계 번호 상수
+  /// 
+  /// 연쇄교체 경로에서 요일 필터를 적용할 때 사용하는 단계 번호입니다.
+  /// 2단계의 toNode만 확인합니다.
+  static const int chainExchangeFilterStepNumber = 2;
+  
   // 필터 상태
   int? _selectedStep;
   String? _selectedDayFilter;
@@ -122,13 +134,21 @@ class FilterStateManager {
 
     return paths.where((path) {
       if (path is OneToOneExchangePath) {
-        return path.nodes.any((node) => node.day == _selectedDayFilter);
+        // 1:1교체의 경우 교체 대상 노드(_targetNode)의 요일만 확인
+        return path.targetNode.day == _selectedDayFilter;
       } else if (path is CircularExchangePath) {
-        return path.nodes.any((node) => node.day == _selectedDayFilter);
+        // 순환교체의 경우 2번째 노드만 확인
+        if (path.nodes.length > circularExchangeFilterNodeIndex) {
+          return path.nodes[circularExchangeFilterNodeIndex].day == _selectedDayFilter;
+        }
+        return false;
       } else if (path is ChainExchangePath) {
-        return path.steps.any((step) =>
-            step.fromNode.day == _selectedDayFilter ||
-            step.toNode.day == _selectedDayFilter);
+        // 연쇄교체의 경우 2단계의 toNode만 확인
+        final step2 = path.steps.firstWhere(
+          (step) => step.stepNumber == chainExchangeFilterStepNumber,
+          orElse: () => throw StateError('2단계를 찾을 수 없습니다'),
+        );
+        return step2.toNode.day == _selectedDayFilter;
       }
       return true;
     }).toList();
