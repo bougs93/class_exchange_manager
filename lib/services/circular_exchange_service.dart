@@ -155,7 +155,8 @@ class CircularExchangeService extends BaseExchangeService {
     List<TimeSlot> timeSlots,
     List<Teacher> teachers,
     {int maxSteps = defaultMaxSteps,  // 최대 단계 수 (기본값: 상수 사용)
-     bool exactSteps = defaultExactSteps}  // 정확히 해당 단계만 검사할지 여부 (기본값: 상수 사용)
+     bool exactSteps = defaultExactSteps,  // 정확히 해당 단계만 검사할지 여부 (기본값: 상수 사용)
+     int maxPaths = 50}  // 최대 경로 수 제한 (성능 최적화)
   ) {
     List<CircularExchangePath> allPaths = [];
     
@@ -165,6 +166,10 @@ class CircularExchangeService extends BaseExchangeService {
     ).toList();
     
     AppLogger.exchangeDebug('순환교체 최적화: 전체 ${timeSlots.length}개 → 유효한 ${validTimeSlots.length}개 TimeSlot');
+    
+    // 성능 최적화: 교사별 시간 인덱스 생성
+    Map<String, Set<String>> teacherTimeIndex = _buildTeacherTimeIndex(validTimeSlots);
+    AppLogger.exchangeDebug('교사별 시간 인덱스 생성 완료: ${teacherTimeIndex.length}명 교사');
     
     // 선택된 노드가 없으면 빈 리스트 반환
     ExchangeNode? startNode = getSelectedNode(validTimeSlots);       // [1단계] : 시작 노트 찾기 (getSelectedNode)
@@ -180,6 +185,7 @@ class CircularExchangeService extends BaseExchangeService {
       startNode, 
       validTimeSlots, // 필터링된 TimeSlot 사용
       teachers, 
+      teacherTimeIndex, // 인덱스 전달
       maxSteps,
       exactSteps
     );
@@ -262,11 +268,24 @@ class CircularExchangeService extends BaseExchangeService {
   └── C교사 탐색
       └── ... 계속 탐색
   */
+  /// 교사별 시간 인덱스 생성 (성능 최적화)
+  Map<String, Set<String>> _buildTeacherTimeIndex(List<TimeSlot> timeSlots) {
+    Map<String, Set<String>> index = {};
+    for (TimeSlot slot in timeSlots) {
+      String teacher = slot.teacher ?? '';
+      String timeKey = '${slot.dayOfWeek}_${slot.period}';
+      index.putIfAbsent(teacher, () => <String>{});
+      index[teacher]!.add(timeKey);
+    }
+    return index;
+  }
+
   /// DFS를 사용하여 순환 경로를 찾는 재귀 메서드
   List<List<ExchangeNode>> _findCircularPathsDFS(
     ExchangeNode startNode,
     List<TimeSlot> timeSlots,
     List<Teacher> teachers,
+    Map<String, Set<String>> teacherTimeIndex, // 인덱스 추가
     int maxSteps,         // 최대 단계 수
     bool exactSteps,     // 정확히 해당 단계만 검사할지 여부
   ) {
@@ -308,6 +327,7 @@ class CircularExchangeService extends BaseExchangeService {
         currentNode, 
         timeSlots, 
         teachers,
+        teacherTimeIndex, // 인덱스 전달
         showLog: currentStep == 0, // 첫 번째 호출에서만 로그 출력
       );
       
@@ -318,8 +338,8 @@ class CircularExchangeService extends BaseExchangeService {
           continue;
         }
         
-        // 방향 그래프 교체 가능성 검증 (한 방향만)
-        if (_isOneWayExchangeable(currentNode, nextNode, timeSlots)) {
+        // 방향 그래프 교체 가능성 검증 (한 방향만) - 인덱스 사용
+        if (_isOneWayExchangeableOptimized(currentNode, nextNode, teacherTimeIndex)) {
           dfs(nextNode, List.from(currentPath), Set.from(visited), currentStep + 1);
         }
       }
@@ -350,7 +370,8 @@ class CircularExchangeService extends BaseExchangeService {
   List<ExchangeNode> findAdjacentNodes(
     ExchangeNode currentNode,
     List<TimeSlot> timeSlots,
-    List<Teacher> teachers, {
+    List<Teacher> teachers,
+    Map<String, Set<String>> teacherTimeIndex, { // 인덱스 추가
     bool showLog = false, // 로그 출력 여부
   }) {
     List<ExchangeNode> adjacentNodes = [];
@@ -379,8 +400,8 @@ class CircularExchangeService extends BaseExchangeService {
         
         // 중복 노드 방지
         if (!addedNodeIds.contains(node.nodeId)) {
-          // 한 방향 교체 가능성 확인 (다음 교사가 현재 교사의 시간에 수업 가능한가?)
-          if (_isOneWayExchangeable(currentNode, node, timeSlots)) {    // [4단계] : 한 방향 교체 가능성 확인 (_isOneWayExchangeable)
+          // 한 방향 교체 가능성 확인 (다음 교사가 현재 교사의 시간에 수업 가능한가?) - 인덱스 사용
+          if (_isOneWayExchangeableOptimized(currentNode, node, teacherTimeIndex)) {    // [4단계] : 한 방향 교체 가능성 확인 (_isOneWayExchangeableOptimized)
             adjacentNodes.add(node);
             addedNodeIds.add(node.nodeId);
           }
@@ -401,7 +422,7 @@ class CircularExchangeService extends BaseExchangeService {
     조건: 한 방향 교체 가능 (다음 교사가 현재 교사의 시간에 수업 가능)
   */
   
-  /// 방향 그래프를 위한 한 방향 교체 가능성을 확인하는 메서드
+  /// 방향 그래프를 위한 한 방향 교체 가능성을 확인하는 메서드 (최적화 버전)
   /// 
   /// 교체 시나리오: from 교사가 결강할 때 to 교사가 from 교사의 수업을 대신
   /// 
@@ -412,6 +433,27 @@ class CircularExchangeService extends BaseExchangeService {
   /// 예시: A교사(월 1교시) → B교사(화 3교시)
   /// - A교사가 결강할 때 B교사가 A교사의 수업(월 1교시)을 대신
   /// - B교사가 월 1교시에 빈 시간이어야 함 (수업 가능)
+  bool _isOneWayExchangeableOptimized(
+    ExchangeNode from,
+    ExchangeNode to,
+    Map<String, Set<String>> teacherTimeIndex,
+  ) {
+    // 같은 교사끼리의 교체는 항상 가능 (순환 완료 시)
+    if (from.teacherName == to.teacherName) {
+      return true;
+    }
+    
+    // 인덱스를 사용한 빠른 검증: from 교사가 to 교사의 시간에 수업이 있는지 확인
+    String toTimeKey = '${DayUtils.getDayNumber(to.day)}_${to.period}';
+    bool fromEmptyAtToTime = !teacherTimeIndex[from.teacherName]?.contains(toTimeKey) ?? true;
+    
+    // 추가 검증: 같은 학급이어야 순환교체 가능
+    bool sameClass = from.className == to.className;
+    
+    return fromEmptyAtToTime && sameClass;
+  }
+
+  /// 방향 그래프를 위한 한 방향 교체 가능성을 확인하는 메서드 (기존 버전 - 호환성 유지)
   bool _isOneWayExchangeable(
     ExchangeNode from,
     ExchangeNode to,
@@ -433,8 +475,6 @@ class CircularExchangeService extends BaseExchangeService {
     
     // 추가 검증: 같은 학급이어야 순환교체 가능
     bool sameClass = from.className == to.className;
-    
-    // 디버그 로그 제거 - 필요시에만 활성화
     
     return fromEmptyAtToTime && sameClass;
   }
