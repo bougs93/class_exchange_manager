@@ -22,6 +22,11 @@ class CircularExchangeService extends BaseExchangeService {
   /// 기본 단계 검사 방식 (false: 해당 단계까지, true: 정확히 해당 단계만)
   static const bool defaultExactSteps = false;
   
+  // ==================== 성능 최적화 ====================
+  
+  /// 경로 탐색 결과 캐싱 (성능 최적화)
+  Map<String, List<CircularExchangePath>> _pathCache = {};
+  
   /// 순환교체 경로 디버그 콘솔 출력 여부
   static const bool enablePathDebugLogging = false;
 
@@ -78,6 +83,7 @@ class CircularExchangeService extends BaseExchangeService {
   void clearAllSelections() {
     clearCellSelection();
     _exchangeOptions.clear();
+    _pathCache.clear(); // 캐시 초기화
   }
   
   /// 순환교체용 교체 가능한 교사 정보 가져오기 (1스탭: 같은 학급, 다른 시간대, 양쪽 빈시간)
@@ -156,7 +162,7 @@ class CircularExchangeService extends BaseExchangeService {
     List<Teacher> teachers,
     {int maxSteps = defaultMaxSteps,  // 최대 단계 수 (기본값: 상수 사용)
      bool exactSteps = defaultExactSteps,  // 정확히 해당 단계만 검사할지 여부 (기본값: 상수 사용)
-     int maxPaths = 50}  // 최대 경로 수 제한 (성능 최적화)
+     bool prioritizeShortSteps = true}  // 짧은 단계부터 우선 탐색 (성능 최적화)
   ) {
     List<CircularExchangePath> allPaths = [];
     
@@ -180,15 +186,19 @@ class CircularExchangeService extends BaseExchangeService {
     
     AppLogger.exchangeDebug('순환 경로 탐색 시작: ${startNode.displayText}');
     
-    // DFS로 순환 경로 탐색
-    List<List<ExchangeNode>> foundPaths = _findCircularPathsDFS(  // [2단계]: DFS 탐색 (_findCircularPathsDFS)
-      startNode, 
-      validTimeSlots, // 필터링된 TimeSlot 사용
-      teachers, 
-      teacherTimeIndex, // 인덱스 전달
-      maxSteps,
-      exactSteps
-    );
+    // 캐시 키 생성
+    String cacheKey = '${startNode.nodeId}_${maxSteps}_${exactSteps}_${prioritizeShortSteps}';
+    
+    // 캐시된 결과 확인
+    if (_pathCache.containsKey(cacheKey)) {
+      AppLogger.exchangeDebug('캐시된 경로 사용: ${_pathCache[cacheKey]!.length}개 경로');
+      return _pathCache[cacheKey]!;
+    }
+    
+    // 단계별 우선순위 탐색 (성능 최적화)
+    List<List<ExchangeNode>> foundPaths = prioritizeShortSteps 
+      ? _findCircularPathsBySteps(startNode, validTimeSlots, teachers, teacherTimeIndex, maxSteps, exactSteps)
+      : _findCircularPathsDFS(startNode, validTimeSlots, teachers, teacherTimeIndex, maxSteps, exactSteps);
     
     // 찾은 경로들을 CircularExchangePath로 변환하고 검증
     List<CircularExchangePath> validPaths = [];
@@ -215,6 +225,10 @@ class CircularExchangeService extends BaseExchangeService {
     
     // 불필요한 긴 단계 경로 제외 (더 짧은 단계로 같은 결과를 얻을 수 있는 경우)
     allPaths = _removeRedundantPaths(validPaths);         // [5단계] : 불필요한 긴 단계 경로 제외 (_removeRedundantPaths)
+    
+    // 결과 캐싱 (성능 최적화)
+    _pathCache[cacheKey] = allPaths;
+    AppLogger.exchangeDebug('경로 탐색 결과 캐싱: ${allPaths.length}개 경로 저장');
     
     return allPaths;
   }
@@ -278,6 +292,38 @@ class CircularExchangeService extends BaseExchangeService {
       index[teacher]!.add(timeKey);
     }
     return index;
+  }
+
+  /// 단계별 우선순위 탐색 (성능 최적화)
+  /// 짧은 단계부터 탐색하여 빠른 결과 제공
+  List<List<ExchangeNode>> _findCircularPathsBySteps(
+    ExchangeNode startNode,
+    List<TimeSlot> timeSlots,
+    List<Teacher> teachers,
+    Map<String, Set<String>> teacherTimeIndex,
+    int maxSteps,
+    bool exactSteps,
+  ) {
+    List<List<ExchangeNode>> allPaths = [];
+    
+    // 단계별로 탐색 (2단계부터 시작)
+    for (int targetSteps = 2; targetSteps <= maxSteps; targetSteps++) {
+      AppLogger.exchangeDebug('단계별 탐색: ${targetSteps}단계 경로 탐색 시작');
+      
+      List<List<ExchangeNode>> stepPaths = _findCircularPathsDFS(
+        startNode, 
+        timeSlots, 
+        teachers, 
+        teacherTimeIndex, 
+        targetSteps, 
+        true // 정확히 해당 단계만
+      );
+      
+      allPaths.addAll(stepPaths);
+      AppLogger.exchangeDebug('${targetSteps}단계 경로 ${stepPaths.length}개 발견');
+    }
+    
+    return allPaths;
   }
 
   /// DFS를 사용하여 순환 경로를 찾는 재귀 메서드
