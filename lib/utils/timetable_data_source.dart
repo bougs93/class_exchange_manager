@@ -8,7 +8,51 @@ import '../models/chain_exchange_path.dart';
 import '../ui/widgets/simplified_timetable_cell.dart';
 import 'exchange_algorithm.dart';
 import 'day_utils.dart';
-import 'logger.dart';
+import 'cell_cache_manager.dart';
+import 'cell_state_manager.dart';
+import 'non_exchangeable_manager.dart';
+
+/// 셀 상태 정보를 담는 클래스
+class CellStateInfo {
+  final bool isSelected;
+  final bool isTargetCell;
+  final bool isExchangeableTeacher;
+  final bool isLastColumnOfDay;
+  final bool isInCircularPath;
+  final int? circularPathStep;
+  final bool isInSelectedPath;
+  final bool isInChainPath;
+  final int? chainPathStep;
+  final bool isNonExchangeable;
+
+  CellStateInfo({
+    required this.isSelected,
+    required this.isTargetCell,
+    required this.isExchangeableTeacher,
+    required this.isLastColumnOfDay,
+    required this.isInCircularPath,
+    this.circularPathStep,
+    required this.isInSelectedPath,
+    required this.isInChainPath,
+    this.chainPathStep,
+    required this.isNonExchangeable,
+  });
+
+  factory CellStateInfo.empty() {
+    return CellStateInfo(
+      isSelected: false,
+      isTargetCell: false,
+      isExchangeableTeacher: false,
+      isLastColumnOfDay: false,
+      isInCircularPath: false,
+      circularPathStep: null,
+      isInSelectedPath: false,
+      isInChainPath: false,
+      chainPathStep: null,
+      isNonExchangeable: false,
+    );
+  }
+}
 
 /// Syncfusion DataGrid용 시간표 데이터 소스
 class TimetableDataSource extends DataGridSource {
@@ -18,6 +62,7 @@ class TimetableDataSource extends DataGridSource {
   }) {
     _timeSlots = timeSlots;
     _teachers = teachers;
+    _nonExchangeableManager.setTimeSlots(timeSlots);
     _buildDataGridRows();
   }
 
@@ -25,36 +70,16 @@ class TimetableDataSource extends DataGridSource {
   List<Teacher> _teachers = [];
   List<DataGridRow> _dataGridRows = [];
   
-  // 셀 선택 관련 변수들
-  String? _selectedTeacher;
-  String? _selectedDay;
-  int? _selectedPeriod;
-  
-  // 타겟 셀 관련 변수들 (교체 대상의 같은 행 셀)
-  String? _targetTeacher;
-  String? _targetDay;
-  int? _targetPeriod;
-  
-  // 교체 가능한 교사 정보 (교사명, 요일, 교시)
-  List<Map<String, dynamic>> _exchangeableTeachers = [];
-  
   // 교체 옵션 정보
   List<ExchangeOption> _exchangeOptions = [];
-  
-  // 선택된 순환교체 경로
-  CircularExchangePath? _selectedCircularPath;
-  
-  // 선택된 1:1 교체 경로
-  OneToOneExchangePath? _selectedOneToOnePath;
-  
-  // 선택된 연쇄교체 경로
-  ChainExchangePath? _selectedChainPath;
-
-  // 교체불가 편집 모드 관련 변수
-  bool _isNonExchangeableEditMode = false;
 
   // UI 업데이트 콜백
   VoidCallback? _onDataChanged;
+  
+  // 관리자 클래스들
+  final CellCacheManager _cacheManager = CellCacheManager();
+  final CellStateManager _stateManager = CellStateManager();
+  final NonExchangeableManager _nonExchangeableManager = NonExchangeableManager();
 
   /// DataGrid 행 데이터 빌드
   void _buildDataGridRows() {
@@ -160,180 +185,146 @@ class TimetableDataSource extends DataGridSource {
   
   @override
   DataGridRowAdapter? buildRow(DataGridRow row) {
-      return DataGridRowAdapter(
-        cells: row.getCells().asMap().entries.map<Widget>((entry) {
-          DataGridCell dataGridCell = entry.value;
-          
-          // 선택 상태 확인
-          bool isSelected = false;
-          bool isTargetCell = false; // 타겟 셀인지 여부
-          bool isTeacherColumn = dataGridCell.columnName == 'teacher';
-          
-          if (isTeacherColumn) {
-            // 교사명 열: 해당 교사가 선택된 경우
-            isSelected = _isTeacherSelected(dataGridCell.value.toString());
-          } else {
-            // 교시 열: 해당 요일의 교시가 선택된 경우 또는 선택된 셀인 경우
-            List<String> parts = dataGridCell.columnName.split('_');
-            if (parts.length == 2) {
-              String day = parts[0];
-              int period = int.tryParse(parts[1]) ?? 0;
-              
-              // 교사명 찾기
-              String teacherName = '';
-              for (DataGridCell rowCell in row.getCells()) {
-                if (rowCell.columnName == 'teacher') {
-                  teacherName = rowCell.value.toString();
-                  break;
-                }
-              }
-              
-              // 선택된 셀인지 확인
-              isSelected = _isCellSelected(teacherName, day, period);
-              
-              // 타겟 셀인지 확인 (교체 대상의 같은 행 셀)
-              isTargetCell = _isCellTarget(teacherName, day, period);
-            }
-          }
-          
-          // 요일별 구분선을 위한 로직
-          bool isLastColumnOfDay = false;
-          if (!isTeacherColumn) {
-            // 컬럼명에서 요일과 교시 추출 (예: "월_1", "월_2", ..., "월_7", "화_1", ...)
-            List<String> parts = dataGridCell.columnName.split('_');
-            if (parts.length == 2) {
-              String day = parts[0];
-              int period = int.tryParse(parts[1]) ?? 0;
-              
-              // 현재 요일의 마지막 교시인지 확인 (7교시)
-              isLastColumnOfDay = period == 7;
-              
-              // 마지막 요일(금요일)의 마지막 교시는 전체 테이블의 마지막이므로 구분선을 두껍게 하지 않음
-              if (day == '금' && period == 7) {
-                isLastColumnOfDay = false;
-              }
-            }
-          }
-          
-          // 교체 가능한 교사인지 확인
-          bool isExchangeableTeacher = false;
-          
-          // 순환교체 경로에 포함된 셀인지 확인
-          bool isInCircularPath = false;
-          int? circularPathStep;
-          
-          // 연쇄교체 경로에 포함된 셀인지 확인
-          bool isInChainPath = false;
-          int? chainPathStep;
-          
-          // 교사명 찾기
-          String teacherName = '';
-          for (DataGridCell rowCell in row.getCells()) {
-            if (rowCell.columnName == 'teacher') {
-              teacherName = rowCell.value.toString();
-              break;
-            }
-          }
-          
-          // 요일과 교시 변수 선언 (전체 스코프에서 사용)
-          String day = '';
-          int period = 0;
-          
-          if (isTeacherColumn) {
-            // 교사명 열인 경우: 해당 교사가 교체 가능한 교사인지 확인
-            isExchangeableTeacher = _isExchangeableTeacherForTeacher(teacherName);
-            isInCircularPath = _isTeacherInCircularPath(teacherName);
-            isInChainPath = _isTeacherInChainPath(teacherName);
-          } else {
-            // 데이터 셀인 경우: 해당 교사와 시간이 교체 가능한지 확인
-            
-            // 요일과 교시 추출
-            List<String> parts = dataGridCell.columnName.split('_');
-            if (parts.length == 2) {
-              day = parts[0];
-              period = int.tryParse(parts[1]) ?? 0;
-            }
-            
-            // 교체 가능한 교사인지 확인
-            isExchangeableTeacher = _isExchangeableTeacher(teacherName, day, period);
-            // 순환교체 경로에 포함된 셀인지 확인
-            isInCircularPath = _isInCircularPath(teacherName, day, period);
-            // 순환교체 경로에서의 단계 번호 가져오기
-            circularPathStep = _getCircularPathStep(teacherName, day, period);
-            // 연쇄교체 경로에 포함된 셀인지 확인
-            isInChainPath = _isInChainPath(teacherName, day, period);
-            // 연쇄교체 경로에서의 단계 번호 가져오기
-            chainPathStep = _getChainPathStep(teacherName, day, period);
-          }
-          
-          // 선택된 1:1 경로에 포함된 셀인지 확인 (통합된 메서드 사용)
-          bool isInSelectedPath = _isInSelectedOneToOnePath(
-            teacherName, 
-            day: isTeacherColumn ? null : day, 
-            period: isTeacherColumn ? null : period
-          );
-          
-          // 교체불가 상태 확인
-          bool isNonExchangeable = _isNonExchangeableTimeSlot(teacherName, day, period);
-          
-          // SimplifiedTimetableCell을 사용하여 일관된 스타일 적용
-          return SimplifiedTimetableCell(
-            content: dataGridCell.value.toString(),
-            isTeacherColumn: isTeacherColumn,
-            isSelected: isSelected,
-            isExchangeable: isExchangeableTeacher,
-            isLastColumnOfDay: isLastColumnOfDay,
-            isInCircularPath: isInCircularPath,
-            circularPathStep: circularPathStep,
-            isInSelectedPath: isInSelectedPath,
-            isInChainPath: isInChainPath,
-            chainPathStep: chainPathStep,
-            isTargetCell: isTargetCell, // 타겟 셀 정보 전달
-            isNonExchangeable: isNonExchangeable, // 교체불가 셀 정보 전달
-          );
-        }).toList(),
-      );
+    return DataGridRowAdapter(
+      cells: row.getCells().asMap().entries.map<Widget>((entry) {
+        DataGridCell dataGridCell = entry.value;
+        bool isTeacherColumn = dataGridCell.columnName == 'teacher';
+        
+        // 교사명 추출
+        String teacherName = _extractTeacherName(row);
+        
+        // 셀 상태 정보 생성
+        CellStateInfo cellState = _createCellStateInfo(
+          dataGridCell, 
+          teacherName, 
+          isTeacherColumn
+        );
+        
+        return SimplifiedTimetableCell(
+          content: dataGridCell.value.toString(),
+          isTeacherColumn: isTeacherColumn,
+          isSelected: cellState.isSelected,
+          isExchangeable: cellState.isExchangeableTeacher,
+          isLastColumnOfDay: cellState.isLastColumnOfDay,
+          isInCircularPath: cellState.isInCircularPath,
+          circularPathStep: cellState.circularPathStep,
+          isInSelectedPath: cellState.isInSelectedPath,
+          isInChainPath: cellState.isInChainPath,
+          chainPathStep: cellState.chainPathStep,
+          isTargetCell: cellState.isTargetCell,
+          isNonExchangeable: cellState.isNonExchangeable,
+        );
+      }).toList(),
+    );
+  }
+
+  /// 교사명 추출
+  String _extractTeacherName(DataGridRow row) {
+    for (DataGridCell rowCell in row.getCells()) {
+      if (rowCell.columnName == 'teacher') {
+        return rowCell.value.toString();
+      }
+    }
+    return '';
+  }
+
+  /// 셀 상태 정보 생성
+  CellStateInfo _createCellStateInfo(DataGridCell dataGridCell, String teacherName, bool isTeacherColumn) {
+    if (isTeacherColumn) {
+      return _createTeacherColumnState(teacherName);
+    } else {
+      return _createDataCellState(dataGridCell, teacherName);
+    }
+  }
+
+  /// 교사명 열 상태 정보 생성
+  CellStateInfo _createTeacherColumnState(String teacherName) {
+    return CellStateInfo(
+      isSelected: _cacheManager.getCellSelectionCached(
+        teacherName, '', 0, 
+        () => _stateManager.isTeacherSelected(teacherName)
+      ),
+      isExchangeableTeacher: _stateManager.isExchangeableTeacherForTeacher(teacherName),
+      isInCircularPath: _stateManager.isTeacherInCircularPath(teacherName),
+      isInChainPath: _stateManager.isTeacherInChainPath(teacherName),
+      isInSelectedPath: _stateManager.isInSelectedOneToOnePath(teacherName),
+      isNonExchangeable: false,
+      isTargetCell: false,
+      isLastColumnOfDay: false,
+      circularPathStep: null,
+      chainPathStep: null,
+    );
+  }
+
+  /// 데이터 셀 상태 정보 생성
+  CellStateInfo _createDataCellState(DataGridCell dataGridCell, String teacherName) {
+    List<String> parts = dataGridCell.columnName.split('_');
+    if (parts.length != 2) {
+      return CellStateInfo.empty();
+    }
+    
+    String day = parts[0];
+    int period = int.tryParse(parts[1]) ?? 0;
+    
+    return CellStateInfo(
+      isSelected: _cacheManager.getCellSelectionCached(
+        teacherName, day, period,
+        () => _stateManager.isCellSelected(teacherName, day, period)
+      ),
+      isTargetCell: _cacheManager.getCellTargetCached(
+        teacherName, day, period,
+        () => _stateManager.isCellTarget(teacherName, day, period)
+      ),
+      isExchangeableTeacher: _cacheManager.getExchangeableCached(
+        teacherName, day, period,
+        () => _stateManager.isExchangeableTeacher(teacherName, day, period)
+      ),
+      isInCircularPath: _cacheManager.getCircularPathCached(
+        teacherName, day, period,
+        () => _stateManager.isInCircularPath(teacherName, day, period)
+      ),
+      isInChainPath: _cacheManager.getChainPathCached(
+        teacherName, day, period,
+        () => _stateManager.isInChainPath(teacherName, day, period)
+      ),
+      isInSelectedPath: _stateManager.isInSelectedOneToOnePath(teacherName, day: day, period: period),
+      isNonExchangeable: _cacheManager.getNonExchangeableCached(
+        teacherName, day, period,
+        () => _nonExchangeableManager.isNonExchangeableTimeSlot(teacherName, day, period)
+      ),
+      isLastColumnOfDay: _isLastColumnOfDay(day, period),
+      circularPathStep: _stateManager.getCircularPathStep(teacherName, day, period),
+      chainPathStep: _stateManager.getChainPathStep(teacherName, day, period),
+    );
+  }
+
+  /// 요일별 마지막 교시 확인
+  bool _isLastColumnOfDay(String day, int period) {
+    bool isLastPeriod = period == 7;
+    bool isLastDay = day == '금';
+    return isLastPeriod && !isLastDay;
   }
 
   /// 선택 상태 업데이트
   void updateSelection(String? teacher, String? day, int? period) {
-    _selectedTeacher = teacher;
-    _selectedDay = day;
-    _selectedPeriod = period;
-    notifyListeners(); // UI 갱신
+    _stateManager.updateSelection(teacher, day, period);
+    _cacheManager.clearAllCaches();
+    notifyListeners();
   }
   
-  /// 타겟 셀 상태 업데이트 (교체 대상의 같은 행 셀)
+  /// 타겟 셀 상태 업데이트
   void updateTargetCell(String? teacher, String? day, int? period) {
-    _targetTeacher = teacher;
-    _targetDay = day;
-    _targetPeriod = period;
-    notifyListeners(); // UI 갱신
+    _stateManager.updateTargetCell(teacher, day, period);
+    _cacheManager.clearAllCaches();
+    notifyListeners();
   }
   
-  /// 특정 셀이 선택된 상태인지 확인
-  bool _isCellSelected(String teacherName, String day, int period) {
-    return _selectedTeacher == teacherName && 
-           _selectedDay == day && 
-           _selectedPeriod == period;
-  }
-  
-  /// 특정 셀이 타겟 셀인지 확인 (교체 대상의 같은 행 셀)
-  bool _isCellTarget(String teacherName, String day, int period) {
-    return _targetTeacher == teacherName && 
-           _targetDay == day && 
-           _targetPeriod == period;
-  }
-  
-  /// 특정 교사가 선택된 상태인지 확인
-  bool _isTeacherSelected(String teacherName) {
-    return _selectedTeacher == teacherName;
-  }
   
   /// 교체 가능한 교사 정보 업데이트
   void updateExchangeableTeachers(List<Map<String, dynamic>> exchangeableTeachers) {
-    _exchangeableTeachers = exchangeableTeachers;
-    notifyListeners(); // UI 갱신
+    _stateManager.updateExchangeableTeachers(exchangeableTeachers);
+    _cacheManager.clearAllCaches();
+    notifyListeners();
   }
   
   /// 교체 옵션 업데이트
@@ -350,183 +341,46 @@ class TimetableDataSource extends DataGridSource {
   
   /// 선택된 순환교체 경로 업데이트
   void updateSelectedCircularPath(CircularExchangePath? path) {
-    _selectedCircularPath = path;
-    notifyListeners(); // UI 갱신
+    _stateManager.updateSelectedCircularPath(path);
+    _cacheManager.clearAllCaches();
+    notifyListeners();
   }
   
   /// 선택된 1:1 교체 경로 업데이트
   void updateSelectedOneToOnePath(OneToOneExchangePath? path) {
-    _selectedOneToOnePath = path;
-    notifyListeners(); // UI 갱신
+    _stateManager.updateSelectedOneToOnePath(path);
+    _cacheManager.clearAllCaches();
+    notifyListeners();
   }
   
   /// 선택된 연쇄교체 경로 업데이트
   void updateSelectedChainPath(ChainExchangePath? path) {
-    _selectedChainPath = path;
-    notifyListeners(); // UI 갱신
+    _stateManager.updateSelectedChainPath(path);
+    _cacheManager.clearAllCaches();
+    notifyListeners();
   }
   
-  
-  /// 교체 가능한 교사인지 확인 (교사명, 요일, 교시 기준)
-  bool _isExchangeableTeacher(String teacherName, String day, int period) {
-    return _exchangeableTeachers.any((teacher) => 
-      teacher['teacherName'] == teacherName &&
-      teacher['day'] == day &&
-      teacher['period'] == period
-    );
-  }
-  
-  /// 교체 가능한 교사인지 확인 (교사명만 기준)
-  bool _isExchangeableTeacherForTeacher(String teacherName) {
-    return _exchangeableTeachers.any((teacher) => 
-      teacher['teacherName'] == teacherName
-    );
-  }
-  
-  /// 순환교체 경로에 포함된 셀인지 확인
-  bool _isInCircularPath(String teacherName, String day, int period) {
-    if (_selectedCircularPath == null) return false;
-    
-    return _selectedCircularPath!.nodes.any((node) => 
-      node.teacherName == teacherName &&
-      node.day == day &&
-      node.period == period
-    );
-  }
-  
-  /// 순환교체 경로에서 해당 셀의 단계 번호 가져오기
-  int? _getCircularPathStep(String teacherName, String day, int period) {
-    if (_selectedCircularPath == null) return null;
-    
-    for (int i = 0; i < _selectedCircularPath!.nodes.length; i++) {
-      final node = _selectedCircularPath!.nodes[i];
-      if (node.teacherName == teacherName &&
-          node.day == day &&
-          node.period == period) {
-        // 첫 번째 노드(시작점)는 오버레이 표시하지 않음 (null 반환)
-        if (i == 0) {
-          return null;
-        }
-        // 두 번째 노드부터는 1, 2, 3... 순서로 표시
-        return i;
-      }
-    }
-    
-    return null;
-  }
-  
-  /// 순환교체 경로에 포함된 교사인지 확인
-  bool _isTeacherInCircularPath(String teacherName) {
-    if (_selectedCircularPath == null) return false;
-    
-    return _selectedCircularPath!.nodes.any((node) => 
-      node.teacherName == teacherName
-    );
-  }
-  
-  /// 선택된 1:1 경로에 포함된 셀인지 확인 (통합 메서드)
-  /// 교사명 열인 경우 day와 period는 null로 전달
-  bool _isInSelectedOneToOnePath(String teacherName, {String? day, int? period}) {
-    if (_selectedOneToOnePath == null) return false;
-    
-    return _selectedOneToOnePath!.nodes.any((node) {
-      if (day != null && period != null) {
-        // 데이터 셀: 교사명, 요일, 교시 모두 확인
-        return node.teacherName == teacherName && 
-               node.day == day && 
-               node.period == period;
-      } else {
-        // 교사명 열: 교사명만 확인
-        return node.teacherName == teacherName;
-      }
-    });
-  }
-  
-  /// 연쇄교체 경로에 포함된 셀인지 확인
-  bool _isInChainPath(String teacherName, String day, int period) {
-    if (_selectedChainPath == null) return false;
-    
-    return _selectedChainPath!.nodes.any((node) => 
-      node.teacherName == teacherName &&
-      node.day == day &&
-      node.period == period
-    );
-  }
-  
-  /// 연쇄교체 경로에서 해당 셀의 단계 번호 가져오기
-  int? _getChainPathStep(String teacherName, String day, int period) {
-    if (_selectedChainPath == null) return null;
-    
-    // 연쇄교체의 노드 순서: [node1, node2, nodeA, nodeB]
-    for (int i = 0; i < _selectedChainPath!.nodes.length; i++) {
-      final node = _selectedChainPath!.nodes[i];
-      if (node.teacherName == teacherName &&
-          node.day == day &&
-          node.period == period) {
-        // node1, node2는 1단계, nodeA, nodeB는 2단계
-        if (i < 2) {
-          return 1; // 1단계
-        } else {
-          return 2; // 2단계
-        }
-      }
-    }
-    
-    return null;
-  }
-  
-  /// 연쇄교체 경로에 포함된 교사인지 확인
-  bool _isTeacherInChainPath(String teacherName) {
-    if (_selectedChainPath == null) return false;
-    
-    return _selectedChainPath!.nodes.any((node) => 
-      node.teacherName == teacherName
-    );
-  }
-
-  /// 교체불가 TimeSlot인지 확인
-  bool _isNonExchangeableTimeSlot(String teacherName, String day, int period) {
-    // 교사명 열인 경우는 교체불가가 아님
-    if (day.isEmpty || period == 0) {
-      return false;
-    }
-    
-    // 해당 TimeSlot 찾기
-    final timeSlot = _timeSlots.firstWhere(
-      (slot) => slot.teacher == teacherName &&
-                DayUtils.getDayName(slot.dayOfWeek ?? 0) == day &&
-                slot.period == period,
-      orElse: () => TimeSlot.empty(),
-    );
-    
-    // TimeSlot이 존재하지 않는 경우 (완전히 빈 셀)는 기본 색상으로 표시
-    if (timeSlot.isEmpty) {
-      return false;
-    }
-    
-    // 실제로 교체불가로 설정된 셀만 빨간색 배경으로 표시
-    // 빈 셀도 교체불가로 설정될 수 있으므로 확인
-    return !timeSlot.isExchangeable && timeSlot.exchangeReason == '교체불가';
-  }
   
 
   /// 데이터 업데이트
   void updateData(List<TimeSlot> timeSlots, List<Teacher> teachers) {
     _timeSlots = timeSlots;
     _teachers = teachers;
+    _nonExchangeableManager.setTimeSlots(timeSlots);
     _buildDataGridRows();
     notifyListeners();
   }
 
   /// 교체불가 편집 모드 설정
   void setNonExchangeableEditMode(bool isEditMode) {
-    _isNonExchangeableEditMode = isEditMode;
+    _nonExchangeableManager.setNonExchangeableEditMode(isEditMode);
+    _cacheManager.clearAllCaches();
     notifyListeners();
-    _onDataChanged?.call(); // UI 업데이트 콜백 호출
+    _onDataChanged?.call();
   }
 
   /// 교체불가 편집 모드 상태 확인
-  bool get isNonExchangeableEditMode => _isNonExchangeableEditMode;
+  bool get isNonExchangeableEditMode => _nonExchangeableManager.isNonExchangeableEditMode;
 
   /// UI 업데이트 콜백 설정
   void setOnDataChanged(VoidCallback? callback) {
@@ -535,63 +389,25 @@ class TimetableDataSource extends DataGridSource {
 
   /// 특정 교사의 모든 TimeSlot을 교체불가로 설정
   void setTeacherAsNonExchangeable(String teacherName) {
-    int modifiedCount = 0;
-    
-    for (var timeSlot in _timeSlots) {
-      if (timeSlot.teacher == teacherName && timeSlot.isNotEmpty) {
-        timeSlot.isExchangeable = false;
-        timeSlot.exchangeReason = '교체불가';
-        modifiedCount++;
-      }
-    }
-    
-    if (modifiedCount > 0) {
-      notifyListeners();
-      _onDataChanged?.call();
-    }
+    _nonExchangeableManager.setTeacherAsNonExchangeable(teacherName);
+    notifyListeners();
+    _onDataChanged?.call();
   }
 
   /// 특정 셀을 교체불가로 설정 또는 해제 (토글 방식, 빈 셀 포함)
   void setCellAsNonExchangeable(String teacherName, String day, int period) {
-    // 해당 TimeSlot 찾기
-    final existingTimeSlot = _timeSlots.firstWhere(
-      (slot) => slot.teacher == teacherName &&
-                DayUtils.getDayName(slot.dayOfWeek ?? 0) == day &&
-                slot.period == period,
-      orElse: () => TimeSlot.empty(),
-    );
-    
-    if (existingTimeSlot.isEmpty) {
-      // 빈 셀인 경우 새로운 TimeSlot 생성 (교체불가로 설정)
-      final dayOfWeek = DayUtils.getDayNumber(day);
-      final newTimeSlot = TimeSlot(
-        teacher: teacherName,
-        dayOfWeek: dayOfWeek,
-        period: period,
-        subject: '', // 빈 셀
-        className: '', // 빈 셀
-        isExchangeable: false, // 교체불가로 설정
-        exchangeReason: '교체불가',
-      );
-      
-      _timeSlots.add(newTimeSlot);
-      AppLogger.exchangeDebug('새로운 TimeSlot 생성 (교체불가): $teacherName $day $period교시');
-    } else {
-      // 기존 TimeSlot이 있는 경우 토글 방식으로 처리
-      if (!existingTimeSlot.isExchangeable && existingTimeSlot.exchangeReason == '교체불가') {
-        // 교체불가 상태인 경우 -> 교체 가능으로 되돌리기
-        existingTimeSlot.isExchangeable = true;
-        existingTimeSlot.exchangeReason = null;
-        AppLogger.exchangeDebug('교체불가 해제: $teacherName $day $period교시 (${existingTimeSlot.subject})');
-      } else {
-        // 교체 가능 상태인 경우 -> 교체불가로 설정
-        existingTimeSlot.isExchangeable = false;
-        existingTimeSlot.exchangeReason = '교체불가';
-        AppLogger.exchangeDebug('교체불가 설정: $teacherName $day $period교시 (${existingTimeSlot.subject})');
-      }
-    }
-    
+    _nonExchangeableManager.setCellAsNonExchangeable(teacherName, day, period);
     notifyListeners();
     _onDataChanged?.call();
   }
+
+  /// 모든 교체불가 설정 초기화
+  void resetAllNonExchangeableSettings() {
+    _nonExchangeableManager.resetAllNonExchangeableSettings();
+    notifyListeners();
+    _onDataChanged?.call();
+  }
+
+  /// TimeSlot 리스트 접근자 (동기화용)
+  List<TimeSlot> get timeSlots => _timeSlots;
 }

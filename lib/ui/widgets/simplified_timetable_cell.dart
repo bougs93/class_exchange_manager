@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../utils/simplified_timetable_theme.dart';
-import '../../utils/logger.dart';
 
 /// 단순화된 시간표 셀 위젯
 class SimplifiedTimetableCell extends StatelessWidget {
@@ -54,10 +53,12 @@ class SimplifiedTimetableCell extends StatelessWidget {
       isNonExchangeable: isNonExchangeable, // 교체불가 셀 정보 전달
     );
     
-    // 디버깅을 위한 로그
-    if (isSelected) {
-      AppLogger.exchangeDebug('선택된 셀 렌더링: $content, 교사열=$isTeacherColumn, 선택됨=$isSelected');
-    }
+    // 디버깅을 위한 로그 (리빌드로 인한 중복 출력 방지를 위해 제거)
+    // Flutter의 위젯 리빌드 메커니즘으로 인해 build() 메서드가 여러 번 호출되어
+    // 로그가 반복 출력되는 것을 방지하기 위해 주석 처리
+    // if (isSelected) {
+    //   AppLogger.exchangeDebug('선택된 셀 렌더링: $content, 교사열=$isTeacherColumn, 선택됨=$isSelected');
+    // }
     
     return GestureDetector(
       onTap: onTap,

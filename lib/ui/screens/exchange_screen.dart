@@ -133,7 +133,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   /// 교체불가 편집 모드 토글
   void _toggleNonExchangeableEditMode() {
     final notifier = ref.read(exchangeScreenProvider.notifier);
-    final currentMode = ref.read(exchangeScreenProvider).isNonExchangeableEditMode ?? false;
+    final currentMode = ref.read(exchangeScreenProvider).isNonExchangeableEditMode;
     
     // Riverpod Provider를 통해 상태 변경
     notifier.setNonExchangeableEditMode(!currentMode);
@@ -416,7 +416,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     
     // 교체불가 편집 모드 상태가 변경될 때마다 TimetableDataSource에 전달
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _dataSource?.setNonExchangeableEditMode(screenState.isNonExchangeableEditMode ?? false);
+      _dataSource?.setNonExchangeableEditMode(screenState.isNonExchangeableEditMode);
     });
 
     // 로컬 변수로 캐싱 (build 메서드 내에서 사용)
@@ -507,7 +507,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
             isExchangeModeEnabled: state.isExchangeModeEnabled,
             isCircularExchangeModeEnabled: state.isCircularExchangeModeEnabled,
             isChainExchangeModeEnabled: state.isChainExchangeModeEnabled,
-            isNonExchangeableEditMode: ref.watch(exchangeScreenProvider).isNonExchangeableEditMode ?? false,
+            isNonExchangeableEditMode: ref.watch(exchangeScreenProvider).isNonExchangeableEditMode,
             onSelectExcelFile: selectExcelFile,
             onToggleExchangeMode: toggleExchangeMode,
             onToggleCircularExchangeMode: toggleCircularExchangeMode,
@@ -600,13 +600,13 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     });
     
     // 교체불가 편집 모드 상태를 TimetableDataSource에 전달
-    _dataSource?.setNonExchangeableEditMode(ref.read(exchangeScreenProvider).isNonExchangeableEditMode ?? false);
+    _dataSource?.setNonExchangeableEditMode(ref.read(exchangeScreenProvider).isNonExchangeableEditMode);
   }
   
   /// 셀 탭 이벤트 핸들러 - 교체 모드가 활성화된 경우만 동작
   void _onCellTap(DataGridCellTapDetails details) {
     // 교체불가 편집 모드인 경우 셀을 교체불가로 설정
-    if (ref.read(exchangeScreenProvider).isNonExchangeableEditMode ?? false) {
+    if (ref.read(exchangeScreenProvider).isNonExchangeableEditMode) {
       _setCellAsNonExchangeable(details);
       return;
     }
