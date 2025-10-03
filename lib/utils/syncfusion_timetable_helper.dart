@@ -13,9 +13,7 @@ import 'day_utils.dart';
 class SyncfusionTimetableHelper {
   // 상수 정의
   static const Color _stackedHeaderColor = Color(0xFFE3F2FD);
-  static const Color _borderColor = Colors.grey;
-  static const double _thinBorderWidth = 1.0;
-  static const BorderSide _thinBorder = BorderSide(color: _borderColor, width: _thinBorderWidth);
+  static const BorderSide _thinBorder = BorderSide(color: SimplifiedTimetableTheme.normalBorderColor, width: SimplifiedTimetableTheme.normalBorderWidth);
   /// TimeSlot 리스트를 Syncfusion DataGrid 데이터로 변환
   /// 
   /// 매개변수:
@@ -79,13 +77,13 @@ class SyncfusionTimetableHelper {
         label: Container(
           padding: EdgeInsets.zero,
           alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: SimplifiedTimetableTheme.teacherHeaderColor,
-            border: const Border(
-              right: BorderSide(color: Colors.grey, width: 0.5), // 교사명과 월요일 사이 구분선을 일반 교시와 동일하게
-              bottom: _thinBorder,
+            decoration: BoxDecoration(
+              color: SimplifiedTimetableTheme.teacherHeaderColor,
+              border: Border(
+                right: BorderSide(color: SimplifiedTimetableTheme.normalBorderColor, width: SimplifiedTimetableTheme.normalBorderWidth), // 교사명과 월요일 사이 구분선을 일반 교시와 동일하게
+                bottom: _thinBorder,
+              ),
             ),
-          ),
           child: const Text(
             '교시',
             style: TextStyle(
@@ -169,10 +167,10 @@ class SyncfusionTimetableHelper {
         child: Container(
           padding: EdgeInsets.zero,
           alignment: Alignment.center,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: _stackedHeaderColor,
             border: Border(
-              right: BorderSide(color: Colors.grey, width: 0.5), // 교사명과 월요일 사이 구분선을 일반 교시와 동일하게
+              right: BorderSide(color: SimplifiedTimetableTheme.normalBorderColor, width: SimplifiedTimetableTheme.normalBorderWidth), // 교사명과 월요일 사이 구분선을 일반 교시와 동일하게
               bottom: _thinBorder,
             ),
           ),
@@ -193,6 +191,7 @@ class SyncfusionTimetableHelper {
       // 해당 요일에 실제 존재하는 교시만 가져오기
       List<int> dayPeriods = (groupedData[day]?.keys.toList() ?? [])..sort();
       List<String> dayColumnNames = dayPeriods.map((period) => '${day}_$period').toList();
+      
       headerCells.add(
         StackedHeaderCell(
           child: Container(
@@ -201,6 +200,10 @@ class SyncfusionTimetableHelper {
             decoration: BoxDecoration(
               color: _stackedHeaderColor,
               border: Border(
+                left: BorderSide(
+                  color: SimplifiedTimetableTheme.dayBorderColor, // 모든 요일에 더 진한 색상
+                  width: SimplifiedTimetableTheme.dayBorderWidth, // 모든 요일에 두꺼운 경계선
+                ),
                 right: _thinBorder, // 모든 교시에 얇은 경계선
                 bottom: _thinBorder,
               ),

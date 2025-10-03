@@ -8,6 +8,12 @@ class SimplifiedTimetableTheme {
   static const Color defaultColor = Colors.white;
   static const Color teacherHeaderColor = Color(0xFFF5F5F5);
   
+  // 경계선 관련 상수
+  static const Color normalBorderColor = Colors.grey;
+  static const Color dayBorderColor = Color(0xFF424242); // 요일별 첫 번째 교시 경계선 색상 (Colors.grey.shade800과 동일)
+  static const double normalBorderWidth = 0.2;
+  static const double dayBorderWidth = 4.0; // 요일별 첫 번째 교시 경계선 두께
+  
   // 선택된 셀 색상 (마우스 클릭, 교체할 셀 선택시)
   static const Color selectedColorLight = Color.fromARGB(255, 255, 255, 0); // 노란색
   static const Color exchangeableColorLight = Color(0xFFE0E0E0);
@@ -209,22 +215,22 @@ class SimplifiedTimetableTheme {
     if (isInCircularPath) {
       return Border(
         left: BorderSide(
-          color: Colors.grey,
-          width: isFirstColumnOfDay ? 2.0 : 0.5, // 요일별 첫 번째 교시에 2.0 두꺼운 경계선
+          color: isFirstColumnOfDay ? dayBorderColor : normalBorderColor, // 요일별 첫 번째 교시에 더 진한 색상
+          width: isFirstColumnOfDay ? dayBorderWidth : normalBorderWidth, // 요일별 첫 번째 교시에 두꺼운 경계선
         ),
-        right: const BorderSide(color: Colors.grey, width: 0.5), // 모든 교시에 얇은 경계선
-        bottom: const BorderSide(color: Colors.grey, width: 0.5),
+        right: const BorderSide(color: normalBorderColor, width: normalBorderWidth), // 모든 교시에 얇은 경계선
+        bottom: const BorderSide(color: normalBorderColor, width: normalBorderWidth),
       );
     }
     
     // 일반 셀의 경우 기존 테두리 스타일
     return Border(
       left: BorderSide(
-        color: Colors.grey,
-        width: isFirstColumnOfDay ? 2.0 : 0.5, // 요일별 첫 번째 교시에 2.0 두꺼운 경계선
+        color: isFirstColumnOfDay ? dayBorderColor : normalBorderColor, // 요일별 첫 번째 교시에 더 진한 색상
+        width: isFirstColumnOfDay ? dayBorderWidth : normalBorderWidth, // 요일별 첫 번째 교시에 두꺼운 경계선
       ),
-      right: const BorderSide(color: Colors.grey, width: 0.5), // 모든 교시에 얇은 경계선
-      bottom: const BorderSide(color: Colors.grey, width: 0.5),
+      right: const BorderSide(color: normalBorderColor, width: normalBorderWidth), // 모든 교시에 얇은 경계선
+      bottom: const BorderSide(color: normalBorderColor, width: normalBorderWidth),
     );
   }
   
