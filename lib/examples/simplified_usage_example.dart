@@ -50,7 +50,7 @@ class _SimplifiedTimetableExampleState extends State<SimplifiedTimetableExample>
         label: Container(
           padding: const EdgeInsets.all(8.0),
           alignment: Alignment.center,
-          child: const Text('교사'),
+          child: const Text('교사'),  // 교사 헤더
         ),
       ),
       GridColumn(

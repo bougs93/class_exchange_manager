@@ -175,7 +175,7 @@ class SyncfusionTimetableHelper {
             ),
           ),
           child: const Text(
-            '교사명',
+            '',
             style: TextStyle(
               fontSize: AppConstants.headerFontSize,
               fontWeight: FontWeight.bold,
@@ -201,8 +201,8 @@ class SyncfusionTimetableHelper {
               color: _stackedHeaderColor,
               border: Border(
                 left: BorderSide(
-                  color: SimplifiedTimetableTheme.dayBorderColor, // 모든 요일에 더 진한 색상
-                  width: SimplifiedTimetableTheme.dayBorderWidth, // 모든 요일에 두꺼운 경계선
+                  color: SimplifiedTimetableTheme.dayHeaderBorderColor, // 요일 헤더 왼쪽 경계선 색상
+                  width: SimplifiedTimetableTheme.dayHeaderBorderWidth, // 요일 헤더 왼쪽 경계선 두께
                 ),
                 right: _thinBorder, // 모든 교시에 얇은 경계선
                 bottom: _thinBorder,

@@ -11,8 +11,10 @@ class SimplifiedTimetableTheme {
   // 경계선 관련 상수
   static const Color normalBorderColor = Colors.grey;
   static const Color dayBorderColor = Color(0xFF424242); // 요일별 첫 번째 교시 경계선 색상 (Colors.grey.shade800과 동일)
+  static const Color dayHeaderBorderColor = Color(0xFF424242); // 요일 헤더 왼쪽 경계선 색상
   static const double normalBorderWidth = 0.2;
-  static const double dayBorderWidth = 4.0; // 요일별 첫 번째 교시 경계선 두께
+  static const double dayBorderWidth = 2.0; // 요일별 첫 번째 교시 경계선 두께
+  static const double dayHeaderBorderWidth = 2.0; // 요일 헤더 왼쪽 경계선 두께
   
   // 선택된 셀 색상 (마우스 클릭, 교체할 셀 선택시)
   static const Color selectedColorLight = Color.fromARGB(255, 255, 255, 0); // 노란색
