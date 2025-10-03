@@ -243,33 +243,11 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
     exchangeService.logExchangeableInfo(exchangeableTeachers);
   }
   
-  /// 경로 선택 처리 (토글 기능 포함)
+  /// 경로 선택 처리 (토글 기능 제거)
   void selectPath(CircularExchangePath path) {
     AppLogger.exchangeDebug('경로 선택 시도: ${path.id}');
     
-    // 이미 선택된 경로를 다시 클릭하면 선택 해제 (토글 기능)
-    // 경로 ID를 사용한 정확한 비교
-    bool isSamePathSelected = selectedCircularPath != null && 
-                             selectedCircularPath!.id == path.id;
-    
-    AppLogger.exchangeDebug('현재 선택된 경로: ${selectedCircularPath?.id}, 클릭한 경로: ${path.id}, 같은 경로: $isSamePathSelected');
-    
-    if (isSamePathSelected) {
-      // 선택 해제
-      onPathDeselected();
-      
-      AppLogger.exchangeInfo('순환교체 경로 선택이 해제되었습니다.');
-      
-      // 사용자에게 선택 해제 알림
-      showSnackBar(
-        '순환교체 경로 선택이 해제되었습니다.',
-        backgroundColor: Colors.grey.shade600,
-      );
-      
-      return;
-    }
-    
-    // 새로운 경로 선택
+    // 토글 기능 제거 - 항상 새로운 경로 선택
     onPathSelected(path);
     
     // 선택된 경로 정보를 콘솔에 출력

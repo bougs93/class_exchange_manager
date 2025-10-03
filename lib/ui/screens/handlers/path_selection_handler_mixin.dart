@@ -30,7 +30,7 @@ mixin PathSelectionHandlerMixin<T extends StatefulWidget> on State<T> {
   /// 통합 경로 선택 처리 (PathSelectionManager 사용)
   void onUnifiedPathSelected(ExchangePath path) {
     AppLogger.exchangeDebug('통합 경로 선택: ${path.id}, 타입: ${pathSelectionManager.getPathTypeName(path)}');
-    pathSelectionManager.togglePathSelection(path);
+    pathSelectionManager.selectPath(path);
   }
 
   /// 1:1 교체 경로 변경 핸들러

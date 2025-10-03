@@ -87,15 +87,10 @@ class PathSelectionManager {
     return false;
   }
 
-  /// 선택된 경로 토글
-  void togglePathSelection(ExchangePath path) {
-    if (isPathSelected(path)) {
-      // 이미 선택된 경로면 해제
-      _deselectPath(path);
-    } else {
-      // 선택되지 않은 경로면 선택
-      _selectPath(path);
-    }
+  /// 경로 선택 (토글 기능 제거)
+  void selectPath(ExchangePath path) {
+    // 토글 기능 제거 - 항상 선택만 실행
+    _selectPath(path);
   }
 
   /// 경로 선택 (내부 메서드)
@@ -109,16 +104,6 @@ class PathSelectionManager {
     }
   }
 
-  /// 경로 선택 해제 (내부 메서드)
-  void _deselectPath(ExchangePath path) {
-    if (path is OneToOneExchangePath) {
-      selectOneToOnePath(null);
-    } else if (path is CircularExchangePath) {
-      selectCircularPath(null);
-    } else if (path is ChainExchangePath) {
-      selectChainPath(null);
-    }
-  }
 
   /// 현재 선택된 경로 가져오기 (타입과 무관)
   ExchangePath? get currentSelectedPath {
