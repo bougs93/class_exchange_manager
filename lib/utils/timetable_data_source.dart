@@ -8,6 +8,7 @@ import '../models/chain_exchange_path.dart';
 import '../ui/widgets/simplified_timetable_cell.dart';
 import 'exchange_algorithm.dart';
 import 'day_utils.dart';
+import 'logger.dart';
 
 /// Syncfusion DataGrid용 시간표 데이터 소스
 class TimetableDataSource extends DataGridSource {
@@ -48,6 +49,12 @@ class TimetableDataSource extends DataGridSource {
   
   // 선택된 연쇄교체 경로
   ChainExchangePath? _selectedChainPath;
+
+  // 교체불가 편집 모드 관련 변수
+  bool _isNonExchangeableEditMode = false;
+
+  // UI 업데이트 콜백
+  VoidCallback? _onDataChanged;
 
   /// DataGrid 행 데이터 빌드
   void _buildDataGridRows() {
@@ -266,6 +273,9 @@ class TimetableDataSource extends DataGridSource {
             period: isTeacherColumn ? null : period
           );
           
+          // 교체불가 상태 확인
+          bool isNonExchangeable = _isNonExchangeableTimeSlot(teacherName, day, period);
+          
           // SimplifiedTimetableCell을 사용하여 일관된 스타일 적용
           return SimplifiedTimetableCell(
             content: dataGridCell.value.toString(),
@@ -279,6 +289,7 @@ class TimetableDataSource extends DataGridSource {
             isInChainPath: isInChainPath,
             chainPathStep: chainPathStep,
             isTargetCell: isTargetCell, // 타겟 셀 정보 전달
+            isNonExchangeable: isNonExchangeable, // 교체불가 셀 정보 전달
           );
         }).toList(),
       );
@@ -472,6 +483,31 @@ class TimetableDataSource extends DataGridSource {
       node.teacherName == teacherName
     );
   }
+
+  /// 교체불가 TimeSlot인지 확인
+  bool _isNonExchangeableTimeSlot(String teacherName, String day, int period) {
+    // 교사명 열인 경우는 교체불가가 아님
+    if (day.isEmpty || period == 0) {
+      return false;
+    }
+    
+    // 해당 TimeSlot 찾기
+    final timeSlot = _timeSlots.firstWhere(
+      (slot) => slot.teacher == teacherName &&
+                DayUtils.getDayName(slot.dayOfWeek ?? 0) == day &&
+                slot.period == period,
+      orElse: () => TimeSlot.empty(),
+    );
+    
+    // TimeSlot이 존재하지 않는 경우 (완전히 빈 셀)는 기본 색상으로 표시
+    if (timeSlot.isEmpty) {
+      return false;
+    }
+    
+    // 실제로 교체불가로 설정된 셀만 빨간색 배경으로 표시
+    // 빈 셀도 교체불가로 설정될 수 있으므로 확인
+    return !timeSlot.isExchangeable && timeSlot.exchangeReason == '교체불가';
+  }
   
 
   /// 데이터 업데이트
@@ -480,5 +516,82 @@ class TimetableDataSource extends DataGridSource {
     _teachers = teachers;
     _buildDataGridRows();
     notifyListeners();
+  }
+
+  /// 교체불가 편집 모드 설정
+  void setNonExchangeableEditMode(bool isEditMode) {
+    _isNonExchangeableEditMode = isEditMode;
+    notifyListeners();
+    _onDataChanged?.call(); // UI 업데이트 콜백 호출
+  }
+
+  /// 교체불가 편집 모드 상태 확인
+  bool get isNonExchangeableEditMode => _isNonExchangeableEditMode;
+
+  /// UI 업데이트 콜백 설정
+  void setOnDataChanged(VoidCallback? callback) {
+    _onDataChanged = callback;
+  }
+
+  /// 특정 교사의 모든 TimeSlot을 교체불가로 설정
+  void setTeacherAsNonExchangeable(String teacherName) {
+    int modifiedCount = 0;
+    
+    for (var timeSlot in _timeSlots) {
+      if (timeSlot.teacher == teacherName && timeSlot.isNotEmpty) {
+        timeSlot.isExchangeable = false;
+        timeSlot.exchangeReason = '교체불가';
+        modifiedCount++;
+      }
+    }
+    
+    if (modifiedCount > 0) {
+      notifyListeners();
+      _onDataChanged?.call();
+    }
+  }
+
+  /// 특정 셀을 교체불가로 설정 또는 해제 (토글 방식, 빈 셀 포함)
+  void setCellAsNonExchangeable(String teacherName, String day, int period) {
+    // 해당 TimeSlot 찾기
+    final existingTimeSlot = _timeSlots.firstWhere(
+      (slot) => slot.teacher == teacherName &&
+                DayUtils.getDayName(slot.dayOfWeek ?? 0) == day &&
+                slot.period == period,
+      orElse: () => TimeSlot.empty(),
+    );
+    
+    if (existingTimeSlot.isEmpty) {
+      // 빈 셀인 경우 새로운 TimeSlot 생성 (교체불가로 설정)
+      final dayOfWeek = DayUtils.getDayNumber(day);
+      final newTimeSlot = TimeSlot(
+        teacher: teacherName,
+        dayOfWeek: dayOfWeek,
+        period: period,
+        subject: '', // 빈 셀
+        className: '', // 빈 셀
+        isExchangeable: false, // 교체불가로 설정
+        exchangeReason: '교체불가',
+      );
+      
+      _timeSlots.add(newTimeSlot);
+      AppLogger.exchangeDebug('새로운 TimeSlot 생성 (교체불가): $teacherName $day $period교시');
+    } else {
+      // 기존 TimeSlot이 있는 경우 토글 방식으로 처리
+      if (!existingTimeSlot.isExchangeable && existingTimeSlot.exchangeReason == '교체불가') {
+        // 교체불가 상태인 경우 -> 교체 가능으로 되돌리기
+        existingTimeSlot.isExchangeable = true;
+        existingTimeSlot.exchangeReason = null;
+        AppLogger.exchangeDebug('교체불가 해제: $teacherName $day $period교시 (${existingTimeSlot.subject})');
+      } else {
+        // 교체 가능 상태인 경우 -> 교체불가로 설정
+        existingTimeSlot.isExchangeable = false;
+        existingTimeSlot.exchangeReason = '교체불가';
+        AppLogger.exchangeDebug('교체불가 설정: $teacherName $day $period교시 (${existingTimeSlot.subject})');
+      }
+    }
+    
+    notifyListeners();
+    _onDataChanged?.call();
   }
 }

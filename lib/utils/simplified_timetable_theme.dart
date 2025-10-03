@@ -47,6 +47,9 @@ class SimplifiedTimetableTheme {
   static const Color overlayColorSelected = Color(0xFFD32F2F); // 진한 빨간색
   static const Color overlayColorExchangeable = Color.fromARGB(255, 250, 160, 169); // 연한 빨간색 (Colors.red.shade200의 실제 색상값)
   
+  // 교체불가 셀 색상
+  static const Color nonExchangeableColor = Color(0xFFFFCDD2); // 연한 빨간색 배경
+  
   
   
   
@@ -68,6 +71,7 @@ class SimplifiedTimetableTheme {
     bool isInChainPath = false, // 연쇄교체 경로에 포함된 셀인지 여부
     int? chainPathStep, // 연쇄교체 경로에서의 단계 (1, 2)
     bool isTargetCell = false, // 타겟 셀인지 여부 (교체 대상의 같은 행 셀)
+    bool isNonExchangeable = false, // 교체불가 셀인지 여부
   }) {
     return CellStyle(
       backgroundColor: _getBackgroundColor(
@@ -78,6 +82,7 @@ class SimplifiedTimetableTheme {
         isInSelectedPath: isInSelectedPath,
         isInChainPath: isInChainPath,
         isTargetCell: isTargetCell, // 타겟 셀 정보 전달
+        isNonExchangeable: isNonExchangeable, // 교체불가 셀 정보 전달
       ),
       textStyle: _getTextStyle(
         isSelected: isSelected,
@@ -115,8 +120,14 @@ class SimplifiedTimetableTheme {
     required bool isInSelectedPath,
     required bool isInChainPath,
     required bool isTargetCell, // 타겟 셀인지 여부 추가
+    required bool isNonExchangeable, // 교체불가 셀인지 여부
   }) {
-    // 타겟 셀 배경색이 표시 여부가 true인 경우 (최우선순위)
+    // 교체불가 셀인 경우 빨간색 배경 (최우선순위)
+    if (isNonExchangeable) {
+      return nonExchangeableColor;
+    }
+    
+    // 타겟 셀 배경색이 표시 여부가 true인 경우
     if (isTargetCell && showTargetCellBackground) {
       return targetCellBackgroundColor;
     }

@@ -9,10 +9,12 @@ class FileSelectionSection extends StatelessWidget {
   final bool isExchangeModeEnabled;
   final bool isCircularExchangeModeEnabled;
   final bool isChainExchangeModeEnabled;
+  final bool isNonExchangeableEditMode;
   final VoidCallback onSelectExcelFile;
   final VoidCallback onToggleExchangeMode;
   final VoidCallback onToggleCircularExchangeMode;
   final VoidCallback onToggleChainExchangeMode;
+  final VoidCallback onToggleNonExchangeableEditMode;
   final VoidCallback onClearSelection;
 
   const FileSelectionSection({
@@ -22,10 +24,12 @@ class FileSelectionSection extends StatelessWidget {
     required this.isExchangeModeEnabled,
     required this.isCircularExchangeModeEnabled,
     required this.isChainExchangeModeEnabled,
+    required this.isNonExchangeableEditMode,
     required this.onSelectExcelFile,
     required this.onToggleExchangeMode,
     required this.onToggleCircularExchangeMode,
     required this.onToggleChainExchangeMode,
+    required this.onToggleNonExchangeableEditMode,
     required this.onClearSelection,
   });
 
@@ -182,6 +186,22 @@ class FileSelectionSection extends StatelessWidget {
             label: Text(isLoading ? '처리 중...' : '다른 파일 선택'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue.shade600,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ),
+        
+        const SizedBox(width: 8),
+        
+        // 교체불가 편집 모드 버튼
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: onToggleNonExchangeableEditMode,
+            icon: Icon(isNonExchangeableEditMode ? Icons.block : Icons.block_outlined),
+            label: Text(isNonExchangeableEditMode ? '편집완료' : '교체불가'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isNonExchangeableEditMode ? Colors.red.shade600 : Colors.red.shade400,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 12),
             ),

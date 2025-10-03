@@ -33,6 +33,7 @@ class ExchangeScreenState {
   final List<int> availableSteps;
   final int? selectedStep;
   final String? selectedDay;
+  final bool isNonExchangeableEditMode;
 
   const ExchangeScreenState({
     this.selectedFile,
@@ -59,6 +60,7 @@ class ExchangeScreenState {
     this.availableSteps = const [],
     this.selectedStep,
     this.selectedDay,
+    this.isNonExchangeableEditMode = false,
   });
 
   ExchangeScreenState copyWith({
@@ -86,6 +88,7 @@ class ExchangeScreenState {
     List<int>? availableSteps,
     int? Function()? selectedStep,
     String? Function()? selectedDay,
+    bool? isNonExchangeableEditMode,
   }) {
     return ExchangeScreenState(
       selectedFile: selectedFile != null ? selectedFile() : this.selectedFile,
@@ -117,6 +120,7 @@ class ExchangeScreenState {
       availableSteps: availableSteps ?? this.availableSteps,
       selectedStep: selectedStep != null ? selectedStep() : this.selectedStep,
       selectedDay: selectedDay != null ? selectedDay() : this.selectedDay,
+      isNonExchangeableEditMode: isNonExchangeableEditMode ?? this.isNonExchangeableEditMode,
     );
   }
 }
@@ -219,6 +223,10 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
 
   void setSelectedDay(String? day) {
     state = state.copyWith(selectedDay: () => day);
+  }
+
+  void setNonExchangeableEditMode(bool enabled) {
+    state = state.copyWith(isNonExchangeableEditMode: enabled);
   }
 }
 

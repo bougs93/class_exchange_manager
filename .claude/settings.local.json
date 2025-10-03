@@ -16,7 +16,8 @@
       "Bash(else echo \"   ❌ 미완료 (파일 없음)\")",
       "Bash(fi)",
       "Bash(if [ -f \"lib/ui/screens/handlers/state_reset_handler.dart\" ])",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(flutter run:*)"
     ],
     "deny": [],
     "ask": []
