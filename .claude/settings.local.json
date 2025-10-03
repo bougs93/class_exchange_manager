@@ -1,7 +1,22 @@
 {
   "permissions": {
     "allow": [
-      "Bash(flutter analyze:*)"
+      "Bash(flutter analyze:*)",
+      "Bash(git checkout:*)",
+      "Bash(flutter build:*)",
+      "Read(//d/**)",
+      "Bash(awk:*)",
+      "Bash(while read line)",
+      "Bash(do echo -n \"$line:\")",
+      "Bash(done)",
+      "Bash(sort:*)",
+      "Bash(python:*)",
+      "Bash(if [ -f \"lib/ui/screens/builders/sidebar_builder.dart\" ])",
+      "Bash(then echo \"   ✅ 완료\")",
+      "Bash(else echo \"   ❌ 미완료 (파일 없음)\")",
+      "Bash(fi)",
+      "Bash(if [ -f \"lib/ui/screens/handlers/state_reset_handler.dart\" ])",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []
