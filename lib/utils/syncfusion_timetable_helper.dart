@@ -14,9 +14,7 @@ class SyncfusionTimetableHelper {
   // 상수 정의
   static const Color _stackedHeaderColor = Color(0xFFE3F2FD);
   static const Color _borderColor = Colors.grey;
-  static const double _thickBorderWidth = 3.0;
   static const double _thinBorderWidth = 1.0;
-  static const BorderSide _thickBorder = BorderSide(color: _borderColor, width: _thickBorderWidth);
   static const BorderSide _thinBorder = BorderSide(color: _borderColor, width: _thinBorderWidth);
   /// TimeSlot 리스트를 Syncfusion DataGrid 데이터로 변환
   /// 
@@ -84,7 +82,7 @@ class SyncfusionTimetableHelper {
           decoration: BoxDecoration(
             color: SimplifiedTimetableTheme.teacherHeaderColor,
             border: const Border(
-              right: _thickBorder, // 교사명과 월요일 사이 구분선을 두껍게
+              right: BorderSide(color: Colors.grey, width: 0.5), // 교사명과 월요일 사이 구분선을 일반 교시와 동일하게
               bottom: _thinBorder,
             ),
           ),
@@ -105,6 +103,7 @@ class SyncfusionTimetableHelper {
       List<int> dayPeriods = (groupedData[day]?.keys.toList() ?? [])..sort();
       for (int i = 0; i < dayPeriods.length; i++) {
         int period = dayPeriods[i];
+        bool isFirstPeriod = i == 0; // 해당 요일의 첫 번째 교시인지 확인
         bool isLastPeriod = i == dayPeriods.length - 1; // 해당 요일의 마지막 교시인지 확인
         
         // 테마를 사용하여 선택 상태 확인
@@ -128,6 +127,7 @@ class SyncfusionTimetableHelper {
           isSelected: isSelected,
           isExchangeable: isExchangeablePeriod,
           isLastColumnOfDay: isLastPeriod,
+          isFirstColumnOfDay: isFirstPeriod,
           isHeader: true,
           isInCircularPath: isInCircularPath,
           isInSelectedPath: isInSelectedOneToOnePath,
@@ -172,7 +172,7 @@ class SyncfusionTimetableHelper {
           decoration: const BoxDecoration(
             color: _stackedHeaderColor,
             border: Border(
-              right: _thickBorder,
+              right: BorderSide(color: Colors.grey, width: 0.5), // 교사명과 월요일 사이 구분선을 일반 교시와 동일하게
               bottom: _thinBorder,
             ),
           ),
@@ -201,10 +201,7 @@ class SyncfusionTimetableHelper {
             decoration: BoxDecoration(
               color: _stackedHeaderColor,
               border: Border(
-                right: BorderSide(
-                  color: _borderColor,
-                  width: _thickBorderWidth,
-                ),
+                right: _thinBorder, // 모든 교시에 얇은 경계선
                 bottom: _thinBorder,
               ),
             ),

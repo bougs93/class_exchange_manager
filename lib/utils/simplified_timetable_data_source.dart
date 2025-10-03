@@ -126,6 +126,7 @@ class SimplifiedTimetableDataSource extends DataGridSource {
         bool isSelected = _isCellSelected(dataGridCell, row);
         bool isExchangeable = _isExchangeableCell(dataGridCell, row);
         bool isLastColumnOfDay = _isLastColumnOfDay(dataGridCell);
+        bool isFirstColumnOfDay = _isFirstColumnOfDay(dataGridCell);
         
         AppLogger.exchangeDebug('셀 빌드: ${dataGridCell.columnName}, 값=${dataGridCell.value}, 선택됨=$isSelected');
         
@@ -135,6 +136,7 @@ class SimplifiedTimetableDataSource extends DataGridSource {
           isSelected: isSelected,
           isExchangeable: isExchangeable,
           isLastColumnOfDay: isLastColumnOfDay,
+          isFirstColumnOfDay: isFirstColumnOfDay,
         );
       }).toList(),
     );
@@ -225,6 +227,19 @@ class SimplifiedTimetableDataSource extends DataGridSource {
       int period = int.tryParse(parts[1]) ?? 0;
       return period == 7 && day != '금';
     }
+    return false;
+  }
+  
+  /// 첫 번째 열인지 확인 (요일별 첫 번째 교시)
+  bool _isFirstColumnOfDay(DataGridCell dataGridCell) {
+    if (dataGridCell.columnName == 'teacher') return false;
+    
+    List<String> parts = dataGridCell.columnName.split('_');
+    if (parts.length == 2) {
+      int period = int.tryParse(parts[1]) ?? 0;
+      return period == 1; // 모든 요일의 첫 번째 교시
+    }
+    
     return false;
   }
 }

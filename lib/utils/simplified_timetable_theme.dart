@@ -64,6 +64,7 @@ class SimplifiedTimetableTheme {
     required bool isSelected,
     required bool isExchangeable,
     required bool isLastColumnOfDay,
+    bool isFirstColumnOfDay = false, // 요일별 첫 번째 교시인지 여부
     bool isHeader = false,
     bool isInCircularPath = false, // 순환교체 경로에 포함된 셀인지 여부
     int? circularPathStep, // 순환교체 경로에서의 단계 (1, 2, 3...)
@@ -93,6 +94,7 @@ class SimplifiedTimetableTheme {
         isTeacherColumn: isTeacherColumn,
         isSelected: isSelected,
         isLastColumnOfDay: isLastColumnOfDay,
+        isFirstColumnOfDay: isFirstColumnOfDay,
         isInCircularPath: isInCircularPath,
         isHeader: isHeader,
         isTargetCell: isTargetCell,
@@ -178,6 +180,7 @@ class SimplifiedTimetableTheme {
     required bool isTeacherColumn,
     required bool isSelected,
     required bool isLastColumnOfDay,
+    required bool isFirstColumnOfDay,
     required bool isInCircularPath,
     required bool isHeader,
     required bool isTargetCell,
@@ -205,20 +208,22 @@ class SimplifiedTimetableTheme {
     // 순환교체 경로에 포함된 셀의 경우 일반 테두리 (보라색 테두리 제거)
     if (isInCircularPath) {
       return Border(
-        right: BorderSide(
+        left: BorderSide(
           color: Colors.grey,
-          width: isTeacherColumn ? 3 : (isLastColumnOfDay ? 3 : 0.5),
+          width: isFirstColumnOfDay ? 2.0 : 0.5, // 요일별 첫 번째 교시에 2.0 두꺼운 경계선
         ),
+        right: const BorderSide(color: Colors.grey, width: 0.5), // 모든 교시에 얇은 경계선
         bottom: const BorderSide(color: Colors.grey, width: 0.5),
       );
     }
     
     // 일반 셀의 경우 기존 테두리 스타일
     return Border(
-      right: BorderSide(
+      left: BorderSide(
         color: Colors.grey,
-        width: isTeacherColumn ? 3 : (isLastColumnOfDay ? 3 : 0.5),
+        width: isFirstColumnOfDay ? 2.0 : 0.5, // 요일별 첫 번째 교시에 2.0 두꺼운 경계선
       ),
+      right: const BorderSide(color: Colors.grey, width: 0.5), // 모든 교시에 얇은 경계선
       bottom: const BorderSide(color: Colors.grey, width: 0.5),
     );
   }

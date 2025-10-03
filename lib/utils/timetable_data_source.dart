@@ -18,6 +18,7 @@ class CellStateInfo {
   final bool isTargetCell;
   final bool isExchangeableTeacher;
   final bool isLastColumnOfDay;
+  final bool isFirstColumnOfDay;
   final bool isInCircularPath;
   final int? circularPathStep;
   final bool isInSelectedPath;
@@ -30,6 +31,7 @@ class CellStateInfo {
     required this.isTargetCell,
     required this.isExchangeableTeacher,
     required this.isLastColumnOfDay,
+    required this.isFirstColumnOfDay,
     required this.isInCircularPath,
     this.circularPathStep,
     required this.isInSelectedPath,
@@ -44,6 +46,7 @@ class CellStateInfo {
       isTargetCell: false,
       isExchangeableTeacher: false,
       isLastColumnOfDay: false,
+      isFirstColumnOfDay: false,
       isInCircularPath: false,
       circularPathStep: null,
       isInSelectedPath: false,
@@ -200,6 +203,7 @@ class TimetableDataSource extends DataGridSource {
           isSelected: cellState.isSelected,
           isExchangeable: cellState.isExchangeableTeacher,
           isLastColumnOfDay: cellState.isLastColumnOfDay,
+          isFirstColumnOfDay: cellState.isFirstColumnOfDay,
           isInCircularPath: cellState.isInCircularPath,
           circularPathStep: cellState.circularPathStep,
           isInSelectedPath: cellState.isInSelectedPath,
@@ -245,6 +249,7 @@ class TimetableDataSource extends DataGridSource {
       isNonExchangeable: false,
       isTargetCell: false,
       isLastColumnOfDay: false,
+      isFirstColumnOfDay: false,
       circularPathStep: null,
       chainPathStep: null,
     );
@@ -287,6 +292,7 @@ class TimetableDataSource extends DataGridSource {
         () => _nonExchangeableManager.isNonExchangeableTimeSlot(teacherName, day, period)
       ),
       isLastColumnOfDay: _isLastColumnOfDay(day, period),
+      isFirstColumnOfDay: _isFirstColumnOfDay(day, period),
       circularPathStep: _stateManager.getCircularPathStep(teacherName, day, period),
       chainPathStep: _stateManager.getChainPathStep(teacherName, day, period),
     );
@@ -297,6 +303,11 @@ class TimetableDataSource extends DataGridSource {
     bool isLastPeriod = period == 7;
     bool isLastDay = day == '금';
     return isLastPeriod && !isLastDay;
+  }
+  
+  /// 요일별 첫 번째 교시 확인
+  bool _isFirstColumnOfDay(String day, int period) {
+    return period == 1; // 모든 요일의 첫 번째 교시
   }
 
   /// 선택 상태 업데이트

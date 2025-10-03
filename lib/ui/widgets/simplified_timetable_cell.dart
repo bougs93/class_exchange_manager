@@ -8,6 +8,7 @@ class SimplifiedTimetableCell extends StatelessWidget {
   final bool isSelected;
   final bool isExchangeable;
   final bool isLastColumnOfDay;
+  final bool isFirstColumnOfDay;
   final bool isHeader;
   final bool isInCircularPath; // 순환교체 경로에 포함된 셀인지 여부
   final int? circularPathStep; // 순환교체 경로에서의 단계 (1, 2, 3...)
@@ -25,6 +26,7 @@ class SimplifiedTimetableCell extends StatelessWidget {
     required this.isSelected,
     required this.isExchangeable,
     this.isLastColumnOfDay = false,
+    this.isFirstColumnOfDay = false,
     this.isHeader = false,
     this.isInCircularPath = false,
     this.circularPathStep,
@@ -43,6 +45,7 @@ class SimplifiedTimetableCell extends StatelessWidget {
       isSelected: isSelected,
       isExchangeable: isExchangeable,
       isLastColumnOfDay: isLastColumnOfDay,
+      isFirstColumnOfDay: isFirstColumnOfDay,
       isHeader: isHeader,
       isInCircularPath: isInCircularPath,
       circularPathStep: circularPathStep,
