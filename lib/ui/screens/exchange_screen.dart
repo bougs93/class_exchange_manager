@@ -222,12 +222,15 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
   /// 교사명, 요일, 교시로 TimeSlot 찾기
   TimeSlot? _findTimeSlot(String teacherName, String day, int period) {
-    return _timetableData?.timeSlots.firstWhere(
-      (slot) => slot.teacher == teacherName &&
-                DayUtils.getDayName(slot.dayOfWeek ?? 0) == day &&
-                slot.period == period,
-      orElse: () => TimeSlot.empty(),
-    );
+    try {
+      return _timetableData?.timeSlots.firstWhere(
+        (slot) => slot.teacher == teacherName &&
+                  DayUtils.getDayName(slot.dayOfWeek ?? 0) == day &&
+                  slot.period == period,
+      );
+    } catch (e) {
+      return null;
+    }
   }
 
   OneToOneExchangePath? get _selectedOneToOnePath => _state.selectedOneToOnePath;

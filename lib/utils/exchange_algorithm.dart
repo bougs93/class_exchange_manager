@@ -77,12 +77,15 @@ class ExchangeAlgorithm {
   ) {
     int targetDayNumber = DayUtils.getDayNumber(targetDay);
     
-    return allTimeSlots.firstWhere(
-      (slot) => slot.teacher == targetTeacher &&
-                slot.dayOfWeek == targetDayNumber &&
-                slot.period == targetPeriod,
-      orElse: () => TimeSlot.empty(),
-    );
+    try {
+      return allTimeSlots.firstWhere(
+        (slot) => slot.teacher == targetTeacher &&
+                  slot.dayOfWeek == targetDayNumber &&
+                  slot.period == targetPeriod,
+      );
+    } catch (e) {
+      return null;
+    }
   }
   
   /// 교체 옵션 평가

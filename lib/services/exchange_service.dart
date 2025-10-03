@@ -89,8 +89,15 @@ class ExchangeService extends BaseExchangeService {
   ) {
     if (selectedTeacher == null) return [];
     
+    // 성능 최적화: 빈 셀과 교체불가능한 셀을 사전 필터링
+    List<TimeSlot> validTimeSlots = timeSlots.where((slot) => 
+      slot.isNotEmpty && slot.canExchange
+    ).toList();
+    
+    AppLogger.exchangeDebug('1:1교체 최적화: 전체 ${timeSlots.length}개 → 유효한 ${validTimeSlots.length}개 TimeSlot');
+    
     // 선택된 셀의 학급 정보 가져오기
-    String? selectedClassName = getSelectedClassName(timeSlots);
+    String? selectedClassName = getSelectedClassName(validTimeSlots);
     if (selectedClassName == null) return [];
     
     List<ExchangeOption> exchangeOptions = [];
@@ -102,17 +109,16 @@ class ExchangeService extends BaseExchangeService {
     for (String day in days) {
       for (int period in periods) {
         // 해당 교사의 해당 요일, 교시에 수업이 있는지 확인
-        bool hasClass = timeSlots.any((slot) => 
+        bool hasClass = validTimeSlots.any((slot) => 
           slot.teacher == selectedTeacher &&
           slot.dayOfWeek == DayUtils.getDayNumber(day) &&
-          slot.period == period &&
-          slot.isNotEmpty
+          slot.period == period
         );
         
         if (!hasClass) {
           // 빈시간에 같은 반을 가르치는 교사 찾기
           List<ExchangeOption> dayExchangeOptions = _findSameClassTeachersForExchangeOptions(
-            day, period, selectedClassName, timeSlots, teachers
+            day, period, selectedClassName, validTimeSlots, teachers
           );
           exchangeOptions.addAll(dayExchangeOptions);
         }
@@ -142,28 +148,34 @@ class ExchangeService extends BaseExchangeService {
         slot.dayOfWeek == DayUtils.getDayNumber(day) &&
         slot.period == period &&
         slot.className == selectedClassName &&
-        slot.isNotEmpty
+        slot.isNotEmpty &&
+        slot.canExchange // 교체 가능한 셀만 고려
       );
       
       if (hasSameClass) {
         // 해당 교사의 과목 정보도 함께 가져오기
-        TimeSlot? teacherSlot = timeSlots.firstWhere(
-          (slot) => slot.teacher == teacher.name &&
-                    slot.dayOfWeek == DayUtils.getDayNumber(day) &&
-                    slot.period == period &&
-                    slot.className == selectedClassName,
-          orElse: () => TimeSlot.empty(),
-        );
+        TimeSlot? teacherSlot;
+        try {
+          teacherSlot = timeSlots.firstWhere(
+            (slot) => slot.teacher == teacher.name &&
+                      slot.dayOfWeek == DayUtils.getDayNumber(day) &&
+                      slot.period == period &&
+                      slot.className == selectedClassName,
+          );
+        } catch (e) {
+          teacherSlot = null;
+        }
         
         // 교체 가능한 교사들이 선택된 시간에 실제로 빈 시간인지 검사
-        bool isAvailableAtSelectedTime = _checkTeacherAvailabilityAtSelectedTime(
-          [teacher.name], day, period, timeSlots
-        ).isNotEmpty;
+        bool isAvailableAtSelectedTime = teacherSlot?.isNotEmpty == true && 
+          _checkTeacherAvailabilityAtSelectedTime(
+            [teacher.name], day, period, timeSlots
+          ).isNotEmpty;
         
-        if (isAvailableAtSelectedTime && teacherSlot.isNotEmpty) {
+        if (isAvailableAtSelectedTime && teacherSlot?.isNotEmpty == true) {
           // ExchangeOption 생성
           ExchangeOption option = ExchangeOption(
-            timeSlot: teacherSlot,
+            timeSlot: teacherSlot!,
             teacherName: teacher.name,
             type: ExchangeType.sameClass,
             priority: 1,
@@ -203,7 +215,8 @@ class ExchangeService extends BaseExchangeService {
           slot.teacher == selectedTeacher &&
           slot.dayOfWeek == DayUtils.getDayNumber(day) &&
           slot.period == period &&
-          slot.isNotEmpty
+          slot.isNotEmpty &&
+          slot.canExchange // 교체 가능한 셀만 고려
         );
         
         if (!hasClass) {
@@ -249,20 +262,25 @@ class ExchangeService extends BaseExchangeService {
           slot.dayOfWeek == DayUtils.getDayNumber(day) &&
           slot.period == period &&
           slot.className == selectedClassName &&
-          slot.isNotEmpty
+          slot.isNotEmpty &&
+          slot.canExchange // 교체 가능한 셀만 고려
         );
         
         if (hasSameClass) {
           // 해당 교사의 과목 정보도 함께 출력
-          TimeSlot? teacherSlot = timeSlots.firstWhere(
-            (slot) => slot.teacher == teacher.name &&
-                      slot.dayOfWeek == DayUtils.getDayNumber(day) &&
-                      slot.period == period &&
-                      slot.className == selectedClassName,
-            orElse: () => TimeSlot.empty(),
-          );
+          TimeSlot? teacherSlot;
+          try {
+            teacherSlot = timeSlots.firstWhere(
+              (slot) => slot.teacher == teacher.name &&
+                        slot.dayOfWeek == DayUtils.getDayNumber(day) &&
+                        slot.period == period &&
+                        slot.className == selectedClassName,
+            );
+          } catch (e) {
+            teacherSlot = null;
+          }
           
-          String subject = teacherSlot.subject ?? '과목 없음';
+          String subject = teacherSlot?.subject ?? '과목 없음';
           sameClassTeachers.add('${teacher.name}($subject)');
         }
       }
@@ -313,7 +331,8 @@ class ExchangeService extends BaseExchangeService {
         slot.teacher == teacherName &&
         slot.dayOfWeek == DayUtils.getDayNumber(selectedDay!) &&
         slot.period == selectedPeriod &&
-        slot.isNotEmpty
+        slot.isNotEmpty &&
+        slot.canExchange // 교체 가능한 셀만 고려
       );
       
       // 선택된 시간에 수업이 없는 교사만 실제 교체 가능한 교사로 추가

@@ -576,10 +576,8 @@ class ExcelService {
             
             // 디버깅 로그 제거 - 성능 개선
             
-            TimeSlot? timeSlot = _parseTimeSlotCell(cellValue, teacher, dayOfWeek, period);
-            if (timeSlot != null) {
-              timeSlots.add(timeSlot);
-            }
+            TimeSlot timeSlot = _parseTimeSlotCell(cellValue, teacher, dayOfWeek, period);
+            timeSlots.add(timeSlot);
           }
         }
       }
@@ -692,58 +690,61 @@ class ExcelService {
   /// 시간표 셀을 파싱하는 메서드
   /// 
   /// 셀 내용 예시:
+  /// - 빈 셀 → TimeSlot 생성 (subject, className = null)
   /// - "103\n국어" → className: "103", subject: "국어"
   /// - "1-3\n수학" → className: "1-3", subject: "수학"
-  /// - "2-1" → className: "2-1", subject: ""
-  static TimeSlot? _parseTimeSlotCell(String cellValue, Teacher teacher, int dayOfWeek, int period) {
+  /// - "2-1" → className: "2-1", subject: null
+  static TimeSlot _parseTimeSlotCell(String cellValue, Teacher teacher, int dayOfWeek, int period) {
     try {
-      if (cellValue.trim().isEmpty) {
-        return null; // 빈 셀
+      String? className;
+      String? subject;
+      
+      // 빈 셀이 아닌 경우에만 내용 파싱
+      if (cellValue.trim().isNotEmpty) {
+        // 셀 내용 정리: 특수 문자 제거 및 줄바꿈 정규화
+        String cleanCellValue = cellValue
+            .replaceAll('\r', '')           // 캐리지 리턴 제거
+            .replaceAll('_x000D_', '')      // Excel 특수 문자 제거
+            .replaceAll('\n', '\n')          // 줄바꿈 정규화
+            .trim();
+        
+        // 셀 내용을 줄바꿈으로 분할하고 빈 줄 제거
+        List<String> lines = cleanCellValue.split('\n')
+            .map((line) => line.trim())
+            .where((line) => line.isNotEmpty)
+            .toList();
+        
+        if (lines.isNotEmpty) {
+          // 첫 번째 줄: 학급번호 (예: "103", "1-3", "2-1")
+          className = _convertClassName(lines[0]);
+          
+          // 두 번째 줄: 과목명 (예: "국어", "수학", "영어")
+          if (lines.length >= 2) {
+            subject = lines[1];
+          }
+        }
       }
       
-      // 셀 내용 정리: 특수 문자 제거 및 줄바꿈 정규화
-      String cleanCellValue = cellValue
-          .replaceAll('\r', '')           // 캐리지 리턴 제거
-          .replaceAll('_x000D_', '')      // Excel 특수 문자 제거
-          .replaceAll('\n', '\n')          // 줄바꿈 정규화
-          .trim();
-      
-      // 셀 내용을 줄바꿈으로 분할하고 빈 줄 제거
-      List<String> lines = cleanCellValue.split('\n')
-          .map((line) => line.trim())
-          .where((line) => line.isNotEmpty)
-          .toList();
-      
-      if (lines.isEmpty) {
-        return null;
-      }
-      
-      String className = '';
-      String subject = '';
-      
-      // 첫 번째 줄: 학급번호 (예: "103", "1-3", "2-1")
-      if (lines.isNotEmpty) {
-        className = _convertClassName(lines[0]);
-      }
-      
-      // 두 번째 줄: 과목명 (예: "국어", "수학", "영어")
-      if (lines.length >= 2) {
-        subject = lines[1];
-      }
-      
-      // 디버깅 로그 제거 - 성능 개선
-      
+      // 빈 셀과 내용이 있는 셀 모두 TimeSlot 생성
       return TimeSlot(
         teacher: teacher.name,
-        subject: subject,
-        className: className,
+        subject: subject,  // 빈 셀은 null
+        className: className,  // 빈 셀은 null
         dayOfWeek: dayOfWeek,
         period: period,
         isExchangeable: true, // 기본값: 교체 가능
       );
     } catch (e) {
       developer.log('시간표 셀 파싱 중 오류 발생: $e', name: 'ExcelService');
-      return null;
+      // 오류 발생 시에도 빈 TimeSlot 생성
+      return TimeSlot(
+        teacher: teacher.name,
+        subject: null,
+        className: null,
+        dayOfWeek: dayOfWeek,
+        period: period,
+        isExchangeable: true,
+      );
     }
   }
 

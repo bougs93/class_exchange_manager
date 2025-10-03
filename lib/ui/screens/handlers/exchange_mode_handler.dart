@@ -25,23 +25,26 @@ mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
 
   /// 1:1 교체 모드 토글
   void toggleExchangeMode() {
+    bool wasEnabled = isExchangeModeEnabled;
+    bool hasOtherModesActive = isCircularExchangeModeEnabled || isChainExchangeModeEnabled;
+
     // 다른 모드가 활성화되어 있다면 비활성화
-    if (isCircularExchangeModeEnabled || isChainExchangeModeEnabled) {
+    if (hasOtherModesActive) {
       setCircularExchangeModeEnabled(false);
       setChainExchangeModeEnabled(false);
-      clearAllExchangeStates();
     }
 
-    setExchangeModeEnabled(!isExchangeModeEnabled);
+    setExchangeModeEnabled(!wasEnabled);
 
     // 교체 모드가 비활성화되면 UI를 기본값으로 복원
     if (!isExchangeModeEnabled) {
+      clearAllExchangeStates();
       restoreUIToDefault();
       availableSteps = [];
       selectedStep = null;
       selectedDay = null;
     } else {
-      // 1:1 교체 모드가 활성화되면 선택 상태 초기화
+      // 1:1 교체 모드가 활성화되면 항상 초기화
       clearAllExchangeStates();
       availableSteps = [2]; // 1:1 교체는 항상 2개 노드
       selectedStep = null;
@@ -67,22 +70,25 @@ mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
   void toggleCircularExchangeMode() {
     AppLogger.exchangeDebug('순환교체 모드 토글 시작 - 현재 상태: $isCircularExchangeModeEnabled');
 
+    bool wasEnabled = isCircularExchangeModeEnabled;
+    bool hasOtherModesActive = isExchangeModeEnabled || isChainExchangeModeEnabled;
+
     // 다른 모드가 활성화되어 있다면 비활성화
-    if (isExchangeModeEnabled || isChainExchangeModeEnabled) {
+    if (hasOtherModesActive) {
       setExchangeModeEnabled(false);
       setChainExchangeModeEnabled(false);
-      clearAllExchangeStates();
     }
 
-    setCircularExchangeModeEnabled(!isCircularExchangeModeEnabled);
+    setCircularExchangeModeEnabled(!wasEnabled);
 
     // 순환교체 모드가 비활성화되면 UI를 기본값으로 복원
     if (!isCircularExchangeModeEnabled) {
+      clearAllExchangeStates();
       restoreUIToDefault();
       availableSteps = [];
       selectedStep = null;
     } else {
-      // 순환교체 모드가 활성화되면 선택 상태 초기화
+      // 순환교체 모드가 활성화되면 항상 초기화
       clearAllExchangeStates();
     }
 
@@ -105,20 +111,23 @@ mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
   void toggleChainExchangeMode() {
     AppLogger.exchangeDebug('연쇄교체 모드 토글 시작 - 현재 상태: $isChainExchangeModeEnabled');
 
+    bool wasEnabled = isChainExchangeModeEnabled;
+    bool hasOtherModesActive = isExchangeModeEnabled || isCircularExchangeModeEnabled;
+
     // 다른 모드가 활성화되어 있다면 비활성화
-    if (isExchangeModeEnabled || isCircularExchangeModeEnabled) {
+    if (hasOtherModesActive) {
       setExchangeModeEnabled(false);
       setCircularExchangeModeEnabled(false);
-      clearAllExchangeStates();
     }
 
-    setChainExchangeModeEnabled(!isChainExchangeModeEnabled);
+    setChainExchangeModeEnabled(!wasEnabled);
 
     // 연쇄교체 모드가 비활성화되면 UI를 기본값으로 복원
     if (!isChainExchangeModeEnabled) {
+      clearAllExchangeStates();
       restoreUIToDefault();
     } else {
-      // 연쇄교체 모드가 활성화되면 선택 상태 초기화
+      // 연쇄교체 모드가 활성화되면 항상 초기화
       clearAllExchangeStates();
     }
 

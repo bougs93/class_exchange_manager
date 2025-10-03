@@ -98,12 +98,19 @@ class ChainExchangeService extends BaseExchangeService {
       return [];
     }
 
-    // _nodeAClass가 null이면 timeSlots에서 찾기 (백그라운드 실행 시)
+    // 성능 최적화: 빈 셀과 교체불가능한 셀을 사전 필터링
+    List<TimeSlot> validTimeSlots = timeSlots.where((slot) => 
+      slot.isNotEmpty && slot.canExchange
+    ).toList();
+    
+    AppLogger.exchangeDebug('연쇄교체 최적화: 전체 ${timeSlots.length}개 → 유효한 ${validTimeSlots.length}개 TimeSlot');
+
+    // _nodeAClass가 null이면 validTimeSlots에서 찾기 (백그라운드 실행 시)
     _nodeAClass ??= getClassNameFromTimeSlot(
       selectedTeacher!,
       selectedDay!,
       selectedPeriod!,
-      timeSlots,
+      validTimeSlots,
     );
 
     if (_nodeAClass == null || _nodeAClass!.isEmpty) {
@@ -119,7 +126,7 @@ class ChainExchangeService extends BaseExchangeService {
     List<ChainExchangePath> paths = [];
 
     // A 위치 노드 생성 (과목명 포함)
-    String nodeASubject = getSubjectFromTimeSlot(selectedTeacher!, selectedDay!, selectedPeriod!, timeSlots);
+    String nodeASubject = getSubjectFromTimeSlot(selectedTeacher!, selectedDay!, selectedPeriod!, validTimeSlots);
     ExchangeNode nodeA = ExchangeNode(
       teacherName: selectedTeacher!,
       day: selectedDay!,
@@ -129,7 +136,7 @@ class ChainExchangeService extends BaseExchangeService {
     );
 
     // B 위치 후보들 찾기 (A와 같은 학급, B 교사가 A 시간 비어있음)
-    List<ExchangeNode> nodeBCandidates = _findSameClassSlots(nodeA, timeSlots);
+    List<ExchangeNode> nodeBCandidates = _findSameClassSlots(nodeA, validTimeSlots);
 
     if (enablePathDebugLogging) {
       AppLogger.exchangeDebug('B 위치 후보: ${nodeBCandidates.length}개');
@@ -139,7 +146,7 @@ class ChainExchangeService extends BaseExchangeService {
 
     for (ExchangeNode nodeB in nodeBCandidates) {
       // A 교사가 B 시간에 다른 수업(2번)이 있는지 확인
-      ExchangeNode? node2 = _findBlockingSlot(selectedTeacher!, nodeB, timeSlots);
+      ExchangeNode? node2 = _findBlockingSlot(selectedTeacher!, nodeB, validTimeSlots);
 
       if (node2 == null) {
         // A와 B가 직접 교체 가능하면 연쇄교체 불필요
@@ -154,16 +161,16 @@ class ChainExchangeService extends BaseExchangeService {
       }
 
       // 2번 수업과 1:1 교체 가능한 같은 학급 수업(1번) 찾기
-      List<ExchangeNode> node1Candidates = _findSameClassSlots(node2, timeSlots);
+      List<ExchangeNode> node1Candidates = _findSameClassSlots(node2, validTimeSlots);
 
       for (ExchangeNode node1 in node1Candidates) {
         // 1단계: node1 ↔ node2 교체 가능한지 확인
-        if (!_canDirectExchange(node1, node2, timeSlots)) {
+        if (!_canDirectExchange(node1, node2, validTimeSlots)) {
           continue;
         }
 
         // 2단계: A ↔ B 교체 가능한지 확인 (node2가 비워진 상태 가정)
-        if (!_canExchangeAfterClearing(nodeA, nodeB, node2, timeSlots)) {
+        if (!_canExchangeAfterClearing(nodeA, nodeB, node2, validTimeSlots)) {
           continue;
         }
 
@@ -201,6 +208,7 @@ class ChainExchangeService extends BaseExchangeService {
     List<TimeSlot> sameClassSlots = timeSlots.where((slot) =>
       slot.className == nodeA.className &&
       slot.isNotEmpty &&
+      slot.canExchange && // 교체 가능한 셀만 포함
       slot.teacher != nodeA.teacherName // A 교사 제외
     ).toList();
 
@@ -250,7 +258,8 @@ class ChainExchangeService extends BaseExchangeService {
                 slot.teacher == teacherA &&
                 slot.dayOfWeek == nodeBDayNumber &&
                 slot.period == nodeB.period &&
-                slot.isNotEmpty,
+                slot.isNotEmpty &&
+                slot.canExchange, // 교체 가능한 셀만 고려
       orElse: () => null,
     );
 

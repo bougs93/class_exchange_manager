@@ -159,8 +159,15 @@ class CircularExchangeService extends BaseExchangeService {
   ) {
     List<CircularExchangePath> allPaths = [];
     
+    // 성능 최적화: 빈 셀과 교체불가능한 셀을 사전 필터링
+    List<TimeSlot> validTimeSlots = timeSlots.where((slot) => 
+      slot.isNotEmpty && slot.canExchange
+    ).toList();
+    
+    AppLogger.exchangeDebug('순환교체 최적화: 전체 ${timeSlots.length}개 → 유효한 ${validTimeSlots.length}개 TimeSlot');
+    
     // 선택된 노드가 없으면 빈 리스트 반환
-    ExchangeNode? startNode = getSelectedNode(timeSlots);       // [1단계] : 시작 노트 찾기 (getSelectedNode)
+    ExchangeNode? startNode = getSelectedNode(validTimeSlots);       // [1단계] : 시작 노트 찾기 (getSelectedNode)
     if (startNode == null) {
       AppLogger.exchangeDebug('시작 노드를 찾을 수 없습니다.');
       return allPaths;
@@ -171,7 +178,7 @@ class CircularExchangeService extends BaseExchangeService {
     // DFS로 순환 경로 탐색
     List<List<ExchangeNode>> foundPaths = _findCircularPathsDFS(  // [2단계]: DFS 탐색 (_findCircularPathsDFS)
       startNode, 
-      timeSlots, 
+      validTimeSlots, // 필터링된 TimeSlot 사용
       teachers, 
       maxSteps,
       exactSteps
@@ -184,7 +191,7 @@ class CircularExchangeService extends BaseExchangeService {
         CircularExchangePath circularPath = CircularExchangePath.fromNodes(path);
         if (circularPath.isValid) {
           // 교체 순서 검증
-          if (validateExchangeSequence(circularPath, timeSlots)) {
+          if (validateExchangeSequence(circularPath, validTimeSlots)) {
             validPaths.add(circularPath);
           } else {
             AppLogger.exchangeDebug('유효하지 않은 교체 순서: ${circularPath.nodes.map((n) => n.teacherName).join(' → ')}');
@@ -436,15 +443,19 @@ class CircularExchangeService extends BaseExchangeService {
   /// 노드에 과목 정보를 포함한 문자열 생성
   String _getNodeWithSubject(ExchangeNode node, List<TimeSlot> timeSlots) {
     // 해당 노드의 TimeSlot 찾기
-    TimeSlot? slot = timeSlots.firstWhere(
-      (s) => s.teacher == node.teacherName &&
-             s.dayOfWeek == DayUtils.getDayNumber(node.day) &&
-             s.period == node.period &&
-             s.className == node.className,
-      orElse: () => TimeSlot.empty(),
-    );
+    TimeSlot? slot;
+    try {
+      slot = timeSlots.firstWhere(
+        (s) => s.teacher == node.teacherName &&
+               s.dayOfWeek == DayUtils.getDayNumber(node.day) &&
+               s.period == node.period &&
+               s.className == node.className,
+      );
+    } catch (e) {
+      slot = null;
+    }
     
-    String subject = slot.isNotEmpty ? (slot.subject ?? '과목없음') : '과목없음';
+    String subject = slot?.isNotEmpty == true ? (slot?.subject ?? '과목없음') : '과목없음';
     return '${node.teacherName}(${node.day}${node.period}교시, ${node.className}, $subject)';
   }
 

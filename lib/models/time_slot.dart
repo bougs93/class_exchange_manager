@@ -18,10 +18,10 @@ class TimeSlot {
     this.exchangeReason, // 교체 불가능한 사유 (기본값: null)
   });
   
-  /// 빈 슬롯인지 확인
-  bool get isEmpty => teacher == null && subject == null && className == null;
+  /// 빈 슬롯인지 확인 (과목이나 학급이 없는 경우)
+  bool get isEmpty => subject == null && className == null;
   
-  /// 비어있지 않은 슬롯인지 확인
+  /// 비어있지 않은 슬롯인지 확인 (과목이나 학급이 있는 경우)
   bool get isNotEmpty => !isEmpty;
   
   /// 빈 TimeSlot 생성
