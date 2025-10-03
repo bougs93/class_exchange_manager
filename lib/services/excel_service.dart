@@ -334,21 +334,31 @@ class ExcelService {
         return null;
       }
       
-      // 교시 번호 찾기
-      List<int> periods = _findPeriods(sheet, parsingConfig.periodHeaderRow);
-      if (periods.isEmpty) {
+      // 교사 정보 추출
+      List<Teacher> teachers = _extractTeacherInfo(sheet, parsingConfig);
+      
+      // 요일별 교시 번호 찾기
+      Map<String, List<int>> periodsByDay = _findPeriodsByDay(sheet, parsingConfig.periodHeaderRow, dayHeaders, parsingConfig);
+      if (periodsByDay.isEmpty) {
         developer.log('교시 번호를 찾을 수 없습니다.', name: 'ExcelService');
         return null;
       }
       
-      // 교사 정보 추출
-      List<Teacher> teachers = _extractTeacherInfo(sheet, parsingConfig);
+      // 요일별 교시 정보 로그 출력
+      for (String day in dayHeaders) {
+        List<int> periods = periodsByDay[day] ?? [];
+        developer.log('$day요일 교시: $periods', name: 'ExcelService');
+      }
       
       // 시간표 데이터 추출
-      List<TimeSlot> timeSlots = _extractTimeSlots(sheet, parsingConfig, dayHeaders, periods, teachers);
+      List<TimeSlot> timeSlots = _extractTimeSlotsByDay(sheet, parsingConfig, dayHeaders, periodsByDay, teachers);
       
       // 파싱 통계 계산
-      int totalCells = teachers.length * dayHeaders.length * periods.length;
+      int totalCells = 0;
+      for (String day in dayHeaders) {
+        List<int> periods = periodsByDay[day] ?? [];
+        totalCells += teachers.length * periods.length;
+      }
       int successCount = timeSlots.where((slot) => slot.isNotEmpty).length;
       int errorCount = totalCells - successCount;
       
@@ -446,29 +456,40 @@ class ExcelService {
     }
   }
 
-  /// 교시 번호를 찾는 메서드
-  static List<int> _findPeriods(Sheet sheet, int row) {
+  /// 교시 번호를 찾는 메서드 (요일별로 실제 존재하는 교시만 찾기)
+  static Map<String, List<int>> _findPeriodsByDay(Sheet sheet, int row, List<String> dayHeaders, ExcelParsingConfig config) {
     try {
-      List<int> periods = [];
+      Map<String, List<int>> periodsByDay = {};
       
-      // 행의 모든 셀을 확인 (최대 50열까지)
-      for (int col = 1; col <= 50; col++) {
-        String cellValue = _getCellValue(sheet, row - 1, col - 1); // 0-based로 변환
-        cellValue = cellValue.trim();
+      // 요일별 시작 열 위치 계산
+      Map<String, int> dayColumnMapping = _calculateDayColumns(sheet, config, dayHeaders);
+      
+      for (String day in dayHeaders) {
+        int? dayStartCol = dayColumnMapping[day];
+        if (dayStartCol == null) continue;
         
-        // 숫자로 변환 시도
-        int? period = int.tryParse(cellValue);
-        if (period != null && period >= 1 && period <= 10) { // 1~10교시까지 지원
-          periods.add(period);
+        List<int> periods = [];
+        
+        // 해당 요일의 교시 번호만 찾기 (최대 10열까지 검색)
+        for (int col = dayStartCol; col < dayStartCol + 10; col++) {
+          String cellValue = _getCellValue(sheet, row - 1, col - 1); // 0-based로 변환
+          cellValue = cellValue.trim();
+          
+          // 숫자로 변환 시도
+          int? period = int.tryParse(cellValue);
+          if (period != null && period >= 1 && period <= 10) { // 1~10교시까지 지원
+            periods.add(period);
+          }
         }
+        
+        periods.sort(); // 오름차순 정렬
+        periodsByDay[day] = periods;
       }
       
-      periods.sort(); // 오름차순 정렬
-      // 로그 제거
-      return periods;
+      return periodsByDay;
     } catch (e) {
-      developer.log('교시 번호 찾기 중 오류 발생: $e', name: 'ExcelService');
-      return [];
+      developer.log('요일별 교시 번호 찾기 중 오류 발생: $e', name: 'ExcelService');
+      return {};
     }
   }
 
@@ -540,12 +561,12 @@ class ExcelService {
     }
   }
 
-  /// 시간표 데이터를 추출하는 메서드
-  static List<TimeSlot> _extractTimeSlots(
+  /// 시간표 데이터를 추출하는 메서드 (요일별 교시 고려)
+  static List<TimeSlot> _extractTimeSlotsByDay(
     Sheet sheet, 
     ExcelParsingConfig config, 
     List<String> dayHeaders, 
-    List<int> periods, 
+    Map<String, List<int>> periodsByDay, 
     List<Teacher> teachers
   ) {
     try {
@@ -566,7 +587,8 @@ class ExcelService {
           
           int dayOfWeek = DayUtils.getDayNumber(day);
           
-          // 각 교시별로 데이터 추출
+          // 해당 요일에 실제로 존재하는 교시만 처리
+          List<int> periods = periodsByDay[day] ?? [];
           for (int period in periods) {
             // 교시 헤더 행에서 해당 교시의 열 위치 찾기
             int? periodCol = _findPeriodColumnInDay(sheet, config, dayStartCol, period);
@@ -574,15 +596,12 @@ class ExcelService {
             
             String cellValue = _getCellValue(sheet, teacherRow - 1, periodCol - 1); // 0-based로 변환
             
-            // 디버깅 로그 제거 - 성능 개선
-            
             TimeSlot timeSlot = _parseTimeSlotCell(cellValue, teacher, dayOfWeek, period);
             timeSlots.add(timeSlot);
           }
         }
       }
       
-      // 로그 제거
       return timeSlots;
     } catch (e) {
       developer.log('시간표 데이터 추출 중 오류 발생: $e', name: 'ExcelService');

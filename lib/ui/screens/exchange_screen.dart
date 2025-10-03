@@ -250,6 +250,82 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     }
   }
 
+  /// 교사명 클릭 시 해당 교사의 모든 시간을 교체가능/교체불가능으로 토글
+  void _toggleTeacherAllTimes(DataGridCellTapDetails details) {
+    if (_timetableData == null) return;
+    
+    // 교사명 추출
+    final teacherName = _getTeacherNameFromCell(details);
+    if (teacherName == null) return;
+    
+    // 해당 교사의 모든 TimeSlot 찾기 (빈 셀 포함)
+    final teacherTimeSlots = _timetableData!.timeSlots.where(
+      (slot) => slot.teacher == teacherName
+    ).toList();
+    
+    AppLogger.exchangeDebug('교사 $teacherName의 TimeSlot 개수: ${teacherTimeSlots.length}개');
+    AppLogger.exchangeDebug('전체 TimeSlot 개수: ${_timetableData!.timeSlots.length}개');
+    
+    // 7교시 빈 셀 확인
+    final seventhPeriodSlots = teacherTimeSlots.where((slot) => slot.period == 7).toList();
+    AppLogger.exchangeDebug('교사 $teacherName의 7교시 TimeSlot 개수: ${seventhPeriodSlots.length}개');
+    
+    // 7교시 빈 셀 상세 정보
+    for (var slot in seventhPeriodSlots) {
+      AppLogger.exchangeDebug('7교시 ${DayUtils.getDayName(slot.dayOfWeek ?? 0)}: isEmpty=${slot.isEmpty}, isExchangeable=${slot.isExchangeable}, exchangeReason=${slot.exchangeReason}');
+    }
+    
+    // 전체 교시 목록 확인
+    final allPeriods = teacherTimeSlots.map((slot) => slot.period).toSet().toList()..sort();
+    AppLogger.exchangeDebug('교사 $teacherName의 전체 교시 목록: $allPeriods');
+    
+    // 요일별 교시 확인
+    const List<String> days = ['월', '화', '수', '목', '금'];
+    for (String day in days) {
+      final daySlots = teacherTimeSlots.where((slot) => 
+        DayUtils.getDayName(slot.dayOfWeek ?? 0) == day
+      ).toList();
+      final dayPeriods = daySlots.map((slot) => slot.period).toSet().toList()..sort();
+      AppLogger.exchangeDebug('$day요일 교시 목록: $dayPeriods');
+    }
+    
+    if (teacherTimeSlots.isEmpty) {
+      AppLogger.exchangeDebug('교사 $teacherName의 시간표 정보가 없습니다.');
+      return;
+    }
+    
+    // 현재 상태 확인 (모든 시간이 교체불가인지 확인)
+    bool allNonExchangeable = teacherTimeSlots.every(
+      (slot) => !slot.isExchangeable && slot.exchangeReason == '교체불가'
+    );
+    
+    // 토글 처리
+    if (allNonExchangeable) {
+      // 모든 시간이 교체불가인 경우 -> 교체 가능으로 변경
+      for (var slot in teacherTimeSlots) {
+        slot.isExchangeable = true;
+        slot.exchangeReason = null;
+      }
+      AppLogger.exchangeDebug('교사 $teacherName의 모든 시간을 교체 가능으로 변경 (${teacherTimeSlots.length}개 셀)');
+    } else {
+      // 일부 또는 모든 시간이 교체 가능인 경우 -> 교체불가로 변경
+      for (var slot in teacherTimeSlots) {
+        slot.isExchangeable = false;
+        slot.exchangeReason = '교체불가';
+      }
+      AppLogger.exchangeDebug('교사 $teacherName의 모든 시간을 교체불가로 변경 (${teacherTimeSlots.length}개 셀)');
+    }
+    
+    // TimetableDataSource의 데이터 동기화
+    _dataSource?.updateData(_timetableData!.timeSlots, _timetableData!.teachers);
+    
+    // 캐시 무효화 및 UI 업데이트
+    _dataSource?.clearAllCaches();
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   OneToOneExchangePath? get _selectedOneToOnePath => _state.selectedOneToOnePath;
   bool get _isSidebarVisible => _state.isSidebarVisible;
 
@@ -627,6 +703,12 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   
   /// 셀 탭 이벤트 핸들러 - 교체 모드가 활성화된 경우만 동작
   void _onCellTap(DataGridCellTapDetails details) {
+    // 교사명 열 클릭 처리 (교체불가 편집 모드에서만 동작)
+    if (details.column.columnName == 'teacher' && ref.read(exchangeScreenProvider).isNonExchangeableEditMode) {
+      _toggleTeacherAllTimes(details);
+      return;
+    }
+    
     // 교체불가 편집 모드인 경우 셀을 교체불가로 설정
     if (ref.read(exchangeScreenProvider).isNonExchangeableEditMode) {
       _setCellAsNonExchangeable(details);

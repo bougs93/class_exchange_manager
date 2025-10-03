@@ -35,14 +35,11 @@ class NonExchangeableManager {
                   slot.period == period,
       );
       
-      // TimeSlot이 존재하지 않는 경우 (완전히 빈 셀)는 기본 색상으로 표시
-      if (timeSlot.isEmpty) {
-        return false;
-      }
-      
       // 실제로 교체불가로 설정된 셀만 빨간색 배경으로 표시
+      // 빈 셀도 교체불가로 설정될 수 있으므로 isEmpty 체크 제거
       return !timeSlot.isExchangeable && timeSlot.exchangeReason == '교체불가';
     } catch (e) {
+      // TimeSlot이 존재하지 않는 경우 (완전히 빈 셀)는 기본 색상으로 표시
       return false;
     }
   }

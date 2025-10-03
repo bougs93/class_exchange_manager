@@ -89,11 +89,21 @@ class TimetableDataSource extends DataGridSource {
     // 요일 목록 추출 및 정렬
     List<String> days = groupedData.keys.toList()..sort(DayUtils.compareDays);
     
-    // 교시 목록 추출 및 정렬
+    // 교시 목록 추출 및 정렬 (요일별 교시 수 고려)
     Set<int> allPeriods = {};
     for (var dayData in groupedData.values) {
       allPeriods.addAll(dayData.keys);
     }
+    
+    // 요일별로 다른 교시 수 지원
+    // 금요일: 1-5교시, 다른 요일: 1-7교시
+    for (String day in days) {
+      int maxPeriod = (day == '금') ? 5 : 7;
+      for (int period = 1; period <= maxPeriod; period++) {
+        allPeriods.add(period);
+      }
+    }
+    
     List<int> periods = allPeriods.toList()..sort();
     
     _dataGridRows = _createRows(groupedData, days, periods);
@@ -390,6 +400,7 @@ class TimetableDataSource extends DataGridSource {
   /// 특정 교사의 모든 TimeSlot을 교체불가로 설정
   void setTeacherAsNonExchangeable(String teacherName) {
     _nonExchangeableManager.setTeacherAsNonExchangeable(teacherName);
+    _cacheManager.clearAllCaches(); // 캐시 무효화 추가
     notifyListeners();
     _onDataChanged?.call();
   }
@@ -397,6 +408,7 @@ class TimetableDataSource extends DataGridSource {
   /// 특정 셀을 교체불가로 설정 또는 해제 (토글 방식, 빈 셀 포함)
   void setCellAsNonExchangeable(String teacherName, String day, int period) {
     _nonExchangeableManager.setCellAsNonExchangeable(teacherName, day, period);
+    _cacheManager.clearAllCaches(); // 캐시 무효화 추가
     notifyListeners();
     _onDataChanged?.call();
   }
@@ -404,6 +416,14 @@ class TimetableDataSource extends DataGridSource {
   /// 모든 교체불가 설정 초기화
   void resetAllNonExchangeableSettings() {
     _nonExchangeableManager.resetAllNonExchangeableSettings();
+    _cacheManager.clearAllCaches(); // 캐시 무효화 추가
+    notifyListeners();
+    _onDataChanged?.call();
+  }
+
+  /// 모든 캐시 초기화 (외부에서 호출 가능)
+  void clearAllCaches() {
+    _cacheManager.clearAllCaches();
     notifyListeners();
     _onDataChanged?.call();
   }
