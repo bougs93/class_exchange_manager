@@ -7,10 +7,12 @@ mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
   bool get isExchangeModeEnabled;
   bool get isCircularExchangeModeEnabled;
   bool get isChainExchangeModeEnabled;
+  bool get isNonExchangeableEditMode;
 
   void Function(bool) get setExchangeModeEnabled;
   void Function(bool) get setCircularExchangeModeEnabled;
   void Function(bool) get setChainExchangeModeEnabled;
+  void Function(bool) get setNonExchangeableEditMode;
 
   void clearAllExchangeStates();
   void restoreUIToDefault();
@@ -33,13 +35,17 @@ mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
       setCircularExchangeModeEnabled(false);
       setChainExchangeModeEnabled(false);
     }
+    
+    // 교체불가 편집 모드가 활성화되어 있다면 비활성화
+    if (isNonExchangeableEditMode) {
+      setNonExchangeableEditMode(false);
+    }
 
     setExchangeModeEnabled(!wasEnabled);
 
     // 교체 모드가 비활성화되면 UI를 기본값으로 복원
     if (!isExchangeModeEnabled) {
-      clearAllExchangeStates();
-      restoreUIToDefault();
+      restoreUIToDefault(); // restoreUIToDefault 내부에서 clearAllExchangeStates 호출됨
       availableSteps = [];
       selectedStep = null;
       selectedDay = null;
@@ -78,18 +84,26 @@ mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
       setExchangeModeEnabled(false);
       setChainExchangeModeEnabled(false);
     }
+    
+    // 교체불가 편집 모드가 활성화되어 있다면 비활성화
+    if (isNonExchangeableEditMode) {
+      setNonExchangeableEditMode(false);
+    }
 
     setCircularExchangeModeEnabled(!wasEnabled);
 
     // 순환교체 모드가 비활성화되면 UI를 기본값으로 복원
     if (!isCircularExchangeModeEnabled) {
-      clearAllExchangeStates();
-      restoreUIToDefault();
+      restoreUIToDefault(); // restoreUIToDefault 내부에서 clearAllExchangeStates 호출됨
       availableSteps = [];
       selectedStep = null;
+      selectedDay = null;
     } else {
       // 순환교체 모드가 활성화되면 항상 초기화
       clearAllExchangeStates();
+      availableSteps = [];
+      selectedStep = null;
+      selectedDay = null;
     }
 
     // 헤더 테마 업데이트
@@ -119,16 +133,26 @@ mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
       setExchangeModeEnabled(false);
       setCircularExchangeModeEnabled(false);
     }
+    
+    // 교체불가 편집 모드가 활성화되어 있다면 비활성화
+    if (isNonExchangeableEditMode) {
+      setNonExchangeableEditMode(false);
+    }
 
     setChainExchangeModeEnabled(!wasEnabled);
 
     // 연쇄교체 모드가 비활성화되면 UI를 기본값으로 복원
     if (!isChainExchangeModeEnabled) {
-      clearAllExchangeStates();
-      restoreUIToDefault();
+      restoreUIToDefault(); // restoreUIToDefault 내부에서 clearAllExchangeStates 호출됨
+      availableSteps = [];
+      selectedStep = null;
+      selectedDay = null;
     } else {
       // 연쇄교체 모드가 활성화되면 항상 초기화
       clearAllExchangeStates();
+      availableSteps = [];
+      selectedStep = null;
+      selectedDay = null;
     }
 
     // 헤더 테마 업데이트

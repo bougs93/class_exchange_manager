@@ -102,6 +102,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   bool get isChainExchangeModeEnabled => ref.read(exchangeScreenProvider).isChainExchangeModeEnabled;
 
   @override
+  bool get isNonExchangeableEditMode => ref.read(exchangeScreenProvider).isNonExchangeableEditMode;
+
+  @override
   CircularExchangePath? get selectedCircularPath => ref.read(exchangeScreenProvider).selectedCircularPath;
 
   @override
@@ -134,6 +137,20 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   void _toggleNonExchangeableEditMode() {
     final notifier = ref.read(exchangeScreenProvider.notifier);
     final currentMode = ref.read(exchangeScreenProvider).isNonExchangeableEditMode;
+    
+    // 다른 교체 모드가 활성화되어 있다면 비활성화
+    if (!currentMode && (_isExchangeModeEnabled || _isCircularExchangeModeEnabled || _isChainExchangeModeEnabled)) {
+      // 다른 교체 모드들을 비활성화
+      if (_isExchangeModeEnabled) {
+        toggleExchangeMode();
+      }
+      if (_isCircularExchangeModeEnabled) {
+        toggleCircularExchangeMode();
+      }
+      if (_isChainExchangeModeEnabled) {
+        toggleChainExchangeMode();
+      }
+    }
     
     // Riverpod Provider를 통해 상태 변경
     notifier.setNonExchangeableEditMode(!currentMode);
@@ -262,6 +279,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   void Function(bool) get setCircularExchangeModeEnabled => (enabled) => ref.read(exchangeScreenProvider.notifier).setCircularExchangeModeEnabled(enabled);
   @override
   void Function(bool) get setChainExchangeModeEnabled => (enabled) => ref.read(exchangeScreenProvider.notifier).setChainExchangeModeEnabled(enabled);
+  @override
+  void Function(bool) get setNonExchangeableEditMode => (enabled) => ref.read(exchangeScreenProvider.notifier).setNonExchangeableEditMode(enabled);
   @override
   void Function() get refreshHeaderTheme => _updateHeaderTheme;
   @override

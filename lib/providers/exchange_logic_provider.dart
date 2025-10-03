@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'exchange_screen_provider.dart';
-import 'services_provider.dart';
 
 /// 교체 모드 타입
 enum ExchangeMode {
@@ -41,6 +40,11 @@ class ExchangeModeNotifier extends StateNotifier<ExchangeModeState> {
     screenNotifier.setExchangeModeEnabled(mode == ExchangeMode.oneToOne);
     screenNotifier.setCircularExchangeModeEnabled(mode == ExchangeMode.circular);
     screenNotifier.setChainExchangeModeEnabled(mode == ExchangeMode.chain);
+    
+    // 교체 모드가 활성화되면 교체불가 편집 모드는 비활성화
+    if (mode != ExchangeMode.none) {
+      screenNotifier.setNonExchangeableEditMode(false);
+    }
   }
 
   void toggleOneToOne() {
@@ -48,7 +52,8 @@ class ExchangeModeNotifier extends StateNotifier<ExchangeModeState> {
       setMode(ExchangeMode.none);
     } else {
       setMode(ExchangeMode.oneToOne);
-      _clearAllSelections();
+      // setMode에서 이미 교체불가 편집 모드가 비활성화되므로 별도 초기화 불필요
+      // _clearAllSelections(); // 중복 초기화 제거
     }
   }
 
@@ -57,7 +62,8 @@ class ExchangeModeNotifier extends StateNotifier<ExchangeModeState> {
       setMode(ExchangeMode.none);
     } else {
       setMode(ExchangeMode.circular);
-      _clearAllSelections();
+      // setMode에서 이미 교체불가 편집 모드가 비활성화되므로 별도 초기화 불필요
+      // _clearAllSelections(); // 중복 초기화 제거
     }
   }
 
@@ -66,29 +72,14 @@ class ExchangeModeNotifier extends StateNotifier<ExchangeModeState> {
       setMode(ExchangeMode.none);
     } else {
       setMode(ExchangeMode.chain);
-      _clearAllSelections();
+      // setMode에서 이미 교체불가 편집 모드가 비활성화되므로 별도 초기화 불필요
+      // _clearAllSelections(); // 중복 초기화 제거
     }
   }
 
-  void _clearAllSelections() {
-    final exchangeService = ref.read(exchangeServiceProvider);
-    final circularService = ref.read(circularExchangeServiceProvider);
-    final chainService = ref.read(chainExchangeServiceProvider);
-
-    exchangeService.clearAllSelections();
-    circularService.clearAllSelections();
-    chainService.clearAllSelections();
-
-    final screenNotifier = ref.read(exchangeScreenProvider.notifier);
-    screenNotifier.setOneToOnePaths([]);
-    screenNotifier.setCircularPaths([]);
-    screenNotifier.setChainPaths([]);
-    screenNotifier.setSelectedOneToOnePath(null);
-    screenNotifier.setSelectedCircularPath(null);
-    screenNotifier.setSelectedChainPath(null);
-  }
 }
 
 final exchangeModeProvider = StateNotifierProvider<ExchangeModeNotifier, ExchangeModeState>((ref) {
   return ExchangeModeNotifier(ref);
 });
+
