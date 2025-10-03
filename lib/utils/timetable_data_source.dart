@@ -89,17 +89,7 @@ class TimetableDataSource extends DataGridSource {
     // 요일 목록 추출 및 정렬
     List<String> days = groupedData.keys.toList()..sort(DayUtils.compareDays);
     
-    // 교시 목록 추출 및 정렬 (실제 데이터 기반)
-    Set<int> allPeriods = {};
-    for (var dayData in groupedData.values) {
-      allPeriods.addAll(dayData.keys);
-    }
-    
-    // 실제 데이터에 없는 교시는 추가하지 않음
-    // 각 요일별로 실제 존재하는 교시만 사용
-    List<int> periods = allPeriods.toList()..sort();
-    
-    _dataGridRows = _createRows(groupedData, days, periods);
+    _dataGridRows = _createRows(groupedData, days);
   }
 
   /// TimeSlot 리스트를 요일별, 교시별로 그룹화
@@ -133,7 +123,6 @@ class TimetableDataSource extends DataGridSource {
   List<DataGridRow> _createRows(
     Map<String, Map<int, Map<String, TimeSlot?>>> groupedData,
     List<String> days,
-    List<int> periods,
   ) {
     List<DataGridRow> rows = [];
     
@@ -148,9 +137,11 @@ class TimetableDataSource extends DataGridSource {
         ),
       );
       
-      // 각 요일별 교시 데이터 추가
+      // 각 요일별 실제 존재하는 교시 데이터 추가
       for (String day in days) {
-        for (int period in periods) {
+        // 해당 요일에 실제 존재하는 교시만 가져오기
+        List<int> dayPeriods = (groupedData[day]?.keys.toList() ?? [])..sort();
+        for (int period in dayPeriods) {
           String columnName = '${day}_$period';
           TimeSlot? slot = groupedData[day]?[period]?[teacher.name];
           

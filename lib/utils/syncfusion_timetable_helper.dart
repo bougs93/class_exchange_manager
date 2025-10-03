@@ -48,16 +48,6 @@ class SyncfusionTimetableHelper {
     // 요일 목록 추출 및 정렬
     List<String> days = groupedData.keys.toList()..sort(DayUtils.compareDays);
     
-    // 교시 목록 추출 및 정렬 (실제 데이터 기반)
-    Set<int> allPeriods = {};
-    for (var dayData in groupedData.values) {
-      allPeriods.addAll(dayData.keys);
-    }
-    
-    // 실제 데이터에 없는 교시는 추가하지 않음
-    // 각 요일별로 실제 존재하는 교시만 사용
-    List<int> periods = allPeriods.toList()..sort();
-    
     // 행 데이터 생성
     List<DataGridRow> rows = [];
     for (Teacher teacher in teachers) {
@@ -66,9 +56,11 @@ class SyncfusionTimetableHelper {
       // 교사명 셀 (첫 번째 컬럼)
       cells.add(DataGridCell(columnName: 'teacher', value: teacher.name));
       
-      // 각 요일의 각 교시에 대한 셀 생성
+      // 각 요일의 실제 존재하는 교시에 대한 셀 생성
       for (String day in days) {
-        for (int period in periods) {
+        // 해당 요일에 실제 존재하는 교시만 가져오기
+        List<int> dayPeriods = (groupedData[day]?.keys.toList() ?? [])..sort();
+        for (int period in dayPeriods) {
           String columnName = '${day}_$period';
           TimeSlot? timeSlot = groupedData[day]?[period]?[teacher.name];
           cells.add(DataGridCell(columnName: columnName, value: timeSlot));
@@ -109,9 +101,11 @@ class SyncfusionTimetableHelper {
     
     // 요일별 교시 컬럼 생성
     for (String day in days) {
-      for (int i = 0; i < periods.length; i++) {
-        int period = periods[i];
-        bool isLastPeriod = i == periods.length - 1; // 마지막 교시인지 확인
+      // 해당 요일에 실제 존재하는 교시만 가져오기
+      List<int> dayPeriods = (groupedData[day]?.keys.toList() ?? [])..sort();
+      for (int i = 0; i < dayPeriods.length; i++) {
+        int period = dayPeriods[i];
+        bool isLastPeriod = i == dayPeriods.length - 1; // 해당 요일의 마지막 교시인지 확인
         
         // 테마를 사용하여 선택 상태 확인
         bool isSelected = SimplifiedTimetableTheme.isPeriodSelected(day, period, selectedDay, selectedPeriod);
@@ -196,7 +190,9 @@ class SyncfusionTimetableHelper {
     
     // 요일별 헤더
     for (String day in days) {
-      List<String> dayColumnNames = periods.map((period) => '${day}_$period').toList();
+      // 해당 요일에 실제 존재하는 교시만 가져오기
+      List<int> dayPeriods = (groupedData[day]?.keys.toList() ?? [])..sort();
+      List<String> dayColumnNames = dayPeriods.map((period) => '${day}_$period').toList();
       headerCells.add(
         StackedHeaderCell(
           child: Container(
