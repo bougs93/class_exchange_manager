@@ -48,21 +48,14 @@ class SyncfusionTimetableHelper {
     // 요일 목록 추출 및 정렬
     List<String> days = groupedData.keys.toList()..sort(DayUtils.compareDays);
     
-    // 교시 목록 추출 및 정렬 (요일별 교시 수 고려)
+    // 교시 목록 추출 및 정렬 (실제 데이터 기반)
     Set<int> allPeriods = {};
     for (var dayData in groupedData.values) {
       allPeriods.addAll(dayData.keys);
     }
     
-    // 요일별로 다른 교시 수 지원
-    // 금요일: 1-5교시, 다른 요일: 1-7교시
-    for (String day in days) {
-      int maxPeriod = (day == '금') ? 5 : 7;
-      for (int period = 1; period <= maxPeriod; period++) {
-        allPeriods.add(period);
-      }
-    }
-    
+    // 실제 데이터에 없는 교시는 추가하지 않음
+    // 각 요일별로 실제 존재하는 교시만 사용
     List<int> periods = allPeriods.toList()..sort();
     
     // 행 데이터 생성

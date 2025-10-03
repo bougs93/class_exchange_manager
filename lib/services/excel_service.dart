@@ -457,7 +457,8 @@ class ExcelService {
   }
 
   /// 교시 번호를 찾는 메서드 (요일별로 실제 존재하는 교시만 찾기)
-  static Map<String, List<int>> _findPeriodsByDay(Sheet sheet, int row, List<String> dayHeaders, ExcelParsingConfig config) {
+  /// 요일 바로 다음 행에서 교시 번호를 찾습니다.
+  static Map<String, List<int>> _findPeriodsByDay(Sheet sheet, int periodHeaderRow, List<String> dayHeaders, ExcelParsingConfig config) {
     try {
       Map<String, List<int>> periodsByDay = {};
       
@@ -470,20 +471,46 @@ class ExcelService {
         
         List<int> periods = [];
         
-        // 해당 요일의 교시 번호만 찾기 (최대 10열까지 검색)
-        for (int col = dayStartCol; col < dayStartCol + 10; col++) {
-          String cellValue = _getCellValue(sheet, row - 1, col - 1); // 0-based로 변환
+        // 해당 요일의 교시 번호만 찾기 (요일 바로 다음 행에서)
+        // 요일 헤더 행의 다음 행이 교시 행이므로 periodHeaderRow 사용
+        Set<int> uniquePeriods = {}; // 중복 제거를 위한 Set 사용
+        
+        // 각 요일의 시작 열부터 연속된 교시만 찾기
+        List<String> cellValues = []; // 디버깅용
+        for (int col = dayStartCol; col < dayStartCol + 15; col++) { // 최대 15열까지 검색
+          String cellValue = _getCellValue(sheet, periodHeaderRow - 1, col - 1); // 0-based로 변환
           cellValue = cellValue.trim();
+          
+          cellValues.add(cellValue); // 디버깅용
+          
+          // 빈 셀이 나오면 해당 요일의 교시 검색 중단
+          if (cellValue.isEmpty) {
+            break;
+          }
           
           // 숫자로 변환 시도
           int? period = int.tryParse(cellValue);
           if (period != null && period >= 1 && period <= 10) { // 1~10교시까지 지원
-            periods.add(period);
+            // 이미 나온 숫자(교시)가 나오면 해당 요일의 교시 검색 중단
+            if (uniquePeriods.contains(period)) {
+              break;
+            }
+            uniquePeriods.add(period); // Set에 추가하여 중복 자동 제거
+          } else {
+            // 숫자가 아닌 값이 나오면 해당 요일의 교시 검색 중단
+            break;
           }
         }
         
-        periods.sort(); // 오름차순 정렬
+        // 디버깅 로그 - 각 열의 값 확인
+        developer.log('$day요일 열 값들: $cellValues', name: 'ExcelService');
+        
+        // Set을 List로 변환하고 정렬
+        periods = uniquePeriods.toList()..sort();
         periodsByDay[day] = periods;
+        
+        // 디버깅 로그
+        developer.log('$day요일에서 찾은 교시: $periods (시작열: $dayStartCol)', name: 'ExcelService');
       }
       
       return periodsByDay;

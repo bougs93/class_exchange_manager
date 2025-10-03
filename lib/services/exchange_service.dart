@@ -102,13 +102,20 @@ class ExchangeService extends BaseExchangeService {
     
     List<ExchangeOption> exchangeOptions = [];
     
-    // 요일별로 빈시간 검사 (요일별 교시 수 고려)
+    // 요일별로 빈시간 검사 (실제 데이터 기반)
     const List<String> days = ['월', '화', '수', '목', '금'];
     
+    // 실제 데이터에서 교시 목록 추출
+    Set<int> availablePeriods = {};
+    for (var slot in validTimeSlots) {
+      if (slot.period != null) {
+        availablePeriods.add(slot.period!);
+      }
+    }
+    
     for (String day in days) {
-      // 금요일: 1-5교시, 다른 요일: 1-7교시
-      int maxPeriod = (day == '금') ? 5 : 7;
-      for (int period = 1; period <= maxPeriod; period++) {
+      // 해당 요일에 실제로 존재하는 교시만 검사
+      for (int period in availablePeriods) {
         // 해당 교사의 해당 요일, 교시에 수업이 있는지 확인
         bool hasClass = validTimeSlots.any((slot) => 
           slot.teacher == selectedTeacher &&
@@ -203,15 +210,22 @@ class ExchangeService extends BaseExchangeService {
     
     List<Map<String, dynamic>> exchangeableTeachers = [];
     
-    // 요일별로 빈시간 검사 (요일별 교시 수 고려)
+    // 요일별로 빈시간 검사 (실제 데이터 기반)
     const List<String> days = ['월', '화', '수', '목', '금'];
+    
+    // 실제 데이터에서 교시 목록 추출
+    Set<int> availablePeriods = {};
+    for (var slot in timeSlots) {
+      if (slot.period != null) {
+        availablePeriods.add(slot.period!);
+      }
+    }
     
     for (String day in days) {
       List<String> emptySlots = [];
       
-      // 금요일: 1-5교시, 다른 요일: 1-7교시
-      int maxPeriod = (day == '금') ? 5 : 7;
-      for (int period = 1; period <= maxPeriod; period++) {
+      // 해당 요일에 실제로 존재하는 교시만 검사
+      for (int period in availablePeriods) {
         // 해당 교사의 해당 요일, 교시에 수업이 있는지 확인
         bool hasClass = timeSlots.any((slot) => 
           slot.teacher == selectedTeacher &&
