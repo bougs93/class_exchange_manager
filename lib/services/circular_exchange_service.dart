@@ -25,7 +25,8 @@ class CircularExchangeService extends BaseExchangeService {
   // ==================== 성능 최적화 ====================
   
   /// 경로 탐색 결과 캐싱 (성능 최적화)
-  Map<String, List<CircularExchangePath>> _pathCache = {};
+  /// Map 객체 자체는 변경되지 않고 내용만 변경되므로 final로 선언 가능
+  final Map<String, List<CircularExchangePath>> _pathCache = <String, List<CircularExchangePath>>{};
   
   /// 순환교체 경로 디버그 콘솔 출력 여부
   static const bool enablePathDebugLogging = false;
@@ -187,7 +188,7 @@ class CircularExchangeService extends BaseExchangeService {
     AppLogger.exchangeDebug('순환 경로 탐색 시작: ${startNode.displayText}');
     
     // 캐시 키 생성
-    String cacheKey = '${startNode.nodeId}_${maxSteps}_${exactSteps}_${prioritizeShortSteps}';
+    String cacheKey = '${startNode.nodeId}_${maxSteps}_${exactSteps}_$prioritizeShortSteps';
     
     // 캐시된 결과 확인
     if (_pathCache.containsKey(cacheKey)) {
@@ -308,7 +309,7 @@ class CircularExchangeService extends BaseExchangeService {
     
     // 단계별로 탐색 (2단계부터 시작)
     for (int targetSteps = 2; targetSteps <= maxSteps; targetSteps++) {
-      AppLogger.exchangeDebug('단계별 탐색: ${targetSteps}단계 경로 탐색 시작');
+      AppLogger.exchangeDebug('단계별 탐색: $targetSteps단계 경로 탐색 시작');
       
       List<List<ExchangeNode>> stepPaths = _findCircularPathsDFS(
         startNode, 
@@ -320,7 +321,7 @@ class CircularExchangeService extends BaseExchangeService {
       );
       
       allPaths.addAll(stepPaths);
-      AppLogger.exchangeDebug('${targetSteps}단계 경로 ${stepPaths.length}개 발견');
+      AppLogger.exchangeDebug('$targetSteps단계 경로 $stepPaths.length개 발견');
     }
     
     return allPaths;
@@ -491,7 +492,8 @@ class CircularExchangeService extends BaseExchangeService {
     
     // 인덱스를 사용한 빠른 검증: from 교사가 to 교사의 시간에 수업이 있는지 확인
     String toTimeKey = '${DayUtils.getDayNumber(to.day)}_${to.period}';
-    bool fromEmptyAtToTime = !teacherTimeIndex[from.teacherName]?.contains(toTimeKey) ?? true;
+    Set<String>? teacherTimes = teacherTimeIndex[from.teacherName];
+    bool fromEmptyAtToTime = teacherTimes == null || !teacherTimes.contains(toTimeKey);
     
     // 추가 검증: 같은 학급이어야 순환교체 가능
     bool sameClass = from.className == to.className;
