@@ -219,11 +219,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     final paths = state.isExchangeModeEnabled ? state.oneToOnePaths.cast<ExchangePath>() :
                   state.isCircularExchangeModeEnabled ? state.circularPaths.cast<ExchangePath>() :
                   state.chainPaths.cast<ExchangePath>();
-    // 검색 쿼리 필터 적용
-    if (state.searchQuery.isEmpty) {
-      return paths;
-    }
-    return paths.where((path) => path.toString().toLowerCase().contains(state.searchQuery.toLowerCase())).toList();
+    
+    // FilterStateManager를 사용하여 모든 필터 적용 (단계 필터, 요일 필터, 검색 필터)
+    return _filterStateManager.applyFilters(paths);
   }
   @override
   double get sidebarWidth => 180.0;

@@ -5,7 +5,6 @@ import '../../services/excel_service.dart';
 import '../../utils/timetable_data_source.dart';
 import '../../utils/constants.dart';
 import '../../utils/exchange_visualizer.dart';
-import '../../utils/logger.dart';
 import '../../models/one_to_one_exchange_path.dart';
 import '../../models/exchange_path.dart';
 import '../../models/exchange_node.dart';
@@ -253,9 +252,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     
     
     // 교체 경로가 선택된 경우에만 화살표 표시 (모든 타입 지원)
-    AppLogger.exchangeDebug('화살표 조건 확인: selectedPath=${widget.selectedExchangePath != null}, exchangeMode=${widget.isExchangeModeEnabled}');
     if (widget.selectedExchangePath != null) {
-      AppLogger.exchangeDebug('화살표 표시 조건 만족 - CustomPainter 생성');
       return Stack(
         children: [
           dataGrid,
@@ -278,7 +275,6 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
       );
     }
     
-    AppLogger.exchangeDebug('화살표 표시 조건 불만족 - DataGrid만 반환');
     return dataGrid;
   }
 
@@ -429,19 +425,15 @@ class ExchangeArrowPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    AppLogger.exchangeDebug('ExchangeArrowPainter.paint() 호출됨 - 경로 타입: ${selectedPath.type}');
     // 교체 경로 타입에 따라 다른 화살표 그리기
     switch (selectedPath.type) {
       case ExchangePathType.oneToOne:
-        AppLogger.exchangeDebug('1:1 교체 화살표 그리기');
         _drawOneToOneArrows(canvas, size);
         break;
       case ExchangePathType.circular:
-        AppLogger.exchangeDebug('순환 교체 화살표 그리기');
         _drawCircularArrows(canvas, size);
         break;
       case ExchangePathType.chain:
-        AppLogger.exchangeDebug('연쇄 교체 화살표 그리기');
         _drawChainArrows(canvas, size);
         break;
     }
@@ -465,11 +457,8 @@ class ExchangeArrowPainter extends CustomPainter {
     final circularPath = selectedPath as CircularExchangePath;
     final nodes = circularPath.nodes;
 
-    AppLogger.exchangeDebug('순환 교체 화살표 그리기 시작: 노드 개수 = ${nodes.length}');
-
     // 순환 경로의 각 단계별로 화살표 그리기 (가로 우선, 머리 사이즈 10)
     for (int i = 0; i < nodes.length - 1; i++) {
-      AppLogger.exchangeDebug('순환 화살표 그리기: ${i + 1}단계 (${nodes[i].teacherName} → ${nodes[i + 1].teacherName})');
       
       // 4단계 이상인 경우에만 화살표 중간점에 숫자 표시
       String? stepText = nodes.length >= 4 ? "${i + 1}" : null;
@@ -478,15 +467,11 @@ class ExchangeArrowPainter extends CustomPainter {
     }
     
     // 순환 교체의 핵심: 마지막 노드에서 첫 번째 노드로 돌아가는 화살표 그리기
-    AppLogger.exchangeDebug('마지막 화살표 조건 확인: nodes.length = ${nodes.length}, 조건 = ${nodes.length > 4}');
     if (nodes.length > 4) { // 5개 이상 노드가 있어야 마지막 화살표 그리기
-      AppLogger.exchangeDebug('✅ 순환 화살표 그리기: ${nodes.length}단계 (${nodes.last.teacherName} → ${nodes.first.teacherName})');
       
       // 마지막 화살표에도 단계 번호 표시 (마지막 단계 번호)
       String lastStepText = "${nodes.length}";
       _drawArrowBetweenNodes(canvas, size, nodes.last, nodes.first, priority: ArrowPriority.horizontalFirst, arrowHeadSize: 10.0, text: lastStepText);
-    } else {
-      AppLogger.exchangeDebug('❌ 마지막 화살표 그리기 건너뜀: 노드 개수 ${nodes.length}개 (5개 이상 필요)');
     }
   }
 
@@ -552,9 +537,7 @@ class ExchangeArrowPainter extends CustomPainter {
 
     // 화면 영역 내에 화살표가 있는지 검사
     bool isVisible = _isArrowVisible(sourcePos, targetPos, size);
-    AppLogger.exchangeDebug('화살표 가시성 검사: ${sourceNode.teacherName} → ${targetNode.teacherName}, 가시성 = $isVisible');
     if (!isVisible) {
-      AppLogger.exchangeDebug('❌ 화살표 그리기 건너뜀: 화면 밖에 있음');
       return; // 화면 밖에 있으면 그리지 않음
     }
 
@@ -563,9 +546,7 @@ class ExchangeArrowPainter extends CustomPainter {
     _applyFrozenAreaClipping(canvas, size);
 
     // 교체 경로 타입에 따른 스타일 적용하여 화살표 그리기 (우선 방향, 머리 사이즈, 텍스트 지정)
-    AppLogger.exchangeDebug('✅ 화살표 그리기 시작: ${sourceNode.teacherName} → ${targetNode.teacherName}');
     _drawStyledArrow(canvas, sourcePos, targetPos, priority: priority, arrowHeadSize: arrowHeadSize, text: text);
-    AppLogger.exchangeDebug('✅ 화살표 그리기 완료: ${sourceNode.teacherName} → ${targetNode.teacherName}');
     
     canvas.restore();
   }

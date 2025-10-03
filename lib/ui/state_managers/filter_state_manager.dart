@@ -110,7 +110,7 @@ class FilterStateManager {
       } else if (path is CircularExchangePath) {
         return path.nodes.length == _selectedStep;
       } else if (path is ChainExchangePath) {
-        return path.steps.length == _selectedStep;
+        return path.chainDepth == _selectedStep;
       }
       return true;
     }).toList();
