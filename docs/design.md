@@ -11,22 +11,30 @@
 
 ## 1. 시스템 아키텍처
 
-### 1.1 전체 구조
+### 1.1 전체 구조 (Riverpod 기반)
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Presentation  │    │  Business Logic │    │   Data Layer    │
-│                 │    │                 │    │                 │
-│ • Mobile UI     │───▶│ • Schedule Mgr  │───▶│ • SQLite DB     │
-│ • Desktop UI    │    │ • Exchange Mgr  │    │ • Memory Cache  │
-│ • Windows Widget│    │ • Document Gen  │    │ • Excel Parser  │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Presentation  │    │  State Mgmt     │    │  Business Logic │    │   Data Layer    │
+│                 │    │   (Riverpod)    │    │                 │    │                 │
+│ • ConsumerWidget│───▶│ • Providers     │───▶│ • Services      │───▶│ • SQLite DB     │
+│ • Mobile UI     │    │ • Notifiers     │    │ • Exchange Mgr  │    │ • Memory Cache  │
+│ • Desktop UI    │    │ • State         │    │ • Document Gen  │    │ • Excel Parser  │
+└─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
 ### 1.2 핵심 컴포넌트
-- **ScheduleManager**: 시간표 로드/저장
-- **ExchangeManager**: 교체 로직 처리
-- **DocumentGenerator**: PDF/QR코드 생성
-- **DatabaseManager**: SQLite 데이터 관리
+- **Providers (Riverpod)**: 상태 관리 및 의존성 주입
+  - `exchangeScreenProvider` - 교체 화면 상태
+  - `servicesProvider` - 서비스 인스턴스
+  - `exchangeLogicProvider` - 교체 모드 로직
+  - `navigationProvider` - 네비게이션 상태
+- **Services**: 비즈니스 로직 처리
+  - `ExcelService` - Excel 파일 파싱
+  - `ExchangeService` - 1:1 교체 로직
+  - `CircularExchangeService` - 순환 교체 로직
+  - `ChainExchangeService` - 연쇄 교체 로직
+- **DocumentGenerator**: PDF/QR코드 생성 (예정)
+- **DatabaseManager**: SQLite 데이터 관리 (예정)
 
 ---
 
@@ -371,38 +379,50 @@ dev_dependencies:
   mockito: ^5.4.2      # 테스트용 Mock 객체
 ```
 
-### 5.3 폴더 구조 (계획)
+### 5.3 폴더 구조 (실제 구현됨)
 ```
 lib/
-├── main.dart
-├── models/           # 데이터 모델
+├── main.dart                              # ProviderScope 래퍼
+├── models/                                # 데이터 모델
 │   ├── time_slot.dart
 │   ├── teacher.dart
-│   ├── exchange_request.dart
-│   └── exchange_option.dart
-├── providers/        # Riverpod 상태 관리
-│   ├── schedule_provider.dart
-│   ├── exchange_provider.dart
-│   └── database_provider.dart
-├── services/         # 비즈니스 로직
-│   ├── schedule_service.dart
-│   ├── exchange_service.dart
-│   └── document_service.dart
-├── repositories/     # 데이터 접근
-│   ├── database_manager.dart
-│   └── excel_parser.dart
-├── ui/              # UI 컴포넌트
-│   ├── screens/
-│   │   ├── home_screen.dart
-│   │   ├── schedule_screen.dart
-│   │   └── exchange_screen.dart
+│   ├── timetable_data.dart
+│   ├── exchange_path.dart                # 추상 클래스
+│   ├── one_to_one_exchange_path.dart
+│   ├── circular_exchange_path.dart
+│   ├── chain_exchange_path.dart
+│   └── exchange_node.dart
+├── providers/                             # Riverpod 상태 관리 ✅
+│   ├── exchange_screen_provider.dart     # 교체 화면 상태
+│   ├── services_provider.dart            # 서비스 인스턴스
+│   ├── exchange_logic_provider.dart      # 교체 모드 로직
+│   └── navigation_provider.dart          # 네비게이션 상태
+├── services/                              # 비즈니스 로직
+│   ├── excel_service.dart                # Excel 파싱
+│   ├── exchange_service.dart             # 1:1 교체
+│   ├── circular_exchange_service.dart    # 순환 교체
+│   └── chain_exchange_service.dart       # 연쇄 교체
+├── ui/                                    # UI 컴포넌트
+│   ├── screens/                          # 화면 (ConsumerWidget)
+│   │   ├── home_screen.dart             # ConsumerWidget
+│   │   ├── exchange_screen.dart         # ConsumerStatefulWidget
+│   │   ├── personal_schedule_screen.dart # StatelessWidget
+│   │   ├── document_screen.dart         # StatelessWidget
+│   │   └── settings_screen.dart         # StatelessWidget
 │   ├── widgets/
-│   │   ├── schedule_grid.dart
-│   │   └── exchange_dialog.dart
-│   └── themes/
-└── utils/           # 유틸리티
+│   │   ├── unified_exchange_sidebar.dart # StatefulWidget (애니메이션)
+│   │   ├── timetable_grid_section.dart  # StatefulWidget (스크롤)
+│   │   └── exchange_filter_widget.dart
+│   └── mixins/                           # Mixin (Provider 기반)
+│       ├── exchange_mode_handler.dart
+│       ├── exchange_logic_mixin.dart
+│       └── ...
+└── utils/                                 # 유틸리티
     ├── constants.dart
-    └── validators.dart
+    ├── logger.dart
+    ├── exchange_algorithm.dart
+    ├── exchange_visualizer.dart
+    └── timetable_data_source.dart
 ```
 
 ---
@@ -414,11 +434,27 @@ lib/
 - **점진적 개선**: 기본 기능부터 단계별 확장
 - **유연성**: 요구사항 변경에 쉽게 대응
 
-### 6.2 상태 관리 (Riverpod)
-- **Provider 패턴**: Riverpod을 사용한 반응형 상태 관리
+### 6.2 상태 관리 (Riverpod) - 필수 규칙
+- **전체 애플리케이션 상태는 Riverpod로 관리**
+- **Provider 패턴**:
+  - `StateNotifierProvider` - 복잡한 상태 (30+ 변수)
+  - `StateProvider` - 간단한 상태 (단일 값)
+  - `Provider` - 서비스 인스턴스
+- **UI 컴포넌트**:
+  - 상태가 있으면 `ConsumerWidget` 또는 `ConsumerStatefulWidget`
+  - 상태가 없으면 `StatelessWidget`
+  - `setState()` 사용 금지 (로컬 UI 상태 제외)
+- **상태 접근**:
+  - `ref.watch()` - 반응형 UI 업데이트
+  - `ref.read()` - 일회성 상태 접근
+  - `ref.listen()` - 상태 변경 리스너
 - **의존성 주입**: 서비스와 저장소의 자동 주입
 - **캐싱**: 자동 캐싱으로 성능 최적화
 - **테스트**: Provider 오버라이드로 쉬운 테스트
+- **허용되는 StatefulWidget**:
+  - 애니메이션 컨트롤러 관리
+  - 스크롤 컨트롤러 관리
+  - 기타 순수 UI 로컬 상태
 
 ### 6.3 성능 고려사항
 - **메모리 관리**: 불필요한 데이터 로딩 방지

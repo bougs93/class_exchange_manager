@@ -41,13 +41,16 @@ flutter test test/widget_test.dart     # 특정 테스트 파일 실행
 
 ### 핵심 데이터 흐름
 ```
-Excel 파일 (읽기 전용) → ExcelService → Models → Services → UI
+Excel 파일 (읽기 전용) → ExcelService → Models → Providers → UI
                                            ↓
                                    SQLite Database ← Memory Cache
 ```
 
 ### 상태 관리 및 의존성
 - **Riverpod** (`flutter_riverpod: ^2.4.9`) 반응형 상태 관리
+  - **전체 애플리케이션 상태는 Riverpod Provider로 관리**
+  - `ConsumerWidget` 또는 `ConsumerStatefulWidget` 사용
+  - 로컬 UI 상태(애니메이션, 스크롤)만 StatefulWidget 허용
 - **SQLite** 로컬 데이터 저장 (개인 시간표, 교체 이력)
 - **Excel 파싱** (`excel: ^4.0.6`) 기존 .xlsx 시간표 파일 읽기
 
@@ -59,10 +62,17 @@ Excel 파일 (읽기 전용) → ExcelService → Models → Services → UI
 - `ExchangePath` 계층 - `OneToOneExchangePath`와 `CircularExchangePath` 구현체를 가진 추상 베이스
 - `ExchangeNode` - 경로 탐색 알고리즘용 그래프 노드
 
+**Providers** (`lib/providers/`):
+- `exchangeScreenProvider` - 교체 화면의 모든 상태 관리 (30+ 상태 변수)
+- `servicesProvider` - 서비스 인스턴스 제공 (ExcelService, ExchangeService 등)
+- `exchangeLogicProvider` - 교체 모드 상태 관리 (oneToOne, circular, chain)
+- `navigationProvider` - 홈 화면 네비게이션 상태
+
 **서비스** (`lib/services/`):
 - `ExcelService` - Excel 파일 파싱, 다양한 파일 레이아웃용 `ExcelParsingConfig` 처리
 - `ExchangeService` - 핵심 1:1 교체 로직
 - `CircularExchangeService` - 2-5명 교사 순환 교체 처리
+- `ChainExchangeService` - 연쇄 교체 처리
 
 **핵심 알고리즘** (`lib/utils/`):
 - `ExchangeAlgorithm` - 메인 교체 경로 탐색 및 검증
@@ -108,6 +118,25 @@ Excel 파일 (읽기 전용) → ExcelService → Models → Services → UI
 - 복잡한 솔루션보다 단순성 우선
 - 코드 중복 방지 (DRY 원칙)
 
+### Riverpod 상태 관리 규칙 (필수)
+- **모든 애플리케이션 상태는 Riverpod Provider로 관리**
+- **새로운 화면 작성 시**:
+  - 상태가 있으면 `ConsumerWidget` 또는 `ConsumerStatefulWidget` 사용
+  - 상태가 없으면 `StatelessWidget` 사용
+  - `setState()` 사용 금지 (로컬 UI 상태 제외)
+- **Provider 패턴**:
+  - `StateNotifierProvider` - 복잡한 상태 관리
+  - `StateProvider` - 간단한 상태 관리
+  - `Provider` - 서비스 인스턴스 제공
+- **상태 접근**:
+  - `ref.watch()` - 반응형 UI 업데이트
+  - `ref.read()` - 일회성 상태 접근
+  - `ref.listen()` - 상태 변경 리스너
+- **허용되는 StatefulWidget 사용**:
+  - 애니메이션 컨트롤러 관리
+  - 스크롤 컨트롤러 관리
+  - 기타 순수 UI 로컬 상태
+
 ### 한국어 현지화
 - 사용자 대면 텍스트와 주석은 한국어
 - 기술 용어와 라이브러리 이름은 원문 유지
@@ -120,13 +149,15 @@ Excel 파일 (읽기 전용) → ExcelService → Models → Services → UI
 
 ## 현재 구현 상태
 
-**Phase 1 (진행 중)**:
-- ✅ Riverpod을 사용한 기본 프로젝트 구조
+**Phase 1 (완료)**:
+- ✅ Riverpod 전체 프로젝트 전환 완료
 - ✅ `ExcelService`를 사용한 Excel 파일 파싱
 - ✅ 핵심 데이터 모델 및 교체 경로 추상화
 - ✅ 메인 UI 화면 및 네비게이션
-- 🚧 교체 알고리즘 구현
-- 🚧 실시간 시각화 시스템
+- ✅ 1:1 교체 알고리즘 구현
+- ✅ 순환 교체 알고리즘 구현
+- ✅ 연쇄 교체 알고리즘 구현
+- ✅ 실시간 시각화 시스템
 
 **향후 단계**:
 - `pdf: ^3.10.7`을 사용한 문서 생성 (PDF)
@@ -135,8 +166,22 @@ Excel 파일 (읽기 전용) → ExcelService → Models → Services → UI
 
 ## 시스템 이해를 위한 주요 파일
 
+**상태 관리**:
+- `lib/main.dart` - ProviderScope 래퍼로 Riverpod 활성화
+- `lib/providers/exchange_screen_provider.dart` - 교체 화면 상태 관리
+- `lib/providers/services_provider.dart` - 서비스 인스턴스 제공
+- `lib/providers/exchange_logic_provider.dart` - 교체 모드 로직
+- `lib/providers/navigation_provider.dart` - 네비게이션 상태
+
+**UI 컴포넌트**:
+- `lib/ui/screens/exchange_screen.dart` - ConsumerStatefulWidget 기반 메인 교체 인터페이스
+- `lib/ui/screens/home_screen.dart` - ConsumerWidget 기반 홈 화면
+
+**비즈니스 로직**:
 - `lib/services/excel_service.dart` - 한글 텍스트 처리를 포함한 복잡한 Excel 파싱 로직
 - `lib/utils/exchange_algorithm.dart` - 핵심 경로 탐색 알고리즘
 - `lib/models/exchange_path.dart` - 교체 유형 추상화
-- `lib/ui/screens/exchange_screen.dart` - 메인 교체 인터페이스
+
+**문서**:
 - `docs/requirements.md` & `docs/design.md` - 상세 사양
+- `CLAUDE.md` - 프로젝트 개요 및 개발 가이드 (본 파일)

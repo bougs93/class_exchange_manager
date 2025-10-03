@@ -1,51 +1,48 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'exchange_screen.dart';
 import 'personal_schedule_screen.dart';
 import 'document_screen.dart';
 import 'settings_screen.dart';
+import '../../providers/navigation_provider.dart';
 
 /// 메인 홈 화면 - Drawer 메뉴가 있는 Scaffold
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 0; // 현재 선택된 메뉴 인덱스
-
   // 메뉴 항목들 정의
-  final List<Map<String, dynamic>> _menuItems = [
+  static const List<Map<String, dynamic>> _menuItems = [
     {
       'title': '홈',
       'icon': Icons.home,
-      'screen': const HomeContentScreen(),
+      'screen': HomeContentScreen(),
     },
     {
       'title': '교체 관리',
       'icon': Icons.swap_horiz,
-      'screen': const ExchangeScreen(),
+      'screen': ExchangeScreen(),
     },
     {
       'title': '개인 시간표',
       'icon': Icons.person,
-      'screen': const PersonalScheduleScreen(),
+      'screen': PersonalScheduleScreen(),
     },
     {
       'title': '문서 출력',
       'icon': Icons.print,
-      'screen': const DocumentScreen(),
+      'screen': DocumentScreen(),
     },
     {
       'title': '설정',
       'icon': Icons.settings,
-      'screen': const SettingsScreen(),
+      'screen': SettingsScreen(),
     },
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedIndex = ref.watch(navigationProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Class Exchange Manager'),
@@ -86,21 +83,19 @@ class _HomeScreenState extends State<HomeScreen> {
               final item = _menuItems[index];
               return ListTile(
                 leading: Icon(
-                  item['icon'],
-                  color: _selectedIndex == index ? Colors.blue : Colors.grey[600],
+                  item['icon'] as IconData,
+                  color: selectedIndex == index ? Colors.blue : Colors.grey[600],
                 ),
                 title: Text(
-                  item['title'],
+                  item['title'] as String,
                   style: TextStyle(
-                    color: _selectedIndex == index ? Colors.blue : Colors.black,
-                    fontWeight: _selectedIndex == index ? FontWeight.bold : FontWeight.normal,
+                    color: selectedIndex == index ? Colors.blue : Colors.black,
+                    fontWeight: selectedIndex == index ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
-                selected: _selectedIndex == index,
+                selected: selectedIndex == index,
                 onTap: () {
-                  setState(() {
-                    _selectedIndex = index;
-                  });
+                  ref.read(navigationProvider.notifier).state = index;
                   Navigator.pop(context); // Drawer 닫기
                 },
               );
@@ -127,7 +122,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      body: _menuItems[_selectedIndex]['screen'],
+      body: _menuItems[selectedIndex]['screen'] as Widget,
     );
   }
 }
