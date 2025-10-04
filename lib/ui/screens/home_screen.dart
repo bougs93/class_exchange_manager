@@ -33,12 +33,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _operationManager = ExchangeOperationManager(
       context: context,
       stateProxy: _stateProxy!,
-      onCreateSyncfusionGridData: () {
-        // 파일이 선택되고 파싱이 완료된 후 시간표 그리드 생성
-        if (mounted) {
-          setState(() {});
-        }
-      },
+        onCreateSyncfusionGridData: () {
+          // 파일이 선택되고 파싱이 완료된 후 시간표 그리드 생성
+          if (mounted) {
+            // 글로벌 Provider에 시간표 데이터 저장하여 다른 화면과 공유
+            final globalNotifier = ref.read(exchangeScreenProvider.notifier);
+            final timetableData = _stateProxy!.timetableData;
+            
+            if (timetableData != null) {
+              globalNotifier.setTimetableData(timetableData);
+            }
+            
+            setState(() {});
+          }
+        },
       onClearAllExchangeStates: () {
         // 교체 상태 초기화
         if (mounted) {
@@ -64,6 +72,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _selectExcelFile() async {
     if (_operationManager != null) {
       await _operationManager!.selectExcelFile();
+      if (mounted) {
+        setState(() {});
+      }
+    }
+  }
+
+  // 엑셀 파일 선택 해제 메서드
+  void _clearSelectedFile() {
+    if (_stateProxy != null) {
+      // 로컬 StateProxy 초기화
+      _stateProxy!.setSelectedFile(null);
+      _stateProxy!.setTimetableData(null);
+      
+      // 글로벌 Provider도 함께 초기화
+      final globalNotifier = ref.read(exchangeScreenProvider.notifier);
+      globalNotifier.setSelectedFile(null);
+      globalNotifier.setTimetableData(null);
+      globalNotifier.setDataSource(null);
+      
+      // 상태 초기화
+      final operationManager = _operationManager;
+      if (operationManager != null) {
+        // 교체 상태 초기화 콜백 호출
+        operationManager.onClearAllExchangeStates();
+        operationManager.onRestoreUIToDefault();
+        operationManager.onRefreshHeaderTheme();
+      }
+      
       if (mounted) {
         setState(() {});
       }
@@ -177,6 +213,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     : Icon(
                         selectedFile == null ? Icons.add : Icons.refresh,
                         color: Colors.grey.shade600,
+                        size: 16,
+                      ),
+                );
+              },
+            ),
+            
+            // 파일 해제 메뉴 (파일이 선택된 경우에만 표시)
+            Consumer(
+              builder: (context, ref, child) {
+                final screenState = ref.watch(exchangeScreenProvider);
+                final selectedFile = screenState.selectedFile;
+                
+                // 파일이 선택되지 않은 경우 아무것도 표시하지 않음
+                if (selectedFile == null) return const SizedBox.shrink();
+                
+                return ListTile(
+                  leading: const Icon(
+                    Icons.delete_outline,
+                    color: Colors.red,
+                    size: 20,
+                  ),
+                  title: const Text(
+                    '파일 선택 해제',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.red,
+                    ),
+                  ),
+
+                  onTap: screenState.isLoading ? null : _clearSelectedFile,
+                  enabled: !screenState.isLoading,
+                  trailing: screenState.isLoading 
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(
+                        Icons.clear,
+                        color: Colors.red,
                         size: 16,
                       ),
                 );

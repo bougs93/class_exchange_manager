@@ -332,6 +332,11 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     // 교체불가 편집 모드 상태가 변경될 때마다 TimetableDataSource에 전달
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _dataSource?.setNonExchangeableEditMode(screenState.isNonExchangeableEditMode);
+      
+      // 글로벌 시간표 데이터가 있고 아직 로컬 그리드가 생성되지 않은 경우 그리드 생성
+      if (screenState.timetableData != null && (_dataSource == null || _columns.isEmpty)) {
+        _createSyncfusionGridData();
+      }
     });
 
     // 로컬 변수로 캐싱 (build 메서드 내에서 사용)
@@ -390,15 +395,18 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   
   /// Syncfusion DataGrid 컬럼 및 헤더 생성
   void _createSyncfusionGridData() {
-    if (_timetableData == null) return;
+    // 글로벌 Provider에서 시간표 데이터 확인 (HomeScreen에서 설정한 데이터)
+    final globalTimetableData = ref.read(exchangeScreenProvider).timetableData;
+    
+    if (globalTimetableData == null) return;
     
     // ExchangeService를 사용하여 교체 가능한 교사 정보 수집 (현재 선택된 교사가 있는 경우에만)
     List<Map<String, dynamic>> exchangeableTeachers = [];
     if (exchangeService.hasSelectedCell()) {
       // 현재 교체 가능한 교사 정보를 가져옴
       exchangeableTeachers = exchangeService.getCurrentExchangeableTeachers(
-        _timetableData!.timeSlots,
-        _timetableData!.teachers,
+        globalTimetableData.timeSlots,
+        globalTimetableData.teachers,
       );
     }
     
@@ -418,8 +426,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     
     // SyncfusionTimetableHelper를 사용하여 데이터 생성 (테마 기반)
     final result = SyncfusionTimetableHelper.convertToSyncfusionData(
-      _timetableData!.timeSlots,
-      _timetableData!.teachers,
+      globalTimetableData.timeSlots,
+      globalTimetableData.teachers,
       selectedDay: selectedDay,      // 선택된 요일 전달
       selectedPeriod: selectedPeriod, // 선택된 교시 전달
       exchangeableTeachers: exchangeableTeachers, // 교체 가능한 교사 정보 전달
@@ -432,8 +440,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     
     // 데이터 소스 생성
     _dataSource = TimetableDataSource(
-      timeSlots: _timetableData!.timeSlots,
-      teachers: _timetableData!.teachers,
+      timeSlots: globalTimetableData.timeSlots,
+      teachers: globalTimetableData.teachers,
     );
     
     // 데이터 변경 시 UI 업데이트 콜백 설정
