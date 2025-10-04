@@ -806,7 +806,20 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     );
     
     _columns = result.columns; // 헤더만 업데이트
+    _stackedHeaders = result.stackedHeaders; // 스택 헤더도 함께 업데이트 (요일 행 포함)
     setState(() {}); // UI 갱신
+    
+    // SfDataGrid 강제 새로고침을 위한 추가 처리
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        // Future.microtask를 사용하여 다음 프레임에서 실행
+        Future.microtask(() {
+          if (mounted) {
+            setState(() {}); // 헤더 변경사항 강제 적용
+          }
+        });
+      }
+    });
   }
 
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../models/time_slot.dart';
 import '../models/teacher.dart';
@@ -315,6 +316,11 @@ class TimetableDataSource extends DataGridSource {
     _stateManager.updateSelection(teacher, day, period);
     _cacheManager.clearAllCaches();
     notifyListeners();
+    
+    // 즉시 UI 업데이트를 위한 추가 처리
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      notifyListeners();
+    });
   }
   
   /// 타겟 셀 상태 업데이트

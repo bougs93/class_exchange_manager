@@ -95,6 +95,19 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(TimetableGridSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    
+    // 위젯이 변경되었을 때 헤더 캐시 무효화 (교시 선택 또는 경로 변경 시)
+    if (oldWidget.columns.length != widget.columns.length ||
+        oldWidget.stackedHeaders.length != widget.stackedHeaders.length ||
+        oldWidget.selectedExchangePath?.id != widget.selectedExchangePath?.id) {
+      _cachedColumns = null;
+      _cachedHeaders = null;
+    }
+  }
+
   /// 확대/축소 관련 메서드들
   
   /// 그리드 확대
@@ -534,6 +547,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
         }).toList(),
       );
     }).toList();
+    _lastCachedZoomFactor = _zoomFactor;
 
     return _cachedHeaders!;
   }
