@@ -140,6 +140,12 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
   final ScrollController _verticalScrollController = ScrollController();
   final ScrollController _horizontalScrollController = ScrollController();
 
+  // 확대/축소 관련 변수들
+  double _zoomFactor = 1.0; // 현재 확대/축소 비율 (1.0 = 100%)
+  static const double _minZoom = 0.5; // 최소 확대 비율 50%
+  static const double _maxZoom = 2.0; // 최대 확대 비율 200%
+  static const double _zoomStep = 0.1; // 확대/축소 단계
+
   @override
   void initState() {
     super.initState();
@@ -156,6 +162,36 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     _horizontalScrollController.dispose();
     super.dispose();
   }
+
+  /// 확대/축소 관련 메서드들
+  
+  /// 그리드 확대
+  void _zoomIn() {
+    if (_zoomFactor < _maxZoom) {
+      setState(() {
+        _zoomFactor = (_zoomFactor + _zoomStep).clamp(_minZoom, _maxZoom);
+      });
+    }
+  }
+
+  /// 그리드 축소
+  void _zoomOut() {
+    if (_zoomFactor > _minZoom) {
+      setState(() {
+        _zoomFactor = (_zoomFactor - _zoomStep).clamp(_minZoom, _maxZoom);
+      });
+    }
+  }
+
+  /// 확대/축소 초기화
+  void _resetZoom() {
+    setState(() {
+      _zoomFactor = 1.0;
+    });
+  }
+
+  /// 현재 확대 비율을 퍼센트로 반환
+  int get _zoomPercentage => (_zoomFactor * 100).round();
 
   /// 스크롤 변경 시 화살표 재그리기를 위한 콜백
   void _onScrollChanged() {
@@ -175,14 +211,14 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     return Card(
       elevation: 2,
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(4.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 헤더
             _buildHeader(),
             
-            const SizedBox(height: 16),
+            const SizedBox(height: 2),
             
             // Syncfusion DataGrid 위젯 (화살표와 함께)
             Expanded(
@@ -198,30 +234,78 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
   Widget _buildHeader() {
     return Row(
       children: [
-        Icon(
-          Icons.grid_on,
-          color: Colors.green.shade600,
-          size: 24,
-        ),
         const SizedBox(width: 8),
-        Text(
-          '시간표 그리드 (Syncfusion)',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.green.shade600,
-          ),
-        ),
-        const Spacer(),
         
-        // 파싱 통계 표시
+        // 전체 교사 수 표시
         _buildTeacherCountWidget(),
         
         const SizedBox(width: 8),
         
         // 교체 모드가 활성화된 경우에만 교체 가능한 수업 개수 표시
-        if (widget.isExchangeModeEnabled)
+        if (widget.isExchangeModeEnabled) ...[
           ExchangeVisualizer.buildExchangeableCountWidget(widget.exchangeableCount),
+          const SizedBox(width: 8),
+        ],
+        
+        const Spacer(), // 공간을 최대한 활용
+        
+        // 확대/축소 컨트롤
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 축소 버튼
+              IconButton(
+                onPressed: _zoomFactor > _minZoom ? _zoomOut : null,
+                icon: const Icon(Icons.zoom_out, size: 18),
+                padding: const EdgeInsets.all(8),
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                color: _zoomFactor > _minZoom ? Colors.blue : Colors.grey,
+                tooltip: '축소',
+              ),
+              
+              // 현재 확대 비율 표시
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  '${_zoomPercentage}%',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+              ),
+              
+              // 확대 버튼
+              IconButton(
+                onPressed: _zoomFactor < _maxZoom ? _zoomIn : null,
+                icon: const Icon(Icons.zoom_in, size: 18),
+                padding: const EdgeInsets.all(8),
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                color: _zoomFactor < _maxZoom ? Colors.blue : Colors.grey,
+                tooltip: '확대',
+              ),
+              
+              // 초기화 버튼 (확대 비율이 100%가 아닌 경우에만 표시)
+              if (_zoomFactor != 1.0)
+                IconButton(
+                  onPressed: _resetZoom,
+                  icon: const Icon(Icons.refresh, size: 16),
+                  padding: const EdgeInsets.all(8),
+                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  color: Colors.grey.shade600,
+                  tooltip: '확대/축소 초기화',
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
       ],
     );
   }
@@ -280,7 +364,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
 
   /// DataGrid 구성
   Widget _buildDataGrid() {
-    return Container(
+    Widget dataGridContainer = Container(
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey.shade300),
         borderRadius: BorderRadius.circular(8),
@@ -311,6 +395,13 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
         horizontalScrollPhysics: const AlwaysScrollableScrollPhysics(), // 가로 스크롤 활성화
         verticalScrollPhysics: const AlwaysScrollableScrollPhysics(), // 세로 스크롤 활성화
       ),
+    );
+
+    // 확대/축소 효과를 적용하여 반환
+    return Transform.scale(
+      scale: _zoomFactor,
+      alignment: Alignment.topLeft,
+      child: dataGridContainer,
     );
   }
 
