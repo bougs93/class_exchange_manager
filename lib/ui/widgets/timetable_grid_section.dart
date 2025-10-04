@@ -351,6 +351,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
                   verticalScrollController: _verticalScrollController,
                   horizontalScrollController: _horizontalScrollController,
                   customArrowStyle: widget.customArrowStyle,
+                  zoomFactor: _zoomFactor, // 확대/축소 배율 전달
                 ),
               ),
             ),
@@ -504,6 +505,7 @@ class ExchangeArrowPainter extends CustomPainter {
   final ScrollController verticalScrollController;
   final ScrollController horizontalScrollController;
   final ExchangeArrowStyle? customArrowStyle;
+  final double zoomFactor; // 확대/축소 배율 추가
 
   ExchangeArrowPainter({
     required this.selectedPath,
@@ -512,6 +514,7 @@ class ExchangeArrowPainter extends CustomPainter {
     required this.verticalScrollController,
     required this.horizontalScrollController,
     this.customArrowStyle,
+    required this.zoomFactor, // 확대/축소 배율 매개변수 추가
   });
 
   @override
@@ -649,9 +652,9 @@ class ExchangeArrowPainter extends CustomPainter {
   /// [canvas] 그리기 캔버스
   /// [size] 캔버스 크기
   void _applyFrozenAreaClipping(Canvas canvas, Size size) {
-    // 고정 영역 경계 계산
-    const double frozenColumnWidth = AppConstants.teacherColumnWidth; // 고정 열 너비
-    const double headerHeight = AppConstants.headerRowHeight * 2; // 헤더 행 높이 (2개 행)
+    // 고정 영역 경계 계산 (확대/축소 배율 적용)
+    double frozenColumnWidth = AppConstants.teacherColumnWidth * zoomFactor; // 고정 열 너비
+    double headerHeight = (AppConstants.headerRowHeight * 2) * zoomFactor; // 헤더 행 높이 (2개 행)
     
     // 스크롤 가능한 영역만 허용하는 클리핑 경로 생성
     Path clippingPath = Path();
@@ -677,9 +680,9 @@ class ExchangeArrowPainter extends CustomPainter {
   /// 
   /// Returns: bool - 화살표가 화면에 보이는지 여부
   bool _isArrowVisible(Offset sourcePos, Offset targetPos, Size canvasSize) {
-    // 고정 영역 경계
-    const double frozenColumnWidth = AppConstants.teacherColumnWidth;
-    const double headerHeight = AppConstants.headerRowHeight * 2;
+    // 고정 영역 경계 (확대/축소 배율 적용)
+    double frozenColumnWidth = AppConstants.teacherColumnWidth * zoomFactor;
+    double headerHeight = (AppConstants.headerRowHeight * 2) * zoomFactor;
     
     // 화살표의 모든 점들 (시작점, 끝점, 중간점)
     List<Offset> arrowPoints = [
@@ -882,7 +885,8 @@ class ExchangeArrowPainter extends CustomPainter {
       }
     }
 
-    return Offset(x, y);
+    // 확대/축소 배율을 좌표에 적용
+    return Offset(x * zoomFactor, y * zoomFactor);
   }
 
   /// 화살표의 시작점과 끝점 경계면을 결정하는 함수
@@ -1181,6 +1185,7 @@ class ExchangeArrowPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
     return oldDelegate is ExchangeArrowPainter &&
            (oldDelegate.selectedPath != selectedPath ||
-            oldDelegate.customArrowStyle != customArrowStyle);
+            oldDelegate.customArrowStyle != customArrowStyle ||
+            zoomFactor != oldDelegate.zoomFactor); // 확대/축소 배율 변경 확인 추가
   }
 }
