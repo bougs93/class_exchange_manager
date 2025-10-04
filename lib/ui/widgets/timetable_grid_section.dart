@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'dart:io';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../services/excel_service.dart';
 import '../../utils/timetable_data_source.dart';
@@ -159,6 +161,11 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
 
   // 확대/축소 관련 변수들
   double _zoomFactor = GridLayoutConstants.defaultZoomFactor; // 현재 확대/축소 비율
+  
+  // 드래그 스크롤 관련 변수들
+  Offset? _lastPanOffset; // 마지막 터치/마우스 위치
+  bool _isDraggingForScroll = false; // 드래그 스크롤 중인지 여부
+  bool _isRightButtonPressed = false; // 마우스 오른쪽 버튼이 눌린 상태인지
 
   @override
   void initState() {
@@ -213,6 +220,94 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
 
   /// 현재 확대 비율을 퍼센트로 반환
   int get _zoomPercentage => (_zoomFactor * 100).round();
+
+  /// 드래그 스크롤 관련 메서드들
+  
+  /// 마우스 오른쪽 버튼 또는 2손가락 드래그 시작
+  void _onPanStart(DragStartDetails details) {
+    _lastPanOffset = details.localPosition;
+    _isDraggingForScroll = false;
+    
+    // 모바일에서는 모든 터치를 스크롤로 처리 (실제로는 2손가락 감지 필요)
+    if (Platform.isAndroid || Platform.isIOS) {
+      // 모바일에서는 우선 스크롤을 시도하지 않음 (셀 선택 우선)
+      _isDraggingForScroll = false;
+    }
+    // PC에서는 마우스 버튼 상태에 따라 결정
+  }
+
+  /// 드래그 업데이트 - 스크롤 실행
+  void _onPanUpdate(DragUpdateDetails details) {
+    if (!_isDraggingForScroll || _lastPanOffset == null) return;
+
+    Offset delta = details.localPosition - _lastPanOffset!;
+    
+    // 최소 이동 거리 체크 (실수 방지)
+    if (delta.distance < 3.0) return;
+    
+    // 드래그 방향의 반대로 스크롤
+    _scrollByOffset(-delta);
+    
+    _lastPanOffset = details.localPosition;
+  }
+
+  /// 드래그 종료
+  void _onPanEnd(DragEndDetails details) {
+    _isDraggingForScroll = false;
+    _isRightButtonPressed = false;
+    _lastPanOffset = null;
+  }
+
+  /// 오프셋만큼 스크롤 이동
+  void _scrollByOffset(Offset delta) {
+    if (_horizontalScrollController.hasClients) {
+      _horizontalScrollController.jumpTo(
+        (_horizontalScrollController.offset + delta.dx).clamp(
+          _horizontalScrollController.position.minScrollExtent,
+          _horizontalScrollController.position.maxScrollExtent,
+        ),
+      );
+    }
+
+    if (_verticalScrollController.hasClients) {
+      _verticalScrollController.jumpTo(
+        (_verticalScrollController.offset + delta.dy).clamp(
+          _verticalScrollController.position.minScrollExtent,
+          _verticalScrollController.position.maxScrollExtent,
+        ),
+      );
+    }
+  }
+
+
+  /// 마우스 버튼 이벤트 처리 (오른쪽 버튼 감지)
+  void _onMouseDown(PointerDownEvent event) {
+    if (event.buttons == kSecondaryButton) {
+      _isRightButtonPressed = true;
+      _lastPanOffset = event.localPosition;
+    }
+  }
+
+  void _onMouseUp(PointerUpEvent event) {
+    _isRightButtonPressed = false;
+    _isDraggingForScroll = false;
+  }
+
+  void _onMouseMove(PointerMoveEvent event) {
+    if (_isRightButtonPressed && _lastPanOffset != null) {
+      if (!_isDraggingForScroll) {
+        _isDraggingForScroll = true;
+      }
+      
+      Offset delta = event.localPosition - _lastPanOffset!;
+      
+      // 최소 이동 거리 체크 (실수 방지)
+      if (delta.distance < 3.0) return;
+      
+      _scrollByOffset(-delta);
+      _lastPanOffset = event.localPosition;
+    }
+  }
 
   /// 스크롤 변경 시 화살표 재그리기를 위한 콜백
   void _onScrollChanged() {
@@ -354,14 +449,14 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
 
   /// DataGrid와 화살표를 함께 구성
   Widget _buildDataGridWithArrows() {
-    Widget dataGrid = _buildDataGrid();
+    Widget dataGridWithGestures = _buildDataGridWithDragScrolling();
     
     
     // 교체 경로가 선택된 경우에만 화살표 표시 (모든 타입 지원)
     if (widget.selectedExchangePath != null) {
       return Stack(
         children: [
-          dataGrid,
+          dataGridWithGestures,
           // 화살표를 그리는 CustomPainter 오버레이 (터치 이벤트 무시)
           Positioned.fill(
             child: IgnorePointer(
@@ -382,7 +477,43 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
       );
     }
     
-    return dataGrid;
+    return dataGridWithGestures;
+  }
+
+  /// 드래그 스크롤 기능이 포함된 DataGrid 구성
+  Widget _buildDataGridWithDragScrolling() {
+    return RawGestureDetector(
+      gestures: <Type, GestureRecognizerFactory>{
+        // 마우스 오른쪽 버튼 드래그와 모바일 2손가락 드래그를 위한 PanGestureRecognizer
+        PanGestureRecognizer: GestureRecognizerFactoryWithHandlers<PanGestureRecognizer>(
+          () => PanGestureRecognizer(),
+          (PanGestureRecognizer instance) {
+            instance
+              ..onStart = _onPanStart
+              ..onUpdate = _onPanUpdate
+              ..onEnd = _onPanEnd;
+          },
+        ),
+        // 줌 기능 유지
+        ScaleGestureRecognizer: GestureRecognizerFactoryWithHandlers<ScaleGestureRecognizer>(
+          () => ScaleGestureRecognizer(),
+          (ScaleGestureRecognizer instance) {
+            instance.onUpdate = (ScaleUpdateDetails details) {
+              // 기존 줌 기능은 유지 (필요시 구현)
+              // _handleZoom(details.scale);
+            };
+          },
+        ),
+      },
+      behavior: HitTestBehavior.translucent,
+      child: Listener(
+        onPointerDown: _onMouseDown,
+        onPointerUp: _onMouseUp,
+        onPointerMove: _onMouseMove,
+        behavior: HitTestBehavior.translucent,
+        child: _buildDataGrid(),
+      ),
+    );
   }
 
   /// DataGrid 구성 - 실제 폰트 크기와 셀 크기 기반 확대/축소 방식
