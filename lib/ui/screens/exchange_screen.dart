@@ -39,6 +39,7 @@ import 'helpers/chain_path_finder.dart';
 import 'exchange_screen/widgets/exchange_app_bar.dart';
 import 'exchange_screen/widgets/timetable_tab_content.dart';
 import 'exchange_screen/exchange_screen_viewmodel.dart';
+import 'exchange_screen/exchange_screen_state_proxy.dart';
 
 /// 교체 관리 화면
 class ExchangeScreen extends ConsumerStatefulWidget {
@@ -71,7 +72,10 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   // 필터 상태 관리자
   final FilterStateManager _filterStateManager = FilterStateManager();
 
-  // Mixin에서 요구하는 getter들 - Provider에서 가져옴
+  // Provider 상태 접근 Proxy
+  late final ExchangeScreenStateProxy _stateProxy;
+
+  // Mixin에서 요구하는 getter들 - Service는 Provider에서, 나머지는 Proxy 사용
   @override
   ExchangeService get exchangeService => ref.read(exchangeServiceProvider);
 
@@ -82,28 +86,28 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   ChainExchangeService get chainExchangeService => ref.read(chainExchangeServiceProvider);
 
   @override
-  TimetableData? get timetableData => ref.read(exchangeScreenProvider).timetableData;
+  TimetableData? get timetableData => _stateProxy.timetableData;
 
   @override
   TimetableDataSource? get dataSource => _dataSource;
 
   @override
-  bool get isExchangeModeEnabled => ref.read(exchangeScreenProvider).isExchangeModeEnabled;
+  bool get isExchangeModeEnabled => _stateProxy.isExchangeModeEnabled;
 
   @override
-  bool get isCircularExchangeModeEnabled => ref.read(exchangeScreenProvider).isCircularExchangeModeEnabled;
+  bool get isCircularExchangeModeEnabled => _stateProxy.isCircularExchangeModeEnabled;
 
   @override
-  bool get isChainExchangeModeEnabled => ref.read(exchangeScreenProvider).isChainExchangeModeEnabled;
+  bool get isChainExchangeModeEnabled => _stateProxy.isChainExchangeModeEnabled;
 
   @override
-  bool get isNonExchangeableEditMode => ref.read(exchangeScreenProvider).isNonExchangeableEditMode;
+  bool get isNonExchangeableEditMode => _stateProxy.isNonExchangeableEditMode;
 
   @override
-  CircularExchangePath? get selectedCircularPath => ref.read(exchangeScreenProvider).selectedCircularPath;
+  CircularExchangePath? get selectedCircularPath => _stateProxy.selectedCircularPath;
 
   @override
-  ChainExchangePath? get selectedChainPath => ref.read(exchangeScreenProvider).selectedChainPath;
+  ChainExchangePath? get selectedChainPath => _stateProxy.selectedChainPath;
 
   // 시간표 그리드 제어를 위한 GlobalKey
   final GlobalKey<State<TimetableGridSection>> _timetableGridKey = GlobalKey<State<TimetableGridSection>>();
@@ -117,15 +121,16 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   AnimationController? _progressAnimationController;
   Animation<double>? _progressAnimation;
 
-  // 편의 getter들 - Provider 상태 접근용 (메서드 내부에서 사용)
-  ExchangeScreenState get _state => ref.read(exchangeScreenProvider);
-  TimetableData? get _timetableData => _state.timetableData;
-  bool get _isExchangeModeEnabled => _state.isExchangeModeEnabled;
-  bool get _isCircularExchangeModeEnabled => _state.isCircularExchangeModeEnabled;
-  bool get _isChainExchangeModeEnabled => _state.isChainExchangeModeEnabled;
-  CircularExchangePath? get _selectedCircularPath => _state.selectedCircularPath;
-  double get _loadingProgress => _state.loadingProgress;
-  ChainExchangePath? get _selectedChainPath => _state.selectedChainPath;
+  // 편의 getter들 - Proxy를 통한 상태 접근 (메서드 내부에서 사용)
+  TimetableData? get _timetableData => _stateProxy.timetableData;
+  bool get _isExchangeModeEnabled => _stateProxy.isExchangeModeEnabled;
+  bool get _isCircularExchangeModeEnabled => _stateProxy.isCircularExchangeModeEnabled;
+  bool get _isChainExchangeModeEnabled => _stateProxy.isChainExchangeModeEnabled;
+  CircularExchangePath? get _selectedCircularPath => _stateProxy.selectedCircularPath;
+  double get _loadingProgress => _stateProxy.loadingProgress;
+  ChainExchangePath? get _selectedChainPath => _stateProxy.selectedChainPath;
+  OneToOneExchangePath? get _selectedOneToOnePath => _stateProxy.selectedOneToOnePath;
+  bool get _isSidebarVisible => _stateProxy.isSidebarVisible;
 
   /// 교체불가 편집 모드 토글 (ViewModel 사용)
   void _toggleNonExchangeableEditMode() {
@@ -167,122 +172,113 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     }
   }
 
-  OneToOneExchangePath? get _selectedOneToOnePath => _state.selectedOneToOnePath;
-  bool get _isSidebarVisible => _state.isSidebarVisible;
-
-  // ExchangeFileHandler 인터페이스 구현 - Provider 사용
+  // ExchangeFileHandler 인터페이스 구현 - Proxy 사용
   @override
-  File? get selectedFile => ref.read(exchangeScreenProvider).selectedFile;
+  File? get selectedFile => _stateProxy.selectedFile;
   @override
-  void Function(File?) get setSelectedFile => (file) => ref.read(exchangeScreenProvider.notifier).setSelectedFile(file);
+  void Function(File?) get setSelectedFile => _stateProxy.setSelectedFile;
   @override
   void Function(TimetableData?) get setTimetableData => (data) {
-    ref.read(exchangeScreenProvider.notifier).setTimetableData(data);
+    _stateProxy.setTimetableData(data);
     if (data != null) {
       _createSyncfusionGridData();
     }
   };
   @override
-  void Function(bool) get setLoading => (loading) => ref.read(exchangeScreenProvider.notifier).setLoading(loading);
+  void Function(bool) get setLoading => _stateProxy.setLoading;
   @override
-  void Function(String?) get setErrorMessage => (msg) => ref.read(exchangeScreenProvider.notifier).setErrorMessage(msg);
+  void Function(String?) get setErrorMessage => _stateProxy.setErrorMessage;
   @override
   void Function() get createSyncfusionGridData => _createSyncfusionGridData;
 
-  // ExchangeModeHandler 인터페이스 구현 - Provider 사용
+  // ExchangeModeHandler 인터페이스 구현 - Proxy 사용
   @override
-  void Function(bool) get setExchangeModeEnabled => (enabled) => ref.read(exchangeScreenProvider.notifier).setExchangeModeEnabled(enabled);
+  void Function(bool) get setExchangeModeEnabled => _stateProxy.setExchangeModeEnabled;
   @override
-  void Function(bool) get setCircularExchangeModeEnabled => (enabled) => ref.read(exchangeScreenProvider.notifier).setCircularExchangeModeEnabled(enabled);
+  void Function(bool) get setCircularExchangeModeEnabled => _stateProxy.setCircularExchangeModeEnabled;
   @override
-  void Function(bool) get setChainExchangeModeEnabled => (enabled) => ref.read(exchangeScreenProvider.notifier).setChainExchangeModeEnabled(enabled);
+  void Function(bool) get setChainExchangeModeEnabled => _stateProxy.setChainExchangeModeEnabled;
   @override
-  void Function(bool) get setNonExchangeableEditMode => (enabled) => ref.read(exchangeScreenProvider.notifier).setNonExchangeableEditMode(enabled);
+  void Function(bool) get setNonExchangeableEditMode => _stateProxy.setNonExchangeableEditMode;
   @override
   void Function() get refreshHeaderTheme => _updateHeaderTheme;
   @override
-  List<int> get availableSteps => ref.read(exchangeScreenProvider).availableSteps;
+  List<int> get availableSteps => _stateProxy.availableSteps;
   @override
-  set availableSteps(List<int> value) => ref.read(exchangeScreenProvider.notifier).setAvailableSteps(value);
+  set availableSteps(List<int> value) => _stateProxy.setAvailableSteps(value);
   @override
-  int? get selectedStep => ref.read(exchangeScreenProvider).selectedStep;
+  int? get selectedStep => _stateProxy.selectedStep;
   @override
-  set selectedStep(int? value) => ref.read(exchangeScreenProvider.notifier).setSelectedStep(value);
+  set selectedStep(int? value) => _stateProxy.setSelectedStep(value);
   @override
-  String? get selectedDay => ref.read(exchangeScreenProvider).selectedDay;
+  String? get selectedDay => _stateProxy.selectedDay;
   @override
-  set selectedDay(String? value) => ref.read(exchangeScreenProvider.notifier).setSelectedDay(value);
+  set selectedDay(String? value) => _stateProxy.setSelectedDay(value);
 
-  // ExchangePathHandler 인터페이스 구현 - Provider 사용
+  // ExchangePathHandler 인터페이스 구현 - Proxy 사용
   @override
-  List<OneToOneExchangePath> get oneToOnePaths => ref.read(exchangeScreenProvider).oneToOnePaths;
+  List<OneToOneExchangePath> get oneToOnePaths => _stateProxy.oneToOnePaths;
   @override
-  set oneToOnePaths(List<OneToOneExchangePath> value) => ref.read(exchangeScreenProvider.notifier).setOneToOnePaths(value);
+  set oneToOnePaths(List<OneToOneExchangePath> value) => _stateProxy.setOneToOnePaths(value);
   @override
-  OneToOneExchangePath? get selectedOneToOnePath => ref.read(exchangeScreenProvider).selectedOneToOnePath;
+  OneToOneExchangePath? get selectedOneToOnePath => _stateProxy.selectedOneToOnePath;
   @override
-  set selectedOneToOnePath(OneToOneExchangePath? value) => ref.read(exchangeScreenProvider.notifier).setSelectedOneToOnePath(value);
+  set selectedOneToOnePath(OneToOneExchangePath? value) => _stateProxy.setSelectedOneToOnePath(value);
   @override
-  List<CircularExchangePath> get circularPaths => ref.read(exchangeScreenProvider).circularPaths;
+  List<CircularExchangePath> get circularPaths => _stateProxy.circularPaths;
   @override
-  set circularPaths(List<CircularExchangePath> value) => ref.read(exchangeScreenProvider.notifier).setCircularPaths(value);
+  set circularPaths(List<CircularExchangePath> value) => _stateProxy.setCircularPaths(value);
   @override
-  List<ChainExchangePath> get chainPaths => ref.read(exchangeScreenProvider).chainPaths;
+  List<ChainExchangePath> get chainPaths => _stateProxy.chainPaths;
   @override
-  set chainPaths(List<ChainExchangePath> value) => ref.read(exchangeScreenProvider.notifier).setChainPaths(value);
+  set chainPaths(List<ChainExchangePath> value) => _stateProxy.setChainPaths(value);
   @override
-  bool get isSidebarVisible => ref.read(exchangeScreenProvider).isSidebarVisible;
+  bool get isSidebarVisible => _stateProxy.isSidebarVisible;
   @override
-  set isSidebarVisible(bool value) => ref.read(exchangeScreenProvider.notifier).setSidebarVisible(value);
+  set isSidebarVisible(bool value) => _stateProxy.setSidebarVisible(value);
   @override
   void Function() get updateFilteredPaths => _updateFilteredPaths;
   @override
   void Function(double) get updateProgressSmoothly => _updateProgressSmoothly;
 
-  // PathSelectionHandlerMixin 인터페이스 구현 - Provider 사용
+  // PathSelectionHandlerMixin 인터페이스 구현
   @override
   PathSelectionManager get pathSelectionManager => _pathSelectionManager;
   @override
-  void Function(OneToOneExchangePath?) get setSelectedOneToOnePath => (path) => ref.read(exchangeScreenProvider.notifier).setSelectedOneToOnePath(path);
+  void Function(OneToOneExchangePath?) get setSelectedOneToOnePath => _stateProxy.setSelectedOneToOnePath;
   @override
-  void Function(ChainExchangePath?) get setSelectedChainPath => (path) => ref.read(exchangeScreenProvider.notifier).setSelectedChainPath(path);
+  void Function(ChainExchangePath?) get setSelectedChainPath => _stateProxy.setSelectedChainPath;
 
-  // FilterSearchHandler 인터페이스 구현 - Provider 사용
+  // FilterSearchHandler 인터페이스 구현
   @override
   FilterStateManager get filterStateManager => _filterStateManager;
   @override
   TextEditingController get searchController => _searchController;
   @override
-  String get searchQuery => ref.read(exchangeScreenProvider).searchQuery;
+  String get searchQuery => _stateProxy.searchQuery;
   @override
-  void Function(String) get setSearchQuery => (query) => ref.read(exchangeScreenProvider.notifier).setSearchQuery(query);
+  void Function(String) get setSearchQuery => _stateProxy.setSearchQuery;
   @override
-  void Function(int?) get setSelectedStep => (step) => ref.read(exchangeScreenProvider.notifier).setSelectedStep(step);
+  void Function(int?) get setSelectedStep => _stateProxy.setSelectedStep;
   @override
-  void Function(String?) get setSelectedDay => (day) => ref.read(exchangeScreenProvider.notifier).setSelectedDay(day);
+  void Function(String?) get setSelectedDay => _stateProxy.setSelectedDay;
   @override
-  void Function(List<int>) get setAvailableSteps => (steps) => ref.read(exchangeScreenProvider.notifier).setAvailableSteps(steps);
+  void Function(List<int>) get setAvailableSteps => _stateProxy.setAvailableSteps;
 
-  // SidebarBuilder 인터페이스 구현 - Provider 사용
+  // SidebarBuilder 인터페이스 구현
   @override
   List<ExchangePath> get filteredPaths {
-    // filteredPaths는 로컬 계산이 필요
-    final state = ref.read(exchangeScreenProvider);
-    final paths = state.isExchangeModeEnabled ? state.oneToOnePaths.cast<ExchangePath>() :
-                  state.isCircularExchangeModeEnabled ? state.circularPaths.cast<ExchangePath>() :
-                  state.chainPaths.cast<ExchangePath>();
-    
-    // FilterStateManager를 사용하여 모든 필터 적용 (단계 필터, 요일 필터, 검색 필터)
-    return _filterStateManager.applyFilters(paths);
+    // FilterStateManager를 사용하여 모든 필터 적용
+    return _filterStateManager.applyFilters(_stateProxy.currentPaths);
   }
   @override
   double get sidebarWidth => 180.0;
   @override
-  bool get isCircularPathsLoading => ref.read(exchangeScreenProvider).isCircularPathsLoading;
+  bool get isCircularPathsLoading => _stateProxy.isCircularPathsLoading;
   @override
-  bool get isChainPathsLoading => ref.read(exchangeScreenProvider).isChainPathsLoading;
+  bool get isChainPathsLoading => _stateProxy.isChainPathsLoading;
   @override
-  double get loadingProgress => ref.read(exchangeScreenProvider).loadingProgress;
+  double get loadingProgress => _stateProxy.loadingProgress;
   @override
   void Function() get toggleSidebar => _toggleSidebar;
   @override
@@ -290,31 +286,34 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   @override
   void Function(String, String, int) get scrollToCellCenter => _scrollToCellCenter;
 
-  // StateResetHandler 인터페이스 구현 - Provider 사용
+  // StateResetHandler 인터페이스 구현 - Proxy 사용
   @override
-  void Function(CircularExchangePath?) get setSelectedCircularPath => (path) => ref.read(exchangeScreenProvider.notifier).setSelectedCircularPath(path);
+  void Function(CircularExchangePath?) get setSelectedCircularPath => _stateProxy.setSelectedCircularPath;
   @override
-  void Function(List<CircularExchangePath>) get setCircularPaths => (paths) => ref.read(exchangeScreenProvider.notifier).setCircularPaths(paths);
+  void Function(List<CircularExchangePath>) get setCircularPaths => _stateProxy.setCircularPaths;
   @override
-  void Function(List<ChainExchangePath>) get setChainPaths => (chains) => ref.read(exchangeScreenProvider.notifier).setChainPaths(chains);
+  void Function(List<ChainExchangePath>) get setChainPaths => _stateProxy.setChainPaths;
   @override
-  void Function(bool) get setSidebarVisible => (visible) => ref.read(exchangeScreenProvider.notifier).setSidebarVisible(visible);
+  void Function(bool) get setSidebarVisible => _stateProxy.setSidebarVisible;
   @override
-  void Function(bool) get setCircularPathsLoading => (loading) => ref.read(exchangeScreenProvider.notifier).setCircularPathsLoading(loading);
+  void Function(bool) get setCircularPathsLoading => _stateProxy.setCircularPathsLoading;
   @override
-  void Function(bool) get setChainPathsLoading => (loading) => ref.read(exchangeScreenProvider.notifier).setChainPathsLoading(loading);
+  void Function(bool) get setChainPathsLoading => _stateProxy.setChainPathsLoading;
   @override
-  void Function(double) get setLoadingProgress => (progress) => ref.read(exchangeScreenProvider.notifier).setLoadingProgress(progress);
+  void Function(double) get setLoadingProgress => _stateProxy.setLoadingProgress;
   @override
   void Function(List<ExchangePath>) get setFilteredPaths => (paths) {
     // filteredPaths는 computed property이므로 setter는 no-op
   };
   @override
-  void Function(List<OneToOneExchangePath>) get setOneToOnePaths => (paths) => ref.read(exchangeScreenProvider.notifier).setOneToOnePaths(paths);
+  void Function(List<OneToOneExchangePath>) get setOneToOnePaths => _stateProxy.setOneToOnePaths;
 
   @override
   void initState() {
     super.initState();
+
+    // StateProxy 초기화
+    _stateProxy = ExchangeScreenStateProxy(ref);
 
     // PathSelectionManager 콜백 설정
     _pathSelectionManager.setCallbacks(
