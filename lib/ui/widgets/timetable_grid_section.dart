@@ -5,6 +5,7 @@ import '../../services/excel_service.dart';
 import '../../utils/timetable_data_source.dart';
 import '../../utils/constants.dart';
 import '../../utils/exchange_visualizer.dart';
+import '../../utils/simplified_timetable_theme.dart';
 import '../../models/one_to_one_exchange_path.dart';
 import '../../models/exchange_path.dart';
 import '../../models/exchange_node.dart';
@@ -152,6 +153,8 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     // 스크롤 이벤트 리스너 추가 - 화살표 재그리기를 위해
     _verticalScrollController.addListener(_onScrollChanged);
     _horizontalScrollController.addListener(_onScrollChanged);
+    // 초기 폰트 배율 설정
+    SimplifiedTimetableTheme.setFontScaleFactor(_zoomFactor);
   }
 
   @override
@@ -170,6 +173,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     if (_zoomFactor < _maxZoom) {
       setState(() {
         _zoomFactor = (_zoomFactor + _zoomStep).clamp(_minZoom, _maxZoom);
+        SimplifiedTimetableTheme.setFontScaleFactor(_zoomFactor); // 폰트 배율도 함께 업데이트
       });
     }
   }
@@ -179,6 +183,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     if (_zoomFactor > _minZoom) {
       setState(() {
         _zoomFactor = (_zoomFactor - _zoomStep).clamp(_minZoom, _maxZoom);
+        SimplifiedTimetableTheme.setFontScaleFactor(_zoomFactor); // 폰트 배율도 함께 업데이트
       });
     }
   }
@@ -187,6 +192,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
   void _resetZoom() {
     setState(() {
       _zoomFactor = 1.0;
+      SimplifiedTimetableTheme.setFontScaleFactor(1.0); // 폰트 배율도 초기화
     });
   }
 
@@ -259,6 +265,16 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+                            // 초기화 버튼 (확대 비율이 100%가 아닌 경우에만 표시)
+              if (_zoomFactor != 1.0)
+                IconButton(
+                  onPressed: _resetZoom,
+                  icon: const Icon(Icons.refresh, size: 16),
+                  padding: const EdgeInsets.all(8),
+                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  color: Colors.grey.shade600,
+                  tooltip: '확대/축소 초기화',
+                ),
               // 축소 버튼
               IconButton(
                 onPressed: _zoomFactor > _minZoom ? _zoomOut : null,
@@ -292,16 +308,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
                 tooltip: '확대',
               ),
               
-              // 초기화 버튼 (확대 비율이 100%가 아닌 경우에만 표시)
-              if (_zoomFactor != 1.0)
-                IconButton(
-                  onPressed: _resetZoom,
-                  icon: const Icon(Icons.refresh, size: 16),
-                  padding: const EdgeInsets.all(8),
-                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                  color: Colors.grey.shade600,
-                  tooltip: '확대/축소 초기화',
-                ),
+
             ],
           ),
         ),
@@ -527,12 +534,12 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
   void _scrollVertically(int teacherIndex) {
     if (!_verticalScrollController.hasClients) return;
     
-    double targetRowOffset = teacherIndex * AppConstants.dataRowHeight;
+    double targetRowOffset = teacherIndex * AppConstants.dataRowHeight * _zoomFactor;
     
     // 중앙 정렬인 경우 뷰포트 높이의 절반만큼 조정
     if (AppConstants.scrollAlignment == ScrollAlignment.center) {
       double viewportHeight = _verticalScrollController.position.viewportDimension;
-      double cellHeight = AppConstants.dataRowHeight;
+      double cellHeight = AppConstants.dataRowHeight * _zoomFactor;
       targetRowOffset = targetRowOffset - (viewportHeight / 2) + (cellHeight / 2);
       
       // 스크롤 범위 내로 제한
@@ -553,12 +560,12 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
   void _scrollHorizontally(int scrollableColumnIndex) {
     if (!_horizontalScrollController.hasClients) return;
     
-    double targetColumnOffset = scrollableColumnIndex * AppConstants.periodColumnWidth;
+    double targetColumnOffset = scrollableColumnIndex * AppConstants.periodColumnWidth * _zoomFactor;
     
     // 중앙 정렬인 경우 뷰포트 너비의 절반만큼 조정
     if (AppConstants.scrollAlignment == ScrollAlignment.center) {
       double viewportWidth = _horizontalScrollController.position.viewportDimension;
-      double cellWidth = AppConstants.periodColumnWidth;
+      double cellWidth = AppConstants.periodColumnWidth * _zoomFactor;
       targetColumnOffset = targetColumnOffset - (viewportWidth / 2) + (cellWidth / 2);
       
       // 스크롤 범위 내로 제한
@@ -888,21 +895,21 @@ class ExchangeArrowPainter extends CustomPainter {
   /// 
   /// Returns: Offset - 경계면 중앙의 좌표 (스크롤 오프셋 및 고정 영역 반영)
   Offset _getCellEdgeCenterPosition(int columnIndex, int teacherIndex, ArrowEdge edge) {
-    // 기본 X 좌표 계산
+    // 기본 X 좌표 계산 (줌 배율 적용)
     double x = 0;
     for (int i = 0; i < columnIndex; i++) {
       if (i == 0) {
-        // 교사명 열 너비 (고정 열)
-        x += AppConstants.teacherColumnWidth;
+        // 교사명 열 너비 (고정 열) - 줌 배율 적용
+        x += AppConstants.teacherColumnWidth * zoomFactor;
       } else {
-        // 교시 열 너비
-        x += AppConstants.periodColumnWidth;
+        // 교시 열 너비 - 줌 배율 적용
+        x += AppConstants.periodColumnWidth * zoomFactor;
       }
     }
 
-    // 기본 Y 좌표 계산 (고정된 헤더 행들 고려)
-    double y = AppConstants.headerRowHeight * 2; // 헤더 행 2개 높이
-    y += teacherIndex * AppConstants.dataRowHeight; // 교사 인덱스에 따른 행 높이
+    // 기본 Y 좌표 계산 (고정된 헤더 행들 고려, 줌 배율 적용)
+    double y = AppConstants.headerRowHeight * 2 * zoomFactor; // 헤더 행 2개 높이 - 줌 배율 적용
+    y += teacherIndex * AppConstants.dataRowHeight * zoomFactor; // 교사 인덱스에 따른 행 높이 - 줌 배율 적용
 
     // 스크롤 오프셋 반영 (고정 영역 고려)
     double horizontalOffset = 0.0;
@@ -926,40 +933,40 @@ class ExchangeArrowPainter extends CustomPainter {
       // 교사명 열의 경우
       switch (edge) {
         case ArrowEdge.top:
-          x += AppConstants.teacherColumnWidth / 2; // 가로 중앙
+          x += AppConstants.teacherColumnWidth * zoomFactor / 2; // 가로 중앙 - 줌 배율 적용
           y += 0; // 상단
           break;
         case ArrowEdge.bottom:
-          x += AppConstants.teacherColumnWidth / 2; // 가로 중앙
-          y += AppConstants.dataRowHeight; // 하단
+          x += AppConstants.teacherColumnWidth * zoomFactor / 2; // 가로 중앙 - 줌 배율 적용
+          y += AppConstants.dataRowHeight * zoomFactor; // 하단 - 줌 배율 적용
           break;
         case ArrowEdge.left:
           x += 0; // 왼쪽 경계
-          y += AppConstants.dataRowHeight / 2; // 세로 중앙
+          y += AppConstants.dataRowHeight * zoomFactor / 2; // 세로 중앙 - 줌 배율 적용
           break;
         case ArrowEdge.right:
-          x += AppConstants.teacherColumnWidth; // 오른쪽 경계
-          y += AppConstants.dataRowHeight / 2; // 세로 중앙
+          x += AppConstants.teacherColumnWidth * zoomFactor; // 오른쪽 경계 - 줌 배율 적용
+          y += AppConstants.dataRowHeight * zoomFactor / 2; // 세로 중앙 - 줌 배율 적용
           break;
       }
     } else {
       // 교시 열의 경우
       switch (edge) {
         case ArrowEdge.top:
-          x += AppConstants.periodColumnWidth / 2; // 가로 중앙
+          x += AppConstants.periodColumnWidth * zoomFactor / 2; // 가로 중앙 - 줌 배율 적용
           y += 0; // 상단
           break;
         case ArrowEdge.bottom:
-          x += AppConstants.periodColumnWidth / 2; // 가로 중앙
-          y += AppConstants.dataRowHeight; // 하단
+          x += AppConstants.periodColumnWidth * zoomFactor / 2; // 가로 중앙 - 줌 배율 적용
+          y += AppConstants.dataRowHeight * zoomFactor; // 하단 - 줌 배율 적용
           break;
         case ArrowEdge.left:
           x += 0; // 왼쪽 경계
-          y += AppConstants.dataRowHeight / 2; // 세로 중앙
+          y += AppConstants.dataRowHeight * zoomFactor / 2; // 세로 중앙 - 줌 배율 적용
           break;
         case ArrowEdge.right:
-          x += AppConstants.periodColumnWidth; // 오른쪽 경계
-          y += AppConstants.dataRowHeight / 2; // 세로 중앙
+          x += AppConstants.periodColumnWidth * zoomFactor; // 오른쪽 경계 - 줌 배율 적용
+          y += AppConstants.dataRowHeight * zoomFactor / 2; // 세로 중앙 - 줌 배율 적용
           break;
       }
     }

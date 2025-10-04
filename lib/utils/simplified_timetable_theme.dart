@@ -5,6 +5,17 @@ import 'constants.dart';
 /// 단순화된 시간표 테마 클래스
 /// 기존의 TimetableTheme와 SelectedPeriodTheme를 통합
 class SimplifiedTimetableTheme {
+  
+  /// 동적 폰트 사이즈 배율 (확대/축소용)
+  static double _fontScaleFactor = 1.0;
+  
+  /// 폰트 사이즈 배율 설정 (줌 인/아웃 시 호출)
+  static void setFontScaleFactor(double factor) {
+    _fontScaleFactor = factor;
+  }
+  
+  /// 현재 폰트 사이즈 배율 반환
+  static double get fontScaleFactor => _fontScaleFactor;
   // 색상 정의 (public으로 변경하여 다른 테마에서 참조 가능)
   static const Color defaultColor = Colors.white;
   static const Color teacherHeaderColor = Color(0xFFF5F5F5);
@@ -197,10 +208,10 @@ class SimplifiedTimetableTheme {
     }
     
     return TextStyle(
-      fontSize: isHeader ? AppConstants.headerFontSize : AppConstants.dataFontSize,
+      fontSize: (isHeader ? AppConstants.headerFontSize : AppConstants.dataFontSize) * _fontScaleFactor,
       fontWeight: fontWeight,
       color: textColor,
-      height: AppConstants.dataLineHeight,
+      height: AppConstants.dataLineHeight, // 줄간격은 줌 변화에 영향받지 않음
     );
   }
   
