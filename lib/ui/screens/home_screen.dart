@@ -5,13 +5,73 @@ import 'personal_schedule_screen.dart';
 import 'document_screen.dart';
 import 'settings_screen.dart';
 import '../../providers/navigation_provider.dart';
+import '../../providers/exchange_screen_provider.dart';
+import '../../ui/screens/exchange_screen/exchange_screen_state_proxy.dart';
+import '../../ui/screens/exchange_screen/managers/exchange_operation_manager.dart';
 
 /// 메인 홈 화면 - Drawer 메뉴가 있는 Scaffold
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
+  @override
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  // 엑셀 파일 선택 관련 상태 관리
+  ExchangeScreenStateProxy? _stateProxy;
+  ExchangeOperationManager? _operationManager;
+  
+  @override
+  void initState() {
+    super.initState();
+    
+    // StateProxy 초기화
+    _stateProxy = ExchangeScreenStateProxy(ref);
+    
+    // Manager 초기화 (엑셀 파일 처리 및 상태 관리)
+    _operationManager = ExchangeOperationManager(
+      context: context,
+      stateProxy: _stateProxy!,
+      onCreateSyncfusionGridData: () {
+        // 파일이 선택되고 파싱이 완료된 후 시간표 그리드 생성
+        if (mounted) {
+          setState(() {});
+        }
+      },
+      onClearAllExchangeStates: () {
+        // 교체 상태 초기화
+        if (mounted) {
+          setState(() {});
+        }
+      },
+      onRestoreUIToDefault: () {
+        // UI 초기 상태로 복원
+        if (mounted) {
+          setState(() {});
+        }
+      },
+      onRefreshHeaderTheme: () {
+        // 헤더 테마 업데이트
+        if (mounted) {
+          setState(() {});
+        }
+      },
+    );
+  }
+
+  // 엑셀 파일 선택 메서드
+  Future<void> _selectExcelFile() async {
+    if (_operationManager != null) {
+      await _operationManager!.selectExcelFile();
+      if (mounted) {
+        setState(() {});
+      }
+    }
+  }
+
   // 메뉴 항목들 정의
-  static const List<Map<String, dynamic>> _menuItems = [
+  List<Map<String, dynamic>> _menuItems() => [
     {
       'title': '홈',
       'icon': Icons.home,
@@ -40,7 +100,7 @@ class HomeScreen extends ConsumerWidget {
   ];
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final selectedIndex = ref.watch(navigationProvider);
 
     return Scaffold(
@@ -78,9 +138,56 @@ class HomeScreen extends ConsumerWidget {
                 ],
               ),
             ),
+            
+            // 엑셀 파일 선택 메뉴 (간단한 ListTile 형태)
+            Consumer(
+              builder: (context, ref, child) {
+                final screenState = ref.watch(exchangeScreenProvider);
+                final selectedFile = screenState.selectedFile;
+                
+                return ListTile(
+                  leading: Icon(
+                    Icons.upload_file,
+                    color: Colors.blue.shade600,
+                    size: 20,
+                  ),
+                  title: Text(
+                    selectedFile == null ? '엑셀 파일 선택' : '다른 파일 선택',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.blue.shade700,
+                    ),
+                  ),
+                  subtitle: selectedFile != null 
+                    ? Text(
+                        selectedFile.path.split('\\').last,
+                        style: const TextStyle(fontSize: 11),
+                        overflow: TextOverflow.ellipsis,
+                      )
+                    : const Text('시간표 파일(.xlsx, .xls)'),
+                  onTap: screenState.isLoading ? null : _selectExcelFile,
+                  enabled: !screenState.isLoading,
+                  trailing: screenState.isLoading 
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(
+                        selectedFile == null ? Icons.add : Icons.refresh,
+                        color: Colors.grey.shade600,
+                        size: 16,
+                      ),
+                );
+              },
+            ),
+            
+            const Divider(height: 1),
+            
             // 메뉴 항목들
-            ...List.generate(_menuItems.length, (index) {
-              final item = _menuItems[index];
+            ...List.generate(_menuItems().length, (index) {
+              final item = _menuItems()[index];
               return ListTile(
                 leading: Icon(
                   item['icon'] as IconData,
@@ -100,6 +207,7 @@ class HomeScreen extends ConsumerWidget {
                 },
               );
             }),
+            
             // 구분선
             const Divider(),
             // 도움말 메뉴
@@ -122,7 +230,7 @@ class HomeScreen extends ConsumerWidget {
           ],
         ),
       ),
-      body: _menuItems[selectedIndex]['screen'] as Widget,
+      body: _menuItems()[selectedIndex]['screen'] as Widget,
     );
   }
 }
