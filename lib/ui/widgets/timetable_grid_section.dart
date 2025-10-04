@@ -1,7 +1,8 @@
 import 'dart:math' as math;
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
-import 'dart:io';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../services/excel_service.dart';
 import '../../utils/timetable_data_source.dart';
@@ -161,26 +162,35 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
 
   // 확대/축소 관련 변수들
   double _zoomFactor = GridLayoutConstants.defaultZoomFactor; // 현재 확대/축소 비율
-  
+
   // 드래그 스크롤 관련 변수들
   Offset? _lastPanOffset; // 마지막 터치/마우스 위치
   bool _isDraggingForScroll = false; // 드래그 스크롤 중인지 여부
   bool _isRightButtonPressed = false; // 마우스 오른쪽 버튼이 눌린 상태인지
 
+  // 성능 최적화: 스크롤 디바운스 타이머
+  Timer? _scrollDebounceTimer;
+
+  // 성능 최적화: GridColumn/Header 캐시
+  List<GridColumn>? _cachedColumns;
+  List<StackedHeaderRow>? _cachedHeaders;
+  double? _lastCachedZoomFactor;
+
   @override
   void initState() {
     super.initState();
-    // 스크롤 이벤트 리스너 추가 - 화살표 재그리기를 위해
-    _verticalScrollController.addListener(_onScrollChanged);
-    _horizontalScrollController.addListener(_onScrollChanged);
+    // 스크롤 이벤트 리스너 추가 - 디바운스 적용
+    _verticalScrollController.addListener(_onScrollChangedDebounced);
+    _horizontalScrollController.addListener(_onScrollChangedDebounced);
     // 초기 폰트 배율 설정
     SimplifiedTimetableTheme.setFontScaleFactor(_zoomFactor);
   }
 
   @override
   void dispose() {
-    _verticalScrollController.removeListener(_onScrollChanged);
-    _horizontalScrollController.removeListener(_onScrollChanged);
+    _scrollDebounceTimer?.cancel();
+    _verticalScrollController.removeListener(_onScrollChangedDebounced);
+    _horizontalScrollController.removeListener(_onScrollChangedDebounced);
     _verticalScrollController.dispose();
     _horizontalScrollController.dispose();
     super.dispose();
@@ -194,7 +204,10 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
       setState(() {
         _zoomFactor = (_zoomFactor + GridLayoutConstants.zoomStep)
             .clamp(GridLayoutConstants.minZoom, GridLayoutConstants.maxZoom);
-        SimplifiedTimetableTheme.setFontScaleFactor(_zoomFactor); // 폰트 배율도 함께 업데이트
+        SimplifiedTimetableTheme.setFontScaleFactor(_zoomFactor);
+        // 캐시 무효화 (줌 배율 변경 시)
+        _cachedColumns = null;
+        _cachedHeaders = null;
       });
     }
   }
@@ -205,7 +218,10 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
       setState(() {
         _zoomFactor = (_zoomFactor - GridLayoutConstants.zoomStep)
             .clamp(GridLayoutConstants.minZoom, GridLayoutConstants.maxZoom);
-        SimplifiedTimetableTheme.setFontScaleFactor(_zoomFactor); // 폰트 배율도 함께 업데이트
+        SimplifiedTimetableTheme.setFontScaleFactor(_zoomFactor);
+        // 캐시 무효화 (줌 배율 변경 시)
+        _cachedColumns = null;
+        _cachedHeaders = null;
       });
     }
   }
@@ -214,12 +230,32 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
   void _resetZoom() {
     setState(() {
       _zoomFactor = GridLayoutConstants.defaultZoomFactor;
-      SimplifiedTimetableTheme.setFontScaleFactor(GridLayoutConstants.defaultZoomFactor); // 폰트 배율도 초기화
+      SimplifiedTimetableTheme.setFontScaleFactor(GridLayoutConstants.defaultZoomFactor);
+      // 캐시 무효화 (줌 배율 변경 시)
+      _cachedColumns = null;
+      _cachedHeaders = null;
     });
   }
 
   /// 현재 확대 비율을 퍼센트로 반환
   int get _zoomPercentage => (_zoomFactor * 100).round();
+
+  /// 스크롤 변경 시 화살표 재그리기 (디바운스 적용)
+  void _onScrollChangedDebounced() {
+    if (widget.selectedExchangePath == null) return;
+
+    // 기존 타이머 취소
+    _scrollDebounceTimer?.cancel();
+
+    // 16ms(~60fps) 후에 재그리기 (스크롤 중에는 건너뜀)
+    _scrollDebounceTimer = Timer(const Duration(milliseconds: 16), () {
+      if (mounted && widget.selectedExchangePath != null) {
+        setState(() {
+          // 화살표만 재그리기 (CustomPainter의 shouldRepaint에서 최적화)
+        });
+      }
+    });
+  }
 
   /// 드래그 스크롤 관련 메서드들
   
@@ -306,15 +342,6 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
       
       _scrollByOffset(-delta);
       _lastPanOffset = event.localPosition;
-    }
-  }
-
-  /// 스크롤 변경 시 화살표 재그리기를 위한 콜백
-  void _onScrollChanged() {
-    if (widget.selectedExchangePath != null) {
-      setState(() {
-        // 화살표가 표시되는 경우에만 재그리기
-      });
     }
   }
 
@@ -518,12 +545,14 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
 
   /// DataGrid 구성 - 실제 폰트 크기와 셀 크기 기반 확대/축소 방식
   Widget _buildDataGrid() {
-    Widget dataGridContainer = Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Theme(
+    Widget dataGridContainer = RepaintBoundary(
+      // RepaintBoundary: DataGrid를 별도 레이어로 분리하여 불필요한 리페인트 방지
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Theme(
         data: Theme.of(context).copyWith(
           textTheme: Theme.of(context).textTheme.copyWith(
             // 모든 텍스트 스타일에 확대된 폰트 크기 적용
@@ -561,26 +590,42 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
           horizontalScrollPhysics: const AlwaysScrollableScrollPhysics(), // 가로 스크롤 활성화
           verticalScrollPhysics: const AlwaysScrollableScrollPhysics(), // 세로 스크롤 활성화
         ),
+        ),
       ),
     );
 
     return dataGridContainer; // 실제 크기 조정 방식 사용
   }
 
-  /// 확대/축소에 따른 실제 크기 조정된 열 반환 - 폰트 크기와 열 너비 모두 조정
+  /// 확대/축소에 따른 실제 크기 조정된 열 반환 - 캐싱 적용
   List<GridColumn> _getScaledColumns() {
-    return widget.columns.map((column) {
+    // 캐시된 값이 있고 줌 배율이 동일하면 캐시 반환
+    if (_cachedColumns != null && _lastCachedZoomFactor == _zoomFactor) {
+      return _cachedColumns!;
+    }
+
+    // 새로 생성하고 캐시에 저장
+    _cachedColumns = widget.columns.map((column) {
       return GridColumn(
         columnName: column.columnName,
         width: _getScaledColumnWidth(column.width), // 실제 열 너비 조정
         label: _getScaledTextWidget(column.label, isHeader: false), // 열 라벨 (검은색)
       );
     }).toList();
+    _lastCachedZoomFactor = _zoomFactor;
+
+    return _cachedColumns!;
   }
 
-  /// 확대/축소에 따른 실제 크기 조정된 스택 헤더 반환
+  /// 확대/축소에 따른 실제 크기 조정된 스택 헤더 반환 - 캐싱 적용
   List<StackedHeaderRow> _getScaledStackedHeaders() {
-    return widget.stackedHeaders.map((headerRow) {
+    // 캐시된 값이 있고 줌 배율이 동일하면 캐시 반환
+    if (_cachedHeaders != null && _lastCachedZoomFactor == _zoomFactor) {
+      return _cachedHeaders!;
+    }
+
+    // 새로 생성하고 캐시에 저장
+    _cachedHeaders = widget.stackedHeaders.map((headerRow) {
       return StackedHeaderRow(
         cells: headerRow.cells.map((cell) {
           return StackedHeaderCell(
@@ -590,6 +635,8 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
         }).toList(),
       );
     }).toList();
+
+    return _cachedHeaders!;
   }
 
   /// 확대/축소에 따른 실제 열 너비 반환
