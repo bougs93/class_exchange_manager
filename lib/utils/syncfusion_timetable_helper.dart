@@ -86,10 +86,10 @@ class SyncfusionTimetableHelper {
                 bottom: _thinBorder,
               ),
             ),
-          child: const Text(
+          child: Text(
             '교시',
             style: TextStyle(
-              fontSize: AppConstants.headerFontSize,
+              fontSize: AppConstants.headerFontSize * SimplifiedTimetableTheme.fontScaleFactor, // 줌 팩터 적용
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -150,7 +150,7 @@ class SyncfusionTimetableHelper {
               child: Text(
                 '$period',
                 style: TextStyle(
-                  fontSize: AppConstants.headerFontSize,
+                  fontSize: AppConstants.headerFontSize * SimplifiedTimetableTheme.fontScaleFactor, // 줌 팩터 적용
                   fontWeight: FontWeight.bold,
                   color: headerStyles.textStyle.color ?? Colors.black,
                 ),
@@ -178,10 +178,10 @@ class SyncfusionTimetableHelper {
               bottom: _thinBorder,
             ),
           ),
-          child: const Text(
+          child: Text(
             '',
             style: TextStyle(
-              fontSize: AppConstants.headerFontSize,
+              fontSize: AppConstants.headerFontSize * SimplifiedTimetableTheme.fontScaleFactor, // 줌 팩터 적용
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -214,8 +214,8 @@ class SyncfusionTimetableHelper {
             ),
             child: Text(
               day,
-              style: const TextStyle(
-                fontSize: AppConstants.headerFontSize,
+              style: TextStyle(
+                fontSize: AppConstants.headerFontSize * SimplifiedTimetableTheme.fontScaleFactor, // 줌 팩터 적용
                 fontWeight: FontWeight.bold,
               ),
             ),

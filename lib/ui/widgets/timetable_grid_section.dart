@@ -546,6 +546,45 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
   /// 확대/축소에 따른 실제 크기 조정된 텍스트 위젯 반환
   /// [isHeader] true인 경우 파란색, false인 경우 검은색
   Widget _getScaledTextWidget(dynamic originalWidget, {required bool isHeader}) {
+    // 원본 위젯이 Text인 경우 새로운 스타일로 교체
+    if (originalWidget is Text) {
+      return Text(
+        originalWidget.data ?? '',
+        style: TextStyle(
+          fontSize: _getScaledFontSize(), // 확대된 폰트 크기
+          fontWeight: FontWeight.w600,
+          color: isHeader ? Colors.blue[700] : Colors.black87,
+        ),
+        textAlign: originalWidget.textAlign,
+        overflow: originalWidget.overflow,
+        maxLines: originalWidget.maxLines,
+        textDirection: originalWidget.textDirection,
+      );
+    }
+    
+    // 원본 위젯이 Container인 경우 내부 텍스트를 추출하여 새로운 Container 생성
+    if (originalWidget is Container && originalWidget.child is Text) {
+      final text = originalWidget.child as Text;
+      return Container(
+        padding: originalWidget.padding,
+        decoration: originalWidget.decoration,
+        alignment: originalWidget.alignment,
+        child: Text(
+          text.data ?? '',
+          style: TextStyle(
+            fontSize: _getScaledFontSize(), // 확대된 폰트 크기
+            fontWeight: FontWeight.w600,
+            color: isHeader ? Colors.blue[700] : Colors.black87,
+          ),
+          textAlign: text.textAlign,
+          overflow: text.overflow,
+          maxLines: text.maxLines,
+          textDirection: text.textDirection,
+        ),
+      );
+    }
+    
+    // 다른 위젯인 경우 DefaultTextStyle로 감싸서 폰트 크기만 조정 (하위 호환성)
     return DefaultTextStyle(
       style: TextStyle(
         fontSize: _getScaledFontSize(), // 확대된 폰트 크기
