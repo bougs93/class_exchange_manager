@@ -5,6 +5,7 @@ import '../utils/exchange_algorithm.dart';
 import '../utils/timetable_data_source.dart';
 import '../utils/logger.dart';
 import '../utils/day_utils.dart';
+import '../utils/non_exchangeable_manager.dart';
 import '../models/time_slot.dart';
 import '../models/teacher.dart';
 import '../models/exchange_node.dart';
@@ -36,6 +37,9 @@ class CircularExchangeService extends BaseExchangeService {
 
   // 교체 가능한 시간 관련 변수들
   final List<ExchangeOption> _exchangeOptions = []; // 교체 가능한 시간 옵션들
+  
+  // 교체 불가 관리자
+  final NonExchangeableManager _nonExchangeableManager = NonExchangeableManager();
 
   // Getters
   List<ExchangeOption> get exchangeOptions => _exchangeOptions;
@@ -174,6 +178,9 @@ class CircularExchangeService extends BaseExchangeService {
     ).toList();
     
     AppLogger.exchangeDebug('순환교체 최적화: 전체 ${timeSlots.length}개 → 유효한 ${validTimeSlots.length}개 TimeSlot');
+    
+    // 교체 불가 관리자에 TimeSlot 설정
+    _nonExchangeableManager.setTimeSlots(timeSlots);
     
     // 성능 최적화: 교사별 시간 인덱스 생성
     Map<String, Set<String>> teacherTimeIndex = _buildTeacherTimeIndex(validTimeSlots);
@@ -483,7 +490,8 @@ class CircularExchangeService extends BaseExchangeService {
   /// 
   /// 조건:
   /// 1. to 교사가 from 교사의 시간에 빈 시간이어야 함 (수업 가능)
-  /// 2. 연쇄 교체 방식: A(결강) → B(대신 수업) → C(대신 수업) → D(대신 수업)
+  /// 2. 교체 불가 충돌 검증 추가
+  /// 3. 연쇄 교체 방식: A(결강) → B(대신 수업) → C(대신 수업) → D(대신 수업)
   /// 
   /// 예시: A교사(월 1교시) → B교사(화 3교시)
   /// - A교사가 결강할 때 B교사가 A교사의 수업(월 1교시)을 대신
@@ -506,7 +514,10 @@ class CircularExchangeService extends BaseExchangeService {
     // 추가 검증: 같은 학급이어야 순환교체 가능
     bool sameClass = from.className == to.className;
     
-    return fromEmptyAtToTime && sameClass;
+    // 교체 불가 충돌 검증 추가: from 교사가 to 교사 시간에 교체 불가 셀이 있는지
+    bool noExchangeableConflict = !_isNonExchangeableClash(from.teacherName, to.day, to.period);
+    
+    return fromEmptyAtToTime && sameClass && noExchangeableConflict;
   }
 
   /// 방향 그래프를 위한 한 방향 교체 가능성을 확인하는 메서드 (TimeSlot 사용)
@@ -539,6 +550,12 @@ class CircularExchangeService extends BaseExchangeService {
     
     String subject = slot?.isNotEmpty == true ? (slot?.subject ?? '과목없음') : '과목없음';
     return '${node.teacherName}(${node.day}${node.period}교시, ${node.className}, $subject)';
+  }
+
+  /// 교체 불가 충돌 검증
+  /// 교사가 특정 시간대로 이동할 때 교체 불가 셀이 있는지 확인
+  bool _isNonExchangeableClash(String teacherName, String day, int period) {
+    return _nonExchangeableManager.isNonExchangeableTimeSlot(teacherName, day, period);
   }
 
   /// 순환교체 경로의 교체 과정을 시뮬레이션하여 검증

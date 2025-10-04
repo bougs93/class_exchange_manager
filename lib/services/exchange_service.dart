@@ -5,6 +5,7 @@ import '../utils/exchange_algorithm.dart';
 import '../utils/logger.dart';
 import '../utils/day_utils.dart';
 import '../utils/timetable_data_source.dart';
+import '../utils/non_exchangeable_manager.dart';
 import 'base_exchange_service.dart';
 
 /// 1:1 교체 서비스 클래스
@@ -18,6 +19,9 @@ class ExchangeService extends BaseExchangeService {
 
   // 교체 가능한 시간 관련 변수들
   List<ExchangeOption> _exchangeOptions = []; // 교체 가능한 시간 옵션들
+  
+  // 교체 불가 관리자
+  final NonExchangeableManager _nonExchangeableManager = NonExchangeableManager();
 
   // Getters
   String? get targetTeacher => _targetTeacher;
@@ -95,6 +99,9 @@ class ExchangeService extends BaseExchangeService {
     ).toList();
     
     AppLogger.exchangeDebug('1:1교체 최적화: 전체 ${timeSlots.length}개 → 유효한 ${validTimeSlots.length}개 TimeSlot');
+    
+    // 교체 불가 관리자에 TimeSlot 설정
+    _nonExchangeableManager.setTimeSlots(timeSlots);
     
     // 선택된 셀의 학급 정보 가져오기
     String? selectedClassName = getSelectedClassName(validTimeSlots);
@@ -180,7 +187,11 @@ class ExchangeService extends BaseExchangeService {
             [teacher.name], day, period, timeSlots
           ).isNotEmpty;
         
-        if (isAvailableAtSelectedTime && teacherSlot?.isNotEmpty == true) {
+        // 교체 불가 충돌 검증 추가 (양방향 검증)
+        bool noExchangeableConflict = _checkExchangeableConflict(
+          teacher.name, selectedTeacher!, day, period, selectedDay!, selectedPeriod!, timeSlots);
+        
+        if (isAvailableAtSelectedTime && teacherSlot?.isNotEmpty == true && noExchangeableConflict) {
           // ExchangeOption 생성
           ExchangeOption option = ExchangeOption(
             timeSlot: teacherSlot!,
@@ -195,6 +206,33 @@ class ExchangeService extends BaseExchangeService {
     }
     
     return exchangeOptions;
+  }
+  
+  /// 교체 불가 충돌 검증 메서드 (양방향 검증)
+  /// 교사간 1:1 교체 시 양쪽 모두 교체 가능한지 확인
+  bool _checkExchangeableConflict(
+    String teacherName, 
+    String selectedTeacher, 
+    String teacherDay, 
+    int teacherPeriod,
+    String selectedDay, 
+    int selectedPeriod,
+    List<TimeSlot> timeSlots
+  ) {
+    // 1. 교사가 선택된 교사의 시간으로 이동 가능한지 검증
+    bool teacherCanMoveToSelected = !_nonExchangeableManager.isNonExchangeableTimeSlot(
+      teacherName, selectedDay, selectedPeriod);
+    
+    // 2. 선택된 교사가 교사의 원래 시간으로 이동 가능한지 검증
+    bool selectedCanMoveToTeacher = !_nonExchangeableManager.isNonExchangeableTimeSlot(
+      selectedTeacher, teacherDay, teacherPeriod);
+    
+    AppLogger.exchangeDebug('1:1교체 양방향 검증: '
+      '$teacherName→$selectedTeacher($selectedDay$selectedPeriod교시): $teacherCanMoveToSelected, '
+      '$selectedTeacher→$teacherName($teacherDay$teacherPeriod교시): $selectedCanMoveToTeacher');
+    
+    // 양방향 모두 가능해야 교체 성공
+    return teacherCanMoveToSelected && selectedCanMoveToTeacher;
   }
   
   /// 교체 가능한 교사 정보 가져오기

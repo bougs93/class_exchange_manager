@@ -1,4 +1,9 @@
 /// 시간표의 각 칸을 나타내는 모델 클래스
+/// 
+/// 교체 불가 검사 방법:
+/// - 기본 검사: isExchangeable && isNotEmpty  
+/// - 교체 시 검증: 교사가 목적지 시간대에 교체 불가 셀이 있는지 확인
+/// - 모든 교체 유형(1:1, 순환, 연쇄)에서 동일하게 적용
 class TimeSlot {
   String? teacher;    // 교사명: "김영희", null
   String? subject;    // 과목명: "수학", null  

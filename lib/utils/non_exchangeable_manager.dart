@@ -3,6 +3,11 @@ import 'day_utils.dart';
 import 'logger.dart';
 
 /// 교체불가 관리 클래스
+/// 
+/// 주요 기능:
+/// - 교체 불가 셀 설정/해제
+/// - 교체 불가 여부 검사 (모든 교체 유형에서 공통 사용)
+/// - 교체 경로 생성 시 교체 불가 셀 필터링
 class NonExchangeableManager {
   List<TimeSlot> _timeSlots = [];
   bool _isNonExchangeableEditMode = false;

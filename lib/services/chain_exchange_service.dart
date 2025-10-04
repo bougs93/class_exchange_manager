@@ -6,6 +6,7 @@ import '../models/chain_exchange_path.dart';
 import '../utils/timetable_data_source.dart';
 import '../utils/logger.dart';
 import '../utils/day_utils.dart';
+import '../utils/non_exchangeable_manager.dart';
 import 'base_exchange_service.dart';
 
 /// 연쇄교체 서비스 클래스
@@ -24,6 +25,9 @@ class ChainExchangeService extends BaseExchangeService {
 
   // A 위치 (결강 수업) 학급 정보
   String? _nodeAClass;        // A 학급
+  
+  // 교체 불가 관리자
+  final NonExchangeableManager _nonExchangeableManager = NonExchangeableManager();
 
   // Getters
   String? get nodeATeacher => selectedTeacher;  // 베이스 클래스 사용
@@ -104,6 +108,9 @@ class ChainExchangeService extends BaseExchangeService {
     ).toList();
     
     AppLogger.exchangeDebug('연쇄교체 최적화: 전체 ${timeSlots.length}개 → 유효한 ${validTimeSlots.length}개 TimeSlot');
+    
+    // 교체 불가 관리자에 TimeSlot 설정
+    _nonExchangeableManager.setTimeSlots(timeSlots);
 
     // _nodeAClass가 null이면 validTimeSlots에서 찾기 (백그라운드 실행 시)
     _nodeAClass ??= getClassNameFromTimeSlot(
@@ -314,7 +321,15 @@ class ChainExchangeService extends BaseExchangeService {
     // 같은 학급인가?
     bool sameClass = node1.className == node2.className;
 
-    return teacher1EmptyAtNode2Time && teacher2EmptyAtNode1Time && sameClass;
+    // 교체 불가 충돌 검증 추가
+    bool teacher1CanMoveToNode2 = !_isNonExchangeableClash(node1.teacherName, node2.day, node2.period);
+    bool teacher2CanMoveToNode1 = !_isNonExchangeableClash(node2.teacherName, node1.day, node1.period);
+
+    return teacher1EmptyAtNode2Time && 
+           teacher2EmptyAtNode1Time && 
+           sameClass && 
+           teacher1CanMoveToNode2 && 
+           teacher2CanMoveToNode1;
   }
 
   /// 2단계 검증: A와 B가 1:1 교체 가능한지 (node2 위치가 비워진 후)
@@ -329,7 +344,7 @@ class ChainExchangeService extends BaseExchangeService {
     int node2DayNumber = DayUtils.getDayNumber(node2.day);
 
     // A 교사(nodeA.teacher)가 B 시간(nodeB.time)에 비어있는가?
-    // node2가 1단계에서 비워질 예정이므로 node2 위치는 무시
+    // node2가 1단계에서 비워질 예정이으므로 node2 위치는 무시
     bool teacherAEmptyAtBTime = !timeSlots.any((slot) =>
       slot.teacher == nodeA.teacherName &&
       slot.dayOfWeek == nodeBDayNumber &&
@@ -349,7 +364,21 @@ class ChainExchangeService extends BaseExchangeService {
     // 같은 학급인가?
     bool sameClass = nodeA.className == nodeB.className;
 
-    return teacherAEmptyAtBTime && teacherBEmptyAtATime && sameClass;
+    // 교체 불가 충돌 검증 추가
+    bool teacherACanMoveToB = !_isNonExchangeableClash(nodeA.teacherName, nodeB.day, nodeB.period);
+    bool teacherBCanMoveToA = !_isNonExchangeableClash(nodeB.teacherName, nodeA.day, nodeA.period);
+
+    return teacherAEmptyAtBTime && 
+           teacherBEmptyAtATime && 
+           sameClass && 
+           teacherACanMoveToB && 
+           teacherBCanMoveToA;
+  }
+
+  /// 교체 불가 충돌 검증
+  /// 교사가 특정 시간대로 이동할 때 교체 불가 셀이 있는지 확인
+  bool _isNonExchangeableClash(String teacherName, String day, int period) {
+    return _nonExchangeableManager.isNonExchangeableTimeSlot(teacherName, day, period);
   }
 
   /// 모든 선택 상태 초기화
