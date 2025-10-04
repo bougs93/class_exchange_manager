@@ -69,7 +69,15 @@ class ChainExchangePath implements ExchangePath {
   // ExchangePath 인터페이스 구현
   @override
   String get id {
-    return _customId ?? 'chain_${nodeA.nodeId}_${nodeB.nodeId}_${node1.nodeId}_${node2.nodeId}';
+    if (_customId != null) return _customId!;
+    
+    // 더 명확한 형태: 1단계_n 교체 _2단계_n 교체
+    String step1Id = '${node1.teacherName}_${node1.day}${node1.period}교시';
+    String step1TargetId = '${node2.teacherName}_${node2.day}${node2.period}교시';
+    String step2Id = '${nodeA.teacherName}_${nodeA.day}${nodeA.period}교시';
+    String step2TargetId = '${nodeB.teacherName}_${nodeB.day}${nodeB.period}교시';
+    
+    return 'chain_1단계_${step1Id}_↔_${step1TargetId}_2단계_${step2Id}_↔_$step2TargetId';
   }
 
   /// 사용자 정의 ID 설정
