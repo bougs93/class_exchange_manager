@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'cell_style_config.dart';
 import 'constants.dart';
 
 /// 단순화된 시간표 테마 클래스
@@ -66,59 +67,79 @@ class SimplifiedTimetableTheme {
   
   
   
-  /// 통합된 셀 스타일 생성
+  /// 통합된 셀 스타일 생성 (개선된 버전 - CellStyleConfig 사용)
+  static CellStyle getCellStyleFromConfig(CellStyleConfig config) {
+    return CellStyle(
+      backgroundColor: _getBackgroundColor(
+        isTeacherColumn: config.isTeacherColumn,
+        isSelected: config.isSelected,
+        isExchangeable: config.isExchangeable,
+        isInCircularPath: config.isInCircularPath,
+        isInSelectedPath: config.isInSelectedPath,
+        isInChainPath: config.isInChainPath,
+        isTargetCell: config.isTargetCell,
+        isNonExchangeable: config.isNonExchangeable,
+      ),
+      textStyle: _getTextStyle(
+        isSelected: config.isSelected,
+        isHeader: config.isHeader,
+        isInCircularPath: config.isInCircularPath,
+      ),
+      border: _getBorder(
+        isTeacherColumn: config.isTeacherColumn,
+        isSelected: config.isSelected,
+        isLastColumnOfDay: config.isLastColumnOfDay,
+        isFirstColumnOfDay: config.isFirstColumnOfDay,
+        isInCircularPath: config.isInCircularPath,
+        isHeader: config.isHeader,
+        isTargetCell: config.isTargetCell,
+      ),
+      overlayWidget: _getOverlayWidget(
+        isExchangeable: config.isExchangeable,
+        isTeacherColumn: config.isTeacherColumn,
+        isHeader: config.isHeader,
+        isInCircularPath: config.isInCircularPath,
+        circularPathStep: config.circularPathStep,
+        isInSelectedPath: config.isInSelectedPath,
+        isSelected: config.isSelected,
+        isInChainPath: config.isInChainPath,
+        chainPathStep: config.chainPathStep,
+      ),
+    );
+  }
+
+  /// 통합된 셀 스타일 생성 (레거시 버전 - 하위 호환성 유지)
+  @Deprecated('Use getCellStyleFromConfig with CellStyleConfig instead')
   static CellStyle getCellStyle({
     required bool isTeacherColumn,
     required bool isSelected,
     required bool isExchangeable,
     required bool isLastColumnOfDay,
-    bool isFirstColumnOfDay = false, // 요일별 첫 번째 교시인지 여부
+    bool isFirstColumnOfDay = false,
     bool isHeader = false,
-    bool isInCircularPath = false, // 순환교체 경로에 포함된 셀인지 여부
-    int? circularPathStep, // 순환교체 경로에서의 단계 (1, 2, 3...)
-    bool isInSelectedPath = false, // 선택된 경로에 포함된 셀인지 여부 (1:1 교체 모드)
-    bool isInChainPath = false, // 연쇄교체 경로에 포함된 셀인지 여부
-    int? chainPathStep, // 연쇄교체 경로에서의 단계 (1, 2)
-    bool isTargetCell = false, // 타겟 셀인지 여부 (교체 대상의 같은 행 셀)
-    bool isNonExchangeable = false, // 교체불가 셀인지 여부
+    bool isInCircularPath = false,
+    int? circularPathStep,
+    bool isInSelectedPath = false,
+    bool isInChainPath = false,
+    int? chainPathStep,
+    bool isTargetCell = false,
+    bool isNonExchangeable = false,
   }) {
-    return CellStyle(
-      backgroundColor: _getBackgroundColor(
-        isTeacherColumn: isTeacherColumn,
-        isSelected: isSelected,
-        isExchangeable: isExchangeable,
-        isInCircularPath: isInCircularPath,
-        isInSelectedPath: isInSelectedPath,
-        isInChainPath: isInChainPath,
-        isTargetCell: isTargetCell, // 타겟 셀 정보 전달
-        isNonExchangeable: isNonExchangeable, // 교체불가 셀 정보 전달
-      ),
-      textStyle: _getTextStyle(
-        isSelected: isSelected,
-        isHeader: isHeader,
-        isInCircularPath: isInCircularPath,
-      ),
-      border: _getBorder(
-        isTeacherColumn: isTeacherColumn,
-        isSelected: isSelected,
-        isLastColumnOfDay: isLastColumnOfDay,
-        isFirstColumnOfDay: isFirstColumnOfDay,
-        isInCircularPath: isInCircularPath,
-        isHeader: isHeader,
-        isTargetCell: isTargetCell,
-      ),
-      overlayWidget: _getOverlayWidget(
-        isExchangeable: isExchangeable,
-        isTeacherColumn: isTeacherColumn,
-        isHeader: isHeader,
-        isInCircularPath: isInCircularPath,
-        circularPathStep: circularPathStep,
-        isInSelectedPath: isInSelectedPath,
-        isSelected: isSelected,
-        isInChainPath: isInChainPath,
-        chainPathStep: chainPathStep,
-      ),
-    );
+    return getCellStyleFromConfig(CellStyleConfig(
+      isTeacherColumn: isTeacherColumn,
+      isSelected: isSelected,
+      isExchangeable: isExchangeable,
+      isLastColumnOfDay: isLastColumnOfDay,
+      isFirstColumnOfDay: isFirstColumnOfDay,
+      isHeader: isHeader,
+      isInCircularPath: isInCircularPath,
+      circularPathStep: circularPathStep,
+      isInSelectedPath: isInSelectedPath,
+      isInChainPath: isInChainPath,
+      chainPathStep: chainPathStep,
+      isTargetCell: isTargetCell,
+      isNonExchangeable: isNonExchangeable,
+    ));
   }
   
   /// 배경색 결정

@@ -5,8 +5,10 @@ import '../models/teacher.dart';
 import '../models/circular_exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
 import '../models/chain_exchange_path.dart';
+import '../models/exchange_node.dart';
 import 'constants.dart';
 import 'simplified_timetable_theme.dart';
+import 'cell_style_config.dart';
 import 'day_utils.dart';
 
 /// Syncfusion DataGrid를 사용한 시간표 데이터 변환 헬퍼 클래스
@@ -119,17 +121,19 @@ class SyncfusionTimetableHelper {
         // 연쇄교체 경로에 포함된 교시인지 확인
         bool isInChainPath = _isPeriodInChainPath(day, period, selectedChainPath);
         
-        // 통합 함수를 사용하여 헤더 스타일 가져오기
-        CellStyle headerStyles = SimplifiedTimetableTheme.getCellStyle(
-          isTeacherColumn: false,
-          isSelected: isSelected,
-          isExchangeable: isExchangeablePeriod,
-          isLastColumnOfDay: isLastPeriod,
-          isFirstColumnOfDay: isFirstPeriod,
-          isHeader: true,
-          isInCircularPath: isInCircularPath,
-          isInSelectedPath: isInSelectedOneToOnePath,
-          isInChainPath: isInChainPath,
+        // CellStyleConfig를 사용하여 헤더 스타일 가져오기
+        CellStyle headerStyles = SimplifiedTimetableTheme.getCellStyleFromConfig(
+          CellStyleConfig(
+            isTeacherColumn: false,
+            isSelected: isSelected,
+            isExchangeable: isExchangeablePeriod,
+            isLastColumnOfDay: isLastPeriod,
+            isFirstColumnOfDay: isFirstPeriod,
+            isHeader: true,
+            isInCircularPath: isInCircularPath,
+            isInSelectedPath: isInSelectedOneToOnePath,
+            isInChainPath: isInChainPath,
+          ),
         );
         
         columns.add(
@@ -255,40 +259,33 @@ class SyncfusionTimetableHelper {
     return groupedData;
   }
   
-  /// 교체 가능한 교시인지 확인
+  /// 교체 가능한 교시인지 확인 (통합 메서드)
+  static bool _isPeriodInPath(String day, int period, List<ExchangeNode>? nodes) {
+    if (nodes == null) return false;
+    return nodes.any((node) => node.day == day && node.period == period);
+  }
+
+  /// 교체 가능한 교시인지 확인 (exchangeableTeachers용)
   static bool _isExchangeablePeriod(String day, int period, List<Map<String, dynamic>>? exchangeableTeachers) {
     if (exchangeableTeachers == null) return false;
-    
-    return exchangeableTeachers.any((teacher) => 
+    return exchangeableTeachers.any((teacher) =>
       teacher['day'] == day && teacher['period'] == period
     );
   }
-  
+
   /// 순환교체 경로에 포함된 교시인지 확인
   static bool _isPeriodInCircularPath(String day, int period, CircularExchangePath? selectedCircularPath) {
-    if (selectedCircularPath == null) return false;
-    
-    return selectedCircularPath.nodes.any((node) => 
-      node.day == day && node.period == period
-    );
+    return _isPeriodInPath(day, period, selectedCircularPath?.nodes);
   }
-  
+
   /// 선택된 1:1 경로에 포함된 교시인지 확인
   static bool _isPeriodInSelectedOneToOnePath(String day, int period, OneToOneExchangePath? selectedOneToOnePath) {
-    if (selectedOneToOnePath == null) return false;
-    
-    return selectedOneToOnePath.nodes.any((node) => 
-      node.day == day && node.period == period
-    );
+    return _isPeriodInPath(day, period, selectedOneToOnePath?.nodes);
   }
-  
+
   /// 연쇄교체 경로에 포함된 교시인지 확인
   static bool _isPeriodInChainPath(String day, int period, ChainExchangePath? selectedChainPath) {
-    if (selectedChainPath == null) return false;
-    
-    return selectedChainPath.nodes.any((node) => 
-      node.day == day && node.period == period
-    );
+    return _isPeriodInPath(day, period, selectedChainPath?.nodes);
   }
   
   /// 요일 숫자를 문자열로 변환

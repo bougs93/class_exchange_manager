@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../utils/simplified_timetable_theme.dart';
+import '../../utils/cell_style_config.dart';
 
 /// 단순화된 시간표 셀 위젯
 class SimplifiedTimetableCell extends StatelessWidget {
@@ -18,7 +19,7 @@ class SimplifiedTimetableCell extends StatelessWidget {
   final bool isTargetCell; // 타겟 셀인지 여부 (교체 대상의 같은 행 셀)
   final bool isNonExchangeable; // 교체불가 셀인지 여부
   final VoidCallback? onTap;
-  
+
   const SimplifiedTimetableCell({
     super.key,
     required this.content,
@@ -37,23 +38,25 @@ class SimplifiedTimetableCell extends StatelessWidget {
     this.isNonExchangeable = false,
     this.onTap,
   });
-  
+
   @override
   Widget build(BuildContext context) {
-    final style = SimplifiedTimetableTheme.getCellStyle(
-      isTeacherColumn: isTeacherColumn,
-      isSelected: isSelected,
-      isExchangeable: isExchangeable,
-      isLastColumnOfDay: isLastColumnOfDay,
-      isFirstColumnOfDay: isFirstColumnOfDay,
-      isHeader: isHeader,
-      isInCircularPath: isInCircularPath,
-      circularPathStep: circularPathStep,
-      isInSelectedPath: isInSelectedPath,
-      isInChainPath: isInChainPath,
-      chainPathStep: chainPathStep,
-      isTargetCell: isTargetCell, // 타겟 셀 정보 전달
-      isNonExchangeable: isNonExchangeable, // 교체불가 셀 정보 전달
+    final style = SimplifiedTimetableTheme.getCellStyleFromConfig(
+      CellStyleConfig(
+        isTeacherColumn: isTeacherColumn,
+        isSelected: isSelected,
+        isExchangeable: isExchangeable,
+        isLastColumnOfDay: isLastColumnOfDay,
+        isFirstColumnOfDay: isFirstColumnOfDay,
+        isHeader: isHeader,
+        isInCircularPath: isInCircularPath,
+        circularPathStep: circularPathStep,
+        isInSelectedPath: isInSelectedPath,
+        isInChainPath: isInChainPath,
+        chainPathStep: chainPathStep,
+        isTargetCell: isTargetCell,
+        isNonExchangeable: isNonExchangeable,
+      ),
     );
     
     // 디버깅을 위한 로그 (리빌드로 인한 중복 출력 방지를 위해 제거)

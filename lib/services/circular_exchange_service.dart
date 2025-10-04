@@ -23,11 +23,12 @@ class CircularExchangeService extends BaseExchangeService {
   static const bool defaultExactSteps = false;
   
   // ==================== 성능 최적화 ====================
-  
+
   /// 경로 탐색 결과 캐싱 (성능 최적화)
-  /// Map 객체 자체는 변경되지 않고 내용만 변경되므로 final로 선언 가능
+  /// LRU 방식으로 최대 100개 경로까지 캐싱
+  static const int _maxCacheSize = 100;
   final Map<String, List<CircularExchangePath>> _pathCache = <String, List<CircularExchangePath>>{};
-  
+
   /// 순환교체 경로 디버그 콘솔 출력 여부
   static const bool enablePathDebugLogging = false;
 
@@ -194,6 +195,13 @@ class CircularExchangeService extends BaseExchangeService {
     if (_pathCache.containsKey(cacheKey)) {
       AppLogger.exchangeDebug('캐시된 경로 사용: ${_pathCache[cacheKey]!.length}개 경로');
       return _pathCache[cacheKey]!;
+    }
+
+    // LRU 캐시: 최대 크기 초과 시 가장 오래된 항목 제거
+    if (_pathCache.length >= _maxCacheSize) {
+      String oldestKey = _pathCache.keys.first;
+      _pathCache.remove(oldestKey);
+      AppLogger.exchangeDebug('캐시 크기 초과: 가장 오래된 항목 제거');
     }
     
     // 단계별 우선순위 탐색 (성능 최적화)
@@ -501,30 +509,16 @@ class CircularExchangeService extends BaseExchangeService {
     return fromEmptyAtToTime && sameClass;
   }
 
-  /// 방향 그래프를 위한 한 방향 교체 가능성을 확인하는 메서드 (기존 버전 - 호환성 유지)
+  /// 방향 그래프를 위한 한 방향 교체 가능성을 확인하는 메서드 (TimeSlot 사용)
+  /// 인덱스가 없을 때 사용되는 폴백 메서드
   bool _isOneWayExchangeable(
     ExchangeNode from,
     ExchangeNode to,
     List<TimeSlot> timeSlots,
   ) {
-    // 같은 교사끼리의 교체는 항상 가능 (순환 완료 시)
-    if (from.teacherName == to.teacherName) {
-      return true;
-    }
-    
-    // 순환교체에서 중요한 점: from 교사가 to 교사의 시간에 빈 시간이 있어야 함
-    // (from 교사가 to 교사의 시간에 빈 시간이어야 to 교사의 수업을 대신할 수 있음)
-    bool fromEmptyAtToTime = !timeSlots.any((slot) => 
-      slot.teacher == from.teacherName &&
-      slot.dayOfWeek == DayUtils.getDayNumber(to.day) &&
-      slot.period == to.period &&
-      slot.isNotEmpty
-    );
-    
-    // 추가 검증: 같은 학급이어야 순환교체 가능
-    bool sameClass = from.className == to.className;
-    
-    return fromEmptyAtToTime && sameClass;
+    // 인덱스 생성하여 최적화 버전 호출
+    Map<String, Set<String>> teacherTimeIndex = _buildTeacherTimeIndex(timeSlots);
+    return _isOneWayExchangeableOptimized(from, to, teacherTimeIndex);
   }
   
 

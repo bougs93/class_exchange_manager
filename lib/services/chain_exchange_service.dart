@@ -201,42 +201,23 @@ class ChainExchangeService extends BaseExchangeService {
   List<ExchangeNode> _findSameClassSlots(ExchangeNode nodeA, List<TimeSlot> timeSlots) {
     List<ExchangeNode> nodes = [];
     Set<String> addedNodeIds = {};
-
     int nodeADayNumber = DayUtils.getDayNumber(nodeA.day);
 
     // 같은 학급을 가르치는 모든 시간표 슬롯 찾기
     List<TimeSlot> sameClassSlots = timeSlots.where((slot) =>
       slot.className == nodeA.className &&
       slot.isNotEmpty &&
-      slot.canExchange && // 교체 가능한 셀만 포함
-      slot.teacher != nodeA.teacherName // A 교사 제외
+      slot.canExchange &&
+      slot.teacher != nodeA.teacherName
     ).toList();
 
     for (TimeSlot slot in sameClassSlots) {
-      String slotTeacher = slot.teacher ?? '';
-      int slotDay = slot.dayOfWeek ?? 0;
-      int slotPeriod = slot.period ?? 0;
-
-      // 해당 교사가 A 시간에 비어있는지 확인
-      bool teacherEmptyAtATime = !timeSlots.any((s) =>
-        s.teacher == slotTeacher &&
-        s.dayOfWeek == nodeADayNumber &&
-        s.period == nodeA.period &&
-        s.isNotEmpty
-      );
-
-      if (!teacherEmptyAtATime) {
+      // Early return: 유효하지 않은 슬롯 건너뛰기
+      if (!_isValidSameClassSlot(slot, nodeA, nodeADayNumber, timeSlots)) {
         continue;
       }
 
-      ExchangeNode node = ExchangeNode(
-        teacherName: slotTeacher,
-        day: DayUtils.getDayName(slotDay),
-        period: slotPeriod,
-        className: slot.className ?? '',
-        subjectName: slot.subject ?? '과목',
-      );
-
+      ExchangeNode node = _createNodeFromSlot(slot);
       if (!addedNodeIds.contains(node.nodeId)) {
         nodes.add(node);
         addedNodeIds.add(node.nodeId);
@@ -244,6 +225,35 @@ class ChainExchangeService extends BaseExchangeService {
     }
 
     return nodes;
+  }
+
+  /// 같은 학급 슬롯이 유효한지 검증
+  bool _isValidSameClassSlot(
+    TimeSlot slot,
+    ExchangeNode nodeA,
+    int nodeADayNumber,
+    List<TimeSlot> timeSlots,
+  ) {
+    String slotTeacher = slot.teacher ?? '';
+
+    // 해당 교사가 A 시간에 비어있는지 확인
+    return !timeSlots.any((s) =>
+      s.teacher == slotTeacher &&
+      s.dayOfWeek == nodeADayNumber &&
+      s.period == nodeA.period &&
+      s.isNotEmpty
+    );
+  }
+
+  /// TimeSlot에서 ExchangeNode 생성
+  ExchangeNode _createNodeFromSlot(TimeSlot slot) {
+    return ExchangeNode(
+      teacherName: slot.teacher ?? '',
+      day: DayUtils.getDayName(slot.dayOfWeek ?? 0),
+      period: slot.period ?? 0,
+      className: slot.className ?? '',
+      subjectName: slot.subject ?? '과목',
+    );
   }
 
   /// A 교사의 B 시간 수업 찾기 (node2)

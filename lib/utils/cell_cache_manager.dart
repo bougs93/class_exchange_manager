@@ -1,98 +1,85 @@
 
-/// 셀 상태 캐시 관리 클래스
+/// 캐시 타입 열거형
+enum CacheType {
+  cellSelection,
+  cellTarget,
+  exchangeable,
+  circularPath,
+  chainPath,
+  nonExchangeable,
+}
+
+/// 셀 상태 캐시 관리 클래스 (통합 버전)
 class CellCacheManager {
-  // 성능 최적화를 위한 캐시
-  final Map<String, bool> _cellSelectionCache = {};
-  final Map<String, bool> _cellTargetCache = {};
-  final Map<String, bool> _cellExchangeableCache = {};
-  final Map<String, bool> _cellCircularPathCache = {};
-  final Map<String, bool> _cellChainPathCache = {};
-  final Map<String, bool> _cellNonExchangeableCache = {};
+  // 성능 최적화를 위한 통합 캐시 맵
+  final Map<CacheType, Map<String, bool>> _caches = {
+    CacheType.cellSelection: {},
+    CacheType.cellTarget: {},
+    CacheType.exchangeable: {},
+    CacheType.circularPath: {},
+    CacheType.chainPath: {},
+    CacheType.nonExchangeable: {},
+  };
 
   /// 캐시 키 생성
   String _createKey(String teacherName, String day, int period) {
     return '${teacherName}_${day}_$period';
   }
 
+  /// 통합 캐시 확인 메서드
+  bool _getCached(
+    CacheType cacheType,
+    String teacherName,
+    String day,
+    int period,
+    bool Function() checker,
+  ) {
+    String key = _createKey(teacherName, day, period);
+    Map<String, bool> cache = _caches[cacheType]!;
+
+    if (cache.containsKey(key)) {
+      return cache[key]!;
+    }
+
+    bool result = checker();
+    cache[key] = result;
+    return result;
+  }
+
   /// 셀 선택 상태 캐시 확인
   bool getCellSelectionCached(String teacherName, String day, int period, bool Function() checker) {
-    String key = _createKey(teacherName, day, period);
-    if (_cellSelectionCache.containsKey(key)) {
-      return _cellSelectionCache[key]!;
-    }
-    
-    bool result = checker();
-    _cellSelectionCache[key] = result;
-    return result;
+    return _getCached(CacheType.cellSelection, teacherName, day, period, checker);
   }
 
   /// 타겟 셀 상태 캐시 확인
   bool getCellTargetCached(String teacherName, String day, int period, bool Function() checker) {
-    String key = _createKey(teacherName, day, period);
-    if (_cellTargetCache.containsKey(key)) {
-      return _cellTargetCache[key]!;
-    }
-    
-    bool result = checker();
-    _cellTargetCache[key] = result;
-    return result;
+    return _getCached(CacheType.cellTarget, teacherName, day, period, checker);
   }
 
   /// 교체 가능 여부 캐시 확인
   bool getExchangeableCached(String teacherName, String day, int period, bool Function() checker) {
-    String key = _createKey(teacherName, day, period);
-    if (_cellExchangeableCache.containsKey(key)) {
-      return _cellExchangeableCache[key]!;
-    }
-    
-    bool result = checker();
-    _cellExchangeableCache[key] = result;
-    return result;
+    return _getCached(CacheType.exchangeable, teacherName, day, period, checker);
   }
 
   /// 순환교체 경로 포함 여부 캐시 확인
   bool getCircularPathCached(String teacherName, String day, int period, bool Function() checker) {
-    String key = _createKey(teacherName, day, period);
-    if (_cellCircularPathCache.containsKey(key)) {
-      return _cellCircularPathCache[key]!;
-    }
-    
-    bool result = checker();
-    _cellCircularPathCache[key] = result;
-    return result;
+    return _getCached(CacheType.circularPath, teacherName, day, period, checker);
   }
 
   /// 연쇄교체 경로 포함 여부 캐시 확인
   bool getChainPathCached(String teacherName, String day, int period, bool Function() checker) {
-    String key = _createKey(teacherName, day, period);
-    if (_cellChainPathCache.containsKey(key)) {
-      return _cellChainPathCache[key]!;
-    }
-    
-    bool result = checker();
-    _cellChainPathCache[key] = result;
-    return result;
+    return _getCached(CacheType.chainPath, teacherName, day, period, checker);
   }
 
   /// 교체불가 여부 캐시 확인
   bool getNonExchangeableCached(String teacherName, String day, int period, bool Function() checker) {
-    String key = _createKey(teacherName, day, period);
-    if (_cellNonExchangeableCache.containsKey(key)) {
-      return _cellNonExchangeableCache[key]!;
-    }
-    
-    bool result = checker();
-    _cellNonExchangeableCache[key] = result;
-    return result;
+    return _getCached(CacheType.nonExchangeable, teacherName, day, period, checker);
   }
 
   /// 모든 캐시 초기화
   void clearAllCaches() {
-    _cellSelectionCache.clear();
-    _cellTargetCache.clear();
-    _cellExchangeableCache.clear();
-    _cellCircularPathCache.clear();
-    _cellChainPathCache.clear();
-    _cellNonExchangeableCache.clear();
+    for (var cache in _caches.values) {
+      cache.clear();
+    }
   }
 }

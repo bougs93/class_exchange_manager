@@ -7,6 +7,17 @@ import '../models/teacher.dart';
 import '../models/time_slot.dart';
 import '../utils/day_utils.dart';
 
+/// 상수 정의
+class ExcelServiceConstants {
+  // 파일 크기 제한
+  static const int maxFileSizeBytes = 10 * 1024 * 1024; // 10MB
+
+  // 검색 범위 제한
+  static const int maxColumnsToCheck = 50; // 요일 헤더 검색 최대 열 수
+  static const int maxPeriodsToCheck = 10; // 교시 검색 최대 범위
+  static const int maxRowsToLog = 20; // 로그 출력 최대 행 수
+}
+
 /// 엑셀 파일 파싱 설정을 위한 클래스
 class ExcelParsingConfig {
   final int dayHeaderRow;    // 요일 헤더가 있는 행 (1-based)
@@ -140,8 +151,7 @@ class ExcelService {
 
       // 파일 크기 확인 (너무 큰 파일은 처리하지 않음)
       int fileSize = await file.length();
-      const int maxFileSize = 10 * 1024 * 1024; // 10MB
-      if (fileSize > maxFileSize) {
+      if (fileSize > ExcelServiceConstants.maxFileSizeBytes) {
         developer.log('파일 크기가 너무 큽니다: ${fileSize / 1024 / 1024}MB', name: 'ExcelService');
         return null;
       }
@@ -188,7 +198,7 @@ class ExcelService {
           developer.log('첫 번째 행 데이터:', name: 'ExcelService');
           // 열 수를 동적으로 확인
           int colCount = 0;
-          while (colCount < 20) { // 최대 20열까지만 확인
+          while (colCount < ExcelServiceConstants.maxRowsToLog) { // 최대 행/열 로그 제한
             try {
               var cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: colCount, rowIndex: 0));
               String cellValue = cell.value?.toString() ?? '';
@@ -204,7 +214,7 @@ class ExcelService {
         
         // 첫 번째 열의 데이터 출력 (교사명 확인용)
         developer.log('첫 번째 열 데이터:', name: 'ExcelService');
-        for (int row = 0; row < sheet.maxRows && row < 20; row++) { // 최대 20행까지만 확인
+        for (int row = 0; row < sheet.maxRows && row < ExcelServiceConstants.maxRowsToLog; row++) {
           try {
             var cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row));
             String cellValue = cell.value?.toString() ?? '';
@@ -401,7 +411,7 @@ class ExcelService {
       }
       
       // 교사 열이 유효한지 확인 (최대 50열까지 가정)
-      if (config.teacherColumn > 50) {
+      if (config.teacherColumn > ExcelServiceConstants.maxColumnsToCheck) {
         developer.log('교사 열(${config.teacherColumn})이 시트 범위를 벗어났습니다.', name: 'ExcelService');
         return false;
       }
@@ -439,7 +449,7 @@ class ExcelService {
       };
       
       // 행의 모든 셀을 확인 (최대 50열까지)
-      for (int col = 1; col <= 50; col++) {
+      for (int col = 1; col <= ExcelServiceConstants.maxColumnsToCheck; col++) {
         String cellValue = _getCellValue(sheet, row - 1, col - 1); // 0-based로 변환
         cellValue = cellValue.trim().toUpperCase();
         
@@ -490,7 +500,7 @@ class ExcelService {
           
           // 숫자로 변환 시도
           int? period = int.tryParse(cellValue);
-          if (period != null && period >= 1 && period <= 10) { // 1~10교시까지 지원
+          if (period != null && period >= 1 && period <= ExcelServiceConstants.maxPeriodsToCheck) {
             // 이미 나온 숫자(교시)가 나오면 해당 요일의 교시 검색 중단
             if (uniquePeriods.contains(period)) {
               break;
@@ -590,50 +600,118 @@ class ExcelService {
 
   /// 시간표 데이터를 추출하는 메서드 (요일별 교시 고려)
   static List<TimeSlot> _extractTimeSlotsByDay(
-    Sheet sheet, 
-    ExcelParsingConfig config, 
-    List<String> dayHeaders, 
-    Map<String, List<int>> periodsByDay, 
+    Sheet sheet,
+    ExcelParsingConfig config,
+    List<String> dayHeaders,
+    Map<String, List<int>> periodsByDay,
     List<Teacher> teachers
   ) {
     try {
       List<TimeSlot> timeSlots = [];
-      
+
       // 요일별 시작 열 위치 계산
       Map<String, int> dayColumnMapping = _calculateDayColumns(sheet, config, dayHeaders);
-      
+
       // 각 교사에 대해 시간표 데이터 추출
       for (int teacherIndex = 0; teacherIndex < teachers.length; teacherIndex++) {
         Teacher teacher = teachers[teacherIndex];
-        int teacherRow = config.dataStartRow + teacherIndex; // 교사 행 번호
-        
+        int teacherRow = config.dataStartRow + teacherIndex;
+
         // 각 요일별로 데이터 추출
-        for (String day in dayHeaders) {
-          int? dayStartCol = dayColumnMapping[day];
-          if (dayStartCol == null) continue;
-          
-          int dayOfWeek = DayUtils.getDayNumber(day);
-          
-          // 해당 요일에 실제로 존재하는 교시만 처리
-          List<int> periods = periodsByDay[day] ?? [];
-          for (int period in periods) {
-            // 교시 헤더 행에서 해당 교시의 열 위치 찾기
-            int? periodCol = _findPeriodColumnInDay(sheet, config, dayStartCol, period);
-            if (periodCol == null) continue;
-            
-            String cellValue = _getCellValue(sheet, teacherRow - 1, periodCol - 1); // 0-based로 변환
-            
-            TimeSlot timeSlot = _parseTimeSlotCell(cellValue, teacher, dayOfWeek, period);
-            timeSlots.add(timeSlot);
-          }
-        }
+        _extractTeacherTimeSlots(
+          sheet,
+          config,
+          teacher,
+          teacherRow,
+          dayHeaders,
+          dayColumnMapping,
+          periodsByDay,
+          timeSlots
+        );
       }
-      
+
       return timeSlots;
     } catch (e) {
       developer.log('시간표 데이터 추출 중 오류 발생: $e', name: 'ExcelService');
       return [];
     }
+  }
+
+  /// 단일 교사의 시간표 데이터 추출
+  static void _extractTeacherTimeSlots(
+    Sheet sheet,
+    ExcelParsingConfig config,
+    Teacher teacher,
+    int teacherRow,
+    List<String> dayHeaders,
+    Map<String, int> dayColumnMapping,
+    Map<String, List<int>> periodsByDay,
+    List<TimeSlot> timeSlots,
+  ) {
+    for (String day in dayHeaders) {
+      int? dayStartCol = dayColumnMapping[day];
+      if (dayStartCol == null) continue;
+
+      int dayOfWeek = DayUtils.getDayNumber(day);
+      List<int> periods = periodsByDay[day] ?? [];
+
+      _extractDayTimeSlots(
+        sheet,
+        config,
+        teacher,
+        teacherRow,
+        day,
+        dayStartCol,
+        dayOfWeek,
+        periods,
+        timeSlots
+      );
+    }
+  }
+
+  /// 특정 요일의 시간표 데이터 추출
+  static void _extractDayTimeSlots(
+    Sheet sheet,
+    ExcelParsingConfig config,
+    Teacher teacher,
+    int teacherRow,
+    String day,
+    int dayStartCol,
+    int dayOfWeek,
+    List<int> periods,
+    List<TimeSlot> timeSlots,
+  ) {
+    for (int period in periods) {
+      TimeSlot? slot = _extractSingleTimeSlot(
+        sheet,
+        config,
+        teacher,
+        teacherRow,
+        dayStartCol,
+        dayOfWeek,
+        period
+      );
+      if (slot != null) {
+        timeSlots.add(slot);
+      }
+    }
+  }
+
+  /// 단일 시간표 슬롯 추출
+  static TimeSlot? _extractSingleTimeSlot(
+    Sheet sheet,
+    ExcelParsingConfig config,
+    Teacher teacher,
+    int teacherRow,
+    int dayStartCol,
+    int dayOfWeek,
+    int period,
+  ) {
+    int? periodCol = _findPeriodColumnInDay(sheet, config, dayStartCol, period);
+    if (periodCol == null) return null;
+
+    String cellValue = _getCellValue(sheet, teacherRow - 1, periodCol - 1);
+    return _parseTimeSlotCell(cellValue, teacher, dayOfWeek, period);
   }
 
   /// 요일별 시작 열 위치를 계산하는 메서드
@@ -642,7 +720,7 @@ class ExcelService {
       Map<String, int> dayColumnMapping = {};
       
       // 요일 헤더 행에서 각 요일의 위치 찾기 (최대 50열까지)
-      for (int col = 1; col <= 50; col++) {
+      for (int col = 1; col <= ExcelServiceConstants.maxColumnsToCheck; col++) {
         String cellValue = _getCellValue(sheet, config.dayHeaderRow - 1, col - 1); // 0-based로 변환
         cellValue = cellValue.trim();
         
@@ -675,7 +753,7 @@ class ExcelService {
   static int? _findPeriodColumnInDay(Sheet sheet, ExcelParsingConfig config, int dayStartCol, int period) {
     try {
       // 요일 시작 열부터 오른쪽으로 최대 10열까지 검색
-      for (int col = dayStartCol; col < dayStartCol + 10; col++) {
+      for (int col = dayStartCol; col < dayStartCol + ExcelServiceConstants.maxPeriodsToCheck; col++) {
         String cellValue = _getCellValue(sheet, config.periodHeaderRow - 1, col - 1); // 0-based로 변환
         cellValue = cellValue.trim();
         
