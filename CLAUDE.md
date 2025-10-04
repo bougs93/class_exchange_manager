@@ -92,6 +92,12 @@ Excel 파일 (읽기 전용) → ExcelService → Models → Providers → UI
 - 빨간색: 교체 불가능
 - 실시간 피드백을 제공하는 대화형 선택
 
+**아키텍처 패턴** (2025년 리팩토링 완료):
+- **MVVM 패턴**: ViewModel을 통한 비즈니스 로직 분리
+- **Composition over Inheritance**: Manager 클래스로 Mixin 의존성 감소
+- **Provider Proxy 패턴**: 중앙 집중식 상태 접근
+- **Widget 분리**: 재사용 가능한 작은 위젯 컴포넌트
+
 ## 주요 기술적 제약사항
 
 ### Excel 호환성
@@ -149,7 +155,7 @@ Excel 파일 (읽기 전용) → ExcelService → Models → Providers → UI
 
 ## 현재 구현 상태
 
-**Phase 1 (완료)**:
+**Phase 1 - 핵심 기능 (완료)**:
 - ✅ Riverpod 전체 프로젝트 전환 완료
 - ✅ `ExcelService`를 사용한 Excel 파일 파싱
 - ✅ 핵심 데이터 모델 및 교체 경로 추상화
@@ -158,6 +164,20 @@ Excel 파일 (읽기 전용) → ExcelService → Models → Providers → UI
 - ✅ 순환 교체 알고리즘 구현
 - ✅ 연쇄 교체 알고리즘 구현
 - ✅ 실시간 시각화 시스템
+
+**Phase 2 - 코드 품질 개선 (2025년 1월 완료)**:
+- ✅ 중복 코드 제거 및 복잡도 감소
+- ✅ Magic number 상수화
+- ✅ LRU 캐시 구현 (메모리 누수 방지)
+- ✅ Deprecated API 마이그레이션
+
+**Phase 3 - 아키텍처 리팩토링 (2025년 1월 완료)**:
+- ✅ MVVM 패턴 적용 (ViewModel 분리)
+- ✅ Widget 컴포넌트 분리 (AppBar, TabContent)
+- ✅ Helper 클래스 생성 (Grid, CellTap)
+- ✅ Provider Proxy 패턴 (상태 중앙 집중화)
+- ✅ Composition over Inheritance (11 Mixin → 8 Mixin + 1 Manager)
+- ✅ **최종 결과**: exchange_screen.dart 1133 → 877 lines (22.6% 감소)
 
 **향후 단계**:
 - `pdf: ^3.10.7`을 사용한 문서 생성 (PDF)
@@ -170,18 +190,56 @@ Excel 파일 (읽기 전용) → ExcelService → Models → Providers → UI
 - `lib/main.dart` - ProviderScope 래퍼로 Riverpod 활성화
 - `lib/providers/exchange_screen_provider.dart` - 교체 화면 상태 관리
 - `lib/providers/services_provider.dart` - 서비스 인스턴스 제공
-- `lib/providers/exchange_logic_provider.dart` - 교체 모드 로직
-- `lib/providers/navigation_provider.dart` - 네비게이션 상태
+- `lib/ui/screens/exchange_screen/exchange_screen_state_proxy.dart` - Provider 상태 중앙 집중화
 
-**UI 컴포넌트**:
-- `lib/ui/screens/exchange_screen.dart` - ConsumerStatefulWidget 기반 메인 교체 인터페이스
+**UI 컴포넌트** (리팩토링 완료):
+- `lib/ui/screens/exchange_screen.dart` - 메인 교체 화면 (877 lines, 8 Mixin)
+- `lib/ui/screens/exchange_screen/widgets/exchange_app_bar.dart` - AppBar 위젯
+- `lib/ui/screens/exchange_screen/widgets/timetable_tab_content.dart` - 시간표 탭 컨텐츠
 - `lib/ui/screens/home_screen.dart` - ConsumerWidget 기반 홈 화면
 
+**ViewModel & Manager** (Composition 패턴):
+- `lib/ui/screens/exchange_screen/exchange_screen_viewmodel.dart` - 비즈니스 로직 분리
+- `lib/ui/screens/exchange_screen/managers/exchange_operation_manager.dart` - 파일/모드 관리
+- `lib/ui/screens/exchange_screen/helpers/grid_helper.dart` - DataGrid 헬퍼
+- `lib/ui/screens/exchange_screen/helpers/cell_tap_helper.dart` - 셀 탭 헬퍼
+
 **비즈니스 로직**:
-- `lib/services/excel_service.dart` - 한글 텍스트 처리를 포함한 복잡한 Excel 파싱 로직
+- `lib/services/excel_service.dart` - Excel 파싱 (한글 텍스트 처리, ExcelServiceConstants)
+- `lib/services/exchange_service.dart` - 1:1 교체 로직
+- `lib/services/circular_exchange_service.dart` - 순환 교체 (LRU 캐시)
+- `lib/services/chain_exchange_service.dart` - 연쇄 교체
 - `lib/utils/exchange_algorithm.dart` - 핵심 경로 탐색 알고리즘
 - `lib/models/exchange_path.dart` - 교체 유형 추상화
+
+**유틸리티**:
+- `lib/utils/cell_style_config.dart` - 셀 스타일 데이터 클래스 (12-parameter 문제 해결)
+- `lib/utils/cell_cache_manager.dart` - 통합 캐시 관리 (enum 패턴)
+- `lib/utils/syncfusion_timetable_helper.dart` - Syncfusion 헬퍼 (중복 제거)
 
 **문서**:
 - `docs/requirements.md` & `docs/design.md` - 상세 사양
 - `CLAUDE.md` - 프로젝트 개요 및 개발 가이드 (본 파일)
+
+## 최근 리팩토링 이력 (2025년 1월)
+
+### 코드 품질 개선
+1. **LRU 캐시 구현** - circular_exchange_service.dart에 최대 100개 항목 제한
+2. **중복 코드 제거** - syncfusion_timetable_helper.dart의 4개 중복 함수 → 1개로 통합
+3. **복잡도 감소** - excel_service.dart의 5단계 중첩 루프 → 4개 함수로 분리
+4. **Magic number 제거** - ExcelServiceConstants 클래스 생성
+5. **Parameter 최적화** - 12-parameter 함수 → CellStyleConfig 데이터 클래스
+6. **캐시 통합** - cell_cache_manager.dart의 6개 중복 메서드 → enum 패턴
+
+### 아키텍처 개선
+1. **MVVM 패턴** - ExchangeScreenViewModel (260+ lines) 분리
+2. **Widget 분리** - ExchangeAppBar (69 lines), TimetableTabContent (101 lines)
+3. **Helper 클래스** - GridHelper, CellTapHelper 생성
+4. **Provider Proxy** - ExchangeScreenStateProxy로 84개 getter/setter 중앙 집중화
+5. **Composition** - ExchangeOperationManager (263 lines)로 3개 Mixin 대체
+
+### 성과
+- **코드 라인 감소**: 1133 → 877 lines (22.6%)
+- **Mixin 감소**: 11개 → 8개 + 1 Manager
+- **flutter analyze**: No issues found
+- **유지보수성**: 매우 향상 (테스트 용이, 의존성 명확)

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
@@ -23,9 +22,6 @@ import '../widgets/timetable_grid_section.dart';
 import '../mixins/exchange_logic_mixin.dart';
 import '../state_managers/path_selection_manager.dart';
 import '../state_managers/filter_state_manager.dart';
-import 'handlers/exchange_file_handler.dart';
-import 'handlers/exchange_mode_handler.dart';
-import 'handlers/exchange_path_handler.dart';
 import 'handlers/exchange_ui_builder.dart';
 import 'handlers/target_cell_handler.dart';
 import 'handlers/path_selection_handler_mixin.dart';
@@ -35,11 +31,14 @@ import 'builders/sidebar_builder.dart';
 import 'helpers/circular_path_finder.dart';
 import 'helpers/chain_path_finder.dart';
 
-// 새로 분리된 위젯과 ViewModel
+// 새로 분리된 위젯, ViewModel, Managers
 import 'exchange_screen/widgets/exchange_app_bar.dart';
 import 'exchange_screen/widgets/timetable_tab_content.dart';
 import 'exchange_screen/exchange_screen_viewmodel.dart';
 import 'exchange_screen/exchange_screen_state_proxy.dart';
+import 'exchange_screen/managers/exchange_operation_manager.dart';
+// PathManager는 Helper가 직접 사용하므로 현재 미사용
+// import 'exchange_screen/managers/exchange_path_manager.dart';
 
 /// 교체 관리 화면
 class ExchangeScreen extends ConsumerStatefulWidget {
@@ -50,30 +49,28 @@ class ExchangeScreen extends ConsumerStatefulWidget {
 }
 
 class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
-    with ExchangeLogicMixin,
-         TickerProviderStateMixin,
-         ExchangeFileHandler,
-         ExchangeModeHandler,
-         ExchangePathHandler,
-         ExchangeUIBuilder,
-         TargetCellHandler,
-         PathSelectionHandlerMixin,
-         FilterSearchHandler,
-         StateResetHandler,
-         SidebarBuilder {
-  // 로컬에 유지해야 하는 것들 (UI 컨트롤러, 매니저)
-  TimetableDataSource? _dataSource; // Syncfusion DataGrid 데이터 소스
-  List<GridColumn> _columns = []; // 그리드 컬럼
-  List<StackedHeaderRow> _stackedHeaders = []; // 스택된 헤더
+    with ExchangeLogicMixin,              // 핵심 비즈니스 로직 (셀 선택, 교체 가능성 확인)
+         TickerProviderStateMixin,         // Flutter 애니메이션
+         ExchangeUIBuilder,                // UI 빌더 메서드
+         TargetCellHandler,                // 타겟 셀 설정
+         PathSelectionHandlerMixin,        // 경로 선택 핸들러
+         FilterSearchHandler,              // 필터 및 검색
+         StateResetHandler,                // 상태 초기화
+         SidebarBuilder {                  // 사이드바 빌더
+  // 로컬 UI 상태
+  TimetableDataSource? _dataSource;
+  List<GridColumn> _columns = [];
+  List<StackedHeaderRow> _stackedHeaders = [];
 
-  // 경로 선택 관리자
+  // 상태 관리자
   final PathSelectionManager _pathSelectionManager = PathSelectionManager();
-
-  // 필터 상태 관리자
   final FilterStateManager _filterStateManager = FilterStateManager();
 
-  // Provider 상태 접근 Proxy
+  // Proxy 및 Manager (Composition)
   late final ExchangeScreenStateProxy _stateProxy;
+  late final ExchangeOperationManager _operationManager;
+  // PathManager는 Helper에서 직접 Service를 사용하므로 현재 미사용
+  // late final ExchangePathManager _pathManager;
 
   // Mixin에서 요구하는 getter들 - Service는 Provider에서, 나머지는 Proxy 사용
   @override
@@ -100,7 +97,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   @override
   bool get isChainExchangeModeEnabled => _stateProxy.isChainExchangeModeEnabled;
 
-  @override
   bool get isNonExchangeableEditMode => _stateProxy.isNonExchangeableEditMode;
 
   @override
@@ -172,74 +168,21 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     }
   }
 
-  // ExchangeFileHandler 인터페이스 구현 - Proxy 사용
-  @override
-  File? get selectedFile => _stateProxy.selectedFile;
-  @override
-  void Function(File?) get setSelectedFile => _stateProxy.setSelectedFile;
-  @override
-  void Function(TimetableData?) get setTimetableData => (data) {
-    _stateProxy.setTimetableData(data);
-    if (data != null) {
-      _createSyncfusionGridData();
-    }
-  };
-  @override
-  void Function(bool) get setLoading => _stateProxy.setLoading;
-  @override
-  void Function(String?) get setErrorMessage => _stateProxy.setErrorMessage;
-  @override
-  void Function() get createSyncfusionGridData => _createSyncfusionGridData;
+  // ===== Manager 위임 메서드 (Mixin 대체) =====
 
-  // ExchangeModeHandler 인터페이스 구현 - Proxy 사용
-  @override
-  void Function(bool) get setExchangeModeEnabled => _stateProxy.setExchangeModeEnabled;
-  @override
-  void Function(bool) get setCircularExchangeModeEnabled => _stateProxy.setCircularExchangeModeEnabled;
-  @override
-  void Function(bool) get setChainExchangeModeEnabled => _stateProxy.setChainExchangeModeEnabled;
-  @override
-  void Function(bool) get setNonExchangeableEditMode => _stateProxy.setNonExchangeableEditMode;
-  @override
-  void Function() get refreshHeaderTheme => _updateHeaderTheme;
-  @override
-  List<int> get availableSteps => _stateProxy.availableSteps;
-  @override
-  set availableSteps(List<int> value) => _stateProxy.setAvailableSteps(value);
-  @override
-  int? get selectedStep => _stateProxy.selectedStep;
-  @override
-  set selectedStep(int? value) => _stateProxy.setSelectedStep(value);
-  @override
-  String? get selectedDay => _stateProxy.selectedDay;
-  @override
-  set selectedDay(String? value) => _stateProxy.setSelectedDay(value);
+  /// Excel 파일 선택 (OperationManager 위임)
+  Future<void> selectExcelFile() => _operationManager.selectExcelFile();
 
-  // ExchangePathHandler 인터페이스 구현 - Proxy 사용
-  @override
-  List<OneToOneExchangePath> get oneToOnePaths => _stateProxy.oneToOnePaths;
-  @override
-  set oneToOnePaths(List<OneToOneExchangePath> value) => _stateProxy.setOneToOnePaths(value);
-  @override
-  OneToOneExchangePath? get selectedOneToOnePath => _stateProxy.selectedOneToOnePath;
-  @override
-  set selectedOneToOnePath(OneToOneExchangePath? value) => _stateProxy.setSelectedOneToOnePath(value);
-  @override
-  List<CircularExchangePath> get circularPaths => _stateProxy.circularPaths;
-  @override
-  set circularPaths(List<CircularExchangePath> value) => _stateProxy.setCircularPaths(value);
-  @override
-  List<ChainExchangePath> get chainPaths => _stateProxy.chainPaths;
-  @override
-  set chainPaths(List<ChainExchangePath> value) => _stateProxy.setChainPaths(value);
-  @override
-  bool get isSidebarVisible => _stateProxy.isSidebarVisible;
-  @override
-  set isSidebarVisible(bool value) => _stateProxy.setSidebarVisible(value);
-  @override
-  void Function() get updateFilteredPaths => _updateFilteredPaths;
-  @override
-  void Function(double) get updateProgressSmoothly => _updateProgressSmoothly;
+  /// 1:1 교체 모드 토글 (OperationManager 위임)
+  void toggleExchangeMode() => _operationManager.toggleExchangeMode();
+
+  /// 순환교체 모드 토글 (OperationManager 위임)
+  void toggleCircularExchangeMode() => _operationManager.toggleCircularExchangeMode();
+
+  /// 연쇄교체 모드 토글 (OperationManager 위임)
+  void toggleChainExchangeMode() => _operationManager.toggleChainExchangeMode();
+
+
 
   // PathSelectionHandlerMixin 인터페이스 구현
   @override
@@ -266,6 +209,20 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   void Function(List<int>) get setAvailableSteps => _stateProxy.setAvailableSteps;
 
   // SidebarBuilder 인터페이스 구현
+  @override
+  List<OneToOneExchangePath> get oneToOnePaths => _stateProxy.oneToOnePaths;
+  @override
+  OneToOneExchangePath? get selectedOneToOnePath => _stateProxy.selectedOneToOnePath;
+  @override
+  List<CircularExchangePath> get circularPaths => _stateProxy.circularPaths;
+  @override
+  List<ChainExchangePath> get chainPaths => _stateProxy.chainPaths;
+  @override
+  List<int> get availableSteps => _stateProxy.availableSteps;
+  @override
+  int? get selectedStep => _stateProxy.selectedStep;
+  @override
+  String? get selectedDay => _stateProxy.selectedDay;
   @override
   List<ExchangePath> get filteredPaths {
     // FilterStateManager를 사용하여 모든 필터 적용
@@ -315,6 +272,26 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     // StateProxy 초기화
     _stateProxy = ExchangeScreenStateProxy(ref);
 
+    // Manager 초기화 (Composition 패턴)
+    _operationManager = ExchangeOperationManager(
+      context: context,
+      stateProxy: _stateProxy,
+      onCreateSyncfusionGridData: _createSyncfusionGridData,
+      onClearAllExchangeStates: clearAllExchangeStates,
+      onRestoreUIToDefault: restoreUIToDefault,
+      onRefreshHeaderTheme: _updateHeaderTheme,
+    );
+
+    // PathManager는 Helper가 직접 Service를 사용하므로 현재 미사용
+    // _pathManager = ExchangePathManager(
+    //   stateProxy: _stateProxy,
+    //   exchangeService: ref.read(exchangeServiceProvider),
+    //   circularExchangeService: ref.read(circularExchangeServiceProvider),
+    //   chainExchangeService: ref.read(chainExchangeServiceProvider),
+    //   onUpdateFilteredPaths: _updateFilteredPaths,
+    //   onUpdateProgressSmoothly: _updateProgressSmoothly,
+    // );
+
     // PathSelectionManager 콜백 설정
     _pathSelectionManager.setCallbacks(
       onOneToOnePathChanged: handleOneToOnePathChanged,
@@ -330,7 +307,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    
+
     _progressAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
