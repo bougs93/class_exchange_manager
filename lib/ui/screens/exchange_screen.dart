@@ -17,10 +17,8 @@ import '../../utils/logger.dart';
 import '../../utils/day_utils.dart';
 import '../../models/exchange_path.dart';
 import '../../models/one_to_one_exchange_path.dart';
-import '../../models/time_slot.dart';
 import '../../utils/exchange_path_converter.dart';
 
-import '../widgets/file_selection_section.dart';
 import '../widgets/timetable_grid_section.dart';
 import '../mixins/exchange_logic_mixin.dart';
 import '../state_managers/path_selection_manager.dart';
@@ -37,13 +35,10 @@ import 'builders/sidebar_builder.dart';
 import 'helpers/circular_path_finder.dart';
 import 'helpers/chain_path_finder.dart';
 
-/// 요일과 교시 정보를 담는 클래스
-class DayPeriod {
-  final String day;
-  final int period;
-  
-  DayPeriod({required this.day, required this.period});
-}
+// 새로 분리된 위젯과 ViewModel
+import 'exchange_screen/widgets/exchange_app_bar.dart';
+import 'exchange_screen/widgets/timetable_tab_content.dart';
+import 'exchange_screen/exchange_screen_viewmodel.dart';
 
 /// 교체 관리 화면
 class ExchangeScreen extends ConsumerStatefulWidget {
@@ -125,7 +120,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   // 편의 getter들 - Provider 상태 접근용 (메서드 내부에서 사용)
   ExchangeScreenState get _state => ref.read(exchangeScreenProvider);
   TimetableData? get _timetableData => _state.timetableData;
-  String? get _errorMessage => _state.errorMessage;
   bool get _isExchangeModeEnabled => _state.isExchangeModeEnabled;
   bool get _isCircularExchangeModeEnabled => _state.isCircularExchangeModeEnabled;
   bool get _isChainExchangeModeEnabled => _state.isChainExchangeModeEnabled;
@@ -133,194 +127,41 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   double get _loadingProgress => _state.loadingProgress;
   ChainExchangePath? get _selectedChainPath => _state.selectedChainPath;
 
-  /// 교체불가 편집 모드 토글
+  /// 교체불가 편집 모드 토글 (ViewModel 사용)
   void _toggleNonExchangeableEditMode() {
-    final notifier = ref.read(exchangeScreenProvider.notifier);
-    final currentMode = ref.read(exchangeScreenProvider).isNonExchangeableEditMode;
-    
-    // 다른 교체 모드가 활성화되어 있다면 비활성화
-    if (!currentMode && (_isExchangeModeEnabled || _isCircularExchangeModeEnabled || _isChainExchangeModeEnabled)) {
-      // 다른 교체 모드들을 비활성화
-      if (_isExchangeModeEnabled) {
-        toggleExchangeMode();
-      }
-      if (_isCircularExchangeModeEnabled) {
-        toggleCircularExchangeMode();
-      }
-      if (_isChainExchangeModeEnabled) {
-        toggleChainExchangeMode();
-      }
-    }
-    
-    // Riverpod Provider를 통해 상태 변경
-    notifier.setNonExchangeableEditMode(!currentMode);
-    
-    // TimetableDataSource에 편집 모드 상태 전달
-    _dataSource?.setNonExchangeableEditMode(!currentMode);
-    
-    AppLogger.exchangeDebug('교체불가 편집 모드 토글: ${!currentMode ? "활성화" : "비활성화"}');
+    final viewModel = ref.read(exchangeScreenViewModelProvider);
+    viewModel.toggleNonExchangeableEditMode(
+      isExchangeModeEnabled: _isExchangeModeEnabled,
+      isCircularExchangeModeEnabled: _isCircularExchangeModeEnabled,
+      isChainExchangeModeEnabled: _isChainExchangeModeEnabled,
+      toggleExchangeMode: toggleExchangeMode,
+      toggleCircularExchangeMode: toggleCircularExchangeMode,
+      toggleChainExchangeMode: toggleChainExchangeMode,
+      dataSource: _dataSource,
+    );
   }
 
-  /// 셀을 교체불가로 설정 또는 해제 (토글 방식)
+  /// 셀을 교체불가로 설정 또는 해제 (ViewModel 사용)
   void _setCellAsNonExchangeable(DataGridCellTapDetails details) {
-    if (_timetableData == null) return;
-    
-    // 교사명과 시간 정보 추출 (기존 교체모드와 동일한 방식)
-    final teacherName = _getTeacherNameFromCell(details);
-    final dayPeriod = _extractDayPeriodFromColumnName(details);
-    
-    if (teacherName == null || dayPeriod == null) return;
-    
-    // 해당 TimeSlot 찾기
-    final timeSlot = _findTimeSlot(teacherName, dayPeriod.day, dayPeriod.period);
-    
-    // 모든 경우에 대해 토글 방식으로 처리 (빈 셀 포함)
-    if (timeSlot == null || timeSlot.isEmpty) {
-      // 빈 셀인 경우 TimetableDataSource의 토글 메서드 사용
-      _dataSource?.setCellAsNonExchangeable(teacherName, dayPeriod.day, dayPeriod.period);
-    } else {
-      // 기존 TimeSlot이 있는 경우 토글 방식으로 처리
-      if (!timeSlot.isExchangeable && timeSlot.exchangeReason == '교체불가') {
-        // 교체불가 상태인 경우 -> 교체 가능으로 되돌리기
-        timeSlot.isExchangeable = true;
-        timeSlot.exchangeReason = null;
-        AppLogger.exchangeDebug('교체불가 해제: $teacherName ${dayPeriod.day} ${dayPeriod.period}교시 (${timeSlot.subject})');
-      } else {
-        // 교체 가능 상태인 경우 -> 교체불가로 설정
-        timeSlot.isExchangeable = false;
-        timeSlot.exchangeReason = '교체불가';
-        AppLogger.exchangeDebug('교체불가 설정: $teacherName ${dayPeriod.day} ${dayPeriod.period}교시 (${timeSlot.subject})');
-      }
-    }
-    
-    // UI 업데이트는 TimetableDataSource의 콜백에서 처리됨
+    final viewModel = ref.read(exchangeScreenViewModelProvider);
+    viewModel.setCellAsNonExchangeable(details, _timetableData, _dataSource);
   }
 
-  /// 셀에서 교사명 추출 (기존 교체모드와 동일한 방식)
+  /// 셀에서 교사명 추출 (ViewModel 위임)
   String? _getTeacherNameFromCell(DataGridCellTapDetails details) {
-    if (_dataSource == null) return null;
-    
-    const int headerRowCount = 2;
-    int actualRowIndex = details.rowColumnIndex.rowIndex - headerRowCount;
-    
-    if (actualRowIndex >= 0 && actualRowIndex < _dataSource!.rows.length) {
-      DataGridRow row = _dataSource!.rows[actualRowIndex];
-      for (DataGridCell rowCell in row.getCells()) {
-        if (rowCell.columnName == 'teacher') {
-          return rowCell.value.toString();
-        }
-      }
-    }
-    return null;
+    final viewModel = ref.read(exchangeScreenViewModelProvider);
+    return viewModel.getTeacherNameFromCell(details, _dataSource);
   }
 
-  /// 컬럼명에서 요일과 교시 정보 추출 (기존 교체모드와 동일한 방식 사용)
-  DayPeriod? _extractDayPeriodFromColumnName(DataGridCellTapDetails details) {
-    // 교사명 열은 선택하지 않음
-    if (details.column.columnName == 'teacher') {
-      return null;
-    }
-    
-    // 컬럼명에서 요일과 교시 추출 (예: "월_1", "화_2") - 기존 교체모드와 동일한 방식
-    List<String> parts = details.column.columnName.split('_');
-    if (parts.length != 2) {
-      AppLogger.exchangeDebug('컬럼명 형식이 올바르지 않음: ${details.column.columnName}');
-      return null;
-    }
-    
-    String day = parts[0];
-    int period = int.tryParse(parts[1]) ?? 0;
-    
-    // 디버그 로그 추가
-    AppLogger.exchangeDebug('컬럼명: ${details.column.columnName} -> 요일: $day, 교시: $period');
-    
-    return DayPeriod(day: day, period: period);
-  }
-
-  /// 교사명, 요일, 교시로 TimeSlot 찾기
-  TimeSlot? _findTimeSlot(String teacherName, String day, int period) {
-    try {
-      return _timetableData?.timeSlots.firstWhere(
-        (slot) => slot.teacher == teacherName &&
-                  DayUtils.getDayName(slot.dayOfWeek ?? 0) == day &&
-                  slot.period == period,
-      );
-    } catch (e) {
-      return null;
-    }
-  }
-
-  /// 교사명 클릭 시 해당 교사의 모든 시간을 교체가능/교체불가능으로 토글
+  /// 교사명 클릭 시 해당 교사의 모든 시간을 교체가능/교체불가능으로 토글 (ViewModel 사용)
   void _toggleTeacherAllTimes(DataGridCellTapDetails details) {
-    if (_timetableData == null) return;
-    
-    // 교사명 추출
     final teacherName = _getTeacherNameFromCell(details);
     if (teacherName == null) return;
-    
-    // 해당 교사의 모든 TimeSlot 찾기 (빈 셀 포함)
-    final teacherTimeSlots = _timetableData!.timeSlots.where(
-      (slot) => slot.teacher == teacherName
-    ).toList();
-    
-    AppLogger.exchangeDebug('교사 $teacherName의 TimeSlot 개수: ${teacherTimeSlots.length}개');
-    AppLogger.exchangeDebug('전체 TimeSlot 개수: ${_timetableData!.timeSlots.length}개');
-    
-    // 7교시 빈 셀 확인
-    final seventhPeriodSlots = teacherTimeSlots.where((slot) => slot.period == 7).toList();
-    AppLogger.exchangeDebug('교사 $teacherName의 7교시 TimeSlot 개수: ${seventhPeriodSlots.length}개');
-    
-    // 7교시 빈 셀 상세 정보
-    for (var slot in seventhPeriodSlots) {
-      AppLogger.exchangeDebug('7교시 ${DayUtils.getDayName(slot.dayOfWeek ?? 0)}: isEmpty=${slot.isEmpty}, isExchangeable=${slot.isExchangeable}, exchangeReason=${slot.exchangeReason}');
-    }
-    
-    // 전체 교시 목록 확인
-    final allPeriods = teacherTimeSlots.map((slot) => slot.period).toSet().toList()..sort();
-    AppLogger.exchangeDebug('교사 $teacherName의 전체 교시 목록: $allPeriods');
-    
-    // 요일별 교시 확인
-    const List<String> days = ['월', '화', '수', '목', '금'];
-    for (String day in days) {
-      final daySlots = teacherTimeSlots.where((slot) => 
-        DayUtils.getDayName(slot.dayOfWeek ?? 0) == day
-      ).toList();
-      final dayPeriods = daySlots.map((slot) => slot.period).toSet().toList()..sort();
-      AppLogger.exchangeDebug('$day요일 교시 목록: $dayPeriods');
-    }
-    
-    if (teacherTimeSlots.isEmpty) {
-      AppLogger.exchangeDebug('교사 $teacherName의 시간표 정보가 없습니다.');
-      return;
-    }
-    
-    // 현재 상태 확인 (모든 시간이 교체불가인지 확인)
-    bool allNonExchangeable = teacherTimeSlots.every(
-      (slot) => !slot.isExchangeable && slot.exchangeReason == '교체불가'
-    );
-    
-    // 토글 처리
-    if (allNonExchangeable) {
-      // 모든 시간이 교체불가인 경우 -> 교체 가능으로 변경
-      for (var slot in teacherTimeSlots) {
-        slot.isExchangeable = true;
-        slot.exchangeReason = null;
-      }
-      AppLogger.exchangeDebug('교사 $teacherName의 모든 시간을 교체 가능으로 변경 (${teacherTimeSlots.length}개 셀)');
-    } else {
-      // 일부 또는 모든 시간이 교체 가능인 경우 -> 교체불가로 변경
-      for (var slot in teacherTimeSlots) {
-        slot.isExchangeable = false;
-        slot.exchangeReason = '교체불가';
-      }
-      AppLogger.exchangeDebug('교사 $teacherName의 모든 시간을 교체불가로 변경 (${teacherTimeSlots.length}개 셀)');
-    }
-    
-    // TimetableDataSource의 데이터 동기화
-    _dataSource?.updateData(_timetableData!.timeSlots, _timetableData!.teachers);
-    
-    // 캐시 무효화 및 UI 업데이트
-    _dataSource?.clearAllCaches();
+
+    final viewModel = ref.read(exchangeScreenViewModelProvider);
+    viewModel.toggleTeacherAllTimes(teacherName, _timetableData, _dataSource);
+
+    // UI 업데이트
     if (mounted) {
       setState(() {});
     }
@@ -529,113 +370,42 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     final isChainPathsLoading = screenState.isChainPathsLoading;
 
     return Scaffold(
-      appBar: _buildAppBar(screenState),
+      appBar: ExchangeAppBar(
+        state: screenState,
+        onToggleSidebar: _toggleSidebar,
+      ),
       body: Row(
         children: [
           // 시간표 영역
           Expanded(
-            child: _buildTimetableTab(screenState),
+            child: TimetableTabContent(
+              state: screenState,
+              timetableData: _timetableData,
+              dataSource: _dataSource,
+              columns: _columns,
+              stackedHeaders: _stackedHeaders,
+              timetableGridKey: _timetableGridKey,
+              onSelectExcelFile: selectExcelFile,
+              onToggleExchangeMode: toggleExchangeMode,
+              onToggleCircularExchangeMode: toggleCircularExchangeMode,
+              onToggleChainExchangeMode: toggleChainExchangeMode,
+              onToggleNonExchangeableEditMode: _toggleNonExchangeableEditMode,
+              onClearSelection: _clearSelection,
+              onCellTap: _onCellTap,
+              getActualExchangeableCount: getActualExchangeableCount,
+              getCurrentSelectedPath: getCurrentSelectedPath,
+              buildErrorMessageSection: buildErrorMessageSection,
+              onClearError: _clearError,
+            ),
           ),
 
-          // 통합 교체 사이드바 (1:1교체, 순환교체, 연쇄교체)
+          // 통합 교체 사이드바
           if (isSidebarVisible && (
             (isExchangeModeEnabled && oneToOnePaths.isNotEmpty) ||
             (isCircularExchangeModeEnabled && (circularPaths.isNotEmpty || isCircularPathsLoading)) ||
             (isChainExchangeModeEnabled && (chainPaths.isNotEmpty || isChainPathsLoading))
           ))
             buildUnifiedExchangeSidebar(),
-        ],
-      ),
-    );
-  }
-
-  /// 앱바 구성
-  AppBar _buildAppBar(ExchangeScreenState state) {
-    return AppBar(
-      title: const Text('교체 관리'),
-      backgroundColor: Colors.blue.shade50,
-      elevation: 0,
-      actions: [
-        // 순환교체 사이드바 토글 버튼
-        if (state.isCircularExchangeModeEnabled && (state.circularPaths.isNotEmpty || state.isCircularPathsLoading))
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            child: TextButton.icon(
-              onPressed: _toggleSidebar,
-              icon: Icon(
-                state.isSidebarVisible ? Icons.chevron_right : Icons.chevron_left,
-                size: 16,
-              ),
-              label: Text(state.isCircularPathsLoading ? '${(state.loadingProgress * 100).round()}%' : '${state.circularPaths.length}개'),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.purple.shade600,
-              ),
-            ),
-          ),
-        // 1:1 교체 사이드바 토글 버튼
-        if (state.isExchangeModeEnabled && state.oneToOnePaths.isNotEmpty)
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            child: TextButton.icon(
-              onPressed: _toggleSidebar,
-              icon: Icon(
-                state.isSidebarVisible ? Icons.chevron_right : Icons.chevron_left,
-                size: 16,
-              ),
-              label: Text('${state.oneToOnePaths.length}개'),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.blue.shade600,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  /// 시간표 탭 구성
-  Widget _buildTimetableTab(ExchangeScreenState state) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          // 파일 선택 섹션
-          FileSelectionSection(
-            selectedFile: state.selectedFile,
-            isLoading: state.isLoading,
-            isExchangeModeEnabled: state.isExchangeModeEnabled,
-            isCircularExchangeModeEnabled: state.isCircularExchangeModeEnabled,
-            isChainExchangeModeEnabled: state.isChainExchangeModeEnabled,
-            isNonExchangeableEditMode: ref.watch(exchangeScreenProvider).isNonExchangeableEditMode,
-            onSelectExcelFile: selectExcelFile,
-            onToggleExchangeMode: toggleExchangeMode,
-            onToggleCircularExchangeMode: toggleCircularExchangeMode,
-            onToggleChainExchangeMode: toggleChainExchangeMode,
-            onToggleNonExchangeableEditMode: _toggleNonExchangeableEditMode,
-            onClearSelection: _clearSelection,
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // 시간표 그리드 표시 섹션
-          if (_timetableData != null) 
-            Expanded(
-              child: TimetableGridSection(
-                key: _timetableGridKey, // 스크롤 제어를 위한 GlobalKey 추가
-                timetableData: _timetableData,
-                dataSource: _dataSource,
-                columns: _columns,
-                stackedHeaders: _stackedHeaders,
-                isExchangeModeEnabled: _isExchangeModeEnabled,
-                exchangeableCount: getActualExchangeableCount(),
-                onCellTap: _onCellTap,
-                selectedExchangePath: getCurrentSelectedPath(), // 현재 선택된 교체 경로 전달
-              ),
-            )
-          else
-            const Expanded(child: SizedBox.shrink()),
-          
-          // 오류 메시지 표시
-          if (_errorMessage != null) buildErrorMessageSection(_errorMessage, _clearError),
         ],
       ),
     );
