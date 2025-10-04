@@ -26,6 +26,22 @@ class ArrowConstants {
   static const int scrollAnimationMilliseconds = 500;
 }
 
+/// 그리드 레이아웃 관련 상수
+class GridLayoutConstants {
+  // 고정 영역 설정
+  static const int frozenColumnsCount = 1; // 교사명 열(첫 번째 열) 고정
+  static const int headerRowsCount = 2; // 헤더 행 2개 (요일 + 교시)
+
+  // 확대/축소 설정
+  static const double defaultZoomFactor = 1.0; // 기본 확대 비율 100%
+  static const double minZoom = 0.5; // 최소 확대 비율 50%
+  static const double maxZoom = 2.0; // 최대 확대 비율 200%
+  static const double zoomStep = 0.1; // 확대/축소 단계
+
+  // 기본 폰트 크기
+  static const double baseFontSize = 14.0;
+}
+
 /// 화살표의 시작점과 끝점이 어느 경계면에서 나야 하는지 결정하는 열거형
 enum ArrowEdge {
   top,    // 상단 경계면 중앙
@@ -142,10 +158,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
   final ScrollController _horizontalScrollController = ScrollController();
 
   // 확대/축소 관련 변수들
-  double _zoomFactor = 1.0; // 현재 확대/축소 비율 (1.0 = 100%)
-  static const double _minZoom = 0.5; // 최소 확대 비율 50%
-  static const double _maxZoom = 2.0; // 최대 확대 비율 200%
-  static const double _zoomStep = 0.1; // 확대/축소 단계
+  double _zoomFactor = GridLayoutConstants.defaultZoomFactor; // 현재 확대/축소 비율
 
   @override
   void initState() {
@@ -170,9 +183,10 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
   
   /// 그리드 확대
   void _zoomIn() {
-    if (_zoomFactor < _maxZoom) {
+    if (_zoomFactor < GridLayoutConstants.maxZoom) {
       setState(() {
-        _zoomFactor = (_zoomFactor + _zoomStep).clamp(_minZoom, _maxZoom);
+        _zoomFactor = (_zoomFactor + GridLayoutConstants.zoomStep)
+            .clamp(GridLayoutConstants.minZoom, GridLayoutConstants.maxZoom);
         SimplifiedTimetableTheme.setFontScaleFactor(_zoomFactor); // 폰트 배율도 함께 업데이트
       });
     }
@@ -180,9 +194,10 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
 
   /// 그리드 축소
   void _zoomOut() {
-    if (_zoomFactor > _minZoom) {
+    if (_zoomFactor > GridLayoutConstants.minZoom) {
       setState(() {
-        _zoomFactor = (_zoomFactor - _zoomStep).clamp(_minZoom, _maxZoom);
+        _zoomFactor = (_zoomFactor - GridLayoutConstants.zoomStep)
+            .clamp(GridLayoutConstants.minZoom, GridLayoutConstants.maxZoom);
         SimplifiedTimetableTheme.setFontScaleFactor(_zoomFactor); // 폰트 배율도 함께 업데이트
       });
     }
@@ -191,8 +206,8 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
   /// 확대/축소 초기화
   void _resetZoom() {
     setState(() {
-      _zoomFactor = 1.0;
-      SimplifiedTimetableTheme.setFontScaleFactor(1.0); // 폰트 배율도 초기화
+      _zoomFactor = GridLayoutConstants.defaultZoomFactor;
+      SimplifiedTimetableTheme.setFontScaleFactor(GridLayoutConstants.defaultZoomFactor); // 폰트 배율도 초기화
     });
   }
 
@@ -266,7 +281,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
             mainAxisSize: MainAxisSize.min,
             children: [
                             // 초기화 버튼 (확대 비율이 100%가 아닌 경우에만 표시)
-              if (_zoomFactor != 1.0)
+              if (_zoomFactor != GridLayoutConstants.defaultZoomFactor)
                 IconButton(
                   onPressed: _resetZoom,
                   icon: const Icon(Icons.refresh, size: 16),
@@ -277,11 +292,11 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
                 ),
               // 축소 버튼
               IconButton(
-                onPressed: _zoomFactor > _minZoom ? _zoomOut : null,
+                onPressed: _zoomFactor > GridLayoutConstants.minZoom ? _zoomOut : null,
                 icon: const Icon(Icons.zoom_out, size: 18),
                 padding: const EdgeInsets.all(8),
                 constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                color: _zoomFactor > _minZoom ? Colors.blue : Colors.grey,
+                color: _zoomFactor > GridLayoutConstants.minZoom ? Colors.blue : Colors.grey,
                 tooltip: '축소',
               ),
               
@@ -300,11 +315,11 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
               
               // 확대 버튼
               IconButton(
-                onPressed: _zoomFactor < _maxZoom ? _zoomIn : null,
+                onPressed: _zoomFactor < GridLayoutConstants.maxZoom ? _zoomIn : null,
                 icon: const Icon(Icons.zoom_in, size: 18),
                 padding: const EdgeInsets.all(8),
                 constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                color: _zoomFactor < _maxZoom ? Colors.blue : Colors.grey,
+                color: _zoomFactor < GridLayoutConstants.maxZoom ? Colors.blue : Colors.grey,
                 tooltip: '확대',
               ),
               
@@ -405,7 +420,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
         allowPullToRefresh: false,
         selectionMode: SelectionMode.none,
         columnWidthMode: ColumnWidthMode.none,
-        frozenColumnsCount: 1, // 교사명 열(첫 번째 열) 고정
+        frozenColumnsCount: GridLayoutConstants.frozenColumnsCount, // 교사명 열(첫 번째 열) 고정
         onCellTap: widget.onCellTap, // 셀 탭 이벤트 핸들러
         // 스크롤 컨트롤러 설정
         verticalScrollController: _verticalScrollController,
@@ -427,7 +442,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
       return GridColumn(
         columnName: column.columnName,
         width: _getScaledColumnWidth(column.width), // 실제 열 너비 조정
-        label: _getScaledColumnLabel(column.label), // 확대된 폰트 크기의 라벨
+        label: _getScaledTextWidget(column.label, isHeader: false), // 열 라벨 (검은색)
       );
     }).toList();
   }
@@ -439,7 +454,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
         cells: headerRow.cells.map((cell) {
           return StackedHeaderCell(
             columnNames: cell.columnNames,
-            child: _getScaledHeaderCell(cell.child), // 확대된 크기의 헤더 셀
+            child: _getScaledTextWidget(cell.child, isHeader: true), // 헤더 셀 (파란색)
           );
         }).toList(),
       );
@@ -451,33 +466,22 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     return baseWidth * _zoomFactor;
   }
 
-  /// 확대/축소에 따른 실제 크기 조정된 열 라벨 반환
-  Widget _getScaledColumnLabel(dynamic originalLabel) {
+  /// 확대/축소에 따른 실제 크기 조정된 텍스트 위젯 반환
+  /// [isHeader] true인 경우 파란색, false인 경우 검은색
+  Widget _getScaledTextWidget(dynamic originalWidget, {required bool isHeader}) {
     return DefaultTextStyle(
       style: TextStyle(
         fontSize: _getScaledFontSize(), // 확대된 폰트 크기
         fontWeight: FontWeight.w600,
-        color: Colors.black87,
+        color: isHeader ? Colors.blue[700] : Colors.black87,
       ),
-      child: originalLabel ?? Text(''), // 원본 위젯 사용
-    );
-  }
-
-  /// 확대/축소에 따른 실제 크기 조정된 헤더 셀 반환
-  Widget _getScaledHeaderCell(dynamic originalCell) {
-    return DefaultTextStyle(
-      style: TextStyle(
-        fontSize: _getScaledFontSize(), // 확대된 폰트 크기
-        fontWeight: FontWeight.w600,
-        color: Colors.blue[700],
-      ),
-      child: originalCell ?? Text(''), // 원본 위젯 사용
+      child: originalWidget ?? const Text(''), // 원본 위젯 사용
     );
   }
 
   /// 확대/축소에 따른 실제 폰트 크기 반환
   double _getScaledFontSize() {
-    return 14.0 * _zoomFactor; // 기본 폰트 크기에서 배율 적용
+    return GridLayoutConstants.baseFontSize * _zoomFactor; // 기본 폰트 크기에서 배율 적용
   }
 
   /// 확대/축소에 따른 실제 헤더 높이 반환
@@ -740,7 +744,7 @@ class ExchangeArrowPainter extends CustomPainter {
   void _applyFrozenAreaClipping(Canvas canvas, Size size) {
     // 고정 영역 경계 계산 (실제 크기 조정된 값 사용)
     double frozenColumnWidth = AppConstants.teacherColumnWidth * zoomFactor; // 실제 확대된 고정 열 너비
-    double headerHeight = (AppConstants.headerRowHeight * 2) * zoomFactor; // 실제 확대된 헤더 행 높이
+    double headerHeight = (AppConstants.headerRowHeight * GridLayoutConstants.headerRowsCount) * zoomFactor; // 실제 확대된 헤더 행 높이
     
     // 스크롤 가능한 영역만 허용하는 클리핑 경로 생성
     Path clippingPath = Path();
@@ -768,7 +772,7 @@ class ExchangeArrowPainter extends CustomPainter {
   bool _isArrowVisible(Offset sourcePos, Offset targetPos, Size canvasSize) {
     // 고정 영역 경계 (확대/축소 배율 적용)
     double frozenColumnWidth = AppConstants.teacherColumnWidth * zoomFactor;
-    double headerHeight = (AppConstants.headerRowHeight * 2) * zoomFactor;
+    double headerHeight = (AppConstants.headerRowHeight * GridLayoutConstants.headerRowsCount) * zoomFactor;
     
     // 화살표의 모든 점들 (시작점, 끝점, 중간점)
     List<Offset> arrowPoints = [
@@ -908,7 +912,7 @@ class ExchangeArrowPainter extends CustomPainter {
     }
 
     // 기본 Y 좌표 계산 (고정된 헤더 행들 고려, 줌 배율 적용)
-    double y = AppConstants.headerRowHeight * 2 * zoomFactor; // 헤더 행 2개 높이 - 줌 배율 적용
+    double y = AppConstants.headerRowHeight * GridLayoutConstants.headerRowsCount * zoomFactor; // 헤더 행 높이 - 줌 배율 적용
     y += teacherIndex * AppConstants.dataRowHeight * zoomFactor; // 교사 인덱스에 따른 행 높이 - 줌 배율 적용
 
     // 스크롤 오프셋 반영 (고정 영역 고려)

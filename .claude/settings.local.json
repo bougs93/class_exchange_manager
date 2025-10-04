@@ -17,7 +17,8 @@
       "Bash(fi)",
       "Bash(if [ -f \"lib/ui/screens/handlers/state_reset_handler.dart\" ])",
       "Bash(find:*)",
-      "Bash(flutter run:*)"
+      "Bash(flutter run:*)",
+      "Bash(git log:*)"
     ],
     "deny": [],
     "ask": []
