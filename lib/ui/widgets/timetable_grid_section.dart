@@ -273,7 +273,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
-                  '${_zoomPercentage}%',
+                  '$_zoomPercentage%',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
@@ -351,7 +351,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
                   verticalScrollController: _verticalScrollController,
                   horizontalScrollController: _horizontalScrollController,
                   customArrowStyle: widget.customArrowStyle,
-                  zoomFactor: _zoomFactor, // 확대/축소 배율 전달
+                  zoomFactor: _zoomFactor, // 클리핑 계산용 (실제 크기는 이미 조정됨)
                 ),
               ),
             ),
@@ -363,22 +363,34 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     return dataGrid;
   }
 
-  /// DataGrid 구성
+  /// DataGrid 구성 - 실제 폰트 크기와 셀 크기 기반 확대/축소 방식
   Widget _buildDataGrid() {
     Widget dataGridContainer = Container(
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey.shade300),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: SfDataGrid(
-        key: _dataGridKey, // 스크롤 제어를 위한 GlobalKey 추가
-        source: widget.dataSource!,
-        columns: widget.columns,
-        stackedHeaderRows: widget.stackedHeaders,
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          textTheme: Theme.of(context).textTheme.copyWith(
+            // 모든 텍스트 스타일에 확대된 폰트 크기 적용
+            bodyMedium: TextStyle(fontSize: _getScaledFontSize()),
+            bodySmall: TextStyle(fontSize: _getScaledFontSize()),
+            titleMedium: TextStyle(fontSize: _getScaledFontSize()),
+            labelMedium: TextStyle(fontSize: _getScaledFontSize()),
+            labelLarge: TextStyle(fontSize: _getScaledFontSize()),
+            labelSmall: TextStyle(fontSize: _getScaledFontSize()),
+          ),
+        ),
+        child: SfDataGrid(
+          key: _dataGridKey, // 스크롤 제어를 위한 GlobalKey 추가
+          source: widget.dataSource!,
+          columns: _getScaledColumns(), // 실제 크기 조정된 열 사용
+          stackedHeaderRows: _getScaledStackedHeaders(), // 실제 크기 조정된 헤더 사용
         gridLinesVisibility: GridLinesVisibility.both,
         headerGridLinesVisibility: GridLinesVisibility.both,
-        headerRowHeight: AppConstants.headerRowHeight,
-        rowHeight: AppConstants.dataRowHeight,
+        headerRowHeight: _getScaledHeaderHeight(), // 실제 크기 조정된 헤더 높이
+        rowHeight: _getScaledRowHeight(), // 실제 크기 조정된 행 높이
         allowColumnsResizing: false,
         allowSorting: false,
         allowEditing: false,
@@ -391,20 +403,87 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
         // 스크롤 컨트롤러 설정
         verticalScrollController: _verticalScrollController,
         horizontalScrollController: _horizontalScrollController,
-        // 스크롤바 설정 - 명확하게 보이도록 설정
-        isScrollbarAlwaysShown: true, // 스크롤바 항상 표시
-        horizontalScrollPhysics: const AlwaysScrollableScrollPhysics(), // 가로 스크롤 활성화
-        verticalScrollPhysics: const AlwaysScrollableScrollPhysics(), // 세로 스크롤 활성화
+        // 확대 시 정확한 스크롤바 표시를 위해 내장 스크롤바 사용
+        isScrollbarAlwaysShown: true,
+          horizontalScrollPhysics: const AlwaysScrollableScrollPhysics(), // 가로 스크롤 활성화
+          verticalScrollPhysics: const AlwaysScrollableScrollPhysics(), // 세로 스크롤 활성화
+        ),
       ),
     );
 
-    // 확대/축소 효과를 적용하여 반환
-    return Transform.scale(
-      scale: _zoomFactor,
-      alignment: Alignment.topLeft,
-      child: dataGridContainer,
+    return dataGridContainer; // 실제 크기 조정 방식 사용
+  }
+
+  /// 확대/축소에 따른 실제 크기 조정된 열 반환 - 폰트 크기와 열 너비 모두 조정
+  List<GridColumn> _getScaledColumns() {
+    return widget.columns.map((column) {
+      return GridColumn(
+        columnName: column.columnName,
+        width: _getScaledColumnWidth(column.width), // 실제 열 너비 조정
+        label: _getScaledColumnLabel(column.label), // 확대된 폰트 크기의 라벨
+      );
+    }).toList();
+  }
+
+  /// 확대/축소에 따른 실제 크기 조정된 스택 헤더 반환
+  List<StackedHeaderRow> _getScaledStackedHeaders() {
+    return widget.stackedHeaders.map((headerRow) {
+      return StackedHeaderRow(
+        cells: headerRow.cells.map((cell) {
+          return StackedHeaderCell(
+            columnNames: cell.columnNames,
+            child: _getScaledHeaderCell(cell.child), // 확대된 크기의 헤더 셀
+          );
+        }).toList(),
+      );
+    }).toList();
+  }
+
+  /// 확대/축소에 따른 실제 열 너비 반환
+  double _getScaledColumnWidth(double baseWidth) {
+    return baseWidth * _zoomFactor;
+  }
+
+  /// 확대/축소에 따른 실제 크기 조정된 열 라벨 반환
+  Widget _getScaledColumnLabel(dynamic originalLabel) {
+    return DefaultTextStyle(
+      style: TextStyle(
+        fontSize: _getScaledFontSize(), // 확대된 폰트 크기
+        fontWeight: FontWeight.w600,
+        color: Colors.black87,
+      ),
+      child: originalLabel ?? Text(''), // 원본 위젯 사용
     );
   }
+
+  /// 확대/축소에 따른 실제 크기 조정된 헤더 셀 반환
+  Widget _getScaledHeaderCell(dynamic originalCell) {
+    return DefaultTextStyle(
+      style: TextStyle(
+        fontSize: _getScaledFontSize(), // 확대된 폰트 크기
+        fontWeight: FontWeight.w600,
+        color: Colors.blue[700],
+      ),
+      child: originalCell ?? Text(''), // 원본 위젯 사용
+    );
+  }
+
+  /// 확대/축소에 따른 실제 폰트 크기 반환
+  double _getScaledFontSize() {
+    return 14.0 * _zoomFactor; // 기본 폰트 크기에서 배율 적용
+  }
+
+  /// 확대/축소에 따른 실제 헤더 높이 반환
+  double _getScaledHeaderHeight() {
+    return AppConstants.headerRowHeight * _zoomFactor;
+  }
+
+  /// 확대/축소에 따른 실제 행 높이 반환
+  double _getScaledRowHeight() {
+    return AppConstants.dataRowHeight * _zoomFactor;
+  }
+
+
 
   /// 특정 셀을 화면 중앙으로 스크롤하는 메서드
   void scrollToCellCenter(String teacherName, String day, int period) {
@@ -505,7 +584,7 @@ class ExchangeArrowPainter extends CustomPainter {
   final ScrollController verticalScrollController;
   final ScrollController horizontalScrollController;
   final ExchangeArrowStyle? customArrowStyle;
-  final double zoomFactor; // 확대/축소 배율 추가
+  final double zoomFactor; // 클리핑 계산용 (실제 크기는 이미 조정됨)
 
   ExchangeArrowPainter({
     required this.selectedPath,
@@ -514,7 +593,7 @@ class ExchangeArrowPainter extends CustomPainter {
     required this.verticalScrollController,
     required this.horizontalScrollController,
     this.customArrowStyle,
-    required this.zoomFactor, // 확대/축소 배율 매개변수 추가
+    required this.zoomFactor, // 클리핑 계산용
   });
 
   @override
@@ -652,9 +731,9 @@ class ExchangeArrowPainter extends CustomPainter {
   /// [canvas] 그리기 캔버스
   /// [size] 캔버스 크기
   void _applyFrozenAreaClipping(Canvas canvas, Size size) {
-    // 고정 영역 경계 계산 (확대/축소 배율 적용)
-    double frozenColumnWidth = AppConstants.teacherColumnWidth * zoomFactor; // 고정 열 너비
-    double headerHeight = (AppConstants.headerRowHeight * 2) * zoomFactor; // 헤더 행 높이 (2개 행)
+    // 고정 영역 경계 계산 (실제 크기 조정된 값 사용)
+    double frozenColumnWidth = AppConstants.teacherColumnWidth * zoomFactor; // 실제 확대된 고정 열 너비
+    double headerHeight = (AppConstants.headerRowHeight * 2) * zoomFactor; // 실제 확대된 헤더 행 높이
     
     // 스크롤 가능한 영역만 허용하는 클리핑 경로 생성
     Path clippingPath = Path();
@@ -885,8 +964,8 @@ class ExchangeArrowPainter extends CustomPainter {
       }
     }
 
-    // 확대/축소 배율을 좌표에 적용
-    return Offset(x * zoomFactor, y * zoomFactor);
+    // 실제 크기가 조정되므로 원본 좌표 사용 (클리핑은 실제 크기로 자동 조정됨)
+    return Offset(x, y);
   }
 
   /// 화살표의 시작점과 끝점 경계면을 결정하는 함수
@@ -1186,6 +1265,6 @@ class ExchangeArrowPainter extends CustomPainter {
     return oldDelegate is ExchangeArrowPainter &&
            (oldDelegate.selectedPath != selectedPath ||
             oldDelegate.customArrowStyle != customArrowStyle ||
-            zoomFactor != oldDelegate.zoomFactor); // 확대/축소 배율 변경 확인 추가
+            zoomFactor != oldDelegate.zoomFactor); // 확대/축소 배율 변경 확인
   }
 }
