@@ -366,12 +366,10 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
               columns: _columns,
               stackedHeaders: _stackedHeaders,
               timetableGridKey: _timetableGridKey,
-              onSelectExcelFile: selectExcelFile,
               onToggleExchangeMode: toggleExchangeMode,
               onToggleCircularExchangeMode: toggleCircularExchangeMode,
               onToggleChainExchangeMode: toggleChainExchangeMode,
               onToggleNonExchangeableEditMode: _toggleNonExchangeableEditMode,
-              onClearSelection: _clearSelection,
               onCellTap: _onCellTap,
               getActualExchangeableCount: getActualExchangeableCount,
               getCurrentSelectedPath: getCurrentSelectedPath,
@@ -718,7 +716,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   }
 
 
-  /// 선택 해제 메서드
+  /// 선택 해제 메서드 (현재 미사용, 향후 필요시 사용)
+  // ignore: unused_element
   void _clearSelection() {
     final notifier = ref.read(exchangeScreenProvider.notifier);
     notifier.setSelectedFile(null);

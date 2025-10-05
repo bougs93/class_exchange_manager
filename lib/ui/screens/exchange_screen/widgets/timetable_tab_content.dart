@@ -17,12 +17,10 @@ class TimetableTabContent extends StatelessWidget {
   final GlobalKey<State<TimetableGridSection>> timetableGridKey;
 
   // 콜백 함수들
-  final VoidCallback onSelectExcelFile;
   final VoidCallback onToggleExchangeMode;
   final VoidCallback onToggleCircularExchangeMode;
   final VoidCallback onToggleChainExchangeMode;
   final VoidCallback onToggleNonExchangeableEditMode;
-  final VoidCallback onClearSelection;
   final void Function(DataGridCellTapDetails) onCellTap;
   final int Function() getActualExchangeableCount;
   final ExchangePath? Function() getCurrentSelectedPath;
@@ -37,12 +35,10 @@ class TimetableTabContent extends StatelessWidget {
     required this.columns,
     required this.stackedHeaders,
     required this.timetableGridKey,
-    required this.onSelectExcelFile,
     required this.onToggleExchangeMode,
     required this.onToggleCircularExchangeMode,
     required this.onToggleChainExchangeMode,
     required this.onToggleNonExchangeableEditMode,
-    required this.onClearSelection,
     required this.onCellTap,
     required this.getActualExchangeableCount,
     required this.getCurrentSelectedPath,
@@ -64,12 +60,10 @@ class TimetableTabContent extends StatelessWidget {
             isCircularExchangeModeEnabled: state.isCircularExchangeModeEnabled,
             isChainExchangeModeEnabled: state.isChainExchangeModeEnabled,
             isNonExchangeableEditMode: state.isNonExchangeableEditMode,
-            onSelectExcelFile: onSelectExcelFile,
             onToggleExchangeMode: onToggleExchangeMode,
             onToggleCircularExchangeMode: onToggleCircularExchangeMode,
             onToggleChainExchangeMode: onToggleChainExchangeMode,
             onToggleNonExchangeableEditMode: onToggleNonExchangeableEditMode,
-            onClearSelection: onClearSelection,
           ),
 
           const SizedBox(height: 24),

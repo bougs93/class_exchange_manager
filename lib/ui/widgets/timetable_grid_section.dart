@@ -316,6 +316,11 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
       children: [
         const SizedBox(width: 8),
         
+        // 확대/축소 컨트롤 (맨 왼쪽으로 이동)
+        _buildZoomControl(),
+        
+        const SizedBox(width: 8),
+        
         // 전체 교사 수 표시
         _buildTeacherCountWidget(),
         
@@ -333,6 +338,51 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+
+            // 되돌리기 버튼
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  _undoLastExchange();
+                },
+                icon: const Icon(Icons.undo, size: 16),
+                label: const Text('되돌리기', style: TextStyle(fontSize: 12)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange.shade100,
+                  foregroundColor: Colors.orange.shade700,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  minimumSize: const Size(80, 40),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(5),
+                    side: BorderSide(color: Colors.orange.shade300),
+                  ),
+                ),
+              ),
+            ),
+            
+            // 다시 반복 버튼
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  _repeatLastExchange();
+                },
+                icon: const Icon(Icons.redo, size: 16),
+                label: const Text('다시 반복', style: TextStyle(fontSize: 12)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.purple.shade100,
+                  foregroundColor: Colors.purple.shade700,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  minimumSize: const Size(80, 40),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(5),
+                    side: BorderSide(color: Colors.purple.shade300),
+                  ),
+                ),
+              ),
+            ),
+
             // 보강 버튼
             Container(
               margin: const EdgeInsets.only(right: 8),
@@ -347,59 +397,15 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
                   backgroundColor: Colors.green.shade100,
                   foregroundColor: Colors.green.shade700,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  minimumSize: const Size(60, 32),
+                  minimumSize: const Size(60, 40),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(5),
                     side: BorderSide(color: Colors.green.shade300),
                   ),
                 ),
               ),
             ),
-            
-            // 되돌리기 버튼
-            Container(
-              margin: const EdgeInsets.only(right: 8),
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  _undoLastExchange();
-                },
-                icon: const Icon(Icons.undo, size: 16),
-                label: const Text('되돌리기', style: TextStyle(fontSize: 12)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange.shade100,
-                  foregroundColor: Colors.orange.shade700,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  minimumSize: const Size(70, 32),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(color: Colors.orange.shade300),
-                  ),
-                ),
-              ),
-            ),
-            
-            // 다시 반복 버튼
-            Container(
-              margin: const EdgeInsets.only(right: 8),
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  _repeatLastExchange();
-                },
-                icon: const Icon(Icons.repeat, size: 16),
-                label: const Text('다시 반복', style: TextStyle(fontSize: 12)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.purple.shade100,
-                  foregroundColor: Colors.purple.shade700,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  minimumSize: const Size(80, 32),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(color: Colors.purple.shade300),
-                  ),
-                ),
-              ),
-            ),
-            
+
             // 교체 모드가 아닌 경우에만 삭제 버튼 표시
             if (!isInExchangeMode) ...[
               Container(
@@ -433,9 +439,9 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
                       ? Colors.red.shade700 
                       : Colors.grey.shade400,
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    minimumSize: const Size(60, 32),
+                    minimumSize: const Size(60, 40),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(5),
                       side: BorderSide(
                         color: (currentSelectedPath != null && isFromExchangedCell)
                           ? Colors.red.shade300 
@@ -480,9 +486,9 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
                       ? Colors.blue.shade700 
                       : Colors.grey.shade400,
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    minimumSize: const Size(60, 32),
+                    minimumSize: const Size(60, 40),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(5),
                       side: BorderSide(
                         color: currentSelectedPath != null 
                           ? Colors.blue.shade300 
@@ -495,66 +501,64 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
             ],
           ],
         ),
-        
-        // 확대/축소 컨트롤
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-                            // 초기화 버튼 (확대 비율이 100%가 아닌 경우에만 표시)
-              if (_zoomFactor != GridLayoutConstants.defaultZoomFactor)
-                IconButton(
-                  onPressed: _resetZoom,
-                  icon: const Icon(Icons.refresh, size: 16),
-                  padding: const EdgeInsets.all(8),
-                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                  color: Colors.grey.shade600,
-                  tooltip: '확대/축소 초기화',
-                ),
-              // 축소 버튼
-              IconButton(
-                onPressed: _zoomFactor > GridLayoutConstants.minZoom ? _zoomOut : null,
-                icon: const Icon(Icons.zoom_out, size: 18),
-                padding: const EdgeInsets.all(8),
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                color: _zoomFactor > GridLayoutConstants.minZoom ? Colors.blue : Colors.grey,
-                tooltip: '축소',
-              ),
-              
-              // 현재 확대 비율 표시
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Text(
-                  '$_zoomPercentage%',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.grey.shade700,
-                  ),
-                ),
-              ),
-              
-              // 확대 버튼
-              IconButton(
-                onPressed: _zoomFactor < GridLayoutConstants.maxZoom ? _zoomIn : null,
-                icon: const Icon(Icons.zoom_in, size: 18),
-                padding: const EdgeInsets.all(8),
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                color: _zoomFactor < GridLayoutConstants.maxZoom ? Colors.blue : Colors.grey,
-                tooltip: '확대',
-              ),
-              
-
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
       ],
+    );
+  }
+
+  /// 확대/축소 컨트롤 위젯
+  Widget _buildZoomControl() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 초기화 버튼 (100%일 때는 비활성화)
+          IconButton(
+            onPressed: _zoomPercentage != 100 ? _resetZoom : null,
+            icon: const Icon(Icons.refresh, size: 16),
+            padding: const EdgeInsets.all(8),
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            color: _zoomPercentage != 100 ? Colors.grey.shade600 : Colors.grey.shade400,
+            tooltip: '확대/축소 초기화',
+          ),
+          // 축소 버튼
+          IconButton(
+            onPressed: _zoomFactor > GridLayoutConstants.minZoom ? _zoomOut : null,
+            icon: const Icon(Icons.zoom_out, size: 18),
+            padding: const EdgeInsets.all(8),
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            color: _zoomFactor > GridLayoutConstants.minZoom ? Colors.blue : Colors.grey,
+            tooltip: '축소',
+          ),
+          
+          // 현재 확대 비율 표시
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              '$_zoomPercentage%',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey.shade700,
+              ),
+            ),
+          ),
+          
+          // 확대 버튼
+          IconButton(
+            onPressed: _zoomFactor < GridLayoutConstants.maxZoom ? _zoomIn : null,
+            icon: const Icon(Icons.zoom_in, size: 18),
+            padding: const EdgeInsets.all(8),
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            color: _zoomFactor < GridLayoutConstants.maxZoom ? Colors.blue : Colors.grey,
+            tooltip: '확대',
+          ),
+        ],
+      ),
     );
   }
 
