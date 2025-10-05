@@ -913,7 +913,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       }
     } catch (e) {
       // 경로 정보 접근 중 오류 발생 시 안전하게 처리
-      print('경로 정보 접근 중 오류: $e');
+      AppLogger.error('경로 정보 접근 중 오류: $e');
     }
     
     // 선택된 교시가 없는 경우

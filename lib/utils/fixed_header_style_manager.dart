@@ -3,6 +3,7 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'simplified_timetable_theme.dart';
 import 'constants.dart';
 import 'cell_style_config.dart';
+import 'logger.dart';
 
 /// 시간표 테이블의 고정 헤더(1행: 요일, 2행: 교시) 스타일 통합 관리 클래스
 ///
@@ -334,8 +335,8 @@ class FixedHeaderStyleManager {
     _widgetCache.clear();
     _styleCache.clear();
     // 메모리 정리 강제 실행
-    if (_widgetCache.length > 0 || _styleCache.length > 0) {
-      print('경고: 캐시 초기화 후에도 데이터가 남아있습니다.');
+    if (_widgetCache.isNotEmpty || _styleCache.isNotEmpty) {
+      AppLogger.warning('경고: 캐시 초기화 후에도 데이터가 남아있습니다.');
     }
   }
 
@@ -357,7 +358,7 @@ class FixedHeaderStyleManager {
     
     // 메모리 사용량 모니터링
     if (_widgetCache.length > 200) {
-      print('경고: 위젯 캐시 크기가 200을 초과했습니다: ${_widgetCache.length}');
+      AppLogger.warning('경고: 위젯 캐시 크기가 200을 초과했습니다: ${_widgetCache.length}');
     }
   }
 
@@ -383,7 +384,7 @@ class FixedHeaderStyleManager {
       _widgetCache.remove(key);
     }
     
-    print('캐시 정리: $removeCount개 항목 제거됨 (현재 크기: ${_widgetCache.length})');
+    AppLogger.debug('캐시 정리: $removeCount개 항목 제거됨 (현재 크기: ${_widgetCache.length})');
   }
 
   // ==================== 스타일 초기화 메서드 ====================
