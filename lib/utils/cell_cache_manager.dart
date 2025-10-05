@@ -89,4 +89,19 @@ class CellCacheManager {
       cache.clear();
     }
   }
+
+  /// 순환교체 경로 캐시만 초기화
+  void clearCircularPathCache() {
+    _caches[CacheType.circularPath]?.clear();
+  }
+
+  /// 1:1 교체 경로 캐시만 초기화
+  void clearOneToOnePathCache() {
+    _caches[CacheType.cellSelection]?.clear();
+  }
+
+  /// 연쇄교체 경로 캐시만 초기화
+  void clearChainPathCache() {
+    _caches[CacheType.chainPath]?.clear();
+  }
 }

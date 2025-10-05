@@ -358,21 +358,21 @@ class TimetableDataSource extends DataGridSource {
   /// 선택된 순환교체 경로 업데이트
   void updateSelectedCircularPath(CircularExchangePath? path) {
     _stateManager.updateSelectedCircularPath(path);
-    _cacheManager.clearAllCaches(); // 캐시 무효화로 색상 상태 완전 초기화
+    _cacheManager.clearCircularPathCache(); // 선택적 캐시 무효화로 성능 최적화
     notifyListeners();
   }
   
   /// 선택된 1:1 교체 경로 업데이트
   void updateSelectedOneToOnePath(OneToOneExchangePath? path) {
     _stateManager.updateSelectedOneToOnePath(path);
-    _cacheManager.clearAllCaches(); // 캐시 무효화로 색상 상태 완전 초기화
+    _cacheManager.clearOneToOnePathCache(); // 선택적 캐시 무효화로 성능 최적화
     notifyListeners();
   }
   
   /// 선택된 연쇄교체 경로 업데이트
   void updateSelectedChainPath(ChainExchangePath? path) {
     _stateManager.updateSelectedChainPath(path);
-    _cacheManager.clearAllCaches(); // 캐시 무효화로 색상 상태 완전 초기화
+    _cacheManager.clearChainPathCache(); // 선택적 캐시 무효화로 성능 최적화
     notifyListeners();
   }
   

@@ -851,13 +851,22 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     // TimetableGridSection의 화살표 상태 초기화 (모드 전환 시 화살표 숨기기)
     final timetableGridState = _timetableGridKey.currentState;
     if (timetableGridState != null) {
-      // TimetableGridSection의 State에서 clearAllArrowStates 메서드 호출
-      // dynamic 캐스팅을 사용하여 타입 안전성 확보
       try {
+        // dynamic 캐스팅을 사용한 안전한 메서드 호출
         (timetableGridState as dynamic).clearAllArrowStates();
       } catch (e) {
-        // 메서드가 존재하지 않는 경우 무시 (호환성 보장)
-        print('clearAllArrowStates 메서드 호출 실패: $e');
+        // 메서드가 존재하지 않는 경우 또는 타입 오류 발생 시 안전하게 처리
+        AppLogger.error('clearAllArrowStates 메서드 호출 실패: $e');
+        // 사용자에게 알림 (선택사항)
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('화살표 상태 초기화 중 오류가 발생했습니다.'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
       }
     }
     
@@ -869,6 +878,48 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   
   
   
+  /// 선택된 교시 정보를 안전하게 가져오는 메서드
+  ({String? day, int? period}) _getSelectedPeriodInfo() {
+    // 1:1 교체 모드
+    if (_isExchangeModeEnabled && exchangeService.hasSelectedCell()) {
+      return (day: exchangeService.selectedDay, period: exchangeService.selectedPeriod);
+    }
+    
+    // 순환교체 모드
+    if (_isCircularExchangeModeEnabled && circularExchangeService.hasSelectedCell()) {
+      return (day: circularExchangeService.selectedDay, period: circularExchangeService.selectedPeriod);
+    }
+    
+    // 연쇄교체 모드
+    if (_isChainExchangeModeEnabled && chainExchangeService.hasSelectedCell()) {
+      return (day: chainExchangeService.nodeADay, period: chainExchangeService.nodeAPeriod);
+    }
+    
+    // 경로 선택 시 (모든 모드에서 교체 리스트 셀 선택)
+    try {
+      final dataSourceCircularPath = _dataSource?.getSelectedCircularPath();
+      if (dataSourceCircularPath != null && dataSourceCircularPath.nodes.isNotEmpty) {
+        return (day: dataSourceCircularPath.nodes.first.day, period: dataSourceCircularPath.nodes.first.period);
+      }
+      
+      final dataSourceOneToOnePath = _dataSource?.getSelectedOneToOnePath();
+      if (dataSourceOneToOnePath != null && dataSourceOneToOnePath.nodes.isNotEmpty) {
+        return (day: dataSourceOneToOnePath.nodes.first.day, period: dataSourceOneToOnePath.nodes.first.period);
+      }
+      
+      final dataSourceChainPath = _dataSource?.getSelectedChainPath();
+      if (dataSourceChainPath != null && dataSourceChainPath.nodes.isNotEmpty) {
+        return (day: dataSourceChainPath.nodes.first.day, period: dataSourceChainPath.nodes.first.period);
+      }
+    } catch (e) {
+      // 경로 정보 접근 중 오류 발생 시 안전하게 처리
+      print('경로 정보 접근 중 오류: $e');
+    }
+    
+    // 선택된 교시가 없는 경우
+    return (day: null, period: null);
+  }
+
   /// 테마 기반 헤더 업데이트 (선택된 교시 헤더를 연한 파란색으로 표시)
   void _updateHeaderTheme() {
     if (_timetableData == null) return;
@@ -882,40 +933,10 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       _timetableData!.teachers,
     );
     
-    // 선택된 요일과 교시 결정 (1:1 교체, 순환교체, 연쇄교체 모드, 또는 모든 모드에서 교체 리스트 셀 선택에 따라)
-    String? selectedDay;
-    int? selectedPeriod;
-    
-    if (_isExchangeModeEnabled && exchangeService.hasSelectedCell()) {
-      // 1:1 교체 모드
-      selectedDay = exchangeService.selectedDay;
-      selectedPeriod = exchangeService.selectedPeriod;
-    } else if (_isCircularExchangeModeEnabled && circularExchangeService.hasSelectedCell()) {
-      // 순환교체 모드
-      selectedDay = circularExchangeService.selectedDay;
-      selectedPeriod = circularExchangeService.selectedPeriod;
-    } else if (_isChainExchangeModeEnabled && chainExchangeService.hasSelectedCell()) {
-      // 연쇄교체 모드
-      selectedDay = chainExchangeService.nodeADay;
-      selectedPeriod = chainExchangeService.nodeAPeriod;
-    } else {
-      // 모든 모드에서 교체 리스트 셀 선택 시 헤더 색상 변경 (보기 모드뿐만 아니라 다른 모드에서도)
-      // TimetableDataSource에서 선택된 경로 확인 (TimetableGridSection에서 설정한 경로)
-      final dataSourceCircularPath = _dataSource?.getSelectedCircularPath();
-      final dataSourceOneToOnePath = _dataSource?.getSelectedOneToOnePath();
-      final dataSourceChainPath = _dataSource?.getSelectedChainPath();
-      
-      if (dataSourceCircularPath != null && dataSourceCircularPath.nodes.isNotEmpty) {
-        selectedDay = dataSourceCircularPath.nodes.first.day;
-        selectedPeriod = dataSourceCircularPath.nodes.first.period;
-      } else if (dataSourceOneToOnePath != null && dataSourceOneToOnePath.nodes.isNotEmpty) {
-        selectedDay = dataSourceOneToOnePath.nodes.first.day;
-        selectedPeriod = dataSourceOneToOnePath.nodes.first.period;
-      } else if (dataSourceChainPath != null && dataSourceChainPath.nodes.isNotEmpty) {
-        selectedDay = dataSourceChainPath.nodes.first.day;
-        selectedPeriod = dataSourceChainPath.nodes.first.period;
-      }
-    }
+    // 선택된 요일과 교시 결정 (단순화된 로직)
+    final selectionInfo = _getSelectedPeriodInfo();
+    final String? selectedDay = selectionInfo.day;
+    final int? selectedPeriod = selectionInfo.period;
     
     // 선택된 교시 정보를 전달하여 헤더만 업데이트
     final result = SyncfusionTimetableHelper.convertToSyncfusionData(
@@ -936,29 +957,15 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     _columns = result.columns; // 헤더만 업데이트
     _stackedHeaders = result.stackedHeaders; // 스택 헤더도 함께 업데이트 (요일 행 포함)
     
-    // Syncfusion DataGrid 헤더 캐싱 문제 해결을 위한 강력한 새로고침
+    // Syncfusion DataGrid 헤더 캐싱 문제 해결을 위한 최적화된 새로고침
     if (mounted) {
       // 1단계: 즉시 UI 갱신
       setState(() {});
       
-      // 2단계: 다음 프레임에서 추가 갱신
+      // 2단계: 다음 프레임에서 추가 갱신 (Syncfusion 캐싱 문제 해결)
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           setState(() {});
-          
-          // 3단계: 또 다른 프레임에서 최종 갱신
-          Future.microtask(() {
-            if (mounted) {
-              setState(() {});
-              
-              // 4단계: 추가 지연 후 최종 확인 갱신
-              Future.delayed(const Duration(milliseconds: 50), () {
-                if (mounted) {
-                  setState(() {});
-                }
-              });
-            }
-          });
         }
       });
     }

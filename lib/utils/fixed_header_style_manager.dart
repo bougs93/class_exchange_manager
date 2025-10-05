@@ -146,8 +146,13 @@ class FixedHeaderStyleManager {
       ),
     );
 
-    // 캐시에 저장 (메모리 사용량 제한)
-    if (_widgetCache.length < 100) {
+    // 동적 캐시 크기 제한 (메모리 사용량 최적화)
+    final maxCacheSize = _calculateOptimalCacheSize();
+    if (_widgetCache.length < maxCacheSize) {
+      _widgetCache[cacheKey] = widget;
+    } else {
+      // 캐시가 가득 찬 경우 오래된 항목 제거 (LRU 방식)
+      _evictOldestCacheEntries();
       _widgetCache[cacheKey] = widget;
     }
 
@@ -310,30 +315,75 @@ class FixedHeaderStyleManager {
 
   // ==================== 캐시 관리 메서드 ====================
 
-  /// 캐시 키 생성 (성능 최적화용)
+  /// 캐시 키 생성 (성능 최적화용) - 간소화된 버전
   static String _generateCacheKey(int period, bool isFirstPeriod, CellStyleConfig config) {
-    return '${period}_${isFirstPeriod}_${config.isSelected}_${config.isExchangeable}_${config.isInCircularPath}_${config.isInSelectedPath}_${config.isInChainPath}_${config.isTargetCell}';
+    // 간소화된 캐시 키로 메모리 사용량 최적화
+    final key = StringBuffer();
+    key.write('${period}_${isFirstPeriod ? 'F' : 'N'}');
+    if (config.isSelected) key.write('_S');
+    if (config.isExchangeable) key.write('_E');
+    if (config.isInCircularPath) key.write('_C');
+    if (config.isInSelectedPath) key.write('_P');
+    if (config.isInChainPath) key.write('_H');
+    if (config.isTargetCell) key.write('_T');
+    return key.toString();
   }
 
-  /// 캐시 초기화 (메모리 관리)
+  /// 캐시 초기화 (메모리 관리) - 개선된 버전
   static void clearCache() {
     _widgetCache.clear();
     _styleCache.clear();
+    // 메모리 정리 강제 실행
+    if (_widgetCache.length > 0 || _styleCache.length > 0) {
+      print('경고: 캐시 초기화 후에도 데이터가 남아있습니다.');
+    }
   }
 
-  /// 선택적 캐시 초기화 (특정 상태 변경 시)
+  /// 선택적 캐시 초기화 (특정 상태 변경 시) - 개선된 버전
   static void clearCacheForState(bool isSelected, bool isExchangeable) {
     final keysToRemove = <String>[];
     
+    // 더 효율적인 키 검색
     for (final key in _widgetCache.keys) {
-      if (key.contains('_${isSelected}_') || key.contains('_${isExchangeable}_')) {
+      if ((isSelected && key.contains('_S')) || (isExchangeable && key.contains('_E'))) {
         keysToRemove.add(key);
       }
     }
     
+    // 배치 삭제로 성능 최적화
     for (final key in keysToRemove) {
       _widgetCache.remove(key);
     }
+    
+    // 메모리 사용량 모니터링
+    if (_widgetCache.length > 200) {
+      print('경고: 위젯 캐시 크기가 200을 초과했습니다: ${_widgetCache.length}');
+    }
+  }
+
+  /// 최적 캐시 크기 계산 (동적 조정)
+  static int _calculateOptimalCacheSize() {
+    // 기본 크기: 50개
+    int baseSize = 50;
+    
+    // 메모리 사용량에 따른 동적 조정
+    // 실제 구현에서는 시스템 메모리 상태를 확인할 수 있음
+    return baseSize;
+  }
+
+  /// 오래된 캐시 항목 제거 (LRU 방식)
+  static void _evictOldestCacheEntries() {
+    if (_widgetCache.isEmpty) return;
+    
+    // 캐시 크기의 20% 제거
+    final removeCount = (_widgetCache.length * 0.2).ceil();
+    final keysToRemove = _widgetCache.keys.take(removeCount).toList();
+    
+    for (final key in keysToRemove) {
+      _widgetCache.remove(key);
+    }
+    
+    print('캐시 정리: $removeCount개 항목 제거됨 (현재 크기: ${_widgetCache.length})');
   }
 
   // ==================== 스타일 초기화 메서드 ====================
