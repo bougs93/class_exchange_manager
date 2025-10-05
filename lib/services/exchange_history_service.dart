@@ -348,12 +348,11 @@ class ExchangeHistoryService {
           cellKeys.add('${node.teacherName}_${node.day}_${node.period}');
         }
       } else if (path is ChainExchangePath) {
-        // 연쇄 교체의 경우
-        final node1 = path.node1;
-        final node2 = path.node2;
-        
-        cellKeys.add('${node1.teacherName}_${node1.day}_${node1.period}');
-        cellKeys.add('${node2.teacherName}_${node2.day}_${node2.period}');
+        // 연쇄 교체의 경우 - 4개의 노드 모두 교체됨
+        cellKeys.add('${path.nodeA.teacherName}_${path.nodeA.day}_${path.nodeA.period}');
+        cellKeys.add('${path.nodeB.teacherName}_${path.nodeB.day}_${path.nodeB.period}');
+        cellKeys.add('${path.node1.teacherName}_${path.node1.day}_${path.node1.period}');
+        cellKeys.add('${path.node2.teacherName}_${path.node2.day}_${path.node2.period}');
       }
     } catch (e) {
       developer.log('교체된 셀 키 생성 실패: $e');
@@ -382,5 +381,21 @@ class ExchangeHistoryService {
   bool isCellExchanged(String teacherName, String day, int period) {
     final cellKey = '${teacherName}_${day}_$period';
     return _exchangedCells.contains(cellKey);
+  }
+  
+  /// 교체된 셀에 해당하는 교체 경로 찾기
+  /// 교체된 셀을 클릭했을 때 해당 교체 경로를 반환
+  ExchangePath? findExchangePathByCell(String teacherName, String day, int period) {
+    final cellKey = '${teacherName}_${day}_$period';
+    
+    // 교체 리스트에서 해당 셀을 포함하는 교체 경로 찾기
+    for (final item in _exchangeList) {
+      final cellKeys = _getExchangedCellKeys(item.originalPath);
+      if (cellKeys.contains(cellKey)) {
+        return item.originalPath;
+      }
+    }
+    
+    return null;
   }
 }

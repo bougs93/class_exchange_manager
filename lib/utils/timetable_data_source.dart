@@ -441,6 +441,19 @@ class TimetableDataSource extends DataGridSource {
     notifyListeners();
     _onDataChanged?.call();
   }
+  
+  /// 모든 선택 상태 초기화 (셀 선택, 타겟 셀, 교체 경로 등)
+  void clearAllSelections() {
+    _stateManager.clearAllSelections();
+    _cacheManager.clearAllCaches();
+    notifyListeners();
+    _onDataChanged?.call();
+    
+    // 즉시 UI 업데이트를 위한 추가 처리
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      notifyListeners();
+    });
+  }
 
   /// TimeSlot 리스트 접근자 (동기화용)
   List<TimeSlot> get timeSlots => _timeSlots;

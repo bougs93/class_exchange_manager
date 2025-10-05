@@ -215,4 +215,18 @@ class CellStateManager {
   void clearExchangedCells() {
     _exchangedCells.clear();
   }
+  
+  /// 모든 선택 상태 초기화 (셀 선택, 타겟 셀, 교체 경로 등)
+  void clearAllSelections() {
+    _selectedTeacher = null;
+    _selectedDay = null;
+    _selectedPeriod = null;
+    _targetTeacher = null;
+    _targetDay = null;
+    _targetPeriod = null;
+    _selectedCircularPath = null;
+    _selectedOneToOnePath = null;
+    _selectedChainPath = null;
+    _exchangeableTeachers.clear();
+  }
 }

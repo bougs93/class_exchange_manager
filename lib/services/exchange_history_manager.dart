@@ -152,6 +152,11 @@ class ExchangeHistoryManager {
   void updateExchangedCells() {
     _historyService.updateExchangedCells();
   }
+  
+  /// 교체된 셀에 해당하는 교체 경로 찾기
+  ExchangePath? findExchangePathByCell(String teacherName, String day, int period) {
+    return _historyService.findExchangePathByCell(teacherName, day, period);
+  }
 
   @override
   String toString() {

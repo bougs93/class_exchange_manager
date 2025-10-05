@@ -84,6 +84,8 @@ class TimetableTabContent extends StatelessWidget {
                 columns: columns,
                 stackedHeaders: stackedHeaders,
                 isExchangeModeEnabled: state.isExchangeModeEnabled,
+                isCircularExchangeModeEnabled: state.isCircularExchangeModeEnabled,
+                isChainExchangeModeEnabled: state.isChainExchangeModeEnabled,
                 exchangeableCount: getActualExchangeableCount(),
                 onCellTap: onCellTap,
                 selectedExchangePath: getCurrentSelectedPath(),

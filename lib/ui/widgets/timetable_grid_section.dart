@@ -25,6 +25,8 @@ class TimetableGridSection extends StatefulWidget {
   final List<GridColumn> columns;
   final List<StackedHeaderRow> stackedHeaders;
   final bool isExchangeModeEnabled;
+  final bool isCircularExchangeModeEnabled;
+  final bool isChainExchangeModeEnabled;
   final int exchangeableCount;
   final Function(DataGridCellTapDetails) onCellTap;
   final ExchangePath? selectedExchangePath; // 선택된 교체 경로 (모든 타입 지원)
@@ -37,6 +39,8 @@ class TimetableGridSection extends StatefulWidget {
     required this.columns,
     required this.stackedHeaders,
     required this.isExchangeModeEnabled,
+    required this.isCircularExchangeModeEnabled,
+    required this.isChainExchangeModeEnabled,
     required this.exchangeableCount,
     required this.onCellTap,
     this.selectedExchangePath, // 선택된 교체 경로 (모든 타입 지원)
@@ -81,6 +85,20 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
 
   // 교체 히스토리 관리
   final ExchangeHistoryManager _historyManager = ExchangeHistoryManager();
+  
+  // 내부적으로 관리하는 선택된 교체 경로 (교체된 셀 클릭 시 사용)
+  ExchangePath? _internalSelectedPath;
+  
+  /// 현재 선택된 교체 경로 (외부 또는 내부)
+  ExchangePath? get currentSelectedPath => widget.selectedExchangePath ?? _internalSelectedPath;
+  
+  /// 교체 모드인지 확인 (1:1, 순환, 연쇄 중 하나라도 활성화된 경우)
+  bool get isInExchangeMode => widget.isExchangeModeEnabled || 
+                               widget.isCircularExchangeModeEnabled || 
+                               widget.isChainExchangeModeEnabled;
+  
+  /// 교체된 셀에서 선택된 경로인지 확인
+  bool get isFromExchangedCell => _internalSelectedPath != null;
 
   @override
   void initState() {
@@ -382,50 +400,99 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
               ),
             ),
             
-            // 교체 버튼 (선택된 경로가 있을 때만 활성화)
-            Container(
-              margin: const EdgeInsets.only(right: 8),
-              child: ElevatedButton.icon(
-                onPressed: widget.selectedExchangePath != null ? () {
-                  // 교체 기능 구현
-                  _showExchangeDialog();
-                } : null,
-                icon: Icon(
-                  Icons.swap_horiz, 
-                  size: 16,
-                  color: widget.selectedExchangePath != null 
-                    ? Colors.blue.shade700 
-                    : Colors.grey.shade400,
-                ),
-                label: Text(
-                  '교체', 
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: widget.selectedExchangePath != null 
-                      ? Colors.blue.shade700 
+            // 교체 모드가 아닌 경우에만 삭제 버튼 표시
+            if (!isInExchangeMode) ...[
+              Container(
+                margin: const EdgeInsets.only(right: 8),
+                child: ElevatedButton.icon(
+                  onPressed: (currentSelectedPath != null && isFromExchangedCell) ? () {
+                    // 삭제 기능 구현
+                    _deleteFromExchangeList();
+                  } : null,
+                  icon: Icon(
+                    Icons.delete_outline, 
+                    size: 16,
+                    color: (currentSelectedPath != null && isFromExchangedCell)
+                      ? Colors.red.shade700 
                       : Colors.grey.shade400,
                   ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: widget.selectedExchangePath != null 
-                    ? Colors.blue.shade100 
-                    : Colors.grey.shade100,
-                  foregroundColor: widget.selectedExchangePath != null 
-                    ? Colors.blue.shade700 
-                    : Colors.grey.shade400,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  minimumSize: const Size(60, 32),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(
-                      color: widget.selectedExchangePath != null 
-                        ? Colors.blue.shade300 
-                        : Colors.grey.shade300,
+                  label: Text(
+                    '삭제', 
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: (currentSelectedPath != null && isFromExchangedCell)
+                        ? Colors.red.shade700 
+                        : Colors.grey.shade400,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: (currentSelectedPath != null && isFromExchangedCell)
+                      ? Colors.red.shade100 
+                      : Colors.grey.shade100,
+                    foregroundColor: (currentSelectedPath != null && isFromExchangedCell)
+                      ? Colors.red.shade700 
+                      : Colors.grey.shade400,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    minimumSize: const Size(60, 32),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(
+                        color: (currentSelectedPath != null && isFromExchangedCell)
+                          ? Colors.red.shade300 
+                          : Colors.grey.shade300,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
+            ],
+            
+            // 교체 모드인 경우 교체 버튼 표시
+            if (isInExchangeMode) ...[
+              Container(
+                margin: const EdgeInsets.only(right: 8),
+                child: ElevatedButton.icon(
+                  onPressed: currentSelectedPath != null ? () {
+                    // 교체 다이얼로그 표시 후 실행
+                    _showExchangeDialog();
+                  } : null,
+                  icon: Icon(
+                    Icons.swap_horiz, 
+                    size: 16,
+                    color: currentSelectedPath != null 
+                      ? Colors.blue.shade700 
+                      : Colors.grey.shade400,
+                  ),
+                  label: Text(
+                    '교체', 
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: currentSelectedPath != null 
+                        ? Colors.blue.shade700 
+                        : Colors.grey.shade400,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: currentSelectedPath != null 
+                      ? Colors.blue.shade100 
+                      : Colors.grey.shade100,
+                    foregroundColor: currentSelectedPath != null 
+                      ? Colors.blue.shade700 
+                      : Colors.grey.shade400,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    minimumSize: const Size(60, 32),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(
+                        color: currentSelectedPath != null 
+                          ? Colors.blue.shade300 
+                          : Colors.grey.shade300,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
         
@@ -517,7 +584,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     
     
     // 교체 경로가 선택된 경우에만 화살표 표시 (모든 타입 지원)
-    if (widget.selectedExchangePath != null) {
+    if (currentSelectedPath != null) {
       return Stack(
         children: [
           dataGridWithGestures,
@@ -526,7 +593,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
             child: IgnorePointer(
               child: CustomPaint(
                 painter: ExchangeArrowPainter(
-                  selectedPath: widget.selectedExchangePath!,
+                  selectedPath: currentSelectedPath!,
                   timetableData: widget.timetableData!,
                   columns: widget.columns,
                   verticalScrollController: _verticalScrollController,
@@ -618,7 +685,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
         selectionMode: SelectionMode.none,
         columnWidthMode: ColumnWidthMode.none,
         frozenColumnsCount: GridLayoutConstants.frozenColumnsCount, // 교사명 열(첫 번째 열) 고정
-        onCellTap: widget.onCellTap, // 셀 탭 이벤트 핸들러
+        onCellTap: _handleCellTap, // 커스텀 셀 탭 핸들러
         // 스크롤 컨트롤러 설정
         verticalScrollController: _verticalScrollController,
         horizontalScrollController: _horizontalScrollController,
@@ -1053,15 +1120,153 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
       ),
     );
   }
+  
+  /// 교체된 셀 클릭 처리
+  /// 교체된 셀을 클릭했을 때 해당 교체 경로를 다시 선택하여 화살표 표시
+  void _handleExchangedCellClick(String teacherName, String day, int period) {
+    // 교체된 셀에 해당하는 교체 경로 찾기
+    final exchangePath = _historyManager.findExchangePathByCell(teacherName, day, period);
+    
+    if (exchangePath != null) {
+      // 해당 교체 경로를 다시 선택 상태로 설정
+      _selectExchangePath(exchangePath);
+    }
+  }
+  
+  /// 교체 경로 선택 처리
+  void _selectExchangePath(ExchangePath exchangePath) {
+    // 내부 선택된 경로 설정
+    _internalSelectedPath = exchangePath;
+    
+    // 교체 경로 타입에 따라 적절한 메서드 호출
+    if (exchangePath is OneToOneExchangePath) {
+      widget.dataSource!.updateSelectedOneToOnePath(exchangePath);
+    } else if (exchangePath is CircularExchangePath) {
+      widget.dataSource!.updateSelectedCircularPath(exchangePath);
+    } else if (exchangePath is ChainExchangePath) {
+      widget.dataSource!.updateSelectedChainPath(exchangePath);
+    }
+    
+    // UI 업데이트 (화살표 표시)
+    setState(() {
+      // 화살표를 다시 그리기 위해 상태 업데이트
+    });
+  }
+  
+  /// 교체 경로 선택 해제 (화살표 숨기기)
+  void _clearExchangePathSelection() {
+    // 내부 선택된 경로 해제
+    _internalSelectedPath = null;
+    
+    // 데이터 소스에서 모든 교체 경로 선택 해제
+    widget.dataSource!.updateSelectedOneToOnePath(null);
+    widget.dataSource!.updateSelectedCircularPath(null);
+    widget.dataSource!.updateSelectedChainPath(null);
+    
+    // UI 업데이트 (화살표 숨기기)
+    setState(() {
+      // 화살표를 숨기기 위해 상태 업데이트
+    });
+  }
+  
+  /// 셀 탭 이벤트 처리
+  void _handleCellTap(DataGridCellTapDetails details) {
+    // 교사명과 셀 정보 추출
+    final teacherName = _extractTeacherNameFromRowIndex(details.rowColumnIndex.rowIndex);
+    final columnName = details.column.columnName;
+    
+    // 교사명 열이 아닌 경우에만 처리
+    if (columnName != 'teacher') {
+      final parts = columnName.split('_');
+      if (parts.length == 2) {
+        final day = parts[0];
+        final period = int.tryParse(parts[1]) ?? 0;
+        
+        // 교체된 셀인지 확인
+        if (_historyManager.getExchangedCellKeys().contains('${teacherName}_${day}_$period')) {
+          // 교체된 셀 클릭 처리
+          _handleExchangedCellClick(teacherName, day, period);
+          return;
+        }
+      }
+    }
+    
+    // 일반 셀 클릭 시 화살표 숨기기
+    _clearExchangePathSelection();
+    
+    // 기존 셀 탭 이벤트 처리
+    widget.onCellTap(details);
+  }
+  
+  /// 행 인덱스에서 교사명 추출
+  String _extractTeacherNameFromRowIndex(int rowIndex) {
+    // Syncfusion DataGrid에서 헤더 구조:
+    // - 일반 헤더: 1개 (컬럼명 표시)
+    // - 스택된 헤더: 1개 (요일별 병합)
+    // 총 2개의 헤더 행이 있으므로 실제 데이터 행 인덱스는 2를 빼야 함
+    const int headerRowCount = 2;
+    int actualRowIndex = rowIndex - headerRowCount;
+    
+    if (widget.timetableData == null || actualRowIndex < 0 || actualRowIndex >= widget.timetableData!.teachers.length) {
+      return '';
+    }
+    
+    return widget.timetableData!.teachers[actualRowIndex].name;
+  }
+
+  /// 교체 리스트에서 삭제 기능
+  void _deleteFromExchangeList() {
+    if (currentSelectedPath == null) return;
+    
+    // 교체 리스트에서 해당 경로를 찾아서 삭제
+    final exchangeList = _historyManager.getExchangeList();
+    final targetItem = exchangeList.firstWhere(
+      (item) => item.originalPath.id == currentSelectedPath!.id,
+      orElse: () => throw StateError('해당 교체 경로를 교체 리스트에서 찾을 수 없습니다'),
+    );
+    
+    // 1. 교체 리스트에서 삭제 (히스토리 관리자 통해)
+    _historyManager.removeFromExchangeList(targetItem.id);
+    
+    // 2. 교체된 셀 목록 강제 업데이트
+    _historyManager.updateExchangedCells();
+    
+    // 3. 콘솔 출력
+    _historyManager.printExchangeList();
+    _historyManager.printUndoHistory();
+    
+    // 4. 교체된 셀 상태 업데이트
+    final exchangedCellKeys = _historyManager.getExchangedCellKeys();
+    widget.dataSource!.updateExchangedCells(exchangedCellKeys);
+    
+    // 5. 캐시 강제 무효화 및 UI 업데이트
+    widget.dataSource!.clearAllCaches();
+    
+    // 6. 모든 선택 상태 초기화 (교체 삭제 후 모든 선택 상태 제거)
+    widget.dataSource!.clearAllSelections();
+    
+    // 7. 내부 선택된 경로 초기화 (삭제 완료 후)
+    _internalSelectedPath = null;
+    
+    // 8. 즉시 UI 업데이트
+    setState(() {});
+    
+    // 9. 추가 UI 리프레시 (다음 프레임에서)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
 
   /// 교체 실행 기능
   void _executeExchange() {
-    if (widget.selectedExchangePath == null) return;
+    if (currentSelectedPath == null) return;
     
     // 1. 교체 실행 (히스토리 관리자 통해)
     _historyManager.executeExchange(
-      widget.selectedExchangePath!,
-      customDescription: '교체 실행: ${widget.selectedExchangePath!.displayTitle}',
+      currentSelectedPath!,
+      customDescription: '교체 실행: ${currentSelectedPath!.displayTitle}',
       additionalMetadata: {
         'executionTime': DateTime.now().toIso8601String(),
         'userAction': 'manual',
@@ -1077,10 +1282,29 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     final exchangedCellKeys = _historyManager.getExchangedCellKeys();
     widget.dataSource!.updateExchangedCells(exchangedCellKeys);
     
-    // 4. 사용자 피드백
+    // 4. 캐시 강제 무효화 및 UI 업데이트
+    widget.dataSource!.clearAllCaches();
+    
+    // 5. 모든 선택 상태 초기화 (교체 완료 후 모든 선택 상태 제거)
+    widget.dataSource!.clearAllSelections();
+    
+    // 6. 내부 선택된 경로 초기화 (교체 완료 후)
+    _internalSelectedPath = null;
+    
+    // 7. 즉시 UI 업데이트
+    setState(() {});
+    
+    // 8. 추가 UI 리프레시 (다음 프레임에서)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+    
+    // 5. 사용자 피드백
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('교체 경로 "${widget.selectedExchangePath!.id}"가 실행되었습니다'),
+        content: Text('교체 경로 "${currentSelectedPath!.id}"가 실행되었습니다'),
         backgroundColor: Colors.blue,
         duration: const Duration(seconds: 3),
         action: SnackBarAction(
@@ -1111,7 +1335,23 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
       final exchangedCellKeys = _historyManager.getExchangedCellKeys();
       widget.dataSource!.updateExchangedCells(exchangedCellKeys);
       
-      // 5. 사용자 피드백
+      // 5. 캐시 강제 무효화 및 UI 업데이트
+      widget.dataSource!.clearAllCaches();
+      
+      // 6. 모든 선택 상태 초기화 (되돌리기 후 모든 선택 상태 제거)
+      widget.dataSource!.clearAllSelections();
+      
+      // 7. 즉시 UI 업데이트
+      setState(() {});
+      
+      // 8. 추가 UI 리프레시 (다음 프레임에서)
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {});
+        }
+      });
+      
+      // 9. 사용자 피드백
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('교체 "${item.description}"가 되돌려졌습니다'),
@@ -1168,7 +1408,23 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     final exchangedCellKeys = _historyManager.getExchangedCellKeys();
     widget.dataSource!.updateExchangedCells(exchangedCellKeys);
     
-    // 5. 사용자 피드백
+    // 5. 캐시 강제 무효화 및 UI 업데이트
+    widget.dataSource!.clearAllCaches();
+    
+    // 6. 모든 선택 상태 초기화 (다시 반복 후 모든 선택 상태 제거)
+    widget.dataSource!.clearAllSelections();
+    
+    // 7. 즉시 UI 업데이트
+    setState(() {});
+    
+    // 8. 추가 UI 리프레시 (다음 프레임에서)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+    
+    // 9. 사용자 피드백
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('교체 "${lastItem.description}"가 다시 실행되었습니다'),
