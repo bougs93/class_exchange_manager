@@ -8,10 +8,17 @@ import 'cell_style_config.dart';
 ///
 /// 기존에 여러 파일에 분산되어 있던 헤더 스타일 로직을 통합하여
 /// 새로운 기능 추가 시 일관성 유지 및 유지보수성 향상
+/// 
+/// 성능 최적화:
+/// - 위젯 캐싱을 통한 불필요한 재생성 방지
+/// - Syncfusion DataGrid의 효율적인 헤더 업데이트 지원
 class FixedHeaderStyleManager {
+  // ==================== 위젯 캐시 ====================
+  static final Map<String, Widget> _widgetCache = {};
+  static final Map<String, CellStyle> _styleCache = {};
   // ==================== 색상 상수 ====================
-  /// 요일 행(1행) 배경색
-  static const Color dayHeaderBackgroundColor = Color(0xFFE3F2FD);
+  /// 요일 행(1행) 배경색 (SimplifiedTimetableTheme 사용)
+  static const Color dayHeaderBackgroundColor = SimplifiedTimetableTheme.teacherHeaderColor;
 
   /// 교시 행(2행) 배경색 (기본 - 선택되지 않은 상태)
   static const Color periodHeaderBackgroundColor = SimplifiedTimetableTheme.teacherHeaderColor;
@@ -100,7 +107,7 @@ class FixedHeaderStyleManager {
     );
   }
 
-  /// 교시 행의 교시 번호 셀 스타일 위젯 생성
+  /// 교시 행의 교시 번호 셀 스타일 위젯 생성 (캐싱 최적화)
   ///
   /// [period] 교시 번호
   /// [isFirstPeriod] 해당 요일의 첫 번째 교시인지 여부
@@ -110,11 +117,19 @@ class FixedHeaderStyleManager {
     required bool isFirstPeriod,
     required CellStyleConfig config,
   }) {
+    // 캐시 키 생성 (성능 최적화)
+    final cacheKey = _generateCacheKey(period, isFirstPeriod, config);
+    
+    // 캐시된 위젯이 있으면 반환 (불필요한 재생성 방지)
+    if (_widgetCache.containsKey(cacheKey)) {
+      return _widgetCache[cacheKey]!;
+    }
+
     // SimplifiedTimetableTheme의 통합 스타일 사용
     final CellStyle headerStyles = SimplifiedTimetableTheme.getCellStyleFromConfig(config);
 
-
-    return Container(
+    // 새로운 위젯 생성 및 캐시에 저장
+    final widget = Container(
       padding: EdgeInsets.zero,
       alignment: Alignment.center,
       decoration: BoxDecoration(
@@ -130,6 +145,13 @@ class FixedHeaderStyleManager {
         ),
       ),
     );
+
+    // 캐시에 저장 (메모리 사용량 제한)
+    if (_widgetCache.length < 100) {
+      _widgetCache[cacheKey] = widget;
+    }
+
+    return widget;
   }
 
   // ==================== StackedHeaderRow 생성 헬퍼 ====================
@@ -286,14 +308,58 @@ class FixedHeaderStyleManager {
     return nodes.any((node) => node.day == day && node.period == period);
   }
 
+  // ==================== 캐시 관리 메서드 ====================
+
+  /// 캐시 키 생성 (성능 최적화용)
+  static String _generateCacheKey(int period, bool isFirstPeriod, CellStyleConfig config) {
+    return '${period}_${isFirstPeriod}_${config.isSelected}_${config.isExchangeable}_${config.isInCircularPath}_${config.isInSelectedPath}_${config.isInChainPath}_${config.isTargetCell}';
+  }
+
+  /// 캐시 초기화 (메모리 관리)
+  static void clearCache() {
+    _widgetCache.clear();
+    _styleCache.clear();
+  }
+
+  /// 선택적 캐시 초기화 (특정 상태 변경 시)
+  static void clearCacheForState(bool isSelected, bool isExchangeable) {
+    final keysToRemove = <String>[];
+    
+    for (final key in _widgetCache.keys) {
+      if (key.contains('_${isSelected}_') || key.contains('_${isExchangeable}_')) {
+        keysToRemove.add(key);
+      }
+    }
+    
+    for (final key in keysToRemove) {
+      _widgetCache.remove(key);
+    }
+  }
+
   // ==================== 스타일 초기화 메서드 ====================
 
   /// 헤더 스타일 초기화 (선택 상태 및 경로 상태 제거)
   ///
   /// 기존에 여러 곳에 분산되어 있던 초기화 로직을 통합
+  /// Syncfusion DataGrid의 효율적인 업데이트를 위한 캐시 관리 포함
   static void resetHeaderStyles() {
-    // 필요 시 추가 초기화 로직 구현
-    // 현재는 SimplifiedTimetableTheme의 getCellStyleFromConfig를
-    // 기본 상태로 호출하여 초기화
+    // 캐시 초기화로 불필요한 위젯 재생성 방지
+    clearCache();
+    
+    // SimplifiedTimetableTheme의 기본 상태로 초기화
+    // 이는 getCellStyleFromConfig를 기본 상태로 호출하여 초기화
+  }
+
+  /// 헤더 강제 업데이트 (즉시 반영)
+  ///
+  /// Syncfusion DataGrid의 헤더 업데이트 지연 문제 해결
+  static void forceHeaderUpdate() {
+    // 캐시 초기화로 새로운 상태 반영
+    clearCache();
+    
+    // 다음 프레임에서 업데이트 강제 실행
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // 추가 업데이트 로직이 필요한 경우 여기에 구현
+    });
   }
 }

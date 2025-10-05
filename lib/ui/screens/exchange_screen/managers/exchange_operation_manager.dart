@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:excel/excel.dart' hide Border;
 import '../../../../services/excel_service.dart';
+import '../../../../services/exchange_history_manager.dart';
 import '../../../../utils/logger.dart';
+import '../../../../utils/non_exchangeable_manager.dart';
 import '../exchange_screen_state_proxy.dart';
 
 /// 파일 선택, 로딩, 교체 모드 전환 등 핵심 비즈니스 로직을 관리하는 Manager
@@ -17,6 +19,12 @@ class ExchangeOperationManager {
   final VoidCallback onClearAllExchangeStates;
   final VoidCallback onRestoreUIToDefault;
   final VoidCallback onRefreshHeaderTheme;
+  
+  // 히스토리 관리자 인스턴스
+  final ExchangeHistoryManager _historyManager = ExchangeHistoryManager();
+  
+  // 교체불가 관리자 인스턴스
+  final NonExchangeableManager _nonExchangeableManager = NonExchangeableManager();
 
   ExchangeOperationManager({
     required this.context,
@@ -114,12 +122,58 @@ class ExchangeOperationManager {
     TimetableData? timetableData = ExcelService.parseTimetableData(excel);
 
     if (timetableData != null) {
+      // 새로운 시간표 데이터 파싱 시 히스토리와 교체리스트 초기화
+      _clearHistoryAndExchangeList();
+      
+      // 교체불가 관리자에 새로운 TimeSlot 데이터 설정
+      _nonExchangeableManager.setTimeSlots(timetableData.timeSlots);
+      
       stateProxy.setTimetableData(timetableData);
       onCreateSyncfusionGridData();
     } else {
       stateProxy.setErrorMessage('시간표 데이터를 파싱할 수 없습니다.');
     }
   }
+
+  /// 히스토리와 교체리스트 초기화 (파일 선택 해제 또는 새로 읽기 시 호출)
+  void _clearHistoryAndExchangeList() {
+    try {
+      // 교체 리스트 전체 삭제
+      _historyManager.clearExchangeList();
+      
+      // 되돌리기 스택도 초기화
+      _historyManager.clearUndoStack();
+      
+      // 모든 교체불가 설정 초기화 (timeslot.isExchangeable = true로 복원)
+      _nonExchangeableManager.resetAllNonExchangeableSettings();
+      
+      AppLogger.exchangeInfo('히스토리, 교체리스트, 교체불가 설정이 모두 초기화되었습니다.');
+    } catch (e) {
+      AppLogger.error('상태 초기화 중 오류 발생: $e');
+    }
+  }
+
+  /// 엑셀 파일 선택 해제 (모든 상태 초기화)
+  void clearSelectedFile() {
+    // 히스토리와 교체리스트 초기화
+    _clearHistoryAndExchangeList();
+    
+    // 파일 관련 상태 초기화
+    stateProxy.setSelectedFile(null);
+    stateProxy.setTimetableData(null);
+    stateProxy.setErrorMessage(null);
+    
+    // 교체 관련 상태 초기화
+    onClearAllExchangeStates();
+    
+    // UI를 기본 상태로 복원
+    onRestoreUIToDefault();
+    
+    AppLogger.exchangeInfo('엑셀 파일 선택이 해제되고 모든 상태가 초기화되었습니다.');
+  }
+
+  /// 교체불가 관리자 접근 (외부에서 사용)
+  NonExchangeableManager get nonExchangeableManager => _nonExchangeableManager;
 
   // ===== 교체 모드 관리 =====
 

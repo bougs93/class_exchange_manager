@@ -14,6 +14,8 @@ import '../../utils/timetable_data_source.dart';
 import '../../utils/syncfusion_timetable_helper.dart';
 import '../../utils/logger.dart';
 import '../../utils/day_utils.dart';
+import '../../utils/non_exchangeable_manager.dart';
+import '../../utils/fixed_header_style_manager.dart';
 import '../../models/exchange_path.dart';
 import '../../models/exchange_mode.dart';
 import '../../models/one_to_one_exchange_path.dart';
@@ -212,6 +214,12 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
   /// Excel 파일 선택 (OperationManager 위임)
   Future<void> selectExcelFile() => _operationManager.selectExcelFile();
+
+  /// 엑셀 파일 선택 해제 (OperationManager 위임)
+  void clearSelectedFile() => _operationManager.clearSelectedFile();
+
+  /// 교체불가 관리자 접근 (OperationManager 위임)
+  NonExchangeableManager get nonExchangeableManager => _operationManager.nonExchangeableManager;
 
   /// 1:1 교체 모드 토글 (OperationManager 위임)
   void toggleExchangeMode() => _operationManager.toggleExchangeMode();
@@ -446,7 +454,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       );
     }
     
-    // 선택된 요일과 교시 결정 (1:1 교체, 순환교체, 연쇄교체 모드, 또는 보기 모드에 따라)
+    // 선택된 요일과 교시 결정 (1:1 교체, 순환교체, 연쇄교체 모드, 또는 모든 모드에서 교체 리스트 셀 선택에 따라)
     String? selectedDay;
     int? selectedPeriod;
     
@@ -462,8 +470,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       // 연쇄교체 모드
       selectedDay = chainExchangeService.nodeADay;
       selectedPeriod = chainExchangeService.nodeAPeriod;
-    } else if (ref.read(exchangeScreenProvider).currentMode == ExchangeMode.view) {
-      // 보기 모드에서 교체 리스트 셀 선택 시 헤더 색상 변경
+    } else {
+      // 모든 모드에서 교체 리스트 셀 선택 시 헤더 색상 변경 (보기 모드뿐만 아니라 다른 모드에서도)
       // TimetableDataSource에서 선택된 경로 확인 (TimetableGridSection에서 설정한 경로)
       final dataSourceCircularPath = _dataSource?.getSelectedCircularPath();
       final dataSourceOneToOnePath = _dataSource?.getSelectedOneToOnePath();
@@ -865,13 +873,16 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   void _updateHeaderTheme() {
     if (_timetableData == null) return;
     
+    // FixedHeaderStyleManager의 강제 업데이트 사용 (성능 최적화)
+    FixedHeaderStyleManager.forceHeaderUpdate();
+    
     // ExchangeService를 사용하여 교체 가능한 교사 정보 수집
     List<Map<String, dynamic>> exchangeableTeachers = exchangeService.getCurrentExchangeableTeachers(
       _timetableData!.timeSlots,
       _timetableData!.teachers,
     );
     
-    // 선택된 요일과 교시 결정 (1:1 교체, 순환교체, 연쇄교체 모드, 또는 보기 모드에서 교체 리스트 셀 선택에 따라)
+    // 선택된 요일과 교시 결정 (1:1 교체, 순환교체, 연쇄교체 모드, 또는 모든 모드에서 교체 리스트 셀 선택에 따라)
     String? selectedDay;
     int? selectedPeriod;
     
@@ -887,8 +898,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       // 연쇄교체 모드
       selectedDay = chainExchangeService.nodeADay;
       selectedPeriod = chainExchangeService.nodeAPeriod;
-    } else if (ref.read(exchangeScreenProvider).currentMode == ExchangeMode.view) {
-      // 보기 모드에서 교체 리스트 셀 선택 시 헤더 색상 변경
+    } else {
+      // 모든 모드에서 교체 리스트 셀 선택 시 헤더 색상 변경 (보기 모드뿐만 아니라 다른 모드에서도)
       // TimetableDataSource에서 선택된 경로 확인 (TimetableGridSection에서 설정한 경로)
       final dataSourceCircularPath = _dataSource?.getSelectedCircularPath();
       final dataSourceOneToOnePath = _dataSource?.getSelectedOneToOnePath();

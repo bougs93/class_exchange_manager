@@ -45,6 +45,11 @@ class ExchangeHistoryManager {
     _historyService.clearExchangeList();
   }
 
+  /// 되돌리기 스택 초기화
+  void clearUndoStack() {
+    _historyService.clearUndoStack();
+  }
+
   /// 되돌리기 스택 조회
   List<ExchangeHistoryItem> getUndoStack() {
     return _historyService.getUndoStack();

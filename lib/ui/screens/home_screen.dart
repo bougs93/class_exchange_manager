@@ -80,25 +80,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   // 엑셀 파일 선택 해제 메서드
   void _clearSelectedFile() {
-    if (_stateProxy != null) {
-      // 로컬 StateProxy 초기화
-      _stateProxy!.setSelectedFile(null);
-      _stateProxy!.setTimetableData(null);
+    if (_operationManager != null) {
+      // ExchangeOperationManager의 clearSelectedFile 메서드 사용
+      // 이 메서드는 히스토리와 교체리스트도 함께 초기화합니다
+      _operationManager!.clearSelectedFile();
       
       // 글로벌 Provider도 함께 초기화
       final globalNotifier = ref.read(exchangeScreenProvider.notifier);
       globalNotifier.setSelectedFile(null);
       globalNotifier.setTimetableData(null);
       globalNotifier.setDataSource(null);
-      
-      // 상태 초기화
-      final operationManager = _operationManager;
-      if (operationManager != null) {
-        // 교체 상태 초기화 콜백 호출
-        operationManager.onClearAllExchangeStates();
-        operationManager.onRestoreUIToDefault();
-        operationManager.onRefreshHeaderTheme();
-      }
       
       if (mounted) {
         setState(() {});
