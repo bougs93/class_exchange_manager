@@ -83,47 +83,17 @@ class ExchangeScreenViewModel {
     TimetableData? timetableData,
     TimetableDataSource? dataSource,
   ) {
-    if (timetableData == null) return;
+    if (timetableData == null || dataSource == null) return;
 
     final teacherName = getTeacherNameFromCell(details, dataSource);
     final dayPeriodInfo = extractDayPeriodFromColumnName(details);
 
     if (teacherName == null || dayPeriodInfo == null) return;
 
-    final timeSlot = findTimeSlot(
-      teacherName,
-      dayPeriodInfo.day,
-      dayPeriodInfo.period,
-      timetableData,
-    );
-
-    // 토글 방식으로 처리
-    if (timeSlot == null || timeSlot.isEmpty) {
-      // 빈 셀인 경우
-      dataSource?.setCellAsNonExchangeable(
-          teacherName, dayPeriodInfo.day, dayPeriodInfo.period);
-    } else {
-      // 기존 TimeSlot이 있는 경우
-      _toggleTimeSlotExchangeable(timeSlot, teacherName, dayPeriodInfo);
-    }
-  }
-
-  /// TimeSlot의 교체가능 상태 토글
-  void _toggleTimeSlotExchangeable(
-      TimeSlot timeSlot, String teacherName, DayPeriodInfo dayPeriodInfo) {
-    if (!timeSlot.isExchangeable && timeSlot.exchangeReason == '교체불가') {
-      // 교체불가 -> 교체 가능으로 변경
-      timeSlot.isExchangeable = true;
-      timeSlot.exchangeReason = null;
-      AppLogger.exchangeDebug(
-          '교체불가 해제: $teacherName ${dayPeriodInfo.day} ${dayPeriodInfo.period}교시 (${timeSlot.subject})');
-    } else {
-      // 교체 가능 -> 교체불가로 변경
-      timeSlot.isExchangeable = false;
-      timeSlot.exchangeReason = '교체불가';
-      AppLogger.exchangeDebug(
-          '교체불가 설정: $teacherName ${dayPeriodInfo.day} ${dayPeriodInfo.period}교시 (${timeSlot.subject})');
-    }
+    // DataSource의 메서드를 사용하여 일관성 유지
+    // (NonExchangeableManager를 통해 처리되며, 캐시 무효화 및 UI 업데이트 포함)
+    dataSource.setCellAsNonExchangeable(
+        teacherName, dayPeriodInfo.day, dayPeriodInfo.period);
   }
 
   /// 교사명 클릭 시 해당 교사의 모든 시간을 교체가능/교체불가능으로 토글
@@ -132,51 +102,11 @@ class ExchangeScreenViewModel {
     TimetableData? timetableData,
     TimetableDataSource? dataSource,
   ) {
-    if (timetableData == null) return;
+    if (dataSource == null) return;
 
-    // 해당 교사의 모든 TimeSlot 찾기
-    List<TimeSlot> teacherSlots = timetableData.timeSlots
-        .where((slot) => slot.teacher == teacherName)
-        .toList();
-
-    if (teacherSlots.isEmpty) {
-      AppLogger.exchangeDebug('교사 "$teacherName"의 시간표가 없습니다.');
-      return;
-    }
-
-    // 현재 상태 확인 (모두 교체불가인지)
-    bool allNonExchangeable = teacherSlots.every(
-        (slot) => !slot.isExchangeable && slot.exchangeReason == '교체불가');
-
-    // 토글 동작
-    if (allNonExchangeable) {
-      // 모두 교체불가 -> 모두 교체가능으로
-      _setAllSlotsExchangeable(teacherSlots, teacherName);
-    } else {
-      // 일부 또는 전체가 교체가능 -> 모두 교체불가로
-      _setAllSlotsNonExchangeable(teacherSlots, teacherName);
-    }
-
-    // UI 업데이트
-    dataSource?.notifyListeners();
-  }
-
-  /// 모든 슬롯을 교체 가능으로 설정
-  void _setAllSlotsExchangeable(List<TimeSlot> slots, String teacherName) {
-    for (var slot in slots) {
-      slot.isExchangeable = true;
-      slot.exchangeReason = null;
-    }
-    AppLogger.exchangeDebug('교사 "$teacherName"의 모든 시간을 교체 가능으로 설정');
-  }
-
-  /// 모든 슬롯을 교체 불가능으로 설정
-  void _setAllSlotsNonExchangeable(List<TimeSlot> slots, String teacherName) {
-    for (var slot in slots) {
-      slot.isExchangeable = false;
-      slot.exchangeReason = '교체불가';
-    }
-    AppLogger.exchangeDebug('교사 "$teacherName"의 모든 시간을 교체 불가능으로 설정');
+    // DataSource의 메서드를 사용하여 일관성 유지
+    // (NonExchangeableManager를 통해 처리되며, 캐시 무효화 및 UI 업데이트 포함)
+    dataSource.toggleTeacherAllTimes(teacherName);
   }
 
   // ==================== 헬퍼 메서드 ====================

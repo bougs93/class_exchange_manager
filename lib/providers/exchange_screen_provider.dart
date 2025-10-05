@@ -5,6 +5,7 @@ import '../services/excel_service.dart';
 import '../models/circular_exchange_path.dart';
 import '../models/chain_exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
+import '../models/exchange_mode.dart';
 import '../utils/timetable_data_source.dart';
 
 /// ExchangeScreen 상태 클래스
@@ -16,9 +17,7 @@ class ExchangeScreenState {
   final List<StackedHeaderRow> stackedHeaders;
   final bool isLoading;
   final String? errorMessage;
-  final bool isExchangeModeEnabled;
-  final bool isCircularExchangeModeEnabled;
-  final bool isChainExchangeModeEnabled;
+  final ExchangeMode currentMode;
   final List<CircularExchangePath> circularPaths;
   final bool isCircularPathsLoading;
   final double loadingProgress;
@@ -43,9 +42,7 @@ class ExchangeScreenState {
     this.stackedHeaders = const [],
     this.isLoading = false,
     this.errorMessage,
-    this.isExchangeModeEnabled = false,
-    this.isCircularExchangeModeEnabled = false,
-    this.isChainExchangeModeEnabled = false,
+    this.currentMode = ExchangeMode.view,
     this.circularPaths = const [],
     this.isCircularPathsLoading = false,
     this.loadingProgress = 0.0,
@@ -71,9 +68,7 @@ class ExchangeScreenState {
     List<StackedHeaderRow>? stackedHeaders,
     bool? isLoading,
     String? Function()? errorMessage,
-    bool? isExchangeModeEnabled,
-    bool? isCircularExchangeModeEnabled,
-    bool? isChainExchangeModeEnabled,
+    ExchangeMode? currentMode,
     List<CircularExchangePath>? circularPaths,
     bool? isCircularPathsLoading,
     double? loadingProgress,
@@ -99,12 +94,7 @@ class ExchangeScreenState {
       stackedHeaders: stackedHeaders ?? this.stackedHeaders,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage != null ? errorMessage() : this.errorMessage,
-      isExchangeModeEnabled:
-          isExchangeModeEnabled ?? this.isExchangeModeEnabled,
-      isCircularExchangeModeEnabled: isCircularExchangeModeEnabled ??
-          this.isCircularExchangeModeEnabled,
-      isChainExchangeModeEnabled:
-          isChainExchangeModeEnabled ?? this.isChainExchangeModeEnabled,
+      currentMode: currentMode ?? this.currentMode,
       circularPaths: circularPaths ?? this.circularPaths,
       isCircularPathsLoading:
           isCircularPathsLoading ?? this.isCircularPathsLoading,
@@ -157,16 +147,8 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
     state = state.copyWith(errorMessage: () => message);
   }
 
-  void setExchangeModeEnabled(bool enabled) {
-    state = state.copyWith(isExchangeModeEnabled: enabled);
-  }
-
-  void setCircularExchangeModeEnabled(bool enabled) {
-    state = state.copyWith(isCircularExchangeModeEnabled: enabled);
-  }
-
-  void setChainExchangeModeEnabled(bool enabled) {
-    state = state.copyWith(isChainExchangeModeEnabled: enabled);
+  void setCurrentMode(ExchangeMode mode) {
+    state = state.copyWith(currentMode: mode);
   }
 
   void setCircularPaths(List<CircularExchangePath> paths) {
@@ -225,6 +207,25 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
     state = state.copyWith(selectedDay: () => day);
   }
 
+  /// 교체 모드 활성화 상태 설정
+  void setExchangeModeEnabled(bool enabled) {
+    // 1대1 교체 모드 활성화/비활성화 로직
+    // 필요시 추가 상태 필드나 로직을 구현할 수 있습니다
+  }
+
+  /// 순환 교체 모드 활성화 상태 설정
+  void setCircularExchangeModeEnabled(bool enabled) {
+    // 순환 교체 모드 활성화/비활성화 로직
+    // 필요시 추가 상태 필드나 로직을 구현할 수 있습니다
+  }
+
+  /// 체인 교체 모드 활성화 상태 설정
+  void setChainExchangeModeEnabled(bool enabled) {
+    // 체인 교체 모드 활성화/비활성화 로직
+    // 필요시 추가 상태 필드나 로직을 구현할 수 있습니다
+  }
+
+  /// 교체불가 편집 모드 설정
   void setNonExchangeableEditMode(bool enabled) {
     state = state.copyWith(isNonExchangeableEditMode: enabled);
   }

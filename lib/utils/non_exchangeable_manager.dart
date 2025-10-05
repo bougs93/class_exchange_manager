@@ -52,7 +52,7 @@ class NonExchangeableManager {
   /// 특정 교사의 모든 TimeSlot을 교체불가로 설정
   void setTeacherAsNonExchangeable(String teacherName) {
     int modifiedCount = 0;
-    
+
     for (var timeSlot in _timeSlots) {
       if (timeSlot.teacher == teacherName && timeSlot.isNotEmpty) {
         timeSlot.isExchangeable = false;
@@ -60,9 +60,43 @@ class NonExchangeableManager {
         modifiedCount++;
       }
     }
-    
+
     if (modifiedCount > 0) {
       AppLogger.exchangeDebug('교사 교체불가 설정: $teacherName ($modifiedCount개 셀)');
+    }
+  }
+
+  /// 특정 교사의 모든 TimeSlot을 교체가능/교체불가로 토글
+  void toggleTeacherAllTimes(String teacherName) {
+    // 해당 교사의 모든 TimeSlot 찾기
+    List<TimeSlot> teacherSlots = _timeSlots
+        .where((slot) => slot.teacher == teacherName)
+        .toList();
+
+    if (teacherSlots.isEmpty) {
+      AppLogger.exchangeDebug('교사 "$teacherName"의 시간표가 없습니다.');
+      return;
+    }
+
+    // 현재 상태 확인 (모두 교체불가인지)
+    bool allNonExchangeable = teacherSlots.every(
+        (slot) => !slot.isExchangeable && slot.exchangeReason == '교체불가');
+
+    // 토글 동작
+    if (allNonExchangeable) {
+      // 모두 교체불가 -> 모두 교체가능으로
+      for (var slot in teacherSlots) {
+        slot.isExchangeable = true;
+        slot.exchangeReason = null;
+      }
+      AppLogger.exchangeDebug('교사 "$teacherName"의 모든 시간을 교체 가능으로 설정');
+    } else {
+      // 일부 또는 전체가 교체가능 -> 모두 교체불가로
+      for (var slot in teacherSlots) {
+        slot.isExchangeable = false;
+        slot.exchangeReason = '교체불가';
+      }
+      AppLogger.exchangeDebug('교사 "$teacherName"의 모든 시간을 교체 불가능으로 설정');
     }
   }
 

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../../../models/exchange_path.dart';
+import '../../../../models/exchange_mode.dart';
 import '../../../../services/excel_service.dart';
 import '../../../../utils/timetable_data_source.dart';
 import '../../../../providers/exchange_screen_provider.dart';
-import '../../../widgets/file_selection_section.dart';
+import '../../../widgets/exchange_control_panel.dart';
 import '../../../widgets/timetable_grid_section.dart';
 
 /// 시간표 탭 컨텐츠 위젯
@@ -17,15 +18,13 @@ class TimetableTabContent extends StatelessWidget {
   final GlobalKey<State<TimetableGridSection>> timetableGridKey;
 
   // 콜백 함수들
-  final VoidCallback onToggleExchangeMode;
-  final VoidCallback onToggleCircularExchangeMode;
-  final VoidCallback onToggleChainExchangeMode;
-  final VoidCallback onToggleNonExchangeableEditMode;
+  final void Function(ExchangeMode) onModeChanged;
   final void Function(DataGridCellTapDetails) onCellTap;
   final int Function() getActualExchangeableCount;
   final ExchangePath? Function() getCurrentSelectedPath;
   final Widget Function(String?, VoidCallback) buildErrorMessageSection;
   final VoidCallback onClearError;
+  final VoidCallback? onHeaderThemeUpdate; // 헤더 테마 업데이트 콜백
 
   const TimetableTabContent({
     super.key,
@@ -35,64 +34,55 @@ class TimetableTabContent extends StatelessWidget {
     required this.columns,
     required this.stackedHeaders,
     required this.timetableGridKey,
-    required this.onToggleExchangeMode,
-    required this.onToggleCircularExchangeMode,
-    required this.onToggleChainExchangeMode,
-    required this.onToggleNonExchangeableEditMode,
+    required this.onModeChanged,
     required this.onCellTap,
     required this.getActualExchangeableCount,
     required this.getCurrentSelectedPath,
     required this.buildErrorMessageSection,
     required this.onClearError,
+    this.onHeaderThemeUpdate, // 헤더 테마 업데이트 콜백
   });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          // 파일 선택 섹션
-          FileSelectionSection(
-            selectedFile: state.selectedFile,
-            isLoading: state.isLoading,
-            isExchangeModeEnabled: state.isExchangeModeEnabled,
-            isCircularExchangeModeEnabled: state.isCircularExchangeModeEnabled,
-            isChainExchangeModeEnabled: state.isChainExchangeModeEnabled,
-            isNonExchangeableEditMode: state.isNonExchangeableEditMode,
-            onToggleExchangeMode: onToggleExchangeMode,
-            onToggleCircularExchangeMode: onToggleCircularExchangeMode,
-            onToggleChainExchangeMode: onToggleChainExchangeMode,
-            onToggleNonExchangeableEditMode: onToggleNonExchangeableEditMode,
+    return Column(
+      children: [
+        // 교체 제어 패널
+        ExchangeControlPanel(
+          selectedFile: state.selectedFile,
+          isLoading: state.isLoading,
+          currentMode: state.currentMode,
+          onModeChanged: onModeChanged,
+        ),
+
+        // 시간표 그리드 표시 섹션 (TabBar와 바로 붙이기 위해 간격 제거)
+        if (timetableData != null)
+          Expanded(
+            child: TimetableGridSection(
+              key: timetableGridKey,
+              timetableData: timetableData,
+              dataSource: dataSource,
+              columns: columns,
+              stackedHeaders: stackedHeaders,
+              isExchangeModeEnabled: state.currentMode == ExchangeMode.oneToOneExchange,
+              isCircularExchangeModeEnabled: state.currentMode == ExchangeMode.circularExchange,
+              isChainExchangeModeEnabled: state.currentMode == ExchangeMode.chainExchange,
+              exchangeableCount: getActualExchangeableCount(),
+              onCellTap: onCellTap,
+              selectedExchangePath: getCurrentSelectedPath(),
+              onHeaderThemeUpdate: onHeaderThemeUpdate, // 헤더 테마 업데이트 콜백 전달
+            ),
+          )
+        else
+          const Expanded(child: SizedBox.shrink()),
+
+        // 오류 메시지 표시
+        if (state.errorMessage != null)
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: buildErrorMessageSection(state.errorMessage, onClearError),
           ),
-
-          const SizedBox(height: 24),
-
-          // 시간표 그리드 표시 섹션
-          if (timetableData != null)
-            Expanded(
-              child: TimetableGridSection(
-                key: timetableGridKey,
-                timetableData: timetableData,
-                dataSource: dataSource,
-                columns: columns,
-                stackedHeaders: stackedHeaders,
-                isExchangeModeEnabled: state.isExchangeModeEnabled,
-                isCircularExchangeModeEnabled: state.isCircularExchangeModeEnabled,
-                isChainExchangeModeEnabled: state.isChainExchangeModeEnabled,
-                exchangeableCount: getActualExchangeableCount(),
-                onCellTap: onCellTap,
-                selectedExchangePath: getCurrentSelectedPath(),
-              ),
-            )
-          else
-            const Expanded(child: SizedBox.shrink()),
-
-          // 오류 메시지 표시
-          if (state.errorMessage != null)
-            buildErrorMessageSection(state.errorMessage, onClearError),
-        ],
-      ),
+      ],
     );
   }
 }

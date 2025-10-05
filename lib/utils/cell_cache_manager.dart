@@ -38,11 +38,18 @@ class CellCacheManager {
     Map<String, bool> cache = _caches[cacheType]!;
 
     if (cache.containsKey(key)) {
+      // 캐시 히트 - 성능 최적화 확인용 로그 (필요시 제거)
+      // print('[CellCacheManager] 캐시 히트: ${cacheType.name} - $key');
       return cache[key]!;
     }
 
+    // 캐시 미스 - 실제 계산 수행
     bool result = checker();
     cache[key] = result;
+    
+    // 캐시 미스 로그 (디버깅용, 필요시 제거)
+    // print('[CellCacheManager] 캐시 미스: ${cacheType.name} - $key = $result');
+    
     return result;
   }
 

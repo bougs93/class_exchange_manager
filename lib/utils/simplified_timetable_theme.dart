@@ -29,7 +29,7 @@ class SimplifiedTimetableTheme {
   static const double dayHeaderBorderWidth = 2.0; // 요일 헤더 왼쪽 경계선 두께
   
   // 선택된 셀 색상 (마우스 클릭, 교체할 셀 선택시)
-  static const Color selectedColorLight = Color.fromARGB(255, 255, 255, 0); // 노란색
+  static const Color selectedColorLight = Color(0xFF81C784); // 연한 녹색 (헤더에서 더 명확하게 보임)
   static const Color exchangeableColorLight = Color(0xFFE0E0E0);
   static const Color selectedColorDark = Color(0xFF1976D2);
   // 선택된 셀 테두리 색상 상수

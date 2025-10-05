@@ -358,21 +358,21 @@ class TimetableDataSource extends DataGridSource {
   /// 선택된 순환교체 경로 업데이트
   void updateSelectedCircularPath(CircularExchangePath? path) {
     _stateManager.updateSelectedCircularPath(path);
-    _cacheManager.clearAllCaches();
+    _cacheManager.clearAllCaches(); // 캐시 무효화로 색상 상태 완전 초기화
     notifyListeners();
   }
   
   /// 선택된 1:1 교체 경로 업데이트
   void updateSelectedOneToOnePath(OneToOneExchangePath? path) {
     _stateManager.updateSelectedOneToOnePath(path);
-    _cacheManager.clearAllCaches();
+    _cacheManager.clearAllCaches(); // 캐시 무효화로 색상 상태 완전 초기화
     notifyListeners();
   }
   
   /// 선택된 연쇄교체 경로 업데이트
   void updateSelectedChainPath(ChainExchangePath? path) {
     _stateManager.updateSelectedChainPath(path);
-    _cacheManager.clearAllCaches();
+    _cacheManager.clearAllCaches(); // 캐시 무효화로 색상 상태 완전 초기화
     notifyListeners();
   }
   
@@ -411,11 +411,19 @@ class TimetableDataSource extends DataGridSource {
     _onDataChanged?.call();
   }
 
+  /// 특정 교사의 모든 TimeSlot을 교체가능/교체불가로 토글
+  void toggleTeacherAllTimes(String teacherName) {
+    _nonExchangeableManager.toggleTeacherAllTimes(teacherName);
+    _cacheManager.clearAllCaches(); // 캐시 무효화
+    notifyDataSourceListeners(); // Syncfusion DataGrid를 위한 notifyDataSourceListeners 사용
+    _onDataChanged?.call();
+  }
+
   /// 특정 셀을 교체불가로 설정 또는 해제 (토글 방식, 빈 셀 포함)
   void setCellAsNonExchangeable(String teacherName, String day, int period) {
     _nonExchangeableManager.setCellAsNonExchangeable(teacherName, day, period);
     _cacheManager.clearAllCaches(); // 캐시 무효화 추가
-    notifyListeners();
+    notifyDataSourceListeners(); // Syncfusion DataGrid를 위한 notifyDataSourceListeners 사용
     _onDataChanged?.call();
   }
 
@@ -430,6 +438,14 @@ class TimetableDataSource extends DataGridSource {
   /// 모든 캐시 초기화 (외부에서 호출 가능)
   void clearAllCaches() {
     _cacheManager.clearAllCaches();
+    notifyListeners();
+    _onDataChanged?.call();
+  }
+
+  /// 데이터 변경 알림 (외부에서 호출 가능)
+  void notifyDataChanged() {
+    // 캐시 초기화는 실제로 데이터가 변경된 경우에만 수행
+    // 단순 UI 업데이트의 경우 캐시를 유지하여 성능 향상
     notifyListeners();
     _onDataChanged?.call();
   }
@@ -457,4 +473,25 @@ class TimetableDataSource extends DataGridSource {
 
   /// TimeSlot 리스트 접근자 (동기화용)
   List<TimeSlot> get timeSlots => _timeSlots;
+  
+  /// 선택된 순환교체 경로 접근자 (보기 모드용)
+  CircularExchangePath? getSelectedCircularPath() {
+    return _stateManager.getSelectedCircularPath();
+  }
+  
+  /// 선택된 1:1 교체 경로 접근자 (보기 모드용)
+  OneToOneExchangePath? getSelectedOneToOnePath() {
+    return _stateManager.getSelectedOneToOnePath();
+  }
+  
+  /// 선택된 연쇄교체 경로 접근자 (보기 모드용)
+  ChainExchangePath? getSelectedChainPath() {
+    return _stateManager.getSelectedChainPath();
+  }
+
+  /// 타겟 셀의 요일 반환 (보기 모드용)
+  String? get targetDay => _stateManager.targetDay;
+
+  /// 타겟 셀의 교시 반환 (보기 모드용)
+  int? get targetPeriod => _stateManager.targetPeriod;
 }

@@ -38,6 +38,12 @@ class CellStateManager {
     _targetDay = day;
     _targetPeriod = period;
   }
+
+  /// 타겟 셀의 요일 반환
+  String? get targetDay => _targetDay;
+
+  /// 타겟 셀의 교시 반환
+  int? get targetPeriod => _targetPeriod;
   
   /// 교체 가능한 교사 정보 업데이트
   void updateExchangeableTeachers(List<Map<String, dynamic>> exchangeableTeachers) {
@@ -209,6 +215,21 @@ class CellStateManager {
   bool isCellExchanged(String teacherName, String day, int period) {
     final cellKey = '${teacherName}_${day}_$period';
     return _exchangedCells.contains(cellKey);
+  }
+  
+  /// 선택된 순환교체 경로 접근자 (보기 모드용)
+  CircularExchangePath? getSelectedCircularPath() {
+    return _selectedCircularPath;
+  }
+  
+  /// 선택된 1:1 교체 경로 접근자 (보기 모드용)
+  OneToOneExchangePath? getSelectedOneToOnePath() {
+    return _selectedOneToOnePath;
+  }
+  
+  /// 선택된 연쇄교체 경로 접근자 (보기 모드용)
+  ChainExchangePath? getSelectedChainPath() {
+    return _selectedChainPath;
   }
   
   /// 교체된 셀 목록 초기화

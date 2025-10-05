@@ -31,7 +31,8 @@ class TimetableGridSection extends StatefulWidget {
   final Function(DataGridCellTapDetails) onCellTap;
   final ExchangePath? selectedExchangePath; // 선택된 교체 경로 (모든 타입 지원)
   final ExchangeArrowStyle? customArrowStyle; // 커스텀 화살표 스타일
-
+  final VoidCallback? onHeaderThemeUpdate; // 헤더 테마 업데이트 콜백
+  
   const TimetableGridSection({
     super.key,
     required this.timetableData,
@@ -45,6 +46,7 @@ class TimetableGridSection extends StatefulWidget {
     required this.onCellTap,
     this.selectedExchangePath, // 선택된 교체 경로 (모든 타입 지원)
     this.customArrowStyle, // 커스텀 화살표 스타일
+    this.onHeaderThemeUpdate, // 헤더 테마 업데이트 콜백
   });
 
   @override
@@ -1139,10 +1141,18 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
   
   /// 교체 경로 선택 처리
   void _selectExchangePath(ExchangePath exchangePath) {
-    // 내부 선택된 경로 설정
+    // 1. 먼저 모든 기존 교체 경로 선택 해제 (색상 초기화)
+    widget.dataSource!.updateSelectedOneToOnePath(null);
+    widget.dataSource!.updateSelectedCircularPath(null);
+    widget.dataSource!.updateSelectedChainPath(null);
+    
+    // 2. 캐시 무효화하여 색상 상태 완전 초기화
+    widget.dataSource!.clearAllCaches();
+    
+    // 3. 내부 선택된 경로 설정
     _internalSelectedPath = exchangePath;
     
-    // 교체 경로 타입에 따라 적절한 메서드 호출
+    // 4. 새로운 교체 경로 타입에 따라 적절한 메서드 호출
     if (exchangePath is OneToOneExchangePath) {
       widget.dataSource!.updateSelectedOneToOnePath(exchangePath);
     } else if (exchangePath is CircularExchangePath) {
@@ -1151,7 +1161,10 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
       widget.dataSource!.updateSelectedChainPath(exchangePath);
     }
     
-    // UI 업데이트 (화살표 표시)
+    // 5. 헤더 테마 업데이트 (보기 모드에서 교체 리스트 셀 선택 시 헤더 색상 변경)
+    widget.onHeaderThemeUpdate?.call();
+    
+    // 6. UI 업데이트 (화살표 표시 및 색상 적용)
     setState(() {
       // 화살표를 다시 그리기 위해 상태 업데이트
     });
@@ -1159,18 +1172,48 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
   
   /// 교체 경로 선택 해제 (화살표 숨기기)
   void _clearExchangePathSelection() {
-    // 내부 선택된 경로 해제
+    // 1. 내부 선택된 경로 해제
     _internalSelectedPath = null;
     
-    // 데이터 소스에서 모든 교체 경로 선택 해제
+    // 2. 데이터 소스에서 모든 교체 경로 선택 해제
     widget.dataSource!.updateSelectedOneToOnePath(null);
     widget.dataSource!.updateSelectedCircularPath(null);
     widget.dataSource!.updateSelectedChainPath(null);
     
-    // UI 업데이트 (화살표 숨기기)
+    // 3. 캐시 무효화하여 색상 상태 완전 초기화
+    widget.dataSource!.clearAllCaches();
+    
+    // 4. 헤더 테마 업데이트 (교체 경로 선택 해제 시 헤더 색상 초기화)
+    widget.onHeaderThemeUpdate?.call();
+    
+    // 5. UI 업데이트 (화살표 숨기기 및 색상 초기화)
     setState(() {
       // 화살표를 숨기기 위해 상태 업데이트
     });
+  }
+
+  /// 모드 전환 시 모든 화살표 상태 초기화 (외부에서 호출 가능)
+  void clearAllArrowStates() {
+    // 1. 내부 선택된 경로 해제
+    _internalSelectedPath = null;
+    
+    // 2. 데이터 소스에서 모든 교체 경로 선택 해제
+    widget.dataSource?.updateSelectedOneToOnePath(null);
+    widget.dataSource?.updateSelectedCircularPath(null);
+    widget.dataSource?.updateSelectedChainPath(null);
+    
+    // 3. 캐시 무효화하여 색상 상태 완전 초기화
+    widget.dataSource?.clearAllCaches();
+    
+    // 4. 헤더 테마 업데이트 (모드 전환 시 헤더 색상 초기화)
+    widget.onHeaderThemeUpdate?.call();
+    
+    // 5. UI 업데이트 (화살표 숨기기 및 색상 초기화)
+    if (mounted) {
+      setState(() {
+        // 화살표를 숨기기 위해 상태 업데이트
+      });
+    }
   }
   
   /// 셀 탭 이벤트 처리

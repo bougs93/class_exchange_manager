@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../providers/exchange_screen_provider.dart';
+import '../../../../models/exchange_mode.dart';
 
 /// 교체 화면 AppBar 위젯
 class ExchangeAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -20,7 +21,7 @@ class ExchangeAppBar extends StatelessWidget implements PreferredSizeWidget {
       elevation: 0,
       actions: [
         // 순환교체 사이드바 토글 버튼
-        if (state.isCircularExchangeModeEnabled &&
+        if (state.currentMode == ExchangeMode.circularExchange &&
             (state.circularPaths.isNotEmpty || state.isCircularPathsLoading))
           _buildSidebarToggleButton(
             isLoading: state.isCircularPathsLoading,
@@ -30,7 +31,7 @@ class ExchangeAppBar extends StatelessWidget implements PreferredSizeWidget {
           ),
 
         // 1:1 교체 사이드바 토글 버튼
-        if (state.isExchangeModeEnabled && state.oneToOnePaths.isNotEmpty)
+        if (state.currentMode.isExchangeMode && state.oneToOnePaths.isNotEmpty)
           _buildSidebarToggleButton(
             isLoading: false,
             pathCount: state.oneToOnePaths.length,

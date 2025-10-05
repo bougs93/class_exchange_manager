@@ -1,0 +1,299 @@
+import 'package:flutter/material.dart';
+import 'package:syncfusion_flutter_datagrid/datagrid.dart';
+import 'simplified_timetable_theme.dart';
+import 'constants.dart';
+import 'cell_style_config.dart';
+
+/// 시간표 테이블의 고정 헤더(1행: 요일, 2행: 교시) 스타일 통합 관리 클래스
+///
+/// 기존에 여러 파일에 분산되어 있던 헤더 스타일 로직을 통합하여
+/// 새로운 기능 추가 시 일관성 유지 및 유지보수성 향상
+class FixedHeaderStyleManager {
+  // ==================== 색상 상수 ====================
+  /// 요일 행(1행) 배경색
+  static const Color dayHeaderBackgroundColor = Color(0xFFE3F2FD);
+
+  /// 교시 행(2행) 배경색 (기본 - 선택되지 않은 상태)
+  static const Color periodHeaderBackgroundColor = SimplifiedTimetableTheme.teacherHeaderColor;
+
+  // ==================== 외곽선 상수 ====================
+  /// 일반 외곽선
+  static const BorderSide normalBorder = BorderSide(
+    color: SimplifiedTimetableTheme.normalBorderColor,
+    width: SimplifiedTimetableTheme.normalBorderWidth,
+  );
+
+  /// 요일 구분선 (두꺼운 외곽선)
+  static const BorderSide dayDividerBorder = BorderSide(
+    color: SimplifiedTimetableTheme.dayHeaderBorderColor,
+    width: SimplifiedTimetableTheme.dayHeaderBorderWidth,
+  );
+
+  // ==================== 요일 행(1행) 스타일 ====================
+
+  /// 요일 행의 빈 셀(교사명 위치) 스타일 위젯 생성
+  static Widget buildEmptyDayHeaderCell() {
+    return Container(
+      padding: EdgeInsets.zero,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: dayHeaderBackgroundColor,
+        border: Border(
+          right: normalBorder,
+          bottom: normalBorder,
+        ),
+      ),
+      child: Text(
+        '',
+        style: TextStyle(
+          fontSize: AppConstants.headerFontSize * SimplifiedTimetableTheme.fontScaleFactor,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  /// 요일 행의 요일 셀 스타일 위젯 생성
+  static Widget buildDayHeaderCell(String dayName) {
+    return Container(
+      padding: EdgeInsets.zero,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: dayHeaderBackgroundColor,
+        border: Border(
+          left: dayDividerBorder,
+          right: normalBorder,
+          bottom: normalBorder,
+        ),
+      ),
+      child: Text(
+        dayName,
+        style: TextStyle(
+          fontSize: AppConstants.headerFontSize * SimplifiedTimetableTheme.fontScaleFactor,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  // ==================== 교시 행(2행) 스타일 ====================
+
+  /// 교시 행의 교사명 셀("교시" 텍스트) 스타일 위젯 생성
+  static Widget buildTeacherHeaderCell() {
+    return Container(
+      padding: EdgeInsets.zero,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: SimplifiedTimetableTheme.teacherHeaderColor,
+        border: Border(
+          right: normalBorder,
+          bottom: normalBorder,
+        ),
+      ),
+      child: Text(
+        '교시',
+        style: TextStyle(
+          fontSize: AppConstants.headerFontSize * SimplifiedTimetableTheme.fontScaleFactor,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  /// 교시 행의 교시 번호 셀 스타일 위젯 생성
+  ///
+  /// [period] 교시 번호
+  /// [isFirstPeriod] 해당 요일의 첫 번째 교시인지 여부
+  /// [config] 셀 스타일 설정 (선택 상태, 교체 가능 여부 등)
+  static Widget buildPeriodHeaderCell({
+    required int period,
+    required bool isFirstPeriod,
+    required CellStyleConfig config,
+  }) {
+    // SimplifiedTimetableTheme의 통합 스타일 사용
+    final CellStyle headerStyles = SimplifiedTimetableTheme.getCellStyleFromConfig(config);
+
+
+    return Container(
+      padding: EdgeInsets.zero,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: headerStyles.backgroundColor,
+        border: headerStyles.border,
+      ),
+      child: Text(
+        '$period',
+        style: TextStyle(
+          fontSize: AppConstants.headerFontSize * SimplifiedTimetableTheme.fontScaleFactor,
+          fontWeight: FontWeight.bold,
+          color: headerStyles.textStyle.color ?? Colors.black,
+        ),
+      ),
+    );
+  }
+
+  // ==================== StackedHeaderRow 생성 헬퍼 ====================
+
+  /// StackedHeaderRow(요일 행) 생성
+  ///
+  /// [days] 요일 목록
+  /// [groupedData] 요일별 교시 데이터
+  static StackedHeaderRow buildStackedHeaderRow({
+    required List<String> days,
+    required Map<String, Map<int, Map<String, dynamic>>> groupedData,
+  }) {
+    List<StackedHeaderCell> headerCells = [];
+
+    // 교사명 위치의 빈 셀
+    headerCells.add(
+      StackedHeaderCell(
+        child: buildEmptyDayHeaderCell(),
+        columnNames: ['teacher'],
+      ),
+    );
+
+    // 요일별 헤더 셀
+    for (String day in days) {
+      List<int> dayPeriods = (groupedData[day]?.keys.toList() ?? [])..sort();
+      List<String> dayColumnNames = dayPeriods.map((period) => '${day}_$period').toList();
+
+      headerCells.add(
+        StackedHeaderCell(
+          child: buildDayHeaderCell(day),
+          columnNames: dayColumnNames,
+        ),
+      );
+    }
+
+    return StackedHeaderRow(cells: headerCells);
+  }
+
+  // ==================== GridColumn 생성 헬퍼 ====================
+
+  /// GridColumn 리스트 생성 (교사명 열 + 교시 열)
+  ///
+  /// [days] 요일 목록
+  /// [groupedData] 요일별 교시 데이터
+  /// [selectedDay] 선택된 요일
+  /// [selectedPeriod] 선택된 교시
+  /// [targetDay] 타겟 셀의 요일 (보기 모드에서 교체 리스트 선택 시)
+  /// [targetPeriod] 타겟 셀의 교시 (보기 모드에서 교체 리스트 선택 시)
+  /// [exchangeableTeachers] 교체 가능한 교사 정보
+  /// [selectedCircularPath] 순환교체 경로
+  /// [selectedOneToOnePath] 1:1 교체 경로
+  /// [selectedChainPath] 연쇄교체 경로
+  static List<GridColumn> buildGridColumns({
+    required List<String> days,
+    required Map<String, Map<int, Map<String, dynamic>>> groupedData,
+    String? selectedDay,
+    int? selectedPeriod,
+    String? targetDay,
+    int? targetPeriod,
+    List<Map<String, dynamic>>? exchangeableTeachers,
+    dynamic selectedCircularPath,
+    dynamic selectedOneToOnePath,
+    dynamic selectedChainPath,
+  }) {
+    List<GridColumn> columns = [];
+
+    // 교사명 열
+    columns.add(
+      GridColumn(
+        columnName: 'teacher',
+        width: AppConstants.teacherColumnWidth,
+        label: buildTeacherHeaderCell(),
+      ),
+    );
+
+    // 요일별 교시 열
+    for (String day in days) {
+      List<int> dayPeriods = (groupedData[day]?.keys.toList() ?? [])..sort();
+
+      for (int i = 0; i < dayPeriods.length; i++) {
+        int period = dayPeriods[i];
+        bool isFirstPeriod = i == 0;
+        bool isLastPeriod = i == dayPeriods.length - 1;
+
+        // 선택 상태 및 교체 가능 여부 확인
+        bool isSelected = SimplifiedTimetableTheme.isPeriodSelected(
+          day, period, selectedDay, selectedPeriod,
+        );
+        bool isTargetCell = SimplifiedTimetableTheme.isPeriodTarget(
+          day, period, targetDay, targetPeriod,
+        );
+        
+        bool isExchangeablePeriod = _isExchangeablePeriod(
+          day, period, exchangeableTeachers,
+        );
+        bool isInCircularPath = _isPeriodInPath(
+          day, period, selectedCircularPath?.nodes,
+        );
+        bool isInSelectedOneToOnePath = _isPeriodInPath(
+          day, period, selectedOneToOnePath?.nodes,
+        );
+        bool isInChainPath = _isPeriodInPath(
+          day, period, selectedChainPath?.nodes,
+        );
+
+        // CellStyleConfig로 통합 관리
+        final config = CellStyleConfig(
+          isTeacherColumn: false,
+          isSelected: isSelected,
+          isExchangeable: isExchangeablePeriod,
+          isLastColumnOfDay: isLastPeriod,
+          isFirstColumnOfDay: isFirstPeriod,
+          isHeader: true,
+          isInCircularPath: isInCircularPath,
+          isInSelectedPath: isInSelectedOneToOnePath,
+          isInChainPath: isInChainPath,
+          isTargetCell: isTargetCell,
+        );
+
+        columns.add(
+          GridColumn(
+            columnName: '${day}_$period',
+            width: AppConstants.periodColumnWidth,
+            label: buildPeriodHeaderCell(
+              period: period,
+              isFirstPeriod: isFirstPeriod,
+              config: config,
+            ),
+          ),
+        );
+      }
+    }
+
+    return columns;
+  }
+
+  // ==================== 헬퍼 메서드 ====================
+
+  /// 교체 가능한 교시인지 확인
+  static bool _isExchangeablePeriod(
+    String day,
+    int period,
+    List<Map<String, dynamic>>? exchangeableTeachers,
+  ) {
+    if (exchangeableTeachers == null) return false;
+    return exchangeableTeachers.any(
+      (teacher) => teacher['day'] == day && teacher['period'] == period,
+    );
+  }
+
+  /// 경로에 포함된 교시인지 확인
+  static bool _isPeriodInPath(String day, int period, List<dynamic>? nodes) {
+    if (nodes == null) return false;
+    return nodes.any((node) => node.day == day && node.period == period);
+  }
+
+  // ==================== 스타일 초기화 메서드 ====================
+
+  /// 헤더 스타일 초기화 (선택 상태 및 경로 상태 제거)
+  ///
+  /// 기존에 여러 곳에 분산되어 있던 초기화 로직을 통합
+  static void resetHeaderStyles() {
+    // 필요 시 추가 초기화 로직 구현
+    // 현재는 SimplifiedTimetableTheme의 getCellStyleFromConfig를
+    // 기본 상태로 호출하여 초기화
+  }
+}
