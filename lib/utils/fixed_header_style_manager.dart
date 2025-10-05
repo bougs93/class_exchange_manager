@@ -275,6 +275,7 @@ class FixedHeaderStyleManager {
           isInSelectedPath: isInSelectedOneToOnePath,
           isInChainPath: isInChainPath,
           isTargetCell: isTargetCell,
+          headerPosition: '$day$period', // 헤더 위치 정보 추가 (캐시 키 구분용)
         );
 
         columns.add(

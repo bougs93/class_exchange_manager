@@ -471,6 +471,7 @@ class TimetableDataSource extends DataGridSource {
     });
   }
 
+
   /// TimeSlot 리스트 접근자 (동기화용)
   List<TimeSlot> get timeSlots => _timeSlots;
   
