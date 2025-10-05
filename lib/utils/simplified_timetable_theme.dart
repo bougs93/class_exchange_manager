@@ -76,14 +76,7 @@ class SimplifiedTimetableTheme {
   // 교체불가 셀 색상
   static const Color nonExchangeableColor = Color(0xFFFFCDD2); // 연한 빨간색 배경
   
-  
-  
-  
-  
-
-  
-  
-  
+    
   /// 통합된 셀 스타일 생성 (개선된 버전 - CellStyleConfig 사용)
   static CellStyle getCellStyleFromConfig(CellStyleConfig config) {
     return CellStyle(
@@ -126,39 +119,6 @@ class SimplifiedTimetableTheme {
     );
   }
 
-  /// 통합된 셀 스타일 생성 (레거시 버전 - 하위 호환성 유지)
-  @Deprecated('Use getCellStyleFromConfig with CellStyleConfig instead')
-  static CellStyle getCellStyle({
-    required bool isTeacherColumn,
-    required bool isSelected,
-    required bool isExchangeable,
-    required bool isLastColumnOfDay,
-    bool isFirstColumnOfDay = false,
-    bool isHeader = false,
-    bool isInCircularPath = false,
-    int? circularPathStep,
-    bool isInSelectedPath = false,
-    bool isInChainPath = false,
-    int? chainPathStep,
-    bool isTargetCell = false,
-    bool isNonExchangeable = false,
-  }) {
-    return getCellStyleFromConfig(CellStyleConfig(
-      isTeacherColumn: isTeacherColumn,
-      isSelected: isSelected,
-      isExchangeable: isExchangeable,
-      isLastColumnOfDay: isLastColumnOfDay,
-      isFirstColumnOfDay: isFirstColumnOfDay,
-      isHeader: isHeader,
-      isInCircularPath: isInCircularPath,
-      circularPathStep: circularPathStep,
-      isInSelectedPath: isInSelectedPath,
-      isInChainPath: isInChainPath,
-      chainPathStep: chainPathStep,
-      isTargetCell: isTargetCell,
-      isNonExchangeable: isNonExchangeable,
-    ));
-  }
   
   /// 배경색 결정
   static Color _getBackgroundColor({
