@@ -181,11 +181,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     viewModel.setCellAsNonExchangeable(details, _timetableData, _dataSource);
 
     // DataGrid 강제 업데이트 (캐시 무효화 및 재렌더링)
-    if (mounted) {
-      setState(() {
-        _dataSource?.notifyDataChanged();
-      });
-    }
+    _dataSource?.notifyDataChanged();
   }
 
   /// 셀에서 교사명 추출 (ViewModel 위임)
@@ -203,11 +199,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     viewModel.toggleTeacherAllTimes(teacherName, _timetableData, _dataSource);
 
     // DataGrid 강제 업데이트 (캐시 무효화 및 재렌더링)
-    if (mounted) {
-      setState(() {
-        _dataSource?.notifyDataChanged();
-      });
-    }
+    _dataSource?.notifyDataChanged();
   }
 
   // ===== Manager 위임 메서드 (Mixin 대체) =====
@@ -513,9 +505,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     
     // 데이터 변경 시 UI 업데이트 콜백 설정
     _dataSource?.setOnDataChanged(() {
-      if (mounted) {
-        setState(() {});
-      }
+      // notifyListeners()가 자동으로 호출되므로 별도의 setState() 불필요
     });
     
     // 교체불가 편집 모드 상태를 TimetableDataSource에 전달
@@ -870,10 +860,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       }
     }
     
-    // UI 즉시 업데이트
-    if (mounted) {
-      setState(() {});
-    }
+    // UI 업데이트는 notifyListeners()로 처리됨
   }
   
   
@@ -957,18 +944,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     _columns = result.columns; // 헤더만 업데이트
     _stackedHeaders = result.stackedHeaders; // 스택 헤더도 함께 업데이트 (요일 행 포함)
     
-    // Syncfusion DataGrid 헤더 캐싱 문제 해결을 위한 최적화된 새로고침
-    if (mounted) {
-      // 1단계: 즉시 UI 갱신
-      setState(() {});
-      
-      // 2단계: 다음 프레임에서 추가 갱신 (Syncfusion 캐싱 문제 해결)
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() {});
-        }
-      });
-    }
+    // TimetableDataSource의 notifyListeners를 통한 직접 UI 업데이트
+    _dataSource?.notifyListeners();
   }
 
 
