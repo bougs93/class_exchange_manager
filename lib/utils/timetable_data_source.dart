@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../models/time_slot.dart';
 import '../models/teacher.dart';
@@ -26,6 +25,7 @@ class CellStateInfo {
   final bool isInChainPath;
   final int? chainPathStep;
   final bool isNonExchangeable;
+  final bool isExchanged; // 교체된 셀인지 여부
 
   CellStateInfo({
     required this.isSelected,
@@ -39,6 +39,7 @@ class CellStateInfo {
     required this.isInChainPath,
     this.chainPathStep,
     required this.isNonExchangeable,
+    required this.isExchanged,
   });
 
   factory CellStateInfo.empty() {
@@ -54,6 +55,7 @@ class CellStateInfo {
       isInChainPath: false,
       chainPathStep: null,
       isNonExchangeable: false,
+      isExchanged: false,
     );
   }
 }
@@ -212,6 +214,7 @@ class TimetableDataSource extends DataGridSource {
           chainPathStep: cellState.chainPathStep,
           isTargetCell: cellState.isTargetCell,
           isNonExchangeable: cellState.isNonExchangeable,
+          isExchanged: cellState.isExchanged,
         );
       }).toList(),
     );
@@ -248,6 +251,7 @@ class TimetableDataSource extends DataGridSource {
       isInChainPath: _stateManager.isTeacherInChainPath(teacherName),
       isInSelectedPath: _stateManager.isInSelectedOneToOnePath(teacherName),
       isNonExchangeable: false,
+      isExchanged: false, // 교사명 열은 교체된 셀 상태 적용 안함
       isTargetCell: false,
       isLastColumnOfDay: false,
       isFirstColumnOfDay: false,
@@ -292,6 +296,7 @@ class TimetableDataSource extends DataGridSource {
         teacherName, day, period,
         () => _nonExchangeableManager.isNonExchangeableTimeSlot(teacherName, day, period)
       ),
+      isExchanged: _stateManager.isCellExchanged(teacherName, day, period),
       isLastColumnOfDay: _isLastColumnOfDay(day, period),
       isFirstColumnOfDay: _isFirstColumnOfDay(day, period),
       circularPathStep: _stateManager.getCircularPathStep(teacherName, day, period),
@@ -424,6 +429,14 @@ class TimetableDataSource extends DataGridSource {
 
   /// 모든 캐시 초기화 (외부에서 호출 가능)
   void clearAllCaches() {
+    _cacheManager.clearAllCaches();
+    notifyListeners();
+    _onDataChanged?.call();
+  }
+  
+  /// 교체된 셀 상태 업데이트 (교체 리스트 변경 시 호출)
+  void updateExchangedCells(List<String> exchangedCellKeys) {
+    _stateManager.updateExchangedCells(exchangedCellKeys);
     _cacheManager.clearAllCaches();
     notifyListeners();
     _onDataChanged?.call();

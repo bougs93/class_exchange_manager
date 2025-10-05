@@ -21,6 +21,9 @@ class CellStateManager {
   CircularExchangePath? _selectedCircularPath;
   OneToOneExchangePath? _selectedOneToOnePath;
   ChainExchangePath? _selectedChainPath;
+  
+  // 교체된 셀 관리 (셀 키: "교사명_요일_교시" 형식)
+  final Set<String> _exchangedCells = {};
 
   /// 선택 상태 업데이트
   void updateSelection(String? teacher, String? day, int? period) {
@@ -189,5 +192,27 @@ class CellStateManager {
     return _selectedChainPath!.nodes.any((node) => 
       node.teacherName == teacherName
     );
+  }
+  
+  /// 교체된 셀 목록 업데이트 (교체 리스트 변경 시 호출)
+  void updateExchangedCells(List<String> exchangedCellKeys) {
+    _exchangedCells.clear();
+    _exchangedCells.addAll(exchangedCellKeys);
+  }
+  
+  /// 교체된 셀 목록 가져오기
+  List<String> getExchangedCellKeys() {
+    return _exchangedCells.toList();
+  }
+  
+  /// 특정 셀이 교체된 상태인지 확인
+  bool isCellExchanged(String teacherName, String day, int period) {
+    final cellKey = '${teacherName}_${day}_$period';
+    return _exchangedCells.contains(cellKey);
+  }
+  
+  /// 교체된 셀 목록 초기화
+  void clearExchangedCells() {
+    _exchangedCells.clear();
   }
 }

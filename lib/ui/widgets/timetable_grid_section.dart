@@ -9,6 +9,10 @@ import '../../utils/constants.dart';
 import '../../utils/exchange_visualizer.dart';
 import '../../utils/simplified_timetable_theme.dart';
 import '../../models/exchange_path.dart';
+import '../../models/one_to_one_exchange_path.dart';
+import '../../models/circular_exchange_path.dart';
+import '../../models/chain_exchange_path.dart';
+import '../../services/exchange_history_manager.dart';
 import 'timetable_grid/timetable_grid_constants.dart';
 import 'timetable_grid/exchange_arrow_style.dart';
 import 'timetable_grid/exchange_arrow_painter.dart';
@@ -74,6 +78,9 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
   List<GridColumn>? _cachedColumns;
   List<StackedHeaderRow>? _cachedHeaders;
   double? _lastCachedZoomFactor;
+
+  // 교체 히스토리 관리
+  final ExchangeHistoryManager _historyManager = ExchangeHistoryManager();
 
   @override
   void initState() {
@@ -303,6 +310,124 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
         ],
         
         const Spacer(), // 공간을 최대한 활용
+        
+        // 보강/교체 버튼들
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 보강 버튼
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  // 보강 기능 구현
+                  _showSupplementDialog();
+                },
+                icon: const Icon(Icons.add_circle_outline, size: 16),
+                label: const Text('보강', style: TextStyle(fontSize: 12)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green.shade100,
+                  foregroundColor: Colors.green.shade700,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  minimumSize: const Size(60, 32),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: Colors.green.shade300),
+                  ),
+                ),
+              ),
+            ),
+            
+            // 되돌리기 버튼
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  _undoLastExchange();
+                },
+                icon: const Icon(Icons.undo, size: 16),
+                label: const Text('되돌리기', style: TextStyle(fontSize: 12)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange.shade100,
+                  foregroundColor: Colors.orange.shade700,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  minimumSize: const Size(70, 32),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: Colors.orange.shade300),
+                  ),
+                ),
+              ),
+            ),
+            
+            // 다시 반복 버튼
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  _repeatLastExchange();
+                },
+                icon: const Icon(Icons.repeat, size: 16),
+                label: const Text('다시 반복', style: TextStyle(fontSize: 12)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.purple.shade100,
+                  foregroundColor: Colors.purple.shade700,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  minimumSize: const Size(80, 32),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: Colors.purple.shade300),
+                  ),
+                ),
+              ),
+            ),
+            
+            // 교체 버튼 (선택된 경로가 있을 때만 활성화)
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              child: ElevatedButton.icon(
+                onPressed: widget.selectedExchangePath != null ? () {
+                  // 교체 기능 구현
+                  _showExchangeDialog();
+                } : null,
+                icon: Icon(
+                  Icons.swap_horiz, 
+                  size: 16,
+                  color: widget.selectedExchangePath != null 
+                    ? Colors.blue.shade700 
+                    : Colors.grey.shade400,
+                ),
+                label: Text(
+                  '교체', 
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: widget.selectedExchangePath != null 
+                      ? Colors.blue.shade700 
+                      : Colors.grey.shade400,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: widget.selectedExchangePath != null 
+                    ? Colors.blue.shade100 
+                    : Colors.grey.shade100,
+                  foregroundColor: widget.selectedExchangePath != null 
+                    ? Colors.blue.shade700 
+                    : Colors.grey.shade400,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  minimumSize: const Size(60, 32),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(
+                      color: widget.selectedExchangePath != null 
+                        ? Colors.blue.shade300 
+                        : Colors.grey.shade300,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
         
         // 확대/축소 컨트롤
         Container(
@@ -713,6 +838,343 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
       targetColumnOffset,
       duration: const Duration(milliseconds: ArrowConstants.scrollAnimationMilliseconds),
       curve: Curves.easeInOut,
+    );
+  }
+
+  /// 보강 기능 다이얼로그 표시
+  void _showSupplementDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.add_circle_outline, color: Colors.green),
+              SizedBox(width: 8),
+              Text('보강 수업 추가'),
+            ],
+          ),
+          content: const Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('보강 수업을 추가하시겠습니까?'),
+              SizedBox(height: 16),
+              Text(
+                '• 교사별로 보강 수업을 추가할 수 있습니다\n'
+                '• 시간표에 새로운 시간 슬롯이 생성됩니다\n'
+                '• 기존 수업과 겹치지 않도록 주의하세요',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('취소'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                // 보강 수업 추가 로직 구현
+                _addSupplementClass();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('추가'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 교체 기능 다이얼로그 표시
+  void _showExchangeDialog() {
+    // 선택된 경로가 있는지 확인
+    if (widget.selectedExchangePath == null) {
+      _showNoPathSelectedDialog();
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.swap_horiz, color: Colors.blue),
+              SizedBox(width: 8),
+              Text('수업 교체'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('선택된 교체 경로로 수업 교체를 실행하시겠습니까?'),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '선택된 경로 정보:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue.shade700,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '• 경로 ID: ${widget.selectedExchangePath!.id}\n'
+                      '• 경로 타입: ${_getPathTypeName(widget.selectedExchangePath!)}\n'
+                      '• 교체 단계: ${_getPathStepCount(widget.selectedExchangePath!)}단계',
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                '• 교체 실행 후 시간표가 업데이트됩니다\n'
+                '• 변경사항은 즉시 반영됩니다\n'
+                '• 필요시 되돌리기 기능을 사용하세요',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('취소'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                // 교체 실행 로직 구현
+                _executeExchange();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('교체 실행'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 선택된 경로가 없을 때 표시되는 다이얼로그
+  void _showNoPathSelectedDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.orange),
+              SizedBox(width: 8),
+              Text('교체 경로 선택 필요'),
+            ],
+          ),
+          content: const Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('교체를 실행하려면 먼저 교체 경로를 선택해야 합니다.'),
+              SizedBox(height: 16),
+              Text(
+                '• 사이드바에서 교체 가능한 경로를 확인하세요\n'
+                '• 원하는 교체 경로를 클릭하여 선택하세요\n'
+                '• 경로가 선택되면 교체 버튼이 활성화됩니다',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('확인'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 경로 타입 이름 반환
+  String _getPathTypeName(ExchangePath path) {
+    if (path is OneToOneExchangePath) {
+      return '1:1 교체';
+    } else if (path is CircularExchangePath) {
+      return '순환 교체';
+    } else if (path is ChainExchangePath) {
+      return '연쇄 교체';
+    }
+    return '알 수 없음';
+  }
+
+  /// 경로 단계 수 반환
+  int _getPathStepCount(ExchangePath path) {
+    if (path is OneToOneExchangePath) {
+      return 1; // 1:1 교체는 항상 1단계
+    } else if (path is CircularExchangePath) {
+      return path.steps;
+    } else if (path is ChainExchangePath) {
+      return path.steps.length;
+    }
+    return 0;
+  }
+
+  /// 보강 수업 추가 기능
+  void _addSupplementClass() {
+    // TODO: 보강 수업 추가 로직 구현
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('보강 수업 추가 기능이 구현될 예정입니다'),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  /// 교체 실행 기능
+  void _executeExchange() {
+    if (widget.selectedExchangePath == null) return;
+    
+    // 1. 교체 실행 (히스토리 관리자 통해)
+    _historyManager.executeExchange(
+      widget.selectedExchangePath!,
+      customDescription: '교체 실행: ${widget.selectedExchangePath!.displayTitle}',
+      additionalMetadata: {
+        'executionTime': DateTime.now().toIso8601String(),
+        'userAction': 'manual',
+        'source': 'timetable_grid_section',
+      },
+    );
+    
+    // 2. 콘솔 출력
+    _historyManager.printExchangeList();
+    _historyManager.printUndoHistory();
+    
+    // 3. 교체된 셀 상태 업데이트
+    final exchangedCellKeys = _historyManager.getExchangedCellKeys();
+    widget.dataSource!.updateExchangedCells(exchangedCellKeys);
+    
+    // 4. 사용자 피드백
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('교체 경로 "${widget.selectedExchangePath!.id}"가 실행되었습니다'),
+        backgroundColor: Colors.blue,
+        duration: const Duration(seconds: 3),
+        action: SnackBarAction(
+          label: '되돌리기',
+          textColor: Colors.white,
+          onPressed: () {
+            _undoLastExchange();
+          },
+        ),
+      ),
+    );
+  }
+
+  /// 되돌리기 기능
+  void _undoLastExchange() {
+    // 1. 되돌리기 실행
+    final item = _historyManager.undoLastExchange();
+    
+    if (item != null) {
+      // 2. 교체 리스트에서 삭제
+      _historyManager.removeFromExchangeList(item.id);
+      
+      // 3. 콘솔 출력
+      _historyManager.printExchangeList();
+      _historyManager.printUndoHistory();
+      
+      // 4. 교체된 셀 상태 업데이트
+      final exchangedCellKeys = _historyManager.getExchangedCellKeys();
+      widget.dataSource!.updateExchangedCells(exchangedCellKeys);
+      
+      // 5. 사용자 피드백
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('교체 "${item.description}"가 되돌려졌습니다'),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('되돌릴 교체가 없습니다'),
+          backgroundColor: Colors.grey,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  /// 다시 반복 기능
+  void _repeatLastExchange() {
+    // 1. 마지막 교체 항목 조회
+    final exchangeList = _historyManager.getExchangeList();
+    if (exchangeList.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('반복할 교체가 없습니다'),
+          backgroundColor: Colors.grey,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+    
+    // 가장 최근 교체 항목 가져오기
+    final lastItem = exchangeList.last;
+    
+    // 2. 교체 다시 실행
+    _historyManager.executeExchange(
+      lastItem.originalPath,
+      customDescription: '다시 반복: ${lastItem.description}',
+      additionalMetadata: {
+        'executionTime': DateTime.now().toIso8601String(),
+        'userAction': 'repeat',
+        'source': 'timetable_grid_section',
+        'originalId': lastItem.id,
+      },
+    );
+    
+    // 3. 콘솔 출력
+    _historyManager.printExchangeList();
+    _historyManager.printUndoHistory();
+    
+    // 4. 교체된 셀 상태 업데이트
+    final exchangedCellKeys = _historyManager.getExchangedCellKeys();
+    widget.dataSource!.updateExchangedCells(exchangedCellKeys);
+    
+    // 5. 사용자 피드백
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('교체 "${lastItem.description}"가 다시 실행되었습니다'),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
+      ),
     );
   }
 }

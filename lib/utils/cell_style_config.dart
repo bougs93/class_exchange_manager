@@ -13,6 +13,7 @@ class CellStyleConfig {
   final int? chainPathStep;
   final bool isTargetCell;
   final bool isNonExchangeable;
+  final bool isExchanged; // 교체완료 셀인지 여부
 
   const CellStyleConfig({
     required this.isTeacherColumn,
@@ -28,5 +29,6 @@ class CellStyleConfig {
     this.chainPathStep,
     this.isTargetCell = false,
     this.isNonExchangeable = false,
+    this.isExchanged = false, // 교체완료 셀 기본값은 false
   });
 }

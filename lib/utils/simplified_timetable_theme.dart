@@ -39,10 +39,16 @@ class SimplifiedTimetableTheme {
   static const bool showSelectedCellBorder = true; // 선택된 셀 테두리 표시 여부
 
 // 타겟 셀 테두리 색상 상수 (이동할 같은 교사의 셀 테두리)
-  static const Color targetCellBorderColor = Color(0xFFFF0000); // 타겟 셀 테두리 색상 (녹색)
+  static const Color targetCellBorderColor = Color(0xFFFF0000); // 타겟 셀 테두리 색상 (빨간색)
   static const double targetCellBorderWidth = 2.5; // 타겟 셀 테두리 두께
   static BorderStyle targetCellBorderStyle = BorderStyle.solid; // 타겟 셀 테두리 스타일 (solid만 지원, 점선은 CustomPainter 사용)
   static const bool showTargetCellBorder = true; // 타겟 셀 테두리 표시 여부
+
+// 교체완료 셀 테두리 색상 상수 (교체가 완료된 셀의 테두리)
+  static const Color exchangedCellBorderColor = Color(0xFF2196F3); // 교체완료 셀 테두리 색상 (파란색)
+  static const double exchangedCellBorderWidth = 2.5; // 교체완료 셀 테두리 두께 (더 두껍게)
+  static BorderStyle exchangedCellBorderStyle = BorderStyle.solid; // 교체완료 셀 테두리 스타일
+  static const bool showExchangedCellBorder = true; // 교체완료 셀 테두리 표시 여부
   
   // 타겟 셀 배경색 상수 (교체 대상의 같은 행 셀 배경색)
   static const Color targetCellBackgroundColor = Color.fromARGB(255, 255, 255, 255); // 타겟 셀 배경색 (연한 녹색)
@@ -104,6 +110,7 @@ class SimplifiedTimetableTheme {
         isInCircularPath: config.isInCircularPath,
         isHeader: config.isHeader,
         isTargetCell: config.isTargetCell,
+        isExchanged: config.isExchanged,
       ),
       overlayWidget: _getOverlayWidget(
         isExchangeable: config.isExchangeable,
@@ -224,9 +231,20 @@ class SimplifiedTimetableTheme {
     required bool isInCircularPath,
     required bool isHeader,
     required bool isTargetCell,
+    required bool isExchanged,
   }) {
-    // 타겟 셀의 경우 녹색 테두리 (표시 여부 설정에 따라)
+    // 교체완료 셀의 경우 파란색 테두리 (표시 여부 설정에 따라)
     // 헤더 셀과 일반 셀 모두에 적용 (최우선순위)
+    if (isExchanged && showExchangedCellBorder) {
+      return Border.all(
+        color: exchangedCellBorderColor, 
+        width: exchangedCellBorderWidth,
+        style: exchangedCellBorderStyle, // 점선 또는 실선 스타일 적용
+      );
+    }
+    
+    // 타겟 셀의 경우 빨간색 테두리 (표시 여부 설정에 따라)
+    // 헤더 셀과 일반 셀 모두에 적용
     if (isTargetCell && showTargetCellBorder) {
       return Border.all(
         color: targetCellBorderColor, 
