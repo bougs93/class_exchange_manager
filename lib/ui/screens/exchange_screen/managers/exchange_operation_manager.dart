@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:excel/excel.dart' hide Border;
 import '../../../../services/excel_service.dart';
-import '../../../../services/exchange_history_manager.dart';
+import '../../../../services/exchange_history_service.dart';
 import '../../../../utils/logger.dart';
 import '../../../../utils/non_exchangeable_manager.dart';
 import '../exchange_screen_state_proxy.dart';
@@ -19,9 +19,9 @@ class ExchangeOperationManager {
   final VoidCallback onClearAllExchangeStates;
   final VoidCallback onRestoreUIToDefault;
   final VoidCallback onRefreshHeaderTheme;
-  
-  // 히스토리 관리자 인스턴스
-  final ExchangeHistoryManager _historyManager = ExchangeHistoryManager();
+
+  // 히스토리 서비스 인스턴스
+  final ExchangeHistoryService _historyService = ExchangeHistoryService();
   
   // 교체불가 관리자 인스턴스
   final NonExchangeableManager _nonExchangeableManager = NonExchangeableManager();
@@ -139,10 +139,10 @@ class ExchangeOperationManager {
   void _clearHistoryAndExchangeList() {
     try {
       // 교체 리스트 전체 삭제
-      _historyManager.clearExchangeList();
-      
+      _historyService.clearExchangeList();
+
       // 되돌리기 스택도 초기화
-      _historyManager.clearUndoStack();
+      _historyService.clearUndoStack();
       
       // 모든 교체불가 설정 초기화 (timeslot.isExchangeable = true로 복원)
       _nonExchangeableManager.resetAllNonExchangeableSettings();

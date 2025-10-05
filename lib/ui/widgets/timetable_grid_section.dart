@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
@@ -12,7 +11,7 @@ import '../../models/exchange_path.dart';
 import '../../models/one_to_one_exchange_path.dart';
 import '../../models/circular_exchange_path.dart';
 import '../../models/chain_exchange_path.dart';
-import '../../services/exchange_history_manager.dart';
+import '../../services/exchange_history_service.dart';
 import 'timetable_grid/timetable_grid_constants.dart';
 import 'timetable_grid/exchange_arrow_style.dart';
 import 'timetable_grid/exchange_arrow_painter.dart';
@@ -32,7 +31,7 @@ class TimetableGridSection extends StatefulWidget {
   final ExchangePath? selectedExchangePath; // 선택된 교체 경로 (모든 타입 지원)
   final ExchangeArrowStyle? customArrowStyle; // 커스텀 화살표 스타일
   final VoidCallback? onHeaderThemeUpdate; // 헤더 테마 업데이트 콜백
-  
+
   const TimetableGridSection({
     super.key,
     required this.timetableData,
@@ -51,7 +50,7 @@ class TimetableGridSection extends StatefulWidget {
 
   @override
   State<TimetableGridSection> createState() => _TimetableGridSectionState();
-  
+
   /// 외부에서 스크롤 기능에 접근할 수 있도록 하는 static 메서드
   static void scrollToCellCenter(GlobalKey<State<TimetableGridSection>> key, String teacherName, String day, int period) {
     final state = key.currentState;
@@ -64,7 +63,7 @@ class TimetableGridSection extends StatefulWidget {
 class _TimetableGridSectionState extends State<TimetableGridSection> {
   // DataGrid 컨트롤을 위한 GlobalKey
   final GlobalKey<SfDataGridState> _dataGridKey = GlobalKey<SfDataGridState>();
-  
+
   // 스크롤 컨트롤러들
   final ScrollController _verticalScrollController = ScrollController();
   final ScrollController _horizontalScrollController = ScrollController();
@@ -74,8 +73,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
 
   // 드래그 스크롤 관련 변수들
   Offset? _lastPanOffset; // 마지막 터치/마우스 위치
-  bool _isDraggingForScroll = false; // 드래그 스크롤 중인지 여부
-  bool _isRightButtonPressed = false; // 마우스 오른쪽 버튼이 눌린 상태인지
+  bool _isDragging = false; // 드래그 중인지 여부 (스크롤 또는 우클릭)
 
   // 성능 최적화: 스크롤 디바운스 타이머
   Timer? _scrollDebounceTimer;
@@ -85,12 +83,12 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
   List<StackedHeaderRow>? _cachedHeaders;
   double? _lastCachedZoomFactor;
 
-  // 교체 히스토리 관리
-  final ExchangeHistoryManager _historyManager = ExchangeHistoryManager();
-  
+  // 교체 히스토리 서비스
+  final ExchangeHistoryService _historyService = ExchangeHistoryService();
+
   // 내부적으로 관리하는 선택된 교체 경로 (교체된 셀 클릭 시 사용)
   ExchangePath? _internalSelectedPath;
-  
+
   /// 현재 선택된 교체 경로 (외부 또는 내부)
   ExchangePath? get currentSelectedPath => widget.selectedExchangePath ?? _internalSelectedPath;
   
@@ -201,35 +199,27 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
   /// 마우스 오른쪽 버튼 또는 2손가락 드래그 시작
   void _onPanStart(DragStartDetails details) {
     _lastPanOffset = details.localPosition;
-    _isDraggingForScroll = false;
-    
-    // 모바일에서는 모든 터치를 스크롤로 처리 (실제로는 2손가락 감지 필요)
-    if (Platform.isAndroid || Platform.isIOS) {
-      // 모바일에서는 우선 스크롤을 시도하지 않음 (셀 선택 우선)
-      _isDraggingForScroll = false;
-    }
-    // PC에서는 마우스 버튼 상태에 따라 결정
+    _isDragging = false;
   }
 
   /// 드래그 업데이트 - 스크롤 실행
   void _onPanUpdate(DragUpdateDetails details) {
-    if (!_isDraggingForScroll || _lastPanOffset == null) return;
+    if (!_isDragging || _lastPanOffset == null) return;
 
     Offset delta = details.localPosition - _lastPanOffset!;
-    
+
     // 최소 이동 거리 체크 (실수 방지)
     if (delta.distance < 3.0) return;
-    
+
     // 드래그 방향의 반대로 스크롤
     _scrollByOffset(-delta);
-    
+
     _lastPanOffset = details.localPosition;
   }
 
   /// 드래그 종료
   void _onPanEnd(DragEndDetails details) {
-    _isDraggingForScroll = false;
-    _isRightButtonPressed = false;
+    _isDragging = false;
     _lastPanOffset = null;
   }
 
@@ -258,27 +248,22 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
   /// 마우스 버튼 이벤트 처리 (오른쪽 버튼 감지)
   void _onMouseDown(PointerDownEvent event) {
     if (event.buttons == kSecondaryButton) {
-      _isRightButtonPressed = true;
+      _isDragging = true;
       _lastPanOffset = event.localPosition;
     }
   }
 
   void _onMouseUp(PointerUpEvent event) {
-    _isRightButtonPressed = false;
-    _isDraggingForScroll = false;
+    _isDragging = false;
   }
 
   void _onMouseMove(PointerMoveEvent event) {
-    if (_isRightButtonPressed && _lastPanOffset != null) {
-      if (!_isDraggingForScroll) {
-        _isDraggingForScroll = true;
-      }
-      
+    if (_isDragging && _lastPanOffset != null) {
       Offset delta = event.localPosition - _lastPanOffset!;
-      
+
       // 최소 이동 거리 체크 (실수 방지)
       if (delta.distance < 3.0) return;
-      
+
       _scrollByOffset(-delta);
       _lastPanOffset = event.localPosition;
     }
@@ -1131,7 +1116,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
   /// 교체된 셀을 클릭했을 때 해당 교체 경로를 다시 선택하여 화살표 표시
   void _handleExchangedCellClick(String teacherName, String day, int period) {
     // 교체된 셀에 해당하는 교체 경로 찾기
-    final exchangePath = _historyManager.findExchangePathByCell(teacherName, day, period);
+    final exchangePath = _historyService.findExchangePathByCell(teacherName, day, period);
     
     if (exchangePath != null) {
       // 해당 교체 경로를 다시 선택 상태로 설정
@@ -1139,20 +1124,28 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     }
   }
   
+  /// 교체 경로 상태 초기화 (공통 로직)
+  void _resetPathSelections({bool updateUI = true}) {
+    _internalSelectedPath = null;
+    widget.dataSource?.updateSelectedOneToOnePath(null);
+    widget.dataSource?.updateSelectedCircularPath(null);
+    widget.dataSource?.updateSelectedChainPath(null);
+    widget.dataSource?.clearAllCaches();
+    widget.onHeaderThemeUpdate?.call();
+
+    if (updateUI && mounted) {
+      setState(() {});
+    }
+  }
+
   /// 교체 경로 선택 처리
   void _selectExchangePath(ExchangePath exchangePath) {
-    // 1. 먼저 모든 기존 교체 경로 선택 해제 (색상 초기화)
-    widget.dataSource!.updateSelectedOneToOnePath(null);
-    widget.dataSource!.updateSelectedCircularPath(null);
-    widget.dataSource!.updateSelectedChainPath(null);
-    
-    // 2. 캐시 무효화하여 색상 상태 완전 초기화
-    widget.dataSource!.clearAllCaches();
-    
-    // 3. 내부 선택된 경로 설정
+    // 기존 경로 초기화
+    _resetPathSelections(updateUI: false);
+
+    // 새로운 경로 설정
     _internalSelectedPath = exchangePath;
-    
-    // 4. 새로운 교체 경로 타입에 따라 적절한 메서드 호출
+
     if (exchangePath is OneToOneExchangePath) {
       widget.dataSource!.updateSelectedOneToOnePath(exchangePath);
     } else if (exchangePath is CircularExchangePath) {
@@ -1160,60 +1153,18 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     } else if (exchangePath is ChainExchangePath) {
       widget.dataSource!.updateSelectedChainPath(exchangePath);
     }
-    
-    // 5. 헤더 테마 업데이트 (보기 모드에서 교체 리스트 셀 선택 시 헤더 색상 변경)
-    widget.onHeaderThemeUpdate?.call();
-    
-    // 6. UI 업데이트 (화살표 표시 및 색상 적용)
-    setState(() {
-      // 화살표를 다시 그리기 위해 상태 업데이트
-    });
+
+    setState(() {});
   }
-  
+
   /// 교체 경로 선택 해제 (화살표 숨기기)
   void _clearExchangePathSelection() {
-    // 1. 내부 선택된 경로 해제
-    _internalSelectedPath = null;
-    
-    // 2. 데이터 소스에서 모든 교체 경로 선택 해제
-    widget.dataSource!.updateSelectedOneToOnePath(null);
-    widget.dataSource!.updateSelectedCircularPath(null);
-    widget.dataSource!.updateSelectedChainPath(null);
-    
-    // 3. 캐시 무효화하여 색상 상태 완전 초기화
-    widget.dataSource!.clearAllCaches();
-    
-    // 4. 헤더 테마 업데이트 (교체 경로 선택 해제 시 헤더 색상 초기화)
-    widget.onHeaderThemeUpdate?.call();
-    
-    // 5. UI 업데이트 (화살표 숨기기 및 색상 초기화)
-    setState(() {
-      // 화살표를 숨기기 위해 상태 업데이트
-    });
+    _resetPathSelections();
   }
 
   /// 모드 전환 시 모든 화살표 상태 초기화 (외부에서 호출 가능)
   void clearAllArrowStates() {
-    // 1. 내부 선택된 경로 해제
-    _internalSelectedPath = null;
-    
-    // 2. 데이터 소스에서 모든 교체 경로 선택 해제
-    widget.dataSource?.updateSelectedOneToOnePath(null);
-    widget.dataSource?.updateSelectedCircularPath(null);
-    widget.dataSource?.updateSelectedChainPath(null);
-    
-    // 3. 캐시 무효화하여 색상 상태 완전 초기화
-    widget.dataSource?.clearAllCaches();
-    
-    // 4. 헤더 테마 업데이트 (모드 전환 시 헤더 색상 초기화)
-    widget.onHeaderThemeUpdate?.call();
-    
-    // 5. UI 업데이트 (화살표 숨기기 및 색상 초기화)
-    if (mounted) {
-      setState(() {
-        // 화살표를 숨기기 위해 상태 업데이트
-      });
-    }
+    _resetPathSelections();
   }
   
   /// 셀 탭 이벤트 처리
@@ -1230,7 +1181,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
         final period = int.tryParse(parts[1]) ?? 0;
         
         // 교체된 셀인지 확인
-        if (_historyManager.getExchangedCellKeys().contains('${teacherName}_${day}_$period')) {
+        if (_historyService.getExchangedCellKeys().contains('${teacherName}_${day}_$period')) {
           // 교체된 셀 클릭 처리
           _handleExchangedCellClick(teacherName, day, period);
           return;
@@ -1266,24 +1217,24 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     if (currentSelectedPath == null) return;
     
     // 교체 리스트에서 해당 경로를 찾아서 삭제
-    final exchangeList = _historyManager.getExchangeList();
+    final exchangeList = _historyService.getExchangeList();
     final targetItem = exchangeList.firstWhere(
       (item) => item.originalPath.id == currentSelectedPath!.id,
       orElse: () => throw StateError('해당 교체 경로를 교체 리스트에서 찾을 수 없습니다'),
     );
     
     // 1. 교체 리스트에서 삭제 (히스토리 관리자 통해)
-    _historyManager.removeFromExchangeList(targetItem.id);
+    _historyService.removeFromExchangeList(targetItem.id);
     
     // 2. 교체된 셀 목록 강제 업데이트
-    _historyManager.updateExchangedCells();
+    _historyService.updateExchangedCells();
     
     // 3. 콘솔 출력
-    _historyManager.printExchangeList();
-    _historyManager.printUndoHistory();
+    _historyService.printExchangeList();
+    _historyService.printUndoHistory();
     
     // 4. 교체된 셀 상태 업데이트
-    final exchangedCellKeys = _historyManager.getExchangedCellKeys();
+    final exchangedCellKeys = _historyService.getExchangedCellKeys();
     widget.dataSource!.updateExchangedCells(exchangedCellKeys);
     
     // 5. 캐시 강제 무효화 및 UI 업데이트
@@ -1291,19 +1242,12 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     
     // 6. 모든 선택 상태 초기화 (교체 삭제 후 모든 선택 상태 제거)
     widget.dataSource!.clearAllSelections();
-    
+
     // 7. 내부 선택된 경로 초기화 (삭제 완료 후)
     _internalSelectedPath = null;
-    
-    // 8. 즉시 UI 업데이트
+
+    // 8. UI 업데이트
     setState(() {});
-    
-    // 9. 추가 UI 리프레시 (다음 프레임에서)
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        setState(() {});
-      }
-    });
   }
 
   /// 교체 실행 기능
@@ -1311,7 +1255,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     if (currentSelectedPath == null) return;
     
     // 1. 교체 실행 (히스토리 관리자 통해)
-    _historyManager.executeExchange(
+    _historyService.executeExchange(
       currentSelectedPath!,
       customDescription: '교체 실행: ${currentSelectedPath!.displayTitle}',
       additionalMetadata: {
@@ -1322,33 +1266,26 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     );
     
     // 2. 콘솔 출력
-    _historyManager.printExchangeList();
-    _historyManager.printUndoHistory();
+    _historyService.printExchangeList();
+    _historyService.printUndoHistory();
     
     // 3. 교체된 셀 상태 업데이트
-    final exchangedCellKeys = _historyManager.getExchangedCellKeys();
+    final exchangedCellKeys = _historyService.getExchangedCellKeys();
     widget.dataSource!.updateExchangedCells(exchangedCellKeys);
     
     // 4. 캐시 강제 무효화 및 UI 업데이트
     widget.dataSource!.clearAllCaches();
-    
+
     // 5. 모든 선택 상태 초기화 (교체 완료 후 모든 선택 상태 제거)
     widget.dataSource!.clearAllSelections();
-    
+
     // 6. 내부 선택된 경로 초기화 (교체 완료 후)
     _internalSelectedPath = null;
-    
-    // 7. 즉시 UI 업데이트
+
+    // 7. UI 업데이트
     setState(() {});
-    
-    // 8. 추가 UI 리프레시 (다음 프레임에서)
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        setState(() {});
-      }
-    });
-    
-    // 5. 사용자 피드백
+
+    // 8. 사용자 피드백
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('교체 경로 "${currentSelectedPath!.id}"가 실행되었습니다'),
@@ -1368,35 +1305,28 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
   /// 되돌리기 기능
   void _undoLastExchange() {
     // 1. 되돌리기 실행
-    final item = _historyManager.undoLastExchange();
+    final item = _historyService.undoLastExchange();
     
     if (item != null) {
       // 2. 교체 리스트에서 삭제
-      _historyManager.removeFromExchangeList(item.id);
+      _historyService.removeFromExchangeList(item.id);
       
       // 3. 콘솔 출력
-      _historyManager.printExchangeList();
-      _historyManager.printUndoHistory();
+      _historyService.printExchangeList();
+      _historyService.printUndoHistory();
       
       // 4. 교체된 셀 상태 업데이트
-      final exchangedCellKeys = _historyManager.getExchangedCellKeys();
+      final exchangedCellKeys = _historyService.getExchangedCellKeys();
       widget.dataSource!.updateExchangedCells(exchangedCellKeys);
       
       // 5. 캐시 강제 무효화 및 UI 업데이트
       widget.dataSource!.clearAllCaches();
-      
+
       // 6. 모든 선택 상태 초기화 (되돌리기 후 모든 선택 상태 제거)
       widget.dataSource!.clearAllSelections();
-      
-      // 7. 즉시 UI 업데이트
+
+      // 7. UI 업데이트
       setState(() {});
-      
-      // 8. 추가 UI 리프레시 (다음 프레임에서)
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() {});
-        }
-      });
       
       // 9. 사용자 피드백
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1420,7 +1350,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
   /// 다시 반복 기능
   void _repeatLastExchange() {
     // 1. 마지막 교체 항목 조회
-    final exchangeList = _historyManager.getExchangeList();
+    final exchangeList = _historyService.getExchangeList();
     if (exchangeList.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1436,7 +1366,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     final lastItem = exchangeList.last;
     
     // 2. 교체 다시 실행
-    _historyManager.executeExchange(
+    _historyService.executeExchange(
       lastItem.originalPath,
       customDescription: '다시 반복: ${lastItem.description}',
       additionalMetadata: {
@@ -1448,30 +1378,23 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     );
     
     // 3. 콘솔 출력
-    _historyManager.printExchangeList();
-    _historyManager.printUndoHistory();
+    _historyService.printExchangeList();
+    _historyService.printUndoHistory();
     
     // 4. 교체된 셀 상태 업데이트
-    final exchangedCellKeys = _historyManager.getExchangedCellKeys();
+    final exchangedCellKeys = _historyService.getExchangedCellKeys();
     widget.dataSource!.updateExchangedCells(exchangedCellKeys);
     
     // 5. 캐시 강제 무효화 및 UI 업데이트
     widget.dataSource!.clearAllCaches();
-    
+
     // 6. 모든 선택 상태 초기화 (다시 반복 후 모든 선택 상태 제거)
     widget.dataSource!.clearAllSelections();
-    
-    // 7. 즉시 UI 업데이트
+
+    // 7. UI 업데이트
     setState(() {});
-    
-    // 8. 추가 UI 리프레시 (다음 프레임에서)
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        setState(() {});
-      }
-    });
-    
-    // 9. 사용자 피드백
+
+    // 8. 사용자 피드백
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('교체 "${lastItem.description}"가 다시 실행되었습니다'),

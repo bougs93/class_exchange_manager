@@ -20,8 +20,28 @@ class ExchangeHistoryService {
   // 최대 되돌리기 항목 수
   static const int maxUndoItems = 10;
 
-  /// 교체 실행 시 히스토리에 추가
+  /// 교체 실행 및 히스토리에 추가 (통합 메서드)
   /// 교체 버튼 클릭 시 호출
+  void executeExchange(ExchangePath path, {
+    String? customDescription,
+    Map<String, dynamic>? additionalMetadata,
+    String? notes,
+    List<String>? tags,
+  }) {
+    // 실제 교체 실행 (TimetableDataSource 업데이트는 외부에서 처리)
+    developer.log('[교체 실행] ${path.displayTitle}');
+
+    // 히스토리에 추가
+    addExchange(
+      path,
+      customDescription: customDescription,
+      additionalMetadata: additionalMetadata,
+      notes: notes,
+      tags: tags,
+    );
+  }
+
+  /// 교체 실행 시 히스토리에 추가 (내부 메서드)
   void addExchange(ExchangePath path, {
     String? customDescription,
     Map<String, dynamic>? additionalMetadata,
@@ -40,7 +60,7 @@ class ExchangeHistoryService {
     // 교체 리스트에 추가 (영구 보관)
     _exchangeList.add(item);
     _saveToLocalStorage(item);
-    
+
     // 교체된 셀 목록 업데이트
     updateExchangedCells();
 
@@ -190,38 +210,26 @@ class ExchangeHistoryService {
     };
   }
 
-  // ========== 로컬 저장소 관련 메서드들 ==========
+  // ========== 로컬 저장소 관련 메서드들 (현재는 메모리만 사용) ==========
 
-  /// 로컬 저장소에 항목 저장
   void _saveToLocalStorage(ExchangeHistoryItem item) {
-    // TODO: SharedPreferences 또는 Hive를 사용한 실제 저장 구현
-    // 현재는 메모리에만 저장
-    developer.log('로컬 저장소에 저장: ${item.id}');
+    // 메모리만 사용 (로컬 저장소 기능 추후 구현 시 확장)
   }
 
-  /// 로컬 저장소에서 항목 제거
   void _removeFromLocalStorage(String itemId) {
-    // TODO: SharedPreferences 또는 Hive를 사용한 실제 삭제 구현
-    developer.log('로컬 저장소에서 제거: $itemId');
+    // 메모리만 사용 (로컬 저장소 기능 추후 구현 시 확장)
   }
 
-  /// 로컬 저장소에서 항목 업데이트
   void _updateInLocalStorage(ExchangeHistoryItem item) {
-    // TODO: SharedPreferences 또는 Hive를 사용한 실제 업데이트 구현
-    developer.log('로컬 저장소에서 업데이트: ${item.id}');
+    // 메모리만 사용 (로컬 저장소 기능 추후 구현 시 확장)
   }
 
-  /// 로컬 저장소 전체 삭제
   void _clearLocalStorage() {
-    // TODO: SharedPreferences 또는 Hive를 사용한 실제 삭제 구현
-    developer.log('로컬 저장소 전체 삭제');
+    // 메모리만 사용 (로컬 저장소 기능 추후 구현 시 확장)
   }
 
-  /// 앱 시작 시 로컬 저장소에서 데이터 로드
   Future<void> loadFromLocalStorage() async {
-    // TODO: SharedPreferences 또는 Hive를 사용한 실제 로드 구현
-    // 현재는 빈 리스트로 시작
-    developer.log('로컬 저장소에서 데이터 로드');
+    // 메모리만 사용 (로컬 저장소 기능 추후 구현 시 확장)
   }
 
   // ========== 디버그 콘솔 출력 메서드들 ==========

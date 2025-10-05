@@ -321,11 +321,6 @@ class TimetableDataSource extends DataGridSource {
     _stateManager.updateSelection(teacher, day, period);
     _cacheManager.clearAllCaches();
     notifyListeners();
-    
-    // 즉시 UI 업데이트를 위한 추가 처리
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      notifyListeners();
-    });
   }
   
   /// 타겟 셀 상태 업데이트
@@ -464,11 +459,6 @@ class TimetableDataSource extends DataGridSource {
     _cacheManager.clearAllCaches();
     notifyListeners();
     _onDataChanged?.call();
-    
-    // 즉시 UI 업데이트를 위한 추가 처리
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      notifyListeners();
-    });
   }
 
 

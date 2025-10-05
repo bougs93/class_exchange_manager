@@ -3,7 +3,6 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'simplified_timetable_theme.dart';
 import 'constants.dart';
 import 'cell_style_config.dart';
-import 'logger.dart';
 
 /// 시간표 테이블의 고정 헤더(1행: 요일, 2행: 교시) 스타일 통합 관리 클래스
 ///
@@ -14,9 +13,8 @@ import 'logger.dart';
 /// - 위젯 캐싱을 통한 불필요한 재생성 방지
 /// - Syncfusion DataGrid의 효율적인 헤더 업데이트 지원
 class FixedHeaderStyleManager {
-  // ==================== 위젯 캐시 ====================
+  // ==================== 위젯 캐시 (간소화) ====================
   static final Map<String, Widget> _widgetCache = {};
-  static final Map<String, CellStyle> _styleCache = {};
   // ==================== 색상 상수 ====================
   /// 요일 행(1행) 배경색 (SimplifiedTimetableTheme 사용)
   static const Color dayHeaderBackgroundColor = SimplifiedTimetableTheme.teacherHeaderColor;
@@ -147,15 +145,16 @@ class FixedHeaderStyleManager {
       ),
     );
 
-    // 동적 캐시 크기 제한 (메모리 사용량 최적화)
-    final maxCacheSize = _calculateOptimalCacheSize();
-    if (_widgetCache.length < maxCacheSize) {
-      _widgetCache[cacheKey] = widget;
-    } else {
-      // 캐시가 가득 찬 경우 오래된 항목 제거 (LRU 방식)
-      _evictOldestCacheEntries();
-      _widgetCache[cacheKey] = widget;
+    // 캐시 크기 제한 (최대 100개)
+    if (_widgetCache.length >= 100) {
+      // 캐시가 가득 찬 경우 20% 제거
+      final removeCount = (_widgetCache.length * 0.2).ceil();
+      final keysToRemove = _widgetCache.keys.take(removeCount).toList();
+      for (final key in keysToRemove) {
+        _widgetCache.remove(key);
+      }
     }
+    _widgetCache[cacheKey] = widget;
 
     return widget;
   }
@@ -331,61 +330,17 @@ class FixedHeaderStyleManager {
     return key.toString();
   }
 
-  /// 캐시 초기화 (메모리 관리) - 개선된 버전
+  /// 캐시 초기화 (메모리 관리)
   static void clearCache() {
     _widgetCache.clear();
-    _styleCache.clear();
-    // 메모리 정리 강제 실행
-    if (_widgetCache.isNotEmpty || _styleCache.isNotEmpty) {
-      AppLogger.warning('경고: 캐시 초기화 후에도 데이터가 남아있습니다.');
-    }
   }
 
-  /// 선택적 캐시 초기화 (특정 상태 변경 시) - 개선된 버전
+  /// 선택적 캐시 초기화 (특정 상태 변경 시)
   static void clearCacheForState(bool isSelected, bool isExchangeable) {
-    final keysToRemove = <String>[];
-    
-    // 더 효율적인 키 검색
-    for (final key in _widgetCache.keys) {
-      if ((isSelected && key.contains('_S')) || (isExchangeable && key.contains('_E'))) {
-        keysToRemove.add(key);
-      }
+    if (isSelected || isExchangeable) {
+      // 상태 변경 시 전체 캐시 무효화 (간단하고 안전)
+      _widgetCache.clear();
     }
-    
-    // 배치 삭제로 성능 최적화
-    for (final key in keysToRemove) {
-      _widgetCache.remove(key);
-    }
-    
-    // 메모리 사용량 모니터링
-    if (_widgetCache.length > 200) {
-      AppLogger.warning('경고: 위젯 캐시 크기가 200을 초과했습니다: ${_widgetCache.length}');
-    }
-  }
-
-  /// 최적 캐시 크기 계산 (동적 조정)
-  static int _calculateOptimalCacheSize() {
-    // 기본 크기: 50개
-    int baseSize = 50;
-    
-    // 메모리 사용량에 따른 동적 조정
-    // 실제 구현에서는 시스템 메모리 상태를 확인할 수 있음
-    return baseSize;
-  }
-
-  /// 오래된 캐시 항목 제거 (LRU 방식)
-  static void _evictOldestCacheEntries() {
-    if (_widgetCache.isEmpty) return;
-    
-    // 캐시 크기의 20% 제거
-    final removeCount = (_widgetCache.length * 0.2).ceil();
-    final keysToRemove = _widgetCache.keys.take(removeCount).toList();
-    
-    for (final key in keysToRemove) {
-      _widgetCache.remove(key);
-    }
-    
-    AppLogger.debug('캐시 정리: $removeCount개 항목 제거됨 (현재 크기: ${_widgetCache.length})');
   }
 
   // ==================== 스타일 초기화 메서드 ====================
