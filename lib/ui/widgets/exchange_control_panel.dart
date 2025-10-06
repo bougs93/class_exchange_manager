@@ -167,7 +167,6 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel>
       labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
       unselectedLabelStyle: const TextStyle(fontSize: 12),
       // 최대 성능 최적화
-      animationDuration: Duration.zero, // 애니메이션 완전 제거
       overlayColor: WidgetStateProperty.all(Colors.transparent), // 오버레이 색상 투명화
       splashFactory: NoSplash.splashFactory, // 스플래시 효과 제거
       mouseCursor: SystemMouseCursors.click, // 마우스 커서만 유지

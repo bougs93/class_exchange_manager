@@ -344,12 +344,12 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
                   _undoLastExchange();
                 },
                 icon: const Icon(Icons.undo, size: 16),
-                label: const Text('되돌리기', style: TextStyle(fontSize: 12)),
+                label: const Text('', style: TextStyle(fontSize: 12)), //되돌리기
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.orange.shade100,
                   foregroundColor: Colors.orange.shade700,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  minimumSize: const Size(80, 40),
+                  minimumSize: const Size(50, 40),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(5),
                     side: BorderSide(color: Colors.orange.shade300),
@@ -366,12 +366,12 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
                   _repeatLastExchange();
                 },
                 icon: const Icon(Icons.redo, size: 16),
-                label: const Text('다시 반복', style: TextStyle(fontSize: 12)),
+                label: const Text('', style: TextStyle(fontSize: 12)), //다시 반복
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.purple.shade100,
                   foregroundColor: Colors.purple.shade700,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  minimumSize: const Size(80, 40),
+                  minimumSize: const Size(50, 40),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(5),
                     side: BorderSide(color: Colors.purple.shade300),
@@ -403,46 +403,36 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
               ),
             ),
 
-            // 교체 모드가 아닌 경우에만 삭제 버튼 표시
-            if (!isInExchangeMode) ...[
+            // 교체 리스트에서 셀이 선택된 경우 모든 모드에서 삭제 버튼 표시
+            if (currentSelectedPath != null && isFromExchangedCell) ...[
               Container(
                 margin: const EdgeInsets.only(right: 8),
                 child: ElevatedButton.icon(
-                  onPressed: (currentSelectedPath != null && isFromExchangedCell) ? () {
-                    // 삭제 기능 구현
+                  onPressed: () {
+                    // 삭제 기능 구현 (다이얼로그 없이 즉시 실행)
                     _deleteFromExchangeList();
-                  } : null,
+                  },
                   icon: Icon(
                     Icons.delete_outline, 
                     size: 16,
-                    color: (currentSelectedPath != null && isFromExchangedCell)
-                      ? Colors.red.shade700 
-                      : Colors.grey.shade400,
+                    color: Colors.red.shade700,
                   ),
                   label: Text(
                     '삭제', 
                     style: TextStyle(
                       fontSize: 12,
-                      color: (currentSelectedPath != null && isFromExchangedCell)
-                        ? Colors.red.shade700 
-                        : Colors.grey.shade400,
+                      color: Colors.red.shade700,
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: (currentSelectedPath != null && isFromExchangedCell)
-                      ? Colors.red.shade100 
-                      : Colors.grey.shade100,
-                    foregroundColor: (currentSelectedPath != null && isFromExchangedCell)
-                      ? Colors.red.shade700 
-                      : Colors.grey.shade400,
+                    backgroundColor: Colors.red.shade100,
+                    foregroundColor: Colors.red.shade700,
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     minimumSize: const Size(60, 40),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(5),
                       side: BorderSide(
-                        color: (currentSelectedPath != null && isFromExchangedCell)
-                          ? Colors.red.shade300 
-                          : Colors.grey.shade300,
+                        color: Colors.red.shade300,
                       ),
                     ),
                   ),
@@ -450,8 +440,8 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
               ),
             ],
             
-            // 교체 모드인 경우 교체 버튼 표시
-            if (isInExchangeMode) ...[
+            // 교체 모드이고 교체 리스트에서 셀이 선택되지 않은 경우에만 교체 버튼 표시
+            if (isInExchangeMode && !isFromExchangedCell) ...[
               Container(
                 margin: const EdgeInsets.only(right: 8),
                 child: ElevatedButton.icon(
