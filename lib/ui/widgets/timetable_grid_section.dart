@@ -77,6 +77,9 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
 
   // 성능 최적화: 스크롤 디바운스 타이머
   Timer? _scrollDebounceTimer;
+  
+  // 스크롤 업데이트 빈도 제한 (60fps = 16ms)
+  DateTime _lastScrollUpdate = DateTime.now();
 
   // 교체 히스토리 서비스
   final ExchangeHistoryService _historyService = ExchangeHistoryService();
@@ -187,21 +190,25 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
   /// 현재 확대 비율을 퍼센트로 반환
   int get _zoomPercentage => (_zoomFactor * 100).round();
 
-  /// 스크롤 변경 시 화살표 재그리기 (디바운스 적용)
+  /// 스크롤 변경 시 화살표 재그리기 (성능 최적화된 실시간 업데이트)
   void _onScrollChangedDebounced() {
     if (widget.selectedExchangePath == null) return;
 
-    // 기존 타이머 취소
-    _scrollDebounceTimer?.cancel();
+    DateTime now = DateTime.now();
+    
+    // 업데이트 빈도 제한 (60fps = 16ms 간격)
+    if (now.difference(_lastScrollUpdate).inMilliseconds < 16) {
+      return; // 너무 빈번한 업데이트 방지
+    }
+    
+    _lastScrollUpdate = now;
 
-    // 16ms(~60fps) 후에 재그리기 (스크롤 중에는 건너뜀)
-    _scrollDebounceTimer = Timer(const Duration(milliseconds: 16), () {
-      if (mounted && widget.selectedExchangePath != null) {
-        setState(() {
-          // 화살표만 재그리기 (CustomPainter의 shouldRepaint에서 최적화)
-        });
-      }
-    });
+    // 즉시 화살표 재그리기 (실시간 반응)
+    if (mounted && widget.selectedExchangePath != null) {
+      setState(() {
+        // 화살표만 재그리기 (CustomPainter의 shouldRepaint에서 최적화)
+      });
+    }
   }
 
   /// 드래그 스크롤 관련 메서드들
@@ -575,7 +582,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     
     
     // 교체 경로가 선택된 경우에만 화살표 표시 (모든 타입 지원)
-    if (currentSelectedPath != null) {
+    if (currentSelectedPath != null && widget.timetableData != null) {
       return Stack(
         children: [
           dataGridWithGestures,
@@ -591,6 +598,10 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
                   horizontalScrollController: _horizontalScrollController,
                   customArrowStyle: widget.customArrowStyle,
                   zoomFactor: _zoomFactor, // 클리핑 계산용 (실제 크기는 이미 조정됨)
+                ),
+                // RepaintBoundary로 CustomPainter를 별도 레이어로 분리하여 성능 최적화
+                child: RepaintBoundary(
+                  child: Container(), // 빈 컨테이너로 레이어 생성
                 ),
               ),
             ),

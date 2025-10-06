@@ -29,21 +29,34 @@ class ExchangeArrowPainter extends CustomPainter {
     required this.horizontalScrollController,
     this.customArrowStyle,
     required this.zoomFactor, // 클리핑 계산용
-  });
+  }) : assert(columns.isNotEmpty, 'columns cannot be empty'),
+       assert(zoomFactor > 0, 'zoomFactor must be positive');
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 교체 경로 타입에 따라 다른 화살표 그리기
-    switch (selectedPath.type) {
-      case ExchangePathType.oneToOne:
-        _drawOneToOneArrows(canvas, size);
-        break;
-      case ExchangePathType.circular:
-        _drawCircularArrows(canvas, size);
-        break;
-      case ExchangePathType.chain:
-        _drawChainArrows(canvas, size);
-        break;
+    // 안전성 검사: 필수 데이터가 유효하지 않은 경우 그리기 중단
+    if (columns.isEmpty ||
+        size.width <= 0 || 
+        size.height <= 0) {
+      return;
+    }
+
+    try {
+      // 교체 경로 타입에 따라 다른 화살표 그리기
+      switch (selectedPath.type) {
+        case ExchangePathType.oneToOne:
+          _drawOneToOneArrows(canvas, size);
+          break;
+        case ExchangePathType.circular:
+          _drawCircularArrows(canvas, size);
+          break;
+        case ExchangePathType.chain:
+          _drawChainArrows(canvas, size);
+          break;
+      }
+    } catch (e) {
+      // 오류 발생 시 안전하게 종료 (디버그 모드에서만 로그 출력)
+      debugPrint('ExchangeArrowPainter paint error: $e');
     }
   }
 
@@ -697,9 +710,44 @@ class ExchangeArrowPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return oldDelegate is ExchangeArrowPainter &&
-           (oldDelegate.selectedPath != selectedPath ||
-            oldDelegate.customArrowStyle != customArrowStyle ||
-            zoomFactor != oldDelegate.zoomFactor); // 확대/축소 배율 변경 확인
+    // 타입 검사 및 안전성 검사
+    if (oldDelegate is! ExchangeArrowPainter) {
+      return true; // 다른 타입의 CustomPainter인 경우 재그리기
+    }
+
+    final oldPainter = oldDelegate;
+    
+    // 핵심 데이터 변경 확인
+    bool hasChanged = false;
+    
+    // 선택된 경로 변경 확인
+    if (oldPainter.selectedPath.id != selectedPath.id) {
+      hasChanged = true;
+    }
+    
+    // 커스텀 화살표 스타일 변경 확인
+    if (oldPainter.customArrowStyle != customArrowStyle) {
+      hasChanged = true;
+    }
+    
+    // 확대/축소 배율 변경 확인
+    if ((oldPainter.zoomFactor - zoomFactor).abs() > 0.001) {
+      hasChanged = true;
+    }
+    
+    // 스크롤 위치 변경 확인 (화살표 위치에 영향)
+    if (oldPainter.verticalScrollController.hasClients && verticalScrollController.hasClients) {
+      if ((oldPainter.verticalScrollController.offset - verticalScrollController.offset).abs() > 1.0) {
+        hasChanged = true;
+      }
+    }
+    
+    if (oldPainter.horizontalScrollController.hasClients && horizontalScrollController.hasClients) {
+      if ((oldPainter.horizontalScrollController.offset - horizontalScrollController.offset).abs() > 1.0) {
+        hasChanged = true;
+      }
+    }
+    
+    return hasChanged;
   }
 }
