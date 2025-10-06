@@ -26,6 +26,7 @@ class TimetableTabContent extends StatelessWidget {
   final Widget Function(String?, VoidCallback) buildErrorMessageSection;
   final VoidCallback onClearError;
   final VoidCallback? onHeaderThemeUpdate; // 헤더 테마 업데이트 콜백
+  final VoidCallback? onRestoreUIToDefault; // UI 기본값 복원 콜백
 
   const TimetableTabContent({
     super.key,
@@ -42,14 +43,11 @@ class TimetableTabContent extends StatelessWidget {
     required this.buildErrorMessageSection,
     required this.onClearError,
     this.onHeaderThemeUpdate, // 헤더 테마 업데이트 콜백
+    this.onRestoreUIToDefault, // UI 기본값 복원 콜백
   });
 
   @override
   Widget build(BuildContext context) {
-    // 디버그 로그 추가
-    AppLogger.exchangeDebug('TimetableTabContent build - timetableData: ${timetableData != null ? "있음" : "없음"}');
-    AppLogger.exchangeDebug('TimetableTabContent build - dataSource: ${dataSource != null ? "있음" : "없음"}');
-    
     return Column(
       children: [
         // 교체 제어 패널
@@ -76,6 +74,7 @@ class TimetableTabContent extends StatelessWidget {
               onCellTap: onCellTap,
               selectedExchangePath: getCurrentSelectedPath(),
               onHeaderThemeUpdate: onHeaderThemeUpdate, // 헤더 테마 업데이트 콜백 전달
+              onRestoreUIToDefault: onRestoreUIToDefault, // UI 기본값 복원 콜백 전달
             ),
           )
         else

@@ -407,13 +407,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       if (screenState.timetableData != null && 
           (screenState.dataSource == null || screenState.columns.isEmpty || 
            (screenState.dataSource != null && screenState.dataSource!.timeSlots != screenState.timetableData!.timeSlots))) {
-        AppLogger.exchangeDebug('🔧 Syncfusion 그리드 데이터 생성 시작');
         _createSyncfusionGridData();
-        AppLogger.exchangeDebug('🔄 addPostFrameCallback에서 그리드 생성 완료');
-      } else {
-        AppLogger.exchangeDebug('⏭️ Syncfusion 그리드 데이터 생성 건너뜀 - 조건 불만족');
-        AppLogger.exchangeDebug('📊 dataSource 상태: ${screenState.dataSource != null ? "존재" : "null"}');
-        AppLogger.exchangeDebug('📊 columns 개수: ${screenState.columns.length}');
       }
     });
 
@@ -451,6 +445,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
               buildErrorMessageSection: buildErrorMessageSection,
               onClearError: _clearError,
               onHeaderThemeUpdate: _updateHeaderTheme, // 헤더 테마 업데이트 콜백 전달
+              onRestoreUIToDefault: restoreUIToDefault, // UI 기본값 복원 콜백 전달
             ),
           ),
 
@@ -472,11 +467,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     // 글로벌 Provider에서 시간표 데이터 확인 (HomeScreen에서 설정한 데이터)
     final globalTimetableData = ref.read(exchangeScreenProvider).timetableData;
     
-    AppLogger.exchangeDebug('🔧 _createSyncfusionGridData 호출됨');
-    AppLogger.exchangeDebug('📊 globalTimetableData: ${globalTimetableData != null ? "데이터 있음" : "데이터 없음"}');
-    
     if (globalTimetableData == null) {
-      AppLogger.exchangeDebug('❌ globalTimetableData가 null이므로 그리드 생성 중단');
       return;
     }
     
@@ -559,10 +550,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     
     // Provider에 데이터 소스 설정
     notifier.setDataSource(dataSource);
-    
-    AppLogger.exchangeDebug('✅ Syncfusion 그리드 데이터 생성 완료');
-    AppLogger.exchangeDebug('📊 dataSource 생성됨: 성공');
-    AppLogger.exchangeDebug('📊 columns 개수: ${result.columns.length}');
   }
   
   /// 셀 탭 이벤트 핸들러 - 교체 모드가 활성화된 경우만 동작

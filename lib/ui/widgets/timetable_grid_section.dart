@@ -33,6 +33,7 @@ class TimetableGridSection extends StatefulWidget {
   final ExchangePath? selectedExchangePath; // 선택된 교체 경로 (모든 타입 지원)
   final ExchangeArrowStyle? customArrowStyle; // 커스텀 화살표 스타일
   final VoidCallback? onHeaderThemeUpdate; // 헤더 테마 업데이트 콜백
+  final VoidCallback? onRestoreUIToDefault; // UI 기본값 복원 콜백
 
   const TimetableGridSection({
     super.key,
@@ -48,6 +49,7 @@ class TimetableGridSection extends StatefulWidget {
     this.selectedExchangePath, // 선택된 교체 경로 (모든 타입 지원)
     this.customArrowStyle, // 커스텀 화살표 스타일
     this.onHeaderThemeUpdate, // 헤더 테마 업데이트 콜백
+    this.onRestoreUIToDefault, // UI 기본값 복원 콜백
   });
 
   @override
@@ -102,6 +104,30 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     _horizontalScrollController.addListener(_onScrollChangedDebounced);
     // 초기 폰트 배율 설정
     SimplifiedTimetableTheme.setFontScaleFactor(_zoomFactor);
+    
+    // 테이블 렌더링 완료 후 콜백 호출
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.timetableData != null && widget.dataSource != null) {
+        // 테이블 렌더링 완료 후 UI 기본값 복원 호출
+        _notifyTableRenderingComplete();
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(TimetableGridSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    
+    // 테이블 데이터나 데이터 소스가 변경된 경우 테이블 렌더링 완료 감지
+    if (widget.timetableData != oldWidget.timetableData || 
+        widget.dataSource != oldWidget.dataSource) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (widget.timetableData != null && widget.dataSource != null) {
+          // 테이블 렌더링 완료 후 UI 기본값 복원 호출
+          _notifyTableRenderingComplete();
+        }
+      });
+    }
   }
 
   @override
@@ -114,18 +140,16 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     super.dispose();
   }
 
-  @override
-  void didUpdateWidget(TimetableGridSection oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    // widget.columns 또는 widget.stackedHeaders가 변경되었으면 강제 재빌드
-    // (참조 비교를 사용하여 새로운 리스트 객체인지 확인)
-    if (!identical(oldWidget.columns, widget.columns) ||
-        !identical(oldWidget.stackedHeaders, widget.stackedHeaders)) {
-      // setState를 호출하여 SfDataGrid가 새로운 columns/headers를 감지하도록 함
-      setState(() {
-        // widget.columns와 widget.stackedHeaders가 변경되었음을 Flutter에 알림
-      });
+  /// 테이블 렌더링 완료 알림
+  void _notifyTableRenderingComplete() {
+    // 헤더 테마 업데이트 콜백이 있으면 호출
+    if (widget.onHeaderThemeUpdate != null) {
+      widget.onHeaderThemeUpdate!();
+    }
+    
+    // 테이블 렌더링 완료 후 UI 기본값 복원 호출
+    if (widget.onRestoreUIToDefault != null) {
+      widget.onRestoreUIToDefault!();
     }
   }
 
@@ -258,16 +282,9 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
 
   @override
   Widget build(BuildContext context) {
-    // 디버그 로그 추가
-    AppLogger.debug('TimetableGridSection build - timetableData: ${widget.timetableData != null ? "있음" : "없음"}');
-    AppLogger.debug('TimetableGridSection build - dataSource: ${widget.dataSource != null ? "있음" : "없음"}');
-    
     if (widget.timetableData == null || widget.dataSource == null) {
-      AppLogger.debug('TimetableGridSection - 조건 불만족으로 SizedBox.shrink() 반환');
       return const SizedBox.shrink();
     }
-    
-    AppLogger.debug('TimetableGridSection - 조건 만족으로 테이블 렌더링');
     
     return Card(
       elevation: 2,

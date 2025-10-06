@@ -114,13 +114,12 @@ mixin StateResetHandler<T extends StatefulWidget> on State<T> {
 
   /// UI를 기본값으로 복원
   void restoreUIToDefault() {
+    // 헤더 테마를 기본값으로 복원
+    updateHeaderTheme();
     // 모든 교체 모드 상태 초기화
     clearAllExchangeStates();
 
     // 교체 가능한 시간 업데이트 (빈 목록으로)
     updateExchangeableTimes();
-
-    // 헤더 테마를 기본값으로 복원
-    updateHeaderTheme();
   }
 }

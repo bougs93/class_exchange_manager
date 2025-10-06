@@ -161,6 +161,13 @@ class ExchangeOperationManager {
 
   /// 엑셀 파일 선택 해제 (모든 상태 초기화)
   void clearSelectedFile() {
+    // UI를 기본 상태로 복원 (가장 먼저 실행)
+    try {
+      onRestoreUIToDefault();
+    } catch (e) {
+      AppLogger.error('onRestoreUIToDefault 호출 오류: $e');
+    }
+    
     // 히스토리와 교체리스트 초기화
     _clearHistoryAndExchangeList();
     
@@ -171,9 +178,6 @@ class ExchangeOperationManager {
     
     // 교체 관련 상태 초기화
     onClearAllExchangeStates();
-    
-    // UI를 기본 상태로 복원
-    onRestoreUIToDefault();
     
     // 파일 선택 해제 후 보기 모드로 전환
     stateProxy.setCurrentMode(ExchangeMode.view);
