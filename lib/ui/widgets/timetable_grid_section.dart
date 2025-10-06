@@ -1122,13 +1122,13 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
       // 2단계: 즉시 새로운 교체 경로 설정
       _selectExchangePath(exchangePath);
       
-      // 3단계: 헤더 테마 업데이트 [wg 중요.]
+      // 3단계: 교사 이름과 교시 헤더 하이라이트 업데이트
       // ExchangeScreen._updateHeaderTheme() 메서드를 호출하여
-      // 교체된 셀에 해당하는 교시의 헤더 스타일을 업데이트
+      // 교체된 셀에 해당하는 교사명과 교시의 헤더 스타일을 업데이트
       // FixedHeaderStyleManager와 SyncfusionTimetableHelper를 통해
-      // 선택된 교시 헤더가 하이라이트되도록 함
+      // 선택된 교사명과 교시 헤더가 하이라이트되도록 함
       widget.onHeaderThemeUpdate?.call();
-            
+      
     }
   }
   
