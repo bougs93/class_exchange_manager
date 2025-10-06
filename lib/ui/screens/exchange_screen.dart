@@ -344,15 +344,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       onCircularPathChanged: handleCircularPathChanged,
       onChainPathChanged: handleChainPathChanged,
     );
-    
-    // 교체 관리 화면 진입 시 보기 모드로 강제 설정
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final notifier = ref.read(exchangeScreenProvider.notifier);
-      notifier.setCurrentMode(ExchangeMode.view);
-      
-      // 보기 모드 상태 초기화
-      restoreUIToDefault();
-    });
 
     // FilterStateManager 콜백 설정
     _filterStateManager.setOnFilterChanged(_updateFilteredPaths);
@@ -383,18 +374,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   Widget build(BuildContext context) {
     // Provider에서 상태 읽기
     final screenState = ref.watch(exchangeScreenProvider);
-    
-    // 교체불가 편집 모드 상태가 변경될 때마다 TimetableDataSource에 전달
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _dataSource?.setNonExchangeableEditMode(screenState.currentMode == ExchangeMode.nonExchangeableEdit);
-      
-      // 글로벌 시간표 데이터가 있고 로컬 그리드가 생성되지 않았거나 데이터가 변경된 경우 그리드 생성
-      if (screenState.timetableData != null && 
-          (_dataSource == null || _columns.isEmpty || 
-           (_dataSource != null && _dataSource!.timeSlots != screenState.timetableData!.timeSlots))) {
-        _createSyncfusionGridData();
-      }
-    });
 
     // 로컬 변수로 캐싱 (build 메서드 내에서 사용)
     
@@ -528,28 +507,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     
     // 교체불가 편집 모드 상태를 TimetableDataSource에 전달
     _dataSource?.setNonExchangeableEditMode(ref.read(exchangeScreenProvider).currentMode == ExchangeMode.nonExchangeableEdit);
-    
-    // 엑셀 파일 로드 완료 시 보기 모드 자동 활성화
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final notifier = ref.read(exchangeScreenProvider.notifier);
-      final currentMode = ref.read(exchangeScreenProvider).currentMode;
-      
-      // 현재 모드가 보기 모드가 아닌 경우에만 보기 모드로 설정
-      if (currentMode != ExchangeMode.view) {
-        notifier.setCurrentMode(ExchangeMode.view);
-        
-        // 보기 모드 상태 초기화
-        restoreUIToDefault();
-        
-        // 헤더 테마 업데이트
-        _updateHeaderTheme();
-        
-        // TabController 업데이트를 위한 추가 프레임 대기
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          // ExchangeControlPanel의 didUpdateWidget이 호출되어 TabController가 업데이트됨
-        });
-      }
-    });
   }
   
   /// 셀 탭 이벤트 핸들러 - 교체 모드가 활성화된 경우만 동작

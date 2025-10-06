@@ -39,17 +39,10 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel>
   @override
   void didUpdateWidget(ExchangeControlPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
+
     // currentMode가 변경되었을 때 TabController 업데이트
     if (oldWidget.currentMode != widget.currentMode) {
       _tabController.animateTo(widget.currentMode.index);
-    }
-  }
-
-  /// TabController를 강제로 특정 인덱스로 업데이트 (외부에서 호출 가능)
-  void forceUpdateTabIndex(int index) {
-    if (_tabController.index != index) {
-      _tabController.animateTo(index);
     }
   }
 
