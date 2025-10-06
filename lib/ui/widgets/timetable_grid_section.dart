@@ -13,6 +13,7 @@ import '../../models/one_to_one_exchange_path.dart';
 import '../../models/circular_exchange_path.dart';
 import '../../models/chain_exchange_path.dart';
 import '../../services/exchange_history_service.dart';
+import '../../utils/logger.dart';
 import 'timetable_grid/timetable_grid_constants.dart';
 import 'timetable_grid/exchange_arrow_style.dart';
 import 'timetable_grid/exchange_arrow_painter.dart';
@@ -257,9 +258,16 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
 
   @override
   Widget build(BuildContext context) {
+    // 디버그 로그 추가
+    AppLogger.debug('TimetableGridSection build - timetableData: ${widget.timetableData != null ? "있음" : "없음"}');
+    AppLogger.debug('TimetableGridSection build - dataSource: ${widget.dataSource != null ? "있음" : "없음"}');
+    
     if (widget.timetableData == null || widget.dataSource == null) {
+      AppLogger.debug('TimetableGridSection - 조건 불만족으로 SizedBox.shrink() 반환');
       return const SizedBox.shrink();
     }
+    
+    AppLogger.debug('TimetableGridSection - 조건 만족으로 테이블 렌더링');
     
     return Card(
       elevation: 2,
@@ -1074,7 +1082,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
 
   /// 보강 수업 추가 기능
   void _addSupplementClass() {
-    // TODO: 보강 수업 추가 로직 구현
+    // 보강 수업 추가 로직은 향후 구현 예정
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('보강 수업 추가 기능이 구현될 예정입니다'),

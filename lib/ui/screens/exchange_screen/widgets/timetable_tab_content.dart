@@ -5,6 +5,7 @@ import '../../../../models/exchange_mode.dart';
 import '../../../../services/excel_service.dart';
 import '../../../../utils/timetable_data_source.dart';
 import '../../../../providers/exchange_screen_provider.dart';
+import '../../../../utils/logger.dart';
 import '../../../widgets/exchange_control_panel.dart';
 import '../../../widgets/timetable_grid_section.dart';
 
@@ -45,6 +46,10 @@ class TimetableTabContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 디버그 로그 추가
+    AppLogger.exchangeDebug('TimetableTabContent build - timetableData: ${timetableData != null ? "있음" : "없음"}');
+    AppLogger.exchangeDebug('TimetableTabContent build - dataSource: ${dataSource != null ? "있음" : "없음"}');
+    
     return Column(
       children: [
         // 교체 제어 패널

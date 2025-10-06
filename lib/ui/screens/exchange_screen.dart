@@ -60,10 +60,13 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
          FilterSearchHandler,              // 필터 및 검색
          StateResetHandler,                // 상태 초기화
          SidebarBuilder {                  // 사이드바 빌더
-  // 로컬 UI 상태
-  TimetableDataSource? _dataSource;
-  List<GridColumn> _columns = [];
-  List<StackedHeaderRow> _stackedHeaders = [];
+  // 로컬 UI 상태 - Provider를 통해 관리
+  // TimetableDataSource? _dataSource;
+  // List<GridColumn> _columns = [];
+  // List<StackedHeaderRow> _stackedHeaders = [];
+
+  /// Provider에서 현재 dataSource 가져오기
+  TimetableDataSource? get _dataSource => ref.read(exchangeScreenProvider).dataSource;
 
   // 상태 관리자
   final PathSelectionManager _pathSelectionManager = PathSelectionManager();
@@ -344,6 +347,27 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       onCircularPathChanged: handleCircularPathChanged,
       onChainPathChanged: handleChainPathChanged,
     );
+    
+    // 교체 관리 화면 진입 시 보기 모드로 자동 설정
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final notifier = ref.read(exchangeScreenProvider.notifier);
+      final currentMode = ref.read(exchangeScreenProvider).currentMode;
+      
+      // 현재 모드가 보기 모드가 아닌 경우에만 보기 모드로 설정
+      if (currentMode != ExchangeMode.view) {
+        AppLogger.exchangeDebug('🔄 교체관리 화면 진입: ${currentMode.displayName} → 보기 모드로 자동 전환');
+        notifier.setCurrentMode(ExchangeMode.view);
+        
+        // 보기 모드 상태 초기화
+        restoreUIToDefault();
+      } else {
+        AppLogger.exchangeDebug('✅ 교체관리 화면 진입: 이미 보기 모드 상태');
+      }
+      
+      // timetableData 상태 확인
+      final timetableData = ref.read(exchangeScreenProvider).timetableData;
+      AppLogger.exchangeDebug('📊 timetableData 상태: ${timetableData != null ? "데이터 있음" : "데이터 없음"}');
+    });
 
     // FilterStateManager 콜백 설정
     _filterStateManager.setOnFilterChanged(_updateFilteredPaths);
@@ -374,9 +398,26 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   Widget build(BuildContext context) {
     // Provider에서 상태 읽기
     final screenState = ref.watch(exchangeScreenProvider);
+    
+    // 교체불가 편집 모드 상태가 변경될 때마다 TimetableDataSource에 전달
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      screenState.dataSource?.setNonExchangeableEditMode(screenState.currentMode == ExchangeMode.nonExchangeableEdit);
+      
+      // 글로벌 시간표 데이터가 있고 로컬 그리드가 생성되지 않았거나 데이터가 변경된 경우 그리드 생성
+      if (screenState.timetableData != null && 
+          (screenState.dataSource == null || screenState.columns.isEmpty || 
+           (screenState.dataSource != null && screenState.dataSource!.timeSlots != screenState.timetableData!.timeSlots))) {
+        AppLogger.exchangeDebug('🔧 Syncfusion 그리드 데이터 생성 시작');
+        _createSyncfusionGridData();
+        AppLogger.exchangeDebug('🔄 addPostFrameCallback에서 그리드 생성 완료');
+      } else {
+        AppLogger.exchangeDebug('⏭️ Syncfusion 그리드 데이터 생성 건너뜀 - 조건 불만족');
+        AppLogger.exchangeDebug('📊 dataSource 상태: ${screenState.dataSource != null ? "존재" : "null"}');
+        AppLogger.exchangeDebug('📊 columns 개수: ${screenState.columns.length}');
+      }
+    });
 
     // 로컬 변수로 캐싱 (build 메서드 내에서 사용)
-    
     final isSidebarVisible = screenState.isSidebarVisible;
     final isExchangeModeEnabled = screenState.currentMode == ExchangeMode.oneToOneExchange;
     final isCircularExchangeModeEnabled = screenState.currentMode == ExchangeMode.circularExchange;
@@ -399,9 +440,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
             child: TimetableTabContent(
               state: screenState,
               timetableData: screenState.timetableData, // 글로벌 Provider의 데이터 직접 사용
-              dataSource: _dataSource,
-              columns: _columns,
-              stackedHeaders: _stackedHeaders,
+              dataSource: screenState.dataSource, // Provider의 dataSource 사용
+              columns: screenState.columns, // Provider의 columns 사용
+              stackedHeaders: screenState.stackedHeaders, // Provider의 stackedHeaders 사용
               timetableGridKey: _timetableGridKey,
               onModeChanged: _changeMode,
               onCellTap: _onCellTap,
@@ -431,7 +472,13 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     // 글로벌 Provider에서 시간표 데이터 확인 (HomeScreen에서 설정한 데이터)
     final globalTimetableData = ref.read(exchangeScreenProvider).timetableData;
     
-    if (globalTimetableData == null) return;
+    AppLogger.exchangeDebug('🔧 _createSyncfusionGridData 호출됨');
+    AppLogger.exchangeDebug('📊 globalTimetableData: ${globalTimetableData != null ? "데이터 있음" : "데이터 없음"}');
+    
+    if (globalTimetableData == null) {
+      AppLogger.exchangeDebug('❌ globalTimetableData가 null이므로 그리드 생성 중단');
+      return;
+    }
     
     // ExchangeService를 사용하여 교체 가능한 교사 정보 수집 (현재 선택된 교사가 있는 경우에만)
     List<Map<String, dynamic>> exchangeableTeachers = [];
@@ -491,22 +538,31 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       selectedOneToOnePath: _selectedOneToOnePath, // 선택된 1:1 교체 경로 전달
     );
     
-    _columns = result.columns;
-    _stackedHeaders = result.stackedHeaders;
+    // Provider를 통해 그리드 데이터 업데이트
+    final notifier = ref.read(exchangeScreenProvider.notifier);
+    notifier.setColumns(result.columns);
+    notifier.setStackedHeaders(result.stackedHeaders);
     
-    // 데이터 소스 생성
-    _dataSource = TimetableDataSource(
+    // 데이터 소스 생성 및 Provider에 설정
+    final dataSource = TimetableDataSource(
       timeSlots: globalTimetableData.timeSlots,
       teachers: globalTimetableData.teachers,
     );
     
     // 데이터 변경 시 UI 업데이트 콜백 설정
-    _dataSource?.setOnDataChanged(() {
+    dataSource.setOnDataChanged(() {
       // notifyListeners()가 자동으로 호출되므로 별도의 setState() 불필요
     });
     
     // 교체불가 편집 모드 상태를 TimetableDataSource에 전달
-    _dataSource?.setNonExchangeableEditMode(ref.read(exchangeScreenProvider).currentMode == ExchangeMode.nonExchangeableEdit);
+    dataSource.setNonExchangeableEditMode(ref.read(exchangeScreenProvider).currentMode == ExchangeMode.nonExchangeableEdit);
+    
+    // Provider에 데이터 소스 설정
+    notifier.setDataSource(dataSource);
+    
+    AppLogger.exchangeDebug('✅ Syncfusion 그리드 데이터 생성 완료');
+    AppLogger.exchangeDebug('📊 dataSource 생성됨: 성공');
+    AppLogger.exchangeDebug('📊 columns 개수: ${result.columns.length}');
   }
   
   /// 셀 탭 이벤트 핸들러 - 교체 모드가 활성화된 경우만 동작
@@ -778,9 +834,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     final notifier = ref.read(exchangeScreenProvider.notifier);
     notifier.setSelectedFile(null);
     notifier.setTimetableData(null);
-    _dataSource = null;
-    _columns = [];
-    _stackedHeaders = [];
+    notifier.setDataSource(null);
+    notifier.setColumns([]);
+    notifier.setStackedHeaders([]);
     notifier.setErrorMessage(null);
 
     // 모든 교체 서비스의 선택 상태 초기화
@@ -864,6 +920,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   
   /// 선택된 교시 정보를 안전하게 가져오는 메서드
   ({String? day, int? period}) _getSelectedPeriodInfo() {
+    final screenState = ref.read(exchangeScreenProvider);
+    
     // 1:1 교체 모드
     if (_isExchangeModeEnabled && exchangeService.hasSelectedCell()) {
       return (day: exchangeService.selectedDay, period: exchangeService.selectedPeriod);
@@ -881,17 +939,17 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     
     // 경로 선택 시 (모든 모드에서 교체 리스트 셀 선택)
     try {
-      final dataSourceCircularPath = _dataSource?.getSelectedCircularPath();
+      final dataSourceCircularPath = screenState.dataSource?.getSelectedCircularPath();
       if (dataSourceCircularPath != null && dataSourceCircularPath.nodes.isNotEmpty) {
         return (day: dataSourceCircularPath.nodes.first.day, period: dataSourceCircularPath.nodes.first.period);
       }
       
-      final dataSourceOneToOnePath = _dataSource?.getSelectedOneToOnePath();
+      final dataSourceOneToOnePath = screenState.dataSource?.getSelectedOneToOnePath();
       if (dataSourceOneToOnePath != null && dataSourceOneToOnePath.nodes.isNotEmpty) {
         return (day: dataSourceOneToOnePath.nodes.first.day, period: dataSourceOneToOnePath.nodes.first.period);
       }
       
-      final dataSourceChainPath = _dataSource?.getSelectedChainPath();
+      final dataSourceChainPath = screenState.dataSource?.getSelectedChainPath();
       if (dataSourceChainPath != null && dataSourceChainPath.nodes.isNotEmpty) {
         return (day: dataSourceChainPath.nodes.first.day, period: dataSourceChainPath.nodes.first.period);
       }
@@ -906,7 +964,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
   /// 테마 기반 헤더 업데이트 (선택된 교시 헤더를 연한 파란색으로 표시)
   void _updateHeaderTheme() {
-    if (_timetableData == null) return;
+    final screenState = ref.read(exchangeScreenProvider);
+    if (screenState.timetableData == null) return;
     
     // 선택된 요일과 교시 결정 (단순화된 로직)
     final selectionInfo = _getSelectedPeriodInfo();
@@ -940,14 +999,13 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       selectedChainPath: _selectedChainPath, // 연쇄교체 경로
     );
     
-    // 헤더 강제 재생성을 위한 완전한 새로고침
-    setState(() {
-      _columns = result.columns; // 헤더만 업데이트
-      _stackedHeaders = result.stackedHeaders; // 스택 헤더도 함께 업데이트 (요일 행 포함)
-    });
+    // Provider를 통해 헤더 강제 재생성을 위한 완전한 새로고침
+    final notifier = ref.read(exchangeScreenProvider.notifier);
+    notifier.setColumns(result.columns); // 헤더만 업데이트
+    notifier.setStackedHeaders(result.stackedHeaders); // 스택 헤더도 함께 업데이트 (요일 행 포함)
 
     // TimetableDataSource의 notifyListeners를 통한 직접 UI 업데이트
-    _dataSource?.notifyListeners();
+    screenState.dataSource?.notifyListeners();
   }
 
 

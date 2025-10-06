@@ -7,6 +7,7 @@ import '../../../../services/excel_service.dart';
 import '../../../../services/exchange_history_service.dart';
 import '../../../../utils/logger.dart';
 import '../../../../utils/non_exchangeable_manager.dart';
+import '../../../../models/exchange_mode.dart';
 import '../exchange_screen_state_proxy.dart';
 
 /// 파일 선택, 로딩, 교체 모드 전환 등 핵심 비즈니스 로직을 관리하는 Manager
@@ -130,6 +131,11 @@ class ExchangeOperationManager {
       
       stateProxy.setTimetableData(timetableData);
       onCreateSyncfusionGridData();
+      
+      // 파일 선택 후 보기 모드로 전환
+      stateProxy.setCurrentMode(ExchangeMode.view);
+      
+      AppLogger.exchangeInfo('파일이 선택되고 보기 모드로 전환되었습니다.');
     } else {
       stateProxy.setErrorMessage('시간표 데이터를 파싱할 수 없습니다.');
     }
@@ -169,7 +175,10 @@ class ExchangeOperationManager {
     // UI를 기본 상태로 복원
     onRestoreUIToDefault();
     
-    AppLogger.exchangeInfo('엑셀 파일 선택이 해제되고 모든 상태가 초기화되었습니다.');
+    // 파일 선택 해제 후 보기 모드로 전환
+    stateProxy.setCurrentMode(ExchangeMode.view);
+    
+    AppLogger.exchangeInfo('엑셀 파일 선택이 해제되고 보기 모드로 전환되었습니다.');
   }
 
   /// 교체불가 관리자 접근 (외부에서 사용)

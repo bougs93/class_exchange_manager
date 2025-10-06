@@ -31,15 +31,15 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel>
     super.initState();
     _tabController = TabController(
       length: ExchangeMode.values.length,
-      vsync: this,
       initialIndex: widget.currentMode.index,
+      vsync: this,
     );
   }
 
   @override
   void didUpdateWidget(ExchangeControlPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-
+    
     // currentMode가 변경되었을 때 TabController 업데이트
     if (oldWidget.currentMode != widget.currentMode) {
       _tabController.animateTo(widget.currentMode.index);
