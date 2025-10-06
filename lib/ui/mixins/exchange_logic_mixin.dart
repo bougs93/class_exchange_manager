@@ -37,18 +37,14 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
     if (dataSource == null) {
       return;
     }
-    
+
     // ExchangeService를 사용하여 교체 처리
     ExchangeResult result = exchangeService.startOneToOneExchange(details, dataSource!);
-    
+
     if (result.isNoAction) {
       return; // 아무 동작하지 않음
     }
-    
-    setState(() {
-      // UI 상태 업데이트는 ExchangeService에서 처리됨
-    });
-    
+
     // 교체 대상 선택 후 교체 가능한 시간 탐색 및 표시
     processCellSelection();
   }
@@ -70,10 +66,6 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
       AppLogger.exchangeDebug('순환교체: 아무 동작하지 않음 (교사명 열 또는 잘못된 컬럼)');
       return; // 아무 동작하지 않음
     }
-
-    setState(() {
-      // UI 상태 업데이트
-    });
 
     // 새로운 셀 선택 시 기존 선택된 순환교체 경로와 관련 상태 초기화
     if (result.isSelected) {
@@ -114,10 +106,6 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
       AppLogger.exchangeDebug('연쇄교체: 아무 동작하지 않음 (교사명 열 또는 잘못된 컬럼)');
       return; // 아무 동작하지 않음
     }
-
-    setState(() {
-      // UI 상태 업데이트
-    });
 
     // 새로운 셀 선택 시 기존 선택된 연쇄교체 경로와 관련 상태 초기화
     if (result.isSelected) {

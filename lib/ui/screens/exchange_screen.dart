@@ -171,8 +171,12 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     }
     
     // 헤더 테마 업데이트 (모든 모드 변경 시 필수)
-    // 탭바 변경 시 테이블의 고정된 2개 헤더 행이 올바르게 초기화되도록 함
-    _updateHeaderTheme();
+    // Provider 업데이트로 인한 build() 이후에 헤더를 업데이트하도록 다음 프레임으로 지연
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _updateHeaderTheme();
+      }
+    });
   }
 
   /// 셀을 교체불가로 설정 또는 해제 (ViewModel 사용)
@@ -941,9 +945,11 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     );
     
     // 헤더 강제 재생성을 위한 완전한 새로고침
-    _columns = result.columns; // 헤더만 업데이트
-    _stackedHeaders = result.stackedHeaders; // 스택 헤더도 함께 업데이트 (요일 행 포함)
-    
+    setState(() {
+      _columns = result.columns; // 헤더만 업데이트
+      _stackedHeaders = result.stackedHeaders; // 스택 헤더도 함께 업데이트 (요일 행 포함)
+    });
+
     // TimetableDataSource의 notifyListeners를 통한 직접 UI 업데이트
     _dataSource?.notifyListeners();
   }

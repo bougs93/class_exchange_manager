@@ -61,9 +61,6 @@ class TimetableGridSection extends StatefulWidget {
 }
 
 class _TimetableGridSectionState extends State<TimetableGridSection> {
-  // DataGrid 컨트롤을 위한 GlobalKey
-  final GlobalKey<SfDataGridState> _dataGridKey = GlobalKey<SfDataGridState>();
-
   // 스크롤 컨트롤러들
   final ScrollController _verticalScrollController = ScrollController();
   final ScrollController _horizontalScrollController = ScrollController();
@@ -77,11 +74,6 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
 
   // 성능 최적화: 스크롤 디바운스 타이머
   Timer? _scrollDebounceTimer;
-
-  // 성능 최적화: GridColumn/Header 캐시
-  List<GridColumn>? _cachedColumns;
-  List<StackedHeaderRow>? _cachedHeaders;
-  double? _lastCachedZoomFactor;
 
   // 교체 히스토리 서비스
   final ExchangeHistoryService _historyService = ExchangeHistoryService();
@@ -123,13 +115,15 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
   @override
   void didUpdateWidget(TimetableGridSection oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
-    // 위젯이 변경되었을 때 헤더 캐시 무효화 (교시 선택 또는 경로 변경 시)
-    if (oldWidget.columns.length != widget.columns.length ||
-        oldWidget.stackedHeaders.length != widget.stackedHeaders.length ||
-        oldWidget.selectedExchangePath?.id != widget.selectedExchangePath?.id) {
-      _cachedColumns = null;
-      _cachedHeaders = null;
+
+    // widget.columns 또는 widget.stackedHeaders가 변경되었으면 강제 재빌드
+    // (참조 비교를 사용하여 새로운 리스트 객체인지 확인)
+    if (!identical(oldWidget.columns, widget.columns) ||
+        !identical(oldWidget.stackedHeaders, widget.stackedHeaders)) {
+      // setState를 호출하여 SfDataGrid가 새로운 columns/headers를 감지하도록 함
+      setState(() {
+        // widget.columns와 widget.stackedHeaders가 변경되었음을 Flutter에 알림
+      });
     }
   }
 
@@ -142,9 +136,6 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
         _zoomFactor = (_zoomFactor + GridLayoutConstants.zoomStep)
             .clamp(GridLayoutConstants.minZoom, GridLayoutConstants.maxZoom);
         SimplifiedTimetableTheme.setFontScaleFactor(_zoomFactor);
-        // 캐시 무효화 (줌 배율 변경 시)
-        _cachedColumns = null;
-        _cachedHeaders = null;
       });
     }
   }
@@ -156,9 +147,6 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
         _zoomFactor = (_zoomFactor - GridLayoutConstants.zoomStep)
             .clamp(GridLayoutConstants.minZoom, GridLayoutConstants.maxZoom);
         SimplifiedTimetableTheme.setFontScaleFactor(_zoomFactor);
-        // 캐시 무효화 (줌 배율 변경 시)
-        _cachedColumns = null;
-        _cachedHeaders = null;
       });
     }
   }
@@ -168,9 +156,6 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     setState(() {
       _zoomFactor = GridLayoutConstants.defaultZoomFactor;
       SimplifiedTimetableTheme.setFontScaleFactor(GridLayoutConstants.defaultZoomFactor);
-      // 캐시 무효화 (줌 배율 변경 시)
-      _cachedColumns = null;
-      _cachedHeaders = null;
     });
   }
 
@@ -660,7 +645,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
           ),
         ),
         child: SfDataGrid(
-          key: _dataGridKey, // 스크롤 제어를 위한 GlobalKey 추가
+          key: ValueKey(widget.columns.hashCode), // columns 변경 시 SfDataGrid 강제 재생성
           source: widget.dataSource!,
           columns: _getScaledColumns(), // 실제 크기 조정된 열 사용
           stackedHeaderRows: _getScaledStackedHeaders(), // 실제 크기 조정된 헤더 사용
@@ -692,35 +677,24 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     return dataGridContainer; // 실제 크기 조정 방식 사용
   }
 
-  /// 확대/축소에 따른 실제 크기 조정된 열 반환 - 캐싱 적용
+  /// 확대/축소에 따른 실제 크기 조정된 열 반환 - 캐싱 비활성화
   List<GridColumn> _getScaledColumns() {
-    // 캐시된 값이 있고 줌 배율이 동일하면 캐시 반환
-    if (_cachedColumns != null && _lastCachedZoomFactor == _zoomFactor) {
-      return _cachedColumns!;
-    }
-
-    // 새로 생성하고 캐시에 저장
-    _cachedColumns = widget.columns.map((column) {
+    // 캐싱 제거: widget.columns가 변경될 때마다 새로 생성
+    // (헤더 테마 업데이트가 즉시 반영되도록 함)
+    return widget.columns.map((column) {
       return GridColumn(
         columnName: column.columnName,
         width: _getScaledColumnWidth(column.width), // 실제 열 너비 조정
         label: _getScaledTextWidget(column.label, isHeader: false), // 열 라벨 (검은색)
       );
     }).toList();
-    _lastCachedZoomFactor = _zoomFactor;
-
-    return _cachedColumns!;
   }
 
-  /// 확대/축소에 따른 실제 크기 조정된 스택 헤더 반환 - 캐싱 적용
+  /// 확대/축소에 따른 실제 크기 조정된 스택 헤더 반환 - 캐싱 비활성화
   List<StackedHeaderRow> _getScaledStackedHeaders() {
-    // 캐시된 값이 있고 줌 배율이 동일하면 캐시 반환
-    if (_cachedHeaders != null && _lastCachedZoomFactor == _zoomFactor) {
-      return _cachedHeaders!;
-    }
-
-    // 새로 생성하고 캐시에 저장
-    _cachedHeaders = widget.stackedHeaders.map((headerRow) {
+    // 캐싱 제거: widget.stackedHeaders가 변경될 때마다 새로 생성
+    // (헤더 테마 업데이트가 즉시 반영되도록 함)
+    return widget.stackedHeaders.map((headerRow) {
       return StackedHeaderRow(
         cells: headerRow.cells.map((cell) {
           return StackedHeaderCell(
@@ -730,9 +704,6 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
         }).toList(),
       );
     }).toList();
-    _lastCachedZoomFactor = _zoomFactor;
-
-    return _cachedHeaders!;
   }
 
   /// 확대/축소에 따른 실제 열 너비 반환
