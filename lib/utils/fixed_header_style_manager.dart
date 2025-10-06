@@ -381,8 +381,6 @@ class FixedHeaderStyleManager {
     String? selectedDay,
     int? selectedPeriod,
   }) {
-    AppLogger.exchangeDebug('FixedHeaderStyleManager: 셀 선택 헤더 업데이트 - 요일: $selectedDay, 교시: $selectedPeriod');
-    
     // 선택 상태가 변경된 경우에만 캐시 무효화
     if (selectedDay != null && selectedPeriod != null) {
       // 선택된 교시와 관련된 캐시만 무효화 (성능 최적화)
@@ -394,7 +392,7 @@ class FixedHeaderStyleManager {
     
     // 다음 프레임에서 업데이트 강제 실행
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      AppLogger.exchangeDebug('FixedHeaderStyleManager: 셀 선택 헤더 업데이트 완료');
+      // 헤더 업데이트 완료
     });
   }
 

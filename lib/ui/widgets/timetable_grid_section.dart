@@ -13,7 +13,6 @@ import '../../models/one_to_one_exchange_path.dart';
 import '../../models/circular_exchange_path.dart';
 import '../../models/chain_exchange_path.dart';
 import '../../services/exchange_history_service.dart';
-import '../../utils/logger.dart';
 import 'timetable_grid/timetable_grid_constants.dart';
 import 'timetable_grid/exchange_arrow_style.dart';
 import 'timetable_grid/exchange_arrow_painter.dart';

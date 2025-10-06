@@ -33,6 +33,7 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel>
       length: ExchangeMode.values.length,
       initialIndex: widget.currentMode.index,
       vsync: this,
+      animationDuration: Duration.zero, // 애니메이션 지속 시간을 0으로 설정
     );
   }
 
@@ -40,9 +41,9 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel>
   void didUpdateWidget(ExchangeControlPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     
-    // currentMode가 변경되었을 때 TabController 업데이트
+    // currentMode가 변경되었을 때 TabController 업데이트 (애니메이션 없이 즉시 변경)
     if (oldWidget.currentMode != widget.currentMode) {
-      _tabController.animateTo(widget.currentMode.index);
+      _tabController.index = widget.currentMode.index;
     }
   }
 
@@ -155,18 +156,23 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel>
         icon: Icon(mode.icon, size: 18),
         text: mode.displayName,
       )).toList(),
-      labelColor: Colors.white, // 선택된 탭의 텍스트 색상 (흰색으로 변경)
+      labelColor: Colors.white,
       unselectedLabelColor: Colors.grey.shade600,
       indicator: BoxDecoration(
-        color: widget.currentMode.color, // 선택된 탭의 배경색 (현재 모드의 색상 사용)
-        borderRadius: BorderRadius.circular(8), // 둥근 모서리
+        color: widget.currentMode.color,
+        borderRadius: BorderRadius.circular(8),
       ),
-      indicatorSize: TabBarIndicatorSize.tab, // 탭 전체 크기에 맞춤
-      indicatorPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2), // 패딩 추가
+      indicatorSize: TabBarIndicatorSize.tab,
+      indicatorPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
       unselectedLabelStyle: const TextStyle(fontSize: 12),
-      // 애니메이션 효과 제거 - overlayColor만 사용
+      // 최대 성능 최적화
+      animationDuration: Duration.zero, // 애니메이션 완전 제거
       overlayColor: WidgetStateProperty.all(Colors.transparent), // 오버레이 색상 투명화
+      splashFactory: NoSplash.splashFactory, // 스플래시 효과 제거
+      mouseCursor: SystemMouseCursors.click, // 마우스 커서만 유지
+      enableFeedback: false, // 햅틱 피드백 제거
+      physics: const NeverScrollableScrollPhysics(), // 스크롤 물리 효과 제거 (isScrollable과 함께 사용)
     );
   }
 }

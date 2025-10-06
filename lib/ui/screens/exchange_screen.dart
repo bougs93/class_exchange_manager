@@ -138,10 +138,23 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   void _changeMode(ExchangeMode newMode) {
     final notifier = ref.read(exchangeScreenProvider.notifier);
     
+    // 즉시 모드 변경 (UI 반응성 향상)
+    notifier.setCurrentMode(newMode);
+    
+    // 무거운 작업들은 비동기로 처리
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _performModeChangeTasks(newMode);
+      }
+    });
+  }
+  
+  /// 모드 변경 시 무거운 작업들을 비동기로 처리
+  void _performModeChangeTasks(ExchangeMode newMode) {
+    final notifier = ref.read(exchangeScreenProvider.notifier);
+    
     // 모드 변경 전에 현재 선택된 셀 강제 해제
     _clearAllCellSelections();
-    
-    notifier.setCurrentMode(newMode);
     
     // 모드 변경 시 관련 상태 초기화
     if (newMode == ExchangeMode.view) {
@@ -174,14 +187,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     }
     
     // 헤더 테마 업데이트 (모든 모드 변경 시 필수)
-    // 중요: Provider 업데이트 직후 _updateHeaderTheme() 호출 시 타이밍 이슈 발생
-    // - Provider 업데이트 → build() 예약 → _updateHeaderTheme() → 이전 columns 사용
-    // - 해결: addPostFrameCallback으로 build() 이후 헤더 업데이트 실행
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _updateHeaderTheme();
-      }
-    });
+    _updateHeaderTheme();
   }
 
   /// 셀을 교체불가로 설정 또는 해제 (ViewModel 사용)
