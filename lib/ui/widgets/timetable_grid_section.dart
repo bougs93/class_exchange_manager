@@ -1116,29 +1116,35 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     final exchangePath = _historyService.findExchangePathByCell(teacherName, day, period);
     
     if (exchangePath != null) {
-      // 해당 교체 경로를 다시 선택 상태로 설정
+      // 1단계: UI를 완전히 기본값으로 복원 (모든 교체 관련 상태 초기화)
+      widget.onRestoreUIToDefault?.call();
+      
+      // 2단계: 즉시 새로운 교체 경로 설정
       _selectExchangePath(exchangePath);
       
-      // 교체된 셀 선택 시 헤더 테마 업데이트 호출
-      // 교체된 셀의 헤더가 하이라이트되도록 함
-      widget.onHeaderThemeUpdate?.call();
-      
-      // FixedHeaderStyleManager의 교체된 셀 전용 업데이트도 호출
+      // 3단계: 즉시 교체된 셀 전용 헤더 업데이트
       FixedHeaderStyleManager.updateHeaderForExchangedCell(
         day: day,
         period: period,
       );
+      
+      // 4단계: 즉시 UI 업데이트를 위한 강제 리빌드
+      setState(() {});
     }
   }
   
   /// 교체 경로 상태 초기화 (공통 로직)
-  void _resetPathSelections({bool updateUI = true}) {
+  void _resetPathSelections({bool updateUI = true, bool updateHeader = true}) {
     _internalSelectedPath = null;
     widget.dataSource?.updateSelectedOneToOnePath(null);
     widget.dataSource?.updateSelectedCircularPath(null);
     widget.dataSource?.updateSelectedChainPath(null);
     widget.dataSource?.clearAllCaches();
-    widget.onHeaderThemeUpdate?.call();
+    
+    // 헤더 테마 업데이트는 선택적으로 호출
+    if (updateHeader) {
+      widget.onHeaderThemeUpdate?.call();
+    }
 
     if (updateUI && mounted) {
       setState(() {});
@@ -1147,8 +1153,8 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
 
   /// 교체 경로 선택 처리
   void _selectExchangePath(ExchangePath exchangePath) {
-    // 기존 경로 초기화
-    _resetPathSelections(updateUI: false);
+    // 기존 경로 초기화 (헤더 업데이트 비활성화)
+    _resetPathSelections(updateUI: false, updateHeader: false);
 
     // 새로운 경로 설정
     _internalSelectedPath = exchangePath;
