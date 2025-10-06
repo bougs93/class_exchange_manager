@@ -171,7 +171,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     }
     
     // 헤더 테마 업데이트 (모든 모드 변경 시 필수)
-    // Provider 업데이트로 인한 build() 이후에 헤더를 업데이트하도록 다음 프레임으로 지연
+    // 중요: Provider 업데이트 직후 _updateHeaderTheme() 호출 시 타이밍 이슈 발생
+    // - Provider 업데이트 → build() 예약 → _updateHeaderTheme() → 이전 columns 사용
+    // - 해결: addPostFrameCallback으로 build() 이후 헤더 업데이트 실행
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _updateHeaderTheme();

@@ -243,3 +243,37 @@ Excel 파일 (읽기 전용) → ExcelService → Models → Providers → UI
 - **Mixin 감소**: 11개 → 8개 + 1 Manager
 - **flutter analyze**: No issues found
 - **유지보수성**: 매우 향상 (테스트 용이, 의존성 명확)
+
+## 주요 이슈 및 해결 방법
+
+### Syncfusion DataGrid 동적 헤더 업데이트 이슈 (2025년 1월)
+
+**문제**: 교체 모드에서 셀 선택 시 테이블 헤더 UI가 업데이트되지 않음
+
+**근본 원인**:
+1. **GlobalKey 사용 문제**: `SfDataGrid`에 GlobalKey를 사용하면 Flutter가 동일한 State 객체를 재사용
+2. **컬럼 변경 미감지**: 컬럼 개수가 동일하면 Syncfusion DataGrid가 헤더 변경을 감지하지 못함
+3. **참조**: [Syncfusion 공식 포럼 이슈](https://www.syncfusion.com/forums/181891)
+
+**해결 방법**:
+```dart
+// lib/ui/widgets/timetable_grid_section.dart
+SfDataGrid(
+  // GlobalKey 대신 ValueKey 사용으로 columns 변경 시 강제 재생성
+  key: ValueKey(widget.columns.hashCode),
+  columns: _getScaledColumns(),
+  stackedHeaderRows: _getScaledStackedHeaders(),
+  ...
+)
+```
+
+**추가 조치**:
+1. **캐싱 제거**: `_getScaledColumns()`, `_getScaledStackedHeaders()`의 캐싱 로직 제거
+2. **didUpdateWidget 감지**: TimetableGridSection에서 columns 변경 시 `setState()` 호출
+3. **타이밍 조정**: 모드 변경 시 `addPostFrameCallback` 사용으로 Provider 업데이트 후 헤더 갱신
+
+**영향받은 파일**:
+- `lib/ui/widgets/timetable_grid_section.dart` - ValueKey 적용, 캐싱 제거
+- `lib/ui/screens/exchange_screen.dart` - addPostFrameCallback 타이밍 조정
+
+**결과**: 모든 상황(셀 선택, 경로 선택, 모드 변경)에서 헤더 UI 정상 업데이트
