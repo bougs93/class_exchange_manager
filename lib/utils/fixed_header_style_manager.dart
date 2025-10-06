@@ -3,6 +3,7 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'simplified_timetable_theme.dart';
 import 'constants.dart';
 import 'cell_style_config.dart';
+import 'logger.dart';
 
 /// 시간표 테이블의 고정 헤더(1행: 요일, 2행: 교시) 스타일 통합 관리 클래스
 ///
@@ -360,13 +361,74 @@ class FixedHeaderStyleManager {
   /// 헤더 강제 업데이트 (즉시 반영)
   ///
   /// Syncfusion DataGrid의 헤더 업데이트 지연 문제 해결
+  /// 셀 선택 시 헤더 UI가 변경되도록 캐시를 초기화하고 강제 업데이트
   static void forceHeaderUpdate() {
     // 캐시 초기화로 새로운 상태 반영
     clearCache();
     
     // 다음 프레임에서 업데이트 강제 실행
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // 추가 업데이트 로직이 필요한 경우 여기에 구현
+      // 헤더 업데이트가 완료되었음을 로그로 확인
+      AppLogger.exchangeDebug('FixedHeaderStyleManager: 헤더 강제 업데이트 완료');
     });
+  }
+
+  /// 셀 선택 시 헤더 업데이트 (교체 모드 전용)
+  ///
+  /// 교체 모드에서 셀을 선택했을 때 헤더 UI가 즉시 변경되도록 함
+  /// 선택된 교시의 헤더가 하이라이트되도록 캐시를 무효화
+  static void updateHeaderForCellSelection({
+    String? selectedDay,
+    int? selectedPeriod,
+  }) {
+    AppLogger.exchangeDebug('FixedHeaderStyleManager: 셀 선택 헤더 업데이트 - 요일: $selectedDay, 교시: $selectedPeriod');
+    
+    // 선택 상태가 변경된 경우에만 캐시 무효화
+    if (selectedDay != null && selectedPeriod != null) {
+      // 선택된 교시와 관련된 캐시만 무효화 (성능 최적화)
+      _invalidateCacheForPeriod(selectedDay, selectedPeriod);
+    } else {
+      // 선택 해제 시 전체 캐시 무효화
+      clearCache();
+    }
+    
+    // 다음 프레임에서 업데이트 강제 실행
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppLogger.exchangeDebug('FixedHeaderStyleManager: 셀 선택 헤더 업데이트 완료');
+    });
+  }
+
+  /// 교체된 셀 선택 시 헤더 업데이트 (교체된 셀 전용)
+  ///
+  /// 교체된 셀을 선택했을 때 해당 교시의 헤더가 하이라이트되도록 함
+  /// 교체된 셀은 특별한 스타일이 적용될 수 있음
+  static void updateHeaderForExchangedCell({
+    required String day,
+    required int period,
+  }) {
+    AppLogger.exchangeDebug('FixedHeaderStyleManager: 교체된 셀 헤더 업데이트 - 요일: $day, 교시: $period');
+    
+    // 교체된 셀과 관련된 캐시 무효화
+    _invalidateCacheForPeriod(day, period);
+    
+    // 다음 프레임에서 업데이트 강제 실행
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppLogger.exchangeDebug('FixedHeaderStyleManager: 교체된 셀 헤더 업데이트 완료');
+    });
+  }
+
+  /// 특정 교시와 관련된 캐시 무효화 (성능 최적화)
+  static void _invalidateCacheForPeriod(String day, int period) {
+    // 해당 교시와 관련된 캐시 키들을 찾아서 제거
+    final keysToRemove = _widgetCache.keys.where((key) => 
+      key.contains('${day}${period}') || 
+      key.contains('${day}_$period')
+    ).toList();
+    
+    for (final key in keysToRemove) {
+      _widgetCache.remove(key);
+    }
+    
+    AppLogger.exchangeDebug('FixedHeaderStyleManager: 교시 $day$period 관련 캐시 ${keysToRemove.length}개 무효화');
   }
 }

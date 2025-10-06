@@ -7,6 +7,7 @@ import '../../utils/timetable_data_source.dart';
 import '../../utils/constants.dart';
 import '../../utils/exchange_visualizer.dart';
 import '../../utils/simplified_timetable_theme.dart';
+import '../../utils/fixed_header_style_manager.dart';
 import '../../models/exchange_path.dart';
 import '../../models/one_to_one_exchange_path.dart';
 import '../../models/circular_exchange_path.dart';
@@ -1092,6 +1093,16 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     if (exchangePath != null) {
       // 해당 교체 경로를 다시 선택 상태로 설정
       _selectExchangePath(exchangePath);
+      
+      // 교체된 셀 선택 시 헤더 테마 업데이트 호출
+      // 교체된 셀의 헤더가 하이라이트되도록 함
+      widget.onHeaderThemeUpdate?.call();
+      
+      // FixedHeaderStyleManager의 교체된 셀 전용 업데이트도 호출
+      FixedHeaderStyleManager.updateHeaderForExchangedCell(
+        day: day,
+        period: period,
+      );
     }
   }
   
@@ -1165,6 +1176,10 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     
     // 기존 셀 탭 이벤트 처리
     widget.onCellTap(details);
+    
+    // 셀 선택 후 헤더 테마 업데이트 호출
+    // 교체 모드에서 셀을 선택했을 때 헤더 UI가 변경되도록 함
+    widget.onHeaderThemeUpdate?.call();
   }
   
   /// 행 인덱스에서 교사명 추출
