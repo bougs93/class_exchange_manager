@@ -4,7 +4,7 @@ import '../../models/exchange_mode.dart';
 
 /// 교체 제어 패널 위젯
 /// 파일 선택 상태 표시와 교체 모드 선택을 담당하는 통합 제어 패널
-class ExchangeControlPanel extends StatelessWidget {
+class ExchangeControlPanel extends StatefulWidget {
   final File? selectedFile;
   final bool isLoading;
   final ExchangeMode currentMode;
@@ -19,6 +19,47 @@ class ExchangeControlPanel extends StatelessWidget {
   });
 
   @override
+  State<ExchangeControlPanel> createState() => _ExchangeControlPanelState();
+}
+
+class _ExchangeControlPanelState extends State<ExchangeControlPanel>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(
+      length: ExchangeMode.values.length,
+      vsync: this,
+      initialIndex: widget.currentMode.index,
+    );
+  }
+
+  @override
+  void didUpdateWidget(ExchangeControlPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    
+    // currentMode가 변경되었을 때 TabController 업데이트
+    if (oldWidget.currentMode != widget.currentMode) {
+      _tabController.animateTo(widget.currentMode.index);
+    }
+  }
+
+  /// TabController를 강제로 특정 인덱스로 업데이트 (외부에서 호출 가능)
+  void forceUpdateTabIndex(int index) {
+    if (_tabController.index != index) {
+      _tabController.animateTo(index);
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Card(
       elevation: 2,
@@ -29,7 +70,7 @@ class ExchangeControlPanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 파일 선택 상태에 따른 UI
-            if (selectedFile == null) 
+            if (widget.selectedFile == null) 
               _buildNoFileSelectedUI()
             else 
               _buildFileSelectedUI(),
@@ -96,7 +137,7 @@ class ExchangeControlPanel extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '선택된 파일: ${selectedFile!.path.split('\\').last}',
+              '선택된 파일: ${widget.selectedFile!.path.split('\\').last}',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
@@ -111,31 +152,28 @@ class ExchangeControlPanel extends StatelessWidget {
 
   /// 교체 모드 TabBar 구성
   Widget _buildModeTabBar() {
-    return DefaultTabController(
-      length: ExchangeMode.values.length,
-      initialIndex: currentMode.index,
-      child: TabBar(
-        isScrollable: true,
-        onTap: (index) {
-          onModeChanged(ExchangeMode.values[index]);
-        },
-        tabs: ExchangeMode.values.map((mode) => Tab(
-          icon: Icon(mode.icon, size: 18),
-          text: mode.displayName,
-        )).toList(),
-        labelColor: Colors.white, // 선택된 탭의 텍스트 색상 (흰색으로 변경)
-        unselectedLabelColor: Colors.grey.shade600,
-        indicator: BoxDecoration(
-          color: currentMode.color, // 선택된 탭의 배경색 (현재 모드의 색상 사용)
-          borderRadius: BorderRadius.circular(8), // 둥근 모서리
-        ),
-        indicatorSize: TabBarIndicatorSize.tab, // 탭 전체 크기에 맞춤
-        indicatorPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2), // 패딩 추가
-        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-        unselectedLabelStyle: const TextStyle(fontSize: 12),
-        // 애니메이션 효과 제거 - overlayColor만 사용
-        overlayColor: WidgetStateProperty.all(Colors.transparent), // 오버레이 색상 투명화
+    return TabBar(
+      controller: _tabController,
+      isScrollable: true,
+      onTap: (index) {
+        widget.onModeChanged(ExchangeMode.values[index]);
+      },
+      tabs: ExchangeMode.values.map((mode) => Tab(
+        icon: Icon(mode.icon, size: 18),
+        text: mode.displayName,
+      )).toList(),
+      labelColor: Colors.white, // 선택된 탭의 텍스트 색상 (흰색으로 변경)
+      unselectedLabelColor: Colors.grey.shade600,
+      indicator: BoxDecoration(
+        color: widget.currentMode.color, // 선택된 탭의 배경색 (현재 모드의 색상 사용)
+        borderRadius: BorderRadius.circular(8), // 둥근 모서리
       ),
+      indicatorSize: TabBarIndicatorSize.tab, // 탭 전체 크기에 맞춤
+      indicatorPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2), // 패딩 추가
+      labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+      unselectedLabelStyle: const TextStyle(fontSize: 12),
+      // 애니메이션 효과 제거 - overlayColor만 사용
+      overlayColor: WidgetStateProperty.all(Colors.transparent), // 오버레이 색상 투명화
     );
   }
 }

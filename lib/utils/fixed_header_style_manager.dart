@@ -421,7 +421,7 @@ class FixedHeaderStyleManager {
   static void _invalidateCacheForPeriod(String day, int period) {
     // 해당 교시와 관련된 캐시 키들을 찾아서 제거
     final keysToRemove = _widgetCache.keys.where((key) => 
-      key.contains('${day}${period}') || 
+      key.contains('$day$period') || 
       key.contains('${day}_$period')
     ).toList();
     

@@ -8,6 +8,7 @@ import '../../providers/navigation_provider.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../ui/screens/exchange_screen/exchange_screen_state_proxy.dart';
 import '../../ui/screens/exchange_screen/managers/exchange_operation_manager.dart';
+import '../../models/exchange_mode.dart';
 
 /// 메인 홈 화면 - Drawer 메뉴가 있는 Scaffold
 class HomeScreen extends ConsumerStatefulWidget {
@@ -42,6 +43,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             
             if (timetableData != null) {
               globalNotifier.setTimetableData(timetableData);
+              
+              // 엑셀 파일 로드 완료 시 보기 모드 자동 활성화
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                final currentMode = ref.read(exchangeScreenProvider).currentMode;
+                
+                // 현재 모드가 보기 모드가 아닌 경우에만 보기 모드로 설정
+                if (currentMode != ExchangeMode.view) {
+                  globalNotifier.setCurrentMode(ExchangeMode.view);
+                }
+              });
             }
             
             setState(() {});
