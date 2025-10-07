@@ -386,7 +386,7 @@ class ExchangeHistoryService {
   }
   
   /// 특정 셀이 교체된 상태인지 확인
-  bool isCellExchanged(String teacherName, String day, int period) {
+  bool isCellExchangedSource(String teacherName, String day, int period) {
     final cellKey = '${teacherName}_${day}_$period';
     return _exchangedCells.contains(cellKey);
   }

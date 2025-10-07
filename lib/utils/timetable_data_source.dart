@@ -296,7 +296,7 @@ class TimetableDataSource extends DataGridSource {
         teacherName, day, period,
         () => _nonExchangeableManager.isNonExchangeableTimeSlot(teacherName, day, period)
       ),
-      isExchangedSourceCell: _stateManager.isCellExchanged(teacherName, day, period),
+      isExchangedSourceCell: _stateManager.isCellExchangedSource(teacherName, day, period),
       isLastColumnOfDay: _isLastColumnOfDay(day, period),
       isFirstColumnOfDay: _isFirstColumnOfDay(day, period),
       circularPathStep: _stateManager.getCircularPathStep(teacherName, day, period),
