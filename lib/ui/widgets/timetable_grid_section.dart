@@ -1019,6 +1019,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     
     AppLogger.exchangeDebug('=== 교체된 목적지 셀 목록 ===');
     AppLogger.exchangeDebug('총 ${destinationCellKeys.length}개 목적지 셀');
+    AppLogger.exchangeDebug('목적지 셀 키들: $destinationCellKeys');
     
     for (int i = 0; i < destinationCellKeys.length; i++) {
       final cellKey = destinationCellKeys[i];

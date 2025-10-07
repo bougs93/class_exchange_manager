@@ -212,6 +212,7 @@ class CellStateManager {
   void updateExchangedDestinationCells(List<String> destinationCellKeys) {
     _exchangedDestinationCells.clear();
     _exchangedDestinationCells.addAll(destinationCellKeys);
+    print('🔍 [CellStateManager] 목적지 셀 업데이트: $_exchangedDestinationCells');
   }
   
   /// 교체된 셀 목록 가져오기
@@ -228,7 +229,11 @@ class CellStateManager {
   /// 특정 셀이 교체된 목적지 셀인지 확인
   bool isCellExchangedDestination(String teacherName, String day, int period) {
     final cellKey = '${teacherName}_${day}_$period';
-    return _exchangedDestinationCells.contains(cellKey);
+    final isDestination = _exchangedDestinationCells.contains(cellKey);
+    if (isDestination) {
+      print('🔍 [CellStateManager] 목적지 셀 확인: $cellKey = true');
+    }
+    return isDestination;
   }
   
   /// 선택된 순환교체 경로 접근자 (보기 모드용)

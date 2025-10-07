@@ -218,6 +218,7 @@ class TimetableDataSource extends DataGridSource {
           isTargetCell: cellState.isTargetCell,
           isNonExchangeable: cellState.isNonExchangeable,
           isExchangedSourceCell: cellState.isExchangedSourceCell,
+          isExchangedDestinationCell: cellState.isExchangedDestinationCell,
         );
       }).toList(),
     );
