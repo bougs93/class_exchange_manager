@@ -5,9 +5,7 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../services/excel_service.dart';
 import '../../utils/timetable_data_source.dart';
 import '../../utils/constants.dart';
-import '../../utils/exchange_visualizer.dart';
 import '../../utils/simplified_timetable_theme.dart';
-import '../../utils/fixed_header_style_manager.dart';
 import '../../models/exchange_path.dart';
 import '../../models/one_to_one_exchange_path.dart';
 import '../../models/circular_exchange_path.dart';
@@ -86,6 +84,9 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
 
   // 내부적으로 관리하는 선택된 교체 경로 (교체된 셀 클릭 시 사용)
   ExchangePath? _internalSelectedPath;
+  
+  // 교체 뷰 체크박스 상태
+  bool _isExchangeViewEnabled = false;
 
   /// 현재 선택된 교체 경로 (외부 또는 내부)
   ExchangePath? get currentSelectedPath => widget.selectedExchangePath ?? _internalSelectedPath;
@@ -330,11 +331,10 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
         
         const SizedBox(width: 8),
         
-        // 교체 모드가 활성화된 경우에만 교체 가능한 수업 개수 표시
-        if (widget.isExchangeModeEnabled) ...[
-          ExchangeVisualizer.buildExchangeableCountWidget(widget.exchangeableCount),
-          const SizedBox(width: 8),
-        ],
+        // 교체 뷰 체크박스
+        _buildExchangeViewCheckbox(),
+        
+        const SizedBox(width: 8),
         
         const Spacer(), // 공간을 최대한 활용
         
@@ -453,8 +453,8 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
                 margin: const EdgeInsets.only(right: 8),
                 child: ElevatedButton.icon(
                   onPressed: currentSelectedPath != null ? () {
-                    // 교체 다이얼로그 표시 후 실행
-                    _showExchangeDialog();
+                    // 교체 다이얼로그 없이 바로 실행
+                    _executeExchange();
                   } : null,
                   icon: Icon(
                     Icons.swap_horiz, 
@@ -572,6 +572,40 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
           color: Colors.green.shade700,
           fontWeight: FontWeight.w500,
         ),
+      ),
+    );
+  }
+
+  /// 교체 뷰 체크박스 위젯
+  Widget _buildExchangeViewCheckbox() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Checkbox(
+            value: _isExchangeViewEnabled,
+            onChanged: (bool? value) {
+              setState(() {
+                _isExchangeViewEnabled = value ?? false;
+              });
+              // 교체 뷰 상태 변경 시 추가 로직이 필요하면 여기에 구현
+            },
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+            activeColor: Colors.blue.shade600,
+            checkColor: Colors.white,
+          ),
+          Text(
+            '교체 뷰',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: _isExchangeViewEnabled ? Colors.blue.shade700 : Colors.grey.shade700,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -946,156 +980,7 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     );
   }
 
-  /// 교체 기능 다이얼로그 표시
-  void _showExchangeDialog() {
-    // 선택된 경로가 있는지 확인
-    if (widget.selectedExchangePath == null) {
-      _showNoPathSelectedDialog();
-      return;
-    }
 
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.swap_horiz, color: Colors.blue),
-              SizedBox(width: 8),
-              Text('수업 교체'),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('선택된 교체 경로로 수업 교체를 실행하시겠습니까?'),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.shade200),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '선택된 경로 정보:',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue.shade700,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '• 경로 ID: ${widget.selectedExchangePath!.id}\n'
-                      '• 경로 타입: ${_getPathTypeName(widget.selectedExchangePath!)}\n'
-                      '• 교체 단계: ${_getPathStepCount(widget.selectedExchangePath!)}단계',
-                      style: const TextStyle(fontSize: 11, color: Colors.grey),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                '• 교체 실행 후 시간표가 업데이트됩니다\n'
-                '• 변경사항은 즉시 반영됩니다\n'
-                '• 필요시 되돌리기 기능을 사용하세요',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('취소'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                // 교체 실행 로직 구현
-                _executeExchange();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('교체 실행'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  /// 선택된 경로가 없을 때 표시되는 다이얼로그
-  void _showNoPathSelectedDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.info_outline, color: Colors.orange),
-              SizedBox(width: 8),
-              Text('교체 경로 선택 필요'),
-            ],
-          ),
-          content: const Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('교체를 실행하려면 먼저 교체 경로를 선택해야 합니다.'),
-              SizedBox(height: 16),
-              Text(
-                '• 사이드바에서 교체 가능한 경로를 확인하세요\n'
-                '• 원하는 교체 경로를 클릭하여 선택하세요\n'
-                '• 경로가 선택되면 교체 버튼이 활성화됩니다',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ],
-          ),
-          actions: [
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('확인'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  /// 경로 타입 이름 반환
-  String _getPathTypeName(ExchangePath path) {
-    if (path is OneToOneExchangePath) {
-      return '1:1 교체';
-    } else if (path is CircularExchangePath) {
-      return '순환 교체';
-    } else if (path is ChainExchangePath) {
-      return '연쇄 교체';
-    }
-    return '알 수 없음';
-  }
-
-  /// 경로 단계 수 반환
-  int _getPathStepCount(ExchangePath path) {
-    if (path is OneToOneExchangePath) {
-      return 1; // 1:1 교체는 항상 1단계
-    } else if (path is CircularExchangePath) {
-      return path.steps;
-    } else if (path is ChainExchangePath) {
-      return path.steps.length;
-    }
-    return 0;
-  }
 
   /// 보강 수업 추가 기능
   void _addSupplementClass() {
