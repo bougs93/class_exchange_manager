@@ -25,7 +25,7 @@ class CellStateInfo {
   final bool isInChainPath;
   final int? chainPathStep;
   final bool isNonExchangeable;
-  final bool isExchanged; // 교체된 셀인지 여부
+  final bool isExchangedSourceCell; // 교체완료 소스 셀인지 여부
 
   CellStateInfo({
     required this.isSelected,
@@ -39,7 +39,7 @@ class CellStateInfo {
     required this.isInChainPath,
     this.chainPathStep,
     required this.isNonExchangeable,
-    required this.isExchanged,
+    required this.isExchangedSourceCell,
   });
 
   factory CellStateInfo.empty() {
@@ -55,7 +55,7 @@ class CellStateInfo {
       isInChainPath: false,
       chainPathStep: null,
       isNonExchangeable: false,
-      isExchanged: false,
+      isExchangedSourceCell: false,
     );
   }
 }
@@ -214,7 +214,7 @@ class TimetableDataSource extends DataGridSource {
           chainPathStep: cellState.chainPathStep,
           isTargetCell: cellState.isTargetCell,
           isNonExchangeable: cellState.isNonExchangeable,
-          isExchanged: cellState.isExchanged,
+          isExchangedSourceCell: cellState.isExchangedSourceCell,
         );
       }).toList(),
     );
@@ -251,7 +251,7 @@ class TimetableDataSource extends DataGridSource {
       isInChainPath: _stateManager.isTeacherInChainPath(teacherName),
       isInSelectedPath: _stateManager.isInSelectedOneToOnePath(teacherName),
       isNonExchangeable: false,
-      isExchanged: false, // 교사명 열은 교체된 셀 상태 적용 안함
+      isExchangedSourceCell: false, // 교사명 열은 교체완료 소스 셀 상태 적용 안함
       isTargetCell: false,
       isLastColumnOfDay: false,
       isFirstColumnOfDay: false,
@@ -296,7 +296,7 @@ class TimetableDataSource extends DataGridSource {
         teacherName, day, period,
         () => _nonExchangeableManager.isNonExchangeableTimeSlot(teacherName, day, period)
       ),
-      isExchanged: _stateManager.isCellExchanged(teacherName, day, period),
+      isExchangedSourceCell: _stateManager.isCellExchanged(teacherName, day, period),
       isLastColumnOfDay: _isLastColumnOfDay(day, period),
       isFirstColumnOfDay: _isFirstColumnOfDay(day, period),
       circularPathStep: _stateManager.getCircularPathStep(teacherName, day, period),

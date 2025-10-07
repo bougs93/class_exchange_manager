@@ -18,7 +18,7 @@ class SimplifiedTimetableCell extends StatelessWidget {
   final int? chainPathStep; // 연쇄교체 경로에서의 단계 (1, 2)
   final bool isTargetCell; // 타겟 셀인지 여부 (교체 대상의 같은 행 셀)
   final bool isNonExchangeable; // 교체불가 셀인지 여부
-  final bool isExchanged; // 교체완료 셀인지 여부
+  final bool isExchangedSourceCell; // 교체완료 소스 셀인지 여부
   final VoidCallback? onTap;
 
   const SimplifiedTimetableCell({
@@ -37,7 +37,7 @@ class SimplifiedTimetableCell extends StatelessWidget {
     this.chainPathStep,
     this.isTargetCell = false,
     this.isNonExchangeable = false,
-    this.isExchanged = false, // 교체완료 셀 기본값은 false
+    this.isExchangedSourceCell = false, // 교체완료 소스 셀 기본값은 false
     this.onTap,
   });
 
@@ -58,7 +58,7 @@ class SimplifiedTimetableCell extends StatelessWidget {
         chainPathStep: chainPathStep,
         isTargetCell: isTargetCell,
         isNonExchangeable: isNonExchangeable,
-        isExchanged: isExchanged,
+        isExchangedSourceCell: isExchangedSourceCell,
       ),
     );
     

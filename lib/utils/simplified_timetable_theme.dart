@@ -44,13 +44,13 @@ class SimplifiedTimetableTheme {
   static BorderStyle targetCellBorderStyle = BorderStyle.solid; // 타겟 셀 테두리 스타일 (solid만 지원, 점선은 CustomPainter 사용)
   static const bool showTargetCellBorder = true; // 타겟 셀 테두리 표시 여부
 
-// 교체완료 셀 테두리 색상 상수 (교체가 완료된 셀의 테두리)
-  static const Color exchangedCellBorderColor = Color(0xFF2196F3); // 교체완료 셀 테두리 색상 (파란색)
-  static const double exchangedCellBorderWidth = 2.5; // 교체완료 셀 테두리 두께 (더 두껍게)
-  static BorderStyle exchangedCellBorderStyle = BorderStyle.solid; // 교체완료 셀 테두리 스타일
-  static const bool showExchangedCellBorder = true; // 교체완료 셀 테두리 표시 여부
-// 교체완료 대상 셀(실제 수업) 배경색 상수 (교체가 완료된 셀의 배경색)
-  static const Color exchangedClassBackgroundColor = Color(0xFFE3F2FD); // 교체완료 셀 배경색 (연한 파란색)
+// 교체완료 소스 셀 테두리 색상 상수 (교체가 완료된 소스 셀의 테두리) <- 교체전 원본 셀
+  static const Color exchangedSourceCellBorderColor = Color(0xFF2196F3); // 교체완료 소스 셀 테두리 색상 (파란색)
+  static const double exchangedSourceCellBorderWidth = 2; // 교체완료 소스 셀 테두리 두께 (더 두껍게)
+  static BorderStyle exchangedSourceCellBorderStyle = BorderStyle.solid; // 교체완료 소스 셀 테두리 스타일
+  static const bool showExchangedSourceCellBorder = true; // 교체완료 소스 셀 테두리 표시 여부
+// 교체완료 대상 셀(실제 수업) 배경색 상수 (교체가 완료된 셀의 배경색) <- 교체후 목적지
+  static const Color exchangedClassBackgroundColor = Color.fromARGB(255, 144, 199, 245); // 교체완료 셀 배경색 (연한 파란색)
   static const bool showExchangedClassBackground = true; // 교체완료 셀 배경색 표시 여부
   
   // 타겟 셀 배경색 상수 (교체 대상의 같은 행 셀 배경색)
@@ -92,7 +92,7 @@ class SimplifiedTimetableTheme {
         isInChainPath: config.isInChainPath,
         isTargetCell: config.isTargetCell,
         isNonExchangeable: config.isNonExchangeable,
-        isExchanged: config.isExchanged,
+        isExchangedSourceCell: config.isExchangedSourceCell,
       ),
       textStyle: _getTextStyle(
         isSelected: config.isSelected,
@@ -107,7 +107,7 @@ class SimplifiedTimetableTheme {
         isInCircularPath: config.isInCircularPath,
         isHeader: config.isHeader,
         isTargetCell: config.isTargetCell,
-        isExchanged: config.isExchanged,
+        isExchangedSourceCell: config.isExchangedSourceCell,
       ),
       overlayWidget: _getOverlayWidget(
         isExchangeable: config.isExchangeable,
@@ -134,10 +134,10 @@ class SimplifiedTimetableTheme {
     required bool isInChainPath,
     required bool isTargetCell, // 타겟 셀인지 여부 추가
     required bool isNonExchangeable, // 교체불가 셀인지 여부
-    required bool isExchanged, // 교체 완료 된 수업인지 여부 추가
+    required bool isExchangedSourceCell, // 교체완료 소스 셀인지 여부 추가
   }) {
-    // 교체 완료 된 수업인 경우 연한 파란색 배경 (최우선순위)
-    if (isExchanged && showExchangedClassBackground) {
+    // 교체완료 소스 셀인 경우 연한 파란색 배경 (최우선순위)
+    if (isExchangedSourceCell && showExchangedClassBackground) {
       return exchangedClassBackgroundColor;
     }
     
@@ -201,15 +201,15 @@ class SimplifiedTimetableTheme {
     required bool isInCircularPath,
     required bool isHeader,
     required bool isTargetCell,
-    required bool isExchanged,
+    required bool isExchangedSourceCell,
   }) {
-    // 교체완료 셀의 경우 파란색 테두리 (표시 여부 설정에 따라)
+    // 교체완료 소스 셀의 경우 파란색 테두리 (표시 여부 설정에 따라)
     // 헤더 셀과 일반 셀 모두에 적용 (최우선순위)
-    if (isExchanged && showExchangedCellBorder) {
+    if (isExchangedSourceCell && showExchangedSourceCellBorder) {
       return Border.all(
-        color: exchangedCellBorderColor, 
-        width: exchangedCellBorderWidth,
-        style: exchangedCellBorderStyle, // 점선 또는 실선 스타일 적용
+        color: exchangedSourceCellBorderColor, 
+        width: exchangedSourceCellBorderWidth,
+        style: exchangedSourceCellBorderStyle, // 점선 또는 실선 스타일 적용
       );
     }
     
