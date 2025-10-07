@@ -3,13 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../services/excel_service.dart';
+import '../../services/exchange_service.dart';
 import '../../utils/timetable_data_source.dart';
 import '../../utils/constants.dart';
 import '../../utils/simplified_timetable_theme.dart';
+import '../../utils/logger.dart';
 import '../../models/exchange_path.dart';
+import '../../models/exchange_history_item.dart';
 import '../../models/one_to_one_exchange_path.dart';
 import '../../models/circular_exchange_path.dart';
 import '../../models/chain_exchange_path.dart';
+import '../../models/time_slot.dart';
 import '../../services/exchange_history_service.dart';
 import 'timetable_grid/timetable_grid_constants.dart';
 import 'timetable_grid/exchange_arrow_style.dart';
@@ -81,12 +85,18 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
 
   // 교체 히스토리 서비스
   final ExchangeHistoryService _historyService = ExchangeHistoryService();
+  
+  // 교체 서비스
+  final ExchangeService _exchangeService = ExchangeService();
 
   // 내부적으로 관리하는 선택된 교체 경로 (교체된 셀 클릭 시 사용)
   ExchangePath? _internalSelectedPath;
   
   // 교체 뷰 체크박스 상태
   bool _isExchangeViewEnabled = false;
+  
+  // 교체 뷰 상태 변경 전의 원본 TimeSlot 데이터 (되돌리기용)
+  List<TimeSlot>? _originalTimeSlots;
 
   /// 현재 선택된 교체 경로 (외부 또는 내부)
   ExchangePath? get currentSelectedPath => widget.selectedExchangePath ?? _internalSelectedPath;
@@ -590,7 +600,13 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
               setState(() {
                 _isExchangeViewEnabled = value ?? false;
               });
-              // 교체 뷰 상태 변경 시 추가 로직이 필요하면 여기에 구현
+              
+              // 교체 뷰 상태에 따른 동작
+              if (_isExchangeViewEnabled) {
+                _enableExchangeView();
+              } else {
+                _disableExchangeView();
+              }
             },
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             visualDensity: VisualDensity.compact,
@@ -1303,5 +1319,198 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
         duration: const Duration(seconds: 2),
       ),
     );
+  }
+  
+  /// 교체 뷰 활성화
+  void _enableExchangeView() {
+    try {
+      AppLogger.exchangeInfo('교체 뷰 활성화 시작');
+      
+      // 1. 현재 TimeSlot 데이터 백업 (되돌리기용)
+      if (widget.dataSource != null && _originalTimeSlots == null) {
+        _originalTimeSlots = widget.dataSource!.timeSlots.map((slot) => slot.copy()).toList();
+        AppLogger.exchangeDebug('원본 TimeSlot 데이터 백업 완료: ${_originalTimeSlots!.length}개');
+      }
+      
+      // 2. 교체 리스트에서 교체 실행
+      final exchangeList = _historyService.getExchangeList();
+      if (exchangeList.isNotEmpty) {
+        AppLogger.exchangeInfo('교체 리스트에서 ${exchangeList.length}개 교체 실행');
+        
+        for (var item in exchangeList) {
+          _executeExchangeFromHistory(item);
+        }
+        
+        // 3. UI 업데이트
+        widget.dataSource?.clearAllCaches();
+        setState(() {});
+        
+        // 4. 교체 내역 로깅
+        AppLogger.exchangeInfo('교체 뷰 활성화 완료 - ${exchangeList.length}개 교체 적용됨');
+        for (int i = 0; i < exchangeList.length; i++) {
+          var item = exchangeList[i];
+          _logDetailedExchangeInfo(i + 1, item);
+        }
+      } else {
+        AppLogger.exchangeInfo('교체 리스트가 비어있습니다 - 교체할 항목이 없음');
+      }
+    } catch (e) {
+      AppLogger.exchangeDebug('교체 뷰 활성화 중 오류 발생: $e');
+    }
+  }
+  
+  /// 교체 뷰 비활성화 (원래 상태로 되돌리기)
+  void _disableExchangeView() {
+    try {
+      AppLogger.exchangeInfo('교체 뷰 비활성화 시작');
+      
+      if (_originalTimeSlots != null && widget.dataSource != null) {
+        // 1. 원본 TimeSlot 데이터로 복원
+        widget.dataSource!.updateData(_originalTimeSlots!, widget.timetableData!.teachers);
+        
+        // 2. UI 업데이트
+        widget.dataSource?.clearAllCaches();
+        setState(() {});
+        
+        // 3. 교체 내역 로깅
+        AppLogger.exchangeInfo('교체 뷰 비활성화 완료 - 원본 상태로 복원됨');
+        AppLogger.exchangeInfo('복원된 TimeSlot 개수: ${_originalTimeSlots!.length}개');
+      } else {
+        AppLogger.exchangeDebug('복원할 원본 데이터가 없습니다');
+      }
+    } catch (e) {
+      AppLogger.exchangeDebug('교체 뷰 비활성화 중 오류 발생: $e');
+    }
+  }
+  
+  /// 교체 히스토리에서 교체 실행
+  void _executeExchangeFromHistory(dynamic exchangeItem) {
+    try {
+      AppLogger.exchangeDebug('교체 히스토리 실행 시작: ${exchangeItem.runtimeType}');
+      
+      // ExchangeHistoryItem인 경우 originalPath를 추출
+      ExchangePath? path;
+      if (exchangeItem is ExchangeHistoryItem) {
+        path = exchangeItem.originalPath;
+        AppLogger.exchangeDebug('ExchangeHistoryItem에서 경로 추출: ${path.runtimeType}');
+      } else if (exchangeItem is ExchangePath) {
+        path = exchangeItem;
+      }
+      
+      if (path != null) {
+        if (path is OneToOneExchangePath) {
+          _executeOneToOneExchangeFromPath(path);
+        } else if (path is CircularExchangePath) {
+          _executeCircularExchangeFromPath(path);
+        } else if (path is ChainExchangePath) {
+          _executeChainExchangeFromPath(path);
+        } else {
+          AppLogger.exchangeDebug('알 수 없는 교체 경로 타입: ${path.runtimeType}');
+        }
+      } else {
+        AppLogger.exchangeDebug('교체 경로를 찾을 수 없음: ${exchangeItem.runtimeType}');
+      }
+    } catch (e) {
+      AppLogger.exchangeDebug('교체 히스토리 실행 중 오류 발생: $e');
+    }
+  }
+  
+  /// 1:1 교체 경로에서 교체 실행
+  void _executeOneToOneExchangeFromPath(OneToOneExchangePath path) {
+    if (widget.timetableData == null) {
+      AppLogger.exchangeDebug('1:1 교체 실행 실패: timetableData가 null');
+      return;
+    }
+    
+    final sourceNode = path.sourceNode;
+    final targetNode = path.targetNode;
+    
+    // 교체 전 상태 로깅
+    AppLogger.exchangeInfo('교체 전:');
+    AppLogger.exchangeInfo('  └─ ${sourceNode.day}|${sourceNode.period}|${sourceNode.className}|${sourceNode.teacherName}|${sourceNode.subjectName}');
+    AppLogger.exchangeInfo('  └─ ${targetNode.day}|${targetNode.period}|${targetNode.className}|${targetNode.teacherName}|${targetNode.subjectName}');
+    
+    AppLogger.exchangeInfo('1:1 교체 실행: ${sourceNode.teacherName}(${sourceNode.day}${sourceNode.period}교시) ↔ ${targetNode.teacherName}(${targetNode.day}${targetNode.period}교시)');
+    
+    bool success = _exchangeService.performOneToOneExchange(
+      widget.dataSource!.timeSlots,
+      sourceNode.teacherName,
+      sourceNode.day,
+      sourceNode.period,
+      targetNode.teacherName,
+      targetNode.day,
+      targetNode.period,
+    );
+    
+    if (success) {
+      AppLogger.exchangeInfo('교체 후:');
+      AppLogger.exchangeInfo('  └─ ${sourceNode.day}|${sourceNode.period}|${sourceNode.className}|${targetNode.teacherName}|${targetNode.subjectName}');
+      AppLogger.exchangeInfo('  └─ ${targetNode.day}|${targetNode.period}|${targetNode.className}|${sourceNode.teacherName}|${sourceNode.subjectName}');
+      AppLogger.exchangeInfo('✅ 1:1 교체 성공: ${sourceNode.teacherName}(${sourceNode.day}${sourceNode.period}교시) ↔ ${targetNode.teacherName}(${targetNode.day}${targetNode.period}교시)');
+      
+      // TimetableDataSource 업데이트
+      widget.dataSource?.clearAllCaches();
+      widget.dataSource?.updateData(widget.dataSource!.timeSlots, widget.timetableData!.teachers);
+    } else {
+      AppLogger.exchangeDebug('❌ 1:1 교체 실패: ${sourceNode.teacherName}(${sourceNode.day}${sourceNode.period}교시) ↔ ${targetNode.teacherName}(${targetNode.day}${targetNode.period}교시)');
+    }
+  }
+  
+  /// 순환 교체 경로에서 교체 실행
+  void _executeCircularExchangeFromPath(CircularExchangePath path) {
+    AppLogger.exchangeInfo('순환 교체 실행 (구현 예정): ${path.id}');
+    AppLogger.exchangeDebug('순환 교체 노드 수: ${path.nodes.length}개');
+    for (int i = 0; i < path.nodes.length; i++) {
+      var node = path.nodes[i];
+      AppLogger.exchangeDebug('노드 ${i + 1}: ${node.teacherName}(${node.day}${node.period}교시)');
+    }
+  }
+  
+  /// 연쇄 교체 경로에서 교체 실행
+  void _executeChainExchangeFromPath(ChainExchangePath path) {
+    AppLogger.exchangeInfo('연쇄 교체 실행 (구현 예정): ${path.id}');
+    AppLogger.exchangeDebug('연쇄 교체 단계 수: ${path.steps.length}개');
+    AppLogger.exchangeDebug('목표 노드: ${path.nodeA.teacherName}(${path.nodeA.day}${path.nodeA.period}교시)');
+    AppLogger.exchangeDebug('대체 노드: ${path.nodeB.teacherName}(${path.nodeB.day}${path.nodeB.period}교시)');
+  }
+  
+  /// 상세한 교체 정보 로깅
+  void _logDetailedExchangeInfo(int exchangeNumber, dynamic exchangeItem) {
+    try {
+      // ExchangeHistoryItem인 경우 originalPath를 추출
+      dynamic path = exchangeItem;
+      if (exchangeItem is ExchangeHistoryItem) {
+        path = exchangeItem.originalPath;
+      }
+      
+      if (path is OneToOneExchangePath) {
+        final sourceNode = path.sourceNode;
+        final targetNode = path.targetNode;
+        
+        AppLogger.exchangeInfo('교체 $exchangeNumber: 1:1 교체');
+        AppLogger.exchangeInfo('  └─ ${sourceNode.day}|${sourceNode.period}|${sourceNode.className}|${sourceNode.teacherName}|${sourceNode.subjectName}');
+        AppLogger.exchangeInfo('  └─ ${targetNode.day}|${targetNode.period}|${targetNode.className}|${targetNode.teacherName}|${targetNode.subjectName}');
+        AppLogger.exchangeInfo('  └─ 결과: ${sourceNode.teacherName}(${sourceNode.day}${sourceNode.period}교시) ↔ ${targetNode.teacherName}(${targetNode.day}${targetNode.period}교시)');
+        
+      } else if (path is CircularExchangePath) {
+        AppLogger.exchangeInfo('교체 $exchangeNumber: 순환 교체 (구현 예정)');
+        AppLogger.exchangeInfo('  └─ 순환 노드 수: ${path.nodes.length}개');
+        for (int i = 0; i < path.nodes.length; i++) {
+          var node = path.nodes[i];
+          AppLogger.exchangeInfo('  └─ 노드 ${i + 1}: ${node.day}|${node.period}|${node.className}|${node.teacherName}|${node.subjectName}');
+        }
+        
+      } else if (path is ChainExchangePath) {
+        AppLogger.exchangeInfo('교체 $exchangeNumber: 연쇄 교체 (구현 예정)');
+        AppLogger.exchangeInfo('  └─ 목표: ${path.nodeA.day}|${path.nodeA.period}|${path.nodeA.className}|${path.nodeA.teacherName}|${path.nodeA.subjectName}');
+        AppLogger.exchangeInfo('  └─ 대체: ${path.nodeB.day}|${path.nodeB.period}|${path.nodeB.className}|${path.nodeB.teacherName}|${path.nodeB.subjectName}');
+        AppLogger.exchangeInfo('  └─ 단계 수: ${path.steps.length}개');
+        
+      } else {
+        AppLogger.exchangeInfo('교체 $exchangeNumber: 알 수 없는 교체 타입 (${exchangeItem.runtimeType})');
+      }
+    } catch (e) {
+      AppLogger.exchangeDebug('교체 $exchangeNumber 상세 정보 로깅 중 오류: $e');
+    }
   }
 }

@@ -272,35 +272,107 @@ class ExchangeService extends BaseExchangeService {
         return false;
       }
       
-      // 2. 교체할 TimeSlot 찾기
-      TimeSlot? slot1 = _findTimeSlot(timeSlots, teacher1, day1, period1);
-      TimeSlot? slot2 = _findTimeSlot(timeSlots, teacher2, day2, period2);
+      // 2. 교체할 소스 TimeSlot 찾기 (원본 수업이 있는 셀)
+      TimeSlot? slot1s = _findTimeSlot(timeSlots, teacher1, day1, period1); // 문유란의 월6교시 (원본)
+      TimeSlot? slot2s = _findTimeSlot(timeSlots, teacher2, day2, period2); // 정영훈의 화3교시 (원본)
       
-      if (slot1 == null || slot2 == null) {
-        AppLogger.exchangeDebug('교체할 TimeSlot을 찾을 수 없습니다');
+      if (slot1s == null || slot2s == null) {
+        AppLogger.exchangeDebug('교체할 소스 TimeSlot을 찾을 수 없습니다');
+        return false;
+      }
+
+      // 3. 교체 대상 TimeSlot 찾기 (서로 다른 교사의 목적지 시간대)
+      TimeSlot? slot2t = _findTimeSlot(timeSlots, teacher2, day1, period1); // 정영훈의 월6교시 (목적지)
+      TimeSlot? slot1t = _findTimeSlot(timeSlots, teacher1, day2, period2); // 문유란의 화3교시 (목적지)
+            
+      if (slot1t == null || slot2t == null) {
+        AppLogger.exchangeDebug('교체할 대상 TimeSlot을 찾을 수 없습니다');
+        return false;
+      }
+
+      // 4. 교체 전 상태를 복사하여 히스토리에 저장
+      List<TimeSlot> beforeSlots = [slot1s.copy(), slot2s.copy()];
+      
+      // 5. 교체 수행 (새로운 이동 방식: 원본 비우기 + 목적지에 복사)
+      // 핵심: slot1과 slot2는 timeSlots 리스트에서 가져온 참조이므로,
+      //       이들을 수정하면 원본 timeSlots 리스트가 직접 변경됩니다.
+      
+      // 올바른 교체 방식: 서로의 수업을 바꾸기
+      // slot1s(문유란 월6교시) → slot2t(문유란 화3교시)로 이동
+      // slot2s(정영훈 화3교시) → slot1t(정영훈 월6교시)로 이동
+      bool moveSuccess1 = TimeSlot.moveTime(slot1s, slot1t); // 문유란의 월6교시 → 문유란의 화3교시
+      bool moveSuccess2 = TimeSlot.moveTime(slot2s, slot2t); // 정영훈의 화3교시 → 정영훈의 월6교시
+      
+      AppLogger.exchangeDebug('TimeSlot 이동 결과: moveSuccess1=$moveSuccess1, moveSuccess2=$moveSuccess2');
+      
+      if (!moveSuccess1 || !moveSuccess2) {
+        AppLogger.exchangeDebug('TimeSlot 이동 실패: moveSuccess1=$moveSuccess1, moveSuccess2=$moveSuccess2');
         return false;
       }
       
-      // 3. 교체 수행 (교사명과 과목명만 교체)
-      String tempTeacher = slot1.teacher ?? '';
-      String tempSubject = slot1.subject ?? '';
-      String tempClassName = slot1.className ?? '';
+      // 교체 후 결과 디버그 로깅 (간소화)
+      AppLogger.exchangeDebug('교체 완료 - 교체된 셀 상태:');
+      AppLogger.exchangeDebug('  월6교시: ${slot2t.dayOfWeek}|${slot2t.period}|${slot2t.className}|${slot2t.teacher}|${slot2t.subject}');
+      AppLogger.exchangeDebug('  화3교시: ${slot1t.dayOfWeek}|${slot1t.period}|${slot1t.className}|${slot1t.teacher}|${slot1t.subject}');
+
+      // 5. 교체 후 상태를 복사하여 히스토리에 저장 (교체된 셀들의 상태)
+      List<TimeSlot> afterSlots = [slot2t.copy(), slot1t.copy()];
       
-      // 첫 번째 슬롯에 두 번째 교사의 정보 적용
-      slot1.teacher = slot2.teacher;
-      slot1.subject = slot2.subject;
-      slot1.className = slot2.className;
+      // 6. 교체 히스토리에 추가
+      ExchangeHistory.addExchange(beforeSlots, afterSlots);
       
-      // 두 번째 슬롯에 첫 번째 교사의 정보 적용
-      slot2.teacher = tempTeacher;
-      slot2.subject = tempSubject;
-      slot2.className = tempClassName;
-      
-      AppLogger.exchangeInfo('1:1 교체 완료: $teacher1($day1$period1교시) ↔ $teacher2($day2$period2교시)');
+      AppLogger.exchangeInfo('1:1 교체 완료: $teacher1($day1$period1교시) ↔ $teacher2($day2$period2교시) [교체 성공]');
+      AppLogger.exchangeDebug('교체 히스토리 추가됨: ${ExchangeHistory.length}개');
       return true;
       
     } catch (e) {
       AppLogger.exchangeDebug('1:1 교체 중 오류 발생: $e');
+      return false;
+    }
+  }
+  
+  /// 교체를 되돌리기
+  /// 
+  /// 매개변수:
+  /// - `timeSlots`: 전체 시간표 데이터
+  /// 
+  /// 반환값:
+  /// - `bool`: 되돌리기 성공 여부
+  bool undoExchange(List<TimeSlot> timeSlots) {
+    try {
+      List<TimeSlot>? beforeSlots = ExchangeHistory.undo();
+      if (beforeSlots == null) {
+        AppLogger.exchangeDebug('되돌릴 교체가 없습니다');
+        return false;
+      }
+      
+      if (beforeSlots.length < 2) {
+        AppLogger.exchangeDebug('되돌릴 교체 데이터가 부족합니다');
+        return false;
+      }
+      
+      // 교체 전 상태로 복원
+      TimeSlot beforeSlot1 = beforeSlots[0];
+      TimeSlot beforeSlot2 = beforeSlots[1];
+      
+      // 현재 TimeSlot 찾기
+      TimeSlot? currentSlot1 = _findTimeSlot(timeSlots, beforeSlot1.teacher!, 
+        DayUtils.getDayName(beforeSlot1.dayOfWeek!), beforeSlot1.period!);
+      TimeSlot? currentSlot2 = _findTimeSlot(timeSlots, beforeSlot2.teacher!, 
+        DayUtils.getDayName(beforeSlot2.dayOfWeek!), beforeSlot2.period!);
+      
+      if (currentSlot1 != null && currentSlot2 != null) {
+        // 교체 전 상태로 복원
+        currentSlot1.restoreFrom(beforeSlot1);
+        currentSlot2.restoreFrom(beforeSlot2);
+        
+        AppLogger.exchangeInfo('교체 되돌리기 완료: ${beforeSlot1.teacher}(${DayUtils.getDayName(beforeSlot1.dayOfWeek!)}${beforeSlot1.period}교시) ↔ ${beforeSlot2.teacher}(${DayUtils.getDayName(beforeSlot2.dayOfWeek!)}${beforeSlot2.period}교시)');
+        return true;
+      }
+      
+      return false;
+    } catch (e) {
+      AppLogger.exchangeDebug('교체 되돌리기 중 오류 발생: $e');
       return false;
     }
   }
@@ -324,26 +396,41 @@ class ExchangeService extends BaseExchangeService {
     TimeSlot? slot1 = _findTimeSlot(timeSlots, teacher1, day1, period1);
     TimeSlot? slot2 = _findTimeSlot(timeSlots, teacher2, day2, period2);
     
-    if (slot1 == null || slot2 == null) {
-      AppLogger.exchangeDebug('교체할 TimeSlot이 존재하지 않습니다');
+    if (slot1 == null) {
+      AppLogger.exchangeDebug('교체 실패: $teacher1의 $day1$period1교시 TimeSlot을 찾을 수 없습니다');
+      return false;
+    }
+    
+    if (slot2 == null) {
+      AppLogger.exchangeDebug('교체 실패: $teacher2의 $day2$period2교시 TimeSlot을 찾을 수 없습니다');
       return false;
     }
     
     // 2. 수업이 있는지 확인
-    if (!slot1.isNotEmpty || !slot2.isNotEmpty) {
-      AppLogger.exchangeDebug('교체할 수업이 없습니다');
+    if (!slot1.isNotEmpty) {
+      AppLogger.exchangeDebug('교체 실패: $teacher1의 $day1$period1교시에 수업이 없습니다');
+      return false;
+    }
+    
+    if (!slot2.isNotEmpty) {
+      AppLogger.exchangeDebug('교체 실패: $teacher2의 $day2$period2교시에 수업이 없습니다');
       return false;
     }
     
     // 3. 교체 가능한 상태인지 확인
-    if (!slot1.canExchange || !slot2.canExchange) {
-      AppLogger.exchangeDebug('교체 불가능한 수업입니다');
+    if (!slot1.canExchange) {
+      AppLogger.exchangeDebug('교체 실패: $teacher1의 $day1$period1교시 수업은 교체 불가능합니다 (${slot1.exchangeReason})');
+      return false;
+    }
+    
+    if (!slot2.canExchange) {
+      AppLogger.exchangeDebug('교체 실패: $teacher2의 $day2$period2교시 수업은 교체 불가능합니다 (${slot2.exchangeReason})');
       return false;
     }
     
     // 4. 같은 학급인지 확인
     if (slot1.className != slot2.className) {
-      AppLogger.exchangeDebug('다른 학급의 수업은 교체할 수 없습니다: ${slot1.className} vs ${slot2.className}');
+      AppLogger.exchangeDebug('교체 실패: 다른 학급의 수업은 교체할 수 없습니다 - ${slot1.className} vs ${slot2.className}');
       return false;
     }
     
@@ -353,11 +440,17 @@ class ExchangeService extends BaseExchangeService {
     bool teacher2CanMoveToSlot1 = !_nonExchangeableManager.isNonExchangeableTimeSlot(
       teacher2, day1, period1);
     
-    if (!teacher1CanMoveToSlot2 || !teacher2CanMoveToSlot1) {
-      AppLogger.exchangeDebug('교체 불가 충돌이 있습니다');
+    if (!teacher1CanMoveToSlot2) {
+      AppLogger.exchangeDebug('교체 실패: $teacher1이 $day2$period2교시로 이동할 수 없습니다 (교체 불가 시간)');
       return false;
     }
     
+    if (!teacher2CanMoveToSlot1) {
+      AppLogger.exchangeDebug('교체 실패: $teacher2가 $day1$period1교시로 이동할 수 없습니다 (교체 불가 시간)');
+      return false;
+    }
+    
+    AppLogger.exchangeDebug('1:1 교체 검증 통과: $teacher1($day1$period1교시) ↔ $teacher2($day2$period2교시)');
     return true;
   }
   
