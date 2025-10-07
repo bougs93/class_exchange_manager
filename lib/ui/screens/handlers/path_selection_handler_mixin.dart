@@ -63,7 +63,7 @@ mixin PathSelectionHandlerMixin<T extends StatefulWidget> on State<T> {
     
     for (int i = 0; i < path.nodes.length; i++) {
       ExchangeNode node = path.nodes[i];
-      String nodeDetail = '[$i]${node.teacherName}|${node.day}|${node.period}|${node.className}|${node.subjectName}|ID:${node.nodeId}';
+      String nodeDetail = '[$i]${node.day}|${node.period}|${node.className}|${node.teacherName}|${node.subjectName}|ID:${node.nodeId}';
       nodeDetails.add(nodeDetail);
     }
        

@@ -108,7 +108,7 @@ class ChainExchangePath implements ExchangePath {
     StringBuffer buffer = StringBuffer();
     
     // 목표 노드와 대체 노드 표시 (학급 정보 포함)
-    buffer.write('[T] ${nodeA.day}${nodeA.period}|${nodeA.teacherName}|${nodeA.subjectName}(${nodeA.className})→${nodeB.day}${nodeB.period}|${nodeB.teacherName}|${nodeB.subjectName}(${nodeB.className}), ');
+    buffer.write('[T] ${nodeA.day}${nodeA.period}|${nodeA.className}|${nodeA.teacherName}|${nodeA.subjectName}→${nodeB.day}${nodeB.period}|${nodeB.className}|${nodeB.teacherName}|${nodeB.subjectName}, ');
     
     // 각 단계별 교체 정보
     for (int i = 0; i < steps.length; i++) {

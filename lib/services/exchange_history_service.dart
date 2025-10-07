@@ -291,8 +291,8 @@ class ExchangeHistoryService {
         final sourceNode = path.sourceNode;
         final targetNode = path.targetNode;
         
-        final sourceInfo = '${sourceNode.teacherName}|${sourceNode.day}|${sourceNode.period}|${sourceNode.className}|${sourceNode.subjectName}';
-        final targetInfo = '${targetNode.teacherName}|${targetNode.day}|${targetNode.period}|${targetNode.className}|${targetNode.subjectName}';
+        final sourceInfo = '${sourceNode.day}|${sourceNode.period}|${sourceNode.className}|${sourceNode.teacherName}|${sourceNode.subjectName}';
+        final targetInfo = '${targetNode.day}|${targetNode.period}|${targetNode.className}|${targetNode.teacherName}|${targetNode.subjectName}';
         
         return '[0]$sourceInfo, [1]$targetInfo';
       } 
@@ -303,7 +303,7 @@ class ExchangeHistoryService {
         final nodeInfos = <String>[];
         for (int i = 0; i < nodes.length; i++) {
           final node = nodes[i];
-          final nodeInfo = '${node.teacherName}|${node.day}|${node.period}|${node.className}|${node.subjectName}';
+          final nodeInfo = '${node.day}|${node.period}|${node.className}|${node.teacherName}|${node.subjectName}';
           nodeInfos.add('[$i]$nodeInfo');
         }
         
@@ -314,8 +314,8 @@ class ExchangeHistoryService {
         final node1 = path.node1;
         final node2 = path.node2;
         
-        final node1Info = '${node1.teacherName}|${node1.day}|${node1.period}|${node1.className}|${node1.subjectName}';
-        final node2Info = '${node2.teacherName}|${node2.day}|${node2.period}|${node2.className}|${node2.subjectName}';
+        final node1Info = '${node1.day}|${node1.period}|${node1.className}|${node1.teacherName}|${node1.subjectName}';
+        final node2Info = '${node2.day}|${node2.period}|${node2.className}|${node2.teacherName}|${node2.subjectName}';
         
         return '[0]$node1Info, [1]$node2Info';
       }

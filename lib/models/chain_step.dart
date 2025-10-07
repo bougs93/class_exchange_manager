@@ -26,8 +26,8 @@ class ChainStep {
     required ExchangeNode fromNode,
     required ExchangeNode toNode,
   }) {
-    // 새로운 형식: [단계번호] 요일교시|교사명|과목명(학급)↔요일교시|교사명|과목명(학급)
-    String description = '[$stepNumber] ${fromNode.day}${fromNode.period}|${fromNode.teacherName}|${fromNode.subjectName}(${fromNode.className})↔${toNode.day}${toNode.period}|${toNode.teacherName}|${toNode.subjectName}(${toNode.className})';
+    // 새로운 형식: [단계번호] 요일교시|학급|교사명|과목명↔요일교시|학급|교사명|과목명
+    String description = '[$stepNumber] ${fromNode.day}${fromNode.period}|${fromNode.className}|${fromNode.teacherName}|${fromNode.subjectName}↔${toNode.day}${toNode.period}|${toNode.className}|${toNode.teacherName}|${toNode.subjectName}';
 
     return ChainStep(
       stepNumber: stepNumber,

@@ -874,7 +874,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
                  ],
                ),
               child: Text(
-                '${node.day}${node.period}|${node.teacherName}|${widget.getSubjectName(node)}(${node.className})',
+                '${node.day}${node.period}|${node.className}|${node.teacherName}|${widget.getSubjectName(node)}',
                 style: TextStyle(
                   fontSize: _SidebarFontSizes.nodeText,
                   fontWeight: FontWeight.w500,
