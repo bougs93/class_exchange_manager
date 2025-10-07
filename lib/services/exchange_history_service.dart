@@ -338,7 +338,66 @@ class ExchangeHistoryService {
     }
   }
   
-  /// ExchangePath에서 교체된 셀 키 목록 생성
+  /// ExchangePath에서 교체된 소스 셀 키 목록 생성
+  List<String> _getExchangedSourceCellKeys(ExchangePath path) {
+    final cellKeys = <String>[];
+    
+    try {
+      if (path is OneToOneExchangePath) {
+        // 1:1 교체의 경우: 원본 수업이 있던 셀들
+        final sourceNode = path.sourceNode;
+        final targetNode = path.targetNode;
+        
+        cellKeys.add('${sourceNode.teacherName}_${sourceNode.day}_${sourceNode.period}');
+        cellKeys.add('${targetNode.teacherName}_${targetNode.day}_${targetNode.period}');
+      } else if (path is CircularExchangePath) {
+        // 순환 교체의 경우: 첫 번째 노드는 소스만, 나머지는 이전 노드의 교사가 들어가므로 목적지
+        cellKeys.add('${path.nodes.first.teacherName}_${path.nodes.first.day}_${path.nodes.first.period}');
+      } else if (path is ChainExchangePath) {
+        // 연쇄 교체의 경우: 각 교체 쌍의 첫 번째 노드들
+        cellKeys.add('${path.node1.teacherName}_${path.node1.day}_${path.node1.period}');
+        cellKeys.add('${path.node2.teacherName}_${path.node2.day}_${path.node2.period}');
+      }
+    } catch (e) {
+      developer.log('교체된 소스 셀 키 생성 실패: $e');
+    }
+    
+    return cellKeys;
+  }
+  
+  /// ExchangePath에서 교체된 목적지 셀 키 목록 생성
+  List<String> _getExchangedDestinationCellKeys(ExchangePath path) {
+    final cellKeys = <String>[];
+    
+    try {
+      if (path is OneToOneExchangePath) {
+        // 1:1 교체의 경우: 각 교사가 이동하는 상대방 위치
+        final sourceNode = path.sourceNode;
+        final targetNode = path.targetNode;
+        
+        // targetNode의 교사가 sourceNode 위치로 이동
+        cellKeys.add('${targetNode.teacherName}_${sourceNode.day}_${sourceNode.period}');
+        // sourceNode의 교사가 targetNode 위치로 이동
+        cellKeys.add('${sourceNode.teacherName}_${targetNode.day}_${targetNode.period}');
+      } else if (path is CircularExchangePath) {
+        // 순환 교체의 경우: 첫 번째 노드 제외한 나머지 노드들
+        for (int i = 1; i < path.nodes.length; i++) {
+          final node = path.nodes[i];
+          cellKeys.add('${node.teacherName}_${node.day}_${node.period}');
+        }
+      } else if (path is ChainExchangePath) {
+        // 연쇄 교체의 경우: 각 교체 쌍의 두 번째 노드들
+        cellKeys.add('${path.nodeA.teacherName}_${path.nodeA.day}_${path.nodeA.period}');
+        cellKeys.add('${path.nodeB.teacherName}_${path.nodeB.day}_${path.nodeB.period}');
+      }
+    } catch (e) {
+      developer.log('교체된 목적지 셀 키 생성 실패: $e');
+    }
+    
+    return cellKeys;
+  }
+  
+  /// ExchangePath에서 교체된 셀 키 목록 생성 (기존 로직 유지)
   List<String> _getExchangedCellKeys(ExchangePath path) {
     final cellKeys = <String>[];
     
@@ -373,11 +432,29 @@ class ExchangeHistoryService {
   void updateExchangedCells() {
     _exchangedCells.clear();
     
-    // 교체 리스트의 모든 항목에서 셀 키 추출
+    // 교체 리스트의 모든 항목에서 셀 키 추출 (기존 로직 유지)
     for (final item in _exchangeList) {
       final cellKeys = _getExchangedCellKeys(item.originalPath);
       _exchangedCells.addAll(cellKeys);
     }
+  }
+  
+  /// 교체된 소스 셀 목록 가져오기
+  List<String> getExchangedSourceCellKeys() {
+    final sourceCellKeys = <String>[];
+    for (final item in _exchangeList) {
+      sourceCellKeys.addAll(_getExchangedSourceCellKeys(item.originalPath));
+    }
+    return sourceCellKeys;
+  }
+  
+  /// 교체된 목적지 셀 목록 가져오기
+  List<String> getExchangedDestinationCellKeys() {
+    final destinationCellKeys = <String>[];
+    for (final item in _exchangeList) {
+      destinationCellKeys.addAll(_getExchangedDestinationCellKeys(item.originalPath));
+    }
+    return destinationCellKeys;
   }
   
   /// 교체된 셀 목록 가져오기
@@ -385,7 +462,7 @@ class ExchangeHistoryService {
     return _exchangedCells.toList();
   }
   
-  /// 특정 셀이 교체된 상태인지 확인
+  /// 특정 셀이 교체된 소스 셀인지 확인 (기존 로직 유지)
   bool isCellExchangedSource(String teacherName, String day, int period) {
     final cellKey = '${teacherName}_${day}_$period';
     return _exchangedCells.contains(cellKey);

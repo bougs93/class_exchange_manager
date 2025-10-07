@@ -1010,6 +1010,72 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     );
   }
   
+  /// 교체된 목적지 셀 디버그 출력
+  void _debugPrintExchangedDestinationCells(List<String> destinationCellKeys) {
+    if (destinationCellKeys.isEmpty) {
+      AppLogger.exchangeDebug('교체된 목적지 셀: 없음');
+      return;
+    }
+    
+    AppLogger.exchangeDebug('=== 교체된 목적지 셀 목록 ===');
+    AppLogger.exchangeDebug('총 ${destinationCellKeys.length}개 목적지 셀');
+    
+    for (int i = 0; i < destinationCellKeys.length; i++) {
+      final cellKey = destinationCellKeys[i];
+      final parts = cellKey.split('_');
+      if (parts.length == 3) {
+        final teacherName = parts[0];
+        final day = parts[1];
+        final period = int.tryParse(parts[2]) ?? 0;
+        
+        // 교체된 목적지 셀의 원본 데이터 찾기
+        // 목적지 셀: 교체 후 새로운 교사가 배정된 셀
+        // 이 셀에서는 원래 그 위치에 있던 교사의 수업 정보를 표시해야 함
+        String? originalTeacherName;
+        String? originalClassName;
+        String? originalSubjectName;
+        
+        // 현재 교체 리스트에서 해당 위치의 원본 교사 찾기
+        final exchangeList = _historyService.getExchangeList();
+        
+        for (final item in exchangeList) {
+          if (item.originalPath is OneToOneExchangePath) {
+            final path = item.originalPath as OneToOneExchangePath;
+            final sourceNode = path.sourceNode;
+            final targetNode = path.targetNode;
+            
+            // 목적지 셀에서 현재 교사가 이동한 위치인지 확인
+            if (sourceNode.day == day && sourceNode.period == period && targetNode.teacherName == teacherName) {
+              // sourceNode 위치로 targetNode 교사가 이동한 경우
+              // 목적지 셀에서는 원래 sourceNode에 있던 교사의 데이터를 표시
+              originalTeacherName = sourceNode.teacherName;
+              originalClassName = sourceNode.className;
+              originalSubjectName = sourceNode.subjectName;
+              break;
+            } else if (targetNode.day == day && targetNode.period == period && sourceNode.teacherName == teacherName) {
+              // targetNode 위치로 sourceNode 교사가 이동한 경우
+              // 목적지 셀에서는 원래 targetNode에 있던 교사의 데이터를 표시
+              originalTeacherName = targetNode.teacherName;
+              originalClassName = targetNode.className;
+              originalSubjectName = targetNode.subjectName;
+              break;
+            }
+          }
+        }
+        
+        final displayClassName = originalClassName ?? '없음';
+        final displaySubjectName = originalSubjectName ?? '없음';
+        final displayOriginalTeacher = originalTeacherName != null ? ' (원본: $originalTeacherName)' : '';
+        
+        AppLogger.exchangeDebug('${i + 1}. 목적지 셀: $teacherName | $day$period교시 | $displayClassName | $displaySubjectName$displayOriginalTeacher');
+      } else {
+        AppLogger.exchangeDebug('${i + 1}. 목적지 셀: $cellKey (형식 오류)');
+      }
+    }
+    AppLogger.exchangeDebug('========================');
+  }
+  
+
   /// 교체된 셀 클릭 처리
   /// 교체된 셀을 클릭했을 때 해당 교체 경로를 다시 선택하여 화살표 표시
   void _handleExchangedCellClick(String teacherName, String day, int period) {
@@ -1154,6 +1220,13 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     final exchangedCellKeys = _historyService.getExchangedCellKeys();
     widget.dataSource!.updateExchangedCells(exchangedCellKeys);
     
+    // 4-1. 교체된 목적지 셀 상태 업데이트
+    final exchangedDestinationCellKeys = _historyService.getExchangedDestinationCellKeys();
+    widget.dataSource!.updateExchangedDestinationCells(exchangedDestinationCellKeys);
+    
+    // 4-2. 교체된 목적지 셀 디버그 출력
+    _debugPrintExchangedDestinationCells(exchangedDestinationCellKeys);
+    
     // 5. 캐시 강제 무효화 및 UI 업데이트
     widget.dataSource!.clearAllCaches();
     
@@ -1189,6 +1262,13 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     // 3. 교체된 셀 상태 업데이트
     final exchangedCellKeys = _historyService.getExchangedCellKeys();
     widget.dataSource!.updateExchangedCells(exchangedCellKeys);
+    
+    // 3-1. 교체된 목적지 셀 상태 업데이트
+    final exchangedDestinationCellKeys = _historyService.getExchangedDestinationCellKeys();
+    widget.dataSource!.updateExchangedDestinationCells(exchangedDestinationCellKeys);
+    
+    // 3-2. 교체된 목적지 셀 디버그 출력
+    _debugPrintExchangedDestinationCells(exchangedDestinationCellKeys);
     
     // 4. 캐시 강제 무효화 및 UI 업데이트
     widget.dataSource!.clearAllCaches();
@@ -1235,6 +1315,13 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
       // 4. 교체된 셀 상태 업데이트
       final exchangedCellKeys = _historyService.getExchangedCellKeys();
       widget.dataSource!.updateExchangedCells(exchangedCellKeys);
+      
+      // 4-1. 교체된 목적지 셀 상태 업데이트
+      final exchangedDestinationCellKeys = _historyService.getExchangedDestinationCellKeys();
+      widget.dataSource!.updateExchangedDestinationCells(exchangedDestinationCellKeys);
+      
+      // 4-2. 교체된 목적지 셀 디버그 출력
+      _debugPrintExchangedDestinationCells(exchangedDestinationCellKeys);
       
       // 5. 캐시 강제 무효화 및 UI 업데이트
       widget.dataSource!.clearAllCaches();

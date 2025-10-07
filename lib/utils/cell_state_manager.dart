@@ -24,6 +24,7 @@ class CellStateManager {
   
   // 교체된 셀 관리 (셀 키: "교사명_요일_교시" 형식)
   final Set<String> _exchangedCells = {};
+  final Set<String> _exchangedDestinationCells = {}; // 교체된 목적지 셀들
 
   /// 선택 상태 업데이트
   void updateSelection(String? teacher, String? day, int? period) {
@@ -206,15 +207,28 @@ class CellStateManager {
     _exchangedCells.addAll(exchangedCellKeys);
   }
   
+  
+  /// 교체된 목적지 셀 목록 업데이트
+  void updateExchangedDestinationCells(List<String> destinationCellKeys) {
+    _exchangedDestinationCells.clear();
+    _exchangedDestinationCells.addAll(destinationCellKeys);
+  }
+  
   /// 교체된 셀 목록 가져오기
   List<String> getExchangedCellKeys() {
     return _exchangedCells.toList();
   }
   
-  /// 특정 셀이 교체된 상태인지 확인
+  /// 특정 셀이 교체된 소스 셀인지 확인 (기존 로직 유지)
   bool isCellExchangedSource(String teacherName, String day, int period) {
     final cellKey = '${teacherName}_${day}_$period';
     return _exchangedCells.contains(cellKey);
+  }
+  
+  /// 특정 셀이 교체된 목적지 셀인지 확인
+  bool isCellExchangedDestination(String teacherName, String day, int period) {
+    final cellKey = '${teacherName}_${day}_$period';
+    return _exchangedDestinationCells.contains(cellKey);
   }
   
   /// 선택된 순환교체 경로 접근자 (보기 모드용)
@@ -235,6 +249,7 @@ class CellStateManager {
   /// 교체된 셀 목록 초기화
   void clearExchangedCells() {
     _exchangedCells.clear();
+    _exchangedDestinationCells.clear();
   }
   
   /// 모든 선택 상태 초기화 (셀 선택, 타겟 셀, 교체 경로 등)
