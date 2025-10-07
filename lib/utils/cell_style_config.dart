@@ -14,6 +14,7 @@ class CellStyleConfig {
   final bool isTargetCell;
   final bool isNonExchangeable;
   final bool isExchangedSourceCell; // 교체완료 소스 셀인지 여부
+  final bool isExchangedDestinationCell; // 교체완료 목적지 셀인지 여부
   final String? headerPosition; // 헤더 위치 정보 (예: "수1", "월3")
 
   const CellStyleConfig({
@@ -31,6 +32,7 @@ class CellStyleConfig {
     this.isTargetCell = false,
     this.isNonExchangeable = false,
     this.isExchangedSourceCell = false, // 교체완료 소스 셀 기본값은 false
+    this.isExchangedDestinationCell = false, // 교체완료 목적지 셀 기본값은 false
     this.headerPosition, // 헤더 위치 정보
   });
 }
