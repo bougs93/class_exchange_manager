@@ -235,6 +235,152 @@ class ExchangeService extends BaseExchangeService {
     return teacherCanMoveToSelected && selectedCanMoveToTeacher;
   }
   
+  /// 실제 1:1 수업 교체 수행
+  /// 
+  /// 교체 예시:
+  /// - 교체 전: 월|3|1-8|문유란|국어, 금|5|1-8|이숙기|과학
+  /// - 교체 후: 금|5|1-8|문유란|국어, 월|3|1-8|이숙기|과학
+  /// 
+  /// 매개변수:
+  /// - `timeSlots`: 전체 시간표 데이터
+  /// - `teacher1`: 첫 번째 교사명
+  /// - `day1`: 첫 번째 교사의 요일
+  /// - `period1`: 첫 번째 교사의 교시
+  /// - `teacher2`: 두 번째 교사명
+  /// - `day2`: 두 번째 교사의 요일
+  /// - `period2`: 두 번째 교사의 교시
+  /// 
+  /// 반환값:
+  /// - `bool`: 교체 성공 여부
+  bool performOneToOneExchange(
+    List<TimeSlot> timeSlots,
+    String teacher1,
+    String day1,
+    int period1,
+    String teacher2,
+    String day2,
+    int period2,
+  ) {
+    try {
+      AppLogger.exchangeInfo('1:1 교체 시작: $teacher1($day1$period1교시) ↔ $teacher2($day2$period2교시)');
+      
+      // 1. 교체 가능성 검증
+      if (!_validateOneToOneExchange(
+        timeSlots, teacher1, day1, period1, teacher2, day2, period2
+      )) {
+        AppLogger.exchangeDebug('1:1 교체 검증 실패');
+        return false;
+      }
+      
+      // 2. 교체할 TimeSlot 찾기
+      TimeSlot? slot1 = _findTimeSlot(timeSlots, teacher1, day1, period1);
+      TimeSlot? slot2 = _findTimeSlot(timeSlots, teacher2, day2, period2);
+      
+      if (slot1 == null || slot2 == null) {
+        AppLogger.exchangeDebug('교체할 TimeSlot을 찾을 수 없습니다');
+        return false;
+      }
+      
+      // 3. 교체 수행 (교사명과 과목명만 교체)
+      String tempTeacher = slot1.teacher ?? '';
+      String tempSubject = slot1.subject ?? '';
+      String tempClassName = slot1.className ?? '';
+      
+      // 첫 번째 슬롯에 두 번째 교사의 정보 적용
+      slot1.teacher = slot2.teacher;
+      slot1.subject = slot2.subject;
+      slot1.className = slot2.className;
+      
+      // 두 번째 슬롯에 첫 번째 교사의 정보 적용
+      slot2.teacher = tempTeacher;
+      slot2.subject = tempSubject;
+      slot2.className = tempClassName;
+      
+      AppLogger.exchangeInfo('1:1 교체 완료: $teacher1($day1$period1교시) ↔ $teacher2($day2$period2교시)');
+      return true;
+      
+    } catch (e) {
+      AppLogger.exchangeDebug('1:1 교체 중 오류 발생: $e');
+      return false;
+    }
+  }
+  
+  /// 1:1 교체 가능성 검증
+  /// 
+  /// 검증 조건:
+  /// 1. 두 교사 모두 해당 시간에 수업이 있어야 함
+  /// 2. 같은 학급을 가르치는 교사들끼리만 교체 가능
+  /// 3. 교체 불가 충돌 검증
+  bool _validateOneToOneExchange(
+    List<TimeSlot> timeSlots,
+    String teacher1,
+    String day1,
+    int period1,
+    String teacher2,
+    String day2,
+    int period2,
+  ) {
+    // 1. 교체할 TimeSlot 존재 확인
+    TimeSlot? slot1 = _findTimeSlot(timeSlots, teacher1, day1, period1);
+    TimeSlot? slot2 = _findTimeSlot(timeSlots, teacher2, day2, period2);
+    
+    if (slot1 == null || slot2 == null) {
+      AppLogger.exchangeDebug('교체할 TimeSlot이 존재하지 않습니다');
+      return false;
+    }
+    
+    // 2. 수업이 있는지 확인
+    if (!slot1.isNotEmpty || !slot2.isNotEmpty) {
+      AppLogger.exchangeDebug('교체할 수업이 없습니다');
+      return false;
+    }
+    
+    // 3. 교체 가능한 상태인지 확인
+    if (!slot1.canExchange || !slot2.canExchange) {
+      AppLogger.exchangeDebug('교체 불가능한 수업입니다');
+      return false;
+    }
+    
+    // 4. 같은 학급인지 확인
+    if (slot1.className != slot2.className) {
+      AppLogger.exchangeDebug('다른 학급의 수업은 교체할 수 없습니다: ${slot1.className} vs ${slot2.className}');
+      return false;
+    }
+    
+    // 5. 교체 불가 충돌 검증
+    bool teacher1CanMoveToSlot2 = !_nonExchangeableManager.isNonExchangeableTimeSlot(
+      teacher1, day2, period2);
+    bool teacher2CanMoveToSlot1 = !_nonExchangeableManager.isNonExchangeableTimeSlot(
+      teacher2, day1, period1);
+    
+    if (!teacher1CanMoveToSlot2 || !teacher2CanMoveToSlot1) {
+      AppLogger.exchangeDebug('교체 불가 충돌이 있습니다');
+      return false;
+    }
+    
+    return true;
+  }
+  
+  /// 특정 교사, 요일, 교시의 TimeSlot 찾기
+  TimeSlot? _findTimeSlot(
+    List<TimeSlot> timeSlots,
+    String teacher,
+    String day,
+    int period,
+  ) {
+    int dayNumber = DayUtils.getDayNumber(day);
+    
+    for (TimeSlot slot in timeSlots) {
+      if (slot.teacher == teacher &&
+          slot.dayOfWeek == dayNumber &&
+          slot.period == period) {
+        return slot;
+      }
+    }
+    
+    return null;
+  }
+  
   /// 교체 가능한 교사 정보 가져오기
   List<Map<String, dynamic>> getCurrentExchangeableTeachers(
     List<TimeSlot> timeSlots,

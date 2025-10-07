@@ -54,4 +54,47 @@ class TimeSlot {
     exchangeReason = reason;
     isExchangeable = false; // 사유가 있으면 교체 불가능으로 설정
   }
+  
+  /// 다른 TimeSlot과 교체 수행
+  /// 
+  /// 교체 예시:
+  /// - 교체 전: 월|3|1-8|문유란|국어, 금|5|1-8|이숙기|과학
+  /// - 교체 후: 금|5|1-8|문유란|국어, 월|3|1-8|이숙기|과학
+  /// 
+  /// 매개변수:
+  /// - `other`: 교체할 다른 TimeSlot
+  /// 
+  /// 반환값:
+  /// - `bool`: 교체 성공 여부
+  bool exchangeWith(TimeSlot other) {
+    try {
+      // 교체 가능성 검증
+      if (!canExchange || !other.canExchange) {
+        return false;
+      }
+      
+      if (isEmpty || other.isEmpty) {
+        return false;
+      }
+      
+      // 교사명과 과목명만 교체 (시간과 학급은 그대로 유지)
+      String tempTeacher = teacher ?? '';
+      String tempSubject = subject ?? '';
+      
+      teacher = other.teacher;
+      subject = other.subject;
+      
+      other.teacher = tempTeacher;
+      other.subject = tempSubject;
+      
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+  
+  /// TimeSlot의 정보를 문자열로 반환 (디버깅용)
+  String get debugInfo {
+    return 'TimeSlot(teacher: $teacher, subject: $subject, className: $className, dayOfWeek: $dayOfWeek, period: $period, isExchangeable: $isExchangeable)';
+  }
 }
