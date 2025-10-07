@@ -1,4 +1,5 @@
 import '../utils/exchange_algorithm.dart';
+import '../models/time_slot.dart';
 import 'exchange_path.dart';
 import 'exchange_node.dart';
 
@@ -28,14 +29,23 @@ class OneToOneExchangePath implements ExchangePath {
     int selectedPeriod,
     String selectedClassName,
     ExchangeOption option,
+    List<TimeSlot> timeSlots, // 시간표 데이터 추가
   ) {
+    // 선택된 셀의 실제 과목명 가져오기
+    String sourceSubjectName = _getSubjectFromTimeSlot(
+      selectedTeacher, 
+      selectedDay, 
+      selectedPeriod, 
+      timeSlots
+    );
+    
     // 선택된 셀의 노드 생성
     ExchangeNode sourceNode = ExchangeNode(
       teacherName: selectedTeacher,
       day: selectedDay,
       period: selectedPeriod,
       className: selectedClassName,
-      subjectName: '과목', // 기본값, 실제로는 서비스에서 설정해야 함
+      subjectName: sourceSubjectName, // 실제 과목명 사용
     );
     
     // 교체 대상 셀의 노드 생성
@@ -45,7 +55,7 @@ class OneToOneExchangePath implements ExchangePath {
       day: targetDay,
       period: option.timeSlot.period ?? 0,
       className: option.timeSlot.className ?? '',
-      subjectName: option.timeSlot.subject ?? '과목',
+      subjectName: option.timeSlot.subject ?? '과목명 없음',
     );
     
     return OneToOneExchangePath(
@@ -122,6 +132,42 @@ class OneToOneExchangePath implements ExchangePath {
       case 6: return '토';
       case 7: return '일';
       default: return '알 수 없음';
+    }
+  }
+  
+  /// 시간표 데이터에서 특정 시간의 과목명을 가져오는 헬퍼 메서드
+  static String _getSubjectFromTimeSlot(
+    String teacherName,
+    String day,
+    int period,
+    List<TimeSlot> timeSlots,
+  ) {
+    // 요일 문자열을 숫자로 변환
+    int dayNumber = _getDayNumber(day);
+    
+    // 해당 교사, 요일, 교시의 TimeSlot 찾기
+    TimeSlot? slot = timeSlots.firstWhere(
+      (slot) => slot.teacher == teacherName &&
+                slot.dayOfWeek == dayNumber &&
+                slot.period == period &&
+                slot.isNotEmpty,
+      orElse: () => TimeSlot(), // 빈 TimeSlot 반환
+    );
+    
+    return slot.subject ?? '과목명 없음';
+  }
+  
+  /// 요일 문자열을 숫자로 변환하는 헬퍼 메서드
+  static int _getDayNumber(String day) {
+    switch (day) {
+      case '월': return 1;
+      case '화': return 2;
+      case '수': return 3;
+      case '목': return 4;
+      case '금': return 5;
+      case '토': return 6;
+      case '일': return 7;
+      default: return 0;
     }
   }
   

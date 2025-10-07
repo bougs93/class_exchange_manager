@@ -49,6 +49,9 @@ class SimplifiedTimetableTheme {
   static const double exchangedCellBorderWidth = 2.5; // 교체완료 셀 테두리 두께 (더 두껍게)
   static BorderStyle exchangedCellBorderStyle = BorderStyle.solid; // 교체완료 셀 테두리 스타일
   static const bool showExchangedCellBorder = true; // 교체완료 셀 테두리 표시 여부
+// 교체완료 대상 셀(실제 수업) 배경색 상수 (교체가 완료된 셀의 배경색)
+  static const Color exchangedClassBackgroundColor = Color(0xFFE3F2FD); // 교체완료 셀 배경색 (연한 파란색)
+  static const bool showExchangedClassBackground = true; // 교체완료 셀 배경색 표시 여부
   
   // 타겟 셀 배경색 상수 (교체 대상의 같은 행 셀 배경색)
   static const Color targetCellBackgroundColor = Color.fromARGB(255, 255, 255, 255); // 타겟 셀 배경색 (연한 녹색)
@@ -89,6 +92,7 @@ class SimplifiedTimetableTheme {
         isInChainPath: config.isInChainPath,
         isTargetCell: config.isTargetCell,
         isNonExchangeable: config.isNonExchangeable,
+        isExchanged: config.isExchanged,
       ),
       textStyle: _getTextStyle(
         isSelected: config.isSelected,
@@ -130,8 +134,14 @@ class SimplifiedTimetableTheme {
     required bool isInChainPath,
     required bool isTargetCell, // 타겟 셀인지 여부 추가
     required bool isNonExchangeable, // 교체불가 셀인지 여부
+    required bool isExchanged, // 교체 완료 된 수업인지 여부 추가
   }) {
-    // 교체불가 셀인 경우 빨간색 배경 (최우선순위)
+    // 교체 완료 된 수업인 경우 연한 파란색 배경 (최우선순위)
+    if (isExchanged && showExchangedClassBackground) {
+      return exchangedClassBackgroundColor;
+    }
+    
+    // 교체불가 셀인 경우 빨간색 배경
     if (isNonExchangeable) {
       return nonExchangeableColor;
     }

@@ -58,6 +58,7 @@ mixin ExchangePathHandler<T extends StatefulWidget> on State<T> {
       selectedPeriod: exchangeService.selectedPeriod!,
       selectedClassName: selectedClassName,
       options: options.cast(),
+      timeSlots: timetableData!.timeSlots, // 시간표 데이터 추가
     );
 
     // 순차적인 ID 부여

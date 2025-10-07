@@ -259,7 +259,7 @@ class ChainExchangeService extends BaseExchangeService {
       day: DayUtils.getDayName(slot.dayOfWeek ?? 0),
       period: slot.period ?? 0,
       className: slot.className ?? '',
-      subjectName: slot.subject ?? '과목',
+      subjectName: slot.subject ?? '과목명 없음',
     );
   }
 
@@ -289,7 +289,7 @@ class ChainExchangeService extends BaseExchangeService {
       day: DayUtils.getDayName(blockingSlot.dayOfWeek ?? 0),
       period: blockingSlot.period ?? 0,
       className: blockingSlot.className ?? '',
-      subjectName: blockingSlot.subject ?? '과목',
+      subjectName: blockingSlot.subject ?? '과목명 없음',
     );
   }
 

@@ -14,7 +14,7 @@ class ExchangeNode {
     required this.day,
     required this.period,
     required this.className,
-    this.subjectName = '과목',  // 기본값 설정
+    this.subjectName = '과목명 없음',  // 더 명확한 기본값으로 변경
   });
 
   /// TimeSlot에서 ExchangeNode 생성
@@ -24,7 +24,7 @@ class ExchangeNode {
       day: day,
       period: timeSlot.period ?? 0,
       className: timeSlot.className ?? '',
-      subjectName: timeSlot.subject ?? '과목',
+      subjectName: timeSlot.subject ?? '과목명 없음', // 더 명확한 기본값으로 변경
     );
   }
 

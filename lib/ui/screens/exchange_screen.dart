@@ -796,6 +796,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       selectedPeriod: exchangeService.selectedPeriod!,
       selectedClassName: selectedClassName,
       options: options.cast(), // dynamic을 ExchangeOption으로 캐스팅
+      timeSlots: timetableData!.timeSlots, // 시간표 데이터 추가
     );
 
     // 순차적인 ID 부여
@@ -1038,18 +1039,18 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
   /// 교사 정보에서 과목명 추출
   String _getSubjectName(ExchangeNode node) {
-    if (_timetableData == null) return '과목';
+    if (_timetableData == null) return '과목명 없음';
     
     // 시간표 데이터에서 해당 교사, 요일, 교시의 과목 정보 찾기
     for (var timeSlot in _timetableData!.timeSlots) {
       if (timeSlot.teacher == node.teacherName &&
           timeSlot.dayOfWeek == DayUtils.getDayNumber(node.day) &&
           timeSlot.period == node.period) {
-        return timeSlot.subject ?? '과목';
+        return timeSlot.subject ?? '과목명 없음';
       }
     }
     
-    return '과목';
+    return '과목명 없음';
   }
 
   /// 사이드바에서 클릭한 셀을 화면 중앙으로 스크롤

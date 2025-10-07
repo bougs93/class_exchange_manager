@@ -128,7 +128,7 @@ abstract class BaseExchangeService {
       orElse: () => null,
     );
 
-    return slot?.subject ?? '과목';
+    return slot?.subject ?? '과목명 없음';
   }
 
   /// 특정 시간의 학급 정보 가져오기

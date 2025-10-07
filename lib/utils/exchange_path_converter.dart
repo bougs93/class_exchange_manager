@@ -2,6 +2,7 @@ import '../models/exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
 import '../models/circular_exchange_path.dart';
 import '../models/chain_exchange_path.dart';
+import '../models/time_slot.dart';
 import '../utils/exchange_algorithm.dart';
 
 /// ExchangeOption을 ExchangePath로 변환하는 유틸리티 클래스
@@ -13,6 +14,7 @@ class ExchangePathConverter {
     required int selectedPeriod,
     required String selectedClassName,
     required List<ExchangeOption> options,
+    required List<TimeSlot> timeSlots, // 시간표 데이터 추가
   }) {
     List<OneToOneExchangePath> paths = [];
     
@@ -25,6 +27,7 @@ class ExchangePathConverter {
           selectedPeriod,
           selectedClassName,
           option,
+          timeSlots, // 시간표 데이터 전달
         );
         paths.add(path);
       }

@@ -457,7 +457,7 @@ class CircularExchangeService extends BaseExchangeService {
           day: dayString,
           period: slot.period ?? 0,
           className: slot.className ?? '',
-          subjectName: slot.subject ?? '과목',
+          subjectName: slot.subject ?? '과목명 없음',
         );
         
         // 중복 노드 방지
