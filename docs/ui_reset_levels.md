@@ -38,9 +38,14 @@ Level 3: 전체 상태 초기화 (가장 강함)
 **예시**:
 ```dart
 // 교체된 셀 클릭 시 새 경로 선택 전
-resetSelectedPath();
+resetPathOnly(reason: '새 경로 선택 전 기존 경로 초기화');
 _selectExchangePath(newPath);
 ```
+
+**UI 업데이트 방식**:
+- `ExchangeScreenProvider.resetPathSelectionBatch()`: Riverpod StateNotifier 배치 업데이트
+- `TimetableDataSource.resetPathSelectionBatch()`: Syncfusion DataGrid 전용 배치 업데이트
+- `notifyDataSourceListeners()`: Syncfusion DataGrid에 최적화된 UI 업데이트
 
 ---
 
@@ -219,7 +224,7 @@ void toggleCircularExchangeMode() {
    - Level 3: `resetAllStates()` 내부에서 자동 호출
 
 3. **UI 업데이트**:
-   - DataSource 변경 후 반드시 `notifyListeners()` 호출
+   - DataSource 변경 후 반드시 `notifyDataSourceListeners()` 호출
    - 캐시 무효화가 필요한 경우 `clearAllCaches()` 먼저 호출
 
 4. **교체 뷰 체크박스**:

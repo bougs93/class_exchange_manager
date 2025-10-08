@@ -229,6 +229,25 @@ class TimetableThemeNotifier extends StateNotifier<TimetableThemeState> {
            state.selectedOneToOnePath!.targetNode.day == day &&
            state.selectedOneToOnePath!.targetNode.period == period;
   }
+
+  // ========================================
+  // 배치 업데이트 메서드들
+  // ========================================
+
+  /// Level 3 전용 배치 업데이트: 모든 상태 초기화
+  void resetAllStatesBatch() {
+    state = state.copyWith(
+      // 선택 상태 초기화
+      clearSelection: true,
+      clearTarget: true,
+      clearPaths: true,
+      exchangeableTeachers: [],
+      // 교체된 셀 초기화
+      clearExchangedCells: true,
+      // 캐시 초기화
+      clearCaches: true,
+    );
+  }
 }
 
 /// 시간표 테마 Provider

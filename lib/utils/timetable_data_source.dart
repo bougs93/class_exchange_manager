@@ -393,14 +393,14 @@ class TimetableDataSource extends DataGridSource {
   void updateSelection(String? teacher, String? day, int? period) {
     ref.read(timetableThemeProvider.notifier).updateSelection(teacher, day, period);
     _localCache.clear(); // 로컬 캐시 초기화
-    notifyListeners();
+    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
   }
   
   /// 타겟 셀 상태 업데이트
   void updateTargetCell(String? teacher, String? day, int? period) {
     ref.read(timetableThemeProvider.notifier).updateTargetCell(teacher, day, period);
     _localCache.clear(); // 로컬 캐시 초기화
-    notifyListeners();
+    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
   }
   
   
@@ -408,13 +408,13 @@ class TimetableDataSource extends DataGridSource {
   void updateExchangeableTeachers(List<Map<String, dynamic>> exchangeableTeachers) {
     ref.read(timetableThemeProvider.notifier).updateExchangeableTeachers(exchangeableTeachers);
     _localCache.clear(); // 로컬 캐시 초기화
-    notifyListeners();
+    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
   }
   
   /// 교체 옵션 업데이트
   void updateExchangeOptions(List<ExchangeOption> exchangeOptions) {
     _exchangeOptions = exchangeOptions;
-    notifyListeners(); // UI 갱신
+    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
   }
   
   /// 교체 옵션 가져오기
@@ -427,21 +427,21 @@ class TimetableDataSource extends DataGridSource {
   void updateSelectedCircularPath(CircularExchangePath? path) {
     ref.read(timetableThemeProvider.notifier).updateSelectedCircularPath(path);
     _localCache.clear(); // 로컬 캐시 초기화
-    notifyListeners();
+    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
   }
 
   /// 선택된 1:1 교체 경로 업데이트
   void updateSelectedOneToOnePath(OneToOneExchangePath? path) {
     ref.read(timetableThemeProvider.notifier).updateSelectedOneToOnePath(path);
     _localCache.clear(); // 로컬 캐시 초기화
-    notifyListeners();
+    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
   }
 
   /// 선택된 연쇄교체 경로 업데이트
   void updateSelectedChainPath(ChainExchangePath? path) {
     ref.read(timetableThemeProvider.notifier).updateSelectedChainPath(path);
     _localCache.clear(); // 로컬 캐시 초기화
-    notifyListeners();
+    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
   }
   
   
@@ -452,14 +452,14 @@ class TimetableDataSource extends DataGridSource {
     _teachers = teachers;
     _nonExchangeableManager.setTimeSlots(timeSlots);
     _buildDataGridRows();
-    notifyListeners();
+    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
   }
 
   /// 교체불가 편집 모드 설정
   void setNonExchangeableEditMode(bool isEditMode) {
     _nonExchangeableManager.setNonExchangeableEditMode(isEditMode);
     _localCache.clear(); // 로컬 캐시 초기화
-    notifyListeners();
+    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
     _onDataChanged?.call();
   }
 
@@ -475,7 +475,7 @@ class TimetableDataSource extends DataGridSource {
   void setTeacherAsNonExchangeable(String teacherName) {
     _nonExchangeableManager.setTeacherAsNonExchangeable(teacherName);
     _localCache.clear(); // 로컬 캐시 초기화
-    notifyListeners();
+    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
     _onDataChanged?.call();
   }
 
@@ -499,14 +499,14 @@ class TimetableDataSource extends DataGridSource {
   void resetAllNonExchangeableSettings() {
     _nonExchangeableManager.resetAllNonExchangeableSettings();
     _localCache.clear(); // 로컬 캐시 초기화
-    notifyListeners();
+    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
     _onDataChanged?.call();
   }
 
   /// 모든 캐시 초기화 (외부에서 호출 가능)
   void clearAllCaches() {
     _localCache.clear(); // 로컬 캐시 초기화
-    notifyListeners();
+    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
     _onDataChanged?.call();
   }
 
@@ -514,7 +514,7 @@ class TimetableDataSource extends DataGridSource {
   void notifyDataChanged() {
     // 캐시 초기화는 실제로 데이터가 변경된 경우에만 수행
     // 단순 UI 업데이트의 경우 캐시를 유지하여 성능 향상
-    notifyListeners();
+    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
     _onDataChanged?.call();
   }
   
@@ -522,7 +522,7 @@ class TimetableDataSource extends DataGridSource {
   void updateExchangedCells(List<String> exchangedCellKeys) {
     ref.read(timetableThemeProvider.notifier).updateExchangedCells(exchangedCellKeys);
     _localCache.clear(); // 로컬 캐시 초기화
-    notifyListeners();
+    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
     _onDataChanged?.call();
   }
 
@@ -530,7 +530,7 @@ class TimetableDataSource extends DataGridSource {
   void updateExchangedDestinationCells(List<String> destinationCellKeys) {
     ref.read(timetableThemeProvider.notifier).updateExchangedDestinationCells(destinationCellKeys);
     _localCache.clear(); // 로컬 캐시 초기화
-    notifyListeners();
+    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
     _onDataChanged?.call();
   }
 
@@ -538,7 +538,36 @@ class TimetableDataSource extends DataGridSource {
   void clearAllSelections() {
     ref.read(timetableThemeProvider.notifier).clearAllSelections();
     _localCache.clear(); // 로컬 캐시 초기화
-    notifyListeners();
+    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
+    _onDataChanged?.call();
+  }
+
+  // ========================================
+  // 배치 업데이트 메서드들
+  // ========================================
+
+  /// Level 1 전용 배치 업데이트: 경로 선택만 초기화
+  void resetPathSelectionBatch() {
+    ref.read(timetableThemeProvider.notifier).updateSelectedCircularPath(null);
+    ref.read(timetableThemeProvider.notifier).updateSelectedOneToOnePath(null);
+    ref.read(timetableThemeProvider.notifier).updateSelectedChainPath(null);
+    _localCache.clear(); // 로컬 캐시 초기화
+    notifyDataSourceListeners(); // 한 번만 UI 업데이트
+    _onDataChanged?.call();
+  }
+
+  /// Level 2 전용 배치 업데이트: 교체 상태 초기화
+  void resetExchangeStatesBatch() {
+    // 경로 선택 초기화
+    ref.read(timetableThemeProvider.notifier).updateSelectedCircularPath(null);
+    ref.read(timetableThemeProvider.notifier).updateSelectedOneToOnePath(null);
+    ref.read(timetableThemeProvider.notifier).updateSelectedChainPath(null);
+    
+    // 교체 옵션 초기화
+    _exchangeOptions = [];
+    
+    _localCache.clear(); // 로컬 캐시 초기화
+    notifyDataSourceListeners(); // 한 번만 UI 업데이트
     _onDataChanged?.call();
   }
 

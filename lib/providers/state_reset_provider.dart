@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../utils/logger.dart';
 import 'exchange_screen_provider.dart';
 import 'timetable_theme_provider.dart';
+import '../ui/widgets/timetable_grid/widget_arrows_manager.dart';
 
 /// 초기화 레벨 정의
 ///
@@ -116,11 +117,20 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   void resetPathOnly({String? reason}) {
     AppLogger.exchangeDebug('[Level 1] 경로 선택만 초기화: ${reason ?? "이유 없음"}');
 
-    // 경로 선택 해제
+    // ExchangeScreenProvider 배치 업데이트
     final notifier = _ref.read(exchangeScreenProvider.notifier);
-    notifier.setSelectedOneToOnePath(null);
-    notifier.setSelectedCircularPath(null);
-    notifier.setSelectedChainPath(null);
+    notifier.resetPathSelectionBatch();
+
+    // TimetableDataSource 배치 업데이트 (Syncfusion DataGrid 전용)
+    final dataSource = notifier.state.dataSource;
+    dataSource?.resetPathSelectionBatch();
+
+    // widget_arrows 기반 화살표 초기화
+    ArrowInitializationHelper.clearAllArrows();
+
+    // 화살표 초기화를 위한 추가 처리
+    // Level 1에서도 _internalSelectedPath를 초기화해야 화살표가 사라짐
+    _clearInternalSelectedPath();
 
     // 상태 업데이트
     state = ResetState(
@@ -130,6 +140,21 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     );
 
     AppLogger.exchangeDebug('[Level 1] 초기화 완료 - $state');
+  }
+
+  /// 내부 선택된 경로 초기화 (화살표 제거용)
+  ///
+  /// 참고: TimetableGridSection의 _internalSelectedPath 초기화는
+  /// StateResetProvider에서 직접 접근할 수 없으므로,
+  /// TimetableGridSection.clearPathSelectionOnly() 메서드를 통해
+  /// 위젯 레벨에서 처리됩니다.
+  ///
+  /// 이 메서드는 디버그 로깅 용도로 유지됩니다.
+  void _clearInternalSelectedPath() {
+    AppLogger.exchangeDebug(
+      '[Level 1] 내부 선택된 경로 초기화 - '
+      'TimetableGridSection.clearPathSelectionOnly()에서 처리됨'
+    );
   }
 
   // ========================================
@@ -157,28 +182,20 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   void resetExchangeStates({String? reason}) {
     AppLogger.exchangeDebug('[Level 2] 이전 교체 상태 초기화: ${reason ?? "이유 없음"}');
 
-    // Level 1 초기화 (경로 선택 해제)
-    resetPathOnly(reason: 'Level 2 내부 호출');
-
     final notifier = _ref.read(exchangeScreenProvider.notifier);
 
-    // 경로 리스트 초기화
-    notifier.setCircularPaths([]);
-    notifier.setOneToOnePaths([]);
-    notifier.setChainPaths([]);
+    // ExchangeScreenProvider 배치 업데이트
+    notifier.resetExchangeStatesBatch();
 
-    // UI 상태 초기화
-    notifier.setSidebarVisible(false);
-    notifier.setCircularPathsLoading(false);
-    notifier.setChainPathsLoading(false);
-    notifier.setLoadingProgress(0.0);
-
-    // 필터 상태 초기화
-    notifier.setAvailableSteps([]);
-    notifier.setSelectedStep(null);
+    // TimetableDataSource 배치 업데이트 (Syncfusion DataGrid 전용)
+    final dataSource = notifier.state.dataSource;
+    dataSource?.resetExchangeStatesBatch();
 
     // 캐시 초기화
     _ref.read(timetableThemeProvider.notifier).clearAllCaches();
+
+    // widget_arrows 기반 화살표 초기화
+    ArrowInitializationHelper.clearAllArrows();
 
     // 상태 업데이트
     state = ResetState(
@@ -211,13 +228,12 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   void resetAllStates({String? reason}) {
     AppLogger.exchangeDebug('[Level 3] 전체 상태 초기화: ${reason ?? "이유 없음"}');
 
-    // Level 2 초기화 (이전 교체 상태)
-    resetExchangeStates(reason: 'Level 3 내부 호출');
+    // Level 2 먼저 호출 (교체 상태 초기화)
+    resetExchangeStates(reason: reason);
 
-    // 전역 Provider 초기화
+    // Level 3 추가 작업: 전역 Provider 상태 초기화
     final themeNotifier = _ref.read(timetableThemeProvider.notifier);
-    themeNotifier.clearAllSelections();
-    themeNotifier.clearExchangedCells();
+    themeNotifier.resetAllStatesBatch();
 
     // 교체 서비스 초기화
     // 주의: 서비스는 exchange_screen.dart에서 별도로 초기화됨

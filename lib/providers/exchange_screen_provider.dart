@@ -229,6 +229,95 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
   void setNonExchangeableEditMode(bool enabled) {
     state = state.copyWith(isNonExchangeableEditMode: enabled);
   }
+
+  // ========================================
+  // 배치 업데이트 메서드들
+  // ========================================
+
+  /// 여러 상태를 한 번에 업데이트 (UI 업데이트 최적화)
+  void updateMultipleStates({
+    File? selectedFile,
+    TimetableData? timetableData,
+    TimetableDataSource? dataSource,
+    List<GridColumn>? columns,
+    List<StackedHeaderRow>? stackedHeaders,
+    bool? isLoading,
+    String? errorMessage,
+    ExchangeMode? currentMode,
+    List<CircularExchangePath>? circularPaths,
+    bool? isCircularPathsLoading,
+    double? loadingProgress,
+    List<ChainExchangePath>? chainPaths,
+    bool? isChainPathsLoading,
+    List<OneToOneExchangePath>? oneToOnePaths,
+    bool? isSidebarVisible,
+    String? searchQuery,
+    OneToOneExchangePath? selectedOneToOnePath,
+    CircularExchangePath? selectedCircularPath,
+    ChainExchangePath? selectedChainPath,
+    List<int>? availableSteps,
+    int? selectedStep,
+    String? selectedDay,
+    bool? isNonExchangeableEditMode,
+  }) {
+    state = state.copyWith(
+      selectedFile: selectedFile != null ? () => selectedFile : null,
+      timetableData: timetableData != null ? () => timetableData : null,
+      dataSource: dataSource != null ? () => dataSource : null,
+      columns: columns,
+      stackedHeaders: stackedHeaders,
+      isLoading: isLoading,
+      errorMessage: errorMessage != null ? () => errorMessage : null,
+      currentMode: currentMode,
+      circularPaths: circularPaths,
+      isCircularPathsLoading: isCircularPathsLoading,
+      loadingProgress: loadingProgress,
+      chainPaths: chainPaths,
+      isChainPathsLoading: isChainPathsLoading,
+      oneToOnePaths: oneToOnePaths,
+      isSidebarVisible: isSidebarVisible,
+      searchQuery: searchQuery,
+      selectedOneToOnePath: selectedOneToOnePath != null ? () => selectedOneToOnePath : null,
+      selectedCircularPath: selectedCircularPath != null ? () => selectedCircularPath : null,
+      selectedChainPath: selectedChainPath != null ? () => selectedChainPath : null,
+      availableSteps: availableSteps,
+      selectedStep: selectedStep != null ? () => selectedStep : null,
+      selectedDay: selectedDay != null ? () => selectedDay : null,
+      isNonExchangeableEditMode: isNonExchangeableEditMode,
+    );
+  }
+
+  /// Level 1 전용 배치 업데이트: 경로 선택만 초기화
+  void resetPathSelectionBatch() {
+    state = state.copyWith(
+      selectedOneToOnePath: () => null,
+      selectedCircularPath: () => null,
+      selectedChainPath: () => null,
+    );
+  }
+
+  /// Level 2 전용 배치 업데이트: 교체 상태 초기화
+  void resetExchangeStatesBatch() {
+    state = state.copyWith(
+      // 경로 선택 초기화
+      selectedOneToOnePath: () => null,
+      selectedCircularPath: () => null,
+      selectedChainPath: () => null,
+      // 경로 리스트 초기화
+      circularPaths: [],
+      oneToOnePaths: [],
+      chainPaths: [],
+      // UI 상태 초기화
+      isSidebarVisible: false,
+      isCircularPathsLoading: false,
+      isChainPathsLoading: false,
+      loadingProgress: 0.0,
+      // 필터 상태 초기화
+      searchQuery: '',
+      availableSteps: [],
+      selectedStep: () => null,
+    );
+  }
 }
 
 /// ExchangeScreen 상태 Provider
