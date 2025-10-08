@@ -12,13 +12,25 @@ import '../../../utils/timetable_data_source.dart';
 import '../../../providers/timetable_theme_provider.dart';
 
 /// 상태 초기화 관련 핸들러
+///
+/// exchange_screen.dart에서 사용되는 Mixin으로,
+/// 3단계 레벨의 초기화 메서드를 제공합니다.
+///
+/// **초기화 레벨**:
+/// - Level 2: resetExchangeStates() - 이전 교체 상태만
+/// - Level 3: resetAllStates() - 전체 상태
+///
+/// 상세 설명: docs/ui_reset_levels.md 참조
 mixin StateResetHandler<T extends StatefulWidget> on State<T> {
+  // ========================================
   // 인터페이스 - 구현 클래스에서 제공해야 함
+  // ========================================
+
   ExchangeService get exchangeService;
   CircularExchangeService get circularExchangeService;
   ChainExchangeService get chainExchangeService;
   TimetableDataSource? get dataSource;
-  WidgetRef get ref; // WidgetRef 추가
+  WidgetRef get ref;
 
   void clearTargetCell();
   void updateHeaderTheme();
@@ -39,56 +51,97 @@ mixin StateResetHandler<T extends StatefulWidget> on State<T> {
   void Function(List<int>) get setAvailableSteps;
   void Function(int?) get setSelectedStep;
 
-  /// 이전 교체 관련 상태만 초기화 (현재 선택된 셀은 유지)
-  void clearPreviousExchangeStates() {
-    // 타겟 셀 초기화
+  // ========================================
+  // Level 2: 이전 교체 상태 초기화 (중간)
+  // ========================================
+
+  /// Level 2: 이전 교체 상태 초기화
+  ///
+  /// **초기화 대상**:
+  /// - 타겟 셀
+  /// - 선택된 교체 경로 (모든 타입)
+  /// - 경로 리스트 (circular/oneToOne/chain)
+  /// - 사이드바 표시 상태
+  /// - 로딩 상태
+  /// - 필터 상태
+  ///
+  /// **유지 대상**:
+  /// - 소스 셀 (현재 선택된 셀)
+  /// - 전역 Provider 캐시
+  /// - DataSource 캐시
+  ///
+  /// **사용 시점**:
+  /// - 동일 모드 내에서 다른 셀 선택 시
+  /// - 교체 후 다음 작업 준비 시
+  /// - 교체 모드 전환 시 (1:1 ↔ 순환 ↔ 연쇄)
+  void resetExchangeStates() {
+    // 1. 타겟 셀 초기화
     clearTargetCell();
 
-    // 데이터 소스에 이전 경로 정보만 해제 (현재 선택된 셀은 유지)
+    // 2. DataSource의 경로 선택 해제
     dataSource?.updateSelectedCircularPath(null);
     dataSource?.updateSelectedOneToOnePath(null);
     dataSource?.updateSelectedChainPath(null);
 
-    // 이전 선택된 경로 초기화
+    // 3. 선택된 경로 초기화
     setSelectedCircularPath(null);
     setSelectedOneToOnePath(null);
     setSelectedChainPath(null);
 
-    // 이전 경로 리스트 초기화
+    // 4. 경로 리스트 초기화
     setCircularPaths([]);
     setOneToOnePaths([]);
     setChainPaths([]);
 
-    // UI 상태 초기화
+    // 5. UI 상태 초기화
     setSidebarVisible(false);
     setCircularPathsLoading(false);
     setChainPathsLoading(false);
     setLoadingProgress(0.0);
 
-    // 필터 상태 초기화
+    // 6. 필터 상태 초기화
     setFilteredPaths([]);
     setAvailableSteps([]);
     setSelectedStep(null);
 
-    AppLogger.exchangeDebug('이전 교체 관련 상태 초기화 완료');
+    AppLogger.exchangeDebug('[Level 2] 이전 교체 상태 초기화 완료');
   }
 
-  /// 모든 교체 모드 공통 초기화
-  void clearAllExchangeStates() {
-    // 모든 교체 서비스의 선택 상태 초기화
+  // ========================================
+  // Level 3: 전체 상태 초기화 (가장 강함)
+  // ========================================
+
+  /// Level 3: 전체 상태 초기화
+  ///
+  /// **초기화 대상**:
+  /// - 모든 교체 서비스 상태
+  /// - 타겟 셀
+  /// - 전역 Provider (선택, 캐시, 교체된 셀)
+  /// - DataSource (선택, 경로, 옵션)
+  /// - 선택된 교체 경로
+  /// - 경로 리스트
+  /// - UI 상태 (사이드바, 로딩 등)
+  /// - 필터 상태
+  ///
+  /// **사용 시점**:
+  /// - 파일 선택/해제 시
+  /// - 교체불가 편집 모드 진입 시
+  /// - 앱 시작/종료 시
+  void resetAllStates() {
+    // 1. 모든 교체 서비스의 선택 상태 초기화
     exchangeService.clearAllSelections();
     circularExchangeService.clearAllSelections();
     chainExchangeService.clearAllSelections();
 
-    // 타겟 셀 초기화
+    // 2. 타겟 셀 초기화
     clearTargetCell();
 
-    // 전역 Provider를 통한 상태 초기화
+    // 3. 전역 Provider를 통한 상태 초기화
     ref.read(timetableThemeProvider.notifier).clearAllSelections();
     ref.read(timetableThemeProvider.notifier).clearAllCaches();
     ref.read(timetableThemeProvider.notifier).clearExchangedCells();
 
-    // 데이터 소스에 모든 선택 상태 해제
+    // 4. DataSource에 모든 선택 상태 해제
     dataSource?.updateSelection(null, null, null);
     dataSource?.updateExchangeOptions([]);
     dataSource?.updateExchangeableTeachers([]);
@@ -96,38 +149,33 @@ mixin StateResetHandler<T extends StatefulWidget> on State<T> {
     dataSource?.updateSelectedOneToOnePath(null);
     dataSource?.updateSelectedChainPath(null);
 
-    // 모든 선택된 경로 초기화
+    // 5. 모든 선택된 경로 초기화
     setSelectedCircularPath(null);
     setSelectedOneToOnePath(null);
     setSelectedChainPath(null);
 
-    // 모든 경로 리스트 초기화
+    // 6. 모든 경로 리스트 초기화
     setCircularPaths([]);
     setOneToOnePaths([]);
     setChainPaths([]);
 
-    // UI 상태 초기화
+    // 7. UI 상태 초기화
     setSidebarVisible(false);
     setCircularPathsLoading(false);
     setChainPathsLoading(false);
     setLoadingProgress(0.0);
 
-    // 필터 상태 초기화
+    // 8. 필터 상태 초기화
     setFilteredPaths([]);
     setAvailableSteps([]);
     setSelectedStep(null);
 
-    AppLogger.exchangeDebug('모든 교체 모드 상태 초기화 완료');
-  }
-
-  /// UI를 기본값으로 복원
-  void restoreUIToDefault() {
-    // 헤더 테마를 기본값으로 복원
+    // 9. 헤더 테마를 기본값으로 복원
     updateHeaderTheme();
-    // 모든 교체 모드 상태 초기화
-    clearAllExchangeStates();
 
-    // 교체 가능한 시간 업데이트 (빈 목록으로)
+    // 10. 교체 가능한 시간 업데이트 (빈 목록으로)
     updateExchangeableTimes();
+
+    AppLogger.exchangeDebug('[Level 3] 전체 상태 초기화 완료');
   }
 }

@@ -29,8 +29,8 @@ import 'handlers/exchange_ui_builder.dart';
 import 'handlers/target_cell_handler.dart';
 import 'handlers/path_selection_handler_mixin.dart';
 import 'handlers/filter_search_handler.dart';
-import 'handlers/state_reset_handler.dart';
 import 'builders/sidebar_builder.dart';
+import '../../providers/state_reset_provider.dart';
 import 'helpers/circular_path_finder.dart';
 import 'helpers/chain_path_finder.dart';
 
@@ -58,7 +58,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
          TargetCellHandler,                // 타겟 셀 설정
          PathSelectionHandlerMixin,        // 경로 선택 핸들러
          FilterSearchHandler,              // 필터 및 검색
-         StateResetHandler,                // 상태 초기화
          SidebarBuilder {                  // 사이드바 빌더
   // 로컬 UI 상태 - Provider를 통해 관리
   // TimetableDataSource? _dataSource;
@@ -155,14 +154,18 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     
     // 모드 변경 전에 현재 선택된 셀 강제 해제
     _clearAllCellSelections();
-    
+
     // 모드 변경 시 관련 상태 초기화
     if (newMode == ExchangeMode.view) {
-      // 보기 모드로 변경 시 모든 교체 관련 상태 초기화
-      restoreUIToDefault();
+      // 보기 모드로 변경 시 모든 교체 관련 상태 초기화 (Level 3)
+      ref.read(stateResetProvider.notifier).resetAllStates(
+        reason: '보기 모드로 전환',
+      );
     } else {
-      // 다른 교체 모드로 변경 시 모든 교체 상태 초기화
-      clearAllExchangeStates();
+      // 다른 교체 모드로 변경 시 이전 교체 상태만 초기화 (Level 2)
+      ref.read(stateResetProvider.notifier).resetExchangeStates(
+        reason: '${newMode.displayName} 모드로 전환',
+      );
       
       // 각 모드별 초기 설정
       switch (newMode) {
@@ -298,27 +301,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   @override
   void Function(String, String, int) get scrollToCellCenter => _scrollToCellCenter;
 
-  // StateResetHandler 인터페이스 구현 - Proxy 사용
-  @override
-  void Function(CircularExchangePath?) get setSelectedCircularPath => _stateProxy.setSelectedCircularPath;
-  @override
-  void Function(List<CircularExchangePath>) get setCircularPaths => _stateProxy.setCircularPaths;
-  @override
-  void Function(List<ChainExchangePath>) get setChainPaths => _stateProxy.setChainPaths;
-  @override
-  void Function(bool) get setSidebarVisible => _stateProxy.setSidebarVisible;
-  @override
-  void Function(bool) get setCircularPathsLoading => _stateProxy.setCircularPathsLoading;
-  @override
-  void Function(bool) get setChainPathsLoading => _stateProxy.setChainPathsLoading;
-  @override
-  void Function(double) get setLoadingProgress => _stateProxy.setLoadingProgress;
-  @override
-  void Function(List<ExchangePath>) get setFilteredPaths => (paths) {
-    // filteredPaths는 computed property이므로 setter는 no-op
-  };
-  @override
-  void Function(List<OneToOneExchangePath>) get setOneToOnePaths => _stateProxy.setOneToOnePaths;
+  // StateResetHandler Mixin 제거 완료
+  // 모든 초기화는 StateResetProvider를 통해 처리됨
 
   @override
   void initState() {
@@ -332,8 +316,12 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       context: context,
       stateProxy: _stateProxy,
       onCreateSyncfusionGridData: _createSyncfusionGridData,
-      onClearAllExchangeStates: clearAllExchangeStates,
-      onRestoreUIToDefault: restoreUIToDefault,
+      onClearAllExchangeStates: () => ref.read(stateResetProvider.notifier).resetExchangeStates(
+        reason: '모드 전환 - 이전 교체 상태 초기화',
+      ),
+      onRestoreUIToDefault: () => ref.read(stateResetProvider.notifier).resetAllStates(
+        reason: 'UI 기본값 복원 - 전체 상태 초기화',
+      ),
       onRefreshHeaderTheme: _updateHeaderTheme,
     );
 
@@ -363,9 +351,11 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       if (currentMode != ExchangeMode.view) {
         AppLogger.exchangeDebug('🔄 교체관리 화면 진입: ${currentMode.displayName} → 보기 모드로 자동 전환');
         notifier.setCurrentMode(ExchangeMode.view);
-        
-        // 보기 모드 상태 초기화
-        restoreUIToDefault();
+
+        // 보기 모드 상태 초기화 (Level 3)
+        ref.read(stateResetProvider.notifier).resetAllStates(
+          reason: '교체관리 화면 진입 시 보기 모드로 전환',
+        );
       } else {
         AppLogger.exchangeDebug('✅ 교체관리 화면 진입: 이미 보기 모드 상태');
       }
@@ -451,7 +441,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
               buildErrorMessageSection: buildErrorMessageSection,
               onClearError: _clearError,
               onHeaderThemeUpdate: _updateHeaderTheme, // 헤더 테마 업데이트 콜백 전달
-              onRestoreUIToDefault: restoreUIToDefault, // UI 기본값 복원 콜백 전달
+              onRestoreUIToDefault: () => ref.read(stateResetProvider.notifier).resetAllStates(
+                reason: 'TimetableTabContent에서 UI 복원',
+              ),
             ),
           ),
 
@@ -618,12 +610,14 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   
   @override
   void onEmptyCellSelected() {
-    // 빈 셀 선택 시 이전 교체 관련 상태만 초기화
-    clearPreviousExchangeStates();
-    
+    // 빈 셀 선택 시 이전 교체 관련 상태만 초기화 (Level 2)
+    ref.read(stateResetProvider.notifier).resetExchangeStates(
+      reason: '빈 셀 선택',
+    );
+
     // 필터 초기화
     resetFilters();
-    
+
     // 시간표 그리드 테마 업데이트 (이전 경로 표시 제거)
     _updateHeaderTheme();
   }
@@ -690,27 +684,31 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   
   @override
   void clearPreviousCircularExchangeState() {
-    // 순환교체 이전 상태만 초기화 (현재 선택된 셀은 유지)
-    clearPreviousExchangeStates();
-    
+    // 순환교체 이전 상태만 초기화 (현재 선택된 셀은 유지) - Level 2
+    ref.read(stateResetProvider.notifier).resetExchangeStates(
+      reason: '순환교체 이전 상태 초기화',
+    );
+
     // 필터 초기화
     resetFilters();
-    
+
     // 시간표 그리드 테마 업데이트 (이전 경로 표시 제거)
     _updateHeaderTheme();
   }
 
   @override
   void clearPreviousChainExchangeState() {
-    // 연쇄교체 이전 상태만 초기화 (현재 선택된 셀은 유지)
-    clearPreviousExchangeStates();
-    
+    // 연쇄교체 이전 상태만 초기화 (현재 선택된 셀은 유지) - Level 2
+    ref.read(stateResetProvider.notifier).resetExchangeStates(
+      reason: '연쇄교체 이전 상태 초기화',
+    );
+
     // 필터 초기화
     resetFilters();
-    
+
     // 시간표 그리드 테마 업데이트 (이전 경로 표시 제거)
     _updateHeaderTheme();
-    
+
     AppLogger.exchangeDebug('연쇄교체: 이전 상태 초기화 완료');
   }
 
@@ -760,14 +758,16 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   
   @override
   void processCellSelection() {
-    // 새로운 셀 선택시 이전 교체 관련 상태만 초기화 (현재 선택된 셀은 유지)
-    clearPreviousExchangeStates();
-    
+    // 새로운 셀 선택시 이전 교체 관련 상태만 초기화 (현재 선택된 셀은 유지) - Level 2
+    ref.read(stateResetProvider.notifier).resetExchangeStates(
+      reason: '새로운 셀 선택',
+    );
+
     // 순환교체, 1:1 교체, 연쇄교체 모드에서 필터 초기화
     if (_isCircularExchangeModeEnabled || _isExchangeModeEnabled || _isChainExchangeModeEnabled) {
       resetFilters();
     }
-    
+
     // 부모 클래스의 processCellSelection 호출
     super.processCellSelection();
   }
@@ -879,18 +879,19 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     
     // 타겟 셀 초기화
     clearTargetCell();
-    
+
     // Provider 상태 초기화
     final notifier = ref.read(exchangeScreenProvider.notifier);
     notifier.setSelectedCircularPath(null);
     notifier.setSelectedOneToOnePath(null);
     notifier.setSelectedChainPath(null);
-    
-    // TimetableGridSection의 화살표 상태 초기화 (모드 전환 시 화살표 숨기기)
+
+    // TimetableGridSection의 화살표 상태 초기화
+    // 타겟 셀이 초기화되면 화살표도 함께 숨겨야 함
     final timetableGridState = _timetableGridKey.currentState;
     if (timetableGridState != null) {
       try {
-        // dynamic 캐스팅을 사용한 안전한 메서드 호출
+        // Level 2 초기화: 경로 선택 해제 + 캐시 초기화
         (timetableGridState as dynamic).clearAllArrowStates();
       } catch (e) {
         // 메서드가 존재하지 않는 경우 또는 타입 오류 발생 시 안전하게 처리
@@ -907,7 +908,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
         }
       }
     }
-    
+
     // UI 업데이트는 notifyListeners()로 처리됨
   }
   

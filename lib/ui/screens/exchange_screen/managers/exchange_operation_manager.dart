@@ -191,36 +191,57 @@ class ExchangeOperationManager {
   // ===== 교체 모드 관리 =====
 
   /// 1:1 교체 모드 토글
+  ///
+  /// **처리 순서**:
+  /// 1. 다른 모드 비활성화 (순환/연쇄)
+  /// 2. 교체불가 편집 모드 비활성화
+  /// 3. 1:1 교체 모드 활성화/비활성화
+  /// 4-1. 비활성화 시: Level 3 초기화 (전체 상태)
+  /// 4-2. 활성화 시: Level 3 초기화 + 단계 설정 (2단계만)
+  /// 5. 헤더 테마 업데이트
+  /// 6. 사용자 피드백 (SnackBar)
+  ///
+  /// **Level 3 초기화 사용 이유**:
+  /// - 모드 전환 시 모든 상태를 깨끗하게 초기화해야 함
+  /// - 이전 모드의 잔여 상태가 남아있으면 오작동 가능성
   void toggleExchangeMode() {
     bool wasEnabled = stateProxy.isExchangeModeEnabled;
     bool hasOtherModesActive =
-        stateProxy.isCircularExchangeModeEnabled || stateProxy.isChainExchangeModeEnabled;
+        stateProxy.isCircularExchangeModeEnabled ||
+        stateProxy.isChainExchangeModeEnabled;
 
+    // 1. 다른 모드 비활성화
     if (hasOtherModesActive) {
       stateProxy.setCircularExchangeModeEnabled(false);
       stateProxy.setChainExchangeModeEnabled(false);
     }
 
+    // 2. 교체불가 편집 모드 비활성화
     if (stateProxy.isNonExchangeableEditMode) {
       stateProxy.setNonExchangeableEditMode(false);
     }
 
+    // 3. 1:1 교체 모드 토글
     stateProxy.setExchangeModeEnabled(!wasEnabled);
 
     if (!stateProxy.isExchangeModeEnabled) {
+      // 4-1. 비활성화: Level 3 초기화 (전체 상태)
       onRestoreUIToDefault();
       stateProxy.setAvailableSteps([]);
       stateProxy.setSelectedStep(null);
       stateProxy.setSelectedDay(null);
     } else {
+      // 4-2. 활성화: Level 3 초기화 + 단계 설정
       onClearAllExchangeStates();
-      stateProxy.setAvailableSteps([2]);
+      stateProxy.setAvailableSteps([2]); // 1:1 교체는 2단계만 가능
       stateProxy.setSelectedStep(null);
       stateProxy.setSelectedDay(null);
     }
 
+    // 5. 헤더 테마 업데이트
     onRefreshHeaderTheme();
 
+    // 6. 사용자 피드백
     if (stateProxy.isExchangeModeEnabled) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -233,38 +254,60 @@ class ExchangeOperationManager {
   }
 
   /// 순환교체 모드 토글
+  ///
+  /// **처리 순서**:
+  /// 1. 다른 모드 비활성화 (1:1/연쇄)
+  /// 2. 교체불가 편집 모드 비활성화
+  /// 3. 순환교체 모드 활성화/비활성화
+  /// 4-1. 비활성화 시: Level 3 초기화 (전체 상태)
+  /// 4-2. 활성화 시: Level 3 초기화 + 단계 설정 (2~5단계)
+  /// 5. 헤더 테마 업데이트
+  /// 6. 사용자 피드백 (SnackBar)
+  ///
+  /// **Level 3 초기화 사용 이유**:
+  /// - 모드 전환 시 모든 상태를 깨끗하게 초기화해야 함
+  /// - 이전 모드의 잔여 상태가 남아있으면 오작동 가능성
   void toggleCircularExchangeMode() {
-    AppLogger.exchangeDebug('순환교체 모드 토글 시작 - 현재 상태: ${stateProxy.isCircularExchangeModeEnabled}');
+    AppLogger.exchangeDebug(
+      '순환교체 모드 토글 시작 - 현재 상태: ${stateProxy.isCircularExchangeModeEnabled}',
+    );
 
     bool wasEnabled = stateProxy.isCircularExchangeModeEnabled;
     bool hasOtherModesActive =
         stateProxy.isExchangeModeEnabled || stateProxy.isChainExchangeModeEnabled;
 
+    // 1. 다른 모드 비활성화
     if (hasOtherModesActive) {
       stateProxy.setExchangeModeEnabled(false);
       stateProxy.setChainExchangeModeEnabled(false);
     }
 
+    // 2. 교체불가 편집 모드 비활성화
     if (stateProxy.isNonExchangeableEditMode) {
       stateProxy.setNonExchangeableEditMode(false);
     }
 
+    // 3. 순환교체 모드 토글
     stateProxy.setCircularExchangeModeEnabled(!wasEnabled);
 
     if (!stateProxy.isCircularExchangeModeEnabled) {
+      // 4-1. 비활성화: Level 3 초기화 (전체 상태)
       onRestoreUIToDefault();
       stateProxy.setAvailableSteps([]);
       stateProxy.setSelectedStep(null);
       stateProxy.setSelectedDay(null);
     } else {
+      // 4-2. 활성화: Level 3 초기화 + 단계 설정
       onClearAllExchangeStates();
-      stateProxy.setAvailableSteps([2, 3, 4, 5]);
+      stateProxy.setAvailableSteps([2, 3, 4, 5]); // 순환: 2~5단계
       stateProxy.setSelectedStep(null);
       stateProxy.setSelectedDay(null);
     }
 
+    // 5. 헤더 테마 업데이트
     onRefreshHeaderTheme();
 
+    // 6. 사용자 피드백
     if (stateProxy.isCircularExchangeModeEnabled) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -277,38 +320,61 @@ class ExchangeOperationManager {
   }
 
   /// 연쇄교체 모드 토글
+  ///
+  /// **처리 순서**:
+  /// 1. 다른 모드 비활성화 (1:1/순환)
+  /// 2. 교체불가 편집 모드 비활성화
+  /// 3. 연쇄교체 모드 활성화/비활성화
+  /// 4-1. 비활성화 시: Level 3 초기화 (전체 상태)
+  /// 4-2. 활성화 시: Level 3 초기화 + 단계 설정 (2~5단계)
+  /// 5. 헤더 테마 업데이트
+  /// 6. 사용자 피드백 (SnackBar)
+  ///
+  /// **Level 3 초기화 사용 이유**:
+  /// - 모드 전환 시 모든 상태를 깨끗하게 초기화해야 함
+  /// - 이전 모드의 잔여 상태가 남아있으면 오작동 가능성
   void toggleChainExchangeMode() {
-    AppLogger.exchangeDebug('연쇄교체 모드 토글 시작 - 현재 상태: ${stateProxy.isChainExchangeModeEnabled}');
+    AppLogger.exchangeDebug(
+      '연쇄교체 모드 토글 시작 - 현재 상태: ${stateProxy.isChainExchangeModeEnabled}',
+    );
 
     bool wasEnabled = stateProxy.isChainExchangeModeEnabled;
     bool hasOtherModesActive =
-        stateProxy.isExchangeModeEnabled || stateProxy.isCircularExchangeModeEnabled;
+        stateProxy.isExchangeModeEnabled ||
+        stateProxy.isCircularExchangeModeEnabled;
 
+    // 1. 다른 모드 비활성화
     if (hasOtherModesActive) {
       stateProxy.setExchangeModeEnabled(false);
       stateProxy.setCircularExchangeModeEnabled(false);
     }
 
+    // 2. 교체불가 편집 모드 비활성화
     if (stateProxy.isNonExchangeableEditMode) {
       stateProxy.setNonExchangeableEditMode(false);
     }
 
+    // 3. 연쇄교체 모드 토글
     stateProxy.setChainExchangeModeEnabled(!wasEnabled);
 
     if (!stateProxy.isChainExchangeModeEnabled) {
+      // 4-1. 비활성화: Level 3 초기화 (전체 상태)
       onRestoreUIToDefault();
       stateProxy.setAvailableSteps([]);
       stateProxy.setSelectedStep(null);
       stateProxy.setSelectedDay(null);
     } else {
+      // 4-2. 활성화: Level 3 초기화 + 단계 설정
       onClearAllExchangeStates();
-      stateProxy.setAvailableSteps([2, 3, 4, 5]);
+      stateProxy.setAvailableSteps([2, 3, 4, 5]); // 연쇄: 2~5단계
       stateProxy.setSelectedStep(null);
       stateProxy.setSelectedDay(null);
     }
 
+    // 5. 헤더 테마 업데이트
     onRefreshHeaderTheme();
 
+    // 6. 사용자 피드백
     if (stateProxy.isChainExchangeModeEnabled) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
