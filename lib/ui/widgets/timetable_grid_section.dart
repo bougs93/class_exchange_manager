@@ -1176,9 +1176,9 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       widget.onHeaderThemeUpdate?.call();
     }
 
-    if (updateUI && mounted) {
-      setState(() {});
-    }
+     if (updateUI && mounted) {
+       widget.dataSource?.notifyListeners();
+     }
   }
 
   /// 교체 경로 선택 처리
@@ -1193,11 +1193,11 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       widget.dataSource!.updateSelectedOneToOnePath(exchangePath);
     } else if (exchangePath is CircularExchangePath) {
       widget.dataSource!.updateSelectedCircularPath(exchangePath);
-    } else if (exchangePath is ChainExchangePath) {
-      widget.dataSource!.updateSelectedChainPath(exchangePath);
-    }
+     } else if (exchangePath is ChainExchangePath) {
+       widget.dataSource!.updateSelectedChainPath(exchangePath);
+     }
 
-    setState(() {});
+     widget.dataSource?.notifyListeners();
   }
 
   /// 교체 경로 선택 해제 (화살표 숨기기)
@@ -1300,8 +1300,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     // 7. 내부 선택된 경로 초기화 (삭제 완료 후)
     _internalSelectedPath = null;
 
-    // 8. UI 업데이트
-    setState(() {});
+     // 8. UI 업데이트 (ChangeNotifier 패턴 사용)
+     widget.dataSource?.notifyListeners();
   }
 
   /// 교체 실행 기능
@@ -1340,11 +1340,11 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     // 5. 모든 선택 상태 초기화 (교체 완료 후 모든 선택 상태 제거)
     widget.dataSource!.clearAllSelections();
 
-    // 6. 내부 선택된 경로 초기화 (교체 완료 후)
-    _internalSelectedPath = null;
+     // 6. 내부 선택된 경로 초기화 (교체 완료 후)
+     _internalSelectedPath = null;
 
-    // 7. UI 업데이트
-    setState(() {});
+     // 7. UI 업데이트 (ChangeNotifier 패턴 사용)
+     widget.dataSource?.notifyListeners();
 
     // 8. 사용자 피드백
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1390,11 +1390,11 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       // 5. 캐시 강제 무효화 및 UI 업데이트
       widget.dataSource!.clearAllCaches();
 
-      // 6. 모든 선택 상태 초기화 (되돌리기 후 모든 선택 상태 제거)
-      widget.dataSource!.clearAllSelections();
+       // 6. 모든 선택 상태 초기화 (되돌리기 후 모든 선택 상태 제거)
+       widget.dataSource!.clearAllSelections();
 
-      // 7. UI 업데이트
-      setState(() {});
+       // 7. UI 업데이트 (ChangeNotifier 패턴 사용)
+       widget.dataSource?.notifyListeners();
       
       // 9. 사용자 피드백
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1456,11 +1456,11 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     // 5. 캐시 강제 무효화 및 UI 업데이트
     widget.dataSource!.clearAllCaches();
 
-    // 6. 모든 선택 상태 초기화 (다시 반복 후 모든 선택 상태 제거)
-    widget.dataSource!.clearAllSelections();
+     // 6. 모든 선택 상태 초기화 (다시 반복 후 모든 선택 상태 제거)
+     widget.dataSource!.clearAllSelections();
 
-    // 7. UI 업데이트
-    setState(() {});
+     // 7. UI 업데이트 (ChangeNotifier 패턴 사용)
+     widget.dataSource?.notifyListeners();
 
     // 8. 사용자 피드백
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1584,13 +1584,13 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
           AppLogger.exchangeDebug('교체 실행 전 beforeSlots 재생성: ${beforeSlots.length}개');
         }
         
-        for (var item in exchangeList) {
-          _executeExchangeFromHistory(item);
-        }
-        
-        // 3. UI 업데이트
-        widget.dataSource?.clearAllCaches();
-        setState(() {});
+         for (var item in exchangeList) {
+           _executeExchangeFromHistory(item);
+         }
+         
+         // 3. UI 업데이트 (ChangeNotifier 패턴 사용)
+         widget.dataSource?.clearAllCaches();
+         widget.dataSource?.notifyListeners();
         
         // 4. 교체 전후 TimeSlots 비교 (안전성 검증 포함)
         if (beforeSlots != null && widget.dataSource != null) {
@@ -1640,12 +1640,12 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       final backupState = ref.read(timeSlotsBackupProvider);
       if (backupState.isValid && widget.dataSource != null) {
         final restoredSlots = ref.read(timeSlotsBackupProvider.notifier).restoreBackup();
-        if (restoredSlots != null) {
-          widget.dataSource!.updateData(restoredSlots, widget.timetableData!.teachers);
-          
-          // 3. UI 업데이트
-          widget.dataSource?.clearAllCaches();
-          setState(() {});
+         if (restoredSlots != null) {
+           widget.dataSource!.updateData(restoredSlots, widget.timetableData!.teachers);
+           
+           // 3. UI 업데이트 (ChangeNotifier 패턴 사용)
+           widget.dataSource?.clearAllCaches();
+           widget.dataSource?.notifyListeners();
           
           // 4. 복원 전후 TimeSlots 비교 (안전성 검증 포함)
           if (beforeSlots != null) {
