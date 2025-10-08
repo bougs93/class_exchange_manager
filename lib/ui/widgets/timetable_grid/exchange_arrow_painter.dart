@@ -352,17 +352,27 @@ class ExchangeArrowPainter extends CustomPainter {
     double y = AppConstants.headerRowHeight * GridLayoutConstants.headerRowsCount * zoomFactor; // 헤더 행 높이 - 줌 배율 적용
     y += teacherIndex * AppConstants.dataRowHeight * zoomFactor; // 교사 인덱스에 따른 행 높이 - 줌 배율 적용
 
-    // 스크롤 오프셋 반영 (고정 영역 고려)
+    // 스크롤 오프셋 반영 (고정 영역 고려) - 안전한 방식으로 오프셋 가져오기
     double horizontalOffset = 0.0;
-    double verticalOffset = verticalScrollController.hasClients 
-        ? verticalScrollController.offset 
-        : 0.0;
-
-    // 고정 열(교사명 열)이 아닌 경우에만 가로 스크롤 오프셋 적용
-    if (columnIndex > 0) {
-      horizontalOffset = horizontalScrollController.hasClients 
-          ? horizontalScrollController.offset 
-          : 0.0;
+    double verticalOffset = 0.0;
+    
+    try {
+      // 세로 스크롤 오프셋 안전하게 가져오기
+      if (verticalScrollController.hasClients && verticalScrollController.positions.isNotEmpty) {
+        verticalOffset = verticalScrollController.offset;
+      }
+      
+      // 고정 열(교사명 열)이 아닌 경우에만 가로 스크롤 오프셋 적용
+      if (columnIndex > 0) {
+        if (horizontalScrollController.hasClients && horizontalScrollController.positions.isNotEmpty) {
+          horizontalOffset = horizontalScrollController.offset;
+        }
+      }
+    } catch (e) {
+      // ScrollController 오류 발생 시 기본값 사용 (디버그 모드에서만 로그 출력)
+      debugPrint('ExchangeArrowPainter ScrollController 오류: $e');
+      horizontalOffset = 0.0;
+      verticalOffset = 0.0;
     }
 
     // 스크롤 오프셋을 좌표에 반영
@@ -735,17 +745,31 @@ class ExchangeArrowPainter extends CustomPainter {
       hasChanged = true;
     }
     
-    // 스크롤 위치 변경 확인 (화살표 위치에 영향)
-    if (oldPainter.verticalScrollController.hasClients && verticalScrollController.hasClients) {
-      if ((oldPainter.verticalScrollController.offset - verticalScrollController.offset).abs() > 1.0) {
-        hasChanged = true;
+    // 스크롤 위치 변경 확인 (화살표 위치에 영향) - 안전한 방식으로 확인
+    try {
+      // 세로 스크롤 위치 변경 확인
+      if (oldPainter.verticalScrollController.hasClients && 
+          oldPainter.verticalScrollController.positions.isNotEmpty &&
+          verticalScrollController.hasClients && 
+          verticalScrollController.positions.isNotEmpty) {
+        if ((oldPainter.verticalScrollController.offset - verticalScrollController.offset).abs() > 1.0) {
+          hasChanged = true;
+        }
       }
-    }
-    
-    if (oldPainter.horizontalScrollController.hasClients && horizontalScrollController.hasClients) {
-      if ((oldPainter.horizontalScrollController.offset - horizontalScrollController.offset).abs() > 1.0) {
-        hasChanged = true;
+      
+      // 가로 스크롤 위치 변경 확인
+      if (oldPainter.horizontalScrollController.hasClients && 
+          oldPainter.horizontalScrollController.positions.isNotEmpty &&
+          horizontalScrollController.hasClients && 
+          horizontalScrollController.positions.isNotEmpty) {
+        if ((oldPainter.horizontalScrollController.offset - horizontalScrollController.offset).abs() > 1.0) {
+          hasChanged = true;
+        }
       }
+    } catch (e) {
+      // ScrollController 오류 발생 시 변경사항이 있다고 가정하여 재그리기
+      debugPrint('ExchangeArrowPainter shouldRepaint ScrollController 오류: $e');
+      hasChanged = true;
     }
     
     return hasChanged;

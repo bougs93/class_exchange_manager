@@ -101,8 +101,8 @@ mixin TargetCellHandler<T extends StatefulWidget> on State<T> {
 
   /// 타겟 셀 해제
   void clearTargetCell() {
-    exchangeService.clearTargetCell();
+    exchangeService.updateTargetCellState(null, null, null);
     dataSource?.updateTargetCell(null, null, null);
-    AppLogger.exchangeDebug('타겟 셀 해제');
+    AppLogger.exchangeDebug('타겟 셀 해제 (UI 핸들러)');
   }
 }

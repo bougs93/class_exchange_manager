@@ -675,13 +675,22 @@ class ExchangeService extends BaseExchangeService {
     AppLogger.exchangeDebug('타겟 셀 설정: $targetTeacher $targetDay $targetPeriod교시');
   }
   
-  /// 타겟 셀 해제
-  void clearTargetCell() {
+  /// 타겟 셀 해제 (내부용)
+  void _clearTargetCell() {
     _targetTeacher = null;
     _targetDay = null;
     _targetPeriod = null;
     
-    AppLogger.exchangeDebug('타겟 셀 해제');
+    AppLogger.exchangeDebug('타겟 셀 해제 (내부)');
+  }
+  
+  /// 타겟 셀 상태만 업데이트 (UI 핸들러용)
+  void updateTargetCellState(String? teacher, String? day, int? period) {
+    _targetTeacher = teacher;
+    _targetDay = day;
+    _targetPeriod = period;
+    
+    AppLogger.exchangeDebug('타겟 셀 상태 업데이트: $teacher $day ${period != null ? '$period교시' : 'null'}');
   }
   
   /// 타겟 셀이 설정되어 있는지 확인
@@ -692,7 +701,7 @@ class ExchangeService extends BaseExchangeService {
   /// 모든 선택 상태 초기화
   void clearAllSelections() {
     clearCellSelection();
-    clearTargetCell();
+    _clearTargetCell();
     _exchangeOptions.clear();
   }
 }
