@@ -7,6 +7,7 @@ import '../../../models/one_to_one_exchange_path.dart';
 import '../../../models/circular_exchange_path.dart';
 import '../../../models/chain_exchange_path.dart';
 import '../../../models/exchange_node.dart';
+import '../../../utils/logger.dart';
 import 'exchange_arrow_style.dart';
 
 /// widget_arrows 패키지를 활용한 화살표 관리 클래스
@@ -40,7 +41,7 @@ class WidgetArrowsManager {
     
     List<ArrowElement> arrows = [];
     
-    print('🔍 화살표 생성 시작: ${selectedPath.type}');
+    AppLogger.exchangeDebug('화살표 생성 시작: ${selectedPath.type}');
     
     switch (selectedPath.type) {
       case ExchangePathType.oneToOne:
@@ -54,7 +55,7 @@ class WidgetArrowsManager {
         break;
     }
     
-    print('✅ 생성된 화살표 개수: ${arrows.length}');
+    AppLogger.exchangeDebug('생성된 화살표 개수: ${arrows.length}');
     return arrows;
   }
 
@@ -68,9 +69,9 @@ class WidgetArrowsManager {
     final sourceId = _getCellId(sourceNode);
     final targetId = _getCellId(targetNode);
     
-    print('📍 1:1 교체 화살표 생성:');
-    print('  소스: ${sourceNode.teacherName} ${sourceNode.day}${sourceNode.period}교시 → ID: $sourceId');
-    print('  타겟: ${targetNode.teacherName} ${targetNode.day}${targetNode.period}교시 → ID: $targetId');
+    AppLogger.exchangeDebug('1:1 교체 화살표 생성:');
+    AppLogger.exchangeDebug('  소스: ${sourceNode.teacherName} ${sourceNode.day}${sourceNode.period}교시 → ID: $sourceId');
+    AppLogger.exchangeDebug('  타겟: ${targetNode.teacherName} ${targetNode.day}${targetNode.period}교시 → ID: $targetId');
     
     // A → B 방향 화살표
     final arrowId1 = _generateArrowId('oneToOne', 'AtoB');
@@ -92,7 +93,7 @@ class WidgetArrowsManager {
       context: context,
     ));
     
-    print('✅ 1:1 교체 화살표 생성 완료: ${arrows.length}개');
+    AppLogger.exchangeDebug('1:1 교체 화살표 생성 완료: ${arrows.length}개');
     return arrows;
   }
 
@@ -165,7 +166,7 @@ class WidgetArrowsManager {
       color: style.color,
       width: style.strokeWidth,
       // widget_arrows 패키지의 올바른 API 사용
-      child: Container(
+      child: SizedBox(
         key: ValueKey(sourceId),
         width: 1,
         height: 1,
@@ -188,7 +189,7 @@ class WidgetArrowsManager {
     String columnName = '${node.day}_${node.period}';
     
     // 실제 DataGrid에서 사용되는 셀 키 형식으로 생성
-    return 'cell_${teacherIndex}_${columnName}';
+    return 'cell_$teacherIndex' '_' '$columnName';
   }
 
   /// 화살표 ID 생성
@@ -239,7 +240,7 @@ class ArrowDisplayWidget extends StatelessWidget {
 
     // 현재는 widget_arrows 패키지 대신 기존 방식 사용
     // TODO: widget_arrows 패키지의 올바른 API 확인 후 구현
-    print('⚠️ ArrowDisplayWidget: widget_arrows 패키지 사용 대신 기존 방식으로 폴백');
+    AppLogger.warning('ArrowDisplayWidget: widget_arrows 패키지 사용 대신 기존 방식으로 폴백');
     return child;
   }
 }

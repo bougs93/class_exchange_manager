@@ -380,19 +380,19 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
     // 교체 경로가 선택된 경우에만 화살표 표시
     if (currentSelectedPath != null && widget.timetableData != null) {
-      print('🎯 화살표 표시 조건 만족: ${currentSelectedPath!.type}');
+      AppLogger.exchangeDebug('🎯 화살표 표시 조건 만족: ${currentSelectedPath!.type}');
       
       // 현재는 기존 CustomPainter 방식 사용 (안정적)
       return _buildDataGridWithLegacyArrows(dataGridWithGestures);
     }
 
-    print('❌ 화살표 표시 조건 불만족: currentSelectedPath=${currentSelectedPath != null}, timetableData=${widget.timetableData != null}');
+    AppLogger.exchangeDebug('❌ 화살표 표시 조건 불만족: currentSelectedPath=${currentSelectedPath != null}, timetableData=${widget.timetableData != null}');
     return dataGridWithGestures;
   }
 
   /// 기존 CustomPainter 기반 화살표 표시
   Widget _buildDataGridWithLegacyArrows(Widget dataGridWithGestures) {
-    print('🎨 CustomPainter 화살표 그리기 시작: ${currentSelectedPath!.type}');
+    AppLogger.exchangeDebug('🎨 CustomPainter 화살표 그리기 시작: ${currentSelectedPath!.type}');
     
     return Stack(
       children: [
@@ -679,7 +679,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
   /// 교체된 셀 클릭 처리
   void _handleExchangedCellClick(String teacherName, String day, int period) {
-    print('🖱️ 교체된 셀 클릭: $teacherName | $day$period교시');
+    AppLogger.exchangeDebug('🖱️ 교체된 셀 클릭: $teacherName | $day$period교시');
     
     final exchangePath = _historyService.findExchangePathByCell(
       teacherName,
@@ -688,7 +688,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     );
 
     if (exchangePath != null) {
-      print('✅ 교체 경로 발견: ${exchangePath.type} (ID: ${exchangePath.id})');
+      AppLogger.exchangeDebug('✅ 교체 경로 발견: ${exchangePath.type} (ID: ${exchangePath.id})');
       
       ref.read(stateResetProvider.notifier).resetExchangeStates(
         reason: '교체된 셀 클릭 - 이전 교체 상태 초기화',
@@ -706,13 +706,13 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
         setState(() {});
       }
     } else {
-      print('❌ 교체 경로를 찾을 수 없음: $teacherName | $day$period교시');
+      AppLogger.exchangeDebug('❌ 교체 경로를 찾을 수 없음: $teacherName | $day$period교시');
     }
   }
 
   /// 교체 경로 선택
   void _selectExchangePath(ExchangePath exchangePath) {
-    print('🎯 교체 경로 선택 시작: ${exchangePath.displayTitle}');
+    AppLogger.exchangeDebug('🎯 교체 경로 선택 시작: ${exchangePath.displayTitle}');
     
     ref.read(stateResetProvider.notifier).resetPathOnly(
       reason: '새 교체 경로 선택 - 기존 경로 초기화',
@@ -722,22 +722,22 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     clearPathSelectionOnly();
 
     _internalSelectedPath = exchangePath;
-    print('✅ 내부 선택된 경로 설정: ${_internalSelectedPath?.type}');
+    AppLogger.exchangeDebug('✅ 내부 선택된 경로 설정: ${_internalSelectedPath?.type}');
 
     if (exchangePath is OneToOneExchangePath) {
       widget.dataSource!.updateSelectedOneToOnePath(exchangePath);
-      print('📝 OneToOne 경로 업데이트 완료');
+      AppLogger.exchangeDebug('📝 OneToOne 경로 업데이트 완료');
     } else if (exchangePath is CircularExchangePath) {
       widget.dataSource!.updateSelectedCircularPath(exchangePath);
-      print('📝 Circular 경로 업데이트 완료');
+      AppLogger.exchangeDebug('📝 Circular 경로 업데이트 완료');
     } else if (exchangePath is ChainExchangePath) {
       widget.dataSource!.updateSelectedChainPath(exchangePath);
-      print('📝 Chain 경로 업데이트 완료');
+      AppLogger.exchangeDebug('📝 Chain 경로 업데이트 완료');
     }
 
     // updateSelected* 메서드가 이미 notifyDataSourceListeners()를 호출하므로 중복 호출 제거
     AppLogger.exchangeDebug('교체 경로 선택: ${exchangePath.displayTitle}');
-    print('🎯 교체 경로 선택 완료: ${exchangePath.displayTitle}');
+    AppLogger.exchangeDebug('🎯 교체 경로 선택 완료: ${exchangePath.displayTitle}');
   }
 
   /// 일반 셀 탭 시 화살표 숨기기
