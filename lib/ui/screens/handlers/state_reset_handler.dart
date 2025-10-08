@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/circular_exchange_path.dart';
 import '../../../models/one_to_one_exchange_path.dart';
 import '../../../models/chain_exchange_path.dart';
@@ -8,6 +9,7 @@ import '../../../services/circular_exchange_service.dart';
 import '../../../services/chain_exchange_service.dart';
 import '../../../utils/logger.dart';
 import '../../../utils/timetable_data_source.dart';
+import '../../../providers/timetable_theme_provider.dart';
 
 /// 상태 초기화 관련 핸들러
 mixin StateResetHandler<T extends StatefulWidget> on State<T> {
@@ -16,6 +18,7 @@ mixin StateResetHandler<T extends StatefulWidget> on State<T> {
   CircularExchangeService get circularExchangeService;
   ChainExchangeService get chainExchangeService;
   TimetableDataSource? get dataSource;
+  WidgetRef get ref; // WidgetRef 추가
 
   void clearTargetCell();
   void updateHeaderTheme();
@@ -79,6 +82,11 @@ mixin StateResetHandler<T extends StatefulWidget> on State<T> {
 
     // 타겟 셀 초기화
     clearTargetCell();
+
+    // 전역 Provider를 통한 상태 초기화
+    ref.read(timetableThemeProvider.notifier).clearAllSelections();
+    ref.read(timetableThemeProvider.notifier).clearAllCaches();
+    ref.read(timetableThemeProvider.notifier).clearExchangedCells();
 
     // 데이터 소스에 모든 선택 상태 해제
     dataSource?.updateSelection(null, null, null);

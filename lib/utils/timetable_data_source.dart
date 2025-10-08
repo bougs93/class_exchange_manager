@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../models/time_slot.dart';
 import '../models/teacher.dart';
@@ -6,10 +7,9 @@ import '../models/circular_exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
 import '../models/chain_exchange_path.dart';
 import '../ui/widgets/simplified_timetable_cell.dart';
+import '../providers/timetable_theme_provider.dart';
 import 'exchange_algorithm.dart';
 import 'day_utils.dart';
-import 'cell_cache_manager.dart';
-import 'cell_state_manager.dart';
 import 'non_exchangeable_manager.dart';
 
 /// 셀 상태 정보를 담는 클래스
@@ -68,6 +68,7 @@ class TimetableDataSource extends DataGridSource {
   TimetableDataSource({
     required List<TimeSlot> timeSlots,
     required List<Teacher> teachers,
+    required this.ref,
   }) {
     _timeSlots = timeSlots;
     _teachers = teachers;
@@ -75,6 +76,7 @@ class TimetableDataSource extends DataGridSource {
     _buildDataGridRows();
   }
 
+  final WidgetRef ref;
   List<TimeSlot> _timeSlots = [];
   List<Teacher> _teachers = [];
   List<DataGridRow> _dataGridRows = [];
@@ -85,10 +87,11 @@ class TimetableDataSource extends DataGridSource {
   // UI 업데이트 콜백
   VoidCallback? _onDataChanged;
   
-  // 관리자 클래스들
-  final CellCacheManager _cacheManager = CellCacheManager();
-  final CellStateManager _stateManager = CellStateManager();
+  // 관리자 클래스들 (전역 Provider 사용으로 간소화)
   final NonExchangeableManager _nonExchangeableManager = NonExchangeableManager();
+  
+  // 로컬 캐시 관리 (위젯 빌드 중 안전하게 사용)
+  final Map<String, bool> _localCache = {};
 
   /// DataGrid 행 데이터 빌드
   void _buildDataGridRows() {
@@ -245,15 +248,14 @@ class TimetableDataSource extends DataGridSource {
 
   /// 교사명 열 상태 정보 생성
   CellStateInfo _createTeacherColumnState(String teacherName) {
+    final themeNotifier = ref.read(timetableThemeProvider.notifier);
+    
     return CellStateInfo(
-      isSelected: _cacheManager.getCellSelectionCached(
-        teacherName, '', 0, 
-        () => _stateManager.isTeacherSelected(teacherName)
-      ),
-      isExchangeableTeacher: _stateManager.isExchangeableTeacherForTeacher(teacherName),
-      isInCircularPath: _stateManager.isTeacherInCircularPath(teacherName),
-      isInChainPath: _stateManager.isTeacherInChainPath(teacherName),
-      isInSelectedPath: _stateManager.isInSelectedOneToOnePath(teacherName),
+      isSelected: themeNotifier.isCellSelected(teacherName, '', 0),
+      isExchangeableTeacher: themeNotifier.isExchangeableTeacher(teacherName, '', 0),
+      isInCircularPath: themeNotifier.isInCircularPath(teacherName, '', 0),
+      isInChainPath: themeNotifier.isInChainPath(teacherName, '', 0),
+      isInSelectedPath: themeNotifier.isInSelectedOneToOnePath(teacherName, '', 0),
       isNonExchangeable: false,
       isExchangedSourceCell: false, // 교사명 열은 교체된 소스 셀 상태 적용 안함
       isExchangedDestinationCell: false, // 교사명 열은 교체된 목적지 셀 상태 적용 안함
@@ -275,39 +277,104 @@ class TimetableDataSource extends DataGridSource {
     String day = parts[0];
     int period = int.tryParse(parts[1]) ?? 0;
     
+    // 전역 Provider에서 상태 정보 가져오기
+    final themeNotifier = ref.read(timetableThemeProvider.notifier);
+    
     return CellStateInfo(
-      isSelected: _cacheManager.getCellSelectionCached(
+      isSelected: _getCachedOrCompute(
+        'cellSelection', 
         teacherName, day, period,
-        () => _stateManager.isCellSelected(teacherName, day, period)
+        () => themeNotifier.isCellSelected(teacherName, day, period)
       ),
-      isTargetCell: _cacheManager.getCellTargetCached(
+      isTargetCell: _getCachedOrCompute(
+        'cellTarget', 
         teacherName, day, period,
-        () => _stateManager.isCellTarget(teacherName, day, period)
+        () => themeNotifier.isCellTarget(teacherName, day, period)
       ),
-      isExchangeableTeacher: _cacheManager.getExchangeableCached(
+      isExchangeableTeacher: _getCachedOrCompute(
+        'exchangeable', 
         teacherName, day, period,
-        () => _stateManager.isExchangeableTeacher(teacherName, day, period)
+        () => themeNotifier.isExchangeableTeacher(teacherName, day, period)
       ),
-      isInCircularPath: _cacheManager.getCircularPathCached(
+      isInCircularPath: _getCachedOrCompute(
+        'circularPath', 
         teacherName, day, period,
-        () => _stateManager.isInCircularPath(teacherName, day, period)
+        () => themeNotifier.isInCircularPath(teacherName, day, period)
       ),
-      isInChainPath: _cacheManager.getChainPathCached(
+      isInChainPath: _getCachedOrCompute(
+        'chainPath', 
         teacherName, day, period,
-        () => _stateManager.isInChainPath(teacherName, day, period)
+        () => themeNotifier.isInChainPath(teacherName, day, period)
       ),
-      isInSelectedPath: _stateManager.isInSelectedOneToOnePath(teacherName, day: day, period: period),
-      isNonExchangeable: _cacheManager.getNonExchangeableCached(
+      isInSelectedPath: themeNotifier.isInSelectedOneToOnePath(teacherName, day, period),
+      isNonExchangeable: _getCachedOrCompute(
+        'nonExchangeable', 
         teacherName, day, period,
         () => _nonExchangeableManager.isNonExchangeableTimeSlot(teacherName, day, period)
       ),
-      isExchangedSourceCell: _stateManager.isCellExchangedSource(teacherName, day, period),
-      isExchangedDestinationCell: _stateManager.isCellExchangedDestination(teacherName, day, period),
+      isExchangedSourceCell: themeNotifier.isCellExchangedSource(teacherName, day, period),
+      isExchangedDestinationCell: themeNotifier.isCellExchangedDestination(teacherName, day, period),
       isLastColumnOfDay: _isLastColumnOfDay(day, period),
       isFirstColumnOfDay: _isFirstColumnOfDay(day, period),
-      circularPathStep: _stateManager.getCircularPathStep(teacherName, day, period),
-      chainPathStep: _stateManager.getChainPathStep(teacherName, day, period),
+      circularPathStep: _getCircularPathStep(teacherName, day, period),
+      chainPathStep: _getChainPathStep(teacherName, day, period),
     );
+  }
+
+  /// 캐시에서 값을 가져오거나 계산하여 캐시에 저장
+  bool _getCachedOrCompute(String cacheType, String teacherName, String day, int period, bool Function() compute) {
+    final key = '${cacheType}_${teacherName}_${day}_$period';
+    
+    // 로컬 캐시에서 먼저 확인
+    if (_localCache.containsKey(key)) {
+      return _localCache[key]!;
+    }
+    
+    // 캐시에 없으면 계산하여 저장
+    final result = compute();
+    _localCache[key] = result;
+    
+    return result;
+  }
+
+  /// 순환교체 경로에서 해당 셀의 단계 번호 가져오기
+  int? _getCircularPathStep(String teacherName, String day, int period) {
+    final themeState = ref.read(timetableThemeProvider);
+    if (themeState.selectedCircularPath == null) return null;
+    
+    for (int i = 0; i < themeState.selectedCircularPath!.nodes.length; i++) {
+      final node = themeState.selectedCircularPath!.nodes[i];
+      if (node.teacherName == teacherName &&
+          node.day == day &&
+          node.period == period) {
+        return i + 1; // 1부터 시작하는 단계 번호
+      }
+    }
+    
+    return null;
+  }
+
+  /// 연쇄교체 경로에서 해당 셀의 단계 번호 가져오기
+  int? _getChainPathStep(String teacherName, String day, int period) {
+    final themeState = ref.read(timetableThemeProvider);
+    if (themeState.selectedChainPath == null) return null;
+    
+    // 연쇄교체의 노드 순서: [node1, node2, nodeA, nodeB]
+    for (int i = 0; i < themeState.selectedChainPath!.nodes.length; i++) {
+      final node = themeState.selectedChainPath!.nodes[i];
+      if (node.teacherName == teacherName &&
+          node.day == day &&
+          node.period == period) {
+        // node1, node2는 1단계, nodeA, nodeB는 2단계
+        if (i < 2) {
+          return 1; // 1단계
+        } else {
+          return 2; // 2단계
+        }
+      }
+    }
+    
+    return null;
   }
 
   /// 요일별 마지막 교시 확인
@@ -324,23 +391,23 @@ class TimetableDataSource extends DataGridSource {
 
   /// 선택 상태 업데이트
   void updateSelection(String? teacher, String? day, int? period) {
-    _stateManager.updateSelection(teacher, day, period);
-    _cacheManager.clearAllCaches();
+    ref.read(timetableThemeProvider.notifier).updateSelection(teacher, day, period);
+    _localCache.clear(); // 로컬 캐시 초기화
     notifyListeners();
   }
   
   /// 타겟 셀 상태 업데이트
   void updateTargetCell(String? teacher, String? day, int? period) {
-    _stateManager.updateTargetCell(teacher, day, period);
-    _cacheManager.clearAllCaches();
+    ref.read(timetableThemeProvider.notifier).updateTargetCell(teacher, day, period);
+    _localCache.clear(); // 로컬 캐시 초기화
     notifyListeners();
   }
   
   
   /// 교체 가능한 교사 정보 업데이트
   void updateExchangeableTeachers(List<Map<String, dynamic>> exchangeableTeachers) {
-    _stateManager.updateExchangeableTeachers(exchangeableTeachers);
-    _cacheManager.clearAllCaches();
+    ref.read(timetableThemeProvider.notifier).updateExchangeableTeachers(exchangeableTeachers);
+    _localCache.clear(); // 로컬 캐시 초기화
     notifyListeners();
   }
   
@@ -358,22 +425,22 @@ class TimetableDataSource extends DataGridSource {
   
   /// 선택된 순환교체 경로 업데이트
   void updateSelectedCircularPath(CircularExchangePath? path) {
-    _stateManager.updateSelectedCircularPath(path);
-    _cacheManager.clearCircularPathCache(); // 선택적 캐시 무효화로 성능 최적화
+    ref.read(timetableThemeProvider.notifier).updateSelectedCircularPath(path);
+    _localCache.clear(); // 로컬 캐시 초기화
     notifyListeners();
   }
-  
+
   /// 선택된 1:1 교체 경로 업데이트
   void updateSelectedOneToOnePath(OneToOneExchangePath? path) {
-    _stateManager.updateSelectedOneToOnePath(path);
-    _cacheManager.clearOneToOnePathCache(); // 선택적 캐시 무효화로 성능 최적화
+    ref.read(timetableThemeProvider.notifier).updateSelectedOneToOnePath(path);
+    _localCache.clear(); // 로컬 캐시 초기화
     notifyListeners();
   }
-  
+
   /// 선택된 연쇄교체 경로 업데이트
   void updateSelectedChainPath(ChainExchangePath? path) {
-    _stateManager.updateSelectedChainPath(path);
-    _cacheManager.clearChainPathCache(); // 선택적 캐시 무효화로 성능 최적화
+    ref.read(timetableThemeProvider.notifier).updateSelectedChainPath(path);
+    _localCache.clear(); // 로컬 캐시 초기화
     notifyListeners();
   }
   
@@ -391,7 +458,7 @@ class TimetableDataSource extends DataGridSource {
   /// 교체불가 편집 모드 설정
   void setNonExchangeableEditMode(bool isEditMode) {
     _nonExchangeableManager.setNonExchangeableEditMode(isEditMode);
-    _cacheManager.clearAllCaches();
+    _localCache.clear(); // 로컬 캐시 초기화
     notifyListeners();
     _onDataChanged?.call();
   }
@@ -407,7 +474,7 @@ class TimetableDataSource extends DataGridSource {
   /// 특정 교사의 모든 TimeSlot을 교체불가로 설정
   void setTeacherAsNonExchangeable(String teacherName) {
     _nonExchangeableManager.setTeacherAsNonExchangeable(teacherName);
-    _cacheManager.clearAllCaches(); // 캐시 무효화 추가
+    _localCache.clear(); // 로컬 캐시 초기화
     notifyListeners();
     _onDataChanged?.call();
   }
@@ -415,7 +482,7 @@ class TimetableDataSource extends DataGridSource {
   /// 특정 교사의 모든 TimeSlot을 교체가능/교체불가로 토글
   void toggleTeacherAllTimes(String teacherName) {
     _nonExchangeableManager.toggleTeacherAllTimes(teacherName);
-    _cacheManager.clearAllCaches(); // 캐시 무효화
+    _localCache.clear(); // 로컬 캐시 초기화
     notifyDataSourceListeners(); // Syncfusion DataGrid를 위한 notifyDataSourceListeners 사용
     _onDataChanged?.call();
   }
@@ -423,7 +490,7 @@ class TimetableDataSource extends DataGridSource {
   /// 특정 셀을 교체불가로 설정 또는 해제 (토글 방식, 빈 셀 포함)
   void setCellAsNonExchangeable(String teacherName, String day, int period) {
     _nonExchangeableManager.setCellAsNonExchangeable(teacherName, day, period);
-    _cacheManager.clearAllCaches(); // 캐시 무효화 추가
+    _localCache.clear(); // 로컬 캐시 초기화
     notifyDataSourceListeners(); // Syncfusion DataGrid를 위한 notifyDataSourceListeners 사용
     _onDataChanged?.call();
   }
@@ -431,14 +498,14 @@ class TimetableDataSource extends DataGridSource {
   /// 모든 교체불가 설정 초기화
   void resetAllNonExchangeableSettings() {
     _nonExchangeableManager.resetAllNonExchangeableSettings();
-    _cacheManager.clearAllCaches(); // 캐시 무효화 추가
+    _localCache.clear(); // 로컬 캐시 초기화
     notifyListeners();
     _onDataChanged?.call();
   }
 
   /// 모든 캐시 초기화 (외부에서 호출 가능)
   void clearAllCaches() {
-    _cacheManager.clearAllCaches();
+    _localCache.clear(); // 로컬 캐시 초기화
     notifyListeners();
     _onDataChanged?.call();
   }
@@ -453,24 +520,24 @@ class TimetableDataSource extends DataGridSource {
   
   /// 교체된 셀 상태 업데이트 (교체 리스트 변경 시 호출)
   void updateExchangedCells(List<String> exchangedCellKeys) {
-    _stateManager.updateExchangedCells(exchangedCellKeys);
-    _cacheManager.clearAllCaches();
+    ref.read(timetableThemeProvider.notifier).updateExchangedCells(exchangedCellKeys);
+    _localCache.clear(); // 로컬 캐시 초기화
     notifyListeners();
     _onDataChanged?.call();
   }
-  
+
   /// 교체된 목적지 셀 상태 업데이트
   void updateExchangedDestinationCells(List<String> destinationCellKeys) {
-    _stateManager.updateExchangedDestinationCells(destinationCellKeys);
-    _cacheManager.clearAllCaches();
+    ref.read(timetableThemeProvider.notifier).updateExchangedDestinationCells(destinationCellKeys);
+    _localCache.clear(); // 로컬 캐시 초기화
     notifyListeners();
     _onDataChanged?.call();
   }
-  
+
   /// 모든 선택 상태 초기화 (셀 선택, 타겟 셀, 교체 경로 등)
   void clearAllSelections() {
-    _stateManager.clearAllSelections();
-    _cacheManager.clearAllCaches();
+    ref.read(timetableThemeProvider.notifier).clearAllSelections();
+    _localCache.clear(); // 로컬 캐시 초기화
     notifyListeners();
     _onDataChanged?.call();
   }
@@ -481,22 +548,22 @@ class TimetableDataSource extends DataGridSource {
   
   /// 선택된 순환교체 경로 접근자 (보기 모드용)
   CircularExchangePath? getSelectedCircularPath() {
-    return _stateManager.getSelectedCircularPath();
+    return ref.read(timetableThemeProvider).selectedCircularPath;
   }
   
   /// 선택된 1:1 교체 경로 접근자 (보기 모드용)
   OneToOneExchangePath? getSelectedOneToOnePath() {
-    return _stateManager.getSelectedOneToOnePath();
+    return ref.read(timetableThemeProvider).selectedOneToOnePath;
   }
   
   /// 선택된 연쇄교체 경로 접근자 (보기 모드용)
   ChainExchangePath? getSelectedChainPath() {
-    return _stateManager.getSelectedChainPath();
+    return ref.read(timetableThemeProvider).selectedChainPath;
   }
 
   /// 타겟 셀의 요일 반환 (보기 모드용)
-  String? get targetDay => _stateManager.targetDay;
+  String? get targetDay => ref.read(timetableThemeProvider).targetDay;
 
   /// 타겟 셀의 교시 반환 (보기 모드용)
-  int? get targetPeriod => _stateManager.targetPeriod;
+  int? get targetPeriod => ref.read(timetableThemeProvider).targetPeriod;
 }

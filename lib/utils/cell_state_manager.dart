@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../models/circular_exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
 import '../models/chain_exchange_path.dart';
@@ -212,7 +213,7 @@ class CellStateManager {
   void updateExchangedDestinationCells(List<String> destinationCellKeys) {
     _exchangedDestinationCells.clear();
     _exchangedDestinationCells.addAll(destinationCellKeys);
-    print('🔍 [CellStateManager] 목적지 셀 업데이트: $_exchangedDestinationCells');
+    debugPrint('🔍 [CellStateManager] 목적지 셀 업데이트: $_exchangedDestinationCells');
   }
   
   /// 교체된 셀 목록 가져오기
@@ -231,7 +232,7 @@ class CellStateManager {
     final cellKey = '${teacherName}_${day}_$period';
     final isDestination = _exchangedDestinationCells.contains(cellKey);
     if (isDestination) {
-      print('🔍 [CellStateManager] 목적지 셀 확인: $cellKey = true');
+      debugPrint('🔍 [CellStateManager] 목적지 셀 확인: $cellKey = true');
     }
     return isDestination;
   }

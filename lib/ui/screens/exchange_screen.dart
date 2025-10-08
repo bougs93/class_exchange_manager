@@ -544,6 +544,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     final dataSource = TimetableDataSource(
       timeSlots: globalTimetableData.timeSlots,
       teachers: globalTimetableData.teachers,
+      ref: ref, // WidgetRef 추가
     );
     
     // 데이터 변경 시 UI 업데이트 콜백 설정

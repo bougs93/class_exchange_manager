@@ -16,6 +16,7 @@ import '../../models/circular_exchange_path.dart';
 import '../../models/chain_exchange_path.dart';
 import '../../models/time_slot.dart';
 import '../../services/exchange_history_service.dart';
+import '../../providers/timetable_theme_provider.dart';
 import 'timetable_grid/timetable_grid_constants.dart';
 import 'timetable_grid/exchange_arrow_style.dart';
 import 'timetable_grid/exchange_arrow_painter.dart';
@@ -1282,11 +1283,11 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     
     // 4. 교체된 셀 상태 업데이트
     final exchangedCellKeys = _historyService.getExchangedCellKeys();
-    widget.dataSource!.updateExchangedCells(exchangedCellKeys);
+    ref.read(timetableThemeProvider.notifier).updateExchangedCells(exchangedCellKeys);
     
     // 4-1. 교체된 목적지 셀 상태 업데이트
     final exchangedDestinationCellKeys = _historyService.getExchangedDestinationCellKeys();
-    widget.dataSource!.updateExchangedDestinationCells(exchangedDestinationCellKeys);
+    ref.read(timetableThemeProvider.notifier).updateExchangedDestinationCells(exchangedDestinationCellKeys);
     
     // 4-2. 교체된 목적지 셀 디버그 출력
     _debugPrintExchangedDestinationCells(exchangedDestinationCellKeys);
@@ -1325,11 +1326,11 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     
     // 3. 교체된 셀 상태 업데이트
     final exchangedCellKeys = _historyService.getExchangedCellKeys();
-    widget.dataSource!.updateExchangedCells(exchangedCellKeys);
+    ref.read(timetableThemeProvider.notifier).updateExchangedCells(exchangedCellKeys);
     
     // 3-1. 교체된 목적지 셀 상태 업데이트
     final exchangedDestinationCellKeys = _historyService.getExchangedDestinationCellKeys();
-    widget.dataSource!.updateExchangedDestinationCells(exchangedDestinationCellKeys);
+    ref.read(timetableThemeProvider.notifier).updateExchangedDestinationCells(exchangedDestinationCellKeys);
     
     // 3-2. 교체된 목적지 셀 디버그 출력
     _debugPrintExchangedDestinationCells(exchangedDestinationCellKeys);
@@ -1378,11 +1379,11 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       
       // 4. 교체된 셀 상태 업데이트
       final exchangedCellKeys = _historyService.getExchangedCellKeys();
-      widget.dataSource!.updateExchangedCells(exchangedCellKeys);
+      ref.read(timetableThemeProvider.notifier).updateExchangedCells(exchangedCellKeys);
       
       // 4-1. 교체된 목적지 셀 상태 업데이트
       final exchangedDestinationCellKeys = _historyService.getExchangedDestinationCellKeys();
-      widget.dataSource!.updateExchangedDestinationCells(exchangedDestinationCellKeys);
+      ref.read(timetableThemeProvider.notifier).updateExchangedDestinationCells(exchangedDestinationCellKeys);
       
       // 4-2. 교체된 목적지 셀 디버그 출력
       _debugPrintExchangedDestinationCells(exchangedDestinationCellKeys);
@@ -1451,10 +1452,10 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     
     // 4. 교체된 셀 상태 업데이트
     final exchangedCellKeys = _historyService.getExchangedCellKeys();
-    widget.dataSource!.updateExchangedCells(exchangedCellKeys);
+    ref.read(timetableThemeProvider.notifier).updateExchangedCells(exchangedCellKeys);
     
     // 5. 캐시 강제 무효화 및 UI 업데이트
-    widget.dataSource!.clearAllCaches();
+    ref.read(timetableThemeProvider.notifier).clearAllCaches();
 
      // 6. 모든 선택 상태 초기화 (다시 반복 후 모든 선택 상태 제거)
      widget.dataSource!.clearAllSelections();
@@ -1643,7 +1644,11 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
          if (restoredSlots != null) {
            widget.dataSource!.updateData(restoredSlots, widget.timetableData!.teachers);
            
-           // 3. UI 업데이트 (ChangeNotifier 패턴 사용)
+           // 3. 교체된 셀 상태 초기화 (교체 뷰 비활성화 시 필수)
+           ref.read(timetableThemeProvider.notifier).clearExchangedCells();
+           AppLogger.exchangeDebug('교체된 셀 상태 초기화 완료');
+           
+           // 4. UI 업데이트 (ChangeNotifier 패턴 사용)
            widget.dataSource?.clearAllCaches();
            widget.dataSource?.notifyListeners();
           
