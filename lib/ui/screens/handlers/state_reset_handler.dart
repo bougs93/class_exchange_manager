@@ -73,7 +73,7 @@ mixin StateResetHandler<T extends StatefulWidget> on State<T> {
   /// **사용 시점**:
   /// - 동일 모드 내에서 다른 셀 선택 시
   /// - 교체 후 다음 작업 준비 시
-  /// - 교체 모드 전환 시 (1:1 ↔ 순환 ↔ 연쇄)
+  /// - 모든 모드 전환 시 (보기 ↔ 1:1 ↔ 순환 ↔ 연쇄)
   void resetExchangeStates() {
     // 1. 타겟 셀 초기화
     clearTargetCell();

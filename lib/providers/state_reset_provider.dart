@@ -153,7 +153,7 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   /// **사용 시점**:
   /// - 동일 모드 내에서 다른 셀 선택 시
   /// - 교체 후 다음 작업 준비 시
-  /// - 교체 모드 전환 시 (1:1 ↔ 순환 ↔ 연쇄)
+  /// - 모든 모드 전환 시 (보기 ↔ 1:1 ↔ 순환 ↔ 연쇄)
   void resetExchangeStates({String? reason}) {
     AppLogger.exchangeDebug('[Level 2] 이전 교체 상태 초기화: ${reason ?? "이유 없음"}');
 

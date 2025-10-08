@@ -155,39 +155,31 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     // 모드 변경 전에 현재 선택된 셀 강제 해제
     _clearAllCellSelections();
 
-    // 모드 변경 시 관련 상태 초기화
-    if (newMode == ExchangeMode.view) {
-      // 보기 모드로 변경 시 모든 교체 관련 상태 초기화 (Level 3)
-      ref.read(stateResetProvider.notifier).resetAllStates(
-        reason: '보기 모드로 전환',
-      );
-    } else {
-      // 다른 교체 모드로 변경 시 이전 교체 상태만 초기화 (Level 2)
-      ref.read(stateResetProvider.notifier).resetExchangeStates(
-        reason: '${newMode.displayName} 모드로 전환',
-      );
+    // 모든 모드 전환 시 Level 2 초기화로 통일
+    ref.read(stateResetProvider.notifier).resetExchangeStates(
+      reason: '${newMode.displayName} 모드로 전환',
+    );
       
-      // 각 모드별 초기 설정
-      switch (newMode) {
-        case ExchangeMode.oneToOneExchange:
-          notifier.setAvailableSteps([2]);
-          break;
-        case ExchangeMode.circularExchange:
-        case ExchangeMode.chainExchange:
-          notifier.setAvailableSteps([2, 3, 4, 5]);
-          break;
-        case ExchangeMode.nonExchangeableEdit:
-          notifier.setAvailableSteps([]);
-          break;
-        case ExchangeMode.view:
-          notifier.setAvailableSteps([]);
-          break;
-      }
-      
-      // 공통 초기화
-      notifier.setSelectedStep(null);
-      notifier.setSelectedDay(null);
+    // 각 모드별 초기 설정
+    switch (newMode) {
+      case ExchangeMode.oneToOneExchange:
+        notifier.setAvailableSteps([2]);
+        break;
+      case ExchangeMode.circularExchange:
+      case ExchangeMode.chainExchange:
+        notifier.setAvailableSteps([2, 3, 4, 5]);
+        break;
+      case ExchangeMode.nonExchangeableEdit:
+        notifier.setAvailableSteps([]);
+        break;
+      case ExchangeMode.view:
+        notifier.setAvailableSteps([]);
+        break;
     }
+    
+    // 공통 초기화
+    notifier.setSelectedStep(null);
+    notifier.setSelectedDay(null);
     
     // 헤더 테마 업데이트 (모든 모드 변경 시 필수)
     _updateHeaderTheme();
