@@ -602,8 +602,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   
   @override
   void onEmptyCellSelected() {
-    // 빈 셀 선택 시 이전 교체 관련 상태만 초기화 (Level 2)
-    ref.read(stateResetProvider.notifier).resetExchangeStates(
+    // 빈 셀 선택 시 경로만 초기화 (Level 1) - 선택된 셀은 유지
+    ref.read(stateResetProvider.notifier).resetPathOnly(
       reason: '빈 셀 선택',
     );
 
@@ -706,12 +706,16 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
   @override
   void onEmptyChainCellSelected() {
-    // 빈 셀 선택 시 처리
-    final notifier = ref.read(exchangeScreenProvider.notifier);
-    notifier.setChainPaths([]);
-    notifier.setSelectedChainPath(null);
-    notifier.setChainPathsLoading(false);
-    notifier.setSidebarVisible(false);
+    // 빈 셀 선택 시 경로만 초기화 (Level 1) - 선택된 셀은 유지
+    ref.read(stateResetProvider.notifier).resetPathOnly(
+      reason: '연쇄교체 빈 셀 선택',
+    );
+
+    // 필터 초기화
+    resetFilters();
+
+    // 시간표 그리드 테마 업데이트 (이전 경로 표시 제거)
+    _updateHeaderTheme();
 
     showSnackBar('빈 셀은 연쇄교체할 수 없습니다.');
     AppLogger.exchangeInfo('연쇄교체: 빈 셀 선택됨 - 경로 탐색 건너뜀');
