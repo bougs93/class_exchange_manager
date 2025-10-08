@@ -941,12 +941,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
         if (restoredSlots != null) {
           widget.dataSource!.updateData(restoredSlots, widget.timetableData!.teachers);
 
-          ref.read(timetableThemeProvider.notifier).clearExchangedCells();
-          AppLogger.exchangeDebug('교체된 셀 상태 초기화 완료');
-
-          ref.read(stateResetProvider.notifier).resetExchangeStates(
-            reason: '교체 뷰 비활성화 - 선택 상태 초기화',
-          );
+          // 테마 상태는 유지 - 교체된 셀 표시와 선택 상태 그대로 유지
+          AppLogger.exchangeDebug('타임슬롯 복원 완료 - 테마 상태 유지');
 
           if (beforeSlots != null) {
             try {
@@ -964,7 +960,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
             AppLogger.exchangeDebug('비교 불가 - beforeSlots가 null');
           }
 
-          AppLogger.exchangeInfo('교체 뷰 비활성화 완료 - 원본 상태로 복원됨');
+          AppLogger.exchangeInfo('교체 뷰 비활성화 완료 - 원본 상태로 복원됨 (테마 상태 유지)');
           AppLogger.exchangeInfo('복원된 TimeSlot 개수: ${restoredSlots.length}개');
         } else {
           AppLogger.exchangeDebug('TimeSlots 백업 복원 실패');
