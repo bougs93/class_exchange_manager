@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/excel_service.dart';
 import '../../services/exchange_service.dart';
 import '../../utils/timetable_data_source.dart';
@@ -19,9 +20,74 @@ import 'timetable_grid/timetable_grid_constants.dart';
 import 'timetable_grid/exchange_arrow_style.dart';
 import 'timetable_grid/exchange_arrow_painter.dart';
 
+/// TimeSlots 백업 상태 관리
+class TimeSlotsBackupState {
+  final List<TimeSlot>? originalTimeSlots;
+  final bool isValid;
+  final int count;
+  
+  const TimeSlotsBackupState({
+    this.originalTimeSlots,
+    this.isValid = false,
+    this.count = 0,
+  });
+  
+  TimeSlotsBackupState copyWith({
+    List<TimeSlot>? originalTimeSlots,
+    bool? isValid,
+    int? count,
+  }) {
+    return TimeSlotsBackupState(
+      originalTimeSlots: originalTimeSlots ?? this.originalTimeSlots,
+      isValid: isValid ?? this.isValid,
+      count: count ?? this.count,
+    );
+  }
+}
+
+/// TimeSlots 백업 데이터 Notifier
+class TimeSlotsBackupNotifier extends StateNotifier<TimeSlotsBackupState> {
+  TimeSlotsBackupNotifier() : super(const TimeSlotsBackupState());
+  
+  /// 백업 데이터 생성
+  void createBackup(List<TimeSlot> timeSlots) {
+    try {
+      final backupSlots = timeSlots.map((slot) => slot.copy()).toList();
+      state = TimeSlotsBackupState(
+        originalTimeSlots: backupSlots,
+        isValid: true,
+        count: backupSlots.length,
+      );
+      AppLogger.exchangeInfo('TimeSlots 백업 생성 완료: ${backupSlots.length}개');
+    } catch (e) {
+      AppLogger.exchangeDebug('TimeSlots 백업 생성 중 오류: $e');
+      state = const TimeSlotsBackupState();
+    }
+  }
+  
+  /// 백업 데이터 복원
+  List<TimeSlot>? restoreBackup() {
+    if (state.isValid && state.originalTimeSlots != null) {
+      return state.originalTimeSlots!.map((slot) => slot.copy()).toList();
+    }
+    return null;
+  }
+  
+  /// 백업 데이터 초기화
+  void clear() {
+    state = const TimeSlotsBackupState();
+    AppLogger.exchangeInfo('TimeSlots 백업 데이터 초기화 완료');
+  }
+}
+
+/// TimeSlots 백업 데이터 Provider
+final timeSlotsBackupProvider = StateNotifierProvider<TimeSlotsBackupNotifier, TimeSlotsBackupState>((ref) {
+  return TimeSlotsBackupNotifier();
+});
+
 /// 시간표 그리드 섹션 위젯
 /// Syncfusion DataGrid를 사용한 시간표 표시를 담당
-class TimetableGridSection extends StatefulWidget {
+class TimetableGridSection extends ConsumerStatefulWidget {
   final TimetableData? timetableData;
   final TimetableDataSource? dataSource;
   final List<GridColumn> columns;
@@ -54,7 +120,7 @@ class TimetableGridSection extends StatefulWidget {
   });
 
   @override
-  State<TimetableGridSection> createState() => _TimetableGridSectionState();
+  ConsumerState<TimetableGridSection> createState() => _TimetableGridSectionState();
 
   /// 외부에서 스크롤 기능에 접근할 수 있도록 하는 static 메서드
   static void scrollToCellCenter(GlobalKey<State<TimetableGridSection>> key, String teacherName, String day, int period) {
@@ -65,7 +131,7 @@ class TimetableGridSection extends StatefulWidget {
   }
 }
 
-class _TimetableGridSectionState extends State<TimetableGridSection> {
+class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   // 스크롤 컨트롤러들
   final ScrollController _verticalScrollController = ScrollController();
   final ScrollController _horizontalScrollController = ScrollController();
@@ -94,9 +160,6 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
   
   // 교체 뷰 체크박스 상태
   bool _isExchangeViewEnabled = false;
-  
-  // 교체 뷰 상태 변경 전의 원본 TimeSlot 데이터 (되돌리기용)
-  List<TimeSlot>? _originalTimeSlots;
 
   /// 현재 선택된 교체 경로 (외부 또는 내부)
   ExchangePath? get currentSelectedPath => widget.selectedExchangePath ?? _internalSelectedPath;
@@ -1409,21 +1472,117 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     );
   }
   
+  /// TimeSlots 비교 및 로깅 (공통 메서드)
+  void _compareTimeSlots(List<TimeSlot> beforeSlots, List<TimeSlot> afterSlots, String operation) {
+    try {
+      AppLogger.exchangeInfo('=== TimeSlots 비교: $operation ===');
+      
+      if (beforeSlots.length != afterSlots.length) {
+        AppLogger.exchangeInfo('슬롯 개수 변경: ${beforeSlots.length} → ${afterSlots.length}');
+        return;
+      }
+      
+      int changedCount = 0;
+      int unchangedCount = 0;
+      List<String> changedSlots = [];
+      
+      for (int i = 0; i < beforeSlots.length; i++) {
+        final beforeSlot = beforeSlots[i];
+        final afterSlot = afterSlots[i];
+        
+        // TimeSlot 비교 (교사, 과목, 학급, 교체 가능 여부)
+        bool isChanged = beforeSlot.teacher != afterSlot.teacher ||
+                        beforeSlot.subject != afterSlot.subject ||
+                        beforeSlot.className != afterSlot.className ||
+                        beforeSlot.isExchangeable != afterSlot.isExchangeable;
+        
+        if (isChanged) {
+          changedCount++;
+          
+          // 위치 정보 생성 (요일, 교시)
+          String positionInfo = '';
+          if (beforeSlot.dayOfWeek != null && beforeSlot.period != null) {
+            String dayName = _getDayName(beforeSlot.dayOfWeek!);
+            positionInfo = ' ($dayName ${beforeSlot.period}교시)';
+          }
+          
+          AppLogger.exchangeInfo('변경된 슬롯 $i$positionInfo:');
+          
+          // 각 필드별 변경사항 로깅
+          if (beforeSlot.teacher != afterSlot.teacher) {
+            AppLogger.exchangeInfo('  교사: ${beforeSlot.teacher ?? "없음"} → ${afterSlot.teacher ?? "없음"}');
+          }
+          if (beforeSlot.subject != afterSlot.subject) {
+            AppLogger.exchangeInfo('  과목: ${beforeSlot.subject ?? "없음"} → ${afterSlot.subject ?? "없음"}');
+          }
+          if (beforeSlot.className != afterSlot.className) {
+            AppLogger.exchangeInfo('  학급: ${beforeSlot.className ?? "없음"} → ${afterSlot.className ?? "없음"}');
+          }
+          if (beforeSlot.isExchangeable != afterSlot.isExchangeable) {
+            AppLogger.exchangeInfo('  교체가능: ${beforeSlot.isExchangeable} → ${afterSlot.isExchangeable}');
+          }
+          
+          // 변경된 슬롯 정보 수집 (요약용)
+          changedSlots.add('슬롯$i$positionInfo');
+        } else {
+          unchangedCount++;
+        }
+      }
+      
+      // 변경 요약 로깅
+      AppLogger.exchangeInfo('변경 요약: 변경됨 $changedCount개, 변경안됨 $unchangedCount개');
+      if (changedSlots.isNotEmpty) {
+        AppLogger.exchangeInfo('변경된 슬롯 목록: ${changedSlots.join(", ")}');
+      }
+      AppLogger.exchangeInfo('========================');
+      
+    } catch (e) {
+      AppLogger.exchangeDebug('TimeSlots 비교 중 오류 발생: $e');
+    }
+  }
+  
+  /// 요일 번호를 요일명으로 변환
+  String _getDayName(int dayOfWeek) {
+    switch (dayOfWeek) {
+      case 1: return '월';
+      case 2: return '화';
+      case 3: return '수';
+      case 4: return '목';
+      case 5: return '금';
+      default: return '요일$dayOfWeek';
+    }
+  }
+  
   /// 교체 뷰 활성화
   void _enableExchangeView() {
     try {
       AppLogger.exchangeInfo('교체 뷰 활성화 시작');
       
-      // 1. 현재 TimeSlot 데이터 백업 (되돌리기용)
-      if (widget.dataSource != null && _originalTimeSlots == null) {
-        _originalTimeSlots = widget.dataSource!.timeSlots.map((slot) => slot.copy()).toList();
-        AppLogger.exchangeDebug('원본 TimeSlot 데이터 백업 완료: ${_originalTimeSlots!.length}개');
+      // 1. 현재 TimeSlot 데이터 백업 (Riverpod 사용)
+      List<TimeSlot>? beforeSlots;
+      final backupState = ref.read(timeSlotsBackupProvider);
+      
+      if (widget.dataSource != null && !backupState.isValid) {
+        // Riverpod 백업이 없는 경우 새로 생성
+        beforeSlots = widget.dataSource!.timeSlots.map((slot) => slot.copy()).toList();
+        ref.read(timeSlotsBackupProvider.notifier).createBackup(widget.dataSource!.timeSlots);
+        AppLogger.exchangeDebug('TimeSlots 백업 생성 완료: ${backupState.count}개');
+      } else if (widget.dataSource != null) {
+        // 기존 Riverpod 백업이 있는 경우 현재 상태를 비교용으로 사용
+        beforeSlots = widget.dataSource!.timeSlots.map((slot) => slot.copy()).toList();
+        AppLogger.exchangeDebug('기존 TimeSlots 백업 사용: ${backupState.count}개');
       }
       
       // 2. 교체 리스트에서 교체 실행
       final exchangeList = _historyService.getExchangeList();
       if (exchangeList.isNotEmpty) {
         AppLogger.exchangeInfo('교체 리스트에서 ${exchangeList.length}개 교체 실행');
+        
+        // 교체 실행 전 beforeSlots 유효성 재확인
+        if (beforeSlots == null && widget.dataSource != null) {
+          beforeSlots = widget.dataSource!.timeSlots.map((slot) => slot.copy()).toList();
+          AppLogger.exchangeDebug('교체 실행 전 beforeSlots 재생성: ${beforeSlots.length}개');
+        }
         
         for (var item in exchangeList) {
           _executeExchangeFromHistory(item);
@@ -1433,7 +1592,25 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
         widget.dataSource?.clearAllCaches();
         setState(() {});
         
-        // 4. 교체 내역 로깅
+        // 4. 교체 전후 TimeSlots 비교 (안전성 검증 포함)
+        if (beforeSlots != null && widget.dataSource != null) {
+          try {
+            final afterSlots = widget.dataSource!.timeSlots.map((slot) => slot.copy()).toList();
+            
+            // 데이터 유효성 검증
+            if (beforeSlots.isNotEmpty && afterSlots.isNotEmpty) {
+              _compareTimeSlots(beforeSlots, afterSlots, '교체 뷰 활성화');
+            } else {
+              AppLogger.exchangeDebug('비교 데이터가 비어있음 - beforeSlots: ${beforeSlots.length}, afterSlots: ${afterSlots.length}');
+            }
+          } catch (e) {
+            AppLogger.exchangeDebug('TimeSlots 비교 중 오류: $e');
+          }
+        } else {
+          AppLogger.exchangeDebug('비교 불가 - beforeSlots: ${beforeSlots != null}, dataSource: ${widget.dataSource != null}');
+        }
+        
+        // 5. 교체 내역 로깅
         AppLogger.exchangeInfo('교체 뷰 활성화 완료 - ${exchangeList.length}개 교체 적용됨');
         for (int i = 0; i < exchangeList.length; i++) {
           var item = exchangeList[i];
@@ -1452,19 +1629,50 @@ class _TimetableGridSectionState extends State<TimetableGridSection> {
     try {
       AppLogger.exchangeInfo('교체 뷰 비활성화 시작');
       
-      if (_originalTimeSlots != null && widget.dataSource != null) {
-        // 1. 원본 TimeSlot 데이터로 복원
-        widget.dataSource!.updateData(_originalTimeSlots!, widget.timetableData!.teachers);
-        
-        // 2. UI 업데이트
-        widget.dataSource?.clearAllCaches();
-        setState(() {});
-        
-        // 3. 교체 내역 로깅
-        AppLogger.exchangeInfo('교체 뷰 비활성화 완료 - 원본 상태로 복원됨');
-        AppLogger.exchangeInfo('복원된 TimeSlot 개수: ${_originalTimeSlots!.length}개');
+      // 1. 복원 전 현재 상태 저장 (비교용) - 안전한 복사본 생성
+      List<TimeSlot>? beforeSlots;
+      if (widget.dataSource != null) {
+        beforeSlots = widget.dataSource!.timeSlots.map((slot) => slot.copy()).toList();
+        AppLogger.exchangeDebug('복원 전 beforeSlots 생성 완료: ${beforeSlots.length}개');
+      }
+      
+      // 2. TimeSlots 백업 데이터로 복원
+      final backupState = ref.read(timeSlotsBackupProvider);
+      if (backupState.isValid && widget.dataSource != null) {
+        final restoredSlots = ref.read(timeSlotsBackupProvider.notifier).restoreBackup();
+        if (restoredSlots != null) {
+          widget.dataSource!.updateData(restoredSlots, widget.timetableData!.teachers);
+          
+          // 3. UI 업데이트
+          widget.dataSource?.clearAllCaches();
+          setState(() {});
+          
+          // 4. 복원 전후 TimeSlots 비교 (안전성 검증 포함)
+          if (beforeSlots != null) {
+            try {
+              final afterSlots = widget.dataSource!.timeSlots.map((slot) => slot.copy()).toList();
+              
+              // 데이터 유효성 검증
+              if (beforeSlots.isNotEmpty && afterSlots.isNotEmpty) {
+                _compareTimeSlots(beforeSlots, afterSlots, '교체 뷰 비활성화');
+              } else {
+                AppLogger.exchangeDebug('비교 데이터가 비어있음 - beforeSlots: ${beforeSlots.length}, afterSlots: ${afterSlots.length}');
+              }
+            } catch (e) {
+              AppLogger.exchangeDebug('TimeSlots 비교 중 오류: $e');
+            }
+          } else {
+            AppLogger.exchangeDebug('비교 불가 - beforeSlots가 null');
+          }
+          
+          // 5. 교체 내역 로깅
+          AppLogger.exchangeInfo('교체 뷰 비활성화 완료 - 원본 상태로 복원됨');
+          AppLogger.exchangeInfo('복원된 TimeSlot 개수: ${restoredSlots.length}개');
+        } else {
+          AppLogger.exchangeDebug('TimeSlots 백업 복원 실패');
+        }
       } else {
-        AppLogger.exchangeDebug('복원할 원본 데이터가 없습니다');
+        AppLogger.exchangeDebug('복원할 TimeSlots 백업 데이터가 없습니다');
       }
     } catch (e) {
       AppLogger.exchangeDebug('교체 뷰 비활성화 중 오류 발생: $e');
