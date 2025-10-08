@@ -249,10 +249,20 @@ class TimetableDataSource extends DataGridSource {
   /// 교사명 열 상태 정보 생성
   CellStateInfo _createTeacherColumnState(String teacherName) {
     final themeNotifier = ref.read(timetableThemeProvider.notifier);
+    final themeState = ref.read(timetableThemeProvider);
+    
+    // 교사 이름 컬럼은 해당 교사의 선택 상태를 확인
+    // 선택된 교사인지 확인 (selectedTeacher와 비교)
+    bool isTeacherSelected = themeState.selectedTeacher == teacherName;
+    
+    // 교사가 교체 가능한지 확인 (교체 가능한 교사 목록에 포함되어 있는지)
+    bool isTeacherExchangeable = themeState.exchangeableTeachers.any(
+      (teacher) => teacher['teacherName'] == teacherName
+    );
     
     return CellStateInfo(
-      isSelected: themeNotifier.isCellSelected(teacherName, '', 0),
-      isExchangeableTeacher: themeNotifier.isExchangeableTeacher(teacherName, '', 0),
+      isSelected: isTeacherSelected,
+      isExchangeableTeacher: isTeacherExchangeable,
       isInCircularPath: themeNotifier.isInCircularPath(teacherName, '', 0),
       isInChainPath: themeNotifier.isInChainPath(teacherName, '', 0),
       isInSelectedPath: themeNotifier.isInSelectedOneToOnePath(teacherName, '', 0),

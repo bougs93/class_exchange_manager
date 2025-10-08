@@ -4,6 +4,7 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/excel_service.dart';
 import '../../services/exchange_service.dart';
+import '../../providers/services_provider.dart';
 import '../../utils/timetable_data_source.dart';
 import '../../utils/constants.dart';
 import 'timetable_grid/widget_arrows_manager.dart';
@@ -703,13 +704,9 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
       _selectExchangePath(exchangePath);
       
-      // 교체 서비스 상태 업데이트를 위해 ExchangeScreen의 onCellTap 호출
-      // 교체된 셀의 정보로 DataGridCellTapDetails 생성
-      final cellDetails = _createCellTapDetails(teacherName, day, period);
-      if (cellDetails != null) {
-        widget.onCellTap(cellDetails);
-        AppLogger.exchangeDebug('📝 교체 서비스 상태 업데이트 완료');
-      }
+      // 교체된 셀 클릭 시 교체 서비스 상태 업데이트 (헤더 업데이트를 위해)
+      // 하지만 화살표는 보존하기 위해 직접 교체 서비스 상태만 업데이트
+      _updateExchangeServiceForExchangedCell(teacherName, day, period);
       
       widget.onHeaderThemeUpdate?.call();
 
@@ -829,40 +826,26 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     return widget.timetableData!.teachers[actualRowIndex].name;
   }
 
-  /// 교체된 셀 정보로 DataGridCellTapDetails 생성
-  DataGridCellTapDetails? _createCellTapDetails(String teacherName, String day, int period) {
-    if (widget.timetableData == null) return null;
-    
-    // 교사 인덱스 찾기
-    int teacherIndex = widget.timetableData!.teachers
-        .indexWhere((teacher) => teacher.name == teacherName);
-    
-    if (teacherIndex == -1) return null;
-    
-    // 행 인덱스 계산 (헤더 2행 + 교사 인덱스)
-    const int headerRowCount = 2;
-    int rowIndex = headerRowCount + teacherIndex;
-    
-    // 컬럼 찾기
-    String columnName = '${day}_$period';
-    GridColumn? column = widget.columns
-        .cast<GridColumn>()
-        .firstWhere(
-          (col) => col.columnName == columnName,
-          orElse: () => throw StateError('Column not found: $columnName'),
-        );
-    
-    // RowColumnIndex 생성
-    RowColumnIndex rowColumnIndex = RowColumnIndex(rowIndex, teacherIndex);
-    
-    return DataGridCellTapDetails(
-      rowColumnIndex: rowColumnIndex,
-      column: column,
-      globalPosition: Offset.zero, // 전역 위치 (사용하지 않으므로 기본값)
-      localPosition: Offset.zero,  // 로컬 위치 (사용하지 않으므로 기본값)
-      kind: PointerDeviceKind.mouse, // 마우스 클릭으로 가정
-    );
+  /// 교체된 셀 클릭 시 교체 서비스 상태 업데이트 (화살표 보존)
+  void _updateExchangeServiceForExchangedCell(String teacherName, String day, int period) {
+    try {
+      // ExchangeService에 선택된 셀 정보 설정 (헤더 업데이트를 위해)
+      // 하지만 실제 교체 서비스 로직은 실행하지 않음
+      final exchangeService = ref.read(exchangeServiceProvider);
+      
+      // 선택된 셀 정보만 설정 (교체 가능한 교사 정보 수집을 위해)
+      exchangeService.selectCell(teacherName, day, period);
+      
+      // TimetableThemeProvider 상태도 업데이트 (교사 이름 컬럼 하이라이트를 위해)
+      final themeNotifier = ref.read(timetableThemeProvider.notifier);
+      themeNotifier.updateSelection(teacherName, day, period);
+      
+      AppLogger.exchangeDebug('📝 교체 서비스 상태 업데이트 완료: $teacherName $day$period교시');
+    } catch (e) {
+      AppLogger.error('교체 서비스 상태 업데이트 실패: $e');
+    }
   }
+
 
   /// 내부 선택된 경로 초기화 (새로운 화살표 시스템 연동)
   void _clearInternalPath() {
