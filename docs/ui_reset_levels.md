@@ -58,7 +58,6 @@ _selectExchangePath(newPath);
 - ✅ 로딩 상태
 - ✅ 필터 상태
 - ✅ 선택된 셀 (source/target) - 모드 전환 시
-- ✅ 헤더 스타일 초기화 (선택 상태 및 경로 상태 제거)
 - ✅ 캐시 초기화
 
 **호출 시점**:
