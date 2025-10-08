@@ -272,6 +272,13 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       return const SizedBox.shrink();
     }
 
+    // StateResetProvider 상태 감지하여 내부 선택된 경로 초기화
+    final resetState = ref.watch(stateResetProvider);
+    if (resetState.lastResetLevel == ResetLevel.exchangeStates && _internalSelectedPath != null) {
+      _internalSelectedPath = null;
+      AppLogger.exchangeDebug('[StateResetProvider 감지] 내부 선택된 경로 초기화 완료');
+    }
+
     return Card(
       elevation: 2,
       child: Padding(
@@ -742,6 +749,10 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
   /// 일반 셀 탭 시 화살표 숨기기
   void _hideExchangeArrows() {
+    // 내부 선택된 경로 먼저 초기화 (화살표 제거를 위해)
+    _internalSelectedPath = null;
+    AppLogger.exchangeDebug('[일반 셀 클릭] 내부 선택된 경로 초기화 완료');
+    
     ref.read(stateResetProvider.notifier).resetExchangeStates(
       reason: '일반 셀 클릭 - 교체 화살표 숨김',
     );
@@ -750,6 +761,10 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
   /// 화살표 상태 초기화 (외부에서 호출)
   void clearAllArrowStates() {
+    // 내부 선택된 경로 먼저 초기화 (화살표 제거를 위해)
+    _internalSelectedPath = null;
+    AppLogger.exchangeDebug('[외부 호출] 내부 선택된 경로 초기화 완료');
+    
     ref.read(stateResetProvider.notifier).resetExchangeStates(
       reason: '외부 호출 - 화살표 상태 초기화',
     );
