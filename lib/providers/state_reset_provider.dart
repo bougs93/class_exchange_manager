@@ -3,6 +3,7 @@ import '../utils/logger.dart';
 import 'exchange_screen_provider.dart';
 import 'timetable_theme_provider.dart';
 import '../ui/widgets/timetable_grid/widget_arrows_manager.dart';
+import '../utils/fixed_header_style_manager.dart';
 
 /// 초기화 레벨 정의
 ///
@@ -170,9 +171,9 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   /// - 로딩 상태
   /// - 필터 상태
   /// - 캐시
+  /// - 선택된 셀 (source/target) - 모드 전환 시 초기화
   ///
   /// **유지 대상**:
-  /// - 선택된 셀 (source/target)
   /// - 전역 Provider 상태
   ///
   /// **사용 시점**:
@@ -193,6 +194,12 @@ class StateResetNotifier extends StateNotifier<ResetState> {
 
     // 캐시 초기화
     _ref.read(timetableThemeProvider.notifier).clearAllCaches();
+
+    // 선택된 셀 초기화 (모드 전환 시)
+    _ref.read(timetableThemeProvider.notifier).clearAllSelections();
+
+    // 헤더 스타일 초기화 (선택 상태 및 경로 상태 제거)
+    FixedHeaderStyleManager.resetHeaderStyles();
 
     // widget_arrows 기반 화살표 초기화
     ArrowInitializationHelper.clearAllArrows();
