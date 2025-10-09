@@ -2,7 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../utils/logger.dart';
 import 'exchange_screen_provider.dart';
 import 'timetable_theme_provider.dart';
+import 'services_provider.dart';
 import '../ui/widgets/timetable_grid/widget_arrows_manager.dart';
+import '../utils/fixed_header_style_manager.dart';
+import '../utils/syncfusion_timetable_helper.dart';
 
 /// 초기화 레벨 정의
 ///
@@ -111,6 +114,66 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   void _performCommonResetTasks() {
     // widget_arrows 기반 화살표 초기화
     ArrowInitializationHelper.clearAllArrows();
+  }
+
+  /// 모든 셀 선택 상태 강제 해제 (ExchangeScreen의 _clearAllCellSelections와 동일한 로직)
+  void _clearAllCellSelections() {
+    // 모든 교체 서비스의 선택 상태 초기화
+    _ref.read(exchangeServiceProvider).clearAllSelections();
+    _ref.read(circularExchangeServiceProvider).clearAllSelections();
+    _ref.read(chainExchangeServiceProvider).clearAllSelections();
+    
+    // TimetableDataSource의 모든 선택 상태 해제
+    final dataSource = _exchangeNotifier.state.dataSource;
+    dataSource?.clearAllSelections();
+    
+    // 선택된 셀 초기화
+    _themeNotifier.clearAllSelections();
+
+    // Provider 상태 초기화
+    _exchangeNotifier.setSelectedCircularPath(null);
+    _exchangeNotifier.setSelectedOneToOnePath(null);
+    _exchangeNotifier.setSelectedChainPath(null);
+  }
+
+  /// 헤더 테마 업데이트 (ExchangeScreen의 _updateHeaderTheme와 동일한 로직)
+  void _updateHeaderTheme() {
+    final screenState = _exchangeNotifier.state;
+    if (screenState.timetableData == null) return;
+    
+    // FixedHeaderStyleManager의 셀 선택 전용 업데이트 사용 (성능 최적화)
+    FixedHeaderStyleManager.updateHeaderForCellSelection(
+      selectedDay: null, // Level 3 초기화 시에는 선택된 셀이 없음
+      selectedPeriod: null,
+    );
+    
+    // ExchangeService를 사용하여 교체 가능한 교사 정보 수집
+    List<Map<String, dynamic>> exchangeableTeachers = _ref.read(exchangeServiceProvider).getCurrentExchangeableTeachers(
+      screenState.timetableData!.timeSlots,
+      screenState.timetableData!.teachers,
+    );
+    
+    // 선택된 교시 정보를 전달하여 헤더만 업데이트 (초기화된 상태)
+    final result = SyncfusionTimetableHelper.convertToSyncfusionData(
+      screenState.timetableData!.timeSlots,
+      screenState.timetableData!.teachers,
+      selectedDay: null,      // 초기화된 상태
+      selectedPeriod: null,   // 초기화된 상태
+      targetDay: null,        // 초기화된 상태
+      targetPeriod: null,     // 초기화된 상태
+      exchangeableTeachers: exchangeableTeachers,
+      // 모든 경로 정보도 초기화된 상태로 전달
+      selectedCircularPath: null,
+      selectedOneToOnePath: null,
+      selectedChainPath: null,
+    );
+    
+    // Provider를 통해 헤더 강제 재생성을 위한 완전한 새로고침
+    _exchangeNotifier.setColumns(result.columns);
+    _exchangeNotifier.setStackedHeaders(result.stackedHeaders);
+
+    // TimetableDataSource의 notifyListeners를 통한 직접 UI 업데이트
+    screenState.dataSource?.notifyListeners();
   }
 
   /// 상태 업데이트 및 로깅
@@ -256,6 +319,16 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     // 모든 교체 모드 상태 초기화 (Level 3 전용 추가 초기화)
     // Level 2에서 대부분 초기화되지만, 일부 누락된 상태들을 추가로 초기화
     _exchangeNotifier.setSelectedDay(null);
+
+    // 🔥 추가: 모든 셀 선택 상태 강제 해제 (ExchangeScreen의 _clearAllCellSelections와 동일한 동작)
+    // 이 코드가 없으면 모드 전환 시 선택된 셀이 유지되어 문제가 발생함
+    //   -> 헤더 테마 유지됨.
+    _clearAllCellSelections();
+
+    // 🔥 추가: 헤더 테마 업데이트 (모든 모드 변경 시 필수)
+    // 이 코드가 없으면 모드 전환 시 헤더 테마가 업데이트되지 않아 문제가 발생함
+    //   -> 헤더 테마 유지됨.
+    _updateHeaderTheme();
 
     // 교체 서비스 초기화
     // 주의: 서비스는 exchange_screen.dart에서 별도로 초기화됨
