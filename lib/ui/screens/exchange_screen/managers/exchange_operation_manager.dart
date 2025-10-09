@@ -196,14 +196,9 @@ class ExchangeOperationManager {
   /// 1. 다른 모드 비활성화 (순환/연쇄)
   /// 2. 교체불가 편집 모드 비활성화
   /// 3. 1:1 교체 모드 활성화/비활성화
-  /// 4-1. 비활성화 시: Level 3 초기화 (전체 상태)
-  /// 4-2. 활성화 시: Level 3 초기화 + 단계 설정 (2단계만)
+  /// 4. 활성화 시: Level 2 초기화 + 단계 설정 (2단계만)
   /// 5. 헤더 테마 업데이트
   /// 6. 사용자 피드백 (SnackBar)
-  ///
-  /// **Level 3 초기화 사용 이유**:
-  /// - 모드 전환 시 모든 상태를 깨끗하게 초기화해야 함
-  /// - 이전 모드의 잔여 상태가 남아있으면 오작동 가능성
   void toggleExchangeMode() {
     bool wasEnabled = stateProxy.isExchangeModeEnabled;
     bool hasOtherModesActive =
@@ -224,16 +219,15 @@ class ExchangeOperationManager {
     // 3. 1:1 교체 모드 토글
     stateProxy.setExchangeModeEnabled(!wasEnabled);
 
-    if (!stateProxy.isExchangeModeEnabled) {
-      // 4-1. 비활성화: Level 3 초기화 (전체 상태)
-      onRestoreUIToDefault();
-      stateProxy.setAvailableSteps([]);
+    if (stateProxy.isExchangeModeEnabled) {
+      // 4. 활성화: Level 2 초기화 + 단계 설정
+      onClearAllExchangeStates();
+      stateProxy.setAvailableSteps([2]); // 1:1 교체는 2단계만 가능
       stateProxy.setSelectedStep(null);
       stateProxy.setSelectedDay(null);
     } else {
-      // 4-2. 활성화: Level 3 초기화 + 단계 설정
-      onClearAllExchangeStates();
-      stateProxy.setAvailableSteps([2]); // 1:1 교체는 2단계만 가능
+      // 비활성화: 단계 설정만 초기화
+      stateProxy.setAvailableSteps([]);
       stateProxy.setSelectedStep(null);
       stateProxy.setSelectedDay(null);
     }
@@ -259,14 +253,9 @@ class ExchangeOperationManager {
   /// 1. 다른 모드 비활성화 (1:1/연쇄)
   /// 2. 교체불가 편집 모드 비활성화
   /// 3. 순환교체 모드 활성화/비활성화
-  /// 4-1. 비활성화 시: Level 3 초기화 (전체 상태)
-  /// 4-2. 활성화 시: Level 3 초기화 + 단계 설정 (2~5단계)
+  /// 4. 활성화 시: Level 2 초기화 + 단계 설정 (2~5단계)
   /// 5. 헤더 테마 업데이트
   /// 6. 사용자 피드백 (SnackBar)
-  ///
-  /// **Level 3 초기화 사용 이유**:
-  /// - 모드 전환 시 모든 상태를 깨끗하게 초기화해야 함
-  /// - 이전 모드의 잔여 상태가 남아있으면 오작동 가능성
   void toggleCircularExchangeMode() {
     AppLogger.exchangeDebug(
       '순환교체 모드 토글 시작 - 현재 상태: ${stateProxy.isCircularExchangeModeEnabled}',
@@ -290,16 +279,15 @@ class ExchangeOperationManager {
     // 3. 순환교체 모드 토글
     stateProxy.setCircularExchangeModeEnabled(!wasEnabled);
 
-    if (!stateProxy.isCircularExchangeModeEnabled) {
-      // 4-1. 비활성화: Level 3 초기화 (전체 상태)
-      onRestoreUIToDefault();
-      stateProxy.setAvailableSteps([]);
+    if (stateProxy.isCircularExchangeModeEnabled) {
+      // 4. 활성화: Level 2 초기화 + 단계 설정
+      onClearAllExchangeStates();
+      stateProxy.setAvailableSteps([2, 3, 4, 5]); // 순환: 2~5단계
       stateProxy.setSelectedStep(null);
       stateProxy.setSelectedDay(null);
     } else {
-      // 4-2. 활성화: Level 3 초기화 + 단계 설정
-      onClearAllExchangeStates();
-      stateProxy.setAvailableSteps([2, 3, 4, 5]); // 순환: 2~5단계
+      // 비활성화: 단계 설정만 초기화
+      stateProxy.setAvailableSteps([]);
       stateProxy.setSelectedStep(null);
       stateProxy.setSelectedDay(null);
     }
@@ -325,14 +313,9 @@ class ExchangeOperationManager {
   /// 1. 다른 모드 비활성화 (1:1/순환)
   /// 2. 교체불가 편집 모드 비활성화
   /// 3. 연쇄교체 모드 활성화/비활성화
-  /// 4-1. 비활성화 시: Level 3 초기화 (전체 상태)
-  /// 4-2. 활성화 시: Level 3 초기화 + 단계 설정 (2~5단계)
+  /// 4. 활성화 시: Level 2 초기화 + 단계 설정 (2~5단계)
   /// 5. 헤더 테마 업데이트
   /// 6. 사용자 피드백 (SnackBar)
-  ///
-  /// **Level 3 초기화 사용 이유**:
-  /// - 모드 전환 시 모든 상태를 깨끗하게 초기화해야 함
-  /// - 이전 모드의 잔여 상태가 남아있으면 오작동 가능성
   void toggleChainExchangeMode() {
     AppLogger.exchangeDebug(
       '연쇄교체 모드 토글 시작 - 현재 상태: ${stateProxy.isChainExchangeModeEnabled}',
@@ -357,16 +340,15 @@ class ExchangeOperationManager {
     // 3. 연쇄교체 모드 토글
     stateProxy.setChainExchangeModeEnabled(!wasEnabled);
 
-    if (!stateProxy.isChainExchangeModeEnabled) {
-      // 4-1. 비활성화: Level 3 초기화 (전체 상태)
-      onRestoreUIToDefault();
-      stateProxy.setAvailableSteps([]);
+    if (stateProxy.isChainExchangeModeEnabled) {
+      // 4. 활성화: Level 2 초기화 + 단계 설정
+      onClearAllExchangeStates();
+      stateProxy.setAvailableSteps([2, 3, 4, 5]); // 연쇄: 2~5단계
       stateProxy.setSelectedStep(null);
       stateProxy.setSelectedDay(null);
     } else {
-      // 4-2. 활성화: Level 3 초기화 + 단계 설정
-      onClearAllExchangeStates();
-      stateProxy.setAvailableSteps([2, 3, 4, 5]); // 연쇄: 2~5단계
+      // 비활성화: 단계 설정만 초기화
+      stateProxy.setAvailableSteps([]);
       stateProxy.setSelectedStep(null);
       stateProxy.setSelectedDay(null);
     }

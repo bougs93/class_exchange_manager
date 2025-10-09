@@ -433,8 +433,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
               buildErrorMessageSection: buildErrorMessageSection,
               onClearError: _clearError,
               onHeaderThemeUpdate: _updateHeaderTheme, // 헤더 테마 업데이트 콜백 전달
-              onRestoreUIToDefault: () => ref.read(stateResetProvider.notifier).resetExchangeStates(
-                reason: 'TimetableTabContent에서 UI 복원',
+              onRestoreUIToDefault: () => ref.read(stateResetProvider.notifier).resetAllStates(
+                reason: 'TimetableTabContent에서 UI 복원 - 전체 상태 초기화',
               ),
             ),
           ),

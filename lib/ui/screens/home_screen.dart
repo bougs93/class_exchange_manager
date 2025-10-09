@@ -6,6 +6,7 @@ import 'document_screen.dart';
 import 'settings_screen.dart';
 import '../../providers/navigation_provider.dart';
 import '../../providers/exchange_screen_provider.dart';
+import '../../providers/state_reset_provider.dart';
 import '../../models/exchange_mode.dart';
 import '../../utils/logger.dart';
 import '../../ui/screens/exchange_screen/exchange_screen_state_proxy.dart';
@@ -106,6 +107,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   /// UI를 기본값으로 복원 (ExchangeScreen의 restoreUIToDefault 로직과 동일)
   void _restoreUIToDefault() {
+    // Level 3: 전체 상태 초기화 (파일 새로 읽기 시 필요)
+    ref.read(stateResetProvider.notifier).resetAllStates(
+      reason: '파일 새로 읽기 - 전체 상태 초기화',
+    );
+    
     // 헤더 테마를 기본값으로 복원
     _updateHeaderTheme();
     

@@ -43,16 +43,15 @@ mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
 
     setExchangeModeEnabled(!wasEnabled);
 
-    // 교체 모드가 비활성화되면 UI를 기본값으로 복원
-    if (!isExchangeModeEnabled) {
-      restoreUIToDefault(); // restoreUIToDefault 내부에서 clearAllExchangeStates 호출됨
-      availableSteps = [];
+    // 교체 모드가 활성화되면 초기화
+    if (isExchangeModeEnabled) {
+      clearAllExchangeStates();
+      availableSteps = [2]; // 1:1 교체는 항상 2개 노드
       selectedStep = null;
       selectedDay = null;
     } else {
-      // 1:1 교체 모드가 활성화되면 항상 초기화
-      clearAllExchangeStates();
-      availableSteps = [2]; // 1:1 교체는 항상 2개 노드
+      // 비활성화: 단계 설정만 초기화
+      availableSteps = [];
       selectedStep = null;
       selectedDay = null;
     }
@@ -92,15 +91,14 @@ mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
 
     setCircularExchangeModeEnabled(!wasEnabled);
 
-    // 순환교체 모드가 비활성화되면 UI를 기본값으로 복원
-    if (!isCircularExchangeModeEnabled) {
-      restoreUIToDefault(); // restoreUIToDefault 내부에서 clearAllExchangeStates 호출됨
-      availableSteps = [];
+    // 순환교체 모드가 활성화되면 초기화
+    if (isCircularExchangeModeEnabled) {
+      clearAllExchangeStates();
+      availableSteps = [2, 3, 4, 5]; // 순환교체는 2~5단계
       selectedStep = null;
       selectedDay = null;
     } else {
-      // 순환교체 모드가 활성화되면 항상 초기화
-      clearAllExchangeStates();
+      // 비활성화: 단계 설정만 초기화
       availableSteps = [];
       selectedStep = null;
       selectedDay = null;
@@ -141,15 +139,14 @@ mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
 
     setChainExchangeModeEnabled(!wasEnabled);
 
-    // 연쇄교체 모드가 비활성화되면 UI를 기본값으로 복원
-    if (!isChainExchangeModeEnabled) {
-      restoreUIToDefault(); // restoreUIToDefault 내부에서 clearAllExchangeStates 호출됨
-      availableSteps = [];
+    // 연쇄교체 모드가 활성화되면 초기화
+    if (isChainExchangeModeEnabled) {
+      clearAllExchangeStates();
+      availableSteps = [2, 3, 4, 5]; // 연쇄교체는 2~5단계
       selectedStep = null;
       selectedDay = null;
     } else {
-      // 연쇄교체 모드가 활성화되면 항상 초기화
-      clearAllExchangeStates();
+      // 비활성화: 단계 설정만 초기화
       availableSteps = [];
       selectedStep = null;
       selectedDay = null;

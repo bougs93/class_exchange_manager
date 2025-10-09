@@ -73,7 +73,7 @@ class TimetableTabContent extends StatelessWidget {
               onCellTap: onCellTap,
               selectedExchangePath: getCurrentSelectedPath(),
               onHeaderThemeUpdate: onHeaderThemeUpdate, // 헤더 테마 업데이트 콜백 전달
-              onRestoreUIToDefault: onRestoreUIToDefault, // UI 기본값 복원 콜백 전달
+              onRestoreUIToDefault: onRestoreUIToDefault, // UI 기본값 복원 콜백 전달 : 파일 로드시, Level 3 초기화가 이루어짐
             ),
           )
         else
