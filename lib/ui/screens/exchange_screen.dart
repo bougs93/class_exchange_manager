@@ -152,7 +152,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   void _performModeChangeTasks(ExchangeMode newMode) {
     final notifier = ref.read(exchangeScreenProvider.notifier);
     
-    // 모드 변경 전에 현재 선택된 셀 강제 해제
+    // [중요] 모드 변경 전에 현재 선택된 셀 강제 해제
+    // 이 코드가 없으면 모드 전환 시 선택된 셀이 유지되어 문제가 발생함
+    //   -> 헤더 테마 유지됨.
     _clearAllCellSelections();
 
     // 모든 모드 전환 시 Level 2 초기화로 통일
@@ -181,7 +183,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     notifier.setSelectedStep(null);
     notifier.setSelectedDay(null);
     
-    // 헤더 테마 업데이트 (모든 모드 변경 시 필수)
+    // [중요] 헤더 테마 업데이트 (모든 모드 변경 시 필수)
+    // 이 코드가 없으면 모드 전환 시 헤더 테마가 업데이트되지 않아 문제가 발생함
+    //   -> 헤더 테마 유지됨.
     _updateHeaderTheme();
   }
 
