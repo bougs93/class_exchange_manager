@@ -311,9 +311,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       onClearAllExchangeStates: () => ref.read(stateResetProvider.notifier).resetExchangeStates(
         reason: '모드 전환 - 이전 교체 상태 초기화',
       ),
-      onRestoreUIToDefault: () => ref.read(stateResetProvider.notifier).resetAllStates(
-        reason: 'UI 기본값 복원 - 전체 상태 초기화',
-      ),
       onRefreshHeaderTheme: _updateHeaderTheme,
     );
 
@@ -433,9 +430,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
               buildErrorMessageSection: buildErrorMessageSection,
               onClearError: _clearError,
               onHeaderThemeUpdate: _updateHeaderTheme, // 헤더 테마 업데이트 콜백 전달
-              onRestoreUIToDefault: () => ref.read(stateResetProvider.notifier).resetAllStates(
-                reason: 'TimetableTabContent에서 UI 복원 - 전체 상태 초기화',
-              ),
             ),
           ),
 

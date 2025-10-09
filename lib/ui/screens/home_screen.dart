@@ -8,7 +8,6 @@ import '../../providers/navigation_provider.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../providers/state_reset_provider.dart';
 import '../../models/exchange_mode.dart';
-import '../../utils/logger.dart';
 import '../../ui/screens/exchange_screen/exchange_screen_state_proxy.dart';
 import '../../ui/screens/exchange_screen/managers/exchange_operation_manager.dart';
 
@@ -56,18 +55,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           setState(() {});
         }
       },
-      onRestoreUIToDefault: () {
-        // UI 초기 상태로 복원 - 실제 restoreUIToDefault 로직 호출
-        try {
-          if (mounted) {
-            // ExchangeScreen의 restoreUIToDefault 로직을 직접 호출
-            _restoreUIToDefault();
-            setState(() {});
-          }
-        } catch (e) {
-          AppLogger.error('onRestoreUIToDefault 콜백 오류: $e');
-        }
-      },
       onRefreshHeaderTheme: () {
         // 헤더 테마 업데이트
         if (mounted) {
@@ -85,6 +72,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       // 파일 선택 후 보기 모드로 전환
       final globalNotifier = ref.read(exchangeScreenProvider.notifier);
       globalNotifier.setCurrentMode(ExchangeMode.view);
+      
+      // 파일 선택 후 Level 3 초기화 (화면에 보인 후)
+      ref.read(stateResetProvider.notifier).resetAllStates(
+        reason: '파일 선택 후 전체 상태 초기화',
+      );
       
       if (mounted) {
         setState(() {});
@@ -105,55 +97,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  /// UI를 기본값으로 복원 (ExchangeScreen의 restoreUIToDefault 로직과 동일)
-  void _restoreUIToDefault() {
-    // Level 3: 전체 상태 초기화 (파일 새로 읽기 시 필요)
-    ref.read(stateResetProvider.notifier).resetAllStates(
-      reason: '파일 새로 읽기 - 전체 상태 초기화',
-    );
-    
-    // 헤더 테마를 기본값으로 복원
-    _updateHeaderTheme();
-    
-    // 모든 교체 모드 상태 초기화
-    _clearAllExchangeStates();
-    
-    // 교체 가능한 시간 업데이트 (빈 목록으로)
-    _updateExchangeableTimes();
-  }
 
-  /// 헤더 테마 업데이트 (기본값으로 복원)
-  void _updateHeaderTheme() {
-    // 기본 헤더 테마로 복원하기 위해 빈 상태로 설정
-    final globalNotifier = ref.read(exchangeScreenProvider.notifier);
-    
-    // 빈 columns와 stackedHeaders로 설정하여 기본 테마 적용
-    globalNotifier.setColumns([]);
-    globalNotifier.setStackedHeaders([]);
-  }
-
-  /// 모든 교체 모드 상태 초기화
-  void _clearAllExchangeStates() {
-    final globalNotifier = ref.read(exchangeScreenProvider.notifier);
-    
-    // 모든 교체 관련 상태 초기화
-    globalNotifier.setSelectedCircularPath(null);
-    globalNotifier.setSelectedOneToOnePath(null);
-    globalNotifier.setSelectedChainPath(null);
-    globalNotifier.setCircularPaths([]);
-    globalNotifier.setOneToOnePaths([]);
-    globalNotifier.setChainPaths([]);
-    globalNotifier.setSidebarVisible(false);
-    globalNotifier.setAvailableSteps([]);
-    globalNotifier.setSelectedStep(null);
-    globalNotifier.setSelectedDay(null);
-  }
-
-  /// 교체 가능한 시간 업데이트 (빈 목록으로)
-  void _updateExchangeableTimes() {
-    // 교체 가능한 시간 관련 상태는 ExchangeScreen에서 관리되므로
-    // 여기서는 로그만 출력
-  }
 
   // 메뉴 항목들 정의
   List<Map<String, dynamic>> _menuItems() => [

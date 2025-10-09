@@ -18,7 +18,6 @@ class ExchangeOperationManager {
   final ExchangeScreenStateProxy stateProxy;
   final VoidCallback onCreateSyncfusionGridData;
   final VoidCallback onClearAllExchangeStates;
-  final VoidCallback onRestoreUIToDefault;
   final VoidCallback onRefreshHeaderTheme;
 
   // 히스토리 서비스 인스턴스
@@ -32,7 +31,6 @@ class ExchangeOperationManager {
     required this.stateProxy,
     required this.onCreateSyncfusionGridData,
     required this.onClearAllExchangeStates,
-    required this.onRestoreUIToDefault,
     required this.onRefreshHeaderTheme,
   });
 
@@ -161,13 +159,6 @@ class ExchangeOperationManager {
 
   /// 엑셀 파일 선택 해제 (모든 상태 초기화)
   void clearSelectedFile() {
-    // UI를 기본 상태로 복원 (가장 먼저 실행)
-    try {
-      onRestoreUIToDefault();
-    } catch (e) {
-      AppLogger.error('onRestoreUIToDefault 호출 오류: $e');
-    }
-    
     // 히스토리와 교체리스트 초기화
     _clearHistoryAndExchangeList();
     

@@ -106,7 +106,6 @@ class TimetableGridSection extends ConsumerStatefulWidget {
   final ExchangePath? selectedExchangePath; // 선택된 교체 경로 (모든 타입 지원)
   final ExchangeArrowStyle? customArrowStyle; // 커스텀 화살표 스타일
   final VoidCallback? onHeaderThemeUpdate; // 헤더 테마 업데이트 콜백
-  final VoidCallback? onRestoreUIToDefault; // UI 기본값 복원 콜백
 
   const TimetableGridSection({
     super.key,
@@ -122,7 +121,6 @@ class TimetableGridSection extends ConsumerStatefulWidget {
     this.selectedExchangePath,
     this.customArrowStyle,
     this.onHeaderThemeUpdate,
-    this.onRestoreUIToDefault,
   });
 
   @override
@@ -256,7 +254,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   /// 테이블 렌더링 완료 알림
   void _notifyTableRenderingComplete() {
     widget.onHeaderThemeUpdate?.call();
-    widget.onRestoreUIToDefault?.call();
   }
 
   /// 스크롤 변경 시 화살표 재그리기
@@ -866,50 +863,30 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     try {
       AppLogger.exchangeInfo('교체 뷰 활성화 시작');
 
-      List<TimeSlot>? beforeSlots;
       final backupState = ref.read(timeSlotsBackupProvider);
 
+      // TimeSlots 백업 생성
       if (widget.dataSource != null && !backupState.isValid) {
-        beforeSlots = widget.dataSource!.timeSlots.map((slot) => slot.copy()).toList();
         ref.read(timeSlotsBackupProvider.notifier).createBackup(widget.dataSource!.timeSlots);
         AppLogger.exchangeDebug('TimeSlots 백업 생성 완료: ${backupState.count}개');
       } else if (widget.dataSource != null) {
-        beforeSlots = widget.dataSource!.timeSlots.map((slot) => slot.copy()).toList();
         AppLogger.exchangeDebug('기존 TimeSlots 백업 사용: ${backupState.count}개');
       }
 
+      // 교체 리스트 조회
       final exchangeList = _historyService.getExchangeList();
       if (exchangeList.isNotEmpty) {
         AppLogger.exchangeInfo('교체 리스트에서 ${exchangeList.length}개 교체 실행');
 
-        if (beforeSlots == null && widget.dataSource != null) {
-          beforeSlots = widget.dataSource!.timeSlots.map((slot) => slot.copy()).toList();
-          AppLogger.exchangeDebug('교체 실행 전 beforeSlots 재생성: ${beforeSlots.length}개');
-        }
-
+        // 교체 리스트에서 교체 실행
         for (var item in exchangeList) {
           _exchangeViewManager.executeExchangeFromHistory(item);
         }
 
+        // 선택 상태 초기화
         ref.read(stateResetProvider.notifier).resetExchangeStates(
           reason: '교체 뷰 활성화 - 선택 상태 초기화',
         );
-
-        if (beforeSlots != null && widget.dataSource != null) {
-          try {
-            final afterSlots = widget.dataSource!.timeSlots.map((slot) => slot.copy()).toList();
-
-            if (beforeSlots.isNotEmpty && afterSlots.isNotEmpty) {
-              _exchangeViewManager.compareTimeSlots(beforeSlots, afterSlots, '교체 뷰 활성화');
-            } else {
-              AppLogger.exchangeDebug('비교 데이터가 비어있음 - beforeSlots: ${beforeSlots.length}, afterSlots: ${afterSlots.length}');
-            }
-          } catch (e) {
-            AppLogger.exchangeDebug('TimeSlots 비교 중 오류: $e');
-          }
-        } else {
-          AppLogger.exchangeDebug('비교 불가 - beforeSlots: ${beforeSlots != null}, dataSource: ${widget.dataSource != null}');
-        }
 
         AppLogger.exchangeInfo('교체 뷰 활성화 완료 - ${exchangeList.length}개 교체 적용됨');
         for (int i = 0; i < exchangeList.length; i++) {
@@ -929,12 +906,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     try {
       AppLogger.exchangeInfo('교체 뷰 비활성화 시작');
 
-      List<TimeSlot>? beforeSlots;
-      if (widget.dataSource != null) {
-        beforeSlots = widget.dataSource!.timeSlots.map((slot) => slot.copy()).toList();
-        AppLogger.exchangeDebug('복원 전 beforeSlots 생성 완료: ${beforeSlots.length}개');
-      }
-
       final backupState = ref.read(timeSlotsBackupProvider);
       if (backupState.isValid && widget.dataSource != null) {
         final restoredSlots = ref.read(timeSlotsBackupProvider.notifier).restoreBackup();
@@ -943,22 +914,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
           // 테마 상태는 유지 - 교체된 셀 표시와 선택 상태 그대로 유지
           AppLogger.exchangeDebug('타임슬롯 복원 완료 - 테마 상태 유지');
-
-          if (beforeSlots != null) {
-            try {
-              final afterSlots = widget.dataSource!.timeSlots.map((slot) => slot.copy()).toList();
-
-              if (beforeSlots.isNotEmpty && afterSlots.isNotEmpty) {
-                _exchangeViewManager.compareTimeSlots(beforeSlots, afterSlots, '교체 뷰 비활성화');
-              } else {
-                AppLogger.exchangeDebug('비교 데이터가 비어있음 - beforeSlots: ${beforeSlots.length}, afterSlots: ${afterSlots.length}');
-              }
-            } catch (e) {
-              AppLogger.exchangeDebug('TimeSlots 비교 중 오류: $e');
-            }
-          } else {
-            AppLogger.exchangeDebug('비교 불가 - beforeSlots가 null');
-          }
 
           AppLogger.exchangeInfo('교체 뷰 비활성화 완료 - 원본 상태로 복원됨 (테마 상태 유지)');
           AppLogger.exchangeInfo('복원된 TimeSlot 개수: ${restoredSlots.length}개');

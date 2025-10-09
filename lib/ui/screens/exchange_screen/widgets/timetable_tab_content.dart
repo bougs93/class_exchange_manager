@@ -25,7 +25,6 @@ class TimetableTabContent extends StatelessWidget {
   final Widget Function(String?, VoidCallback) buildErrorMessageSection;
   final VoidCallback onClearError;
   final VoidCallback? onHeaderThemeUpdate; // 헤더 테마 업데이트 콜백
-  final VoidCallback? onRestoreUIToDefault; // UI 기본값 복원 콜백
 
   const TimetableTabContent({
     super.key,
@@ -42,7 +41,6 @@ class TimetableTabContent extends StatelessWidget {
     required this.buildErrorMessageSection,
     required this.onClearError,
     this.onHeaderThemeUpdate, // 헤더 테마 업데이트 콜백
-    this.onRestoreUIToDefault, // UI 기본값 복원 콜백
   });
 
   @override
@@ -73,7 +71,6 @@ class TimetableTabContent extends StatelessWidget {
               onCellTap: onCellTap,
               selectedExchangePath: getCurrentSelectedPath(),
               onHeaderThemeUpdate: onHeaderThemeUpdate, // 헤더 테마 업데이트 콜백 전달
-              onRestoreUIToDefault: onRestoreUIToDefault, // UI 기본값 복원 콜백 전달 : 파일 로드시, Level 3 초기화가 이루어짐
             ),
           )
         else

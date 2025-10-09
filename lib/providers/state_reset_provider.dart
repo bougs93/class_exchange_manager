@@ -98,6 +98,32 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   final Ref _ref;
 
   // ========================================
+  // 공통 유틸리티 메서드
+  // ========================================
+
+  /// ExchangeScreenProvider 참조 가져오기
+  ExchangeScreenNotifier get _exchangeNotifier => _ref.read(exchangeScreenProvider.notifier);
+
+  /// TimetableThemeNotifier 참조 가져오기
+  TimetableThemeNotifier get _themeNotifier => _ref.read(timetableThemeProvider.notifier);
+
+  /// 공통 초기화 작업 수행
+  void _performCommonResetTasks() {
+    // widget_arrows 기반 화살표 초기화
+    ArrowInitializationHelper.clearAllArrows();
+  }
+
+  /// 상태 업데이트 및 로깅
+  void _updateStateAndLog(ResetLevel level, String reason) {
+    state = ResetState(
+      lastResetTime: DateTime.now(),
+      lastResetLevel: level,
+      resetReason: reason,
+    );
+    AppLogger.exchangeDebug('[$level] 초기화 완료 - $state');
+  }
+
+  // ========================================
   // Level 1: 경로 선택만 초기화
   // ========================================
 
@@ -118,28 +144,21 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     AppLogger.exchangeDebug('[Level 1] 경로 선택만 초기화: ${reason ?? "이유 없음"}');
 
     // ExchangeScreenProvider 배치 업데이트
-    final notifier = _ref.read(exchangeScreenProvider.notifier);
-    notifier.resetPathSelectionBatch();
+    _exchangeNotifier.resetPathSelectionBatch();
 
     // TimetableDataSource 배치 업데이트 (Syncfusion DataGrid 전용)
-    final dataSource = notifier.state.dataSource;
+    final dataSource = _exchangeNotifier.state.dataSource;
     dataSource?.resetPathSelectionBatch();
 
-    // widget_arrows 기반 화살표 초기화
-    ArrowInitializationHelper.clearAllArrows();
+    // 공통 초기화 작업 수행
+    _performCommonResetTasks();
 
     // 화살표 초기화를 위한 추가 처리
     // Level 1에서도 _internalSelectedPath를 초기화해야 화살표가 사라짐
     _clearInternalSelectedPath();
 
-    // 상태 업데이트
-    state = ResetState(
-      lastResetTime: DateTime.now(),
-      lastResetLevel: ResetLevel.pathOnly,
-      resetReason: reason ?? 'Level 1 초기화',
-    );
-
-    AppLogger.exchangeDebug('[Level 1] 초기화 완료 - $state');
+    // 상태 업데이트 및 로깅
+    _updateStateAndLog(ResetLevel.pathOnly, reason ?? 'Level 1 초기화');
   }
 
   /// 내부 선택된 경로 초기화 (화살표 제거용)
@@ -182,32 +201,24 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   void resetExchangeStates({String? reason}) {
     AppLogger.exchangeDebug('[Level 2] 이전 교체 상태 초기화: ${reason ?? "이유 없음"}');
 
-    final notifier = _ref.read(exchangeScreenProvider.notifier);
-
     // ExchangeScreenProvider 배치 업데이트
-    notifier.resetExchangeStatesBatch();
+    _exchangeNotifier.resetExchangeStatesBatch();
 
     // TimetableDataSource 배치 업데이트 (Syncfusion DataGrid 전용)
-    final dataSource = notifier.state.dataSource;
+    final dataSource = _exchangeNotifier.state.dataSource;
     dataSource?.resetExchangeStatesBatch();
 
     // 캐시 초기화
-    _ref.read(timetableThemeProvider.notifier).clearAllCaches();
+    _themeNotifier.clearAllCaches();
 
     // 선택된 셀 초기화 (모드 전환 시)
-    _ref.read(timetableThemeProvider.notifier).clearAllSelections();
+    _themeNotifier.clearAllSelections();
 
-    // widget_arrows 기반 화살표 초기화
-    ArrowInitializationHelper.clearAllArrows();
+    // 공통 초기화 작업 수행
+    _performCommonResetTasks();
 
-    // 상태 업데이트
-    state = ResetState(
-      lastResetTime: DateTime.now(),
-      lastResetLevel: ResetLevel.exchangeStates,
-      resetReason: reason ?? 'Level 2 초기화',
-    );
-
-    AppLogger.exchangeDebug('[Level 2] 초기화 완료 - $state');
+    // 상태 업데이트 및 로깅
+    _updateStateAndLog(ResetLevel.exchangeStates, reason ?? 'Level 2 초기화');
   }
 
   // ========================================
@@ -223,6 +234,7 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   /// - 선택된 셀 (source/target)
   /// - 전역 Provider (선택, 캐시, 교체된 셀)
   /// - UI 상태
+  /// - 헤더 테마 (기본값으로 복원)
   ///
   /// **사용 시점**:
   /// - 파일 선택/해제 시
@@ -235,21 +247,22 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     resetExchangeStates(reason: reason);
 
     // Level 3 추가 작업: 전역 Provider 상태 초기화
-    final themeNotifier = _ref.read(timetableThemeProvider.notifier);
-    themeNotifier.resetAllStatesBatch();
+    _themeNotifier.resetAllStatesBatch();
+
+    // 헤더 테마를 기본값으로 복원 (빈 상태로 설정)
+    _exchangeNotifier.setColumns([]);
+    _exchangeNotifier.setStackedHeaders([]);
+
+    // 모든 교체 모드 상태 초기화 (Level 3 전용 추가 초기화)
+    // Level 2에서 대부분 초기화되지만, 일부 누락된 상태들을 추가로 초기화
+    _exchangeNotifier.setSelectedDay(null);
 
     // 교체 서비스 초기화
     // 주의: 서비스는 exchange_screen.dart에서 별도로 초기화됨
     // Provider 순환 참조를 피하기 위해 여기서는 생략
 
-    // 상태 업데이트
-    state = ResetState(
-      lastResetTime: DateTime.now(),
-      lastResetLevel: ResetLevel.allStates,
-      resetReason: reason ?? 'Level 3 초기화',
-    );
-
-    AppLogger.exchangeDebug('[Level 3] 초기화 완료 - $state');
+    // 상태 업데이트 및 로깅
+    _updateStateAndLog(ResetLevel.allStates, reason ?? 'Level 3 초기화');
   }
 
   // ========================================

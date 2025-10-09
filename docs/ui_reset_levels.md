@@ -80,13 +80,14 @@ resetExchangeStates(reason: '교체 실행 - 선택 상태 초기화');
 
 **초기화 대상**:
 - ✅ 모든 교체 서비스 상태
-- ✅ 선택된 교체 경로
-- ✅ 경로 리스트
-- ✅ 선택된 셀 (source/target)
-- ✅ 전역 Provider 캐시
-- ✅ DataSource 캐시
-- ✅ UI 상태 (사이드바, 로딩 등)
-- ✅ 헤더 테마
+- ✅ 선택된 교체 경로 (Level 2에서 초기화)
+- ✅ 경로 리스트 (Level 2에서 초기화)
+- ✅ 선택된 셀 (source/target) (Level 2에서 초기화)
+- ✅ 전역 Provider 캐시 (Level 2에서 초기화)
+- ✅ DataSource 캐시 (Level 2에서 초기화)
+- ✅ UI 상태 (사이드바, 로딩 등) (Level 2에서 초기화)
+- ✅ 헤더 테마 (기본값으로 복원) (Level 3에서 추가)
+- ✅ 모든 교체 모드 상태 (selectedDay 등) (Level 3에서 추가)
 
 **호출 시점**:
 - 교체 모드 전환 시 (1:1 ↔ 순환 ↔ 연쇄)
@@ -113,7 +114,7 @@ void _resetSelectedPath() { ... }
 void _resetExchangeStates() { ... }
 
 // Level 3: 이 위젯에서는 직접 사용하지 않음
-// exchange_screen.dart의 resetAllStates()가 onRestoreUIToDefault 콜백을 통해 트리거
+// StateResetProvider의 resetAllStates()를 통해 처리
 
 // 외부 호출용 메서드 (타겟 셀 초기화 시 사용)
 void clearAllArrowStates() {
@@ -121,8 +122,11 @@ void clearAllArrowStates() {
 }
 ```
 
-### state_reset_handler.dart (Mixin)
+### state_reset_provider.dart
 ```dart
+// Level 1: 경로 선택만 초기화
+void resetPathOnly() { ... }
+
 // Level 2: 이전 교체 상태 초기화
 void resetExchangeStates() { ... }
 

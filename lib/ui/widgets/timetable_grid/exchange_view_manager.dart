@@ -151,6 +151,8 @@ class ExchangeViewManager {
       return;
     }
 
+    AppLogger.exchangeInfo('1:1 교체 실행 시작: ${path.id}');
+
     final sourceNode = path.sourceNode;
     final targetNode = path.targetNode;
 
@@ -160,6 +162,7 @@ class ExchangeViewManager {
 
     AppLogger.exchangeInfo('1:1 교체 실행: ${sourceNode.teacherName}(${sourceNode.day}${sourceNode.period}교시) ↔ ${targetNode.teacherName}(${targetNode.day}${targetNode.period}교시)');
 
+    // 1:1 교체 실행
     bool success = exchangeService.performOneToOneExchange(
       dataSource!.timeSlots,
       sourceNode.teacherName,
