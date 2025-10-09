@@ -72,6 +72,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       // 파일 선택 후 보기 모드로 전환
       final globalNotifier = ref.read(exchangeScreenProvider.notifier);
       globalNotifier.setCurrentMode(ExchangeMode.view);
+
+      // 교체 관리 > 보기 TAP 을 누르는 동작.
+      
       
       // 파일 선택 후 Level 3 초기화 (화면에 보인 후)
       ref.read(stateResetProvider.notifier).resetAllStates(

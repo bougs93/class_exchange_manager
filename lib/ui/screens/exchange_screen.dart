@@ -816,46 +816,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     // 필요시 _filterStateManager를 통해 계산됨
   }
 
-
-  /// 선택 해제 메서드 (현재 미사용, 향후 필요시 사용)
-  // ignore: unused_element
-  void _clearSelection() {
-    final notifier = ref.read(exchangeScreenProvider.notifier);
-    notifier.setSelectedFile(null);
-    notifier.setTimetableData(null);
-    notifier.setDataSource(null);
-    notifier.setColumns([]);
-    notifier.setStackedHeaders([]);
-    notifier.setErrorMessage(null);
-
-    // 모든 교체 서비스의 선택 상태 초기화
-    exchangeService.clearAllSelections();
-    circularExchangeService.clearAllSelections();
-    chainExchangeService.clearAllSelections();
-
-    // 모든 교체 모드도 함께 종료
-    notifier.setCurrentMode(ExchangeMode.view);
-
-    // 선택된 교체 경로들도 초기화
-    notifier.setSelectedCircularPath(null);
-    notifier.setSelectedOneToOnePath(null);
-    notifier.setSelectedChainPath(null);
-    notifier.setCircularPaths([]);
-    notifier.setOneToOnePaths([]);
-    notifier.setChainPaths([]);
-    notifier.setSidebarVisible(false);
-
-    // 교체 가능한 교사 정보도 초기화
-    _dataSource?.updateExchangeableTeachers([]);
-    _dataSource?.updateSelectedCircularPath(null);
-    _dataSource?.updateSelectedOneToOnePath(null);
-
-    // 선택 해제 시에도 헤더 테마 업데이트
-    if (_timetableData != null) {
-      _updateHeaderTheme();
-    }
-  }
-
   /// 오류 메시지 제거 메서드
   void _clearError() {
     ref.read(exchangeScreenProvider.notifier).setErrorMessage(null);
