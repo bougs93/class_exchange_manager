@@ -864,9 +864,18 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       if (exchangeList.isNotEmpty) {
         AppLogger.exchangeInfo('교체 리스트에서 ${exchangeList.length}개 교체 실행');
 
-        // 교체 리스트에서 교체 실행
+        // 교체 리스트에서 교체 실행 및 성공 개수 추적
+        int successCount = 0;
         for (var item in exchangeList) {
-          _exchangeViewManager.executeExchangeFromHistory(item);
+          // 현재 데이터를 전달하여 교체 실행
+          bool success = _exchangeViewManager.executeExchangeFromHistory(
+            item,
+            widget.dataSource!.timeSlots,
+            widget.timetableData!.teachers,
+          );
+          if (success) {
+            successCount++;
+          }
         }
 
         // 선택 상태 초기화
@@ -874,7 +883,14 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
           reason: '교체 뷰 활성화 - 선택 상태 초기화',
         );
 
-        AppLogger.exchangeInfo('교체 뷰 활성화 완료 - ${exchangeList.length}개 교체 적용됨');
+        // 실제 성공한 개수만 표시
+        if (successCount > 0) {
+          AppLogger.exchangeInfo('교체 뷰 활성화 완료 - ${successCount}개 교체 적용됨 (총 ${exchangeList.length}개 중)');
+        } else {
+          AppLogger.exchangeInfo('교체 뷰 활성화 완료 - 교체 적용 실패 (총 ${exchangeList.length}개 모두 실패)');
+        }
+        
+        // 상세 정보는 성공한 항목만 표시
         for (int i = 0; i < exchangeList.length; i++) {
           var item = exchangeList[i];
           _exchangeViewManager.logDetailedExchangeInfo(i + 1, item);

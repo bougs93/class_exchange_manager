@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/time_slot.dart';
+import '../../../models/teacher.dart';
 import '../../../models/exchange_path.dart';
 import '../../../models/one_to_one_exchange_path.dart';
 import '../../../models/circular_exchange_path.dart';
@@ -113,8 +114,19 @@ class ExchangeViewManager {
     }
   }
 
-  /// 교체 히스토리에서 교체 실행
-  void executeExchangeFromHistory(dynamic exchangeItem) {
+  /// 교체 히스토리에서 교체 실행 (현재 데이터 사용)
+  /// 
+  /// 매개변수:
+  /// - `exchangeItem`: 교체 히스토리 항목
+  /// - `currentTimeSlots`: 현재 시간표 데이터
+  /// - `currentTeachers`: 현재 교사 데이터
+  /// 
+  /// 반환값: 교체 성공 여부
+  bool executeExchangeFromHistory(
+    dynamic exchangeItem,
+    List<TimeSlot> currentTimeSlots,
+    List<Teacher> currentTeachers,
+  ) {
     try {
       AppLogger.exchangeDebug('교체 히스토리 실행 시작: ${exchangeItem.runtimeType}');
 
@@ -128,29 +140,40 @@ class ExchangeViewManager {
 
       if (path != null) {
         if (path is OneToOneExchangePath) {
-          _executeOneToOneExchangeFromPath(path);
+          return _executeOneToOneExchangeFromPathWithData(path, currentTimeSlots, currentTeachers);
         } else if (path is CircularExchangePath) {
           _executeCircularExchangeFromPath(path);
+          return false; // 순환 교체는 아직 구현되지 않음
         } else if (path is ChainExchangePath) {
           _executeChainExchangeFromPath(path);
+          return false; // 연쇄 교체는 아직 구현되지 않음
         } else {
           AppLogger.exchangeDebug('알 수 없는 교체 경로 타입: ${path.runtimeType}');
+          return false;
         }
       } else {
         AppLogger.exchangeDebug('교체 경로를 찾을 수 없음: ${exchangeItem.runtimeType}');
+        return false;
       }
     } catch (e) {
       AppLogger.exchangeDebug('교체 히스토리 실행 중 오류 발생: $e');
+      return false;
     }
   }
 
-  /// 1:1 교체 경로에서 교체 실행
-  void _executeOneToOneExchangeFromPath(OneToOneExchangePath path) {
-    if (timetableData == null || dataSource == null) {
-      AppLogger.exchangeDebug('1:1 교체 실행 실패: timetableData 또는 dataSource가 null');
-      return;
-    }
-
+  /// 1:1 교체 경로에서 교체 실행 (현재 데이터 사용)
+  /// 
+  /// 매개변수:
+  /// - `path`: 교체 경로
+  /// - `currentTimeSlots`: 현재 시간표 데이터
+  /// - `currentTeachers`: 현재 교사 데이터
+  /// 
+  /// 반환값: 교체 성공 여부
+  bool _executeOneToOneExchangeFromPathWithData(
+    OneToOneExchangePath path,
+    List<TimeSlot> currentTimeSlots,
+    List<Teacher> currentTeachers,
+  ) {
     AppLogger.exchangeInfo('1:1 교체 실행 시작: ${path.id}');
 
     final sourceNode = path.sourceNode;
@@ -162,9 +185,9 @@ class ExchangeViewManager {
 
     AppLogger.exchangeInfo('1:1 교체 실행: ${sourceNode.teacherName}(${sourceNode.day}${sourceNode.period}교시) ↔ ${targetNode.teacherName}(${targetNode.day}${targetNode.period}교시)');
 
-    // 1:1 교체 실행
+    // 현재 데이터를 사용하여 교체 실행
     bool success = exchangeService.performOneToOneExchange(
-      dataSource!.timeSlots,
+      currentTimeSlots,
       sourceNode.teacherName,
       sourceNode.day,
       sourceNode.period,
@@ -179,13 +202,17 @@ class ExchangeViewManager {
       AppLogger.exchangeInfo('  └─ ${targetNode.day}|${targetNode.period}|${targetNode.className}|${sourceNode.teacherName}|${sourceNode.subjectName}');
       AppLogger.exchangeInfo('✅ 1:1 교체 성공: ${sourceNode.teacherName}(${sourceNode.day}${sourceNode.period}교시) ↔ ${targetNode.teacherName}(${targetNode.day}${targetNode.period}교시)');
 
-      // TimetableDataSource 업데이트
-      ref.read(stateResetProvider.notifier).resetExchangeStates(
-            reason: '1:1 교체 실행 - DataSource 업데이트',
-          );
-      dataSource?.updateData(dataSource!.timeSlots, timetableData!.teachers);
+      // TimetableDataSource 업데이트 (dataSource가 있는 경우에만)
+      if (dataSource != null && timetableData != null) {
+        ref.read(stateResetProvider.notifier).resetExchangeStates(
+              reason: '1:1 교체 실행 - DataSource 업데이트',
+            );
+        dataSource?.updateData(currentTimeSlots, currentTeachers);
+      }
+      return true;
     } else {
       AppLogger.exchangeDebug('❌ 1:1 교체 실패: ${sourceNode.teacherName}(${sourceNode.day}${sourceNode.period}교시) ↔ ${targetNode.teacherName}(${targetNode.day}${targetNode.period}교시)');
+      return false;
     }
   }
 
