@@ -15,6 +15,15 @@ import 'base_exchange_service.dart';
 /// 순환교체 서비스 클래스
 /// 여러 교사 간의 순환 교체 비즈니스 로직을 담당
 class CircularExchangeService extends BaseExchangeService {
+  // 싱글톤 인스턴스
+  static final CircularExchangeService _instance = CircularExchangeService._internal();
+  
+  // 싱글톤 생성자
+  factory CircularExchangeService() => _instance;
+  
+  // 내부 생성자
+  CircularExchangeService._internal();
+  
   // ==================== 상수 정의 ====================
   
   /// 기본 최대 단계 수 (순환 교체에서 최대 몇 단계까지 탐색할지)

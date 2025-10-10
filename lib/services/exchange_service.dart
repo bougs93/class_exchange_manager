@@ -11,6 +11,14 @@ import 'base_exchange_service.dart';
 /// 1:1 교체 서비스 클래스
 /// 교체 관련 비즈니스 로직을 담당
 class ExchangeService extends BaseExchangeService {
+  // 싱글톤 인스턴스
+  static final ExchangeService _instance = ExchangeService._internal();
+  
+  // 싱글톤 생성자
+  factory ExchangeService() => _instance;
+  
+  // 내부 생성자
+  ExchangeService._internal();
 
   // 타겟 셀 관련 상태 변수들 (교체 대상의 같은 행 셀)
   String? _targetTeacher;     // 타겟 교사명

@@ -16,6 +16,15 @@ import 'base_exchange_service.dart';
 /// A 교사의 해당 시간 수업을 먼저 다른 교사와 교체하여 빈 시간을 만든 후
 /// 최종 교체를 완성하는 방식입니다.
 class ChainExchangeService extends BaseExchangeService {
+  // 싱글톤 인스턴스
+  static final ChainExchangeService _instance = ChainExchangeService._internal();
+  
+  // 싱글톤 생성자
+  factory ChainExchangeService() => _instance;
+  
+  // 내부 생성자
+  ChainExchangeService._internal();
+  
   // ==================== 상수 정의 ====================
 
   /// 연쇄교체 경로 디버그 콘솔 출력 여부

@@ -179,22 +179,16 @@ class StateResetNotifier extends StateNotifier<ResetState> {
 
   /// 교체 히스토리 초기화 (Level 3 전용)
   void _clearExchangeHistory() {
-    AppLogger.exchangeDebug('[Level 3] 교체 히스토리 초기화 시작');
-    
     try {
       // ExchangeHistoryService의 교체 리스트와 되돌리기 스택 초기화
       // 주의: ExchangeHistoryService는 싱글톤이므로 직접 접근
       final historyService = ExchangeHistoryService();
       
-      AppLogger.exchangeDebug('[Level 3] ExchangeHistoryService 인스턴스 생성 완료');
-      
       // 교체 리스트 전체 삭제
       historyService.clearExchangeList();
-      AppLogger.exchangeDebug('[Level 3] 교체 리스트 초기화 완료');
       
       // 되돌리기 스택도 초기화
       historyService.clearUndoStack();
-      AppLogger.exchangeDebug('[Level 3] 되돌리기 스택 초기화 완료');
       
       AppLogger.exchangeDebug('[Level 3] 교체 히스토리 초기화 완료: _undoStack, _exchangeList');
       
@@ -203,7 +197,6 @@ class StateResetNotifier extends StateNotifier<ResetState> {
       AppLogger.exchangeDebug('[Level 3] 초기화 후 교체 리스트: ${historyService.getExchangeList().length}개');
     } catch (e) {
       AppLogger.exchangeDebug('[Level 3] 교체 히스토리 초기화 중 오류: $e');
-      AppLogger.exchangeDebug('[Level 3] 오류 스택 트레이스: ${StackTrace.current}');
     }
   }
 
@@ -354,9 +347,7 @@ class StateResetNotifier extends StateNotifier<ResetState> {
 
     // 🔥 추가: 교체 히스토리 초기화 (Level 3 전용)
     // 파일 선택/해제 시 모든 교체 히스토리를 초기화
-    AppLogger.exchangeDebug('[Level 3] 교체 히스토리 초기화 호출 전');
     _clearExchangeHistory();
-    AppLogger.exchangeDebug('[Level 3] 교체 히스토리 초기화 호출 후');
 
     // 교체 서비스 초기화
     // 주의: 서비스는 exchange_screen.dart에서 별도로 초기화됨

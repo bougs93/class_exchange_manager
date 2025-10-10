@@ -59,6 +59,15 @@ class TimetableData {
 
 /// 엑셀 파일을 읽고 처리하는 서비스 클래스
 class ExcelService {
+  // 싱글톤 인스턴스
+  static final ExcelService _instance = ExcelService._internal();
+  
+  // 싱글톤 생성자
+  factory ExcelService() => _instance;
+  
+  // 내부 생성자
+  ExcelService._internal();
+  
   /// 사용자가 엑셀 파일을 선택할 수 있게 하는 메서드
   /// 
   /// 반환값:
