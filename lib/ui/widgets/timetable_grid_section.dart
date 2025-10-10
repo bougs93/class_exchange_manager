@@ -794,10 +794,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
         final day = parts[0];
         final period = int.tryParse(parts[1]) ?? 0;
 
-        final cellKey = '${teacherName}_${day}_$period';
-        final isExchangedCell = _historyService
-            .getExchangedCellKeys()
-            .contains(cellKey);
+        final isExchangedCell = _historyService.isCellExchanged(teacherName, day, period);
 
         if (isExchangedCell) {
           _handleExchangedCellClick(teacherName, day, period);

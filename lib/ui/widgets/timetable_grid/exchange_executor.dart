@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/exchange_path.dart';
+import '../../../models/one_to_one_exchange_path.dart';
+import '../../../models/circular_exchange_path.dart';
+import '../../../models/chain_exchange_path.dart';
 import '../../../services/exchange_history_service.dart';
 import '../../../utils/timetable_data_source.dart';
 import '../../../utils/logger.dart';
@@ -85,7 +88,7 @@ class ExchangeExecutor {
     historyService.removeFromExchangeList(targetItem.id);
 
     // 2. 교체된 셀 목록 강제 업데이트
-    historyService.updateExchangedCells();
+    // _exchangeList가 변경되었으므로 UI 업데이트만 필요
 
     // 3. 콘솔 출력
     historyService.printExchangeList();
@@ -207,13 +210,74 @@ class ExchangeExecutor {
 
   /// 교체된 셀 상태 업데이트 (공통 메서드)
   void _updateExchangedCells() {
-    final exchangedCellKeys = historyService.getExchangedCellKeys();
-    ref.read(timetableThemeProvider.notifier).updateExchangedCells(exchangedCellKeys);
+    // 교체된 셀 목록을 _exchangeList에서 직접 추출
+    final exchangedCells = _getExchangedCellsFromList();
+    ref.read(timetableThemeProvider.notifier).updateExchangedCells(exchangedCells);
 
-    final exchangedDestinationCellKeys = historyService.getExchangedDestinationCellKeys();
-    ref.read(timetableThemeProvider.notifier).updateExchangedDestinationCells(exchangedDestinationCellKeys);
+    // 교체된 목적지 셀 목록을 _exchangeList에서 직접 추출
+    final exchangedDestinationCells = _getExchangedDestinationCellsFromList();
+    ref.read(timetableThemeProvider.notifier).updateExchangedDestinationCells(exchangedDestinationCells);
 
-    _debugPrintExchangedDestinationCells(exchangedDestinationCellKeys);
+    _debugPrintExchangedDestinationCells(exchangedDestinationCells);
+  }
+
+  /// _exchangeList에서 교체된 셀 목록 추출
+  List<String> _getExchangedCellsFromList() {
+    final cellKeys = <String>[];
+    
+    for (final item in historyService.getExchangeList()) {
+      final path = item.originalPath;
+      
+      if (path is OneToOneExchangePath) {
+        final sourceNode = path.sourceNode;
+        final targetNode = path.targetNode;
+        
+        cellKeys.add('${sourceNode.teacherName}_${sourceNode.day}_${sourceNode.period}');
+        cellKeys.add('${targetNode.teacherName}_${targetNode.day}_${targetNode.period}');
+      } else if (path is CircularExchangePath) {
+        for (final node in path.nodes) {
+          cellKeys.add('${node.teacherName}_${node.day}_${node.period}');
+        }
+      } else if (path is ChainExchangePath) {
+        cellKeys.add('${path.nodeA.teacherName}_${path.nodeA.day}_${path.nodeA.period}');
+        cellKeys.add('${path.nodeB.teacherName}_${path.nodeB.day}_${path.nodeB.period}');
+        cellKeys.add('${path.node1.teacherName}_${path.node1.day}_${path.node1.period}');
+        cellKeys.add('${path.node2.teacherName}_${path.node2.day}_${path.node2.period}');
+      }
+    }
+    
+    return cellKeys;
+  }
+
+  /// _exchangeList에서 교체된 목적지 셀 목록 추출
+  List<String> _getExchangedDestinationCellsFromList() {
+    final cellKeys = <String>[];
+    
+    for (final item in historyService.getExchangeList()) {
+      final path = item.originalPath;
+      
+      if (path is OneToOneExchangePath) {
+        final sourceNode = path.sourceNode;
+        final targetNode = path.targetNode;
+        
+        // targetNode의 교사가 sourceNode 위치로 이동
+        cellKeys.add('${targetNode.teacherName}_${sourceNode.day}_${sourceNode.period}');
+        // sourceNode의 교사가 targetNode 위치로 이동
+        cellKeys.add('${sourceNode.teacherName}_${targetNode.day}_${targetNode.period}');
+      } else if (path is CircularExchangePath) {
+        // 순환 교체의 경우: 첫 번째 노드 제외한 나머지 노드들
+        for (int i = 1; i < path.nodes.length; i++) {
+          final node = path.nodes[i];
+          cellKeys.add('${node.teacherName}_${node.day}_${node.period}');
+        }
+      } else if (path is ChainExchangePath) {
+        // 연쇄 교체의 경우: 각 교체 쌍의 두 번째 노드들
+        cellKeys.add('${path.nodeA.teacherName}_${path.nodeA.day}_${path.nodeA.period}');
+        cellKeys.add('${path.nodeB.teacherName}_${path.nodeB.day}_${path.nodeB.period}');
+      }
+    }
+    
+    return cellKeys;
   }
 
   /// 교체된 목적지 셀 디버그 출력
