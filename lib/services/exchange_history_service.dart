@@ -8,6 +8,15 @@ import 'dart:developer' as developer;
 /// 교체 히스토리를 관리하는 서비스 클래스
 /// 교체 실행, 되돌리기, 교체 리스트 관리를 담당
 class ExchangeHistoryService {
+  // 싱글톤 인스턴스
+  static final ExchangeHistoryService _instance = ExchangeHistoryService._internal();
+  
+  // 싱글톤 생성자
+  factory ExchangeHistoryService() => _instance;
+  
+  // 내부 생성자
+  ExchangeHistoryService._internal();
+  
   // 되돌리기용 스택 (메모리 저장, 최근 10개)
   final List<ExchangeHistoryItem> _undoStack = [];
   
