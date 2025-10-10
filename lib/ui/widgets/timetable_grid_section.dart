@@ -883,9 +883,29 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
           reason: '교체 뷰 활성화 - 선택 상태 초기화',
         );
 
+        // UI 업데이트 (교체 성공 시에만)
+        if (successCount > 0) {
+          // TimetableDataSource 업데이트 - 교체된 데이터 반영
+          if (widget.dataSource != null && widget.timetableData != null) {
+            widget.dataSource!.updateData(
+              widget.dataSource!.timeSlots, 
+              widget.timetableData!.teachers
+            );
+          }
+          
+          // 헤더 테마 업데이트 (교체된 셀 표시를 위해)
+          widget.onHeaderThemeUpdate?.call();
+          
+          // 화면 상태 강제 업데이트
+          if (mounted) {
+            setState(() {});
+            AppLogger.exchangeDebug('📱 UI 업데이트 완료: DataSource, 헤더 테마, 화면 상태 업데이트');
+          }
+        }
+
         // 실제 성공한 개수만 표시
         if (successCount > 0) {
-          AppLogger.exchangeInfo('교체 뷰 활성화 완료 - ${successCount}개 교체 적용됨 (총 ${exchangeList.length}개 중)');
+          AppLogger.exchangeInfo('교체 뷰 활성화 완료 - $successCount개 교체 적용됨 (총 ${exchangeList.length}개 중)');
         } else {
           AppLogger.exchangeInfo('교체 뷰 활성화 완료 - 교체 적용 실패 (총 ${exchangeList.length}개 모두 실패)');
         }
