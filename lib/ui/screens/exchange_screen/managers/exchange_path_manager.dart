@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../../../models/exchange_path.dart';
 import '../../../../models/one_to_one_exchange_path.dart';
 import '../../../../models/circular_exchange_path.dart';
 import '../../../../models/chain_exchange_path.dart';
@@ -35,7 +36,12 @@ class ExchangePathManager {
   /// 1:1 교체 경로 생성
   void generateOneToOnePaths(List<dynamic> options, TimetableData? timetableData) {
     if (!exchangeService.hasSelectedCell() || timetableData == null) {
-      stateProxy.setOneToOnePaths([]);
+      // 기존 경로들에서 1:1교체 경로 제거
+      List<ExchangePath> otherPaths = stateProxy.availablePaths
+          .where((path) => path is! OneToOneExchangePath)
+          .toList();
+      stateProxy.setAvailablePaths(otherPaths);
+      
       stateProxy.setSelectedOneToOnePath(null);
       stateProxy.setSidebarVisible(false);
       return;
@@ -64,7 +70,13 @@ class ExchangePathManager {
       paths[i].setCustomId('onetoone_path_${i + 1}');
     }
 
-    stateProxy.setOneToOnePaths(paths);
+    // 기존 경로들에서 1:1교체 경로 제거 후 새로운 경로들 추가
+    List<ExchangePath> otherPaths = stateProxy.availablePaths
+        .where((path) => path is! OneToOneExchangePath)
+        .toList();
+    List<ExchangePath> newPaths = [...otherPaths, ...paths];
+    stateProxy.setAvailablePaths(newPaths);
+    
     stateProxy.setSelectedOneToOnePath(null);
     onUpdateFilteredPaths();
     stateProxy.setSidebarVisible(paths.isNotEmpty);
@@ -94,7 +106,11 @@ class ExchangePathManager {
 
       if (timetableData == null) {
         AppLogger.error('시간표 데이터가 없습니다.');
-        stateProxy.setCircularPaths([]);
+        // 기존 경로들에서 순환교체 경로 제거
+        List<ExchangePath> otherPaths = stateProxy.availablePaths
+            .where((path) => path is! CircularExchangePath)
+            .toList();
+        stateProxy.setAvailablePaths(otherPaths);
         onUpdateProgressSmoothly(1.0);
         return;
       }
@@ -111,14 +127,24 @@ class ExchangePathManager {
       onUpdateProgressSmoothly(1.0);
       await Future.delayed(const Duration(milliseconds: 200));
 
-      stateProxy.setCircularPaths(paths);
+      // 기존 경로들에서 순환교체 경로 제거 후 새로운 경로들 추가
+      List<ExchangePath> otherPaths = stateProxy.availablePaths
+          .where((path) => path is! CircularExchangePath)
+          .toList();
+      List<ExchangePath> newPaths = [...otherPaths, ...paths];
+      stateProxy.setAvailablePaths(newPaths);
+      
       onUpdateFilteredPaths();
       stateProxy.setSidebarVisible(paths.isNotEmpty);
 
       AppLogger.exchangeInfo('순환교체 경로 탐색 완료 - ${paths.length}개 경로 발견');
     } catch (e) {
       AppLogger.error('순환교체 경로 탐색 중 오류: $e');
-      stateProxy.setCircularPaths([]);
+      // 기존 경로들에서 순환교체 경로 제거
+      List<ExchangePath> otherPaths = stateProxy.availablePaths
+          .where((path) => path is! CircularExchangePath)
+          .toList();
+      stateProxy.setAvailablePaths(otherPaths);
       onUpdateProgressSmoothly(1.0);
     }
   }
@@ -138,7 +164,13 @@ class ExchangePathManager {
         timetableData.teachers,
       );
 
-      stateProxy.setChainPaths(paths);
+      // 기존 경로들에서 연쇄교체 경로 제거 후 새로운 경로들 추가
+      List<ExchangePath> otherPaths = stateProxy.availablePaths
+          .where((path) => path is! ChainExchangePath)
+          .toList();
+      List<ExchangePath> newPaths = [...otherPaths, ...paths];
+      stateProxy.setAvailablePaths(newPaths);
+      
       onUpdateFilteredPaths();
       stateProxy.setSidebarVisible(paths.isNotEmpty);
 
@@ -149,7 +181,11 @@ class ExchangePathManager {
       }
     } catch (e) {
       AppLogger.error('연쇄교체 경로 탐색 오류: $e');
-      stateProxy.setChainPaths([]);
+      // 기존 경로들에서 연쇄교체 경로 제거
+      List<ExchangePath> otherPaths = stateProxy.availablePaths
+          .where((path) => path is! ChainExchangePath)
+          .toList();
+      stateProxy.setAvailablePaths(otherPaths);
     }
   }
 

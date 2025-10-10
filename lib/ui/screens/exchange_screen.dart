@@ -264,13 +264,13 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
   // SidebarBuilder 인터페이스 구현
   @override
-  List<OneToOneExchangePath> get oneToOnePaths => _stateProxy.oneToOnePaths;
+  List<OneToOneExchangePath> get oneToOnePaths => _stateProxy.availablePaths.whereType<OneToOneExchangePath>().toList();
   @override
   OneToOneExchangePath? get selectedOneToOnePath => _stateProxy.selectedOneToOnePath;
   @override
-  List<CircularExchangePath> get circularPaths => _stateProxy.circularPaths;
+  List<CircularExchangePath> get circularPaths => _stateProxy.availablePaths.whereType<CircularExchangePath>().toList();
   @override
-  List<ChainExchangePath> get chainPaths => _stateProxy.chainPaths;
+  List<ChainExchangePath> get chainPaths => _stateProxy.availablePaths.whereType<ChainExchangePath>().toList();
   @override
   List<int> get availableSteps => _stateProxy.availableSteps;
   @override
@@ -406,10 +406,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     final isCircularExchangeModeEnabled = screenState.currentMode == ExchangeMode.circularExchange;
     final isChainExchangeModeEnabled = screenState.currentMode == ExchangeMode.chainExchange;
     
-    // 🔥 통합된 경로 접근 (기존 호환성 유지)
-    final oneToOnePaths = screenState.availablePaths.whereType<OneToOneExchangePath>().toList();
-    final circularPaths = screenState.availablePaths.whereType<CircularExchangePath>().toList();
-    final chainPaths = screenState.availablePaths.whereType<ChainExchangePath>().toList();
+    // 통합된 경로 접근
+    final availablePaths = screenState.availablePaths;
     final isPathsLoading = screenState.isPathsLoading;
 
     return Scaffold(
@@ -440,9 +438,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
           // 통합 교체 사이드바
           if (isSidebarVisible && (
-            (isExchangeModeEnabled && oneToOnePaths.isNotEmpty) ||
-            (isCircularExchangeModeEnabled && (circularPaths.isNotEmpty || isPathsLoading)) ||
-            (isChainExchangeModeEnabled && (chainPaths.isNotEmpty || isPathsLoading))
+            (isExchangeModeEnabled && availablePaths.whereType<OneToOneExchangePath>().isNotEmpty) ||
+            (isCircularExchangeModeEnabled && (availablePaths.whereType<CircularExchangePath>().isNotEmpty || isPathsLoading)) ||
+            (isChainExchangeModeEnabled && (availablePaths.whereType<ChainExchangePath>().isNotEmpty || isPathsLoading))
           ))
             buildUnifiedExchangeSidebar(),
         ],
@@ -633,7 +631,13 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     );
 
     // 결과 적용
-    notifier.setCircularPaths(result.paths);
+    // 기존 경로들에서 순환교체 경로 제거 후 새로운 경로들 추가
+    List<ExchangePath> otherPaths = _stateProxy.availablePaths
+        .where((path) => path is! CircularExchangePath)
+        .toList();
+    List<ExchangePath> newPaths = [...otherPaths, ...result.paths];
+    notifier.setAvailablePaths(newPaths);
+    
     notifier.setSelectedCircularPath(null);
     notifier.setPathsLoading(false);
     notifier.setLoadingProgress(0.0);
@@ -730,7 +734,13 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     final notifier = ref.read(exchangeScreenProvider.notifier);
     notifier.setPathsLoading(true);
     notifier.setLoadingProgress(0.0);
-    notifier.setChainPaths([]);
+    
+    // 기존 경로들에서 연쇄교체 경로 제거
+    List<ExchangePath> otherPaths = _stateProxy.availablePaths
+        .where((path) => path is! ChainExchangePath)
+        .toList();
+    notifier.setAvailablePaths(otherPaths);
+    
     notifier.setSelectedChainPath(null);
     notifier.setSidebarVisible(true);
 
@@ -741,7 +751,11 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       teachers: _timetableData!.teachers,
     );
 
-    notifier.setChainPaths(result.paths);
+    // 결과 적용
+    List<ExchangePath> currentPaths = _stateProxy.availablePaths;
+    List<ExchangePath> newPaths = [...currentPaths, ...result.paths];
+    notifier.setAvailablePaths(newPaths);
+    
     notifier.setPathsLoading(false);
     notifier.setLoadingProgress(1.0);
     notifier.setSidebarVisible(result.shouldShowSidebar);
@@ -771,7 +785,13 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   void generateOneToOnePaths(List<dynamic> options) {
     if (!exchangeService.hasSelectedCell() || timetableData == null) {
       final notifier = ref.read(exchangeScreenProvider.notifier);
-      notifier.setOneToOnePaths([]);
+      
+      // 기존 경로들에서 1:1교체 경로 제거
+      List<ExchangePath> otherPaths = _stateProxy.availablePaths
+          .where((path) => path is! OneToOneExchangePath)
+          .toList();
+      notifier.setAvailablePaths(otherPaths);
+      
       notifier.setSelectedOneToOnePath(null);
       notifier.setSidebarVisible(false);
       return;
@@ -801,7 +821,14 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     }
 
     final notifier = ref.read(exchangeScreenProvider.notifier);
-    notifier.setOneToOnePaths(paths);
+    
+    // 기존 경로들에서 1:1교체 경로 제거 후 새로운 경로들 추가
+    List<ExchangePath> otherPaths = _stateProxy.availablePaths
+        .where((path) => path is! OneToOneExchangePath)
+        .toList();
+    List<ExchangePath> newPaths = [...otherPaths, ...paths];
+    notifier.setAvailablePaths(newPaths);
+    
     notifier.setSelectedOneToOnePath(null);
 
     // 필터링된 경로 업데이트

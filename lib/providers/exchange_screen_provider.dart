@@ -160,56 +160,6 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
   void setLoadingProgress(double progress) {
     state = state.copyWith(loadingProgress: progress);
   }
-  
-  // 🔥 타입별 경로 접근을 위한 편의 메서드들 (기존 호환성 유지)
-  
-  /// 순환교체 경로들만 반환
-  List<CircularExchangePath> get circularPaths => 
-    state.availablePaths.whereType<CircularExchangePath>().toList();
-  
-  /// 연쇄교체 경로들만 반환  
-  List<ChainExchangePath> get chainPaths => 
-    state.availablePaths.whereType<ChainExchangePath>().toList();
-  
-  /// 1:1교체 경로들만 반환
-  List<OneToOneExchangePath> get oneToOnePaths => 
-    state.availablePaths.whereType<OneToOneExchangePath>().toList();
-  
-  /// 순환교체 경로 설정 (기존 호환성 유지)
-  void setCircularPaths(List<CircularExchangePath> paths) {
-    // 기존 경로들에서 순환교체 경로 제거
-    List<ExchangePath> otherPaths = state.availablePaths
-        .where((path) => path is! CircularExchangePath)
-        .toList();
-    
-    // 새로운 순환교체 경로들 추가
-    List<ExchangePath> newPaths = [...otherPaths, ...paths];
-    setAvailablePaths(newPaths);
-  }
-  
-  /// 연쇄교체 경로 설정 (기존 호환성 유지)
-  void setChainPaths(List<ChainExchangePath> paths) {
-    // 기존 경로들에서 연쇄교체 경로 제거
-    List<ExchangePath> otherPaths = state.availablePaths
-        .where((path) => path is! ChainExchangePath)
-        .toList();
-    
-    // 새로운 연쇄교체 경로들 추가
-    List<ExchangePath> newPaths = [...otherPaths, ...paths];
-    setAvailablePaths(newPaths);
-  }
-  
-  /// 1:1교체 경로 설정 (기존 호환성 유지)
-  void setOneToOnePaths(List<OneToOneExchangePath> paths) {
-    // 기존 경로들에서 1:1교체 경로 제거
-    List<ExchangePath> otherPaths = state.availablePaths
-        .where((path) => path is! OneToOneExchangePath)
-        .toList();
-    
-    // 새로운 1:1교체 경로들 추가
-    List<ExchangePath> newPaths = [...otherPaths, ...paths];
-    setAvailablePaths(newPaths);
-  }
 
   void setSidebarVisible(bool visible) {
     state = state.copyWith(isSidebarVisible: visible);
