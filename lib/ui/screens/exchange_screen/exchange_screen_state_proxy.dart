@@ -4,6 +4,7 @@ import '../../../models/circular_exchange_path.dart';
 import '../../../models/chain_exchange_path.dart';
 import '../../../models/one_to_one_exchange_path.dart';
 import '../../../models/exchange_path.dart';
+import '../../../utils/exchange_path_utils.dart';
 import '../../../models/exchange_mode.dart';
 import '../../../providers/exchange_screen_provider.dart';
 import '../../../services/excel_service.dart';
@@ -128,11 +129,11 @@ class ExchangeScreenStateProxy {
   /// 현재 활성화된 교체 모드에 따른 경로 목록 반환
   List<ExchangePath> get currentPaths {
     if (isExchangeModeEnabled) {
-      return availablePaths.whereType<OneToOneExchangePath>().toList();
+      return ExchangePathUtils.getOneToOnePaths(availablePaths);
     } else if (isCircularExchangeModeEnabled) {
-      return availablePaths.whereType<CircularExchangePath>().toList();
+      return ExchangePathUtils.getCircularPaths(availablePaths);
     } else if (isChainExchangeModeEnabled) {
-      return availablePaths.whereType<ChainExchangePath>().toList();
+      return ExchangePathUtils.getChainPaths(availablePaths);
     }
     return [];
   }

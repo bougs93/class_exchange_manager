@@ -20,6 +20,7 @@ import '../../models/exchange_path.dart';
 import '../../models/exchange_mode.dart';
 import '../../models/one_to_one_exchange_path.dart';
 import '../../utils/exchange_path_converter.dart';
+import '../../utils/exchange_path_utils.dart';
 
 import '../widgets/timetable_grid_section.dart';
 import '../mixins/exchange_logic_mixin.dart';
@@ -264,13 +265,13 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
   // SidebarBuilder 인터페이스 구현
   @override
-  List<OneToOneExchangePath> get oneToOnePaths => _stateProxy.availablePaths.whereType<OneToOneExchangePath>().toList();
+  List<OneToOneExchangePath> get oneToOnePaths => ExchangePathUtils.getOneToOnePaths(_stateProxy.availablePaths);
   @override
   OneToOneExchangePath? get selectedOneToOnePath => _stateProxy.selectedOneToOnePath;
   @override
-  List<CircularExchangePath> get circularPaths => _stateProxy.availablePaths.whereType<CircularExchangePath>().toList();
+  List<CircularExchangePath> get circularPaths => ExchangePathUtils.getCircularPaths(_stateProxy.availablePaths);
   @override
-  List<ChainExchangePath> get chainPaths => _stateProxy.availablePaths.whereType<ChainExchangePath>().toList();
+  List<ChainExchangePath> get chainPaths => ExchangePathUtils.getChainPaths(_stateProxy.availablePaths);
   @override
   List<int> get availableSteps => _stateProxy.availableSteps;
   @override
@@ -438,9 +439,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
           // 통합 교체 사이드바
           if (isSidebarVisible && (
-            (isExchangeModeEnabled && availablePaths.whereType<OneToOneExchangePath>().isNotEmpty) ||
-            (isCircularExchangeModeEnabled && (availablePaths.whereType<CircularExchangePath>().isNotEmpty || isPathsLoading)) ||
-            (isChainExchangeModeEnabled && (availablePaths.whereType<ChainExchangePath>().isNotEmpty || isPathsLoading))
+            (isExchangeModeEnabled && ExchangePathUtils.hasPathsOfType<OneToOneExchangePath>(availablePaths)) ||
+            (isCircularExchangeModeEnabled && (ExchangePathUtils.hasPathsOfType<CircularExchangePath>(availablePaths) || isPathsLoading)) ||
+            (isChainExchangeModeEnabled && (ExchangePathUtils.hasPathsOfType<ChainExchangePath>(availablePaths) || isPathsLoading))
           ))
             buildUnifiedExchangeSidebar(),
         ],
@@ -631,11 +632,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     );
 
     // 결과 적용
-    // 기존 경로들에서 순환교체 경로 제거 후 새로운 경로들 추가
-    List<ExchangePath> otherPaths = _stateProxy.availablePaths
-        .where((path) => path is! CircularExchangePath)
-        .toList();
-    List<ExchangePath> newPaths = [...otherPaths, ...result.paths];
+    List<ExchangePath> newPaths = ExchangePathUtils.replacePaths(_stateProxy.availablePaths, result.paths);
     notifier.setAvailablePaths(newPaths);
     
     notifier.setSelectedCircularPath(null);
@@ -736,9 +733,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     notifier.setLoadingProgress(0.0);
     
     // 기존 경로들에서 연쇄교체 경로 제거
-    List<ExchangePath> otherPaths = _stateProxy.availablePaths
-        .where((path) => path is! ChainExchangePath)
-        .toList();
+    List<ExchangePath> otherPaths = ExchangePathUtils.removePaths<ChainExchangePath>(_stateProxy.availablePaths);
     notifier.setAvailablePaths(otherPaths);
     
     notifier.setSelectedChainPath(null);
@@ -752,8 +747,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     );
 
     // 결과 적용
-    List<ExchangePath> currentPaths = _stateProxy.availablePaths;
-    List<ExchangePath> newPaths = [...currentPaths, ...result.paths];
+    List<ExchangePath> newPaths = ExchangePathUtils.replacePaths(_stateProxy.availablePaths, result.paths);
     notifier.setAvailablePaths(newPaths);
     
     notifier.setPathsLoading(false);
@@ -787,9 +781,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       final notifier = ref.read(exchangeScreenProvider.notifier);
       
       // 기존 경로들에서 1:1교체 경로 제거
-      List<ExchangePath> otherPaths = _stateProxy.availablePaths
-          .where((path) => path is! OneToOneExchangePath)
-          .toList();
+      List<ExchangePath> otherPaths = ExchangePathUtils.removePaths<OneToOneExchangePath>(_stateProxy.availablePaths);
       notifier.setAvailablePaths(otherPaths);
       
       notifier.setSelectedOneToOnePath(null);
@@ -823,10 +815,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     final notifier = ref.read(exchangeScreenProvider.notifier);
     
     // 기존 경로들에서 1:1교체 경로 제거 후 새로운 경로들 추가
-    List<ExchangePath> otherPaths = _stateProxy.availablePaths
-        .where((path) => path is! OneToOneExchangePath)
-        .toList();
-    List<ExchangePath> newPaths = [...otherPaths, ...paths];
+    List<ExchangePath> newPaths = ExchangePathUtils.replacePaths(_stateProxy.availablePaths, paths);
     notifier.setAvailablePaths(newPaths);
     
     notifier.setSelectedOneToOnePath(null);

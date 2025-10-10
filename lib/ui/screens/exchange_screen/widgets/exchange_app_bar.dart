@@ -3,6 +3,7 @@ import '../../../../providers/exchange_screen_provider.dart';
 import '../../../../models/exchange_mode.dart';
 import '../../../../models/circular_exchange_path.dart';
 import '../../../../models/one_to_one_exchange_path.dart';
+import '../../../../utils/exchange_path_utils.dart';
 
 /// 교체 화면 AppBar 위젯
 class ExchangeAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -24,19 +25,19 @@ class ExchangeAppBar extends StatelessWidget implements PreferredSizeWidget {
       actions: [
         // 순환교체 사이드바 토글 버튼
         if (state.currentMode == ExchangeMode.circularExchange &&
-            (state.availablePaths.whereType<CircularExchangePath>().isNotEmpty || state.isPathsLoading))
+            (ExchangePathUtils.hasPathsOfType<CircularExchangePath>(state.availablePaths) || state.isPathsLoading))
           _buildSidebarToggleButton(
             isLoading: state.isPathsLoading,
             loadingProgress: state.loadingProgress,
-            pathCount: state.availablePaths.whereType<CircularExchangePath>().length,
+            pathCount: ExchangePathUtils.countPathsOfType<CircularExchangePath>(state.availablePaths),
             color: Colors.purple.shade600,
           ),
 
         // 1:1 교체 사이드바 토글 버튼
-        if (state.currentMode.isExchangeMode && state.availablePaths.whereType<OneToOneExchangePath>().isNotEmpty)
+        if (state.currentMode.isExchangeMode && ExchangePathUtils.hasPathsOfType<OneToOneExchangePath>(state.availablePaths))
           _buildSidebarToggleButton(
             isLoading: false,
-            pathCount: state.availablePaths.whereType<OneToOneExchangePath>().length,
+            pathCount: ExchangePathUtils.countPathsOfType<OneToOneExchangePath>(state.availablePaths),
             color: Colors.blue.shade600,
           ),
       ],
