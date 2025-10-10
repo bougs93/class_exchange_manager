@@ -3,6 +3,7 @@ import '../models/exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
 import '../models/circular_exchange_path.dart';
 import '../models/chain_exchange_path.dart';
+import '../utils/logger.dart';
 import 'dart:developer' as developer;
 
 /// 교체 히스토리를 관리하는 서비스 클래스
@@ -37,7 +38,7 @@ class ExchangeHistoryService {
     List<String>? tags,
   }) {
     // 실제 교체 실행 (TimetableDataSource 업데이트는 외부에서 처리)
-    developer.log('[교체 실행] ${path.displayTitle}');
+    AppLogger.exchangeInfo('[교체 실행] ${path.displayTitle}');
 
     // 히스토리에 추가
     addExchange(
@@ -238,28 +239,28 @@ class ExchangeHistoryService {
 
   /// 교체 리스트를 콘솔에 출력
   void printExchangeList() {
-    developer.log('[교체 리스트] 총 ${_exchangeList.length}개');
+    AppLogger.exchangeInfo('[교체 리스트] 총 ${_exchangeList.length}개');
     if (_exchangeList.isEmpty) {
-      developer.log('  교체 리스트가 비어있습니다.');
+      AppLogger.exchangeInfo('  교체 리스트가 비어있습니다.');
     } else {
       for (int i = 0; i < _exchangeList.length; i++) {
         final item = _exchangeList[i];
         final nodeInfo = _getNodeInfo(item.originalPath);
-        developer.log('  ${i + 1} Type: ${_getPathTypeString(item.type)} - $nodeInfo');
+        AppLogger.exchangeInfo('  ${i + 1} Type: ${_getPathTypeString(item.type)} - $nodeInfo');
       }
     }
   }
 
   /// 되돌리기 히스토리를 콘솔에 출력
   void printUndoHistory() {
-    developer.log('[되돌리기 히스토리] 총 ${_undoStack.length}개');
+    AppLogger.exchangeInfo('[되돌리기 히스토리] 총 ${_undoStack.length}개');
     if (_undoStack.isEmpty) {
-      developer.log('  되돌리기 히스토리가 비어있습니다.');
+      AppLogger.exchangeInfo('  되돌리기 히스토리가 비어있습니다.');
     } else {
       for (int i = 0; i < _undoStack.length; i++) {
         final item = _undoStack[i];
         final nodeInfo = _getNodeInfo(item.originalPath);
-        developer.log('  ${i + 1} Type: ${_getPathTypeString(item.type)} - $nodeInfo');
+        AppLogger.exchangeInfo('  ${i + 1} Type: ${_getPathTypeString(item.type)} - $nodeInfo');
       }
     }
   }
@@ -267,22 +268,22 @@ class ExchangeHistoryService {
   /// 전체 히스토리 통계를 콘솔에 출력
   void printHistoryStats() {
     final stats = getExchangeListStats();
-    developer.log('\n=== 교체 히스토리 통계 ===');
-    developer.log('전체 교체: ${stats['total']}개');
-    developer.log('활성 교체: ${stats['active']}개');
-    developer.log('되돌린 교체: ${stats['reverted']}개');
-    developer.log('되돌리기 가능: ${_undoStack.length}개');
+    AppLogger.exchangeInfo('\n=== 교체 히스토리 통계 ===');
+    AppLogger.exchangeInfo('전체 교체: ${stats['total']}개');
+    AppLogger.exchangeInfo('활성 교체: ${stats['active']}개');
+    AppLogger.exchangeInfo('되돌린 교체: ${stats['reverted']}개');
+    AppLogger.exchangeInfo('되돌리기 가능: ${_undoStack.length}개');
     
     final typeStats = stats['typeStats'] as Map<ExchangePathType, int>;
-    developer.log('\n교체 타입별 통계:');
+    AppLogger.exchangeInfo('\n교체 타입별 통계:');
     typeStats.forEach((type, count) {
-      developer.log('  ${type.displayName}: $count개');
+      AppLogger.exchangeInfo('  ${type.displayName}: $count개');
     });
     
     if (stats['lastExchange'] != null) {
-      developer.log('\n마지막 교체: ${stats['lastExchange']}');
+      AppLogger.exchangeInfo('\n마지막 교체: ${stats['lastExchange']}');
     }
-    developer.log('========================\n');
+    AppLogger.exchangeInfo('========================\n');
   }
 
   /// ExchangePath에서 노드 정보를 요약해서 반환
