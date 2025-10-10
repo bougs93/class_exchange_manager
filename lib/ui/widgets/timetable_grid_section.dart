@@ -158,8 +158,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   // 교체 뷰 체크박스 상태
   bool _isExchangeViewEnabled = false;
 
-  // widget_arrows 기반 화살표 매니저
-  WidgetArrowsManager? _arrowsManager;
+  // 싱글톤 화살표 매니저
+  final WidgetArrowsManager _arrowsManager = WidgetArrowsManager();
 
   /// 현재 선택된 교체 경로 (외부 또는 내부)
   ExchangePath? get currentSelectedPath => widget.selectedExchangePath ?? _internalSelectedPath;
@@ -234,14 +234,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
   @override
   void dispose() {
-    // 화살표 매니저 정리
-    if (_arrowsManager != null) {
-      _arrowsManager!.clearAllArrows();
-      _arrowsManager = null;
-    }
-    
-    // 전역 헬퍼 정리
-    ArrowInitializationHelper.clearAllArrows();
+    // 화살표 매니저 정리 (싱글톤이므로 clearAllArrows만 호출)
+    _arrowsManager.clearAllArrows();
     
     // 기존 리소스 정리
     _zoomManager.dispose();
@@ -366,16 +360,13 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   /// 화살표 매니저 초기화
   void _initializeArrowsManager() {
     if (widget.timetableData != null) {
-      _arrowsManager = WidgetArrowsManager(
+      _arrowsManager.initialize(
         timetableData: widget.timetableData!,
         columns: widget.columns,
         zoomFactor: _zoomManager.zoomFactor,
       );
       
-      // 전역 헬퍼에 매니저 설정
-      ArrowInitializationHelper.setManager(_arrowsManager!);
-      
-      AppLogger.exchangeDebug('화살표 매니저 초기화 완료');
+      AppLogger.exchangeDebug('화살표 매니저 싱글톤 초기화 완료');
     }
   }
 
@@ -846,13 +837,9 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     _internalSelectedPath = null;
     
     // 새로운 화살표 시스템에서도 화살표 정리
-    if (_arrowsManager != null) {
-      _arrowsManager!.clearAllArrows();
-      AppLogger.exchangeDebug('내부 화살표 초기화 완료');
-    }
-    
-    // 전역 헬퍼를 통한 화살표 정리
-    ArrowInitializationHelper.clearAllArrows();
+    // 싱글톤 화살표 매니저를 통한 화살표 정리
+    _arrowsManager.clearAllArrows();
+    AppLogger.exchangeDebug('화살표 초기화 완료 (싱글톤)');
   }
 
   /// 교체 뷰 활성화

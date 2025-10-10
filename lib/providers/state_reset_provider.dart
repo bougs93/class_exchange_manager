@@ -113,8 +113,8 @@ class StateResetNotifier extends StateNotifier<ResetState> {
 
   /// 공통 초기화 작업 수행
   void _performCommonResetTasks() {
-    // widget_arrows 기반 화살표 초기화
-    ArrowInitializationHelper.clearAllArrows();
+    // 화살표 초기화 (싱글톤 방식)
+    WidgetArrowsManager().clearAllArrows();
   }
 
   /// 모든 셀 선택 상태 강제 해제 (ExchangeScreen의 _clearAllCellSelections와 동일한 로직)

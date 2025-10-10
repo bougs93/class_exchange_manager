@@ -10,24 +10,51 @@ import '../../../models/exchange_node.dart';
 import '../../../utils/logger.dart';
 import 'exchange_arrow_style.dart';
 
-/// widget_arrows 패키지를 활용한 화살표 관리 클래스
+/// widget_arrows 패키지를 활용한 화살표 관리 클래스 (싱글톤)
 /// 
 /// 기존의 복잡한 CustomPainter 대신 widget_arrows 패키지를 사용하여
 /// 더 간단하고 안정적인 화살표 표시 기능을 제공합니다.
 class WidgetArrowsManager {
-  final TimetableData timetableData;
-  final List<GridColumn> columns;
-  final double zoomFactor;
+  // 싱글톤 인스턴스
+  static final WidgetArrowsManager _instance = WidgetArrowsManager._internal();
+  
+  // 싱글톤 생성자
+  factory WidgetArrowsManager() => _instance;
+  
+  // 내부 생성자
+  WidgetArrowsManager._internal();
+  
+  // 현재 설정된 데이터 (동적으로 업데이트 가능)
+  TimetableData? _timetableData;
+  List<GridColumn>? _columns;
+  // double _zoomFactor = 1.0; // 현재 사용되지 않음
   
   // 화살표 ID 관리
   final Map<String, String> _arrowIds = {};
   final List<String> _activeArrowIds = [];
   
-  WidgetArrowsManager({
-    required this.timetableData,
-    required this.columns,
-    required this.zoomFactor,
-  });
+  /// 데이터 설정 (초기화 시 호출)
+  void initialize({
+    required TimetableData timetableData,
+    required List<GridColumn> columns,
+    double zoomFactor = 1.0, // 현재 사용되지 않지만 호환성을 위해 유지
+  }) {
+    _timetableData = timetableData;
+    _columns = columns;
+    // _zoomFactor = zoomFactor; // 현재 사용되지 않음
+    AppLogger.exchangeDebug('WidgetArrowsManager 싱글톤 초기화 완료');
+  }
+  
+  /// 데이터 업데이트 (동적 변경 시 호출)
+  void updateData({
+    TimetableData? timetableData,
+    List<GridColumn>? columns,
+    double? zoomFactor, // 현재 사용되지 않지만 호환성을 위해 유지
+  }) {
+    if (timetableData != null) _timetableData = timetableData;
+    if (columns != null) _columns = columns;
+    // if (zoomFactor != null) _zoomFactor = zoomFactor; // 현재 사용되지 않음
+  }
 
   /// 교체 경로에 따른 화살표 생성
   /// 
@@ -177,8 +204,12 @@ class WidgetArrowsManager {
 
   /// 셀 ID 생성 (DataGrid의 실제 셀과 연결)
   String _getCellId(ExchangeNode node) {
+    if (_timetableData == null) {
+      return 'cell_${node.teacherName}_${node.day}_${node.period}';
+    }
+    
     // 교사 인덱스 찾기
-    int teacherIndex = timetableData.teachers
+    int teacherIndex = _timetableData!.teachers
         .indexWhere((teacher) => teacher.name == node.teacherName);
     
     if (teacherIndex == -1) {
@@ -214,85 +245,16 @@ class WidgetArrowsManager {
 
   /// 화살표 개수 조회
   int get arrowCount => _activeArrowIds.length;
-}
 
-/// 화살표 표시를 위한 위젯 래퍼
-/// 
-/// widget_arrows 패키지를 사용하여 화살표가 포함된 위젯을 생성합니다.
-/// 현재는 기존 CustomPainter 방식으로 폴백합니다.
-class ArrowDisplayWidget extends StatelessWidget {
-  final List<ArrowElement> arrows;
-  final Widget child;
-  final WidgetArrowsManager arrowsManager;
-
-  const ArrowDisplayWidget({
-    super.key,
-    required this.arrows,
-    required this.child,
-    required this.arrowsManager,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (arrows.isEmpty) {
-      return child;
-    }
-
-    // 현재는 widget_arrows 패키지 대신 기존 방식 사용
-    // TODO: widget_arrows 패키지의 올바른 API 확인 후 구현
-    AppLogger.warning('ArrowDisplayWidget: widget_arrows 패키지 사용 대신 기존 방식으로 폴백');
-    return child;
-  }
-}
-
-/// 화살표 초기화 헬퍼
-/// 
-/// 화살표 상태를 관리하고 초기화하는 기능을 제공합니다.
-class ArrowInitializationHelper {
-  static WidgetArrowsManager? _currentManager;
-  
-  /// 화살표 매니저 설정
-  static void setManager(WidgetArrowsManager manager) {
-    _currentManager = manager;
-  }
-  
-  /// 현재 화살표 매니저 조회
-  static WidgetArrowsManager? get currentManager => _currentManager;
-  
-  /// 모든 화살표 초기화
-  static void clearAllArrows() {
-    _currentManager?.clearAllArrows();
-  }
-  
-  /// 특정 타입의 화살표만 초기화
-  static void clearArrowsByType(String type) {
-    if (_currentManager == null) return;
-    
-    final manager = _currentManager!;
-    final activeIds = manager.activeArrowIds;
-    
-    for (final arrowId in activeIds) {
-      if (arrowId.startsWith('${type}_arrow_')) {
-        manager.removeArrow(arrowId);
-      }
-    }
-  }
-  
   /// 화살표 상태 정보 조회
-  static Map<String, dynamic> getArrowStatus() {
-    if (_currentManager == null) {
-      return {
-        'isActive': false,
-        'arrowCount': 0,
-        'activeIds': <String>[],
-      };
-    }
-    
-    final manager = _currentManager!;
+  Map<String, dynamic> getArrowStatus() {
     return {
-      'isActive': manager.arrowCount > 0,
-      'arrowCount': manager.arrowCount,
-      'activeIds': manager.activeArrowIds,
+      'isActive': arrowCount > 0,
+      'arrowCount': arrowCount,
+      'activeIds': activeArrowIds,
     };
   }
+  
+  /// 초기화 상태 확인
+  bool get isInitialized => _timetableData != null && _columns != null;
 }
