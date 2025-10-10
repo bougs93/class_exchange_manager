@@ -24,11 +24,7 @@ class CircularExchangeService extends BaseExchangeService {
   static const bool defaultExactSteps = false;
   
   // ==================== 성능 최적화 ====================
-
-  /// 경로 탐색 결과 캐싱 (성능 최적화)
-  /// LRU 방식으로 최대 100개 경로까지 캐싱
-  static const int _maxCacheSize = 100;
-  final Map<String, List<CircularExchangePath>> _pathCache = <String, List<CircularExchangePath>>{};
+  // 캐시 로직 제거됨 - 복잡도 감소를 위해 매번 새로 계산
 
   /// 순환교체 경로 디버그 콘솔 출력 여부
   static const bool enablePathDebugLogging = false;
@@ -89,7 +85,7 @@ class CircularExchangeService extends BaseExchangeService {
   void clearAllSelections() {
     clearCellSelection();
     _exchangeOptions.clear();
-    _pathCache.clear(); // 캐시 초기화
+    // 캐시 로직 제거됨
   }
   
   /// 순환교체용 교체 가능한 교사 정보 가져오기 (1스탭: 같은 학급, 다른 시간대, 양쪽 빈시간)
@@ -195,23 +191,8 @@ class CircularExchangeService extends BaseExchangeService {
     
     AppLogger.exchangeDebug('순환 경로 탐색 시작: ${startNode.displayText}');
     
-    // 캐시 키 생성
-    String cacheKey = '${startNode.nodeId}_${maxSteps}_${exactSteps}_$prioritizeShortSteps';
-    
-    // 캐시된 결과 확인
-    if (_pathCache.containsKey(cacheKey)) {
-      AppLogger.exchangeDebug('캐시된 경로 사용: ${_pathCache[cacheKey]!.length}개 경로');
-      return _pathCache[cacheKey]!;
-    }
-
-    // LRU 캐시: 최대 크기 초과 시 가장 오래된 항목 제거
-    if (_pathCache.length >= _maxCacheSize) {
-      String oldestKey = _pathCache.keys.first;
-      _pathCache.remove(oldestKey);
-      AppLogger.exchangeDebug('캐시 크기 초과: 가장 오래된 항목 제거');
-    }
-    
-    // 단계별 우선순위 탐색 (성능 최적화)
+    // 캐시 로직 제거됨 - 매번 새로 계산하여 복잡도 감소
+    // 단계별 우선순위 탐색
     List<List<ExchangeNode>> foundPaths = prioritizeShortSteps 
       ? _findCircularPathsBySteps(startNode, validTimeSlots, teachers, teacherTimeIndex, maxSteps, exactSteps)
       : _findCircularPathsDFS(startNode, validTimeSlots, teachers, teacherTimeIndex, maxSteps, exactSteps);
@@ -242,9 +223,8 @@ class CircularExchangeService extends BaseExchangeService {
     // 불필요한 긴 단계 경로 제외 (더 짧은 단계로 같은 결과를 얻을 수 있는 경우)
     allPaths = _removeRedundantPaths(validPaths);         // [5단계] : 불필요한 긴 단계 경로 제외 (_removeRedundantPaths)
     
-    // 결과 캐싱 (성능 최적화)
-    _pathCache[cacheKey] = allPaths;
-    AppLogger.exchangeDebug('경로 탐색 결과 캐싱: ${allPaths.length}개 경로 저장');
+    // 캐시 로직 제거됨 - 복잡도 감소를 위해 매번 새로 계산
+    AppLogger.exchangeDebug('경로 탐색 완료: ${allPaths.length}개 경로 발견');
     
     return allPaths;
   }

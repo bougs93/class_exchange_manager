@@ -65,19 +65,24 @@ class ExchangeScreenStateProxy {
 
   // ===== ExchangePathHandler 관련 상태 =====
 
-  List<OneToOneExchangePath> get oneToOnePaths => _state.oneToOnePaths;
+  // 🔥 통합된 경로 접근 (기존 호환성 유지)
+  List<ExchangePath> get availablePaths => _state.availablePaths;
+  void setAvailablePaths(List<ExchangePath> value) => _notifier.setAvailablePaths(value);
+  
+  // 타입별 경로 접근 (기존 호환성 유지)
+  List<OneToOneExchangePath> get oneToOnePaths => _state.availablePaths.whereType<OneToOneExchangePath>().toList();
   void setOneToOnePaths(List<OneToOneExchangePath> value) => _notifier.setOneToOnePaths(value);
 
   OneToOneExchangePath? get selectedOneToOnePath => _state.selectedOneToOnePath;
   void setSelectedOneToOnePath(OneToOneExchangePath? value) => _notifier.setSelectedOneToOnePath(value);
 
-  List<CircularExchangePath> get circularPaths => _state.circularPaths;
+  List<CircularExchangePath> get circularPaths => _state.availablePaths.whereType<CircularExchangePath>().toList();
   void setCircularPaths(List<CircularExchangePath> value) => _notifier.setCircularPaths(value);
 
   CircularExchangePath? get selectedCircularPath => _state.selectedCircularPath;
   void setSelectedCircularPath(CircularExchangePath? value) => _notifier.setSelectedCircularPath(value);
 
-  List<ChainExchangePath> get chainPaths => _state.chainPaths;
+  List<ChainExchangePath> get chainPaths => _state.availablePaths.whereType<ChainExchangePath>().toList();
   void setChainPaths(List<ChainExchangePath> value) => _notifier.setChainPaths(value);
 
   ChainExchangePath? get selectedChainPath => _state.selectedChainPath;
@@ -104,11 +109,19 @@ class ExchangeScreenStateProxy {
 
   // ===== SidebarBuilder 관련 상태 =====
 
-  bool get isCircularPathsLoading => _state.isCircularPathsLoading;
-  void setCircularPathsLoading(bool value) => _notifier.setCircularPathsLoading(value);
-
-  bool get isChainPathsLoading => _state.isChainPathsLoading;
-  void setChainPathsLoading(bool value) => _notifier.setChainPathsLoading(value);
+  bool get isPathsLoading => _state.isPathsLoading;
+  void setPathsLoading(bool value) => _notifier.setPathsLoading(value);
+  
+  // 기존 호환성을 위한 메서드들 (deprecated)
+  @Deprecated('Use isPathsLoading instead')
+  bool get isCircularPathsLoading => _state.isPathsLoading;
+  @Deprecated('Use setPathsLoading instead')
+  void setCircularPathsLoading(bool value) => _notifier.setPathsLoading(value);
+  
+  @Deprecated('Use isPathsLoading instead')
+  bool get isChainPathsLoading => _state.isPathsLoading;
+  @Deprecated('Use setPathsLoading instead')
+  void setChainPathsLoading(bool value) => _notifier.setPathsLoading(value);
 
   double get loadingProgress => _state.loadingProgress;
   void setLoadingProgress(double value) => _notifier.setLoadingProgress(value);
@@ -147,5 +160,5 @@ class ExchangeScreenStateProxy {
   }
 
   /// 로딩 상태 확인
-  bool get isAnyLoading => isLoading || isCircularPathsLoading || isChainPathsLoading;
+  bool get isAnyLoading => isLoading || isPathsLoading;
 }

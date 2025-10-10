@@ -6,6 +6,7 @@ import 'services_provider.dart';
 import '../ui/widgets/timetable_grid/widget_arrows_manager.dart';
 import '../utils/fixed_header_style_manager.dart';
 import '../utils/syncfusion_timetable_helper.dart';
+import '../services/exchange_history_service.dart';
 
 /// 초기화 레벨 정의
 ///
@@ -176,14 +177,27 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     screenState.dataSource?.notifyListeners();
   }
 
-  /// 상태 업데이트 및 로깅
-  void _updateStateAndLog(ResetLevel level, String reason) {
-    state = ResetState(
-      lastResetTime: DateTime.now(),
-      lastResetLevel: level,
-      resetReason: reason,
-    );
-    AppLogger.exchangeDebug('[$level] 초기화 완료 - $state');
+  /// 교체 히스토리 초기화 (Level 3 전용)
+  void _clearExchangeHistory() {
+    try {
+      // ExchangeHistoryService의 교체 리스트와 되돌리기 스택 초기화
+      // 주의: ExchangeHistoryService는 싱글톤이므로 직접 접근
+      final historyService = ExchangeHistoryService();
+      
+      // 교체 리스트 전체 삭제
+      historyService.clearExchangeList();
+      
+      // 되돌리기 스택도 초기화
+      historyService.clearUndoStack();
+      
+      AppLogger.exchangeDebug('[Level 3] 교체 히스토리 초기화 완료: _undoStack, _exchangeList');
+      
+      // 초기화 후 상태 확인을 위한 디버그 로그
+      AppLogger.exchangeDebug('[Level 3] 초기화 후 되돌리기 스택: ${historyService.getUndoStack().length}개');
+      AppLogger.exchangeDebug('[Level 3] 초기화 후 교체 리스트: ${historyService.getExchangeList().length}개');
+    } catch (e) {
+      AppLogger.exchangeDebug('[Level 3] 교체 히스토리 초기화 중 오류: $e');
+    }
   }
 
   // ========================================
@@ -298,6 +312,7 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   /// - 전역 Provider (선택, 캐시, 교체된 셀)
   /// - UI 상태
   /// - 헤더 테마 (기본값으로 복원)
+  /// - 교체 히스토리 (_undoStack, _exchangeList)
   ///
   /// **사용 시점**:
   /// - 파일 선택/해제 시
@@ -330,6 +345,10 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     //   -> 헤더 테마 유지됨.
     _updateHeaderTheme();
 
+    // 🔥 추가: 교체 히스토리 초기화 (Level 3 전용)
+    // 파일 선택/해제 시 모든 교체 히스토리를 초기화
+    _clearExchangeHistory();
+
     // 교체 서비스 초기화
     // 주의: 서비스는 exchange_screen.dart에서 별도로 초기화됨
     // Provider 순환 참조를 피하기 위해 여기서는 생략
@@ -342,17 +361,14 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   // 유틸리티 메서드
   // ========================================
 
-  /// 마지막 초기화 정보 조회
-  String getLastResetInfo() {
-    if (state.lastResetTime == null) {
-      return '초기화 기록 없음';
-    }
-
-    final timeStr = '${state.lastResetTime!.hour.toString().padLeft(2, '0')}:'
-        '${state.lastResetTime!.minute.toString().padLeft(2, '0')}:'
-        '${state.lastResetTime!.second.toString().padLeft(2, '0')}';
-
-    return '${state.lastResetLevel?.name} - $timeStr - ${state.resetReason}';
+  /// 상태 업데이트 및 로깅
+  void _updateStateAndLog(ResetLevel level, String reason) {
+    state = ResetState(
+      lastResetTime: DateTime.now(),
+      lastResetLevel: level,
+      resetReason: reason,
+    );
+    AppLogger.exchangeDebug('[$level] 초기화 완료 - $state');
   }
 }
 

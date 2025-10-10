@@ -285,9 +285,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   @override
   double get sidebarWidth => 180.0;
   @override
-  bool get isCircularPathsLoading => _stateProxy.isCircularPathsLoading;
+  bool get isCircularPathsLoading => _stateProxy.isPathsLoading;
   @override
-  bool get isChainPathsLoading => _stateProxy.isChainPathsLoading;
+  bool get isChainPathsLoading => _stateProxy.isPathsLoading;
   @override
   double get loadingProgress => _stateProxy.loadingProgress;
   @override
@@ -405,11 +405,12 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     final isExchangeModeEnabled = screenState.currentMode == ExchangeMode.oneToOneExchange;
     final isCircularExchangeModeEnabled = screenState.currentMode == ExchangeMode.circularExchange;
     final isChainExchangeModeEnabled = screenState.currentMode == ExchangeMode.chainExchange;
-    final oneToOnePaths = screenState.oneToOnePaths;
-    final circularPaths = screenState.circularPaths;
-    final chainPaths = screenState.chainPaths;
-    final isCircularPathsLoading = screenState.isCircularPathsLoading;
-    final isChainPathsLoading = screenState.isChainPathsLoading;
+    
+    // 🔥 통합된 경로 접근 (기존 호환성 유지)
+    final oneToOnePaths = screenState.availablePaths.whereType<OneToOneExchangePath>().toList();
+    final circularPaths = screenState.availablePaths.whereType<CircularExchangePath>().toList();
+    final chainPaths = screenState.availablePaths.whereType<ChainExchangePath>().toList();
+    final isPathsLoading = screenState.isPathsLoading;
 
     return Scaffold(
       appBar: ExchangeAppBar(
@@ -440,8 +441,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
           // 통합 교체 사이드바
           if (isSidebarVisible && (
             (isExchangeModeEnabled && oneToOnePaths.isNotEmpty) ||
-            (isCircularExchangeModeEnabled && (circularPaths.isNotEmpty || isCircularPathsLoading)) ||
-            (isChainExchangeModeEnabled && (chainPaths.isNotEmpty || isChainPathsLoading))
+            (isCircularExchangeModeEnabled && (circularPaths.isNotEmpty || isPathsLoading)) ||
+            (isChainExchangeModeEnabled && (chainPaths.isNotEmpty || isPathsLoading))
           ))
             buildUnifiedExchangeSidebar(),
         ],
@@ -616,7 +617,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   Future<void> findCircularPathsWithProgress() async {
     // 로딩 상태 시작
     final notifier = ref.read(exchangeScreenProvider.notifier);
-    notifier.setCircularPathsLoading(true);
+    notifier.setPathsLoading(true);
     notifier.setLoadingProgress(0.0);
     notifier.setSidebarVisible(true); // 로딩 중에도 사이드바 표시
 
@@ -634,7 +635,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     // 결과 적용
     notifier.setCircularPaths(result.paths);
     notifier.setSelectedCircularPath(null);
-    notifier.setCircularPathsLoading(false);
+    notifier.setPathsLoading(false);
     notifier.setLoadingProgress(0.0);
     notifier.setSidebarVisible(result.shouldShowSidebar);
 
@@ -727,7 +728,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     }
 
     final notifier = ref.read(exchangeScreenProvider.notifier);
-    notifier.setChainPathsLoading(true);
+    notifier.setPathsLoading(true);
     notifier.setLoadingProgress(0.0);
     notifier.setChainPaths([]);
     notifier.setSelectedChainPath(null);
@@ -741,7 +742,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     );
 
     notifier.setChainPaths(result.paths);
-    notifier.setChainPathsLoading(false);
+    notifier.setPathsLoading(false);
     notifier.setLoadingProgress(1.0);
     notifier.setSidebarVisible(result.shouldShowSidebar);
 

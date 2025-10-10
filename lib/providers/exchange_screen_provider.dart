@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../services/excel_service.dart';
+import '../models/exchange_path.dart';
 import '../models/circular_exchange_path.dart';
 import '../models/chain_exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
@@ -18,15 +19,17 @@ class ExchangeScreenState {
   final bool isLoading;
   final String? errorMessage;
   final ExchangeMode currentMode;
-  final List<CircularExchangePath> circularPaths;
-  final bool isCircularPathsLoading;
+  
+  // 🔥 통합된 교체 경로 리스트 (3개 → 1개로 통합)
+  final List<ExchangePath> availablePaths;
+  final bool isPathsLoading;
   final double loadingProgress;
-  final List<ChainExchangePath> chainPaths;
-  final bool isChainPathsLoading;
-  final List<OneToOneExchangePath> oneToOnePaths;
+  
+  // 선택된 경로들 (타입별로 유지)
   final OneToOneExchangePath? selectedOneToOnePath;
   final CircularExchangePath? selectedCircularPath;
   final ChainExchangePath? selectedChainPath;
+  
   final bool isSidebarVisible;
   final String searchQuery;
   final List<int> availableSteps;
@@ -43,12 +46,9 @@ class ExchangeScreenState {
     this.isLoading = false,
     this.errorMessage,
     this.currentMode = ExchangeMode.view,
-    this.circularPaths = const [],
-    this.isCircularPathsLoading = false,
+    this.availablePaths = const [],
+    this.isPathsLoading = false,
     this.loadingProgress = 0.0,
-    this.chainPaths = const [],
-    this.isChainPathsLoading = false,
-    this.oneToOnePaths = const [],
     this.selectedOneToOnePath,
     this.selectedCircularPath,
     this.selectedChainPath,
@@ -69,12 +69,9 @@ class ExchangeScreenState {
     bool? isLoading,
     String? Function()? errorMessage,
     ExchangeMode? currentMode,
-    List<CircularExchangePath>? circularPaths,
-    bool? isCircularPathsLoading,
+    List<ExchangePath>? availablePaths,
+    bool? isPathsLoading,
     double? loadingProgress,
-    List<ChainExchangePath>? chainPaths,
-    bool? isChainPathsLoading,
-    List<OneToOneExchangePath>? oneToOnePaths,
     OneToOneExchangePath? Function()? selectedOneToOnePath,
     CircularExchangePath? Function()? selectedCircularPath,
     ChainExchangePath? Function()? selectedChainPath,
@@ -95,13 +92,9 @@ class ExchangeScreenState {
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage != null ? errorMessage() : this.errorMessage,
       currentMode: currentMode ?? this.currentMode,
-      circularPaths: circularPaths ?? this.circularPaths,
-      isCircularPathsLoading:
-          isCircularPathsLoading ?? this.isCircularPathsLoading,
+      availablePaths: availablePaths ?? this.availablePaths,
+      isPathsLoading: isPathsLoading ?? this.isPathsLoading,
       loadingProgress: loadingProgress ?? this.loadingProgress,
-      chainPaths: chainPaths ?? this.chainPaths,
-      isChainPathsLoading: isChainPathsLoading ?? this.isChainPathsLoading,
-      oneToOnePaths: oneToOnePaths ?? this.oneToOnePaths,
       selectedOneToOnePath: selectedOneToOnePath != null ? selectedOneToOnePath() : this.selectedOneToOnePath,
       selectedCircularPath: selectedCircularPath != null ? selectedCircularPath() : this.selectedCircularPath,
       selectedChainPath: selectedChainPath != null ? selectedChainPath() : this.selectedChainPath,
@@ -151,28 +144,71 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
     state = state.copyWith(currentMode: mode);
   }
 
-  void setCircularPaths(List<CircularExchangePath> paths) {
-    state = state.copyWith(circularPaths: paths);
+  // 🔥 통합된 교체 경로 관리 메서드들
+  
+  /// 모든 교체 경로 설정 (통합)
+  void setAvailablePaths(List<ExchangePath> paths) {
+    state = state.copyWith(availablePaths: paths);
   }
-
-  void setCircularPathsLoading(bool loading) {
-    state = state.copyWith(isCircularPathsLoading: loading);
+  
+  /// 교체 경로 로딩 상태 설정
+  void setPathsLoading(bool loading) {
+    state = state.copyWith(isPathsLoading: loading);
   }
-
+  
+  /// 로딩 진행률 설정
   void setLoadingProgress(double progress) {
     state = state.copyWith(loadingProgress: progress);
   }
-
+  
+  // 🔥 타입별 경로 접근을 위한 편의 메서드들 (기존 호환성 유지)
+  
+  /// 순환교체 경로들만 반환
+  List<CircularExchangePath> get circularPaths => 
+    state.availablePaths.whereType<CircularExchangePath>().toList();
+  
+  /// 연쇄교체 경로들만 반환  
+  List<ChainExchangePath> get chainPaths => 
+    state.availablePaths.whereType<ChainExchangePath>().toList();
+  
+  /// 1:1교체 경로들만 반환
+  List<OneToOneExchangePath> get oneToOnePaths => 
+    state.availablePaths.whereType<OneToOneExchangePath>().toList();
+  
+  /// 순환교체 경로 설정 (기존 호환성 유지)
+  void setCircularPaths(List<CircularExchangePath> paths) {
+    // 기존 경로들에서 순환교체 경로 제거
+    List<ExchangePath> otherPaths = state.availablePaths
+        .where((path) => path is! CircularExchangePath)
+        .toList();
+    
+    // 새로운 순환교체 경로들 추가
+    List<ExchangePath> newPaths = [...otherPaths, ...paths];
+    setAvailablePaths(newPaths);
+  }
+  
+  /// 연쇄교체 경로 설정 (기존 호환성 유지)
   void setChainPaths(List<ChainExchangePath> paths) {
-    state = state.copyWith(chainPaths: paths);
+    // 기존 경로들에서 연쇄교체 경로 제거
+    List<ExchangePath> otherPaths = state.availablePaths
+        .where((path) => path is! ChainExchangePath)
+        .toList();
+    
+    // 새로운 연쇄교체 경로들 추가
+    List<ExchangePath> newPaths = [...otherPaths, ...paths];
+    setAvailablePaths(newPaths);
   }
-
-  void setChainPathsLoading(bool loading) {
-    state = state.copyWith(isChainPathsLoading: loading);
-  }
-
+  
+  /// 1:1교체 경로 설정 (기존 호환성 유지)
   void setOneToOnePaths(List<OneToOneExchangePath> paths) {
-    state = state.copyWith(oneToOnePaths: paths);
+    // 기존 경로들에서 1:1교체 경로 제거
+    List<ExchangePath> otherPaths = state.availablePaths
+        .where((path) => path is! OneToOneExchangePath)
+        .toList();
+    
+    // 새로운 1:1교체 경로들 추가
+    List<ExchangePath> newPaths = [...otherPaths, ...paths];
+    setAvailablePaths(newPaths);
   }
 
   void setSidebarVisible(bool visible) {
@@ -269,12 +305,9 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
       isLoading: isLoading,
       errorMessage: errorMessage != null ? () => errorMessage : null,
       currentMode: currentMode,
-      circularPaths: circularPaths,
-      isCircularPathsLoading: isCircularPathsLoading,
+      availablePaths: [], // 통합된 경로 리스트 초기화
+      isPathsLoading: false,
       loadingProgress: loadingProgress,
-      chainPaths: chainPaths,
-      isChainPathsLoading: isChainPathsLoading,
-      oneToOnePaths: oneToOnePaths,
       isSidebarVisible: isSidebarVisible,
       searchQuery: searchQuery,
       selectedOneToOnePath: selectedOneToOnePath != null ? () => selectedOneToOnePath : null,
@@ -303,14 +336,11 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
       selectedOneToOnePath: () => null,
       selectedCircularPath: () => null,
       selectedChainPath: () => null,
-      // 경로 리스트 초기화
-      circularPaths: [],
-      oneToOnePaths: [],
-      chainPaths: [],
+      // 통합된 경로 리스트 초기화
+      availablePaths: [],
       // UI 상태 초기화
       isSidebarVisible: false,
-      isCircularPathsLoading: false,
-      isChainPathsLoading: false,
+      isPathsLoading: false,
       loadingProgress: 0.0,
       // 필터 상태 초기화
       searchQuery: '',
