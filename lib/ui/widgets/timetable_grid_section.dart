@@ -266,9 +266,11 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
     // StateResetProvider 상태 감지하여 내부 선택된 경로 초기화
     final resetState = ref.watch(stateResetProvider);
-    if (resetState.lastResetLevel == ResetLevel.exchangeStates && _internalSelectedPath != null) {
+    if ((resetState.lastResetLevel == ResetLevel.exchangeStates || 
+         resetState.lastResetLevel == ResetLevel.allStates) && 
+        _internalSelectedPath != null) {
       _internalSelectedPath = null;
-      AppLogger.exchangeDebug('[StateResetProvider 감지] 내부 선택된 경로 초기화 완료');
+      AppLogger.exchangeDebug('[StateResetProvider 감지] 내부 선택된 경로 초기화 완료 (${resetState.lastResetLevel})');
     }
 
     return Card(
