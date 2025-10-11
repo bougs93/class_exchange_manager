@@ -193,22 +193,25 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
     state = state.copyWith(selectedDay: () => day);
   }
 
-  /// 교체 모드 활성화 상태 설정
+  /// 교체 모드 활성화 상태 설정 (Deprecated)
+  /// setCurrentMode()를 사용하세요.
+  @Deprecated('setCurrentMode()를 사용하세요.')
   void setExchangeModeEnabled(bool enabled) {
-    // 1대1 교체 모드 활성화/비활성화 로직
-    // 필요시 추가 상태 필드나 로직을 구현할 수 있습니다
+    // ExchangeMode.oneToOneExchange / ExchangeMode.view 사용
   }
 
-  /// 순환 교체 모드 활성화 상태 설정
+  /// 순환 교체 모드 활성화 상태 설정 (Deprecated)
+  /// setCurrentMode()를 사용하세요.
+  @Deprecated('setCurrentMode()를 사용하세요.')
   void setCircularExchangeModeEnabled(bool enabled) {
-    // 순환 교체 모드 활성화/비활성화 로직
-    // 필요시 추가 상태 필드나 로직을 구현할 수 있습니다
+    // ExchangeMode.circularExchange / ExchangeMode.view 사용
   }
 
-  /// 체인 교체 모드 활성화 상태 설정
+  /// 체인 교체 모드 활성화 상태 설정 (Deprecated)
+  /// setCurrentMode()를 사용하세요.
+  @Deprecated('setCurrentMode()를 사용하세요.')
   void setChainExchangeModeEnabled(bool enabled) {
-    // 체인 교체 모드 활성화/비활성화 로직
-    // 필요시 추가 상태 필드나 로직을 구현할 수 있습니다
+    // ExchangeMode.chainExchange / ExchangeMode.view 사용
   }
 
   /// 교체불가 편집 모드 설정

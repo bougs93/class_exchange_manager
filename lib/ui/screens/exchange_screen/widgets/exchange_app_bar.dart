@@ -24,8 +24,7 @@ class ExchangeAppBar extends StatelessWidget implements PreferredSizeWidget {
       elevation: 0,
       actions: [
         // 순환교체 사이드바 토글 버튼
-        if (state.currentMode == ExchangeMode.circularExchange &&
-            (ExchangePathUtils.hasPathsOfType<CircularExchangePath>(state.availablePaths) || state.isPathsLoading))
+        if (_shouldShowCircularButton())
           _buildSidebarToggleButton(
             isLoading: state.isPathsLoading,
             loadingProgress: state.loadingProgress,
@@ -34,7 +33,7 @@ class ExchangeAppBar extends StatelessWidget implements PreferredSizeWidget {
           ),
 
         // 1:1 교체 사이드바 토글 버튼
-        if (state.currentMode.isExchangeMode && ExchangePathUtils.hasPathsOfType<OneToOneExchangePath>(state.availablePaths))
+        if (_shouldShowOneToOneButton())
           _buildSidebarToggleButton(
             isLoading: false,
             pathCount: ExchangePathUtils.countPathsOfType<OneToOneExchangePath>(state.availablePaths),
@@ -42,6 +41,18 @@ class ExchangeAppBar extends StatelessWidget implements PreferredSizeWidget {
           ),
       ],
     );
+  }
+
+  /// 순환교체 버튼 표시 여부
+  bool _shouldShowCircularButton() {
+    return state.currentMode == ExchangeMode.circularExchange &&
+        (ExchangePathUtils.hasPathsOfType<CircularExchangePath>(state.availablePaths) || state.isPathsLoading);
+  }
+
+  /// 1:1 교체 버튼 표시 여부
+  bool _shouldShowOneToOneButton() {
+    return state.currentMode.isExchangeMode &&
+        ExchangePathUtils.hasPathsOfType<OneToOneExchangePath>(state.availablePaths);
   }
 
   /// 사이드바 토글 버튼 생성

@@ -37,31 +37,25 @@ class ExchangePathManager {
   /// 1:1 교체 경로 생성
   void generateOneToOnePaths(List<dynamic> options, TimetableData? timetableData) {
     if (!exchangeService.hasSelectedCell() || timetableData == null) {
-      // 기존 경로들에서 1:1교체 경로 제거
-      List<ExchangePath> otherPaths = ExchangePathUtils.removePaths<OneToOneExchangePath>(stateProxy.availablePaths);
-      stateProxy.setAvailablePaths(otherPaths);
-      
-      stateProxy.setSelectedOneToOnePath(null);
-      stateProxy.setSidebarVisible(false);
+      _clearPaths<OneToOneExchangePath>();
       return;
     }
 
-    // 선택된 셀의 학급명 추출
-    String selectedClassName = ExchangePathConverter.extractClassNameFromTimeSlots(
+    // 선택된 셀의 학급명 추출 및 경로 변환
+    final selectedClassName = ExchangePathConverter.extractClassNameFromTimeSlots(
       timeSlots: timetableData.timeSlots,
       teacherName: exchangeService.selectedTeacher!,
       day: exchangeService.selectedDay!,
       period: exchangeService.selectedPeriod!,
     );
 
-    // ExchangeOption을 OneToOneExchangePath로 변환
-    List<OneToOneExchangePath> paths = ExchangePathConverter.convertToOneToOnePaths(
+    final paths = ExchangePathConverter.convertToOneToOnePaths(
       selectedTeacher: exchangeService.selectedTeacher!,
       selectedDay: exchangeService.selectedDay!,
       selectedPeriod: exchangeService.selectedPeriod!,
       selectedClassName: selectedClassName,
       options: options.cast(),
-      timeSlots: timetableData.timeSlots, // 시간표 데이터 추가
+      timeSlots: timetableData.timeSlots,
     );
 
     // 순차적인 ID 부여
@@ -69,13 +63,7 @@ class ExchangePathManager {
       paths[i].setCustomId('onetoone_path_${i + 1}');
     }
 
-    // 기존 경로들에서 1:1교체 경로 제거 후 새로운 경로들 추가
-    List<ExchangePath> newPaths = ExchangePathUtils.replacePaths(stateProxy.availablePaths, paths);
-    stateProxy.setAvailablePaths(newPaths);
-    
-    stateProxy.setSelectedOneToOnePath(null);
-    onUpdateFilteredPaths();
-    stateProxy.setSidebarVisible(paths.isNotEmpty);
+    _updatePaths(paths);
   }
 
   /// 순환교체 경로 탐색 (진행률 포함)
@@ -83,57 +71,33 @@ class ExchangePathManager {
     try {
       AppLogger.exchangeDebug('순환교체 경로 탐색 시작');
 
-      // 1단계: 초기화 (10%)
-      onUpdateProgressSmoothly(0.1);
-      await Future.delayed(const Duration(milliseconds: 100));
-
-      // 2단계: 교사 정보 수집 (20%)
-      onUpdateProgressSmoothly(0.2);
-      await Future.delayed(const Duration(milliseconds: 100));
-
-      // 3단계: 시간표 분석 (40%)
-      onUpdateProgressSmoothly(0.4);
-      await Future.delayed(const Duration(milliseconds: 150));
-
-      // 4단계: DFS 경로 탐색 시작 (80%)
-      onUpdateProgressSmoothly(0.8);
-
-      AppLogger.exchangeDebug('경로 탐색 실행 시작 - 선택된 셀: ${circularExchangeService.selectedTeacher}, ${circularExchangeService.selectedDay}, ${circularExchangeService.selectedPeriod}');
+      // 진행률 단계별 업데이트
+      await _updateProgressWithSteps([0.1, 0.2, 0.4, 0.8], [100, 100, 150, 0]);
 
       if (timetableData == null) {
         AppLogger.error('시간표 데이터가 없습니다.');
-        // 기존 경로들에서 순환교체 경로 제거
-        List<ExchangePath> otherPaths = ExchangePathUtils.removePaths<CircularExchangePath>(stateProxy.availablePaths);
-        stateProxy.setAvailablePaths(otherPaths);
+        _clearPaths<CircularExchangePath>();
         onUpdateProgressSmoothly(1.0);
         return;
       }
 
       // 실제 경로 탐색
-      List<CircularExchangePath> paths = circularExchangeService.findCircularExchangePaths(
+      final paths = circularExchangeService.findCircularExchangePaths(
         timetableData.timeSlots,
         timetableData.teachers,
       );
 
       AppLogger.exchangeDebug('경로 탐색 완료: ${paths.length}개 발견');
 
-      // 5단계: 완료 (100%)
+      // 완료
       onUpdateProgressSmoothly(1.0);
       await Future.delayed(const Duration(milliseconds: 200));
 
-      // 기존 경로들에서 순환교체 경로 제거 후 새로운 경로들 추가
-      List<ExchangePath> newPaths = ExchangePathUtils.replacePaths(stateProxy.availablePaths, paths);
-      stateProxy.setAvailablePaths(newPaths);
-      
-      onUpdateFilteredPaths();
-      stateProxy.setSidebarVisible(paths.isNotEmpty);
-
+      _updatePaths(paths);
       AppLogger.exchangeInfo('순환교체 경로 탐색 완료 - ${paths.length}개 경로 발견');
     } catch (e) {
       AppLogger.error('순환교체 경로 탐색 중 오류: $e');
-      // 기존 경로들에서 순환교체 경로 제거
-      List<ExchangePath> otherPaths = ExchangePathUtils.removePaths<CircularExchangePath>(stateProxy.availablePaths);
-      stateProxy.setAvailablePaths(otherPaths);
+      _clearPaths<CircularExchangePath>();
       onUpdateProgressSmoothly(1.0);
     }
   }
@@ -148,29 +112,45 @@ class ExchangePathManager {
     AppLogger.exchangeInfo('연쇄교체: 경로 탐색 시작');
 
     try {
-      List<ChainExchangePath> paths = chainExchangeService.findChainExchangePaths(
+      final paths = chainExchangeService.findChainExchangePaths(
         timetableData.timeSlots,
         timetableData.teachers,
       );
 
-      // 기존 경로들에서 연쇄교체 경로 제거 후 새로운 경로들 추가
-      List<ExchangePath> newPaths = ExchangePathUtils.replacePaths(stateProxy.availablePaths, paths);
-      stateProxy.setAvailablePaths(newPaths);
-      
-      onUpdateFilteredPaths();
-      stateProxy.setSidebarVisible(paths.isNotEmpty);
-
-      if (paths.isEmpty) {
-        AppLogger.exchangeInfo('연쇄교체: 경로 없음');
-      } else {
-        AppLogger.exchangeInfo('연쇄교체: ${paths.length}개 경로 발견');
-      }
+      _updatePaths(paths);
+      AppLogger.exchangeInfo('연쇄교체: ${paths.isEmpty ? "경로 없음" : "${paths.length}개 경로 발견"}');
     } catch (e) {
       AppLogger.error('연쇄교체 경로 탐색 오류: $e');
-      // 기존 경로들에서 연쇄교체 경로 제거
-      List<ExchangePath> otherPaths = ExchangePathUtils.removePaths<ChainExchangePath>(stateProxy.availablePaths);
-      stateProxy.setAvailablePaths(otherPaths);
+      _clearPaths<ChainExchangePath>();
     }
   }
 
+  // ===== 헬퍼 메서드 =====
+
+  /// 경로 업데이트 (공통)
+  void _updatePaths<T extends ExchangePath>(List<T> paths) {
+    final newPaths = ExchangePathUtils.replacePaths(stateProxy.availablePaths, paths);
+    stateProxy.setAvailablePaths(newPaths);
+    stateProxy.setSelectedOneToOnePath(null);
+    onUpdateFilteredPaths();
+    stateProxy.setSidebarVisible(paths.isNotEmpty);
+  }
+
+  /// 경로 제거 (공통)
+  void _clearPaths<T extends ExchangePath>() {
+    final otherPaths = ExchangePathUtils.removePaths<T>(stateProxy.availablePaths);
+    stateProxy.setAvailablePaths(otherPaths);
+    stateProxy.setSelectedOneToOnePath(null);
+    stateProxy.setSidebarVisible(false);
+  }
+
+  /// 진행률 단계별 업데이트
+  Future<void> _updateProgressWithSteps(List<double> steps, List<int> delays) async {
+    for (int i = 0; i < steps.length; i++) {
+      onUpdateProgressSmoothly(steps[i]);
+      if (delays[i] > 0) {
+        await Future.delayed(Duration(milliseconds: delays[i]));
+      }
+    }
+  }
 }
