@@ -933,27 +933,27 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   void _updateHeaderTheme() {
     final screenState = ref.read(exchangeScreenProvider);
     if (screenState.timetableData == null) return;
-    
+
     // 선택된 요일과 교시 결정 (단순화된 로직)
     final selectionInfo = _getSelectedPeriodInfo();
     final String? selectedDay = selectionInfo.day;
     final int? selectedPeriod = selectionInfo.period;
-    
+
     // FixedHeaderStyleManager의 셀 선택 전용 업데이트 사용 (성능 최적화)
     FixedHeaderStyleManager.updateHeaderForCellSelection(
       selectedDay: selectedDay,
       selectedPeriod: selectedPeriod,
     );
-    
+
     // 교시 헤더 색상 변경을 위한 캐시 강제 초기화
     FixedHeaderStyleManager.clearCacheForPeriodHeaderColorChange();
-    
+
     // ExchangeService를 사용하여 교체 가능한 교사 정보 수집
     List<Map<String, dynamic>> exchangeableTeachers = exchangeService.getCurrentExchangeableTeachers(
       _timetableData!.timeSlots,
       _timetableData!.teachers,
     );
-    
+
     // 선택된 교시 정보를 전달하여 헤더만 업데이트
     final result = SyncfusionTimetableHelper.convertToSyncfusionData(
       _timetableData!.timeSlots,
@@ -968,11 +968,16 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       selectedOneToOnePath: _selectedOneToOnePath, // 1:1 교체 경로
       selectedChainPath: _selectedChainPath, // 연쇄교체 경로
     );
-    
-    // Provider를 통해 헤더 강제 재생성을 위한 완전한 새로고침
-    final notifier = ref.read(exchangeScreenProvider.notifier);
-    notifier.setColumns(result.columns); // 헤더만 업데이트
-    notifier.setStackedHeaders(result.stackedHeaders); // 스택 헤더도 함께 업데이트 (요일 행 포함)
+
+    // setState를 사용하여 UI 강제 업데이트 (모든 교체 모드 공통)
+    if (mounted) {
+      setState(() {
+        // Provider를 통해 헤더 강제 재생성
+        final notifier = ref.read(exchangeScreenProvider.notifier);
+        notifier.setColumns(result.columns); // 헤더만 업데이트
+        notifier.setStackedHeaders(result.stackedHeaders); // 스택 헤더도 함께 업데이트 (요일 행 포함)
+      });
+    }
 
     // TimetableDataSource의 notifyListeners를 통한 직접 UI 업데이트
     screenState.dataSource?.notifyListeners();

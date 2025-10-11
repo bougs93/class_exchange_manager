@@ -19,6 +19,7 @@ import '../../services/exchange_history_service.dart';
 import '../../models/exchange_history_item.dart';
 import '../../providers/timetable_theme_provider.dart';
 import '../../providers/state_reset_provider.dart';
+import '../../utils/simplified_timetable_theme.dart';
 import 'timetable_grid/timetable_grid_constants.dart';
 import 'timetable_grid/exchange_arrow_style.dart';
 import 'timetable_grid/exchange_arrow_painter.dart';
@@ -528,7 +529,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
             ),
           ),
           child: SfDataGrid(
-            key: ValueKey('${widget.columns.length}_${widget.stackedHeaders.length}'),
+            key: ValueKey('${widget.columns.length}_${widget.stackedHeaders.length}_${DateTime.now().millisecondsSinceEpoch}'),
             source: widget.dataSource!,
             columns: _getScaledColumns(),
             stackedHeaderRows: _getScaledStackedHeaders(),
@@ -737,6 +738,9 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   void _handleExchangedCellClick(String teacherName, String day, int period) {
     AppLogger.exchangeDebug('🖱️ 교체된 셀 클릭: $teacherName | $day$period교시');
     
+    // 교체된 셀 선택 상태 플래그 설정 (헤더 색상 비활성화용)
+    SimplifiedTimetableTheme.setExchangedCellSelectedHeaderDisabled(true);
+    
     final exchangePath = _historyService.findExchangePathByCell(
       teacherName,
       day,
@@ -853,6 +857,9 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
         }
       }
     }
+
+    // 일반 셀 클릭 시 교체된 셀 선택 상태 플래그 해제 (헤더 색상 복원용)
+    SimplifiedTimetableTheme.setExchangedCellSelectedHeaderDisabled(false);
 
     _hideExchangeArrows();
     widget.onCellTap(details);

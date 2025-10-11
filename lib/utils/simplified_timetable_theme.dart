@@ -16,6 +16,7 @@ class SimplifiedTimetableTheme {
   
   /// 현재 폰트 사이즈 배율 반환
   static double get fontScaleFactor => _fontScaleFactor;
+  
   // 색상 정의 (public으로 변경하여 다른 테마에서 참조 가능)
   static const Color defaultColor = Colors.white;
   static const Color teacherHeaderColor = Color(0xFFF5F5F5);
@@ -37,6 +38,9 @@ class SimplifiedTimetableTheme {
   static const double selectedCellBorderWidth = 2; // 선택된 셀 테두리 두께
   static BorderStyle selectedCellBorderStyle = BorderStyle.solid; // 선택된 셀 테두리 스타일 (solid, dashed)
   static const bool showSelectedCellBorder = true; // 선택된 셀 테두리 표시 여부
+  
+  // 교체된 셀 선택 시 헤더 색상 비활성화 플래그
+  static bool _isExchangedCellSelectedHeaderDisabled = false;
 
 // 타겟 셀 테두리 색상 상수 (이동할 같은 교사의 셀 테두리)
   static const Color targetCellBorderColor = Color(0xFFFF0000); // 타겟 셀 테두리 색상 (빨간색)
@@ -79,6 +83,15 @@ class SimplifiedTimetableTheme {
   // 교체불가 셀 색상
   static const Color nonExchangeableColor = Color(0xFFFFCDD2); // 연한 빨간색 배경
   
+  // ==================== 교체된 셀 선택 시 헤더 색상 제어 메서드 ====================
+  
+  /// 교체된 셀 선택 시 헤더 색상 비활성화 설정
+  static void setExchangedCellSelectedHeaderDisabled(bool isDisabled) {
+    _isExchangedCellSelectedHeaderDisabled = isDisabled;
+  }
+  
+  /// 교체된 셀 선택 시 헤더 색상 비활성화 상태 반환
+  static bool get isExchangedCellSelectedHeaderDisabled => _isExchangedCellSelectedHeaderDisabled;
     
   /// 통합된 셀 스타일 생성 (개선된 버전 - CellStyleConfig 사용)
   static CellStyle getCellStyleFromConfig(CellStyleConfig config) {
@@ -156,7 +169,8 @@ class SimplifiedTimetableTheme {
     }
     
     // 다른 상태들 (타겟 셀이 아닌 경우에만 적용)
-    if (isSelected) {
+    // 교체된 셀 선택 시 헤더의 노란색 배경 비활성화
+    if (isSelected && !(isHeader && _isExchangedCellSelectedHeaderDisabled)) {
       return selectedColorLight;
     } else if (isInCircularPath) {
       return circularPathColorLight;
@@ -229,8 +243,8 @@ class SimplifiedTimetableTheme {
     }
     
     // 선택된 셀의 경우 빨간색 테두리 (표시 여부 설정에 따라)
-    // 헤더 셀과 일반 셀 모두에 적용
-    if (isSelected && showSelectedCellBorder) {
+    // 교체된 셀 선택 시 헤더의 빨간색 테두리 비활성화
+    if (isSelected && showSelectedCellBorder && !(isHeader && _isExchangedCellSelectedHeaderDisabled)) {
       return Border.all(
         color: selectedCellBorderColor, 
         width: selectedCellBorderWidth,
