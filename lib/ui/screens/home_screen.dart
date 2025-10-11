@@ -303,7 +303,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ],
         ),
       ),
-      body: _menuItems()[selectedIndex]['screen'] as Widget,
+      body: IndexedStack(
+        index: selectedIndex,
+        children: _menuItems().map((item) => item['screen'] as Widget).toList(),
+      ),
     );
   }
 }
