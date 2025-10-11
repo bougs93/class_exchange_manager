@@ -1085,7 +1085,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       AppLogger.exchangeInfo('새로운 교체 ${newExchanges.length}개 발견 (전체 ${exchangeList.length}개, 기존 백업 $_backedUpCount개)');
       
       // 1단계: 새로운 교체만 백업
-      // TODO: 순환 교체 백업 갯수 확인하기
       AppLogger.exchangeDebug('1단계: 신규 교체 ${newExchanges.length}개 백업 시작');
       final beforeBackupCount = _exchangeListWork.length;
       for (var item in newExchanges) {

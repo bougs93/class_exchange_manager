@@ -282,12 +282,20 @@ class ExchangeExecutor {
         
         cellKeys.addAll(destinationKeys);
 
-        // TODO:연쇄교체 경로의 목적지 셀 추출
+        // 연쇄교체 경로의 목적지 셀 추출
+        // 연쇄교체는 2단계로 이루어지므로 각 단계별 목적지 셀을 모두 추출
       } else if (path is ChainExchangePath) {
-        cellKeys.addAll([
-          '${path.nodeA.teacherName}_${path.nodeA.day}_${path.nodeA.period}',
-          '${path.nodeB.teacherName}_${path.nodeB.day}_${path.nodeB.period}',
-        ]);
+        // 1단계 교체 후 목적지 셀들
+        // node1 교사가 node2 위치로 이동
+        cellKeys.add('${path.node1.teacherName}_${path.node2.day}_${path.node2.period}');
+        // node2 교사가 node1 위치로 이동
+        cellKeys.add('${path.node2.teacherName}_${path.node1.day}_${path.node1.period}');
+
+        // 2단계 교체 후 목적지 셀들
+        // nodeA 교사가 nodeB 위치로 이동
+        cellKeys.add('${path.nodeA.teacherName}_${path.nodeB.day}_${path.nodeB.period}');
+        // nodeB 교사가 nodeA 위치로 이동
+        cellKeys.add('${path.nodeB.teacherName}_${path.nodeA.day}_${path.nodeA.period}');
       }
     }
 
