@@ -945,6 +945,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       selectedPeriod: selectedPeriod,
     );
     
+    // 교시 헤더 색상 변경을 위한 캐시 강제 초기화
+    FixedHeaderStyleManager.clearCacheForPeriodHeaderColorChange();
+    
     // ExchangeService를 사용하여 교체 가능한 교사 정보 수집
     List<Map<String, dynamic>> exchangeableTeachers = exchangeService.getCurrentExchangeableTeachers(
       _timetableData!.timeSlots,

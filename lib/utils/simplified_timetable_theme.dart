@@ -94,6 +94,7 @@ class SimplifiedTimetableTheme {
         isNonExchangeable: config.isNonExchangeable,
         isExchangedSourceCell: config.isExchangedSourceCell,
         isExchangedDestinationCell: config.isExchangedDestinationCell,
+        isHeader: config.isHeader,
       ),
       textStyle: _getTextStyle(
         isSelected: config.isSelected,
@@ -137,6 +138,7 @@ class SimplifiedTimetableTheme {
     required bool isNonExchangeable, // 교체불가 셀인지 여부
     required bool isExchangedSourceCell, // 교체된 소스 셀인지 여부 추가
     required bool isExchangedDestinationCell, // 교체된 목적지 셀인지 여부 추가
+    required bool isHeader, // 헤더인지 여부 추가
   }) {
     // 교체된 목적지 셀인 경우 연한 파란색 배경 (최우선순위)
     if (isExchangedDestinationCell && showExchangedDestinationCellBackground) {
@@ -162,7 +164,8 @@ class SimplifiedTimetableTheme {
       return chainPathColorLight;
     } else if (isInSelectedPath) {
       return selectedPathColorLight; // 선택된 경로에 포함된 셀은 연한 녹색
-    } else if (isExchangeable) {
+    } else if (isExchangeable && !isHeader) {
+      // 헤더가 아닌 경우에만 교체 가능한 셀 회색 배경 적용
       return exchangeableColorLight;
     } else {
       return isTeacherColumn ? teacherHeaderColor : defaultColor;

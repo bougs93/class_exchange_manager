@@ -21,7 +21,13 @@ class FixedHeaderStyleManager {
   static const Color dayHeaderBackgroundColor = SimplifiedTimetableTheme.teacherHeaderColor;
 
   /// 교시 행(2행) 배경색 (기본 - 선택되지 않은 상태)
-  static const Color periodHeaderBackgroundColor = SimplifiedTimetableTheme.teacherHeaderColor;
+  static const Color periodHeaderBackgroundColor = SimplifiedTimetableTheme.defaultColor;
+  
+  /// 캐시 강제 초기화 (교시 헤더 색상 변경 후 호출)
+  static void clearCacheForPeriodHeaderColorChange() {
+    _widgetCache.clear();
+    AppLogger.exchangeDebug('FixedHeaderStyleManager: 교시 헤더 색상 변경을 위한 캐시 초기화 완료');
+  }
 
   // ==================== 외곽선 상수 ====================
   /// 일반 외곽선

@@ -151,6 +151,9 @@ class StateResetNotifier extends StateNotifier<ResetState> {
       screenState.timetableData!.teachers,
     );
     
+    // 교시 헤더 색상 변경을 위한 캐시 강제 초기화
+    FixedHeaderStyleManager.clearCacheForPeriodHeaderColorChange();
+    
     // 선택된 교시 정보를 전달하여 헤더만 업데이트 (초기화된 상태)
     final result = SyncfusionTimetableHelper.convertToSyncfusionData(
       screenState.timetableData!.timeSlots,
