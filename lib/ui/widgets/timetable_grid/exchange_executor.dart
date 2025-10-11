@@ -8,7 +8,6 @@ import '../../../services/exchange_history_service.dart';
 import '../../../utils/timetable_data_source.dart';
 import '../../../providers/timetable_theme_provider.dart';
 import '../../../providers/state_reset_provider.dart';
-import '../../../utils/logger.dart';
 
 /// 교체 실행 관리 클래스
 class ExchangeExecutor {
@@ -242,10 +241,8 @@ class ExchangeExecutor {
         '${path.targetNode.teacherName}_${path.targetNode.day}_${path.targetNode.period}',
       ];
     } else if (path is CircularExchangePath) {
-      // 순환 교체: 첫 번째 노드만 소스 셀, 나머지는 타겟 셀
-      return [
-        '${path.nodes.first.teacherName}_${path.nodes.first.day}_${path.nodes.first.period}',
-      ];
+      // 순환 교체: 마지막 노드를 제외한 모든 노드가 소스 셀
+      return path.nodes.take(path.nodes.length - 1).map((node) => '${node.teacherName}_${node.day}_${node.period}').toList();
     } else if (path is ChainExchangePath) {
       return [
         '${path.nodeA.teacherName}_${path.nodeA.day}_${path.nodeA.period}',
@@ -270,11 +267,19 @@ class ExchangeExecutor {
           '${path.targetNode.teacherName}_${path.sourceNode.day}_${path.sourceNode.period}',
           '${path.sourceNode.teacherName}_${path.targetNode.day}_${path.targetNode.period}',
         ]);
-        // 순환교체 경로의 목적지 셀 추출 (첫 번째와 마지막 노드 제외)
+        // 순환교체 경로의 목적지 셀 추출 (각 노드가 다음 노드의 위치로 이동)
       } else if (path is CircularExchangePath) {
-        cellKeys.addAll(
-          path.nodes.skip(1).take(path.nodes.length - 2).map((node) => '${node.teacherName}_${node.day}_${node.period}')
-        );
+        final destinationKeys = <String>[];
+        
+        for (int i = 0; i < path.nodes.length - 1; i++) {
+          final currentNode = path.nodes[i];
+          final nextNode = path.nodes[i + 1];
+          // 현재 노드가 다음 노드의 위치로 이동
+          final destinationKey = '${currentNode.teacherName}_${nextNode.day}_${nextNode.period}';
+          destinationKeys.add(destinationKey);
+        }
+        
+        cellKeys.addAll(destinationKeys);
         // 연쇄교체 경로의 목적지 셀 추출
       } else if (path is ChainExchangePath) {
         cellKeys.addAll([
