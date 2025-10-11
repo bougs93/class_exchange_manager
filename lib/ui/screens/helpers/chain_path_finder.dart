@@ -34,10 +34,10 @@ class ChainPathFinder {
         {
           'timeSlots': timeSlots,
           'teachers': teachers,
-          'teacher': chainExchangeService.nodeATeacher!,
-          'day': chainExchangeService.nodeADay!,
-          'period': chainExchangeService.nodeAPeriod!,
-          'className': chainExchangeService.nodeAClass!,
+          'teacher': chainExchangeService.selectedTeacher!,
+          'day': chainExchangeService.selectedDay!,
+          'period': chainExchangeService.selectedPeriod!,
+          'className': chainExchangeService.selectedClass!,
         },
       );
 

@@ -483,8 +483,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       selectedPeriod = circularExchangeService.selectedPeriod;
     } else if (_isChainExchangeModeEnabled && chainExchangeService.hasSelectedCell()) {
       // 연쇄교체 모드
-      selectedDay = chainExchangeService.nodeADay;
-      selectedPeriod = chainExchangeService.nodeAPeriod;
+      selectedDay = chainExchangeService.selectedDay;
+      selectedPeriod = chainExchangeService.selectedPeriod;
     } else {
       // 모든 모드에서 교체 리스트 셀 선택 시 헤더 색상 변경 (보기 모드뿐만 아니라 다른 모드에서도)
       // TimetableDataSource에서 선택된 경로 확인 (TimetableGridSection에서 설정한 경로)
@@ -901,7 +901,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     
     // 연쇄교체 모드
     if (_isChainExchangeModeEnabled && chainExchangeService.hasSelectedCell()) {
-      return (day: chainExchangeService.nodeADay, period: chainExchangeService.nodeAPeriod);
+      return (day: chainExchangeService.selectedDay, period: chainExchangeService.selectedPeriod);
     }
     
     // 경로 선택 시 (모든 모드에서 교체 리스트 셀 선택)

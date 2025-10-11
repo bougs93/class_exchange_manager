@@ -170,11 +170,11 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
   Future<void> processChainCellSelection() async {
     AppLogger.exchangeDebug('연쇄교체: 셀 선택 후 처리 시작');
 
-    // 데이터 소스에 선택 상태 업데이트
+    // 데이터 소스에 선택 상태 업데이트 (1:1/순환 교체와 동일한 방법)
     dataSource?.updateSelection(
-      chainExchangeService.nodeATeacher,
-      chainExchangeService.nodeADay,
-      chainExchangeService.nodeAPeriod
+      chainExchangeService.selectedTeacher,
+      chainExchangeService.selectedDay,
+      chainExchangeService.selectedPeriod
     );
 
     // 테마 기반 헤더 업데이트
@@ -295,17 +295,17 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
 
   /// 선택된 셀이 빈 셀인지 확인 (연쇄교체)
   bool isSelectedChainCellEmpty() {
-    if (chainExchangeService.nodeATeacher == null ||
-        chainExchangeService.nodeADay == null ||
-        chainExchangeService.nodeAPeriod == null ||
+    if (chainExchangeService.selectedTeacher == null ||
+        chainExchangeService.selectedDay == null ||
+        chainExchangeService.selectedPeriod == null ||
         timetableData == null) {
       return true;
     }
 
     // 선택된 교사, 요일, 교시에 해당하는 시간표 슬롯 찾기
-    String teacherName = chainExchangeService.nodeATeacher!;
-    String selectedDay = chainExchangeService.nodeADay!;
-    int selectedPeriod = chainExchangeService.nodeAPeriod!;
+    String teacherName = chainExchangeService.selectedTeacher!;
+    String selectedDay = chainExchangeService.selectedDay!;
+    int selectedPeriod = chainExchangeService.selectedPeriod!;
 
     // 요일을 숫자로 변환
     int dayOfWeek = DayUtils.getDayNumber(selectedDay);

@@ -33,16 +33,13 @@ class ChainExchangeService extends BaseExchangeService {
   // ==================== 인스턴스 변수 ====================
 
   // A 위치 (결강 수업) 학급 정보
-  String? _nodeAClass;        // A 학급
-  
+  String? _selectedClass;        // 선택된 학급 (연쇄 교체 전용)
+
   // 교체 불가 관리자
   final NonExchangeableManager _nonExchangeableManager = NonExchangeableManager();
 
-  // Getters
-  String? get nodeATeacher => selectedTeacher;  // 베이스 클래스 사용
-  String? get nodeADay => selectedDay;          // 베이스 클래스 사용
-  int? get nodeAPeriod => selectedPeriod;       // 베이스 클래스 사용
-  String? get nodeAClass => _nodeAClass;
+  // Getter: 선택된 학급 정보만 제공 (연쇄 교체 전용)
+  String? get selectedClass => _selectedClass;
 
   /// 연쇄교체 모드에서 셀 탭 처리
   ///
@@ -85,7 +82,7 @@ class ChainExchangeService extends BaseExchangeService {
     } else {
       // 새로운 교체 대상 선택
       selectCell(teacherName, day, period);
-      _nodeAClass = className;
+      _selectedClass = className;
 
       AppLogger.exchangeInfo('연쇄교체: A 위치 선택 - $teacherName $day $period교시 $className');
 
@@ -121,22 +118,22 @@ class ChainExchangeService extends BaseExchangeService {
     // 교체 불가 관리자에 TimeSlot 설정
     _nonExchangeableManager.setTimeSlots(timeSlots);
 
-    // _nodeAClass가 null이면 validTimeSlots에서 찾기 (백그라운드 실행 시)
-    _nodeAClass ??= getClassNameFromTimeSlot(
+    // _selectedClass가 null이면 validTimeSlots에서 찾기 (백그라운드 실행 시)
+    _selectedClass ??= getClassNameFromTimeSlot(
       selectedTeacher!,
       selectedDay!,
       selectedPeriod!,
       validTimeSlots,
     );
 
-    if (_nodeAClass == null || _nodeAClass!.isEmpty) {
+    if (_selectedClass == null || _selectedClass!.isEmpty) {
       AppLogger.exchangeInfo('연쇄교체: A 위치의 학급 정보를 찾을 수 없습니다.');
       return [];
     }
 
     if (enablePathDebugLogging) {
       AppLogger.exchangeDebug('연쇄교체 경로 탐색 시작');
-      AppLogger.exchangeDebug('A 위치: $selectedTeacher $selectedDay $selectedPeriod교시 $_nodeAClass');
+      AppLogger.exchangeDebug('A 위치: $selectedTeacher $selectedDay $selectedPeriod교시 $_selectedClass');
     }
 
     List<ChainExchangePath> paths = [];
@@ -147,7 +144,7 @@ class ChainExchangeService extends BaseExchangeService {
       teacherName: selectedTeacher!,
       day: selectedDay!,
       period: selectedPeriod!,
-      className: _nodeAClass!,
+      className: _selectedClass!,
       subjectName: nodeASubject,
     );
 
@@ -393,7 +390,7 @@ class ChainExchangeService extends BaseExchangeService {
   /// 모든 선택 상태 초기화
   void clearAllSelections() {
     clearCellSelection();
-    _nodeAClass = null;
+    _selectedClass = null;
 
     if (enablePathDebugLogging) {
       AppLogger.exchangeDebug('연쇄교체: 모든 선택 초기화');
