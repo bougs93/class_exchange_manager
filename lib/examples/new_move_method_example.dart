@@ -145,8 +145,6 @@ class NewMoveMethodExample {
         period: 2,
         isExchangeable: true,
       ),
-      destinationSlot.dayOfWeek!,
-      destinationSlot.period!,
     );
     
     AppLogger.exchangeDebug('\n2단계 - 목적지에 복사 후:');

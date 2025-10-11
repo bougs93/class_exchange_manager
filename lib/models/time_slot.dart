@@ -59,7 +59,7 @@ class TimeSlot {
   
   /// TimeSlot을 비우기 (모든 정보를 null로 설정)
   void clear() {
-    teacher = null;
+    // teacher = null;
     subject = null;
     className = null;
     // dayOfWeek와 period는 유지 (시간 정보는 그대로)
@@ -72,12 +72,12 @@ class TimeSlot {
   /// - `sourceSlot`: 복사할 원본 TimeSlot
   /// - `targetDayOfWeek`: 목적지 요일
   /// - `targetPeriod`: 목적지 교시
-  void copyFromWithNewTime(TimeSlot sourceSlot, int targetDayOfWeek, int targetPeriod) {
-    teacher = sourceSlot.teacher;
+  void copyFromWithNewTime(TimeSlot sourceSlot) {
+    // teacher = sourceSlot.teacher;
     subject = sourceSlot.subject;
     className = sourceSlot.className;
-    dayOfWeek = targetDayOfWeek;  // 목적지 요일로 설정
-    period = targetPeriod;         // 목적지 교시로 설정
+    // dayOfWeek = targetDayOfWeek;  // 목적지 요일로 설정
+    // period = targetPeriod;         // 목적지 교시로 설정
     isExchangeable = sourceSlot.isExchangeable;
     exchangeReason = sourceSlot.exchangeReason;
   }
@@ -114,7 +114,7 @@ class TimeSlot {
       AppLogger.exchangeDebug('검증 통과, 이동 시작');
       
       // 1단계: 목적지 TimeSlot에 원본의 정보를 복사하되 "요일과 시간"은 목적지의 것으로 설정
-      targetSlot.copyFromWithNewTime(sourceSlot, targetSlot.dayOfWeek!, targetSlot.period!);
+      targetSlot.copyFromWithNewTime(sourceSlot);
       AppLogger.exchangeDebug('목적지에 복사 완료: ${targetSlot.debugInfo}');
       
       // 2단계: 원본 TimeSlot을 비우기 (복사 후에 비우기)
