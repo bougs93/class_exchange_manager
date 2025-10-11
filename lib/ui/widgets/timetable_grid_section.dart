@@ -311,6 +311,13 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       _internalSelectedPath = null;
       AppLogger.exchangeDebug('[StateResetProvider 감지] 내부 선택된 경로 초기화 완료 (${resetState.lastResetLevel})');
     }
+    
+    // Level 3 초기화 시 교체 뷰 체크박스도 초기 상태로 되돌리기
+    if (resetState.lastResetLevel == ResetLevel.allStates && _isExchangeViewEnabled) {
+      _isExchangeViewEnabled = false;
+      _disableExchangeView();
+      AppLogger.exchangeDebug('[StateResetProvider 감지] 교체 뷰 체크박스 초기화 완료 (Level 3)');
+    }
 
     return Card(
       elevation: 2,
