@@ -1051,6 +1051,11 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     try {
       AppLogger.exchangeInfo('[wg]교체 뷰 활성화 시작');
       
+      // 교체 뷰 활성화 시 모든 셀 선택 해제
+      ref.read(exchangeServiceProvider).clearCellSelection();
+      ref.read(circularExchangeServiceProvider).clearCellSelection();
+      ref.read(chainExchangeServiceProvider).clearCellSelection();
+      
       // 교체 리스트 조회
       final exchangeList = _historyService.getExchangeList();
       
@@ -1117,6 +1122,11 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   void _disableExchangeView() {
     try {
       AppLogger.exchangeInfo('교체 뷰 비활성화 시작');
+      
+      // 교체 뷰 비활성화 시 모든 셀 선택 해제
+      ref.read(exchangeServiceProvider).clearCellSelection();
+      ref.read(circularExchangeServiceProvider).clearCellSelection();
+      ref.read(chainExchangeServiceProvider).clearCellSelection();
 
       if (_exchangeListWork.isEmpty || widget.dataSource == null) {
         AppLogger.exchangeDebug('복원할 교체 백업 데이터가 없습니다');
