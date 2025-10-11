@@ -110,16 +110,15 @@ abstract class BaseExchangeService {
     );
   }
 
-  /// 특정 시간의 과목 정보 가져오기
-  String getSubjectFromTimeSlot(
+  /// 특정 시간의 TimeSlot 가져오기 (공통 헬퍼)
+  TimeSlot? _getTimeSlot(
     String teacherName,
     String day,
     int period,
     List<TimeSlot> timeSlots,
   ) {
-    int dayNumber = DayUtils.getDayNumber(day);
-
-    TimeSlot? slot = timeSlots.cast<TimeSlot?>().firstWhere(
+    final dayNumber = DayUtils.getDayNumber(day);
+    return timeSlots.cast<TimeSlot?>().firstWhere(
       (slot) => slot != null &&
                 slot.teacher == teacherName &&
                 slot.dayOfWeek == dayNumber &&
@@ -127,8 +126,16 @@ abstract class BaseExchangeService {
                 slot.isNotEmpty,
       orElse: () => null,
     );
+  }
 
-    return slot?.subject ?? '과목명 없음';
+  /// 특정 시간의 과목 정보 가져오기
+  String getSubjectFromTimeSlot(
+    String teacherName,
+    String day,
+    int period,
+    List<TimeSlot> timeSlots,
+  ) {
+    return _getTimeSlot(teacherName, day, period, timeSlots)?.subject ?? '과목명 없음';
   }
 
   /// 특정 시간의 학급 정보 가져오기
@@ -138,17 +145,6 @@ abstract class BaseExchangeService {
     int period,
     List<TimeSlot> timeSlots,
   ) {
-    int dayNumber = DayUtils.getDayNumber(day);
-
-    TimeSlot? slot = timeSlots.cast<TimeSlot?>().firstWhere(
-      (slot) => slot != null &&
-                slot.teacher == teacherName &&
-                slot.dayOfWeek == dayNumber &&
-                slot.period == period &&
-                slot.isNotEmpty,
-      orElse: () => null,
-    );
-
-    return slot?.className ?? '';
+    return _getTimeSlot(teacherName, day, period, timeSlots)?.className ?? '';
   }
 }

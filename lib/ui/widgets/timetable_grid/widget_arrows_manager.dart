@@ -27,7 +27,6 @@ class WidgetArrowsManager {
   // 현재 설정된 데이터 (동적으로 업데이트 가능)
   TimetableData? _timetableData;
   List<GridColumn>? _columns;
-  // double _zoomFactor = 1.0; // 현재 사용되지 않음
   
   // 화살표 ID 관리
   final Map<String, String> _arrowIds = {};
@@ -37,11 +36,10 @@ class WidgetArrowsManager {
   void initialize({
     required TimetableData timetableData,
     required List<GridColumn> columns,
-    double zoomFactor = 1.0, // 현재 사용되지 않지만 호환성을 위해 유지
+    double? zoomFactor, // 호환성을 위해 유지
   }) {
     _timetableData = timetableData;
     _columns = columns;
-    // _zoomFactor = zoomFactor; // 현재 사용되지 않음
     AppLogger.exchangeDebug('WidgetArrowsManager 싱글톤 초기화 완료');
   }
   
@@ -49,11 +47,10 @@ class WidgetArrowsManager {
   void updateData({
     TimetableData? timetableData,
     List<GridColumn>? columns,
-    double? zoomFactor, // 현재 사용되지 않지만 호환성을 위해 유지
+    double? zoomFactor, // 호환성을 위해 유지
   }) {
     if (timetableData != null) _timetableData = timetableData;
     if (columns != null) _columns = columns;
-    // if (zoomFactor != null) _zoomFactor = zoomFactor; // 현재 사용되지 않음
   }
 
   /// 교체 경로에 따른 화살표 생성
