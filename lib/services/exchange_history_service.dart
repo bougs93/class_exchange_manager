@@ -239,28 +239,23 @@ class ExchangeHistoryService {
 
   /// 교체 리스트를 콘솔에 출력
   void printExchangeList() {
-    AppLogger.exchangeInfo('[교체 리스트] 총 ${_exchangeList.length}개');
-    if (_exchangeList.isEmpty) {
-      AppLogger.exchangeInfo('  교체 리스트가 비어있습니다.');
-    } else {
-      for (int i = 0; i < _exchangeList.length; i++) {
-        final item = _exchangeList[i];
-        final nodeInfo = _getNodeInfo(item.originalPath);
-        AppLogger.exchangeInfo('  ${i + 1} Type: ${_getPathTypeString(item.type)} - $nodeInfo');
-      }
-    }
+    _printList('[교체 리스트]', _exchangeList);
   }
 
   /// 되돌리기 히스토리를 콘솔에 출력
   void printUndoHistory() {
-    AppLogger.exchangeInfo('[되돌리기 히스토리] 총 ${_undoStack.length}개');
-    if (_undoStack.isEmpty) {
-      AppLogger.exchangeInfo('  되돌리기 히스토리가 비어있습니다.');
+    _printList('[되돌리기 히스토리]', _undoStack);
+  }
+
+  /// 공통 리스트 출력 메서드
+  void _printList(String title, List<ExchangeHistoryItem> list) {
+    AppLogger.exchangeInfo('$title 총 ${list.length}개');
+    if (list.isEmpty) {
+      AppLogger.exchangeInfo('  비어있습니다.');
     } else {
-      for (int i = 0; i < _undoStack.length; i++) {
-        final item = _undoStack[i];
-        final nodeInfo = _getNodeInfo(item.originalPath);
-        AppLogger.exchangeInfo('  ${i + 1} Type: ${_getPathTypeString(item.type)} - $nodeInfo');
+      for (int i = 0; i < list.length; i++) {
+        final item = list[i];
+        AppLogger.exchangeInfo('  ${i + 1} Type: ${item.type.displayName} - ${_getNodeInfo(item.originalPath)}');
       }
     }
   }
@@ -289,56 +284,25 @@ class ExchangeHistoryService {
   /// ExchangePath에서 노드 정보를 요약해서 반환
   String _getNodeInfo(ExchangePath path) {
     try {
-      // OneToOneExchangePath인지 확인
       if (path is OneToOneExchangePath) {
-        final sourceNode = path.sourceNode;
-        final targetNode = path.targetNode;
-        
-        final sourceInfo = '${sourceNode.day}|${sourceNode.period}|${sourceNode.className}|${sourceNode.teacherName}|${sourceNode.subjectName}';
-        final targetInfo = '${targetNode.day}|${targetNode.period}|${targetNode.className}|${targetNode.teacherName}|${targetNode.subjectName}';
-        
-        return '[0]$sourceInfo, [1]$targetInfo';
-      } 
-      // CircularExchangePath인지 확인
-      else if (path is CircularExchangePath) {
-        final nodes = path.nodes;
-        
-        final nodeInfos = <String>[];
-        for (int i = 0; i < nodes.length; i++) {
-          final node = nodes[i];
-          final nodeInfo = '${node.day}|${node.period}|${node.className}|${node.teacherName}|${node.subjectName}';
-          nodeInfos.add('[$i]$nodeInfo');
-        }
-        
-        return nodeInfos.join(', ');
-      } 
-      // ChainExchangePath인지 확인
-      else if (path is ChainExchangePath) {
-        final node1 = path.node1;
-        final node2 = path.node2;
-        
-        final node1Info = '${node1.day}|${node1.period}|${node1.className}|${node1.teacherName}|${node1.subjectName}';
-        final node2Info = '${node2.day}|${node2.period}|${node2.className}|${node2.teacherName}|${node2.subjectName}';
-        
-        return '[0]$node1Info, [1]$node2Info';
+        return _formatNodes([path.sourceNode, path.targetNode]);
+      } else if (path is CircularExchangePath) {
+        return _formatNodes(path.nodes);
+      } else if (path is ChainExchangePath) {
+        return _formatNodes([path.node1, path.node2]);
       }
     } catch (e) {
       developer.log('노드 정보 추출 실패: $e');
-      return path.displayTitle;
     }
     return path.displayTitle;
   }
 
-  /// ExchangePathType을 문자열로 변환
-  String _getPathTypeString(ExchangePathType type) {
-    switch (type) {
-      case ExchangePathType.oneToOne:
-        return 'oneToOne';
-      case ExchangePathType.circular:
-        return 'circular';
-      case ExchangePathType.chain:
-        return 'chain';
-    }
+  /// 노드 리스트를 포맷팅
+  String _formatNodes(List<dynamic> nodes) {
+    return nodes.asMap().entries.map((entry) {
+      final node = entry.value;
+      return '[${entry.key}]${node.day}|${node.period}|${node.className}|${node.teacherName}|${node.subjectName}';
+    }).join(', ');
   }
   
   /// 특정 셀이 교체된 셀인지 확인 (_exchangeList 기반)
@@ -364,27 +328,27 @@ class ExchangeHistoryService {
   /// ExchangePath에서 특정 셀이 포함되어 있는지 확인
   bool _isCellInExchangePath(ExchangePath path, String teacherName, String day, int period) {
     try {
-      if (path is OneToOneExchangePath) {
-        final sourceNode = path.sourceNode;
-        final targetNode = path.targetNode;
-        
-        return (sourceNode.teacherName == teacherName && sourceNode.day == day && sourceNode.period == period) ||
-               (targetNode.teacherName == teacherName && targetNode.day == day && targetNode.period == period);
-      } else if (path is CircularExchangePath) {
-        for (final node in path.nodes) {
-          if (node.teacherName == teacherName && node.day == day && node.period == period) {
-            return true;
-          }
-        }
-      } else if (path is ChainExchangePath) {
-        return (path.nodeA.teacherName == teacherName && path.nodeA.day == day && path.nodeA.period == period) ||
-               (path.nodeB.teacherName == teacherName && path.nodeB.day == day && path.nodeB.period == period) ||
-               (path.node1.teacherName == teacherName && path.node1.day == day && path.node1.period == period) ||
-               (path.node2.teacherName == teacherName && path.node2.day == day && path.node2.period == period);
-      }
+      final nodes = _getNodesFromPath(path);
+      return nodes.any((node) =>
+        node.teacherName == teacherName &&
+        node.day == day &&
+        node.period == period
+      );
     } catch (e) {
       developer.log('셀 확인 중 오류 발생: $e');
+      return false;
     }
-    return false;
+  }
+
+  /// ExchangePath에서 노드 리스트 추출
+  List<dynamic> _getNodesFromPath(ExchangePath path) {
+    if (path is OneToOneExchangePath) {
+      return [path.sourceNode, path.targetNode];
+    } else if (path is CircularExchangePath) {
+      return path.nodes;
+    } else if (path is ChainExchangePath) {
+      return [path.nodeA, path.nodeB, path.node1, path.node2];
+    }
+    return [];
   }
 }

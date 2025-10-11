@@ -73,10 +73,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final globalNotifier = ref.read(exchangeScreenProvider.notifier);
       globalNotifier.setCurrentMode(ExchangeMode.view);
 
-      // 교체 관리 > 보기 TAP 을 누르는 동작.
-      
-      
-      // 파일 선택 후 Level 3 초기화 (화면에 보인 후)
+      // 파일 선택 후 Level 3 초기화
       ref.read(stateResetProvider.notifier).resetAllStates(
         reason: '파일 선택 후 전체 상태 초기화',
       );
@@ -89,15 +86,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   // 엑셀 파일 선택 해제 메서드
   void _clearSelectedFile() {
-    if (_operationManager != null) {
-      // ExchangeOperationManager의 clearSelectedFile 메서드 사용
-      // 이 메서드는 히스토리와 교체리스트도 함께 초기화합니다
-      _operationManager!.clearSelectedFile();
-      
-      if (mounted) {
-        setState(() {});
-      }
-    }
+    _operationManager?.clearSelectedFile();
+    if (mounted) setState(() {});
   }
 
 

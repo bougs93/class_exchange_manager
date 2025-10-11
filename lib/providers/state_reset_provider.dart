@@ -113,28 +113,25 @@ class StateResetNotifier extends StateNotifier<ResetState> {
 
   /// 공통 초기화 작업 수행
   void _performCommonResetTasks() {
-    // 화살표 초기화 (싱글톤 방식)
     WidgetArrowsManager().clearAllArrows();
   }
 
-  /// 모든 셀 선택 상태 강제 해제 (ExchangeScreen의 _clearAllCellSelections와 동일한 로직)
+  /// 모든 셀 선택 상태 강제 해제
   void _clearAllCellSelections() {
-    // 모든 교체 서비스의 선택 상태 초기화
+    // 모든 교체 서비스 초기화
     _ref.read(exchangeServiceProvider).clearAllSelections();
     _ref.read(circularExchangeServiceProvider).clearAllSelections();
     _ref.read(chainExchangeServiceProvider).clearAllSelections();
-    
-    // TimetableDataSource의 모든 선택 상태 해제
-    final dataSource = _exchangeNotifier.state.dataSource;
-    dataSource?.clearAllSelections();
-    
-    // 선택된 셀 초기화
+
+    // DataSource 및 테마 초기화
+    _exchangeNotifier.state.dataSource?.clearAllSelections();
     _themeNotifier.clearAllSelections();
 
-    // Provider 상태 초기화
-    _exchangeNotifier.setSelectedCircularPath(null);
-    _exchangeNotifier.setSelectedOneToOnePath(null);
-    _exchangeNotifier.setSelectedChainPath(null);
+    // Provider 경로 상태 초기화
+    _exchangeNotifier
+      ..setSelectedCircularPath(null)
+      ..setSelectedOneToOnePath(null)
+      ..setSelectedChainPath(null);
   }
 
   /// 헤더 테마 업데이트 (ExchangeScreen의 _updateHeaderTheme와 동일한 로직)
@@ -180,21 +177,10 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   /// 교체 히스토리 초기화 (Level 3 전용)
   void _clearExchangeHistory() {
     try {
-      // ExchangeHistoryService의 교체 리스트와 되돌리기 스택 초기화
-      // 주의: ExchangeHistoryService는 싱글톤이므로 직접 접근
       final historyService = ExchangeHistoryService();
-      
-      // 교체 리스트 전체 삭제
       historyService.clearExchangeList();
-      
-      // 되돌리기 스택도 초기화
       historyService.clearUndoStack();
-      
-      AppLogger.exchangeDebug('[Level 3] 교체 히스토리 초기화 완료: _undoStack, _exchangeList');
-      
-      // 초기화 후 상태 확인을 위한 디버그 로그
-      AppLogger.exchangeDebug('[Level 3] 초기화 후 되돌리기 스택: ${historyService.getUndoStack().length}개');
-      AppLogger.exchangeDebug('[Level 3] 초기화 후 교체 리스트: ${historyService.getExchangeList().length}개');
+      AppLogger.exchangeDebug('[Level 3] 교체 히스토리 초기화 완료');
     } catch (e) {
       AppLogger.exchangeDebug('[Level 3] 교체 히스토리 초기화 중 오류: $e');
     }
@@ -239,18 +225,9 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   }
 
   /// 내부 선택된 경로 초기화 (화살표 제거용)
-  ///
-  /// 참고: TimetableGridSection의 _internalSelectedPath 초기화는
-  /// StateResetProvider에서 직접 접근할 수 없으므로,
-  /// TimetableGridSection.clearPathSelectionOnly() 메서드를 통해
-  /// 위젯 레벨에서 처리됩니다.
-  ///
-  /// 이 메서드는 디버그 로깅 용도로 유지됩니다.
+  /// TimetableGridSection.clearPathSelectionOnly()에서 처리됨
   void _clearInternalSelectedPath() {
-    AppLogger.exchangeDebug(
-      '[Level 1] 내부 선택된 경로 초기화 - '
-      'TimetableGridSection.clearPathSelectionOnly()에서 처리됨'
-    );
+    AppLogger.exchangeDebug('[Level 1] 내부 선택된 경로 초기화');
   }
 
   // ========================================

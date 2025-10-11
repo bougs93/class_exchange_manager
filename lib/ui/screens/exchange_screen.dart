@@ -123,15 +123,15 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   AnimationController? _progressAnimationController;
   Animation<double>? _progressAnimation;
 
-  // 편의 getter들 - Proxy를 통한 상태 접근 (메서드 내부에서 사용)
-  TimetableData? get _timetableData => _stateProxy.timetableData;
-  bool get _isExchangeModeEnabled => _stateProxy.currentMode == ExchangeMode.oneToOneExchange;
-  bool get _isCircularExchangeModeEnabled => _stateProxy.currentMode == ExchangeMode.circularExchange;
-  bool get _isChainExchangeModeEnabled => _stateProxy.currentMode == ExchangeMode.chainExchange;
-  CircularExchangePath? get _selectedCircularPath => _stateProxy.selectedCircularPath;
+  // 편의 getter들 (mixin getter와 중복되지 않는 것만 유지)
+  TimetableData? get _timetableData => timetableData;
+  bool get _isExchangeModeEnabled => isExchangeModeEnabled;
+  bool get _isCircularExchangeModeEnabled => isCircularExchangeModeEnabled;
+  bool get _isChainExchangeModeEnabled => isChainExchangeModeEnabled;
+  CircularExchangePath? get _selectedCircularPath => selectedCircularPath;
   double get _loadingProgress => _stateProxy.loadingProgress;
-  ChainExchangePath? get _selectedChainPath => _stateProxy.selectedChainPath;
-  OneToOneExchangePath? get _selectedOneToOnePath => _stateProxy.selectedOneToOnePath;
+  ChainExchangePath? get _selectedChainPath => selectedChainPath;
+  OneToOneExchangePath? get _selectedOneToOnePath => selectedOneToOnePath;
   bool get _isSidebarVisible => _stateProxy.isSidebarVisible;
 
   /// 교체 모드 변경 (TabBar에서 호출)

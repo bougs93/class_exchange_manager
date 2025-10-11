@@ -114,79 +114,49 @@ class ExchangeViewManager {
     }
   }
 
-  /// 교체 히스토리에서 교체 실행 (현재 데이터 사용)
-  /// 
-  /// 매개변수:
-  /// - `exchangeItem`: 교체 히스토리 항목
-  /// - `currentTimeSlots`: 현재 시간표 데이터
-  /// - `currentTeachers`: 현재 교사 데이터
-  /// 
-  /// 반환값: 교체 성공 여부
+  /// 교체 히스토리에서 교체 실행
   bool executeExchangeFromHistory(
     dynamic exchangeItem,
     List<TimeSlot> currentTimeSlots,
     List<Teacher> currentTeachers,
   ) {
     try {
-      AppLogger.exchangeDebug('교체 히스토리 실행 시작: ${exchangeItem.runtimeType}');
+      final path = exchangeItem is ExchangeHistoryItem
+          ? exchangeItem.originalPath
+          : (exchangeItem is ExchangePath ? exchangeItem : null);
 
-      ExchangePath? path;
-      if (exchangeItem is ExchangeHistoryItem) {
-        path = exchangeItem.originalPath;
-        AppLogger.exchangeDebug('ExchangeHistoryItem에서 경로 추출: ${path.runtimeType}');
-      } else if (exchangeItem is ExchangePath) {
-        path = exchangeItem;
-      }
-
-      if (path != null) {
-        if (path is OneToOneExchangePath) {
-          return _executeOneToOneExchangeFromPathWithData(path, currentTimeSlots, currentTeachers);
-        } else if (path is CircularExchangePath) {
-          _executeCircularExchangeFromPath(path);
-          return false; // 순환 교체는 아직 구현되지 않음
-        } else if (path is ChainExchangePath) {
-          _executeChainExchangeFromPath(path);
-          return false; // 연쇄 교체는 아직 구현되지 않음
-        } else {
-          AppLogger.exchangeDebug('알 수 없는 교체 경로 타입: ${path.runtimeType}');
-          return false;
-        }
-      } else {
+      if (path == null) {
         AppLogger.exchangeDebug('교체 경로를 찾을 수 없음: ${exchangeItem.runtimeType}');
         return false;
       }
+
+      if (path is OneToOneExchangePath) {
+        return _executeOneToOneExchangeFromPathWithData(path, currentTimeSlots, currentTeachers);
+      } else if (path is CircularExchangePath) {
+        _executeCircularExchangeFromPath(path);
+      } else if (path is ChainExchangePath) {
+        _executeChainExchangeFromPath(path);
+      }
+
+      return false;
     } catch (e) {
-      AppLogger.exchangeDebug('교체 히스토리 실행 중 오류 발생: $e');
+      AppLogger.exchangeDebug('교체 히스토리 실행 중 오류: $e');
       return false;
     }
   }
 
-  /// 1:1 교체 경로에서 교체 실행 (현재 데이터 사용)
-  /// 
-  /// 매개변수:
-  /// - `path`: 교체 경로
-  /// - `currentTimeSlots`: 현재 시간표 데이터
-  /// - `currentTeachers`: 현재 교사 데이터
-  /// 
-  /// 반환값: 교체 성공 여부
+  /// 1:1 교체 경로에서 교체 실행
   bool _executeOneToOneExchangeFromPathWithData(
     OneToOneExchangePath path,
     List<TimeSlot> currentTimeSlots,
     List<Teacher> currentTeachers,
   ) {
-    AppLogger.exchangeInfo('1:1 교체 실행 시작: ${path.id}');
-
     final sourceNode = path.sourceNode;
     final targetNode = path.targetNode;
 
-    AppLogger.exchangeInfo('교체 전:');
-    AppLogger.exchangeInfo('  └─ ${sourceNode.day}|${sourceNode.period}|${sourceNode.className}|${sourceNode.teacherName}|${sourceNode.subjectName}');
-    AppLogger.exchangeInfo('  └─ ${targetNode.day}|${targetNode.period}|${targetNode.className}|${targetNode.teacherName}|${targetNode.subjectName}');
+    AppLogger.exchangeInfo('1:1 교체 실행: ${sourceNode.teacherName}(${sourceNode.day}${sourceNode.period}) ↔ ${targetNode.teacherName}(${targetNode.day}${targetNode.period})');
 
-    AppLogger.exchangeInfo('1:1 교체 실행: ${sourceNode.teacherName}(${sourceNode.day}${sourceNode.period}교시) ↔ ${targetNode.teacherName}(${targetNode.day}${targetNode.period}교시)');
-
-    // 현재 데이터를 사용하여 교체 실행
-    bool success = exchangeService.performOneToOneExchange(
+    final success = exchangeService.performOneToOneExchange(
       currentTimeSlots,
       sourceNode.teacherName,
       sourceNode.day,
@@ -196,42 +166,27 @@ class ExchangeViewManager {
       targetNode.period,
     );
 
-    if (success) {
-      AppLogger.exchangeInfo('교체 후:');
-      AppLogger.exchangeInfo('  └─ ${sourceNode.day}|${sourceNode.period}|${sourceNode.className}|${targetNode.teacherName}|${targetNode.subjectName}');
-      AppLogger.exchangeInfo('  └─ ${targetNode.day}|${targetNode.period}|${targetNode.className}|${sourceNode.teacherName}|${sourceNode.subjectName}');
-      AppLogger.exchangeInfo('✅ 1:1 교체 성공: ${sourceNode.teacherName}(${sourceNode.day}${sourceNode.period}교시) ↔ ${targetNode.teacherName}(${targetNode.day}${targetNode.period}교시)');
-
-      // TimetableDataSource 업데이트 (dataSource가 있는 경우에만)
-      if (dataSource != null && timetableData != null) {
-        ref.read(stateResetProvider.notifier).resetExchangeStates(
-              reason: '1:1 교체 실행 - DataSource 업데이트',
-            );
-        dataSource?.updateData(currentTimeSlots, currentTeachers);
-      }
-      return true;
-    } else {
-      AppLogger.exchangeDebug('❌ 1:1 교체 실패: ${sourceNode.teacherName}(${sourceNode.day}${sourceNode.period}교시) ↔ ${targetNode.teacherName}(${targetNode.day}${targetNode.period}교시)');
-      return false;
+    if (success && dataSource != null && timetableData != null) {
+      ref.read(stateResetProvider.notifier).resetExchangeStates(
+        reason: '1:1 교체 실행 - DataSource 업데이트',
+      );
+      dataSource?.updateData(currentTimeSlots, currentTeachers);
+      AppLogger.exchangeInfo('✅ 1:1 교체 성공');
+    } else if (!success) {
+      AppLogger.exchangeDebug('❌ 1:1 교체 실패');
     }
+
+    return success;
   }
 
-  /// 순환 교체 경로에서 교체 실행
+  /// 순환 교체 경로에서 교체 실행 (미구현)
   void _executeCircularExchangeFromPath(CircularExchangePath path) {
-    AppLogger.exchangeInfo('순환 교체 실행 (구현 예정): ${path.id}');
-    AppLogger.exchangeDebug('순환 교체 노드 수: ${path.nodes.length}개');
-    for (int i = 0; i < path.nodes.length; i++) {
-      var node = path.nodes[i];
-      AppLogger.exchangeDebug('노드 ${i + 1}: ${node.teacherName}(${node.day}${node.period}교시)');
-    }
+    AppLogger.exchangeInfo('순환 교체 (구현 예정): ${path.id}, ${path.nodes.length}개 노드');
   }
 
-  /// 연쇄 교체 경로에서 교체 실행
+  /// 연쇄 교체 경로에서 교체 실행 (미구현)
   void _executeChainExchangeFromPath(ChainExchangePath path) {
-    AppLogger.exchangeInfo('연쇄 교체 실행 (구현 예정): ${path.id}');
-    AppLogger.exchangeDebug('연쇄 교체 단계 수: ${path.steps.length}개');
-    AppLogger.exchangeDebug('목표 노드: ${path.nodeA.teacherName}(${path.nodeA.day}${path.nodeA.period}교시)');
-    AppLogger.exchangeDebug('대체 노드: ${path.nodeB.teacherName}(${path.nodeB.day}${path.nodeB.period}교시)');
+    AppLogger.exchangeInfo('연쇄 교체 (구현 예정): ${path.id}, ${path.steps.length}개 단계');
   }
 
   /// 상세한 교체 정보 로깅

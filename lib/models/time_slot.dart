@@ -83,44 +83,21 @@ class TimeSlot {
   }
   
   /// TimeSlot 이동 함수
-  /// 
+  ///
   /// 이동 방식:
   /// 1. 원본 TimeSlot을 비우기
   /// 2. 목적지 TimeSlot에 원본의 정보를 복사하되 요일과 시간은 목적지의 것으로 설정
-  /// 
-  /// 매개변수:
-  /// - `sourceSlot`: 이동할 원본 TimeSlot
-  /// - `targetSlot`: 목적지 TimeSlot
-  /// 
-  /// 반환값:
-  /// - `bool`: 이동 성공 여부
   static bool moveTime(TimeSlot sourceSlot, TimeSlot targetSlot) {
     try {
-      AppLogger.exchangeDebug('TimeSlot.moveTime 시작:');
-      AppLogger.exchangeDebug('  sourceSlot: ${sourceSlot.debugInfo}');
-      AppLogger.exchangeDebug('  targetSlot: ${targetSlot.debugInfo}');
-      
       // 교체 가능성 검증
-      if (!sourceSlot.canExchange) {
-        AppLogger.exchangeDebug('교체 불가능: canExchange=false');
+      if (!sourceSlot.canExchange || sourceSlot.isEmpty) {
         return false;
       }
-      
-      if (sourceSlot.isEmpty) {
-        AppLogger.exchangeDebug('빈 슬롯: isEmpty=true');
-        return false;
-      }
-      
-      AppLogger.exchangeDebug('검증 통과, 이동 시작');
-      
-      // 1단계: 목적지 TimeSlot에 원본의 정보를 복사하되 "요일과 시간"은 목적지의 것으로 설정
+
+      // 목적지에 복사 후 원본 비우기
       targetSlot.copyFromWithNewTime(sourceSlot);
-      AppLogger.exchangeDebug('목적지에 복사 완료: ${targetSlot.debugInfo}');
-      
-      // 2단계: 원본 TimeSlot을 비우기 (복사 후에 비우기)
       sourceSlot.clear();
-      AppLogger.exchangeDebug('원본 비우기 완료: ${sourceSlot.debugInfo}');
-      
+
       return true;
     } catch (e) {
       AppLogger.error('TimeSlot.moveTime 오류: $e', e);
@@ -158,54 +135,5 @@ class TimeSlot {
   }
 }
 
-/// 교체 히스토리를 관리하는 클래스
-class ExchangeHistory {
-  static final List<List<TimeSlot>> _history = [];
-  
-  /// 교체 히스토리 추가
-  /// 
-  /// 매개변수:
-  /// - `beforeSlots`: 교체 전 TimeSlot 리스트
-  /// - `afterSlots`: 교체 후 TimeSlot 리스트
-  static void addExchange(List<TimeSlot> beforeSlots, List<TimeSlot> afterSlots) {
-    List<TimeSlot> historyEntry = [];
-    
-    // 교체 전 상태 추가
-    for (TimeSlot slot in beforeSlots) {
-      historyEntry.add(slot.copy());
-    }
-    
-    // 교체 후 상태 추가
-    for (TimeSlot slot in afterSlots) {
-      historyEntry.add(slot.copy());
-    }
-    
-    _history.add(historyEntry);
-  }
-  
-  /// 마지막 교체를 되돌리기
-  /// 
-  /// 반환값:
-  /// - `List<TimeSlot>`: 되돌린 TimeSlot 리스트 (교체 전 상태)
-  /// - `null`: 되돌릴 히스토리가 없는 경우
-  static List<TimeSlot>? undo() {
-    if (_history.isEmpty) return null;
-    
-    List<TimeSlot> lastEntry = _history.removeLast();
-    int halfLength = lastEntry.length ~/ 2;
-    
-    // 교체 전 상태만 반환
-    return lastEntry.take(halfLength).toList();
-  }
-  
-  /// 히스토리 확인
-  static List<List<TimeSlot>> get history => List.unmodifiable(_history);
-  
-  /// 히스토리 초기화
-  static void clear() {
-    _history.clear();
-  }
-  
-  /// 히스토리 개수
-  static int get length => _history.length;
-}
+// ExchangeHistory 클래스는 더 이상 사용되지 않습니다.
+// ExchangeHistoryService를 대신 사용하세요.

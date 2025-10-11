@@ -195,7 +195,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   bool _isExchangeViewEnabled = false;
 
   // 교체된 셀의 원본 정보를 저장하는 리스트 (복원용)
-  List<ExchangeBackupInfo> _exchangeListWork = [];
+  final List<ExchangeBackupInfo> _exchangeListWork = [];
 
   // 이미 백업 완료된 교체 개수 (간단한 추적)
   int _backedUpCount = 0;
@@ -1046,11 +1046,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       // 교체 리스트 조회
       final exchangeList = _historyService.getExchangeList();
       
-      // 디버그: 현재 상태 추적
-      AppLogger.exchangeDebug('🔍 [백업 추적] 현재 상태:');
-      AppLogger.exchangeDebug('  - exchangeList.length: ${exchangeList.length}');
-      AppLogger.exchangeDebug('  - _backedUpCount: $_backedUpCount');
-      AppLogger.exchangeDebug('  - _exchangeListWork.length: ${_exchangeListWork.length}');
+      AppLogger.exchangeDebug('[백업 추적] exchangeList: ${exchangeList.length}, backedUp: $_backedUpCount, work: ${_exchangeListWork.length}');
       
       if (exchangeList.isEmpty) {
         AppLogger.exchangeInfo('교체 리스트가 비어있습니다');
@@ -1059,13 +1055,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       
       // 새로운 교체만 추출 (백업된 개수 이후부터)
       final newExchanges = exchangeList.skip(_backedUpCount).toList();
-      
-      // 디버그: 새로운 교체 추출 결과
-      AppLogger.exchangeDebug('🔍 [새로운 교체 추출]:');
-      AppLogger.exchangeDebug('  - skip($_backedUpCount) 결과: ${newExchanges.length}개');
-      for (int i = 0; i < newExchanges.length; i++) {
-        AppLogger.exchangeDebug('    ${i + 1}. ${newExchanges[i].id} (${newExchanges[i].type})');
-      }
+      AppLogger.exchangeDebug('[새로운 교체] skip($_backedUpCount): ${newExchanges.length}개');
       
       if (newExchanges.isEmpty) {
         AppLogger.exchangeInfo('새로운 교체가 없습니다 (이미 $_backedUpCount개 백업됨)');
@@ -1074,35 +1064,26 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       
       AppLogger.exchangeInfo('새로운 교체 ${newExchanges.length}개 발견 (전체 ${exchangeList.length}개, 기존 백업 $_backedUpCount개)');
       
-      // 1단계: 새로운 교체만 백업 (clear 제거!)
-      AppLogger.exchangeDebug('1단계: 신규 교체 원본 정보 백업 시작');
-      int beforeBackupCount = _exchangeListWork.length;
+      // 1단계: 새로운 교체만 백업
+      AppLogger.exchangeDebug('1단계: 신규 교체 ${newExchanges.length}개 백업 시작');
+      final beforeBackupCount = _exchangeListWork.length;
       for (var item in newExchanges) {
-        AppLogger.exchangeDebug('  백업 중: ${item.id} (${item.type})');
         _backupOriginalSlotInfo(item, widget.dataSource!.timeSlots);
       }
-      int afterBackupCount = _exchangeListWork.length;
-      _backedUpCount = exchangeList.length;  // 백업 개수 업데이트
-      
-      // 디버그: 백업 결과 추적
-      AppLogger.exchangeDebug('🔍 [백업 결과]:');
-      AppLogger.exchangeDebug('  - 백업 전: $beforeBackupCount개');
-      AppLogger.exchangeDebug('  - 백업 후: $afterBackupCount개');
-      AppLogger.exchangeDebug('  - 추가된 백업: ${afterBackupCount - beforeBackupCount}개');
-      AppLogger.exchangeDebug('  - _backedUpCount 업데이트: ${exchangeList.length}');
+      _backedUpCount = exchangeList.length;
+      AppLogger.exchangeDebug('[백업 결과] $beforeBackupCount개 → ${_exchangeListWork.length}개 (추가: ${_exchangeListWork.length - beforeBackupCount})');
       
       // 2단계: 새로운 교체만 실행
-      AppLogger.exchangeDebug('2단계: 신규 교체 실행 시작');
+      AppLogger.exchangeDebug('2단계: 신규 교체 ${newExchanges.length}개 실행 시작');
       int successCount = 0;
       for (var item in newExchanges) {
-        AppLogger.exchangeDebug('  실행 중: ${item.id} (${item.type})');
-        bool success = _exchangeViewManager.executeExchangeFromHistory(
+        if (_exchangeViewManager.executeExchangeFromHistory(
           item,
           widget.dataSource!.timeSlots,
           widget.timetableData!.teachers,
-        );
-        AppLogger.exchangeDebug('  실행 결과: ${success ? "성공" : "실패"}');
-        if (success) successCount++;
+        )) {
+          successCount++;
+        }
       }
       
       // 선택 상태 초기화
@@ -1112,32 +1093,10 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       
       // UI 업데이트 (교체 성공 시에만)
       if (successCount > 0) {
-        if (widget.dataSource != null && widget.timetableData != null) {
-          widget.dataSource!.updateData(
-            widget.dataSource!.timeSlots, 
-            widget.timetableData!.teachers
-          );
-        }
+        widget.dataSource?.updateData(widget.dataSource!.timeSlots, widget.timetableData!.teachers);
         widget.onHeaderThemeUpdate?.call();
-        if (mounted) {
-          setState(() {});
-          AppLogger.exchangeDebug('📱 UI 업데이트 완료');
-        }
-      }
-      
-      if (successCount > 0) {
-        AppLogger.exchangeInfo('교체 뷰 활성화 완료 - $successCount개 교체 적용됨 (총 ${newExchanges.length}개 중)');
-      }
-      
-      // 디버그: 최종 상태 추적
-      AppLogger.exchangeDebug('🔍 [최종 상태]:');
-      AppLogger.exchangeDebug('  - _backedUpCount: $_backedUpCount');
-      AppLogger.exchangeDebug('  - _exchangeListWork.length: ${_exchangeListWork.length}');
-      AppLogger.exchangeDebug('  - 성공한 교체: $successCount개');
-      
-      // 상세 정보 로그
-      for (int i = 0; i < newExchanges.length; i++) {
-        _exchangeViewManager.logDetailedExchangeInfo(_backedUpCount - newExchanges.length + i + 1, newExchanges[i]);
+        if (mounted) setState(() {});
+        AppLogger.exchangeInfo('교체 뷰 활성화 완료 - $successCount/${newExchanges.length}개 적용');
       }
       
     } catch (e) {
@@ -1149,63 +1108,37 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   void _disableExchangeView() {
     try {
       AppLogger.exchangeInfo('교체 뷰 비활성화 시작');
-      
-      // 디버그: 비활성화 전 상태 추적
-      AppLogger.exchangeDebug('🔍 [비활성화 전 상태]:');
-      AppLogger.exchangeDebug('  - _backedUpCount: $_backedUpCount');
-      AppLogger.exchangeDebug('  - _exchangeListWork.length: ${_exchangeListWork.length}');
 
-      if (_exchangeListWork.isNotEmpty && widget.dataSource != null) {
-        AppLogger.exchangeDebug('교체 백업 리스트에서 ${_exchangeListWork.length}개 항목 복원 시작');
-        
-        // 역순으로 복원 (마지막에 교체된 것부터 먼저 되돌리기)
-        int restoredCount = 0;
-        for (int i = _exchangeListWork.length - 1; i >= 0; i--) {
-          ExchangeBackupInfo backupInfo = _exchangeListWork[i];
-          
-          // 해당 TimeSlot 찾기
-          TimeSlot? targetSlot = _findTimeSlotByBackupInfo(backupInfo, widget.dataSource!.timeSlots);
-          if (targetSlot != null) {
-            // 원본 정보로 복원
-            targetSlot.subject = backupInfo.subject;
-            targetSlot.className = backupInfo.className;
-            restoredCount++;
-            
-            AppLogger.exchangeDebug('복원 완료: ${backupInfo.debugInfo}');
-          } else {
-            AppLogger.exchangeDebug('복원 실패: TimeSlot을 찾을 수 없음 - ${backupInfo.debugInfo}');
-          }
-        }
-        
-        // DataSource 갱신하여 UI에 반영
-        if (widget.timetableData != null) {
-          widget.dataSource!.updateData(
-            widget.dataSource!.timeSlots, 
-            widget.timetableData!.teachers
-          );
-        }
-        
-        // 헤더 테마 업데이트 (교체된 셀 표시를 위해)
-        widget.onHeaderThemeUpdate?.call();
-        
-        // 화면 상태 강제 업데이트
-        if (mounted) {
-          setState(() {});
-        }
-        
-        // 백업 리스트 초기화
-        _exchangeListWork.clear();
-        _backedUpCount = 0;  // 백업 개수도 초기화
-        
-        // 디버그: 비활성화 후 상태 추적
-        AppLogger.exchangeDebug('🔍 [비활성화 후 상태]:');
-        AppLogger.exchangeDebug('  - _backedUpCount: $_backedUpCount (초기화됨)');
-        AppLogger.exchangeDebug('  - _exchangeListWork.length: ${_exchangeListWork.length} (초기화됨)');
-        
-        AppLogger.exchangeInfo('교체 뷰 비활성화 완료 - $restoredCount개 셀 복원됨');
-      } else {
+      if (_exchangeListWork.isEmpty || widget.dataSource == null) {
         AppLogger.exchangeDebug('복원할 교체 백업 데이터가 없습니다');
+        return;
       }
+
+      // 역순으로 복원 (마지막에 교체된 것부터 먼저 되돌리기)
+      int restoredCount = 0;
+      for (int i = _exchangeListWork.length - 1; i >= 0; i--) {
+        final backupInfo = _exchangeListWork[i];
+        final targetSlot = _findTimeSlotByBackupInfo(backupInfo, widget.dataSource!.timeSlots);
+
+        if (targetSlot != null) {
+          targetSlot.subject = backupInfo.subject;
+          targetSlot.className = backupInfo.className;
+          restoredCount++;
+        }
+      }
+
+      // UI 업데이트
+      if (widget.timetableData != null) {
+        widget.dataSource!.updateData(widget.dataSource!.timeSlots, widget.timetableData!.teachers);
+      }
+      widget.onHeaderThemeUpdate?.call();
+      if (mounted) setState(() {});
+
+      // 백업 데이터 초기화
+      _exchangeListWork.clear();
+      _backedUpCount = 0;
+
+      AppLogger.exchangeInfo('교체 뷰 비활성화 완료 - $restoredCount개 셀 복원됨');
     } catch (e) {
       AppLogger.exchangeDebug('교체 뷰 비활성화 중 오류 발생: $e');
     }

@@ -298,10 +298,7 @@ class ExchangeService extends BaseExchangeService {
         return false;
       }
 
-      // 4. 교체 전 상태를 복사하여 히스토리에 저장
-      List<TimeSlot> beforeSlots = [slot1s.copy(), slot2s.copy()];
-      
-      // 5. 교체 수행 (새로운 이동 방식: 원본 비우기 + 목적지에 복사)
+      // 4. 교체 수행 (새로운 이동 방식: 원본 비우기 + 목적지에 복사)
       // 핵심: slot1과 slot2는 timeSlots 리스트에서 가져온 참조이므로,
       //       이들을 수정하면 원본 timeSlots 리스트가 직접 변경됩니다.
       
@@ -323,14 +320,8 @@ class ExchangeService extends BaseExchangeService {
       AppLogger.exchangeDebug('  월6교시: ${slot2t.dayOfWeek}|${slot2t.period}|${slot2t.className}|${slot2t.teacher}|${slot2t.subject}');
       AppLogger.exchangeDebug('  화3교시: ${slot1t.dayOfWeek}|${slot1t.period}|${slot1t.className}|${slot1t.teacher}|${slot1t.subject}');
 
-      // 5. 교체 후 상태를 복사하여 히스토리에 저장 (교체된 셀들의 상태)
-      List<TimeSlot> afterSlots = [slot2t.copy(), slot1t.copy()];
-      
-      // 6. 교체 히스토리에 추가
-      ExchangeHistory.addExchange(beforeSlots, afterSlots);
-      
+      // 히스토리 관리는 ExchangeHistoryService에서 담당
       AppLogger.exchangeInfo('1:1 교체 완료: $teacher1($day1$period1교시) ↔ $teacher2($day2$period2교시) [교체 성공]');
-      AppLogger.exchangeDebug('교체 히스토리 추가됨: ${ExchangeHistory.length}개');
       return true;
       
     } catch (e) {
@@ -339,50 +330,12 @@ class ExchangeService extends BaseExchangeService {
     }
   }
   
-  /// 교체를 되돌리기
-  /// 
-  /// 매개변수:
-  /// - `timeSlots`: 전체 시간표 데이터
-  /// 
-  /// 반환값:
-  /// - `bool`: 되돌리기 성공 여부
+  /// 교체를 되돌리기 (Deprecated)
+  /// ExchangeHistoryService.undoLastExchange()를 사용하세요.
+  @Deprecated('ExchangeHistoryService.undoLastExchange()를 사용하세요.')
   bool undoExchange(List<TimeSlot> timeSlots) {
-    try {
-      List<TimeSlot>? beforeSlots = ExchangeHistory.undo();
-      if (beforeSlots == null) {
-        AppLogger.exchangeDebug('되돌릴 교체가 없습니다');
-        return false;
-      }
-      
-      if (beforeSlots.length < 2) {
-        AppLogger.exchangeDebug('되돌릴 교체 데이터가 부족합니다');
-        return false;
-      }
-      
-      // 교체 전 상태로 복원
-      TimeSlot beforeSlot1 = beforeSlots[0];
-      TimeSlot beforeSlot2 = beforeSlots[1];
-      
-      // 현재 TimeSlot 찾기
-      TimeSlot? currentSlot1 = _findTimeSlot(timeSlots, beforeSlot1.teacher!, 
-        DayUtils.getDayName(beforeSlot1.dayOfWeek!), beforeSlot1.period!);
-      TimeSlot? currentSlot2 = _findTimeSlot(timeSlots, beforeSlot2.teacher!, 
-        DayUtils.getDayName(beforeSlot2.dayOfWeek!), beforeSlot2.period!);
-      
-      if (currentSlot1 != null && currentSlot2 != null) {
-        // 교체 전 상태로 복원
-        currentSlot1.restoreFrom(beforeSlot1);
-        currentSlot2.restoreFrom(beforeSlot2);
-        
-        AppLogger.exchangeInfo('교체 되돌리기 완료: ${beforeSlot1.teacher}(${DayUtils.getDayName(beforeSlot1.dayOfWeek!)}${beforeSlot1.period}교시) ↔ ${beforeSlot2.teacher}(${DayUtils.getDayName(beforeSlot2.dayOfWeek!)}${beforeSlot2.period}교시)');
-        return true;
-      }
-      
-      return false;
-    } catch (e) {
-      AppLogger.exchangeDebug('교체 되돌리기 중 오류 발생: $e');
-      return false;
-    }
+    AppLogger.exchangeDebug('undoExchange는 더 이상 사용되지 않습니다. ExchangeHistoryService를 사용하세요.');
+    return false;
   }
   
   /// 1:1 교체 가능성 검증
