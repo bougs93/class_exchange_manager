@@ -988,9 +988,9 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
   }
 
-  /// 연쇄 교체의 원본 정보 백업 (7개 백업)
+  /// 연쇄 교체의 원본 정보 백업 (8개 백업)
   void _backupChainExchange(ChainExchangePath exchangeItem, List<TimeSlot> timeSlots) {
-    // 연쇄교체는 4개 노드 + 3개 목적지 = 총 7개 백업 필요
+    // 연쇄교체는 4개 노드 + 4개 목적지 = 총 8개 백업 필요
     
     // 1. 4개 노드의 원본 위치 백업
     _backupNodeData(exchangeItem.nodeA, timeSlots);  // 결강 수업
@@ -1013,12 +1013,19 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       'period': exchangeItem.node1.period,
     }, timeSlots);
     
-    // 3. 2단계 교체 후 목적지 위치 백업
+    // [중복] 3. 2단계 교체 후 목적지 위치 백업
     // nodeA 교사가 nodeB 위치로 이동 (최종 목적지)
+    // _backupNodeData({
+    //   'teacherName': exchangeItem.nodeA.teacherName,
+    //   'dayOfWeek': DayUtils.getDayNumber(exchangeItem.nodeB.day),
+    //   'period': exchangeItem.nodeB.period,
+    // }, timeSlots);
+    
+    // nodeB 교사가 nodeA 위치로 이동 (최종 목적지)
     _backupNodeData({
-      'teacherName': exchangeItem.nodeA.teacherName,
-      'dayOfWeek': DayUtils.getDayNumber(exchangeItem.nodeB.day),
-      'period': exchangeItem.nodeB.period,
+      'teacherName': exchangeItem.nodeB.teacherName,
+      'dayOfWeek': DayUtils.getDayNumber(exchangeItem.nodeA.day),
+      'period': exchangeItem.nodeA.period,
     }, timeSlots);
     
     AppLogger.exchangeDebug('연쇄교체 백업 완료: 7개 항목 (4개 노드 + 3개 목적지)');
