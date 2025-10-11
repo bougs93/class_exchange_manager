@@ -267,6 +267,7 @@ class ExchangeExecutor {
           '${path.targetNode.teacherName}_${path.sourceNode.day}_${path.sourceNode.period}',
           '${path.sourceNode.teacherName}_${path.targetNode.day}_${path.targetNode.period}',
         ]);
+
         // 순환교체 경로의 목적지 셀 추출 (각 노드가 다음 노드의 위치로 이동)
       } else if (path is CircularExchangePath) {
         final destinationKeys = <String>[];
@@ -280,7 +281,8 @@ class ExchangeExecutor {
         }
         
         cellKeys.addAll(destinationKeys);
-        // 연쇄교체 경로의 목적지 셀 추출
+
+        // TODO:연쇄교체 경로의 목적지 셀 추출
       } else if (path is ChainExchangePath) {
         cellKeys.addAll([
           '${path.nodeA.teacherName}_${path.nodeA.day}_${path.nodeA.period}',

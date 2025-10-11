@@ -129,11 +129,13 @@ class ExchangeViewManager {
         AppLogger.exchangeDebug('교체 경로를 찾을 수 없음: ${exchangeItem.runtimeType}');
         return false;
       }
-
+      // 1:1 교체 경로에서 View에서 교체 실행
       if (path is OneToOneExchangePath) {
         return _executeOneToOneExchangeFromPathWithData(path, currentTimeSlots, currentTeachers);
+      // 순환 교체 경로에서 View에서 교체 실행
       } else if (path is CircularExchangePath) {
-        _executeCircularExchangeFromPath(path);
+        return _executeCircularExchangeFromPathWithData(path, currentTimeSlots, currentTeachers);
+      // TODO:연쇄 교체 경로에서 View에서 교체 실행
       } else if (path is ChainExchangePath) {
         _executeChainExchangeFromPath(path);
       }
@@ -179,9 +181,30 @@ class ExchangeViewManager {
     return success;
   }
 
-  /// 순환 교체 경로에서 교체 실행 (미구현)
-  void _executeCircularExchangeFromPath(CircularExchangePath path) {
-    AppLogger.exchangeInfo('순환 교체 (구현 예정): ${path.id}, ${path.nodes.length}개 노드');
+  /// 순환 교체 경로에서 교체 실행
+  bool _executeCircularExchangeFromPathWithData(
+    CircularExchangePath path,
+    List<TimeSlot> currentTimeSlots,
+    List<Teacher> currentTeachers,
+  ) {
+    AppLogger.exchangeInfo('순환 교체 실행: ${path.id}, ${path.nodes.length}개 노드');
+
+    final success = exchangeService.performCircularExchange(
+      currentTimeSlots,
+      path.nodes,
+    );
+
+    if (success && dataSource != null && timetableData != null) {
+      ref.read(stateResetProvider.notifier).resetExchangeStates(
+        reason: '순환 교체 실행 - DataSource 업데이트',
+      );
+      dataSource?.updateData(currentTimeSlots, currentTeachers);
+      AppLogger.exchangeInfo('✅ 순환 교체 성공');
+    } else if (!success) {
+      AppLogger.exchangeDebug('❌ 순환 교체 실패');
+    }
+
+    return success;
   }
 
   /// 연쇄 교체 경로에서 교체 실행 (미구현)

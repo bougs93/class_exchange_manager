@@ -94,9 +94,21 @@ class TimeSlot {
         return false;
       }
 
+      // 이동 전 상태 저장
+      final sourceBefore = sourceSlot.debugInfo;
+      final targetBefore = targetSlot.debugInfo;
+
       // 목적지에 복사 후 원본 비우기
       targetSlot.copyFromWithNewTime(sourceSlot);
       sourceSlot.clear();
+
+      // 이동 후 상태
+      final sourceAfter = sourceSlot.debugInfo;
+      final targetAfter = targetSlot.debugInfo;
+
+      // 이동 결과 로그 출력
+      AppLogger.exchangeDebug('🔄이동 전 S|T: $sourceBefore | $targetBefore');
+      AppLogger.exchangeDebug('🔄이동 후 S|T: $sourceAfter | $targetAfter');
 
       return true;
     } catch (e) {
