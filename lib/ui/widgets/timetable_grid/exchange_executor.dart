@@ -15,11 +15,13 @@ class ExchangeExecutor {
   final WidgetRef ref;
   final ExchangeHistoryService historyService;
   final TimetableDataSource? dataSource;
+  final VoidCallback? onExchangeViewUpdate;  // 교체 뷰 업데이트 콜백
 
   ExchangeExecutor({
     required this.ref,
     required this.historyService,
     required this.dataSource,
+    this.onExchangeViewUpdate,
   });
 
   /// 교체 실행 기능
@@ -57,7 +59,10 @@ class ExchangeExecutor {
     // 6. UI 업데이트
     dataSource?.notifyListeners();
 
-    // 7. 사용자 피드백
+    // 7. 교체 뷰 업데이트 (교체 뷰가 활성화된 경우)
+    onExchangeViewUpdate?.call();
+
+    // 8. 사용자 피드백
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('교체 경로 "${exchangePath.id}"가 실행되었습니다'),
@@ -289,7 +294,6 @@ class ExchangeExecutor {
 
     AppLogger.exchangeDebug('=== 교체된 목적지 셀 목록 ===');
     AppLogger.exchangeDebug('총 ${destinationCellKeys.length}개 목적지 셀');
-    AppLogger.exchangeDebug('목적지 셀 키들: $destinationCellKeys');
     AppLogger.exchangeDebug('========================');
   }
 }

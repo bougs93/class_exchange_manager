@@ -197,6 +197,9 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   // 교체된 셀의 원본 정보를 저장하는 리스트 (복원용)
   List<ExchangeBackupInfo> _exchangeListWork = [];
 
+  // 이미 백업 완료된 교체 개수 (간단한 추적)
+  int _backedUpCount = 0;
+
   // 싱글톤 화살표 매니저
   final WidgetArrowsManager _arrowsManager = WidgetArrowsManager();
 
@@ -243,6 +246,16 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       ref: ref,
       historyService: _historyService,
       dataSource: widget.dataSource,
+      onExchangeViewUpdate: () {
+        // 교체 실행 후 교체 뷰 상태 확인 및 업데이트
+        if (_isExchangeViewEnabled) {
+          AppLogger.exchangeDebug('🔄 교체 실행 후 교체 뷰 업데이트 필요');
+          _enableExchangeView();
+        } else {
+          AppLogger.exchangeDebug('🔄 교체 실행 후 교체 뷰 업데이트 건너뜀 (비활성화 상태)');
+          // 교체 뷰가 비활성화된 상태에서는 업데이트하지 않음
+        }
+      },
     );
 
     // 화살표 매니저 초기화
@@ -275,6 +288,10 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   void dispose() {
     // 화살표 매니저 정리 (싱글톤이므로 clearAllArrows만 호출)
     _arrowsManager.clearAllArrows();
+    
+    // 교체 뷰 관련 메모리 정리
+    _exchangeListWork.clear();
+    _backedUpCount = 0;
     
     // 기존 리소스 정리
     _zoomManager.dispose();
@@ -424,20 +441,15 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
     // 교체 경로가 선택된 경우에만 화살표 표시
     if (currentSelectedPath != null && widget.timetableData != null) {
-      AppLogger.exchangeDebug('🎯 화살표 표시 조건 만족: ${currentSelectedPath!.type}');
-      
       // 현재는 기존 CustomPainter 방식 사용 (안정적)
       return _buildDataGridWithLegacyArrows(dataGridWithGestures);
     }
 
-    AppLogger.exchangeDebug('❌ 화살표 표시 조건 불만족: currentSelectedPath=${currentSelectedPath != null}, timetableData=${widget.timetableData != null}');
     return dataGridWithGestures;
   }
 
   /// 기존 CustomPainter 기반 화살표 표시
   Widget _buildDataGridWithLegacyArrows(Widget dataGridWithGestures) {
-    AppLogger.exchangeDebug('🎨 CustomPainter 화살표 그리기 시작: ${currentSelectedPath!.type}');
-    
     return Stack(
       children: [
         dataGridWithGestures,
@@ -1029,79 +1041,105 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   /// 교체 뷰 활성화
   void _enableExchangeView() {
     try {
-      AppLogger.exchangeInfo('교체 뷰 활성화 시작');
-
-      // 교체된 셀의 원본 정보를 저장할 리스트 초기화
-      _exchangeListWork.clear();
-      AppLogger.exchangeDebug('교체 백업 리스트 초기화 완료');
-
+      AppLogger.exchangeInfo('[wg]교체 뷰 활성화 시작');
+      
       // 교체 리스트 조회
       final exchangeList = _historyService.getExchangeList();
-      if (exchangeList.isNotEmpty) {
-        AppLogger.exchangeInfo('교체 리스트에서 ${exchangeList.length}개 교체 실행');
-
-        // 1단계: 먼저 모든 교체의 원본 정보를 백업
-        AppLogger.exchangeDebug('1단계: 원본 정보 백업 시작');
-        for (var item in exchangeList) {
-          _backupOriginalSlotInfo(item, widget.dataSource!.timeSlots);
-        }
-        AppLogger.exchangeDebug('원본 정보 백업 완료: ${_exchangeListWork.length}개 항목');
-
-        // 2단계: 교체 실행
-        AppLogger.exchangeDebug('2단계: 교체 실행 시작');
-        int successCount = 0;
-        for (var item in exchangeList) {
-          // 현재 데이터를 전달하여 교체 실행
-          bool success = _exchangeViewManager.executeExchangeFromHistory(
-            item,
-            widget.dataSource!.timeSlots,
-            widget.timetableData!.teachers,
-          );
-          if (success) {
-            successCount++;
-          }
-        }
-
-        // 선택 상태 초기화
-        ref.read(stateResetProvider.notifier).resetExchangeStates(
-          reason: '교체 뷰 활성화 - 선택 상태 초기화',
-        );
-
-        // UI 업데이트 (교체 성공 시에만)
-        if (successCount > 0) {
-          // TimetableDataSource 업데이트 - 교체된 데이터 반영
-          if (widget.dataSource != null && widget.timetableData != null) {
-            widget.dataSource!.updateData(
-              widget.dataSource!.timeSlots, 
-              widget.timetableData!.teachers
-            );
-          }
-          
-          // 헤더 테마 업데이트 (교체된 셀 표시를 위해)
-          widget.onHeaderThemeUpdate?.call();
-          
-          // 화면 상태 강제 업데이트
-          if (mounted) {
-            setState(() {});
-            AppLogger.exchangeDebug('📱 UI 업데이트 완료: DataSource, 헤더 테마, 화면 상태 업데이트');
-          }
-        }
-
-        // 실제 성공한 개수만 표시
-        if (successCount > 0) {
-          AppLogger.exchangeInfo('교체 뷰 활성화 완료 - $successCount개 교체 적용됨 (총 ${exchangeList.length}개 중)');
-        } else {
-          AppLogger.exchangeInfo('교체 뷰 활성화 완료 - 교체 적용 실패 (총 ${exchangeList.length}개 모두 실패)');
-        }
-        
-        // 상세 정보는 성공한 항목만 표시
-        for (int i = 0; i < exchangeList.length; i++) {
-          var item = exchangeList[i];
-          _exchangeViewManager.logDetailedExchangeInfo(i + 1, item);
-        }
-      } else {
-        AppLogger.exchangeInfo('교체 리스트가 비어있습니다 - 교체할 항목이 없음');
+      
+      // 디버그: 현재 상태 추적
+      AppLogger.exchangeDebug('🔍 [백업 추적] 현재 상태:');
+      AppLogger.exchangeDebug('  - exchangeList.length: ${exchangeList.length}');
+      AppLogger.exchangeDebug('  - _backedUpCount: $_backedUpCount');
+      AppLogger.exchangeDebug('  - _exchangeListWork.length: ${_exchangeListWork.length}');
+      
+      if (exchangeList.isEmpty) {
+        AppLogger.exchangeInfo('교체 리스트가 비어있습니다');
+        return;
       }
+      
+      // 새로운 교체만 추출 (백업된 개수 이후부터)
+      final newExchanges = exchangeList.skip(_backedUpCount).toList();
+      
+      // 디버그: 새로운 교체 추출 결과
+      AppLogger.exchangeDebug('🔍 [새로운 교체 추출]:');
+      AppLogger.exchangeDebug('  - skip($_backedUpCount) 결과: ${newExchanges.length}개');
+      for (int i = 0; i < newExchanges.length; i++) {
+        AppLogger.exchangeDebug('    ${i + 1}. ${newExchanges[i].id} (${newExchanges[i].type})');
+      }
+      
+      if (newExchanges.isEmpty) {
+        AppLogger.exchangeInfo('새로운 교체가 없습니다 (이미 $_backedUpCount개 백업됨)');
+        return;
+      }
+      
+      AppLogger.exchangeInfo('새로운 교체 ${newExchanges.length}개 발견 (전체 ${exchangeList.length}개, 기존 백업 $_backedUpCount개)');
+      
+      // 1단계: 새로운 교체만 백업 (clear 제거!)
+      AppLogger.exchangeDebug('1단계: 신규 교체 원본 정보 백업 시작');
+      int beforeBackupCount = _exchangeListWork.length;
+      for (var item in newExchanges) {
+        AppLogger.exchangeDebug('  백업 중: ${item.id} (${item.type})');
+        _backupOriginalSlotInfo(item, widget.dataSource!.timeSlots);
+      }
+      int afterBackupCount = _exchangeListWork.length;
+      _backedUpCount = exchangeList.length;  // 백업 개수 업데이트
+      
+      // 디버그: 백업 결과 추적
+      AppLogger.exchangeDebug('🔍 [백업 결과]:');
+      AppLogger.exchangeDebug('  - 백업 전: $beforeBackupCount개');
+      AppLogger.exchangeDebug('  - 백업 후: $afterBackupCount개');
+      AppLogger.exchangeDebug('  - 추가된 백업: ${afterBackupCount - beforeBackupCount}개');
+      AppLogger.exchangeDebug('  - _backedUpCount 업데이트: ${exchangeList.length}');
+      
+      // 2단계: 새로운 교체만 실행
+      AppLogger.exchangeDebug('2단계: 신규 교체 실행 시작');
+      int successCount = 0;
+      for (var item in newExchanges) {
+        AppLogger.exchangeDebug('  실행 중: ${item.id} (${item.type})');
+        bool success = _exchangeViewManager.executeExchangeFromHistory(
+          item,
+          widget.dataSource!.timeSlots,
+          widget.timetableData!.teachers,
+        );
+        AppLogger.exchangeDebug('  실행 결과: ${success ? "성공" : "실패"}');
+        if (success) successCount++;
+      }
+      
+      // 선택 상태 초기화
+      ref.read(stateResetProvider.notifier).resetExchangeStates(
+        reason: '교체 뷰 활성화 - 선택 상태 초기화',
+      );
+      
+      // UI 업데이트 (교체 성공 시에만)
+      if (successCount > 0) {
+        if (widget.dataSource != null && widget.timetableData != null) {
+          widget.dataSource!.updateData(
+            widget.dataSource!.timeSlots, 
+            widget.timetableData!.teachers
+          );
+        }
+        widget.onHeaderThemeUpdate?.call();
+        if (mounted) {
+          setState(() {});
+          AppLogger.exchangeDebug('📱 UI 업데이트 완료');
+        }
+      }
+      
+      if (successCount > 0) {
+        AppLogger.exchangeInfo('교체 뷰 활성화 완료 - $successCount개 교체 적용됨 (총 ${newExchanges.length}개 중)');
+      }
+      
+      // 디버그: 최종 상태 추적
+      AppLogger.exchangeDebug('🔍 [최종 상태]:');
+      AppLogger.exchangeDebug('  - _backedUpCount: $_backedUpCount');
+      AppLogger.exchangeDebug('  - _exchangeListWork.length: ${_exchangeListWork.length}');
+      AppLogger.exchangeDebug('  - 성공한 교체: $successCount개');
+      
+      // 상세 정보 로그
+      for (int i = 0; i < newExchanges.length; i++) {
+        _exchangeViewManager.logDetailedExchangeInfo(_backedUpCount - newExchanges.length + i + 1, newExchanges[i]);
+      }
+      
     } catch (e) {
       AppLogger.exchangeDebug('교체 뷰 활성화 중 오류 발생: $e');
     }
@@ -1111,6 +1149,11 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   void _disableExchangeView() {
     try {
       AppLogger.exchangeInfo('교체 뷰 비활성화 시작');
+      
+      // 디버그: 비활성화 전 상태 추적
+      AppLogger.exchangeDebug('🔍 [비활성화 전 상태]:');
+      AppLogger.exchangeDebug('  - _backedUpCount: $_backedUpCount');
+      AppLogger.exchangeDebug('  - _exchangeListWork.length: ${_exchangeListWork.length}');
 
       if (_exchangeListWork.isNotEmpty && widget.dataSource != null) {
         AppLogger.exchangeDebug('교체 백업 리스트에서 ${_exchangeListWork.length}개 항목 복원 시작');
@@ -1152,8 +1195,14 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
         
         // 백업 리스트 초기화
         _exchangeListWork.clear();
+        _backedUpCount = 0;  // 백업 개수도 초기화
         
-        AppLogger.exchangeInfo('교체 뷰 비활성화 완료 - $restoredCount개 셀 복원됨 (총 ${_exchangeListWork.length}개 중)');
+        // 디버그: 비활성화 후 상태 추적
+        AppLogger.exchangeDebug('🔍 [비활성화 후 상태]:');
+        AppLogger.exchangeDebug('  - _backedUpCount: $_backedUpCount (초기화됨)');
+        AppLogger.exchangeDebug('  - _exchangeListWork.length: ${_exchangeListWork.length} (초기화됨)');
+        
+        AppLogger.exchangeInfo('교체 뷰 비활성화 완료 - $restoredCount개 셀 복원됨');
       } else {
         AppLogger.exchangeDebug('복원할 교체 백업 데이터가 없습니다');
       }
