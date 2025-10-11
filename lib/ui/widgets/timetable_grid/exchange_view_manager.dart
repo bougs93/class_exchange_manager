@@ -135,9 +135,9 @@ class ExchangeViewManager {
       // 순환 교체 경로에서 View에서 교체 실행
       } else if (path is CircularExchangePath) {
         return _executeCircularExchangeFromPathWithData(path, currentTimeSlots, currentTeachers);
-      // TODO:연쇄 교체 경로에서 View에서 교체 실행
+      // 연쇄 교체 경로에서 View에서 교체 실행
       } else if (path is ChainExchangePath) {
-        _executeChainExchangeFromPath(path);
+        return _executeChainExchangeFromPathWithData(path, currentTimeSlots, currentTeachers);
       }
 
       return false;
@@ -207,9 +207,72 @@ class ExchangeViewManager {
     return success;
   }
 
-  /// 연쇄 교체 경로에서 교체 실행 (미구현)
-  void _executeChainExchangeFromPath(ChainExchangePath path) {
-    AppLogger.exchangeInfo('연쇄 교체 (구현 예정): ${path.id}, ${path.steps.length}개 단계');
+  /// 연쇄 교체 경로에서 교체 실행
+  bool _executeChainExchangeFromPathWithData(
+    ChainExchangePath path,
+    List<TimeSlot> currentTimeSlots,
+    List<Teacher> currentTeachers,
+  ) {
+    AppLogger.exchangeInfo('연쇄 교체 실행: ${path.id}, ${path.steps.length}개 단계');
+    
+    // 연쇄교체는 2단계로 구성됨
+    // 1단계: node1 ↔ node2 교체
+    // 2단계: nodeA ↔ nodeB 교체
+    
+    bool success = true;
+    
+    try {
+      // 1단계: node1과 node2 교체
+      final step1Success = exchangeService.performOneToOneExchange(
+        currentTimeSlots,
+        path.node1.teacherName,
+        path.node1.day,
+        path.node1.period,
+        path.node2.teacherName,
+        path.node2.day,
+        path.node2.period,
+      );
+      
+      if (!step1Success) {
+        AppLogger.exchangeDebug('❌ 연쇄교체 1단계 실패');
+        return false;
+      }
+      
+      AppLogger.exchangeInfo('✅ 연쇄교체 1단계 성공: ${path.node1.teacherName} ↔ ${path.node2.teacherName}');
+      
+      // 2단계: nodeA와 nodeB 교체
+      final step2Success = exchangeService.performOneToOneExchange(
+        currentTimeSlots,
+        path.nodeA.teacherName,
+        path.nodeA.day,
+        path.nodeA.period,
+        path.nodeB.teacherName,
+        path.nodeB.day,
+        path.nodeB.period,
+      );
+      
+      if (!step2Success) {
+        AppLogger.exchangeDebug('❌ 연쇄교체 2단계 실패');
+        return false;
+      }
+      
+      AppLogger.exchangeInfo('✅ 연쇄교체 2단계 성공: ${path.nodeA.teacherName} ↔ ${path.nodeB.teacherName}');
+      
+      // DataSource 업데이트
+      if (dataSource != null && timetableData != null) {
+        ref.read(stateResetProvider.notifier).resetExchangeStates(
+          reason: '연쇄교체 실행 - DataSource 업데이트',
+        );
+        dataSource?.updateData(currentTimeSlots, currentTeachers);
+        AppLogger.exchangeInfo('✅ 연쇄교체 전체 성공');
+      }
+      
+    } catch (e) {
+      AppLogger.exchangeDebug('연쇄교체 실행 중 오류: $e');
+      success = false;
+    }
+    
+    return success;
   }
 
   /// 상세한 교체 정보 로깅

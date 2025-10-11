@@ -988,15 +988,40 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
   }
 
-  /// 연쇄 교체의 원본 정보 백업
+  /// 연쇄 교체의 원본 정보 백업 (7개 백업)
   void _backupChainExchange(ChainExchangePath exchangeItem, List<TimeSlot> timeSlots) {
-    for (var step in exchangeItem.steps) {
-      // fromNode 백업
-      _backupNodeData(step.fromNode, timeSlots);
-      
-      // toNode 백업
-      _backupNodeData(step.toNode, timeSlots);
-    }
+    // 연쇄교체는 4개 노드 + 3개 목적지 = 총 7개 백업 필요
+    
+    // 1. 4개 노드의 원본 위치 백업
+    _backupNodeData(exchangeItem.nodeA, timeSlots);  // 결강 수업
+    _backupNodeData(exchangeItem.nodeB, timeSlots);  // 대체 가능 수업
+    _backupNodeData(exchangeItem.node1, timeSlots);  // 1단계 교환 대상
+    _backupNodeData(exchangeItem.node2, timeSlots); // A 교사의 B 시간 수업
+    
+    // 2. 1단계 교체 후 목적지 위치 백업
+    // node1 교사가 node2 위치로 이동
+    _backupNodeData({
+      'teacherName': exchangeItem.node1.teacherName,
+      'dayOfWeek': DayUtils.getDayNumber(exchangeItem.node2.day),
+      'period': exchangeItem.node2.period,
+    }, timeSlots);
+    
+    // node2 교사가 node1 위치로 이동
+    _backupNodeData({
+      'teacherName': exchangeItem.node2.teacherName,
+      'dayOfWeek': DayUtils.getDayNumber(exchangeItem.node1.day),
+      'period': exchangeItem.node1.period,
+    }, timeSlots);
+    
+    // 3. 2단계 교체 후 목적지 위치 백업
+    // nodeA 교사가 nodeB 위치로 이동 (최종 목적지)
+    _backupNodeData({
+      'teacherName': exchangeItem.nodeA.teacherName,
+      'dayOfWeek': DayUtils.getDayNumber(exchangeItem.nodeB.day),
+      'period': exchangeItem.nodeB.period,
+    }, timeSlots);
+    
+    AppLogger.exchangeDebug('연쇄교체 백업 완료: 7개 항목 (4개 노드 + 3개 목적지)');
   }
 
   /// ExchangeNode 또는 특정 위치의 데이터를 백업
