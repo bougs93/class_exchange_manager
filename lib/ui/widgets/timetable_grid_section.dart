@@ -214,6 +214,19 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
   /// 교체된 셀에서 선택된 경로인지 확인
   bool get isFromExchangedCell => _internalSelectedPath != null;
+  
+  /// 셀이 선택된 상태인지 확인 (보강 버튼 활성화용)
+  bool get isCellSelected {
+    final themeState = ref.read(timetableThemeProvider);
+    final isSelected = themeState.selectedTeacher != null && 
+                       themeState.selectedDay != null && 
+                       themeState.selectedPeriod != null;
+    
+    // 디버깅용 로그
+    AppLogger.exchangeDebug('🔍 셀 선택 상태 확인: teacher=${themeState.selectedTeacher}, day=${themeState.selectedDay}, period=${themeState.selectedPeriod}, isSelected=$isSelected');
+    
+    return isSelected;
+  }
 
   @override
   void initState() {
@@ -406,18 +419,27 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
         const Spacer(),
 
         // 보강/교체 버튼들
-        ExchangeActionButtons(
-          onUndo: () => _exchangeExecutor.undoLastExchange(context, _clearInternalPath),
-          onRepeat: () => _exchangeExecutor.repeatLastExchange(context),
-          onSupplement: _showSupplementDialog,
-          onDelete: (currentSelectedPath != null && isFromExchangedCell)
-            ? () => _exchangeExecutor.deleteFromExchangeList(currentSelectedPath!, context, _clearInternalPath)
-            : null,
-          onExchange: (isInExchangeMode && !isFromExchangedCell && currentSelectedPath != null)
-            ? () => _exchangeExecutor.executeExchange(currentSelectedPath!, context, _clearInternalPath)
-            : null,
-          showDeleteButton: currentSelectedPath != null && isFromExchangedCell,
-          showExchangeButton: isInExchangeMode && !isFromExchangedCell,
+        Builder(
+          builder: (context) {
+            // 보강 버튼 활성화 조건 확인
+            final supplementEnabled = isInExchangeMode && isCellSelected;
+            AppLogger.exchangeDebug('🔍 보강 버튼 상태: isInExchangeMode=$isInExchangeMode, isCellSelected=$isCellSelected, supplementEnabled=$supplementEnabled');
+            
+            return ExchangeActionButtons(
+              onUndo: () => _exchangeExecutor.undoLastExchange(context, _clearInternalPath),
+              onRepeat: () => _exchangeExecutor.repeatLastExchange(context),
+              onSupplement: supplementEnabled ? _showSupplementDialog : null,
+              onDelete: (currentSelectedPath != null && isFromExchangedCell)
+                ? () => _exchangeExecutor.deleteFromExchangeList(currentSelectedPath!, context, _clearInternalPath)
+                : null,
+              onExchange: (isInExchangeMode && !isFromExchangedCell && currentSelectedPath != null)
+                ? () => _exchangeExecutor.executeExchange(currentSelectedPath!, context, _clearInternalPath)
+                : null,
+              showDeleteButton: currentSelectedPath != null && isFromExchangedCell,
+              showExchangeButton: isInExchangeMode && !isFromExchangedCell,
+              showSupplementButton: isInExchangeMode, // 교체 모드에서만 보강 버튼 표시
+            );
+          },
         ),
       ],
     );

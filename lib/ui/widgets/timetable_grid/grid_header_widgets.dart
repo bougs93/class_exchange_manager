@@ -151,21 +151,23 @@ class ExchangeViewCheckbox extends StatelessWidget {
 class ExchangeActionButtons extends StatelessWidget {
   final VoidCallback onUndo;
   final VoidCallback onRepeat;
-  final VoidCallback onSupplement;
+  final VoidCallback? onSupplement;
   final VoidCallback? onDelete;
   final VoidCallback? onExchange;
   final bool showDeleteButton;
   final bool showExchangeButton;
+  final bool showSupplementButton;
 
   const ExchangeActionButtons({
     super.key,
     required this.onUndo,
     required this.onRepeat,
-    required this.onSupplement,
+    this.onSupplement,
     this.onDelete,
     this.onExchange,
     required this.showDeleteButton,
     required this.showExchangeButton,
+    required this.showSupplementButton,
   });
 
   @override
@@ -213,25 +215,39 @@ class ExchangeActionButtons extends StatelessWidget {
           ),
         ),
 
-        // 보강 버튼
-        Container(
-          margin: const EdgeInsets.only(right: 8),
-          child: ElevatedButton.icon(
-            onPressed: onSupplement,
-            icon: const Icon(Icons.add_circle_outline, size: 16),
-            label: const Text('보강', style: TextStyle(fontSize: 12)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green.shade100,
-              foregroundColor: Colors.green.shade700,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              minimumSize: const Size(60, 40),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(5),
-                side: BorderSide(color: Colors.green.shade300),
+        // 보강 버튼 (교체 모드에서만 표시)
+        if (showSupplementButton) ...[
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            child: ElevatedButton.icon(
+              onPressed: onSupplement,
+              icon: Icon(
+                Icons.add_circle_outline,
+                size: 16,
+                color: onSupplement != null ? Colors.green.shade700 : Colors.grey.shade400,
+              ),
+              label: Text(
+                '보강',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: onSupplement != null ? Colors.green.shade700 : Colors.grey.shade400,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: onSupplement != null ? Colors.green.shade100 : Colors.grey.shade100,
+                foregroundColor: onSupplement != null ? Colors.green.shade700 : Colors.grey.shade400,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                minimumSize: const Size(60, 40),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(5),
+                  side: BorderSide(
+                    color: onSupplement != null ? Colors.green.shade300 : Colors.grey.shade300,
+                  ),
+                ),
               ),
             ),
           ),
-        ),
+        ],
 
         // 삭제 버튼
         if (showDeleteButton && onDelete != null) ...[
