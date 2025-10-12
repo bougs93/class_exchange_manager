@@ -268,7 +268,7 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     // 캐시 초기화
     _themeNotifier.clearAllCaches();
 
-    // 선택된 셀 초기화 (모드 전환 시)
+    // 선택된 셀 초기화 (모드 전환 시) - 교사 이름 선택 상태도 포함
     _themeNotifier.clearAllSelections();
 
     // 공통 초기화 작업 수행

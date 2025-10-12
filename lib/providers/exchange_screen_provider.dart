@@ -36,6 +36,7 @@ class ExchangeScreenState {
   final int? selectedStep;
   final String? selectedDay;
   final bool isNonExchangeableEditMode;
+  final bool isTeacherNameSelectionEnabled; // 교사 이름 선택 기능 활성화 상태
 
   const ExchangeScreenState({
     this.selectedFile,
@@ -58,6 +59,7 @@ class ExchangeScreenState {
     this.selectedStep,
     this.selectedDay,
     this.isNonExchangeableEditMode = false,
+    this.isTeacherNameSelectionEnabled = false, // 기본값: 비활성화
   });
 
   ExchangeScreenState copyWith({
@@ -81,6 +83,7 @@ class ExchangeScreenState {
     int? Function()? selectedStep,
     String? Function()? selectedDay,
     bool? isNonExchangeableEditMode,
+    bool? isTeacherNameSelectionEnabled,
   }) {
     return ExchangeScreenState(
       selectedFile: selectedFile != null ? selectedFile() : this.selectedFile,
@@ -104,6 +107,7 @@ class ExchangeScreenState {
       selectedStep: selectedStep != null ? selectedStep() : this.selectedStep,
       selectedDay: selectedDay != null ? selectedDay() : this.selectedDay,
       isNonExchangeableEditMode: isNonExchangeableEditMode ?? this.isNonExchangeableEditMode,
+      isTeacherNameSelectionEnabled: isTeacherNameSelectionEnabled ?? this.isTeacherNameSelectionEnabled,
     );
   }
 }
@@ -300,6 +304,16 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
       availableSteps: [],
       selectedStep: () => null,
     );
+  }
+
+  /// 교사 이름 선택 기능 활성화
+  void enableTeacherNameSelection() {
+    state = state.copyWith(isTeacherNameSelectionEnabled: true);
+  }
+
+  /// 교사 이름 선택 기능 비활성화
+  void disableTeacherNameSelection() {
+    state = state.copyWith(isTeacherNameSelectionEnabled: false);
   }
 }
 

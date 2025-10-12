@@ -163,6 +163,7 @@ class TimetableThemeNotifier extends StateNotifier<TimetableThemeState> {
       clearTarget: true,
       clearPaths: true,
       exchangeableTeachers: [],
+      clearTeacherNameSelection: true, // 교사 이름 선택 상태도 초기화
     );
   }
 

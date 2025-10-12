@@ -430,7 +430,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
             return ExchangeActionButtons(
               onUndo: () => _exchangeExecutor.undoLastExchange(context, _clearInternalPath),
               onRepeat: () => _exchangeExecutor.repeatLastExchange(context),
-              onSupplement: supplementEnabled ? _showSupplementDialog : null,
+              onSupplement: supplementEnabled ? _enableTeacherNameSelectionForSupplement : null,
               onDelete: (currentSelectedPath != null && isFromExchangedCell)
                 ? () => _exchangeExecutor.deleteFromExchangeList(currentSelectedPath!, context, _clearInternalPath)
                 : null,
@@ -698,65 +698,48 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     );
   }
 
-  /// 보강 기능 다이얼로그 표시
-  void _showSupplementDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.add_circle_outline, color: Colors.green),
-              SizedBox(width: 8),
-              Text('보강 수업 추가'),
-            ],
-          ),
-          content: const Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('보강 수업을 추가하시겠습니까?'),
-              SizedBox(height: 16),
-              Text(
-                '• 교사별로 보강 수업을 추가할 수 있습니다\n'
-                '• 시간표에 새로운 시간 슬롯이 생성됩니다\n'
-                '• 기존 수업과 겹치지 않도록 주의하세요',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('취소'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _addSupplementClass();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('추가'),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
-  /// 보강 수업 추가 기능
-  void _addSupplementClass() {
+  /// 보강을 위한 교사 이름 선택 기능 활성화
+  void _enableTeacherNameSelectionForSupplement() {
+    // 교사 이름 선택 기능 활성화
+    ref.read(exchangeScreenProvider.notifier).enableTeacherNameSelection();
+    
+    // 스낵바 메시지 표시
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('보강 수업 추가 기능이 구현될 예정입니다'),
+        content: Text('보강한 교사 이름을 선택하세요'),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 3),
+      ),
+    );
+    
+    AppLogger.exchangeDebug('보강을 위한 교사 이름 선택 기능 활성화');
+  }
+
+
+  /// 보강 프로세스 완료 처리
+  void _completeSupplementProcess() {
+    // 교사 이름 선택 기능 비활성화
+    ref.read(exchangeScreenProvider.notifier).disableTeacherNameSelection();
+    
+    // 교사 이름 선택 상태 초기화
+    ref.read(timetableThemeProvider.notifier).updateSelectedTeacherName(null);
+    
+    // 완료 메시지 표시
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('보강 수업 추가가 완료되었습니다'),
         backgroundColor: Colors.green,
         duration: Duration(seconds: 2),
       ),
     );
+    
+    // UI 업데이트
+    widget.onHeaderThemeUpdate?.call();
+    
+    AppLogger.exchangeDebug('보강 프로세스 완료 - 교사 이름 선택 기능 비활성화');
   }
+
 
   /// 교체된 셀 클릭 처리
   void _handleExchangedCellClick(String teacherName, String day, int period) {
@@ -898,21 +881,22 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
   /// 교사 이름 클릭 처리 (교체 모드 또는 교체불가 편집 모드에서 동작)
   void _handleTeacherNameClick(String teacherName) {
-    // 현재 모드 확인
-    final currentMode = ref.read(exchangeScreenProvider).currentMode;
+    // 현재 모드 및 교사 이름 선택 기능 활성화 상태 확인
+    final screenState = ref.read(exchangeScreenProvider);
+    final currentMode = screenState.currentMode;
     final isNonExchangeableEditMode = currentMode == ExchangeMode.nonExchangeableEdit;
-    
-    // 교체 모드가 아니고 교체불가 편집 모드도 아닌 경우 아무 동작하지 않음
-    if (!isInExchangeMode && !isNonExchangeableEditMode) {
-      AppLogger.exchangeDebug('교사 이름 클릭: 교체 모드도 교체불가 편집 모드도 아니므로 무시됨');
-      return;
-    }
+    final isTeacherNameSelectionEnabled = screenState.isTeacherNameSelectionEnabled;
     
     // 교체불가 편집 모드인 경우 교사 전체 시간 토글 기능 사용
     if (isNonExchangeableEditMode) {
       AppLogger.exchangeDebug('교체불가 편집 모드: 교사 전체 시간 토글 기능 사용 - $teacherName');
-      // 교체불가 편집 모드에서는 직접 교사 전체 시간 토글 처리
       _toggleTeacherAllTimesInNonExchangeableMode(teacherName);
+      return;
+    }
+    
+    // 교체 모드이지만 교사 이름 선택 기능이 비활성화된 경우 아무 동작하지 않음
+    if (!isInExchangeMode || !isTeacherNameSelectionEnabled) {
+      AppLogger.exchangeDebug('교사 이름 클릭: 교체 모드가 아니거나 교사 이름 선택 기능이 비활성화됨');
       return;
     }
     
@@ -929,6 +913,9 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       // 다른 교사 이름을 클릭하면 선택
       themeNotifier.updateSelectedTeacherName(teacherName);
       AppLogger.exchangeDebug('교사 이름 선택: $teacherName');
+      
+      // 교사 이름 선택 후 바로 보강 프로세스 완료
+      _completeSupplementProcess();
     }
     
     // UI 업데이트
