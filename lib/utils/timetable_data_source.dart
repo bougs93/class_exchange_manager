@@ -268,7 +268,7 @@ class TimetableDataSource extends DataGridSource {
     );
     
     return CellStateInfo(
-      isSelected: isTeacherSelected || isTeacherNameSelected, // 교사 이름 선택 상태도 포함
+      isSelected: isTeacherSelected, // 교사 이름 선택은 isSelected에 포함하지 않음
       isExchangeableTeacher: isTeacherExchangeable,
       isInCircularPath: themeNotifier.isInCircularPath(teacherName, '', 0),
       isInChainPath: themeNotifier.isInChainPath(teacherName, '', 0),

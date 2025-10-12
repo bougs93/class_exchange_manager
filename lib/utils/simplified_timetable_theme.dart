@@ -34,7 +34,7 @@ class SimplifiedTimetableTheme {
   static const Color exchangeableColorLight = Color(0xFFE0E0E0);
   static const Color selectedColorDark = Color(0xFF1976D2);
   // 교사 이름 선택 색상 (새로 추가)
-  static const Color selectedTeacherNameColor = Color(0xFF2196F3); // 파란색
+  static const Color selectedTeacherNameColor = Color(0xFFC8E6C9); // 조금 더 진한 그린색
   // 선택된 셀 테두리 색상 상수
   static const Color selectedCellBorderColor = Color(0xFFFF0000); // 선택된 셀 테두리 색상 (빨간색)
   static const double selectedCellBorderWidth = 2; // 선택된 셀 테두리 두께
@@ -126,6 +126,7 @@ class SimplifiedTimetableTheme {
         isHeader: config.isHeader,
         isTargetCell: config.isTargetCell,
         isExchangedSourceCell: config.isExchangedSourceCell,
+        isTeacherNameSelected: config.isTeacherNameSelected, // 새로 추가
       ),
       overlayWidget: _getOverlayWidget(
         isExchangeable: config.isExchangeable,
@@ -230,7 +231,20 @@ class SimplifiedTimetableTheme {
     required bool isHeader,
     required bool isTargetCell,
     required bool isExchangedSourceCell,
+    required bool isTeacherNameSelected, // 새로 추가
   }) {
+    // 교사 이름 선택 상태인 경우 기본 테두리 사용 (최우선순위)
+    if (isTeacherNameSelected) {
+      return Border(
+        left: BorderSide(
+          color: isFirstColumnOfDay ? dayBorderColor : normalBorderColor,
+          width: isFirstColumnOfDay ? dayBorderWidth : normalBorderWidth,
+        ),
+        right: const BorderSide(color: normalBorderColor, width: normalBorderWidth),
+        bottom: const BorderSide(color: normalBorderColor, width: normalBorderWidth),
+      );
+    }
+    
     // 교체된 소스 셀의 경우 파란색 테두리 (표시 여부 설정에 따라)
     // 헤더 셀과 일반 셀 모두에 적용 (최우선순위)
     if (isExchangedSourceCell && showExchangedSourceCellBorder) {

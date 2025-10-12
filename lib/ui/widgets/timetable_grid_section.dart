@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/excel_service.dart';
 import '../../services/exchange_service.dart';
 import '../../providers/services_provider.dart';
+import '../../providers/exchange_screen_provider.dart';
+import '../../models/exchange_mode.dart';
 import '../../utils/timetable_data_source.dart';
 import '../../utils/constants.dart';
 import '../../utils/day_utils.dart';
@@ -894,8 +896,27 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     widget.onHeaderThemeUpdate?.call();
   }
 
-  /// 교사 이름 클릭 처리 (새로 추가)
+  /// 교사 이름 클릭 처리 (교체 모드 또는 교체불가 편집 모드에서 동작)
   void _handleTeacherNameClick(String teacherName) {
+    // 현재 모드 확인
+    final currentMode = ref.read(exchangeScreenProvider).currentMode;
+    final isNonExchangeableEditMode = currentMode == ExchangeMode.nonExchangeableEdit;
+    
+    // 교체 모드가 아니고 교체불가 편집 모드도 아닌 경우 아무 동작하지 않음
+    if (!isInExchangeMode && !isNonExchangeableEditMode) {
+      AppLogger.exchangeDebug('교사 이름 클릭: 교체 모드도 교체불가 편집 모드도 아니므로 무시됨');
+      return;
+    }
+    
+    // 교체불가 편집 모드인 경우 교사 전체 시간 토글 기능 사용
+    if (isNonExchangeableEditMode) {
+      AppLogger.exchangeDebug('교체불가 편집 모드: 교사 전체 시간 토글 기능 사용 - $teacherName');
+      // 교체불가 편집 모드에서는 직접 교사 전체 시간 토글 처리
+      _toggleTeacherAllTimesInNonExchangeableMode(teacherName);
+      return;
+    }
+    
+    // 교체 모드인 경우 교사 이름 선택 기능 사용
     final themeNotifier = ref.read(timetableThemeProvider.notifier);
     final themeState = ref.read(timetableThemeProvider);
     
@@ -903,13 +924,30 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     if (themeState.selectedTeacherName == teacherName) {
       // 같은 교사 이름을 다시 클릭하면 선택 해제
       themeNotifier.updateSelectedTeacherName(null);
+      AppLogger.exchangeDebug('교사 이름 선택 해제: $teacherName');
     } else {
       // 다른 교사 이름을 클릭하면 선택
       themeNotifier.updateSelectedTeacherName(teacherName);
+      AppLogger.exchangeDebug('교사 이름 선택: $teacherName');
     }
     
     // UI 업데이트
     widget.onHeaderThemeUpdate?.call();
+  }
+  
+  /// 교체불가 편집 모드에서 교사 전체 시간 토글 처리
+  void _toggleTeacherAllTimesInNonExchangeableMode(String teacherName) {
+    if (widget.timetableData == null) return;
+    
+    AppLogger.exchangeDebug('교체불가 편집 모드: 교사 $teacherName의 모든 시간 토글');
+    
+    // TimetableDataSource의 toggleTeacherAllTimes 메서드 사용
+    widget.dataSource?.toggleTeacherAllTimes(teacherName);
+    
+    // UI 업데이트
+    widget.onHeaderThemeUpdate?.call();
+    
+    AppLogger.exchangeDebug('교사 $teacherName의 모든 시간 토글 완료');
   }
 
   /// 행 인덱스에서 교사명 추출
@@ -1259,3 +1297,4 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     return null;
   }
 }
+
