@@ -27,6 +27,7 @@ class CellStateInfo {
   final bool isNonExchangeable;
   final bool isExchangedSourceCell; // 교체된 소스 셀인지 여부
   final bool isExchangedDestinationCell; // 교체된 목적지 셀인지 여부
+  final bool isTeacherNameSelected; // 교사 이름 선택 상태 (새로 추가)
 
   CellStateInfo({
     required this.isSelected,
@@ -42,6 +43,7 @@ class CellStateInfo {
     required this.isNonExchangeable,
     required this.isExchangedSourceCell,
     required this.isExchangedDestinationCell,
+    required this.isTeacherNameSelected, // 새로 추가
   });
 
   factory CellStateInfo.empty() {
@@ -59,6 +61,7 @@ class CellStateInfo {
       isNonExchangeable: false,
       isExchangedSourceCell: false,
       isExchangedDestinationCell: false,
+      isTeacherNameSelected: false, // 새로 추가
     );
   }
 }
@@ -222,6 +225,7 @@ class TimetableDataSource extends DataGridSource {
           isNonExchangeable: cellState.isNonExchangeable,
           isExchangedSourceCell: cellState.isExchangedSourceCell,
           isExchangedDestinationCell: cellState.isExchangedDestinationCell,
+          isTeacherNameSelected: cellState.isTeacherNameSelected, // 새로 추가
         );
       }).toList(),
     );
@@ -255,13 +259,16 @@ class TimetableDataSource extends DataGridSource {
     // 선택된 교사인지 확인 (selectedTeacher와 비교)
     bool isTeacherSelected = themeState.selectedTeacher == teacherName;
     
+    // 교사 이름 선택 상태 확인 (새로 추가)
+    bool isTeacherNameSelected = themeState.selectedTeacherName == teacherName;
+    
     // 교사가 교체 가능한지 확인 (교체 가능한 교사 목록에 포함되어 있는지)
     bool isTeacherExchangeable = themeState.exchangeableTeachers.any(
       (teacher) => teacher['teacherName'] == teacherName
     );
     
     return CellStateInfo(
-      isSelected: isTeacherSelected,
+      isSelected: isTeacherSelected || isTeacherNameSelected, // 교사 이름 선택 상태도 포함
       isExchangeableTeacher: isTeacherExchangeable,
       isInCircularPath: themeNotifier.isInCircularPath(teacherName, '', 0),
       isInChainPath: themeNotifier.isInChainPath(teacherName, '', 0),
@@ -274,6 +281,7 @@ class TimetableDataSource extends DataGridSource {
       isFirstColumnOfDay: false,
       circularPathStep: null,
       chainPathStep: null,
+      isTeacherNameSelected: isTeacherNameSelected, // 새로 추가
     );
   }
 
@@ -328,6 +336,7 @@ class TimetableDataSource extends DataGridSource {
       isFirstColumnOfDay: _isFirstColumnOfDay(day, period),
       circularPathStep: _getCircularPathStep(teacherName, day, period),
       chainPathStep: _getChainPathStep(teacherName, day, period),
+      isTeacherNameSelected: false, // 데이터 셀은 교사 이름 선택 상태 적용 안함
     );
   }
 

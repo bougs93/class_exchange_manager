@@ -33,6 +33,8 @@ class SimplifiedTimetableTheme {
   static const Color selectedColorLight = Color(0xFFFFEB3B); // 노란색 (기존 테마 유지)
   static const Color exchangeableColorLight = Color(0xFFE0E0E0);
   static const Color selectedColorDark = Color(0xFF1976D2);
+  // 교사 이름 선택 색상 (새로 추가)
+  static const Color selectedTeacherNameColor = Color(0xFF2196F3); // 파란색
   // 선택된 셀 테두리 색상 상수
   static const Color selectedCellBorderColor = Color(0xFFFF0000); // 선택된 셀 테두리 색상 (빨간색)
   static const double selectedCellBorderWidth = 2; // 선택된 셀 테두리 두께
@@ -108,6 +110,7 @@ class SimplifiedTimetableTheme {
         isExchangedSourceCell: config.isExchangedSourceCell,
         isExchangedDestinationCell: config.isExchangedDestinationCell,
         isHeader: config.isHeader,
+        isTeacherNameSelected: config.isTeacherNameSelected, // 새로 추가
       ),
       textStyle: _getTextStyle(
         isSelected: config.isSelected,
@@ -152,8 +155,14 @@ class SimplifiedTimetableTheme {
     required bool isExchangedSourceCell, // 교체된 소스 셀인지 여부 추가
     required bool isExchangedDestinationCell, // 교체된 목적지 셀인지 여부 추가
     required bool isHeader, // 헤더인지 여부 추가
+    required bool isTeacherNameSelected, // 교사 이름 선택 상태 (새로 추가)
   }) {
-    // 교체된 목적지 셀인 경우 연한 파란색 배경 (최우선순위)
+    // 교사 이름 선택 상태인 경우 파란색 배경 (최우선순위)
+    if (isTeacherNameSelected) {
+      return selectedTeacherNameColor;
+    }
+    
+    // 교체된 목적지 셀인 경우 연한 파란색 배경
     if (isExchangedDestinationCell && showExchangedDestinationCellBackground) {
       return exchangedDestinationCellBackgroundColor;
     }

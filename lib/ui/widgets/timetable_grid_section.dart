@@ -865,6 +865,12 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     );
     final columnName = details.column.columnName;
 
+    // 교사 이름 클릭 처리 (새로 추가)
+    if (columnName == 'teacher') {
+      _handleTeacherNameClick(teacherName);
+      return;
+    }
+
     if (columnName != 'teacher') {
       final parts = columnName.split('_');
       if (parts.length == 2) {
@@ -885,6 +891,24 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
     _hideExchangeArrows();
     widget.onCellTap(details);
+    widget.onHeaderThemeUpdate?.call();
+  }
+
+  /// 교사 이름 클릭 처리 (새로 추가)
+  void _handleTeacherNameClick(String teacherName) {
+    final themeNotifier = ref.read(timetableThemeProvider.notifier);
+    final themeState = ref.read(timetableThemeProvider);
+    
+    // 현재 선택된 교사 이름과 같은지 확인
+    if (themeState.selectedTeacherName == teacherName) {
+      // 같은 교사 이름을 다시 클릭하면 선택 해제
+      themeNotifier.updateSelectedTeacherName(null);
+    } else {
+      // 다른 교사 이름을 클릭하면 선택
+      themeNotifier.updateSelectedTeacherName(teacherName);
+    }
+    
+    // UI 업데이트
     widget.onHeaderThemeUpdate?.call();
   }
 

@@ -54,9 +54,9 @@ class ChainExchangeService extends BaseExchangeService {
     TimetableDataSource dataSource,
     List<TimeSlot> timeSlots,
   ) {
-    // 교사명 열은 선택하지 않음
+    // 교사명 열 클릭은 교사 이름 선택 기능으로 처리
     if (details.column.columnName == 'teacher') {
-      return ChainExchangeResult.noAction();
+      return ChainExchangeResult.noAction(); // 교사 이름 선택은 별도 처리
     }
 
     // 컬럼명에서 요일과 교시 추출 (예: "월_1", "화_2")

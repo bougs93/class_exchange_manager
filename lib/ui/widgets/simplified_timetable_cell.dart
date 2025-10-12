@@ -20,6 +20,7 @@ class SimplifiedTimetableCell extends StatelessWidget {
   final bool isNonExchangeable; // 교체불가 셀인지 여부
   final bool isExchangedSourceCell; // 교체된 소스 셀인지 여부
   final bool isExchangedDestinationCell; // 교체된 목적지 셀인지 여부
+  final bool isTeacherNameSelected; // 교사 이름 선택 상태 (새로 추가)
   final VoidCallback? onTap;
 
   const SimplifiedTimetableCell({
@@ -40,6 +41,7 @@ class SimplifiedTimetableCell extends StatelessWidget {
     this.isNonExchangeable = false,
     this.isExchangedSourceCell = false, // 교체된 소스 셀 기본값은 false
     this.isExchangedDestinationCell = false, // 교체된 목적지 셀 기본값은 false
+    this.isTeacherNameSelected = false, // 교사 이름 선택 상태 기본값은 false
     this.onTap,
   });
 
@@ -62,6 +64,7 @@ class SimplifiedTimetableCell extends StatelessWidget {
         isNonExchangeable: isNonExchangeable,
         isExchangedSourceCell: isExchangedSourceCell,
         isExchangedDestinationCell: isExchangedDestinationCell,
+        isTeacherNameSelected: isTeacherNameSelected, // 새로 추가
       ),
     );
     

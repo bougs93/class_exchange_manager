@@ -27,6 +27,9 @@ class TimetableThemeState {
   final Set<String> exchangedCells;
   final Set<String> exchangedDestinationCells;
   
+  // 교사 이름 선택 상태 (새로 추가)
+  final String? selectedTeacherName;
+  
   // 캐시 무효화 플래그 (실제 캐시는 별도 관리)
   final bool cacheInvalidated;
 
@@ -43,6 +46,7 @@ class TimetableThemeState {
     this.selectedChainPath,
     this.exchangedCells = const {},
     this.exchangedDestinationCells = const {},
+    this.selectedTeacherName, // 새로 추가
     this.cacheInvalidated = false,
   });
 
@@ -59,12 +63,14 @@ class TimetableThemeState {
     ChainExchangePath? selectedChainPath,
     Set<String>? exchangedCells,
     Set<String>? exchangedDestinationCells,
+    String? selectedTeacherName, // 새로 추가
     bool? cacheInvalidated,
     bool clearSelection = false,
     bool clearTarget = false,
     bool clearPaths = false,
     bool clearExchangedCells = false,
     bool clearCaches = false,
+    bool clearTeacherNameSelection = false, // 새로 추가
   }) {
     return TimetableThemeState(
       selectedTeacher: clearSelection ? null : (selectedTeacher ?? this.selectedTeacher),
@@ -79,6 +85,7 @@ class TimetableThemeState {
       selectedChainPath: clearPaths ? null : (selectedChainPath ?? this.selectedChainPath),
       exchangedCells: clearExchangedCells ? <String>{} : (exchangedCells ?? this.exchangedCells),
       exchangedDestinationCells: clearExchangedCells ? <String>{} : (exchangedDestinationCells ?? this.exchangedDestinationCells),
+      selectedTeacherName: clearTeacherNameSelection ? null : (selectedTeacherName ?? this.selectedTeacherName), // 새로 추가
       cacheInvalidated: clearCaches ? true : (cacheInvalidated ?? this.cacheInvalidated),
     );
   }
@@ -134,6 +141,14 @@ class TimetableThemeNotifier extends StateNotifier<TimetableThemeState> {
   /// 교체된 목적지 셀 상태 업데이트
   void updateExchangedDestinationCells(List<String> cellKeys) {
     state = state.copyWith(exchangedDestinationCells: cellKeys.toSet());
+  }
+
+  /// 교사 이름 선택 상태 업데이트 (새로 추가)
+  void updateSelectedTeacherName(String? teacherName) {
+    state = state.copyWith(
+      selectedTeacherName: teacherName,
+      clearCaches: true,
+    );
   }
 
   /// 캐시 무효화 (실제 캐시는 TimetableDataSource에서 관리)
@@ -244,6 +259,8 @@ class TimetableThemeNotifier extends StateNotifier<TimetableThemeState> {
       exchangeableTeachers: [],
       // 교체된 셀 초기화
       clearExchangedCells: true,
+      // 교사 이름 선택 초기화
+      clearTeacherNameSelection: true,
       // 캐시 초기화
       clearCaches: true,
     );
