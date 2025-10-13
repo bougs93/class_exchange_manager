@@ -117,11 +117,88 @@ class ExchangeArrowPainter extends CustomPainter {
   /// 보강 교체 화살표 그리기 (단방향 화살표)
   void _drawSupplementArrows(Canvas canvas, Size size) {
     final supplementPath = selectedPath as SupplementExchangePath;
-    final sourceNode = supplementPath.sourceNode;
-    final targetNode = supplementPath.targetNode;
+    final sourceNode = supplementPath.sourceNode;  // 보강할 셀 (수업이 있는 셀)
+    final targetNode = supplementPath.targetNode;  // 보강할 교사 (빈 셀)
 
-    // 보강 교체는 단방향 화살표 (A → B 방향만, 세로 우선, 머리 사이즈 10)
-    _drawArrowBetweenNodes(canvas, size, sourceNode, targetNode, priority: ArrowPriority.verticalFirst, arrowHeadSize: 10.0);
+    // 보강 교체는 보강할 교사(빈 셀)에서 보강할 셀(수업이 있는 셀)로의 방향
+    // 보강 교체 전용 화살표 그리기 (명시적 방향 지정)
+    _drawSupplementArrowDirectly(canvas, size, targetNode, sourceNode);
+  }
+
+
+
+  /// 보강 교체 전용 화살표 그리기 (직접 그리기 방식)
+  /// 보강 교체는 같은 교시의 다른 교사들 간 교체이므로 수직선으로 직접 그리기
+  void _drawSupplementArrowDirectly(Canvas canvas, Size size, ExchangeNode sourceNode, ExchangeNode targetNode) {
+    // 교사 인덱스 찾기
+    int sourceTeacherIndex = timetableData.teachers
+        .indexWhere((teacher) => teacher.name == sourceNode.teacherName);
+    int targetTeacherIndex = timetableData.teachers
+        .indexWhere((teacher) => teacher.name == targetNode.teacherName);
+
+    if (sourceTeacherIndex == -1 || targetTeacherIndex == -1) {
+      return;
+    }
+
+    // 컬럼 인덱스 찾기 (보강 교체는 같은 교시이므로 같은 컬럼)
+    String columnName = '${sourceNode.day}_${sourceNode.period}';
+    int columnIndex = columns
+        .indexWhere((column) => column.columnName == columnName);
+
+    if (columnIndex == -1) {
+      return;
+    }
+
+    // 보강 교체 스타일 가져오기
+    ExchangeArrowStyle style = ExchangeArrowStyle.supplement;
+
+    // 화살표 시작점과 끝점 계산 (상대적 위치 기반)
+    // sourceNode는 빈 셀, targetNode는 수업이 있는 셀
+    // 기존 로직을 사용하여 상대적 위치에 따라 화살표 방향 결정
+    Map<String, ArrowEdge> edges = _determineArrowEdges(
+      columnIndex,
+      sourceTeacherIndex,
+      columnIndex,
+      targetTeacherIndex,
+      ArrowPriority.verticalFirst,
+    );
+
+    Offset sourcePos = _getCellEdgeCenterPosition(columnIndex, sourceTeacherIndex, edges['start']!);
+    Offset targetPos = _getCellEdgeCenterPosition(columnIndex, targetTeacherIndex, edges['end']!);
+
+    // 화면 영역 내에 화살표가 있는지 검사
+    bool isVisible = _isArrowVisible(sourcePos, targetPos, size);
+    if (!isVisible) {
+      return;
+    }
+
+    // 고정 영역 클리핑 적용
+    canvas.save();
+    _applyFrozenAreaClipping(canvas, size);
+
+    // 수직선 그리기 (외곽선 먼저)
+    final outlinePaint = Paint()
+      ..color = style.outlineColor
+      ..strokeWidth = style.outlineWidth
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final innerPaint = Paint()
+      ..color = style.color
+      ..strokeWidth = style.strokeWidth
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    // 외곽선 먼저 그리기
+    canvas.drawLine(sourcePos, targetPos, outlinePaint);
+    
+    // 내부선 그리기
+    canvas.drawLine(sourcePos, targetPos, innerPaint);
+
+    // 화살표 머리 그리기 (source에서 target 방향)
+    _drawArrowHeadWithStyle(canvas, sourcePos, targetPos, style);
+    
+    canvas.restore();
   }
 
   /// 두 노드 간의 화살표 그리기
@@ -718,7 +795,6 @@ class ExchangeArrowPainter extends CustomPainter {
     // 내부선 그리기
     canvas.drawPath(arrowHead, innerPaint);
   }
-
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
