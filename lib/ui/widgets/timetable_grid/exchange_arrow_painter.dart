@@ -17,8 +17,8 @@ class ExchangeArrowPainter extends CustomPainter {
   final ExchangePath selectedPath;
   final TimetableData timetableData;
   final List<GridColumn> columns;
-  final double verticalScrollOffset;
-  final double horizontalScrollOffset;
+  final ScrollController verticalScrollController;
+  final ScrollController horizontalScrollController;
   final ExchangeArrowStyle? customArrowStyle;
   final double zoomFactor; // 클리핑 계산용 (실제 크기는 이미 조정됨)
 
@@ -26,8 +26,8 @@ class ExchangeArrowPainter extends CustomPainter {
     required this.selectedPath,
     required this.timetableData,
     required this.columns,
-    required this.verticalScrollOffset,
-    required this.horizontalScrollOffset,
+    required this.verticalScrollController,
+    required this.horizontalScrollController,
     this.customArrowStyle,
     required this.zoomFactor, // 클리핑 계산용
   }) : assert(columns.isNotEmpty, 'columns cannot be empty'),
@@ -443,13 +443,17 @@ class ExchangeArrowPainter extends CustomPainter {
     double y = AppConstants.headerRowHeight * GridLayoutConstants.headerRowsCount * zoomFactor; // 헤더 행 높이 - 줌 배율 적용
     y += teacherIndex * AppConstants.dataRowHeight * zoomFactor; // 교사 인덱스에 따른 행 높이 - 줌 배율 적용
 
-    // 스크롤 오프셋 반영 (고정 영역 고려)
+    // 스크롤 오프셋 반영 (고정 영역 고려) - 커밋 218404f 방식
     double horizontalOffset = 0.0;
-    double verticalOffset = verticalScrollOffset;
+    double verticalOffset = verticalScrollController.hasClients
+        ? verticalScrollController.offset 
+        : 0.0;
     
     // 고정 열(교사명 열)이 아닌 경우에만 가로 스크롤 오프셋 적용
     if (columnIndex > 0) {
-      horizontalOffset = horizontalScrollOffset;
+      horizontalOffset = horizontalScrollController.hasClients
+          ? horizontalScrollController.offset
+          : 0.0;
     }
 
     // 스크롤 오프셋을 좌표에 반영
@@ -823,13 +827,17 @@ class ExchangeArrowPainter extends CustomPainter {
       hasChanged = true;
     }
     
-    // 스크롤 위치 변경 확인 (화살표 위치에 영향)
-    if ((oldPainter.verticalScrollOffset - verticalScrollOffset).abs() > 1.0) {
-      hasChanged = true;
+    // 스크롤 위치 변경 확인 (화살표 위치에 영향) - 커밋 218404f 방식
+    if (verticalScrollController.hasClients && oldPainter.verticalScrollController.hasClients) {
+      if ((oldPainter.verticalScrollController.offset - verticalScrollController.offset).abs() > 1.0) {
+        hasChanged = true;
+      }
     }
     
-    if ((oldPainter.horizontalScrollOffset - horizontalScrollOffset).abs() > 1.0) {
-      hasChanged = true;
+    if (horizontalScrollController.hasClients && oldPainter.horizontalScrollController.hasClients) {
+      if ((oldPainter.horizontalScrollController.offset - horizontalScrollController.offset).abs() > 1.0) {
+        hasChanged = true;
+      }
     }
     
     return hasChanged;
