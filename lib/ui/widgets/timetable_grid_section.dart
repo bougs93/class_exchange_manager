@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/excel_service.dart';
 import '../../services/exchange_service.dart';
 import '../../providers/services_provider.dart';
+import '../../providers/exchange_view_provider.dart';
 import '../../providers/arrow_display_provider.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../models/exchange_mode.dart';
@@ -13,15 +14,11 @@ import '../../utils/day_utils.dart';
 import 'timetable_grid/widget_arrows_manager.dart';
 import '../../utils/logger.dart';
 import '../../models/exchange_path.dart';
-import '../../models/one_to_one_exchange_path.dart';
-import '../../models/circular_exchange_path.dart';
-import '../../models/chain_exchange_path.dart';
-import '../../models/supplement_exchange_path.dart';
 import '../../models/exchange_node.dart';
+import '../../models/supplement_exchange_path.dart';
 import '../../models/time_slot.dart';
 import '../../services/exchange_history_service.dart';
 import '../../utils/exchange_algorithm.dart';
-import '../../models/exchange_history_item.dart';
 import '../../providers/timetable_theme_provider.dart';
 import '../../providers/state_reset_provider.dart';
 import '../../utils/simplified_timetable_theme.dart';
@@ -29,7 +26,6 @@ import 'timetable_grid/timetable_grid_constants.dart';
 import 'timetable_grid/exchange_arrow_style.dart';
 import 'timetable_grid/exchange_arrow_painter.dart';
 import 'timetable_grid/zoom_manager.dart';
-import 'timetable_grid/exchange_view_manager.dart';
 import 'timetable_grid/exchange_executor.dart';
 import 'timetable_grid/grid_header_widgets.dart';
 
@@ -171,26 +167,22 @@ class TimetableGridSection extends ConsumerStatefulWidget {
 class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   // 헬퍼 클래스들
   late ZoomManager _zoomManager;
-  late ExchangeViewManager _exchangeViewManager;
   late ExchangeExecutor _exchangeExecutor;
 
   // 교체 히스토리 서비스
   final ExchangeHistoryService _historyService = ExchangeHistoryService();
 
-  // 교체 서비스
-  final ExchangeService _exchangeService = ExchangeService();
-
   // 내부적으로 관리하는 선택된 교체 경로 (교체된 셀 클릭 시 사용) - 제거됨
   // ExchangePath? _internalSelectedPath;
 
-  // 교체 뷰 체크박스 상태
-  bool _isExchangeViewEnabled = false;
+  // 교체 뷰 체크박스 상태 - Riverpod Provider로 관리됨
+  // bool _isExchangeViewEnabled = false;
 
-  // 교체된 셀의 원본 정보를 저장하는 리스트 (복원용)
-  final List<ExchangeBackupInfo> _exchangeListWork = [];
+  // 교체된 셀의 원본 정보를 저장하는 리스트 (복원용) - Riverpod Provider로 관리됨
+  // final List<ExchangeBackupInfo> _exchangeListWork = [];
 
-  // 이미 백업 완료된 교체 개수 (간단한 추적)
-  int _backedUpCount = 0;
+  // 이미 백업 완료된 교체 개수 (간단한 추적) - Riverpod Provider로 관리됨
+  // int _backedUpCount = 0;
 
   // 싱글톤 화살표 매니저
   final WidgetArrowsManager _arrowsManager = WidgetArrowsManager();
@@ -232,14 +224,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     );
     _zoomManager.initialize();
 
-    // ExchangeViewManager 초기화
-    _exchangeViewManager = ExchangeViewManager(
-      ref: ref,
-      dataSource: widget.dataSource,
-      timetableData: widget.timetableData,
-      exchangeService: _exchangeService,
-    );
-
     // ExchangeExecutor 초기화
     _exchangeExecutor = ExchangeExecutor(
       ref: ref,
@@ -247,7 +231,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       dataSource: widget.dataSource,
       onExchangeViewUpdate: () {
         // 교체 실행 후 교체 뷰 상태 확인 및 업데이트
-        if (_isExchangeViewEnabled) {
+        if (ref.watch(isExchangeViewEnabledProvider)) {
           AppLogger.exchangeDebug('🔄 교체 실행 후 교체 뷰 업데이트 필요');
           _enableExchangeView();
         } else {
@@ -288,9 +272,9 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     // 화살표 매니저 정리 (싱글톤이므로 clearAllArrows만 호출)
     _arrowsManager.clearAllArrows();
     
-    // 교체 뷰 관련 메모리 정리
-    _exchangeListWork.clear();
-    _backedUpCount = 0;
+    // 교체 뷰 관련 메모리 정리는 Riverpod Provider에서 자동 처리됨
+    // _exchangeListWork.clear();
+    // _backedUpCount = 0;
     
     // 기존 리소스 정리
     _zoomManager.dispose();
@@ -312,9 +296,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     final resetState = ref.watch(stateResetProvider);
     
     // Level 3 초기화 시 교체 뷰 체크박스도 초기 상태로 되돌리기
-    if (resetState.lastResetLevel == ResetLevel.allStates && _isExchangeViewEnabled) {
-      _isExchangeViewEnabled = false;
-      _disableExchangeView();
+    if (resetState.lastResetLevel == ResetLevel.allStates && ref.watch(isExchangeViewEnabledProvider)) {
+      ref.read(exchangeViewProvider.notifier).reset();
       AppLogger.exchangeDebug('[StateResetProvider 감지] 교체 뷰 체크박스 초기화 완료 (Level 3)');
     }
 
@@ -368,13 +351,11 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
         // 교체 뷰 체크박스
         ExchangeViewCheckbox(
-          isEnabled: _isExchangeViewEnabled,
+          isEnabled: ref.watch(isExchangeViewEnabledProvider),
           onChanged: (bool? value) {
-            setState(() {
-              _isExchangeViewEnabled = value ?? false;
-            });
-
-            if (_isExchangeViewEnabled) {
+            final isEnabled = value ?? false;
+            
+            if (isEnabled) {
               _enableExchangeView();
             } else {
               _disableExchangeView();
@@ -985,308 +966,48 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     AppLogger.exchangeDebug('화살표 초기화 요청 (StateResetProvider에서 처리)');
   }
 
-  /// 교체 실행 전에 원본 정보를 백업하는 메서드
-  /// 
-  /// 매개변수:
-  /// - `exchangeItem`: 교체할 항목 정보 (ExchangeHistoryItem 또는 ExchangePath)
-  /// - `timeSlots`: 현재 시간표 데이터
-  void _backupOriginalSlotInfo(dynamic exchangeItem, List<TimeSlot> timeSlots) {
-    try {
-      ExchangePath? exchangePath;
-      
-      // ExchangeHistoryItem인 경우 실제 경로 추출
-      if (exchangeItem is ExchangeHistoryItem) {
-        exchangePath = exchangeItem.originalPath;
-        AppLogger.exchangeDebug('ExchangeHistoryItem에서 경로 추출: ${exchangePath.type}');
-      } else if (exchangeItem is ExchangePath) {
-        exchangePath = exchangeItem;
-        AppLogger.exchangeDebug('ExchangePath 직접 사용: ${exchangePath.type}');
-      }
-      
-      if (exchangePath == null) {
-        AppLogger.exchangeDebug('교체 경로를 찾을 수 없음: ${exchangeItem.runtimeType}');
-        return;
-      }
-      
-      // 교체 타입에 따라 다르게 처리
-      if (exchangePath is OneToOneExchangePath) {
-        // 1:1 교체의 경우 sourceSlot과 targetSlot 백업
-        _backupOneToOneExchange(exchangePath, timeSlots);
-      } else if (exchangePath is CircularExchangePath) {
-        // 순환 교체의 경우 모든 교체되는 셀들 백업
-        _backupCircularExchange(exchangePath, timeSlots);
-      } else if (exchangePath is ChainExchangePath) {
-        // 연쇄 교체의 경우 모든 교체되는 셀들 백업
-        _backupChainExchange(exchangePath, timeSlots);
-      }
-      
-      AppLogger.exchangeDebug('교체 백업 완료: ${_exchangeListWork.length}개 항목 저장됨');
-    } catch (e) {
-      AppLogger.exchangeDebug('교체 백업 중 오류 발생: $e');
-    }
-  }
 
-  /// 1:1 교체의 원본 정보 백업
-  void _backupOneToOneExchange(OneToOneExchangePath exchangeItem, List<TimeSlot> timeSlots) {
-    // 1. sourceNode의 원래 위치 백업
-    _backupNodeData(exchangeItem.sourceNode, timeSlots);
-    
-    // 2. targetNode의 원래 위치 백업
-    _backupNodeData(exchangeItem.targetNode, timeSlots);
-    
-    // 3. sourceNode가 이동할 목적지 위치 백업 (targetNode의 위치)
-    _backupNodeData({
-      'teacherName': exchangeItem.sourceNode.teacherName,
-      'dayOfWeek': DayUtils.getDayNumber(exchangeItem.targetNode.day),
-      'period': exchangeItem.targetNode.period,
-    }, timeSlots);
-    
-    // 4. targetNode가 이동할 목적지 위치 백업 (sourceNode의 위치)
-    _backupNodeData({
-      'teacherName': exchangeItem.targetNode.teacherName,
-      'dayOfWeek': DayUtils.getDayNumber(exchangeItem.sourceNode.day),
-      'period': exchangeItem.sourceNode.period,
-    }, timeSlots);
-  }
 
-  /// 순환 교체의 원본 정보 백업 (마지막 노드 제외)
-  void _backupCircularExchange(CircularExchangePath exchangeItem, List<TimeSlot> timeSlots) {
-    // 각 노드의 원본 정보 백업
-    for (int i = 0; i < exchangeItem.nodes.length - 1; i++) {
-      _backupNodeData(exchangeItem.nodes[i], timeSlots);
-
-      _backupNodeData({
-      'teacherName': exchangeItem.nodes[i].teacherName,
-      'dayOfWeek': DayUtils.getDayNumber(exchangeItem.nodes[i+1].day),
-      'period': exchangeItem.nodes[i+1].period,
-    }, timeSlots);
-    }
-
-  }
-
-  /// 연쇄 교체의 원본 정보 백업 (8개 백업)
-  void _backupChainExchange(ChainExchangePath exchangeItem, List<TimeSlot> timeSlots) {
-    // 연쇄교체는 4개 노드 + 4개 목적지 = 총 8개 백업 필요
-    
-    // 1. 4개 노드의 원본 위치 백업
-    _backupNodeData(exchangeItem.nodeA, timeSlots);  // 결강 수업
-    _backupNodeData(exchangeItem.nodeB, timeSlots);  // 대체 가능 수업
-    _backupNodeData(exchangeItem.node1, timeSlots);  // 1단계 교환 대상
-    _backupNodeData(exchangeItem.node2, timeSlots); // A 교사의 B 시간 수업
-    
-    // 2. 1단계 교체 후 목적지 위치 백업
-    // node1 교사가 node2 위치로 이동
-    _backupNodeData({
-      'teacherName': exchangeItem.node1.teacherName,
-      'dayOfWeek': DayUtils.getDayNumber(exchangeItem.node2.day),
-      'period': exchangeItem.node2.period,
-    }, timeSlots);
-    
-    // node2 교사가 node1 위치로 이동
-    _backupNodeData({
-      'teacherName': exchangeItem.node2.teacherName,
-      'dayOfWeek': DayUtils.getDayNumber(exchangeItem.node1.day),
-      'period': exchangeItem.node1.period,
-    }, timeSlots);
-    
-    // [중복] 3. 2단계 교체 후 목적지 위치 백업
-    // nodeA 교사가 nodeB 위치로 이동 (최종 목적지)
-    // _backupNodeData({
-    //   'teacherName': exchangeItem.nodeA.teacherName,
-    //   'dayOfWeek': DayUtils.getDayNumber(exchangeItem.nodeB.day),
-    //   'period': exchangeItem.nodeB.period,
-    // }, timeSlots);
-    
-    // nodeB 교사가 nodeA 위치로 이동 (최종 목적지)
-    _backupNodeData({
-      'teacherName': exchangeItem.nodeB.teacherName,
-      'dayOfWeek': DayUtils.getDayNumber(exchangeItem.nodeA.day),
-      'period': exchangeItem.nodeA.period,
-    }, timeSlots);
-    
-    AppLogger.exchangeDebug('연쇄교체 백업 완료: 7개 항목 (4개 노드 + 3개 목적지)');
-  }
-
-  /// ExchangeNode 또는 특정 위치의 데이터를 백업
-  void _backupNodeData(dynamic node, List<TimeSlot> timeSlots) {
-    try {
-      String teacher;
-      int dayOfWeek;
-      int period;
-      
-      // Map 타입인 경우 (1:1 교체에서 목적지 위치 백업용)
-      if (node is Map<String, dynamic>) {
-        teacher = node['teacherName'] ?? '';
-        dayOfWeek = node['dayOfWeek'] ?? 0;
-        period = node['period'] ?? 0;
-        AppLogger.exchangeDebug('Map 데이터 백업: teacher=$teacher, dayOfWeek=$dayOfWeek, period=$period');
-      } 
-      // ExchangeNode 타입인 경우
-      else {
-        teacher = node.teacherName ?? '';
-        // ExchangeNode의 day 문자열을 dayOfWeek 숫자로 변환
-        dayOfWeek = DayUtils.getDayNumber(node.day);
-        period = node.period ?? 0;
-        AppLogger.exchangeDebug('ExchangeNode 데이터 백업: teacher=$teacher, day=${node.day}, dayOfWeek=$dayOfWeek, period=$period');
-      }
-      
-      // TimeSlots에서 현재 subject와 className만 조회
-      String? currentSubject;
-      String? currentClassName;
-      
-      for (TimeSlot slot in timeSlots) {
-        if (slot.teacher == teacher && 
-            slot.dayOfWeek == dayOfWeek && 
-            slot.period == period) {
-          currentSubject = slot.subject;
-          currentClassName = slot.className;
-          break;
-        }
-      }
-      
-      // ExchangeBackupInfo 생성하여 리스트에 추가
-      ExchangeBackupInfo backupInfo = ExchangeBackupInfo(
-        teacher: teacher,
-        dayOfWeek: dayOfWeek,
-        period: period,
-        subject: currentSubject,
-        className: currentClassName,
-      );
-      
-      _exchangeListWork.add(backupInfo);
-      AppLogger.exchangeDebug('노드 데이터 백업: ${backupInfo.debugInfo}');
-      
-    } catch (e) {
-      AppLogger.exchangeDebug('노드 데이터 백업 중 오류: $e');
-    }
-  }
-
-  /// 교체 뷰 활성화
+  /// 교체 뷰 활성화 (Riverpod 기반)
   void _enableExchangeView() {
-    try {
-      AppLogger.exchangeInfo('[wg]교체 뷰 활성화 시작');
-      
-      // 교체 뷰 활성화 시 모든 셀 선택 해제
-      ref.read(exchangeServiceProvider).clearCellSelection();
-      ref.read(circularExchangeServiceProvider).clearCellSelection();
-      ref.read(chainExchangeServiceProvider).clearCellSelection();
-      
-      // 교체 리스트 조회
-      final exchangeList = _historyService.getExchangeList();
-      
-      AppLogger.exchangeDebug('[백업 추적] exchangeList: ${exchangeList.length}, backedUp: $_backedUpCount, work: ${_exchangeListWork.length}');
-      
-      if (exchangeList.isEmpty) {
-        AppLogger.exchangeInfo('교체 리스트가 비어있습니다');
-        return;
-      }
-      
-      // 새로운 교체만 추출 (백업된 개수 이후부터)
-      final newExchanges = exchangeList.skip(_backedUpCount).toList();
-      AppLogger.exchangeDebug('[새로운 교체] skip($_backedUpCount): ${newExchanges.length}개');
-      
-      if (newExchanges.isEmpty) {
-        AppLogger.exchangeInfo('새로운 교체가 없습니다 (이미 $_backedUpCount개 백업됨)');
-        return;
-      }
-      
-      AppLogger.exchangeInfo('새로운 교체 ${newExchanges.length}개 발견 (전체 ${exchangeList.length}개, 기존 백업 $_backedUpCount개)');
-      
-      // 1단계: 새로운 교체만 백업
-      AppLogger.exchangeDebug('1단계: 신규 교체 ${newExchanges.length}개 백업 시작');
-      final beforeBackupCount = _exchangeListWork.length;
-      for (var item in newExchanges) {
-        _backupOriginalSlotInfo(item, widget.dataSource!.timeSlots);
-      }
-      _backedUpCount = exchangeList.length;
-      AppLogger.exchangeDebug('[백업 결과] $beforeBackupCount개 → ${_exchangeListWork.length}개 (추가: ${_exchangeListWork.length - beforeBackupCount})');
-      
-      // 2단계: 새로운 교체만 실행
-      AppLogger.exchangeDebug('2단계: 신규 교체 ${newExchanges.length}개 실행 시작');
-      int successCount = 0;
-      for (var item in newExchanges) {
-        if (_exchangeViewManager.executeExchangeFromHistory(
-          item,
-          widget.dataSource!.timeSlots,
-          widget.timetableData!.teachers,
-        )) {
-          successCount++;
-        }
-      }
-      
-      // 선택 상태 초기화
-      ref.read(stateResetProvider.notifier).resetExchangeStates(
-        reason: '교체 뷰 활성화 - 선택 상태 초기화',
-      );
-      
-      // UI 업데이트 (교체 성공 시에만)
-      if (successCount > 0) {
-        widget.dataSource?.updateData(widget.dataSource!.timeSlots, widget.timetableData!.teachers);
-        widget.onHeaderThemeUpdate?.call();
+    if (widget.timetableData == null || widget.dataSource == null) {
+      AppLogger.exchangeDebug('교체 뷰 활성화 실패: 필수 데이터가 null입니다');
+      return;
+    }
+
+    ref.read(exchangeViewProvider.notifier).enableExchangeView(
+      timeSlots: widget.dataSource!.timeSlots,
+      teachers: widget.timetableData!.teachers,
+      dataSource: widget.dataSource!,
+      historyService: _historyService,
+      onDataUpdate: () {
         if (mounted) setState(() {});
-        AppLogger.exchangeInfo('교체 뷰 활성화 완료 - $successCount/${newExchanges.length}개 적용');
-      }
-      
-    } catch (e) {
-      AppLogger.exchangeDebug('교체 뷰 활성화 중 오류 발생: $e');
-    }
+      },
+      onHeaderUpdate: () {
+        widget.onHeaderThemeUpdate?.call();
+      },
+    );
   }
 
-  /// 교체 뷰 비활성화 (원래 상태로 되돌리기)
+  /// 교체 뷰 비활성화 (Riverpod 기반)
   void _disableExchangeView() {
-    try {
-      AppLogger.exchangeInfo('교체 뷰 비활성화 시작');
-      
-      // 교체 뷰 비활성화 시 모든 셀 선택 해제
-      ref.read(exchangeServiceProvider).clearCellSelection();
-      ref.read(circularExchangeServiceProvider).clearCellSelection();
-      ref.read(chainExchangeServiceProvider).clearCellSelection();
-
-      if (_exchangeListWork.isEmpty || widget.dataSource == null) {
-        AppLogger.exchangeDebug('복원할 교체 백업 데이터가 없습니다');
-        return;
-      }
-
-      // 역순으로 복원 (마지막에 교체된 것부터 먼저 되돌리기)
-      int restoredCount = 0;
-      for (int i = _exchangeListWork.length - 1; i >= 0; i--) {
-        final backupInfo = _exchangeListWork[i];
-        final targetSlot = _findTimeSlotByBackupInfo(backupInfo, widget.dataSource!.timeSlots);
-
-        if (targetSlot != null) {
-          targetSlot.subject = backupInfo.subject;
-          targetSlot.className = backupInfo.className;
-          restoredCount++;
-        }
-      }
-
-      // UI 업데이트
-      if (widget.timetableData != null) {
-        widget.dataSource!.updateData(widget.dataSource!.timeSlots, widget.timetableData!.teachers);
-      }
-      widget.onHeaderThemeUpdate?.call();
-      if (mounted) setState(() {});
-
-      // 백업 데이터 초기화
-      _exchangeListWork.clear();
-      _backedUpCount = 0;
-
-      AppLogger.exchangeInfo('교체 뷰 비활성화 완료 - $restoredCount개 셀 복원됨');
-    } catch (e) {
-      AppLogger.exchangeDebug('교체 뷰 비활성화 중 오류 발생: $e');
+    if (widget.timetableData == null || widget.dataSource == null) {
+      AppLogger.exchangeDebug('교체 뷰 비활성화 실패: 필수 데이터가 null입니다');
+      return;
     }
+
+    ref.read(exchangeViewProvider.notifier).disableExchangeView(
+      timeSlots: widget.dataSource!.timeSlots,
+      teachers: widget.timetableData!.teachers,
+      dataSource: widget.dataSource!,
+      onDataUpdate: () {
+        if (mounted) setState(() {});
+      },
+      onHeaderUpdate: () {
+        widget.onHeaderThemeUpdate?.call();
+      },
+    );
   }
 
-  /// 백업 정보로 TimeSlot 찾기
-  TimeSlot? _findTimeSlotByBackupInfo(ExchangeBackupInfo backupInfo, List<TimeSlot> timeSlots) {
-    for (TimeSlot slot in timeSlots) {
-      if (slot.teacher == backupInfo.teacher && 
-          slot.dayOfWeek == backupInfo.dayOfWeek && 
-          slot.period == backupInfo.period) {
-        return slot;
-      }
-    }
-    return null;
-  }
 }
 
