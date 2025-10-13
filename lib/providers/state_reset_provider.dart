@@ -3,6 +3,7 @@ import '../utils/logger.dart';
 import 'exchange_screen_provider.dart';
 import 'cell_selection_provider.dart';
 import 'services_provider.dart';
+import 'zoom_provider.dart';
 import '../ui/widgets/timetable_grid/widget_arrows_manager.dart';
 import '../utils/fixed_header_style_manager.dart';
 import '../utils/syncfusion_timetable_helper.dart';
@@ -190,6 +191,16 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     }
   }
 
+  /// 줌 상태 초기화 (Level 3 전용)
+  void _resetZoomState() {
+    try {
+      _ref.read(zoomProvider.notifier).reset();
+      AppLogger.exchangeDebug('[Level 3] 줌 상태 초기화 완료');
+    } catch (e) {
+      AppLogger.exchangeDebug('[Level 3] 줌 상태 초기화 중 오류: $e');
+    }
+  }
+
   // ========================================
   // Level 1: 경로 선택만 초기화
   // ========================================
@@ -334,6 +345,10 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     // 🔥 추가: 교체 히스토리 초기화 (Level 3 전용)
     // 파일 선택/해제 시 모든 교체 히스토리를 초기화
     _clearExchangeHistory();
+
+    // 🔥 추가: 줌 상태 초기화 (Level 3 전용)
+    // 파일 선택/해제 시 줌 상태를 기본값으로 되돌림
+    _resetZoomState();
 
     // 교체 서비스 초기화
     // 주의: 서비스는 exchange_screen.dart에서 별도로 초기화됨

@@ -20,11 +20,11 @@ import '../../models/time_slot.dart';
 import '../../services/exchange_history_service.dart';
 import '../../utils/exchange_algorithm.dart';
 import '../../providers/state_reset_provider.dart';
+import '../../providers/zoom_provider.dart';
 import '../../utils/simplified_timetable_theme.dart';
 import 'timetable_grid/timetable_grid_constants.dart';
 import 'timetable_grid/exchange_arrow_style.dart';
 import 'timetable_grid/exchange_arrow_painter.dart';
-import 'timetable_grid/zoom_manager.dart';
 import 'timetable_grid/exchange_executor.dart';
 import 'timetable_grid/grid_header_widgets.dart';
 
@@ -165,7 +165,6 @@ class TimetableGridSection extends ConsumerStatefulWidget {
 
 class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   // 헬퍼 클래스들
-  late ZoomManager _zoomManager;
   late ExchangeExecutor _exchangeExecutor;
 
   // 교체 히스토리 서비스
@@ -215,14 +214,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   @override
   void initState() {
     super.initState();
-
-    // ZoomManager 초기화
-    _zoomManager = ZoomManager(
-      onZoomChanged: () {
-        if (mounted) setState(() {});
-      },
-    );
-    _zoomManager.initialize();
 
     // ExchangeExecutor 초기화
     _exchangeExecutor = ExchangeExecutor(
@@ -277,7 +268,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     // _backedUpCount = 0;
     
     // 기존 리소스 정리
-    _zoomManager.dispose();
     super.dispose();
   }
 
@@ -330,14 +320,21 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
         const SizedBox(width: 8),
 
         // 확대/축소 컨트롤
-        ZoomControlWidget(
-          zoomPercentage: _zoomManager.zoomPercentage,
-          zoomFactor: _zoomManager.zoomFactor,
-          minZoom: GridLayoutConstants.minZoom,
-          maxZoom: GridLayoutConstants.maxZoom,
-          onZoomIn: _zoomManager.zoomIn,
-          onZoomOut: _zoomManager.zoomOut,
-          onResetZoom: _zoomManager.resetZoom,
+        Consumer(
+          builder: (context, ref, child) {
+            final zoomState = ref.watch(zoomProvider);
+            final zoomNotifier = ref.read(zoomProvider.notifier);
+            
+            return ZoomControlWidget(
+              zoomPercentage: zoomState.zoomPercentage,
+              zoomFactor: zoomState.zoomFactor,
+              minZoom: zoomState.minZoom,
+              maxZoom: zoomState.maxZoom,
+              onZoomIn: zoomNotifier.zoomIn,
+              onZoomOut: zoomNotifier.zoomOut,
+              onResetZoom: zoomNotifier.resetZoom,
+            );
+          },
         ),
 
         const SizedBox(width: 8),
@@ -396,13 +393,30 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   /// 화살표 매니저 초기화
   void _initializeArrowsManager() {
     if (widget.timetableData != null) {
+      final zoomFactor = ref.read(zoomFactorProvider);
+      
       _arrowsManager.initialize(
         timetableData: widget.timetableData!,
         columns: widget.columns,
-        zoomFactor: _zoomManager.zoomFactor,
+        zoomFactor: zoomFactor,
       );
       
       AppLogger.exchangeDebug('화살표 매니저 싱글톤 초기화 완료');
+    }
+  }
+
+  /// 화살표 매니저 데이터 업데이트 (줌 변경 시 호출)
+  void _updateArrowsManagerData() {
+    if (widget.timetableData != null) {
+      final zoomFactor = ref.read(zoomFactorProvider);
+      
+      _arrowsManager.updateData(
+        timetableData: widget.timetableData!,
+        columns: widget.columns,
+        zoomFactor: zoomFactor,
+      );
+      
+      AppLogger.exchangeDebug('화살표 매니저 데이터 업데이트 완료 (줌 팩터: $zoomFactor)');
     }
   }
 
@@ -428,94 +442,111 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
   /// 기존 CustomPainter 기반 화살표 표시
   Widget _buildDataGridWithLegacyArrows(Widget dataGridWithGestures) {
-    return Stack(
-      children: [
-        dataGridWithGestures,
-        Positioned.fill(
-          child: IgnorePointer(
-            child: CustomPaint(
-              painter: ExchangeArrowPainter(
-                selectedPath: currentSelectedPath!,
-                timetableData: widget.timetableData!,
-                columns: widget.columns,
-                customArrowStyle: widget.customArrowStyle,
-                zoomFactor: _zoomManager.zoomFactor,
-              ),
-              child: RepaintBoundary(
-                child: Container(),
+    return Consumer(
+      builder: (context, ref, child) {
+        final zoomFactor = ref.watch(zoomFactorProvider);
+        
+        // 줌 팩터 변경 시 화살표 매니저 데이터 업데이트
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _updateArrowsManagerData();
+        });
+        
+        return Stack(
+          children: [
+            dataGridWithGestures,
+            Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: ExchangeArrowPainter(
+                    selectedPath: currentSelectedPath!,
+                    timetableData: widget.timetableData!,
+                    columns: widget.columns,
+                    customArrowStyle: widget.customArrowStyle,
+                    zoomFactor: zoomFactor,
+                  ),
+                  child: RepaintBoundary(
+                    child: Container(),
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 
 
   /// DataGrid 구성
   Widget _buildDataGrid() {
-    Widget dataGridContainer = RepaintBoundary(
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Theme(
-          data: Theme.of(context).copyWith(
-            textTheme: Theme.of(context).textTheme.copyWith(
-              bodyMedium: TextStyle(fontSize: _getScaledFontSize()),
-              bodySmall: TextStyle(fontSize: _getScaledFontSize()),
-              titleMedium: TextStyle(fontSize: _getScaledFontSize()),
-              labelMedium: TextStyle(fontSize: _getScaledFontSize()),
-              labelLarge: TextStyle(fontSize: _getScaledFontSize()),
-              labelSmall: TextStyle(fontSize: _getScaledFontSize()),
+    return Consumer(
+      builder: (context, ref, child) {
+        final zoomFactor = ref.watch(zoomFactorProvider);
+        
+        Widget dataGridContainer = RepaintBoundary(
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Theme(
+              data: Theme.of(context).copyWith(
+                textTheme: Theme.of(context).textTheme.copyWith(
+                  bodyMedium: TextStyle(fontSize: _getScaledFontSize(zoomFactor)),
+                  bodySmall: TextStyle(fontSize: _getScaledFontSize(zoomFactor)),
+                  titleMedium: TextStyle(fontSize: _getScaledFontSize(zoomFactor)),
+                  labelMedium: TextStyle(fontSize: _getScaledFontSize(zoomFactor)),
+                  labelLarge: TextStyle(fontSize: _getScaledFontSize(zoomFactor)),
+                  labelSmall: TextStyle(fontSize: _getScaledFontSize(zoomFactor)),
+                ),
+              ),
+              child: SfDataGrid(
+                key: ValueKey('${widget.columns.length}_${widget.stackedHeaders.length}_${DateTime.now().millisecondsSinceEpoch}'),
+                source: widget.dataSource!,
+                columns: _getScaledColumns(zoomFactor),
+                stackedHeaderRows: _getScaledStackedHeaders(zoomFactor),
+                gridLinesVisibility: GridLinesVisibility.both,
+                headerGridLinesVisibility: GridLinesVisibility.both,
+                headerRowHeight: _getScaledHeaderHeight(zoomFactor),
+                rowHeight: _getScaledRowHeight(zoomFactor),
+                allowColumnsResizing: false,
+                allowSorting: false,
+                allowEditing: false,
+                allowTriStateSorting: false,
+                allowPullToRefresh: false,
+                selectionMode: SelectionMode.none,
+                columnWidthMode: ColumnWidthMode.none,
+                frozenColumnsCount: GridLayoutConstants.frozenColumnsCount,
+                onCellTap: _handleCellTap,
+              ),
             ),
           ),
-          child: SfDataGrid(
-            key: ValueKey('${widget.columns.length}_${widget.stackedHeaders.length}_${DateTime.now().millisecondsSinceEpoch}'),
-            source: widget.dataSource!,
-            columns: _getScaledColumns(),
-            stackedHeaderRows: _getScaledStackedHeaders(),
-            gridLinesVisibility: GridLinesVisibility.both,
-            headerGridLinesVisibility: GridLinesVisibility.both,
-            headerRowHeight: _getScaledHeaderHeight(),
-            rowHeight: _getScaledRowHeight(),
-            allowColumnsResizing: false,
-            allowSorting: false,
-            allowEditing: false,
-            allowTriStateSorting: false,
-            allowPullToRefresh: false,
-            selectionMode: SelectionMode.none,
-            columnWidthMode: ColumnWidthMode.none,
-            frozenColumnsCount: GridLayoutConstants.frozenColumnsCount,
-            onCellTap: _handleCellTap,
-          ),
-        ),
-      ),
-    );
+        );
 
-    return dataGridContainer;
+        return dataGridContainer;
+      },
+    );
   }
 
   /// 확대/축소에 따른 실제 크기 조정된 열 반환
-  List<GridColumn> _getScaledColumns() {
+  List<GridColumn> _getScaledColumns(double zoomFactor) {
     return widget.columns.map((column) {
       return GridColumn(
         columnName: column.columnName,
-        width: _getScaledColumnWidth(column.width),
-        label: _getScaledTextWidget(column.label, isHeader: false),
+        width: _getScaledColumnWidth(column.width, zoomFactor),
+        label: _getScaledTextWidget(column.label, zoomFactor, isHeader: false),
       );
     }).toList();
   }
 
   /// 확대/축소에 따른 실제 크기 조정된 스택 헤더 반환
-  List<StackedHeaderRow> _getScaledStackedHeaders() {
+  List<StackedHeaderRow> _getScaledStackedHeaders(double zoomFactor) {
     return widget.stackedHeaders.map((headerRow) {
       return StackedHeaderRow(
         cells: headerRow.cells.map((cell) {
           return StackedHeaderCell(
             columnNames: cell.columnNames,
-            child: _getScaledTextWidget(cell.child, isHeader: true),
+            child: _getScaledTextWidget(cell.child, zoomFactor, isHeader: true),
           );
         }).toList(),
       );
@@ -523,17 +554,17 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   }
 
   /// 확대/축소에 따른 실제 열 너비 반환
-  double _getScaledColumnWidth(double baseWidth) {
-    return baseWidth * _zoomManager.zoomFactor;
+  double _getScaledColumnWidth(double baseWidth, double zoomFactor) {
+    return baseWidth * zoomFactor;
   }
 
   /// 확대/축소에 따른 실제 크기 조정된 텍스트 위젯 반환
-  Widget _getScaledTextWidget(dynamic originalWidget, {required bool isHeader}) {
+  Widget _getScaledTextWidget(dynamic originalWidget, double zoomFactor, {required bool isHeader}) {
     if (originalWidget is Text) {
       return Text(
         originalWidget.data ?? '',
         style: TextStyle(
-          fontSize: _getScaledFontSize(),
+          fontSize: _getScaledFontSize(zoomFactor),
           fontWeight: FontWeight.w600,
           color: isHeader ? Colors.blue[700] : Colors.black87,
         ),
@@ -553,7 +584,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
         child: Text(
           text.data ?? '',
           style: TextStyle(
-            fontSize: _getScaledFontSize(),
+            fontSize: _getScaledFontSize(zoomFactor),
             fontWeight: FontWeight.w600,
             color: isHeader ? Colors.blue[700] : Colors.black87,
           ),
@@ -567,7 +598,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
     return DefaultTextStyle(
       style: TextStyle(
-        fontSize: _getScaledFontSize(),
+        fontSize: _getScaledFontSize(zoomFactor),
         fontWeight: FontWeight.w600,
         color: isHeader ? Colors.blue[700] : Colors.black87,
       ),
@@ -576,18 +607,18 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   }
 
   /// 확대/축소에 따른 실제 폰트 크기 반환
-  double _getScaledFontSize() {
-    return GridLayoutConstants.baseFontSize * _zoomManager.zoomFactor;
+  double _getScaledFontSize(double zoomFactor) {
+    return GridLayoutConstants.baseFontSize * zoomFactor;
   }
 
   /// 확대/축소에 따른 실제 헤더 높이 반환
-  double _getScaledHeaderHeight() {
-    return AppConstants.headerRowHeight * _zoomManager.zoomFactor;
+  double _getScaledHeaderHeight(double zoomFactor) {
+    return AppConstants.headerRowHeight * zoomFactor;
   }
 
   /// 확대/축소에 따른 실제 행 높이 반환
-  double _getScaledRowHeight() {
-    return AppConstants.dataRowHeight * _zoomManager.zoomFactor;
+  double _getScaledRowHeight(double zoomFactor) {
+    return AppConstants.dataRowHeight * zoomFactor;
   }
 
 
