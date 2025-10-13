@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/excel_service.dart';
 import '../services/exchange_service.dart';
+import '../services/exchange_history_service.dart';
 import '../services/circular_exchange_service.dart';
 import '../services/chain_exchange_service.dart';
 
@@ -12,6 +13,11 @@ final excelServiceProvider = Provider<ExcelService>((ref) {
 /// ExchangeService Provider (1:1 교체)
 final exchangeServiceProvider = Provider<ExchangeService>((ref) {
   return ExchangeService();
+});
+
+/// ExchangeHistoryService Provider (교체 히스토리 관리)
+final exchangeHistoryServiceProvider = Provider<ExchangeHistoryService>((ref) {
+  return ExchangeHistoryService();
 });
 
 /// CircularExchangeService Provider (순환 교체)

@@ -6,25 +6,21 @@ import '../../../models/circular_exchange_path.dart';
 import '../../../models/chain_exchange_path.dart';
 import '../../../models/supplement_exchange_path.dart';
 import '../../../models/exchange_history_item.dart';
-import '../../../services/exchange_history_service.dart';
 import '../../../services/exchange_service.dart';
 import '../../../utils/logger.dart';
 import '../../../utils/timetable_data_source.dart';
 import '../../../providers/cell_selection_provider.dart';
 import '../../../providers/state_reset_provider.dart';
+import '../../../providers/services_provider.dart';
 
 /// 교체 실행 관리 클래스
 class ExchangeExecutor {
   final WidgetRef ref;
-  final ExchangeHistoryService historyService;
   final TimetableDataSource? dataSource;
-  final VoidCallback? onExchangeViewUpdate;  // 교체 뷰 업데이트 콜백
 
   ExchangeExecutor({
     required this.ref,
-    required this.historyService,
     required this.dataSource,
-    this.onExchangeViewUpdate,
   });
 
   /// 교체 실행 기능
@@ -33,6 +29,8 @@ class ExchangeExecutor {
     BuildContext context,
     VoidCallback onInternalPathClear,
   ) {
+    final historyService = ref.read(exchangeHistoryServiceProvider);
+    
     // 1. 교체 실행
     historyService.executeExchange(
       exchangePath,
@@ -62,8 +60,8 @@ class ExchangeExecutor {
     // 6. UI 업데이트
     dataSource?.notifyListeners();
 
-    // 7. 교체 뷰 업데이트 (교체 뷰가 활성화된 경우)
-    onExchangeViewUpdate?.call();
+    // 7. 교체 뷰 업데이트 로깅
+    AppLogger.exchangeDebug('🔄 교체 실행 완료 - 교체 뷰 업데이트');
 
     // 8. 사용자 피드백
     ScaffoldMessenger.of(context).showSnackBar(
@@ -86,6 +84,8 @@ class ExchangeExecutor {
     BuildContext context,
     VoidCallback onInternalPathClear,
   ) {
+    final historyService = ref.read(exchangeHistoryServiceProvider);
+    
     // 1. 교체 리스트에서 찾아서 삭제
     final exchangeList = historyService.getExchangeList();
     final targetItem = exchangeList.firstWhere(
@@ -122,6 +122,7 @@ class ExchangeExecutor {
     BuildContext context,
     VoidCallback onInternalPathClear,
   ) {
+    final historyService = ref.read(exchangeHistoryServiceProvider);
     final item = historyService.undoLastExchange();
 
     if (item != null) {
@@ -195,6 +196,7 @@ class ExchangeExecutor {
 
   /// 다시 반복 기능
   void repeatLastExchange(BuildContext context) {
+    final historyService = ref.read(exchangeHistoryServiceProvider);
     final exchangeList = historyService.getExchangeList();
     if (exchangeList.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -259,6 +261,7 @@ class ExchangeExecutor {
 
   /// 교체된 소스 셀 목록 추출 (교체 전 원본 위치의 셀들)
   List<String> _extractExchangedCells() {
+    final historyService = ref.read(exchangeHistoryServiceProvider);
     final cellKeys = <String>[];
 
     for (final item in historyService.getExchangeList()) {
@@ -291,6 +294,7 @@ class ExchangeExecutor {
 
   /// [wg]교체된 목적지 셀 목록 추출 (교체 후 새 교사가 배정된 셀들)
   List<String> _extractDestinationCells() {
+    final historyService = ref.read(exchangeHistoryServiceProvider);
     final cellKeys = <String>[];
 
     for (final item in historyService.getExchangeList()) {

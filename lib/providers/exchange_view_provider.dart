@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/material.dart';
 import '../utils/logger.dart';
 import '../models/exchange_history_item.dart';
 import '../models/time_slot.dart';
@@ -8,11 +7,11 @@ import '../models/exchange_node.dart';
 import '../models/one_to_one_exchange_path.dart';
 import '../models/circular_exchange_path.dart';
 import '../models/chain_exchange_path.dart';
-import '../services/exchange_history_service.dart';
 import '../services/exchange_service.dart';
 import '../utils/timetable_data_source.dart';
 import '../utils/day_utils.dart';
 import '../ui/widgets/timetable_grid_section.dart';
+import 'services_provider.dart';
 
 /// 교체 뷰 상태 클래스
 class ExchangeViewState {
@@ -82,17 +81,17 @@ class ExchangeViewState {
 
 /// 교체 뷰 상태를 관리하는 Notifier
 class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
-  ExchangeViewNotifier() : super(ExchangeViewState(lastUpdated: DateTime.now()));
+  final Ref _ref;
+  
+  ExchangeViewNotifier(this._ref) : super(ExchangeViewState(lastUpdated: DateTime.now()));
 
   /// 교체 뷰 활성화
   Future<void> enableExchangeView({
     required List<TimeSlot> timeSlots,
     required List<Teacher> teachers,
     required TimetableDataSource dataSource,
-    required ExchangeHistoryService historyService,
-    required VoidCallback onDataUpdate,
-    required VoidCallback onHeaderUpdate,
   }) async {
+    final historyService = _ref.read(exchangeHistoryServiceProvider);
     try {
       state = state.copyWith(
         isLoading: true,
@@ -165,7 +164,7 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
       // UI 업데이트 (교체 성공 시에만)
       if (successCount > 0) {
         dataSource.updateData(timeSlots, teachers);
-        onHeaderUpdate();
+        AppLogger.exchangeDebug('🔄 교체 뷰 활성화 완료 - UI 업데이트');
         AppLogger.exchangeInfo('교체 뷰 활성화 완료 - $successCount/${newExchanges.length}개 적용');
       }
 
@@ -192,8 +191,6 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
     required List<TimeSlot> timeSlots,
     required List<Teacher> teachers,
     required TimetableDataSource dataSource,
-    required VoidCallback onDataUpdate,
-    required VoidCallback onHeaderUpdate,
   }) async {
     try {
       state = state.copyWith(
@@ -231,7 +228,7 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
 
       // UI 업데이트
       dataSource.updateData(timeSlots, teachers);
-      onHeaderUpdate();
+      AppLogger.exchangeDebug('🔄 교체 뷰 비활성화 완료 - UI 업데이트');
 
       state = state.copyWith(
         isEnabled: false,
@@ -497,7 +494,7 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
       AppLogger.exchangeDebug('교체 실행: ${exchangePath.type}');
       
       // ExchangeService 인스턴스 생성
-      final exchangeService = ExchangeService();
+      final exchangeService = _ref.read(exchangeServiceProvider);
       
       // 교체 타입에 따라 다르게 처리
       if (exchangePath is OneToOneExchangePath) {
@@ -623,7 +620,7 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
 
 /// 교체 뷰 상태 Provider
 final exchangeViewProvider = StateNotifierProvider<ExchangeViewNotifier, ExchangeViewState>(
-  (ref) => ExchangeViewNotifier(),
+  (ref) => ExchangeViewNotifier(ref),
 );
 
 /// 교체 뷰 활성화 여부만 반환하는 간단한 Provider

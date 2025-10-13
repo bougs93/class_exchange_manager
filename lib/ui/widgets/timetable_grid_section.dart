@@ -141,7 +141,6 @@ class TimetableGridSection extends ConsumerStatefulWidget {
   final Function(DataGridCellTapDetails) onCellTap;
   final ExchangePath? selectedExchangePath; // 선택된 교체 경로 (모든 타입 지원)
   final ExchangeArrowStyle? customArrowStyle; // 커스텀 화살표 스타일
-  final VoidCallback? onHeaderThemeUpdate; // 헤더 테마 업데이트 콜백
 
   const TimetableGridSection({
     super.key,
@@ -156,7 +155,6 @@ class TimetableGridSection extends ConsumerStatefulWidget {
     required this.onCellTap,
     this.selectedExchangePath,
     this.customArrowStyle,
-    this.onHeaderThemeUpdate,
   });
 
   @override
@@ -166,9 +164,6 @@ class TimetableGridSection extends ConsumerStatefulWidget {
 class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   // 헬퍼 클래스들
   late ExchangeExecutor _exchangeExecutor;
-
-  // 교체 히스토리 서비스
-  final ExchangeHistoryService _historyService = ExchangeHistoryService();
 
   // 내부적으로 관리하는 선택된 교체 경로 (교체된 셀 클릭 시 사용) - 제거됨
   // ExchangePath? _internalSelectedPath;
@@ -218,27 +213,16 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     // ExchangeExecutor 초기화
     _exchangeExecutor = ExchangeExecutor(
       ref: ref,
-      historyService: _historyService,
       dataSource: widget.dataSource,
-      onExchangeViewUpdate: () {
-        // 교체 실행 후 교체 뷰 상태 확인 및 업데이트
-        if (ref.watch(isExchangeViewEnabledProvider)) {
-          AppLogger.exchangeDebug('🔄 교체 실행 후 교체 뷰 업데이트 필요');
-          _enableExchangeView();
-        } else {
-          AppLogger.exchangeDebug('🔄 교체 실행 후 교체 뷰 업데이트 건너뜀 (비활성화 상태)');
-          // 교체 뷰가 비활성화된 상태에서는 업데이트하지 않음
-        }
-      },
     );
 
     // 화살표 매니저 초기화
     _initializeArrowsManager();
 
-    // 테이블 렌더링 완료 후 콜백 호출
+    // 테이블 렌더링 완료 후 UI 업데이트 요청
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.timetableData != null && widget.dataSource != null) {
-        _notifyTableRenderingComplete();
+        _requestUIUpdate();
       }
     });
   }
@@ -247,12 +231,12 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   void didUpdateWidget(TimetableGridSection oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // 테이블 데이터나 데이터 소스가 변경된 경우 테이블 렌더링 완료 감지
+    // 테이블 데이터나 데이터 소스가 변경된 경우 UI 업데이트 요청
     if (widget.timetableData != oldWidget.timetableData ||
         widget.dataSource != oldWidget.dataSource) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (widget.timetableData != null && widget.dataSource != null) {
-          _notifyTableRenderingComplete();
+          _requestUIUpdate();
         }
       });
     }
@@ -271,9 +255,10 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     super.dispose();
   }
 
-  /// 테이블 렌더링 완료 알림
-  void _notifyTableRenderingComplete() {
-    widget.onHeaderThemeUpdate?.call();
+  /// UI 업데이트 요청
+  void _requestUIUpdate() {
+    // UI 업데이트는 즉시 처리 (Provider 상태 변경 없이)
+    AppLogger.exchangeDebug('🔄 UI 업데이트 요청: 테이블 렌더링 완료');
   }
 
   @override
@@ -699,8 +684,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
         ),
       );
       
-      // UI 업데이트
-      widget.onHeaderThemeUpdate?.call();
+      // UI 업데이트 로깅
+      AppLogger.exchangeDebug('✅ 보강교체 완료 - UI 업데이트');
       
       AppLogger.exchangeDebug('보강교체 완료');
     } else {
@@ -807,7 +792,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     // 교체된 셀 선택 상태 플래그 설정 (헤더 색상 비활성화용)
     SimplifiedTimetableTheme.setExchangedCellSelectedHeaderDisabled(true);
     
-    final exchangePath = _historyService.findExchangePathByCell(
+    final historyService = ref.read(exchangeHistoryServiceProvider);
+    final exchangePath = historyService.findExchangePathByCell(
       teacherName,
       day,
       period,
@@ -826,7 +812,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       // 교체된 셀 클릭 시 교체 서비스 상태 업데이트 (헤더 업데이트를 위해)
       _updateExchangeServiceForExchangedCell(teacherName, day, period);
       
-      widget.onHeaderThemeUpdate?.call();
+      AppLogger.exchangeDebug('🔄 교체된 셀 클릭 - UI 업데이트');
 
       AppLogger.exchangeDebug(
         '교체된 셀 클릭: $teacherName | $day$period교시 → 경로 ID: ${exchangePath.id}',
@@ -884,7 +870,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
         final day = parts[0];
         final period = int.tryParse(parts[1]) ?? 0;
 
-        final isExchangedCell = _historyService.isCellExchanged(teacherName, day, period);
+        final historyService = ref.read(exchangeHistoryServiceProvider);
+        final isExchangedCell = historyService.isCellExchanged(teacherName, day, period);
 
         if (isExchangedCell) {
           _handleExchangedCellClick(teacherName, day, period);
@@ -898,7 +885,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
     _hideExchangeArrows();
     widget.onCellTap(details);
-    widget.onHeaderThemeUpdate?.call();
+    AppLogger.exchangeDebug('🔄 일반 셀 클릭 - UI 업데이트');
   }
 
   /// 교사 이름 클릭 처리 (교체 모드 또는 교체불가 편집 모드에서 동작)
@@ -940,8 +927,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       _executeSupplementExchange(teacherName);
     }
     
-    // UI 업데이트
-    widget.onHeaderThemeUpdate?.call();
+    // UI 업데이트 로깅
+    AppLogger.exchangeDebug('🔄 교사 이름 클릭 - UI 업데이트');
   }
   
   /// 교체불가 편집 모드에서 교사 전체 시간 토글 처리
@@ -953,8 +940,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     // TimetableDataSource의 toggleTeacherAllTimes 메서드 사용
     widget.dataSource?.toggleTeacherAllTimes(teacherName);
     
-    // UI 업데이트
-    widget.onHeaderThemeUpdate?.call();
+    // UI 업데이트 로깅
+    AppLogger.exchangeDebug('🔄 교사 전체 시간 토글 - UI 업데이트');
     
     AppLogger.exchangeDebug('교사 $teacherName의 모든 시간 토글 완료');
   }
@@ -1017,13 +1004,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       timeSlots: widget.dataSource!.timeSlots,
       teachers: widget.timetableData!.teachers,
       dataSource: widget.dataSource!,
-      historyService: _historyService,
-      onDataUpdate: () {
-        if (mounted) setState(() {});
-      },
-      onHeaderUpdate: () {
-        widget.onHeaderThemeUpdate?.call();
-      },
     );
   }
 
@@ -1038,12 +1018,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       timeSlots: widget.dataSource!.timeSlots,
       teachers: widget.timetableData!.teachers,
       dataSource: widget.dataSource!,
-      onDataUpdate: () {
-        if (mounted) setState(() {});
-      },
-      onHeaderUpdate: () {
-        widget.onHeaderThemeUpdate?.call();
-      },
     );
   }
 
