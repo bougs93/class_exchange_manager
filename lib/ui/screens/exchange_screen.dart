@@ -301,8 +301,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   void Function() get toggleSidebar => _toggleSidebar;
   @override
   String Function(ExchangeNode) get getSubjectName => _getSubjectName;
-  @override
-  void Function(String, String, int) get scrollToCellCenter => _scrollToCellCenter;
 
   // StateResetHandler Mixin 제거 완료
   // 모든 초기화는 StateResetProvider를 통해 처리됨
@@ -1049,19 +1047,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     return '과목명 없음';
   }
 
-  /// 사이드바에서 클릭한 셀을 화면 중앙으로 스크롤
-  void _scrollToCellCenter(String teacherName, String day, int period) {
-    
-    if (_timetableData == null) {
-      AppLogger.exchangeDebug('오류: timetableData가 null입니다.');
-      return;
-    }
-
-    // TimetableGridSection의 scrollToCellCenter 메서드 호출
-    TimetableGridSection.scrollToCellCenter(_timetableGridKey, teacherName, day, period);
-    
-    AppLogger.exchangeDebug('셀 스크롤 요청: $teacherName 선생님 ($day $period교시)');
-  }
 
   
 

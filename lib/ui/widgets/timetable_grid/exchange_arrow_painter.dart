@@ -17,8 +17,6 @@ class ExchangeArrowPainter extends CustomPainter {
   final ExchangePath selectedPath;
   final TimetableData timetableData;
   final List<GridColumn> columns;
-  final ScrollController verticalScrollController;
-  final ScrollController horizontalScrollController;
   final ExchangeArrowStyle? customArrowStyle;
   final double zoomFactor; // 클리핑 계산용 (실제 크기는 이미 조정됨)
 
@@ -26,8 +24,6 @@ class ExchangeArrowPainter extends CustomPainter {
     required this.selectedPath,
     required this.timetableData,
     required this.columns,
-    required this.verticalScrollController,
-    required this.horizontalScrollController,
     this.customArrowStyle,
     required this.zoomFactor, // 클리핑 계산용
   }) : assert(columns.isNotEmpty, 'columns cannot be empty'),
@@ -321,23 +317,23 @@ class ExchangeArrowPainter extends CustomPainter {
   }
 
   /// 특정 점이 보이는 영역에 있는지 검사하는 메서드
-  /// 스크롤 가능한 영역에서만 화살표를 그리도록 함
+  /// 화면 영역에서만 화살표를 그리도록 함
   /// 
   /// [point] 검사할 점의 좌표
   /// [canvasSize] 캔버스 크기
   /// [frozenColumnWidth] 고정 열 너비
   /// [headerHeight] 헤더 높이
   /// 
-  /// Returns: bool - 점이 스크롤 영역에 있는지 여부
+  /// Returns: bool - 점이 화면 영역에 있는지 여부
   bool _isPointInVisibleArea(Offset point, Size canvasSize, double frozenColumnWidth, double headerHeight) {
-    // 스크롤 가능한 영역에서만 화살표 그리기 허용
+    // 화면 영역에서만 화살표 그리기 허용
     // 고정 열 오른쪽, 헤더 아래쪽 영역만 허용
-    bool inScrollableArea = point.dx > frozenColumnWidth && 
+    bool inVisibleArea = point.dx > frozenColumnWidth && 
                            point.dy > headerHeight &&
                            point.dx <= canvasSize.width && 
                            point.dy <= canvasSize.height;
     
-    return inScrollableArea;
+    return inVisibleArea;
   }
 
   /// 화살표가 화면 영역과 교차하는지 확인하는 메서드
@@ -443,18 +439,9 @@ class ExchangeArrowPainter extends CustomPainter {
     double y = AppConstants.headerRowHeight * GridLayoutConstants.headerRowsCount * zoomFactor; // 헤더 행 높이 - 줌 배율 적용
     y += teacherIndex * AppConstants.dataRowHeight * zoomFactor; // 교사 인덱스에 따른 행 높이 - 줌 배율 적용
 
-    // 스크롤 오프셋 반영 (고정 영역 고려) - 커밋 218404f 방식
+    // 스크롤 오프셋 반영 (고정 영역 고려) - 스크롤 기능 제거로 항상 0
     double horizontalOffset = 0.0;
-    double verticalOffset = verticalScrollController.hasClients
-        ? verticalScrollController.offset 
-        : 0.0;
-    
-    // 고정 열(교사명 열)이 아닌 경우에만 가로 스크롤 오프셋 적용
-    if (columnIndex > 0) {
-      horizontalOffset = horizontalScrollController.hasClients
-          ? horizontalScrollController.offset
-          : 0.0;
-    }
+    double verticalOffset = 0.0;
 
     // 스크롤 오프셋을 좌표에 반영
     x -= horizontalOffset;
@@ -825,19 +812,6 @@ class ExchangeArrowPainter extends CustomPainter {
     // 확대/축소 배율 변경 확인
     if ((oldPainter.zoomFactor - zoomFactor).abs() > 0.001) {
       hasChanged = true;
-    }
-    
-    // 스크롤 위치 변경 확인 (화살표 위치에 영향) - 커밋 218404f 방식
-    if (verticalScrollController.hasClients && oldPainter.verticalScrollController.hasClients) {
-      if ((oldPainter.verticalScrollController.offset - verticalScrollController.offset).abs() > 1.0) {
-        hasChanged = true;
-      }
-    }
-    
-    if (horizontalScrollController.hasClients && oldPainter.horizontalScrollController.hasClients) {
-      if ((oldPainter.horizontalScrollController.offset - horizontalScrollController.offset).abs() > 1.0) {
-        hasChanged = true;
-      }
     }
     
     return hasChanged;

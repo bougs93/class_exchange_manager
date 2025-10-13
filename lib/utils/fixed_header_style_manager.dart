@@ -25,8 +25,13 @@ class FixedHeaderStyleManager {
   
   /// 캐시 강제 초기화 (교시 헤더 색상 변경 후 호출)
   static void clearCacheForPeriodHeaderColorChange() {
+    final cacheSize = _widgetCache.length;
     _widgetCache.clear();
-    AppLogger.exchangeDebug('FixedHeaderStyleManager: 교시 헤더 색상 변경을 위한 캐시 초기화 완료');
+    
+    // 캐시에 실제로 데이터가 있었을 때만 로그 출력
+    if (cacheSize > 0) {
+      AppLogger.exchangeDebug('FixedHeaderStyleManager: 교시 헤더 색상 변경을 위한 캐시 초기화 완료 ($cacheSize개 항목)');
+    }
   }
 
   // ==================== 외곽선 상수 ====================

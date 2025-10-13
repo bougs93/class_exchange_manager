@@ -3,6 +3,7 @@ import '../utils/logger.dart';
 import 'exchange_screen_provider.dart';
 import 'timetable_theme_provider.dart';
 import 'services_provider.dart';
+import 'arrow_display_provider.dart';
 import '../ui/widgets/timetable_grid/widget_arrows_manager.dart';
 import '../utils/fixed_header_style_manager.dart';
 import '../utils/syncfusion_timetable_helper.dart';
@@ -228,10 +229,11 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     _updateStateAndLog(ResetLevel.pathOnly, reason ?? 'Level 1 초기화');
   }
 
-  /// 내부 선택된 경로 초기화 (화살표 제거용)
-  /// TimetableGridSection.clearPathSelectionOnly()에서 처리됨
+  /// 내부 선택된 경로 초기화 (화살표 제거용) - Riverpod 기반
   void _clearInternalSelectedPath() {
-    AppLogger.exchangeDebug('[Level 1] 내부 선택된 경로 초기화');
+    // Riverpod 기반 화살표 상태 초기화
+    _ref.read(arrowDisplayProvider.notifier).reset();
+    AppLogger.exchangeDebug('[Level 1] 화살표 상태 초기화 완료 (Riverpod)');
   }
 
   // ========================================
@@ -274,6 +276,10 @@ class StateResetNotifier extends StateNotifier<ResetState> {
 
     // 공통 초기화 작업 수행
     _performCommonResetTasks();
+
+    // 화살표 상태 초기화 (Riverpod 기반)
+    _ref.read(arrowDisplayProvider.notifier).reset();
+    AppLogger.exchangeDebug('[Level 2] 화살표 상태 초기화 완료 (Riverpod)');
 
     // 상태 업데이트 및 로깅
     _updateStateAndLog(ResetLevel.exchangeStates, reason ?? 'Level 2 초기화');

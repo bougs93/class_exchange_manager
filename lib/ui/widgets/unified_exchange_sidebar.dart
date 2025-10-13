@@ -129,7 +129,6 @@ class UnifiedExchangeSidebar extends StatefulWidget {
   final Function(String) onUpdateSearchQuery;
   final VoidCallback onClearSearch;
   final Function(ExchangeNode) getSubjectName;
-  final Function(String teacherName, String day, int period)? onScrollToCell;
   
   // 순환교체 모드에서만 사용되는 단계 필터 관련 매개변수
   final List<int>? availableSteps;                    // 사용 가능한 단계들 (예: [2, 3, 4])
@@ -156,7 +155,6 @@ class UnifiedExchangeSidebar extends StatefulWidget {
     required this.onUpdateSearchQuery,
     required this.onClearSearch,
     required this.getSubjectName,
-    this.onScrollToCell,
     this.availableSteps,
     this.selectedStep,
     this.onStepChanged,
@@ -773,14 +771,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
     // 이미 선택된 경로의 노드를 클릭한 경우에만 물결 효과와 스크롤 실행
     _triggerRippleEffect(nodeKey);
 
-    // 해당 셀로 스크롤
-    if (widget.onScrollToCell != null) {
-      widget.onScrollToCell!(
-        node.teacherName,
-        node.day,
-        node.period,
-      );
-    }
+    // 노드 클릭 시 선택 처리
   }
 
   /// nodeKey에서 경로 인덱스를 추출하여 경로 선택

@@ -7,9 +7,6 @@ class ArrowConstants {
   static const double textFontSize = 12.0;
   static const double textBackgroundPadding = 1.0;
   static const double textOutlineWidth = 2.0;
-
-  // 애니메이션 지속 시간
-  static const int scrollAnimationMilliseconds = 500;
 }
 
 /// 그리드 레이아웃 관련 상수

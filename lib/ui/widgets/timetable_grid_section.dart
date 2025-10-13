@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/excel_service.dart';
 import '../../services/exchange_service.dart';
 import '../../providers/services_provider.dart';
+import '../../providers/arrow_display_provider.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../models/exchange_mode.dart';
 import '../../utils/timetable_data_source.dart';
@@ -29,7 +29,6 @@ import 'timetable_grid/timetable_grid_constants.dart';
 import 'timetable_grid/exchange_arrow_style.dart';
 import 'timetable_grid/exchange_arrow_painter.dart';
 import 'timetable_grid/zoom_manager.dart';
-import 'timetable_grid/scroll_manager.dart';
 import 'timetable_grid/exchange_view_manager.dart';
 import 'timetable_grid/exchange_executor.dart';
 import 'timetable_grid/grid_header_widgets.dart';
@@ -167,24 +166,11 @@ class TimetableGridSection extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<TimetableGridSection> createState() => _TimetableGridSectionState();
-
-  /// 외부에서 스크롤 기능에 접근할 수 있도록 하는 static 메서드
-  static void scrollToCellCenter(GlobalKey<State<TimetableGridSection>> key, String teacherName, String day, int period) {
-    final state = key.currentState;
-    if (state is _TimetableGridSectionState) {
-      state.scrollToCellCenter(teacherName, day, period);
-    }
-  }
 }
 
 class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
-  // 스크롤 컨트롤러들
-  final ScrollController _verticalScrollController = ScrollController();
-  final ScrollController _horizontalScrollController = ScrollController();
-
   // 헬퍼 클래스들
   late ZoomManager _zoomManager;
-  late ScrollManager _scrollManager;
   late ExchangeViewManager _exchangeViewManager;
   late ExchangeExecutor _exchangeExecutor;
 
@@ -194,8 +180,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   // 교체 서비스
   final ExchangeService _exchangeService = ExchangeService();
 
-  // 내부적으로 관리하는 선택된 교체 경로 (교체된 셀 클릭 시 사용)
-  ExchangePath? _internalSelectedPath;
+  // 내부적으로 관리하는 선택된 교체 경로 (교체된 셀 클릭 시 사용) - 제거됨
+  // ExchangePath? _internalSelectedPath;
 
   // 교체 뷰 체크박스 상태
   bool _isExchangeViewEnabled = false;
@@ -209,28 +195,29 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   // 싱글톤 화살표 매니저
   final WidgetArrowsManager _arrowsManager = WidgetArrowsManager();
 
-  /// 현재 선택된 교체 경로 (외부 또는 내부)
-  ExchangePath? get currentSelectedPath => widget.selectedExchangePath ?? _internalSelectedPath;
+  /// 현재 선택된 교체 경로 (Riverpod 기반)
+  ExchangePath? get currentSelectedPath {
+    final arrowState = ref.watch(arrowDisplayProvider);
+    return arrowState.selectedPath ?? widget.selectedExchangePath;
+  }
 
   /// 교체 모드인지 확인 (1:1, 순환, 연쇄 중 하나라도 활성화된 경우)
   bool get isInExchangeMode => widget.isExchangeModeEnabled ||
                                widget.isCircularExchangeModeEnabled ||
                                widget.isChainExchangeModeEnabled;
-
-  /// 교체된 셀에서 선택된 경로인지 확인
-  bool get isFromExchangedCell => _internalSelectedPath != null;
+  
+  /// 교체된 셀에서 선택된 경로인지 확인 (Riverpod 기반)
+  bool get isFromExchangedCell {
+    final arrowState = ref.watch(arrowDisplayProvider);
+    return arrowState.isFromExchangedCell;
+  }
   
   /// 셀이 선택된 상태인지 확인 (보강 버튼 활성화용)
   bool get isCellSelected {
     final themeState = ref.read(timetableThemeProvider);
-    final isSelected = themeState.selectedTeacher != null && 
-                       themeState.selectedDay != null && 
-                       themeState.selectedPeriod != null;
-    
-    // 디버깅용 로그
-    AppLogger.exchangeDebug('🔍 셀 선택 상태 확인: teacher=${themeState.selectedTeacher}, day=${themeState.selectedDay}, period=${themeState.selectedPeriod}, isSelected=$isSelected');
-    
-    return isSelected;
+    return themeState.selectedTeacher != null && 
+           themeState.selectedDay != null && 
+           themeState.selectedPeriod != null;
   }
 
   @override
@@ -244,13 +231,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       },
     );
     _zoomManager.initialize();
-
-    // ScrollManager 초기화
-    _scrollManager = ScrollManager(
-      verticalScrollController: _verticalScrollController,
-      horizontalScrollController: _horizontalScrollController,
-      onScrollChanged: _onScrollChanged,
-    );
 
     // ExchangeViewManager 초기화
     _exchangeViewManager = ExchangeViewManager(
@@ -314,9 +294,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     
     // 기존 리소스 정리
     _zoomManager.dispose();
-    _scrollManager.dispose();
-    _verticalScrollController.dispose();
-    _horizontalScrollController.dispose();
     super.dispose();
   }
 
@@ -325,28 +302,14 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     widget.onHeaderThemeUpdate?.call();
   }
 
-  /// 스크롤 변경 시 화살표 재그리기
-  void _onScrollChanged() {
-    if (widget.selectedExchangePath == null) return;
-    if (mounted && widget.selectedExchangePath != null) {
-      setState(() {});
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (widget.timetableData == null || widget.dataSource == null) {
       return const SizedBox.shrink();
     }
 
-    // StateResetProvider 상태 감지하여 내부 선택된 경로 초기화
+    // StateResetProvider 상태 감지 (화살표 초기화는 별도 처리)
     final resetState = ref.watch(stateResetProvider);
-    if ((resetState.lastResetLevel == ResetLevel.exchangeStates || 
-         resetState.lastResetLevel == ResetLevel.allStates) && 
-        _internalSelectedPath != null) {
-      _internalSelectedPath = null;
-      AppLogger.exchangeDebug('[StateResetProvider 감지] 내부 선택된 경로 초기화 완료 (${resetState.lastResetLevel})');
-    }
     
     // Level 3 초기화 시 교체 뷰 체크박스도 초기 상태로 되돌리기
     if (resetState.lastResetLevel == ResetLevel.allStates && _isExchangeViewEnabled) {
@@ -428,7 +391,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
           builder: (context) {
             // 보강 버튼 활성화 조건 확인
             final supplementEnabled = isInExchangeMode && isCellSelected;
-            AppLogger.exchangeDebug('🔍 보강 버튼 상태: isInExchangeMode=$isInExchangeMode, isCellSelected=$isCellSelected, supplementEnabled=$supplementEnabled');
             
             return ExchangeActionButtons(
               onUndo: () => _exchangeExecutor.undoLastExchange(context, _clearInternalPath),
@@ -465,15 +427,15 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
   /// DataGrid와 화살표를 함께 구성
   Widget _buildDataGridWithArrows() {
-    Widget dataGridWithGestures = _buildDataGridWithDragScrolling();
+    Widget dataGrid = _buildDataGrid();
 
     // 교체 경로가 선택된 경우에만 화살표 표시
     if (currentSelectedPath != null && widget.timetableData != null) {
       // 현재는 기존 CustomPainter 방식 사용 (안정적)
-      return _buildDataGridWithLegacyArrows(dataGridWithGestures);
+      return _buildDataGridWithLegacyArrows(dataGrid);
     }
 
-    return dataGridWithGestures;
+    return dataGrid;
   }
 
   /// 기존 CustomPainter 기반 화살표 표시
@@ -488,8 +450,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                 selectedPath: currentSelectedPath!,
                 timetableData: widget.timetableData!,
                 columns: widget.columns,
-                verticalScrollController: _verticalScrollController,
-                horizontalScrollController: _horizontalScrollController,
                 customArrowStyle: widget.customArrowStyle,
                 zoomFactor: _zoomManager.zoomFactor,
               ),
@@ -503,38 +463,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     );
   }
 
-  /// 드래그 스크롤 기능이 포함된 DataGrid 구성
-  Widget _buildDataGridWithDragScrolling() {
-    return RawGestureDetector(
-      gestures: <Type, GestureRecognizerFactory>{
-        PanGestureRecognizer: GestureRecognizerFactoryWithHandlers<PanGestureRecognizer>(
-          () => PanGestureRecognizer(),
-          (PanGestureRecognizer instance) {
-            instance
-              ..onStart = _scrollManager.onPanStart
-              ..onUpdate = _scrollManager.onPanUpdate
-              ..onEnd = _scrollManager.onPanEnd;
-          },
-        ),
-        ScaleGestureRecognizer: GestureRecognizerFactoryWithHandlers<ScaleGestureRecognizer>(
-          () => ScaleGestureRecognizer(),
-          (ScaleGestureRecognizer instance) {
-            instance.onUpdate = (ScaleUpdateDetails details) {
-              // 기존 줌 기능은 유지 (필요시 구현)
-            };
-          },
-        ),
-      },
-      behavior: HitTestBehavior.translucent,
-      child: Listener(
-        onPointerDown: _scrollManager.onMouseDown,
-        onPointerUp: _scrollManager.onMouseUp,
-        onPointerMove: _scrollManager.onMouseMove,
-        behavior: HitTestBehavior.translucent,
-        child: _buildDataGrid(),
-      ),
-    );
-  }
 
   /// DataGrid 구성
   Widget _buildDataGrid() {
@@ -573,11 +501,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
             columnWidthMode: ColumnWidthMode.none,
             frozenColumnsCount: GridLayoutConstants.frozenColumnsCount,
             onCellTap: _handleCellTap,
-            verticalScrollController: _verticalScrollController,
-            horizontalScrollController: _horizontalScrollController,
-            isScrollbarAlwaysShown: true,
-            horizontalScrollPhysics: const AlwaysScrollableScrollPhysics(),
-            verticalScrollPhysics: const AlwaysScrollableScrollPhysics(),
           ),
         ),
       ),
@@ -679,27 +602,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     return AppConstants.dataRowHeight * _zoomManager.zoomFactor;
   }
 
-  /// 특정 셀을 화면 중앙으로 스크롤하는 메서드
-  void scrollToCellCenter(String teacherName, String day, int period) {
-    if (widget.timetableData == null) return;
-
-    int teacherIndex = widget.timetableData!.teachers
-        .indexWhere((teacher) => teacher.name == teacherName);
-
-    if (teacherIndex == -1) return;
-
-    String columnName = '${day}_$period';
-    int columnIndex = widget.columns
-        .indexWhere((column) => column.columnName == columnName);
-
-    if (columnIndex == -1) return;
-
-    _scrollManager.scrollToCell(
-      teacherIndex: teacherIndex,
-      columnIndex: columnIndex,
-      zoomFactor: _zoomManager.zoomFactor,
-    );
-  }
 
 
   /// 보강을 위한 교사 이름 선택 기능 활성화
@@ -879,7 +781,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
 
 
-  /// 교체된 셀 클릭 처리
+  /// 교체된 셀 클릭 처리 (Riverpod 기반)
   void _handleExchangedCellClick(String teacherName, String day, int period) {
     AppLogger.exchangeDebug('🖱️ 교체된 셀 클릭: $teacherName | $day$period교시');
     
@@ -899,10 +801,10 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
         reason: '교체된 셀 클릭 - 이전 교체 상태 초기화',
       );
 
-      _selectExchangePath(exchangePath);
+      // Riverpod 기반 화살표 표시
+      ref.read(arrowDisplayProvider.notifier).showArrowForExchangedCell(exchangePath);
       
       // 교체된 셀 클릭 시 교체 서비스 상태 업데이트 (헤더 업데이트를 위해)
-      // 하지만 화살표는 보존하기 위해 직접 교체 서비스 상태만 업데이트
       _updateExchangeServiceForExchangedCell(teacherName, day, period);
       
       widget.onHeaderThemeUpdate?.call();
@@ -910,75 +812,38 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       AppLogger.exchangeDebug(
         '교체된 셀 클릭: $teacherName | $day$period교시 → 경로 ID: ${exchangePath.id}',
       );
-      
-      // 화살표 표시를 위한 상태 업데이트 강제 실행
-      if (mounted) {
-        setState(() {});
-      }
     } else {
       AppLogger.exchangeDebug('❌ 교체 경로를 찾을 수 없음: $teacherName | $day$period교시');
     }
   }
 
-  /// 교체 경로 선택
-  void _selectExchangePath(ExchangePath exchangePath) {
-    AppLogger.exchangeDebug('🎯 교체 경로 선택 시작: ${exchangePath.displayTitle}');
-    
-    ref.read(stateResetProvider.notifier).resetPathOnly(
-      reason: '새 교체 경로 선택 - 기존 경로 초기화',
-    );
 
-    // Level 1 초기화 후 내부 선택된 경로 초기화 (화살표 제거)
-    clearPathSelectionOnly();
-
-    _internalSelectedPath = exchangePath;
-    AppLogger.exchangeDebug('✅ 내부 선택된 경로 설정: ${_internalSelectedPath?.type}');
-
-    if (exchangePath is OneToOneExchangePath) {
-      widget.dataSource!.updateSelectedOneToOnePath(exchangePath);
-      AppLogger.exchangeDebug('📝 OneToOne 경로 업데이트 완료');
-    } else if (exchangePath is CircularExchangePath) {
-      widget.dataSource!.updateSelectedCircularPath(exchangePath);
-      AppLogger.exchangeDebug('📝 Circular 경로 업데이트 완료');
-    } else if (exchangePath is ChainExchangePath) {
-      widget.dataSource!.updateSelectedChainPath(exchangePath);
-      AppLogger.exchangeDebug('📝 Chain 경로 업데이트 완료');
-    }
-
-    // updateSelected* 메서드가 이미 notifyDataSourceListeners()를 호출하므로 중복 호출 제거
-    AppLogger.exchangeDebug('교체 경로 선택: ${exchangePath.displayTitle}');
-    AppLogger.exchangeDebug('🎯 교체 경로 선택 완료: ${exchangePath.displayTitle}');
-  }
-
-  /// 일반 셀 탭 시 화살표 숨기기
+  /// 일반 셀 탭 시 화살표 숨기기 (Riverpod 기반)
   void _hideExchangeArrows() {
-    // 내부 선택된 경로 먼저 초기화 (화살표 제거를 위해)
-    _internalSelectedPath = null;
-    AppLogger.exchangeDebug('[일반 셀 클릭] 내부 선택된 경로 초기화 완료');
+    // Riverpod 기반 화살표 숨기기
+    ref.read(arrowDisplayProvider.notifier).hideArrow(
+      reason: ArrowDisplayReason.manualHide,
+    );
     
     ref.read(stateResetProvider.notifier).resetExchangeStates(
       reason: '일반 셀 클릭 - 교체 화살표 숨김',
     );
-    AppLogger.exchangeDebug('교체 화살표 숨김');
+    AppLogger.exchangeDebug('교체 화살표 숨김 (Riverpod)');
   }
 
-  /// 화살표 상태 초기화 (외부에서 호출)
+  /// 화살표 상태 초기화 (외부에서 호출) - StateResetProvider에서 처리됨
   void clearAllArrowStates() {
-    // 내부 선택된 경로 먼저 초기화 (화살표 제거를 위해)
-    _internalSelectedPath = null;
-    AppLogger.exchangeDebug('[외부 호출] 내부 선택된 경로 초기화 완료');
-    
+    // 화살표 상태 초기화는 StateResetProvider에서 처리됨
     ref.read(stateResetProvider.notifier).resetExchangeStates(
       reason: '외부 호출 - 화살표 상태 초기화',
     );
-    AppLogger.exchangeDebug('[외부 호출] 화살표 상태 초기화 (Level 2)');
+    AppLogger.exchangeDebug('[외부 호출] 화살표 상태 초기화 요청 (StateResetProvider에서 처리)');
   }
 
-  /// Level 1 전용 화살표 초기화 (경로 선택만 해제)
+  /// Level 1 전용 화살표 초기화 (경로 선택만 해제) - StateResetProvider에서 처리됨
   void clearPathSelectionOnly() {
-    // 내부 선택된 경로만 초기화 (화살표 제거)
-    _internalSelectedPath = null;
-    AppLogger.exchangeDebug('[Level 1] 내부 선택된 경로 초기화 - 화살표 제거');
+    // 화살표 초기화는 StateResetProvider에서 처리됨
+    AppLogger.exchangeDebug('[Level 1] 경로 선택만 초기화 요청 (StateResetProvider에서 처리)');
   }
 
   /// 셀 탭 이벤트 처리
@@ -1108,14 +973,16 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   }
 
 
-  /// 내부 선택된 경로 초기화 (새로운 화살표 시스템 연동)
+  /// 내부 선택된 경로 초기화 (StateResetProvider에서 처리됨)
   void _clearInternalPath() {
-    _internalSelectedPath = null;
+    // 화살표 상태 초기화는 StateResetProvider에서 처리됨
+    ref.read(stateResetProvider.notifier).resetExchangeStates(
+      reason: '내부 경로 초기화',
+    );
     
-    // 새로운 화살표 시스템에서도 화살표 정리
     // 싱글톤 화살표 매니저를 통한 화살표 정리
     _arrowsManager.clearAllArrows();
-    AppLogger.exchangeDebug('화살표 초기화 완료 (싱글톤)');
+    AppLogger.exchangeDebug('화살표 초기화 요청 (StateResetProvider에서 처리)');
   }
 
   /// 교체 실행 전에 원본 정보를 백업하는 메서드

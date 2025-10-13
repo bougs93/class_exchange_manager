@@ -40,7 +40,6 @@ mixin SidebarBuilder<T extends StatefulWidget> on State<T> {
   void updateSearchQuery(String query);
   void clearSearch();
   String Function(ExchangeNode) get getSubjectName;
-  void Function(String, String, int) get scrollToCellCenter;
   void onStepChanged(int? step);
   void onDayChanged(String? day);
 
@@ -99,7 +98,6 @@ mixin SidebarBuilder<T extends StatefulWidget> on State<T> {
       onUpdateSearchQuery: updateSearchQuery,
       onClearSearch: clearSearch,
       getSubjectName: getSubjectName,
-      onScrollToCell: scrollToCellCenter,
       // 순환교체, 1:1 교체, 연쇄교체 모드에서 사용되는 단계 필터 매개변수들
       availableSteps: (isCircularExchangeModeEnabled || isExchangeModeEnabled || isChainExchangeModeEnabled) ? availableSteps : null,
       selectedStep: (isCircularExchangeModeEnabled || isExchangeModeEnabled || isChainExchangeModeEnabled) ? selectedStep : null,

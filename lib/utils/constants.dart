@@ -12,15 +12,5 @@ class AppConstants {
   static const double headerFontSize = 14.0;        // 헤더 폰트 크기
   static const double dataFontSize = 11.0;           // 데이터 폰트 크기
   static const double dataLineHeight = 1;          // 데이터 텍스트 줄 간격
-  
-  
-  // 스크롤 위치 설정
-  static const ScrollAlignment scrollAlignment = ScrollAlignment.center; // 스크롤 위치 (현재뷰/중앙뷰)
-}
-
-/// 스크롤 위치 정렬 옵션
-enum ScrollAlignment {
-  topLeft,    // 좌상단 기준 (현재 뷰)
-  center,     // 중앙 기준 (중앙 뷰)
 }
 
