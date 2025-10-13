@@ -5,8 +5,8 @@ import '../../services/excel_service.dart';
 import '../../services/exchange_service.dart';
 import '../../providers/services_provider.dart';
 import '../../providers/exchange_view_provider.dart';
-import '../../providers/arrow_display_provider.dart';
 import '../../providers/exchange_screen_provider.dart';
+import '../../providers/cell_selection_provider.dart';
 import '../../models/exchange_mode.dart';
 import '../../utils/timetable_data_source.dart';
 import '../../utils/constants.dart';
@@ -19,7 +19,6 @@ import '../../models/supplement_exchange_path.dart';
 import '../../models/time_slot.dart';
 import '../../services/exchange_history_service.dart';
 import '../../utils/exchange_algorithm.dart';
-import '../../providers/timetable_theme_provider.dart';
 import '../../providers/state_reset_provider.dart';
 import '../../utils/simplified_timetable_theme.dart';
 import 'timetable_grid/timetable_grid_constants.dart';
@@ -189,8 +188,10 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
   /// 현재 선택된 교체 경로 (Riverpod 기반)
   ExchangePath? get currentSelectedPath {
-    final arrowState = ref.watch(arrowDisplayProvider);
-    return arrowState.selectedPath ?? widget.selectedExchangePath;
+    final selectedPath = ref.watch(selectedExchangePathProvider);
+    final result = selectedPath ?? widget.selectedExchangePath;
+    AppLogger.exchangeDebug('🔍 [TimetableGridSection] currentSelectedPath 조회: ${result?.type}');
+    return result;
   }
 
   /// 교체 모드인지 확인 (1:1, 순환, 연쇄 중 하나라도 활성화된 경우)
@@ -200,16 +201,15 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   
   /// 교체된 셀에서 선택된 경로인지 확인 (Riverpod 기반)
   bool get isFromExchangedCell {
-    final arrowState = ref.watch(arrowDisplayProvider);
-    return arrowState.isFromExchangedCell;
+    return ref.watch(isFromExchangedCellProvider);
   }
   
   /// 셀이 선택된 상태인지 확인 (보강 버튼 활성화용)
   bool get isCellSelected {
-    final themeState = ref.read(timetableThemeProvider);
-    return themeState.selectedTeacher != null && 
-           themeState.selectedDay != null && 
-           themeState.selectedPeriod != null;
+    final cellState = ref.read(cellSelectionProvider);
+    return cellState.selectedTeacher != null && 
+           cellState.selectedDay != null && 
+           cellState.selectedPeriod != null;
   }
 
   @override
@@ -411,9 +411,16 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     Widget dataGrid = _buildDataGrid();
 
     // 교체 경로가 선택된 경우에만 화살표 표시
+    AppLogger.exchangeDebug('🔍 [TimetableGridSection] 화살표 표시 조건 확인:');
+    AppLogger.exchangeDebug('  - currentSelectedPath: ${currentSelectedPath?.type}');
+    AppLogger.exchangeDebug('  - timetableData: ${widget.timetableData != null}');
+    
     if (currentSelectedPath != null && widget.timetableData != null) {
+      AppLogger.exchangeDebug('🔍 [TimetableGridSection] 화살표 표시 조건 만족 - 화살표 렌더링');
       // 현재는 기존 CustomPainter 방식 사용 (안정적)
       return _buildDataGridWithLegacyArrows(dataGrid);
+    } else {
+      AppLogger.exchangeDebug('🔍 [TimetableGridSection] 화살표 표시 조건 불만족 - 화살표 숨김');
     }
 
     return dataGrid;
@@ -650,7 +657,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       
       // 교사 이름 선택 기능 비활성화
       ref.read(exchangeScreenProvider.notifier).disableTeacherNameSelection();
-      ref.read(timetableThemeProvider.notifier).updateSelectedTeacherName(null);
+      ref.read(cellSelectionProvider.notifier).selectTeacherName(null);
       
       // 성공 메시지 표시
       ScaffoldMessenger.of(context).showSnackBar(
@@ -742,20 +749,20 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   /// 보강교체 후 교체된 셀 상태 업데이트
   void _updateExchangedCellsForSupplement(String sourceTeacher, String sourceDay, int sourcePeriod, String targetTeacherName) {
     // 교체된 소스 셀과 목적지 셀을 교체된 셀 목록에 추가
-    final themeState = ref.read(timetableThemeProvider);
-    final themeNotifier = ref.read(timetableThemeProvider.notifier);
+    final cellState = ref.read(cellSelectionProvider);
+    final cellNotifier = ref.read(cellSelectionProvider.notifier);
     
     // 소스 셀 (문유란 월2): 교체된 소스 셀로 표시
     final sourceCellKey = '${sourceTeacher}_${sourceDay}_$sourcePeriod';
-    final currentExchangedCells = themeState.exchangedCells.toList();
+    final currentExchangedCells = cellState.exchangedCells.toList();
     currentExchangedCells.add(sourceCellKey);
-    themeNotifier.updateExchangedCells(currentExchangedCells);
+    cellNotifier.updateExchangedCells(currentExchangedCells);
     
     // 목적지 셀 (김연주 월2): 교체된 목적지 셀로 표시
     final targetCellKey = '${targetTeacherName}_${sourceDay}_$sourcePeriod';
-    final currentDestinationCells = themeState.exchangedDestinationCells.toList();
+    final currentDestinationCells = cellState.exchangedDestinationCells.toList();
     currentDestinationCells.add(targetCellKey);
-    themeNotifier.updateExchangedDestinationCells(currentDestinationCells);
+    cellNotifier.updateExchangedDestinationCells(currentDestinationCells);
     
     AppLogger.exchangeDebug('보강교체 셀 상태 업데이트: 소스=$sourceCellKey, 목적지=$targetCellKey');
   }
@@ -783,7 +790,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       );
 
       // Riverpod 기반 화살표 표시
-      ref.read(arrowDisplayProvider.notifier).showArrowForExchangedCell(exchangePath);
+      ref.read(cellSelectionProvider.notifier).showArrowForExchangedCell(exchangePath);
       
       // 교체된 셀 클릭 시 교체 서비스 상태 업데이트 (헤더 업데이트를 위해)
       _updateExchangeServiceForExchangedCell(teacherName, day, period);
@@ -802,7 +809,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   /// 일반 셀 탭 시 화살표 숨기기 (Riverpod 기반)
   void _hideExchangeArrows() {
     // Riverpod 기반 화살표 숨기기
-    ref.read(arrowDisplayProvider.notifier).hideArrow(
+    ref.read(cellSelectionProvider.notifier).hideArrow(
       reason: ArrowDisplayReason.manualHide,
     );
     
@@ -885,17 +892,17 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     }
     
     // 교체 모드인 경우 교사 이름 선택 기능 사용
-    final themeNotifier = ref.read(timetableThemeProvider.notifier);
-    final themeState = ref.read(timetableThemeProvider);
+    final cellNotifier = ref.read(cellSelectionProvider.notifier);
+    final cellState = ref.read(cellSelectionProvider);
     
     // 현재 선택된 교사 이름과 같은지 확인
-    if (themeState.selectedTeacherName == teacherName) {
+    if (cellState.selectedTeacherName == teacherName) {
       // 같은 교사 이름을 다시 클릭하면 선택 해제
-      themeNotifier.updateSelectedTeacherName(null);
+      cellNotifier.selectTeacherName(null);
       AppLogger.exchangeDebug('교사 이름 선택 해제: $teacherName');
     } else {
       // 다른 교사 이름을 클릭하면 선택
-      themeNotifier.updateSelectedTeacherName(teacherName);
+      cellNotifier.selectTeacherName(teacherName);
       AppLogger.exchangeDebug('교사 이름 선택: $teacherName');
       
       // 교사 이름 선택 후 보강교체 실행
@@ -944,8 +951,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       exchangeService.selectCell(teacherName, day, period);
       
       // TimetableThemeProvider 상태도 업데이트 (교사 이름 컬럼 하이라이트를 위해)
-      final themeNotifier = ref.read(timetableThemeProvider.notifier);
-      themeNotifier.updateSelection(teacherName, day, period);
+      final cellNotifier = ref.read(cellSelectionProvider.notifier);
+      cellNotifier.selectCell(teacherName, day, period);
       
       AppLogger.exchangeDebug('📝 교체 서비스 상태 업데이트 완료: $teacherName $day$period교시');
     } catch (e) {

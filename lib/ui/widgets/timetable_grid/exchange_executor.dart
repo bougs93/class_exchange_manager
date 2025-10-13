@@ -10,7 +10,7 @@ import '../../../services/exchange_history_service.dart';
 import '../../../services/exchange_service.dart';
 import '../../../utils/logger.dart';
 import '../../../utils/timetable_data_source.dart';
-import '../../../providers/timetable_theme_provider.dart';
+import '../../../providers/cell_selection_provider.dart';
 import '../../../providers/state_reset_provider.dart';
 
 /// 교체 실행 관리 클래스
@@ -249,12 +249,12 @@ class ExchangeExecutor {
 
   /// 교체된 셀 상태 업데이트 (공통 메서드)
   void _updateExchangedCells() {
-    final themeNotifier = ref.read(timetableThemeProvider.notifier);
+    final cellNotifier = ref.read(cellSelectionProvider.notifier);
        
     // 교체된 소스 셀(교체 전 원본 수업이 있던 셀)의 테두리 스타일 업데이트
-    themeNotifier.updateExchangedCells(_extractExchangedCells());
+    cellNotifier.updateExchangedCells(_extractExchangedCells());
     // 교체된 목적지 셀(교체 후 새 교사가 배정된 셀)의 배경색 업데이트
-    themeNotifier.updateExchangedDestinationCells(_extractDestinationCells());
+    cellNotifier.updateExchangedDestinationCells(_extractDestinationCells());
   }
 
   /// 교체된 소스 셀 목록 추출 (교체 전 원본 위치의 셀들)

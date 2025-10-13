@@ -8,7 +8,7 @@ import '../models/one_to_one_exchange_path.dart';
 import '../models/chain_exchange_path.dart';
 import '../models/supplement_exchange_path.dart';
 import '../ui/widgets/simplified_timetable_cell.dart';
-import '../providers/timetable_theme_provider.dart';
+import '../providers/cell_selection_provider.dart';
 import 'exchange_algorithm.dart';
 import 'day_utils.dart';
 import 'non_exchangeable_manager.dart';
@@ -253,27 +253,27 @@ class TimetableDataSource extends DataGridSource {
 
   /// 교사명 열 상태 정보 생성
   CellStateInfo _createTeacherColumnState(String teacherName) {
-    final themeNotifier = ref.read(timetableThemeProvider.notifier);
-    final themeState = ref.read(timetableThemeProvider);
+    final cellNotifier = ref.read(cellSelectionProvider.notifier);
+    final cellState = ref.read(cellSelectionProvider);
     
     // 교사 이름 컬럼은 해당 교사의 선택 상태를 확인
     // 선택된 교사인지 확인 (selectedTeacher와 비교)
-    bool isTeacherSelected = themeState.selectedTeacher == teacherName;
+    bool isTeacherSelected = cellState.selectedTeacher == teacherName;
     
     // 교사 이름 선택 상태 확인 (새로 추가)
-    bool isTeacherNameSelected = themeState.selectedTeacherName == teacherName;
+    bool isTeacherNameSelected = cellState.selectedTeacherName == teacherName;
     
     // 교사가 교체 가능한지 확인 (교체 가능한 교사 목록에 포함되어 있는지)
-    bool isTeacherExchangeable = themeState.exchangeableTeachers.any(
+    bool isTeacherExchangeable = cellState.exchangeableTeachers.any(
       (teacher) => teacher['teacherName'] == teacherName
     );
     
     return CellStateInfo(
       isSelected: isTeacherSelected, // 교사 이름 선택은 isSelected에 포함하지 않음
       isExchangeableTeacher: isTeacherExchangeable,
-      isInCircularPath: themeNotifier.isInCircularPath(teacherName, '', 0),
-      isInChainPath: themeNotifier.isInChainPath(teacherName, '', 0),
-      isInSelectedPath: themeNotifier.isInSelectedOneToOnePath(teacherName, '', 0),
+      isInCircularPath: cellNotifier.isInCircularPath(teacherName, '', 0),
+      isInChainPath: cellNotifier.isInChainPath(teacherName, '', 0),
+      isInSelectedPath: cellNotifier.isInSelectedOneToOnePath(teacherName, '', 0),
       isNonExchangeable: false,
       isExchangedSourceCell: false, // 교사명 열은 교체된 소스 셀 상태 적용 안함
       isExchangedDestinationCell: false, // 교사명 열은 교체된 목적지 셀 상태 적용 안함
@@ -297,42 +297,42 @@ class TimetableDataSource extends DataGridSource {
     int period = int.tryParse(parts[1]) ?? 0;
     
     // 전역 Provider에서 상태 정보 가져오기
-    final themeNotifier = ref.read(timetableThemeProvider.notifier);
+    final cellNotifier = ref.read(cellSelectionProvider.notifier);
     
     return CellStateInfo(
       isSelected: _getCachedOrCompute(
         'cellSelection', 
         teacherName, day, period,
-        () => themeNotifier.isCellSelected(teacherName, day, period)
+        () => cellNotifier.isCellSelected(teacherName, day, period)
       ),
       isTargetCell: _getCachedOrCompute(
         'cellTarget', 
         teacherName, day, period,
-        () => themeNotifier.isCellTarget(teacherName, day, period)
+        () => cellNotifier.isCellTarget(teacherName, day, period)
       ),
       isExchangeableTeacher: _getCachedOrCompute(
         'exchangeable', 
         teacherName, day, period,
-        () => themeNotifier.isExchangeableTeacher(teacherName, day, period)
+        () => cellNotifier.isExchangeableTeacher(teacherName, day, period)
       ),
       isInCircularPath: _getCachedOrCompute(
         'circularPath', 
         teacherName, day, period,
-        () => themeNotifier.isInCircularPath(teacherName, day, period)
+        () => cellNotifier.isInCircularPath(teacherName, day, period)
       ),
       isInChainPath: _getCachedOrCompute(
         'chainPath', 
         teacherName, day, period,
-        () => themeNotifier.isInChainPath(teacherName, day, period)
+        () => cellNotifier.isInChainPath(teacherName, day, period)
       ),
-      isInSelectedPath: themeNotifier.isInSelectedOneToOnePath(teacherName, day, period),
+      isInSelectedPath: cellNotifier.isInSelectedOneToOnePath(teacherName, day, period),
       isNonExchangeable: _getCachedOrCompute(
         'nonExchangeable', 
         teacherName, day, period,
         () => _nonExchangeableManager.isNonExchangeableTimeSlot(teacherName, day, period)
       ),
-      isExchangedSourceCell: themeNotifier.isCellExchangedSource(teacherName, day, period),
-      isExchangedDestinationCell: themeNotifier.isCellExchangedDestination(teacherName, day, period),
+      isExchangedSourceCell: cellNotifier.isCellExchangedSource(teacherName, day, period),
+      isExchangedDestinationCell: cellNotifier.isCellExchangedDestination(teacherName, day, period),
       isLastColumnOfDay: _isLastColumnOfDay(day, period),
       isFirstColumnOfDay: _isFirstColumnOfDay(day, period),
       circularPathStep: _getCircularPathStep(teacherName, day, period),
@@ -359,11 +359,11 @@ class TimetableDataSource extends DataGridSource {
 
   /// 순환교체 경로에서 해당 셀의 단계 번호 가져오기
   int? _getCircularPathStep(String teacherName, String day, int period) {
-    final themeState = ref.read(timetableThemeProvider);
-    if (themeState.selectedCircularPath == null) return null;
+    final cellState = ref.read(cellSelectionProvider);
+    if (cellState.selectedCircularPath == null) return null;
     
-    for (int i = 0; i < themeState.selectedCircularPath!.nodes.length; i++) {
-      final node = themeState.selectedCircularPath!.nodes[i];
+    for (int i = 0; i < cellState.selectedCircularPath!.nodes.length; i++) {
+      final node = cellState.selectedCircularPath!.nodes[i];
       if (node.teacherName == teacherName &&
           node.day == day &&
           node.period == period) {
@@ -376,12 +376,12 @@ class TimetableDataSource extends DataGridSource {
 
   /// 연쇄교체 경로에서 해당 셀의 단계 번호 가져오기
   int? _getChainPathStep(String teacherName, String day, int period) {
-    final themeState = ref.read(timetableThemeProvider);
-    if (themeState.selectedChainPath == null) return null;
+    final cellState = ref.read(cellSelectionProvider);
+    if (cellState.selectedChainPath == null) return null;
     
     // 연쇄교체의 노드 순서: [node1, node2, nodeA, nodeB]
-    for (int i = 0; i < themeState.selectedChainPath!.nodes.length; i++) {
-      final node = themeState.selectedChainPath!.nodes[i];
+    for (int i = 0; i < cellState.selectedChainPath!.nodes.length; i++) {
+      final node = cellState.selectedChainPath!.nodes[i];
       if (node.teacherName == teacherName &&
           node.day == day &&
           node.period == period) {
@@ -411,14 +411,18 @@ class TimetableDataSource extends DataGridSource {
 
   /// 선택 상태 업데이트
   void updateSelection(String? teacher, String? day, int? period) {
-    ref.read(timetableThemeProvider.notifier).updateSelection(teacher, day, period);
+    if (teacher != null && day != null && period != null) {
+      ref.read(cellSelectionProvider.notifier).selectCell(teacher, day, period);
+    }
     _localCache.clear(); // 로컬 캐시 초기화
     notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
   }
   
   /// 타겟 셀 상태 업데이트
   void updateTargetCell(String? teacher, String? day, int? period) {
-    ref.read(timetableThemeProvider.notifier).updateTargetCell(teacher, day, period);
+    if (teacher != null && day != null && period != null) {
+      ref.read(cellSelectionProvider.notifier).selectTargetCell(teacher, day, period);
+    }
     _localCache.clear(); // 로컬 캐시 초기화
     notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
   }
@@ -426,7 +430,7 @@ class TimetableDataSource extends DataGridSource {
   
   /// 교체 가능한 교사 정보 업데이트
   void updateExchangeableTeachers(List<Map<String, dynamic>> exchangeableTeachers) {
-    ref.read(timetableThemeProvider.notifier).updateExchangeableTeachers(exchangeableTeachers);
+    ref.read(cellSelectionProvider.notifier).updateExchangeableTeachers(exchangeableTeachers);
     _localCache.clear(); // 로컬 캐시 초기화
     notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
   }
@@ -445,28 +449,28 @@ class TimetableDataSource extends DataGridSource {
   
   /// 선택된 순환교체 경로 업데이트
   void updateSelectedCircularPath(CircularExchangePath? path) {
-    ref.read(timetableThemeProvider.notifier).updateSelectedCircularPath(path);
+    ref.read(cellSelectionProvider.notifier).setCircularPath(path);
     _localCache.clear(); // 로컬 캐시 초기화
     notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
   }
 
   /// 선택된 1:1 교체 경로 업데이트
   void updateSelectedOneToOnePath(OneToOneExchangePath? path) {
-    ref.read(timetableThemeProvider.notifier).updateSelectedOneToOnePath(path);
+    ref.read(cellSelectionProvider.notifier).setOneToOnePath(path);
     _localCache.clear(); // 로컬 캐시 초기화
     notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
   }
 
   /// 선택된 연쇄교체 경로 업데이트
   void updateSelectedChainPath(ChainExchangePath? path) {
-    ref.read(timetableThemeProvider.notifier).updateSelectedChainPath(path);
+    ref.read(cellSelectionProvider.notifier).setChainPath(path);
     _localCache.clear(); // 로컬 캐시 초기화
     notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
   }
 
   /// 선택된 보강교체 경로 업데이트
   void updateSelectedSupplementPath(SupplementExchangePath? path) {
-    ref.read(timetableThemeProvider.notifier).updateSelectedSupplementPath(path);
+    ref.read(cellSelectionProvider.notifier).setSupplementPath(path);
     _localCache.clear(); // 로컬 캐시 초기화
     notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
   }
@@ -547,7 +551,7 @@ class TimetableDataSource extends DataGridSource {
   
   /// 교체된 셀 상태 업데이트 (교체 리스트 변경 시 호출)
   void updateExchangedCells(List<String> exchangedCellKeys) {
-    ref.read(timetableThemeProvider.notifier).updateExchangedCells(exchangedCellKeys);
+    ref.read(cellSelectionProvider.notifier).updateExchangedCells(exchangedCellKeys);
     _localCache.clear(); // 로컬 캐시 초기화
     notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
     _onDataChanged?.call();
@@ -555,7 +559,7 @@ class TimetableDataSource extends DataGridSource {
 
   /// 교체된 목적지 셀 상태 업데이트
   void updateExchangedDestinationCells(List<String> destinationCellKeys) {
-    ref.read(timetableThemeProvider.notifier).updateExchangedDestinationCells(destinationCellKeys);
+    ref.read(cellSelectionProvider.notifier).updateExchangedDestinationCells(destinationCellKeys);
     _localCache.clear(); // 로컬 캐시 초기화
     notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
     _onDataChanged?.call();
@@ -563,7 +567,7 @@ class TimetableDataSource extends DataGridSource {
 
   /// 모든 선택 상태 초기화 (셀 선택, 타겟 셀, 교체 경로 등)
   void clearAllSelections() {
-    ref.read(timetableThemeProvider.notifier).clearAllSelections();
+    ref.read(cellSelectionProvider.notifier).clearAllSelections();
     _localCache.clear(); // 로컬 캐시 초기화
     notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
     _onDataChanged?.call();
@@ -575,9 +579,9 @@ class TimetableDataSource extends DataGridSource {
 
   /// Level 1 전용 배치 업데이트: 경로 선택만 초기화
   void resetPathSelectionBatch() {
-    ref.read(timetableThemeProvider.notifier).updateSelectedCircularPath(null);
-    ref.read(timetableThemeProvider.notifier).updateSelectedOneToOnePath(null);
-    ref.read(timetableThemeProvider.notifier).updateSelectedChainPath(null);
+    ref.read(cellSelectionProvider.notifier).setCircularPath(null);
+    ref.read(cellSelectionProvider.notifier).setOneToOnePath(null);
+    ref.read(cellSelectionProvider.notifier).setChainPath(null);
     _localCache.clear(); // 로컬 캐시 초기화
     notifyDataSourceListeners(); // 한 번만 UI 업데이트
     _onDataChanged?.call();
@@ -586,9 +590,9 @@ class TimetableDataSource extends DataGridSource {
   /// Level 2 전용 배치 업데이트: 교체 상태 초기화
   void resetExchangeStatesBatch() {
     // 경로 선택 초기화
-    ref.read(timetableThemeProvider.notifier).updateSelectedCircularPath(null);
-    ref.read(timetableThemeProvider.notifier).updateSelectedOneToOnePath(null);
-    ref.read(timetableThemeProvider.notifier).updateSelectedChainPath(null);
+    ref.read(cellSelectionProvider.notifier).setCircularPath(null);
+    ref.read(cellSelectionProvider.notifier).setOneToOnePath(null);
+    ref.read(cellSelectionProvider.notifier).setChainPath(null);
     
     // 교체 옵션 초기화
     _exchangeOptions = [];
@@ -604,27 +608,27 @@ class TimetableDataSource extends DataGridSource {
   
   /// 선택된 순환교체 경로 접근자 (보기 모드용)
   CircularExchangePath? getSelectedCircularPath() {
-    return ref.read(timetableThemeProvider).selectedCircularPath;
+    return ref.read(cellSelectionProvider).selectedCircularPath;
   }
   
   /// 선택된 1:1 교체 경로 접근자 (보기 모드용)
   OneToOneExchangePath? getSelectedOneToOnePath() {
-    return ref.read(timetableThemeProvider).selectedOneToOnePath;
+    return ref.read(cellSelectionProvider).selectedOneToOnePath;
   }
   
   /// 선택된 연쇄교체 경로 접근자 (보기 모드용)
   ChainExchangePath? getSelectedChainPath() {
-    return ref.read(timetableThemeProvider).selectedChainPath;
+    return ref.read(cellSelectionProvider).selectedChainPath;
   }
 
   /// 선택된 보강교체 경로 접근자 (보기 모드용)
   SupplementExchangePath? getSelectedSupplementPath() {
-    return ref.read(timetableThemeProvider).selectedSupplementPath;
+    return ref.read(cellSelectionProvider).selectedSupplementPath;
   }
 
   /// 타겟 셀의 요일 반환 (보기 모드용)
-  String? get targetDay => ref.read(timetableThemeProvider).targetDay;
+  String? get targetDay => ref.read(cellSelectionProvider).targetDay;
 
   /// 타겟 셀의 교시 반환 (보기 모드용)
-  int? get targetPeriod => ref.read(timetableThemeProvider).targetPeriod;
+  int? get targetPeriod => ref.read(cellSelectionProvider).targetPeriod;
 }

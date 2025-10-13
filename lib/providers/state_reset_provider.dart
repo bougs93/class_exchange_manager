@@ -1,9 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../utils/logger.dart';
 import 'exchange_screen_provider.dart';
-import 'timetable_theme_provider.dart';
+import 'cell_selection_provider.dart';
 import 'services_provider.dart';
-import 'arrow_display_provider.dart';
 import '../ui/widgets/timetable_grid/widget_arrows_manager.dart';
 import '../utils/fixed_header_style_manager.dart';
 import '../utils/syncfusion_timetable_helper.dart';
@@ -109,8 +108,8 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   /// ExchangeScreenProvider 참조 가져오기
   ExchangeScreenNotifier get _exchangeNotifier => _ref.read(exchangeScreenProvider.notifier);
 
-  /// TimetableThemeNotifier 참조 가져오기
-  TimetableThemeNotifier get _themeNotifier => _ref.read(timetableThemeProvider.notifier);
+  /// CellSelectionNotifier 참조 가져오기
+  CellSelectionNotifier get _cellNotifier => _ref.read(cellSelectionProvider.notifier);
 
   /// 공통 초기화 작업 수행
   void _performCommonResetTasks() {
@@ -126,7 +125,7 @@ class StateResetNotifier extends StateNotifier<ResetState> {
 
     // DataSource 및 테마 초기화
     _exchangeNotifier.state.dataSource?.clearAllSelections();
-    _themeNotifier.clearAllSelections();
+    _cellNotifier.clearAllSelections();
 
     // Provider 경로 상태 초기화
     _exchangeNotifier
@@ -232,7 +231,7 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   /// 내부 선택된 경로 초기화 (화살표 제거용) - Riverpod 기반
   void _clearInternalSelectedPath() {
     // Riverpod 기반 화살표 상태 초기화
-    _ref.read(arrowDisplayProvider.notifier).reset();
+    _ref.read(cellSelectionProvider.notifier).hideArrow();
     AppLogger.exchangeDebug('[Level 1] 화살표 상태 초기화 완료 (Riverpod)');
   }
 
@@ -269,16 +268,16 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     dataSource?.resetExchangeStatesBatch();
 
     // 캐시 초기화
-    _themeNotifier.clearAllCaches();
+    _cellNotifier.clearAllCaches();
 
     // 선택된 셀 초기화 (모드 전환 시) - 교사 이름 선택 상태도 포함
-    _themeNotifier.clearAllSelections();
+    _cellNotifier.clearAllSelections();
 
     // 공통 초기화 작업 수행
     _performCommonResetTasks();
 
     // 화살표 상태 초기화 (Riverpod 기반)
-    _ref.read(arrowDisplayProvider.notifier).reset();
+    _ref.read(cellSelectionProvider.notifier).hideArrow();
     AppLogger.exchangeDebug('[Level 2] 화살표 상태 초기화 완료 (Riverpod)');
 
     // 상태 업데이트 및 로깅
@@ -312,7 +311,7 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     resetExchangeStates(reason: reason);
 
     // Level 3 추가 작업: 전역 Provider 상태 초기화
-    _themeNotifier.resetAllStatesBatch();
+    _cellNotifier.reset();
 
     // 헤더 테마를 기본값으로 복원 (빈 상태로 설정)
     _exchangeNotifier.setColumns([]);
