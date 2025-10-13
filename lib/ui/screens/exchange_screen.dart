@@ -337,9 +337,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
     // PathSelectionManager 콜백 설정
     _pathSelectionManager.setCallbacks(
-      onOneToOnePathChanged: handleOneToOnePathChanged,
-      onCircularPathChanged: handleCircularPathChanged,
-      onChainPathChanged: handleChainPathChanged,
+      onOneToOnePathChanged: (path) => handleOneToOnePathChanged(path as OneToOneExchangePath?),
+      onCircularPathChanged: (path) => handleCircularPathChanged(path as CircularExchangePath?),
+      onChainPathChanged: (path) => handleChainPathChanged(path as ChainExchangePath?),
     );
     
     // 교체 관리 화면 진입 시 보기 모드로 자동 설정

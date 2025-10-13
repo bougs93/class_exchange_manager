@@ -80,15 +80,13 @@ mixin PathSelectionHandlerMixin<T extends StatefulWidget> on State<T> {
   }
 
   /// 1:1 교체 경로 변경 핸들러
-  void handleOneToOnePathChanged(ExchangePath? path) {
-    final oneToOnePath = path as OneToOneExchangePath?;
+  void handleOneToOnePathChanged(OneToOneExchangePath? path) {
+    setSelectedOneToOnePath(path);
+    dataSource?.updateSelectedOneToOnePath(path);
 
-    setSelectedOneToOnePath(oneToOnePath);
-    dataSource?.updateSelectedOneToOnePath(oneToOnePath);
-
-    if (oneToOnePath != null) {
-      AppLogger.exchangeDebug('1:1교체 경로 선택: ${oneToOnePath.id}');
-      setTargetCellFromPath(oneToOnePath);
+    if (path != null) {
+      AppLogger.exchangeDebug('1:1교체 경로 선택: ${path.id}');
+      setTargetCellFromPath(path);
       updateHeaderTheme();
     } else {
       AppLogger.exchangeDebug('1:1교체 경로 선택 해제');
@@ -102,13 +100,11 @@ mixin PathSelectionHandlerMixin<T extends StatefulWidget> on State<T> {
   }
 
   /// 순환 교체 경로 변경 핸들러
-  void handleCircularPathChanged(ExchangePath? path) {
-    final circularPath = path as CircularExchangePath?;
-
-    if (circularPath != null) {
-      AppLogger.exchangeDebug('순환교체 경로 선택: ${circularPath.id}');
-      onPathSelected(circularPath);
-      setTargetCellFromCircularPath(circularPath);
+  void handleCircularPathChanged(CircularExchangePath? path) {
+    if (path != null) {
+      AppLogger.exchangeDebug('순환교체 경로 선택: ${path.id}');
+      onPathSelected(path);
+      setTargetCellFromCircularPath(path);
     } else {
       AppLogger.exchangeDebug('순환교체 경로 선택 해제');
       onPathDeselected();
@@ -121,15 +117,13 @@ mixin PathSelectionHandlerMixin<T extends StatefulWidget> on State<T> {
   }
 
   /// 연쇄 교체 경로 변경 핸들러
-  void handleChainPathChanged(ExchangePath? path) {
-    final chainPath = path as ChainExchangePath?;
+  void handleChainPathChanged(ChainExchangePath? path) {
+    setSelectedChainPath(path);
+    dataSource?.updateSelectedChainPath(path);
 
-    setSelectedChainPath(chainPath);
-    dataSource?.updateSelectedChainPath(chainPath);
-
-    if (chainPath != null) {
-      AppLogger.exchangeDebug('연쇄교체 경로 선택: ${chainPath.id}');
-      setTargetCellFromChainPath(chainPath);
+    if (path != null) {
+      AppLogger.exchangeDebug('연쇄교체 경로 선택: ${path.id}');
+      setTargetCellFromChainPath(path);
       updateHeaderTheme();
     } else {
       AppLogger.exchangeDebug('연쇄교체 경로 선택 해제');
@@ -143,16 +137,14 @@ mixin PathSelectionHandlerMixin<T extends StatefulWidget> on State<T> {
   }
 
   /// 보강 교체 경로 변경 핸들러
-  void handleSupplementPathChanged(ExchangePath? path) {
-    final supplementPath = path as SupplementExchangePath?;
-
-    setSelectedSupplementPath(supplementPath);
+  void handleSupplementPathChanged(SupplementExchangePath? path) {
+    setSelectedSupplementPath(path);
     // dataSource에 보강 경로 업데이트 메서드가 있다면 추가
     // dataSource?.updateSelectedSupplementPath(supplementPath);
 
-    if (supplementPath != null) {
-      AppLogger.exchangeDebug('보강교체 경로 선택: ${supplementPath.id}');
-      setTargetCellFromSupplementPath(supplementPath);
+    if (path != null) {
+      AppLogger.exchangeDebug('보강교체 경로 선택: ${path.id}');
+      setTargetCellFromSupplementPath(path);
       updateHeaderTheme();
     } else {
       AppLogger.exchangeDebug('보강교체 경로 선택 해제');
