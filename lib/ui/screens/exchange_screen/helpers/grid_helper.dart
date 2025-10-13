@@ -4,6 +4,7 @@ import '../../../../utils/syncfusion_timetable_helper.dart';
 import '../../../../models/circular_exchange_path.dart';
 import '../../../../models/one_to_one_exchange_path.dart';
 import '../../../../models/chain_exchange_path.dart';
+import '../../../../models/supplement_exchange_path.dart';
 
 /// Syncfusion DataGrid 관련 헬퍼 클래스
 /// 컬럼, 헤더 생성 등 그리드 설정을 담당
@@ -15,6 +16,7 @@ class GridHelper {
     CircularExchangePath? selectedCircularPath,
     OneToOneExchangePath? selectedOneToOnePath,
     ChainExchangePath? selectedChainPath,
+    SupplementExchangePath? selectedSupplementPath,
   }) {
     // SyncfusionTimetableHelper를 사용하여 데이터 생성
     final result = SyncfusionTimetableHelper.convertToSyncfusionData(
@@ -24,6 +26,7 @@ class GridHelper {
       selectedCircularPath: selectedCircularPath,
       selectedOneToOnePath: selectedOneToOnePath,
       selectedChainPath: selectedChainPath,
+      selectedSupplementPath: selectedSupplementPath,
     );
 
     return GridData(

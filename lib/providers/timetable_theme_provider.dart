@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/circular_exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
 import '../models/chain_exchange_path.dart';
+import '../models/supplement_exchange_path.dart';
 
 /// 시간표 테마 상태 클래스
 class TimetableThemeState {
@@ -22,6 +23,7 @@ class TimetableThemeState {
   final CircularExchangePath? selectedCircularPath;
   final OneToOneExchangePath? selectedOneToOnePath;
   final ChainExchangePath? selectedChainPath;
+  final SupplementExchangePath? selectedSupplementPath;
   
   // 교체된 셀 관리
   final Set<String> exchangedCells;
@@ -44,6 +46,7 @@ class TimetableThemeState {
     this.selectedCircularPath,
     this.selectedOneToOnePath,
     this.selectedChainPath,
+    this.selectedSupplementPath,
     this.exchangedCells = const {},
     this.exchangedDestinationCells = const {},
     this.selectedTeacherName, // 새로 추가
@@ -61,6 +64,7 @@ class TimetableThemeState {
     CircularExchangePath? selectedCircularPath,
     OneToOneExchangePath? selectedOneToOnePath,
     ChainExchangePath? selectedChainPath,
+    SupplementExchangePath? selectedSupplementPath,
     Set<String>? exchangedCells,
     Set<String>? exchangedDestinationCells,
     String? selectedTeacherName, // 새로 추가
@@ -83,6 +87,7 @@ class TimetableThemeState {
       selectedCircularPath: clearPaths ? null : (selectedCircularPath ?? this.selectedCircularPath),
       selectedOneToOnePath: clearPaths ? null : (selectedOneToOnePath ?? this.selectedOneToOnePath),
       selectedChainPath: clearPaths ? null : (selectedChainPath ?? this.selectedChainPath),
+      selectedSupplementPath: clearPaths ? null : (selectedSupplementPath ?? this.selectedSupplementPath),
       exchangedCells: clearExchangedCells ? <String>{} : (exchangedCells ?? this.exchangedCells),
       exchangedDestinationCells: clearExchangedCells ? <String>{} : (exchangedDestinationCells ?? this.exchangedDestinationCells),
       selectedTeacherName: clearTeacherNameSelection ? null : (selectedTeacherName ?? this.selectedTeacherName), // 새로 추가
@@ -131,6 +136,11 @@ class TimetableThemeNotifier extends StateNotifier<TimetableThemeState> {
   /// 연쇄교체 경로 업데이트
   void updateSelectedChainPath(ChainExchangePath? path) {
     state = state.copyWith(selectedChainPath: path);
+  }
+
+  /// 보강교체 경로 업데이트
+  void updateSelectedSupplementPath(SupplementExchangePath? path) {
+    state = state.copyWith(selectedSupplementPath: path);
   }
 
   /// 교체된 셀 상태 업데이트
@@ -244,6 +254,18 @@ class TimetableThemeNotifier extends StateNotifier<TimetableThemeState> {
            state.selectedOneToOnePath!.targetNode.teacherName == teacherName &&
            state.selectedOneToOnePath!.targetNode.day == day &&
            state.selectedOneToOnePath!.targetNode.period == period;
+  }
+
+  /// 선택된 보강교체 경로에 포함된 셀인지 확인
+  bool isInSelectedSupplementPath(String teacherName, String day, int period) {
+    if (state.selectedSupplementPath == null) return false;
+    
+    return state.selectedSupplementPath!.sourceNode.teacherName == teacherName &&
+           state.selectedSupplementPath!.sourceNode.day == day &&
+           state.selectedSupplementPath!.sourceNode.period == period ||
+           state.selectedSupplementPath!.targetNode.teacherName == teacherName &&
+           state.selectedSupplementPath!.targetNode.day == day &&
+           state.selectedSupplementPath!.targetNode.period == period;
   }
 
   // ========================================

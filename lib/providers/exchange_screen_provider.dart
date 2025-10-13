@@ -6,6 +6,7 @@ import '../models/exchange_path.dart';
 import '../models/circular_exchange_path.dart';
 import '../models/chain_exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
+import '../models/supplement_exchange_path.dart';
 import '../models/exchange_mode.dart';
 import '../utils/timetable_data_source.dart';
 
@@ -29,6 +30,7 @@ class ExchangeScreenState {
   final OneToOneExchangePath? selectedOneToOnePath;
   final CircularExchangePath? selectedCircularPath;
   final ChainExchangePath? selectedChainPath;
+  final SupplementExchangePath? selectedSupplementPath;
   
   final bool isSidebarVisible;
   final String searchQuery;
@@ -53,6 +55,7 @@ class ExchangeScreenState {
     this.selectedOneToOnePath,
     this.selectedCircularPath,
     this.selectedChainPath,
+    this.selectedSupplementPath,
     this.isSidebarVisible = false,
     this.searchQuery = '',
     this.availableSteps = const [],
@@ -77,6 +80,7 @@ class ExchangeScreenState {
     OneToOneExchangePath? Function()? selectedOneToOnePath,
     CircularExchangePath? Function()? selectedCircularPath,
     ChainExchangePath? Function()? selectedChainPath,
+    SupplementExchangePath? Function()? selectedSupplementPath,
     bool? isSidebarVisible,
     String? searchQuery,
     List<int>? availableSteps,
@@ -101,6 +105,7 @@ class ExchangeScreenState {
       selectedOneToOnePath: selectedOneToOnePath != null ? selectedOneToOnePath() : this.selectedOneToOnePath,
       selectedCircularPath: selectedCircularPath != null ? selectedCircularPath() : this.selectedCircularPath,
       selectedChainPath: selectedChainPath != null ? selectedChainPath() : this.selectedChainPath,
+      selectedSupplementPath: selectedSupplementPath != null ? selectedSupplementPath() : this.selectedSupplementPath,
       isSidebarVisible: isSidebarVisible ?? this.isSidebarVisible,
       searchQuery: searchQuery ?? this.searchQuery,
       availableSteps: availableSteps ?? this.availableSteps,
@@ -183,6 +188,10 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
 
   void setSelectedChainPath(ChainExchangePath? path) {
     state = state.copyWith(selectedChainPath: () => path);
+  }
+
+  void setSelectedSupplementPath(SupplementExchangePath? path) {
+    state = state.copyWith(selectedSupplementPath: () => path);
   }
 
   void setAvailableSteps(List<int> steps) {

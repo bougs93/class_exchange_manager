@@ -85,6 +85,18 @@ class _PathColorScheme {
     shadow: Color(0xFFFFCCBC),                     // 주황색 그림자
   );
 
+  /// 보강교체 색상 스키마 (틸 색상 계열)
+  static const supplement = _PathColorScheme(
+    primary: Color(0xFF20B2AA),                    // 틸 색상 화살표
+    nodeBackground: Color(0xFFE0F2F1),             // 연한 틸 색상 노드 배경 (선택됨)
+    nodeBackgroundUnselected: Color(0xFFF0FFFF),   // 매우 연한 틸 색상 노드 배경 (선택안됨)
+    nodeBorder: Color(0xFF20B2AA),                 // 틸 색상 노드 테두리 (선택됨)
+    nodeBorderUnselected: Color(0xFFB2DFDB),        // 연한 틸 색상 노드 테두리 (선택안됨)
+    nodeText: Color(0xFF00695C),                   // 진한 틸 색상 노드 텍스트 (선택됨)
+    nodeTextUnselected: Color(0xFF20B2AA),         // 틸 색상 노드 텍스트 (선택안됨)
+    shadow: Color(0xFFB2DFDB),                     // 틸 색상 그림자
+  );
+
   /// 경로 타입에 따른 색상 스키마 반환
   static _PathColorScheme getScheme(ExchangePathType type) {
     switch (type) {
@@ -94,6 +106,8 @@ class _PathColorScheme {
         return circular;
       case ExchangePathType.chain:
         return chain;
+      case ExchangePathType.supplement:
+        return supplement;
     }
   }
 }
@@ -907,6 +921,8 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
         return Colors.purple.shade50;
       case ExchangePathType.chain:
         return Colors.deepOrange.shade50;
+      case ExchangePathType.supplement:
+        return Colors.teal.shade50;
     }
   }
 
@@ -919,6 +935,8 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
         return Colors.purple.shade400;
       case ExchangePathType.chain:
         return Colors.deepOrange.shade400;
+      case ExchangePathType.supplement:
+        return Colors.teal.shade400;
     }
   }
 
@@ -931,6 +949,8 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
         return Colors.purple.shade200;
       case ExchangePathType.chain:
         return Colors.deepOrange.shade200;
+      case ExchangePathType.supplement:
+        return Colors.teal.shade200;
     }
   }
 
@@ -943,6 +963,8 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
         return '순환교체';
       case ExchangePathType.chain:
         return '연쇄교체';
+      case ExchangePathType.supplement:
+        return '보강교체';
     }
   }
 }

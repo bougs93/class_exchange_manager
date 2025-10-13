@@ -4,7 +4,11 @@ import '../../../models/exchange_path.dart';
 import '../../../models/one_to_one_exchange_path.dart';
 import '../../../models/circular_exchange_path.dart';
 import '../../../models/chain_exchange_path.dart';
+import '../../../models/supplement_exchange_path.dart';
+import '../../../models/exchange_history_item.dart';
 import '../../../services/exchange_history_service.dart';
+import '../../../services/exchange_service.dart';
+import '../../../utils/logger.dart';
 import '../../../utils/timetable_data_source.dart';
 import '../../../providers/timetable_theme_provider.dart';
 import '../../../providers/state_reset_provider.dart';
@@ -121,6 +125,11 @@ class ExchangeExecutor {
     final item = historyService.undoLastExchange();
 
     if (item != null) {
+      // 보강교체인 경우 실제 TimeSlot 되돌리기
+      if (item.type == ExchangePathType.supplement) {
+        _undoSupplementExchange(item);
+      }
+
       // 교체 리스트에서 삭제
       historyService.removeFromExchangeList(item.id);
 
@@ -155,6 +164,32 @@ class ExchangeExecutor {
           duration: Duration(seconds: 2),
         ),
       );
+    }
+  }
+
+  /// 보강교체 되돌리기 처리
+  void _undoSupplementExchange(ExchangeHistoryItem item) {
+    if (dataSource?.timeSlots == null) return;
+
+    // SupplementExchangePath에서 목적지 셀 정보 가져오기
+    if (item.originalPath is SupplementExchangePath) {
+      final supplementPath = item.originalPath as SupplementExchangePath;
+      final targetNode = supplementPath.targetNode;
+
+      // ExchangeService를 통해 보강교체 되돌리기 실행
+      final exchangeService = ExchangeService();
+      final success = exchangeService.undoSupplementExchange(
+        dataSource!.timeSlots,
+        targetNode.teacherName,
+        targetNode.day,
+        targetNode.period,
+      );
+
+      if (success) {
+        AppLogger.exchangeDebug('보강교체 되돌리기 성공: ${targetNode.teacherName} ${targetNode.day}${targetNode.period}교시');
+      } else {
+        AppLogger.exchangeDebug('보강교체 되돌리기 실패: ${targetNode.teacherName} ${targetNode.day}${targetNode.period}교시');
+      }
     }
   }
 

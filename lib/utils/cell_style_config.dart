@@ -11,6 +11,7 @@ class CellStyleConfig {
   final bool isInSelectedPath;
   final bool isInChainPath;
   final int? chainPathStep;
+  final bool isInSupplementPath;
   final bool isTargetCell;
   final bool isNonExchangeable;
   final bool isExchangedSourceCell; // 교체된 소스 셀인지 여부
@@ -30,6 +31,7 @@ class CellStyleConfig {
     this.isInSelectedPath = false,
     this.isInChainPath = false,
     this.chainPathStep,
+    this.isInSupplementPath = false,
     this.isTargetCell = false,
     this.isNonExchangeable = false,
     this.isExchangedSourceCell = false, // 교체된 소스 셀 기본값은 false

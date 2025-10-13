@@ -6,6 +6,7 @@ import '../../../models/exchange_path.dart';
 import '../../../models/one_to_one_exchange_path.dart';
 import '../../../models/circular_exchange_path.dart';
 import '../../../models/chain_exchange_path.dart';
+import '../../../models/supplement_exchange_path.dart';
 import '../../../models/exchange_node.dart';
 import '../../../utils/constants.dart';
 import 'timetable_grid_constants.dart';
@@ -52,6 +53,9 @@ class ExchangeArrowPainter extends CustomPainter {
           break;
         case ExchangePathType.chain:
           _drawChainArrows(canvas, size);
+          break;
+        case ExchangePathType.supplement:
+          _drawSupplementArrows(canvas, size);
           break;
       }
     } catch (e) {
@@ -108,6 +112,16 @@ class ExchangeArrowPainter extends CustomPainter {
         stepNumber++;
       }
     }
+  }
+
+  /// 보강 교체 화살표 그리기 (단방향 화살표)
+  void _drawSupplementArrows(Canvas canvas, Size size) {
+    final supplementPath = selectedPath as SupplementExchangePath;
+    final sourceNode = supplementPath.sourceNode;
+    final targetNode = supplementPath.targetNode;
+
+    // 보강 교체는 단방향 화살표 (A → B 방향만, 세로 우선, 머리 사이즈 10)
+    _drawArrowBetweenNodes(canvas, size, sourceNode, targetNode, priority: ArrowPriority.verticalFirst, arrowHeadSize: 10.0);
   }
 
   /// 두 노드 간의 화살표 그리기
@@ -548,6 +562,8 @@ class ExchangeArrowPainter extends CustomPainter {
         return ExchangeArrowStyle.circular;
       case ExchangePathType.chain:
         return ExchangeArrowStyle.chain;
+      case ExchangePathType.supplement:
+        return ExchangeArrowStyle.supplement;
     }
   }
 

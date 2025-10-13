@@ -4,6 +4,7 @@ import '../models/teacher.dart';
 import '../models/circular_exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
 import '../models/chain_exchange_path.dart';
+import '../models/supplement_exchange_path.dart';
 import 'day_utils.dart';
 import 'fixed_header_style_manager.dart';
 
@@ -34,6 +35,7 @@ class SyncfusionTimetableHelper {
     CircularExchangePath? selectedCircularPath, // 선택된 순환교체 경로
     OneToOneExchangePath? selectedOneToOnePath, // 선택된 1:1 교체 경로
     ChainExchangePath? selectedChainPath, // 선택된 연쇄교체 경로
+    SupplementExchangePath? selectedSupplementPath, // 선택된 보강교체 경로
   }) {
     // 요일별로 데이터 그룹화
     Map<String, Map<int, Map<String, TimeSlot?>>> groupedData = _groupTimeSlotsByDayAndPeriod(timeSlots);
@@ -75,6 +77,7 @@ class SyncfusionTimetableHelper {
       selectedCircularPath: selectedCircularPath,
       selectedOneToOnePath: selectedOneToOnePath,
       selectedChainPath: selectedChainPath,
+      selectedSupplementPath: selectedSupplementPath,
     );
     
     // 스택된 헤더 생성 (FixedHeaderStyleManager 사용)

@@ -84,6 +84,8 @@ class ExchangeHistoryItem {
       return ExchangePathType.circular;
     } else if (path.toString().contains('ChainExchangePath')) {
       return ExchangePathType.chain;
+    } else if (path.toString().contains('SupplementExchangePath')) {
+      return ExchangePathType.supplement;
     }
     return ExchangePathType.oneToOne; // 기본값
   }

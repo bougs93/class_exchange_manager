@@ -4,6 +4,7 @@ import '../../../models/exchange_node.dart';
 import '../../../models/one_to_one_exchange_path.dart';
 import '../../../models/circular_exchange_path.dart';
 import '../../../models/chain_exchange_path.dart';
+import '../../../models/supplement_exchange_path.dart';
 import '../../../utils/logger.dart';
 import '../../state_managers/path_selection_manager.dart';
 import '../../../utils/timetable_data_source.dart';
@@ -18,6 +19,7 @@ mixin PathSelectionHandlerMixin<T extends StatefulWidget> on State<T> {
   void setTargetCellFromPath(OneToOneExchangePath path);
   void setTargetCellFromCircularPath(CircularExchangePath path);
   void setTargetCellFromChainPath(ChainExchangePath path);
+  void setTargetCellFromSupplementPath(SupplementExchangePath path);
   void clearTargetCell();
   void updateHeaderTheme();
   void showSnackBar(String message, {Color? backgroundColor});
@@ -27,6 +29,7 @@ mixin PathSelectionHandlerMixin<T extends StatefulWidget> on State<T> {
   // 상태 변수 setter
   void Function(OneToOneExchangePath?) get setSelectedOneToOnePath;
   void Function(ChainExchangePath?) get setSelectedChainPath;
+  void Function(SupplementExchangePath?) get setSelectedSupplementPath;
 
   /// 통합 경로 선택 처리 (PathSelectionManager 사용)
   void onUnifiedPathSelected(ExchangePath path) {
@@ -46,6 +49,9 @@ mixin PathSelectionHandlerMixin<T extends StatefulWidget> on State<T> {
         break;
       case ExchangePathType.oneToOne:
         handleOneToOnePathChanged(path as OneToOneExchangePath);
+        break;
+      case ExchangePathType.supplement:
+        handleSupplementPathChanged(path as SupplementExchangePath);
         break;
     }
     
@@ -131,6 +137,29 @@ mixin PathSelectionHandlerMixin<T extends StatefulWidget> on State<T> {
       updateHeaderTheme();
       showSnackBar(
         '연쇄교체 경로 선택이 해제되었습니다.',
+        backgroundColor: Colors.grey.shade600,
+      );
+    }
+  }
+
+  /// 보강 교체 경로 변경 핸들러
+  void handleSupplementPathChanged(ExchangePath? path) {
+    final supplementPath = path as SupplementExchangePath?;
+
+    setSelectedSupplementPath(supplementPath);
+    // dataSource에 보강 경로 업데이트 메서드가 있다면 추가
+    // dataSource?.updateSelectedSupplementPath(supplementPath);
+
+    if (supplementPath != null) {
+      AppLogger.exchangeDebug('보강교체 경로 선택: ${supplementPath.id}');
+      setTargetCellFromSupplementPath(supplementPath);
+      updateHeaderTheme();
+    } else {
+      AppLogger.exchangeDebug('보강교체 경로 선택 해제');
+      clearTargetCell();
+      updateHeaderTheme();
+      showSnackBar(
+        '보강교체 경로 선택이 해제되었습니다.',
         backgroundColor: Colors.grey.shade600,
       );
     }

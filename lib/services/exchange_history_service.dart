@@ -3,6 +3,7 @@ import '../models/exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
 import '../models/circular_exchange_path.dart';
 import '../models/chain_exchange_path.dart';
+import '../models/supplement_exchange_path.dart';
 import '../utils/logger.dart';
 import 'dart:developer' as developer;
 
@@ -290,6 +291,8 @@ class ExchangeHistoryService {
         return _formatNodes(path.nodes);
       } else if (path is ChainExchangePath) {
         return _formatNodes([path.node1, path.node2]);
+      } else if (path is SupplementExchangePath) {
+        return _formatNodes([path.sourceNode, path.targetNode]);
       }
     } catch (e) {
       developer.log('노드 정보 추출 실패: $e');
@@ -348,6 +351,8 @@ class ExchangeHistoryService {
       return path.nodes;
     } else if (path is ChainExchangePath) {
       return [path.nodeA, path.nodeB, path.node1, path.node2];
+    } else if (path is SupplementExchangePath) {
+      return [path.sourceNode, path.targetNode];
     }
     return [];
   }

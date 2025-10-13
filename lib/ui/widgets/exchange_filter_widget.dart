@@ -4,6 +4,7 @@ import '../../models/exchange_node.dart';
 import '../../models/circular_exchange_path.dart';
 import '../../models/chain_exchange_path.dart';
 import '../../models/one_to_one_exchange_path.dart';
+import '../../models/supplement_exchange_path.dart';
 
 /// 교체 경로 필터 위젯
 /// 순환교체, 연쇄교체 등 다양한 교체 모드에서 공용으로 사용할 수 있는 필터 위젯
@@ -146,6 +147,8 @@ class ExchangeFilterWidget extends StatelessWidget {
         return '$step단계(${_getStepCount(step)})';
       case ExchangePathType.oneToOne:
         return '1:1교체(${_getStepCount(step)})';
+      case ExchangePathType.supplement:
+        return '보강교체(${_getStepCount(step)})';
     }
   }
 
@@ -160,6 +163,8 @@ class ExchangeFilterWidget extends StatelessWidget {
           return path is ChainExchangePath && path.chainDepth == step;
         case ExchangePathType.oneToOne:
           return path is OneToOneExchangePath; // 1:1 교체는 항상 2개 노드
+        case ExchangePathType.supplement:
+          return path is SupplementExchangePath; // 보강교체는 항상 2개 노드
       }
     }).toList();
     
@@ -205,6 +210,11 @@ class ExchangeFilterWidget extends StatelessWidget {
       case ExchangePathType.oneToOne:
         if (path is OneToOneExchangePath) {
           return path.targetNode; // 1:1 교체의 경우 교체 대상 노드
+        }
+        break;
+      case ExchangePathType.supplement:
+        if (path is SupplementExchangePath) {
+          return path.targetNode; // 보강교체의 경우 보강 대상 노드
         }
         break;
     }

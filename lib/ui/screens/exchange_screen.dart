@@ -19,6 +19,7 @@ import '../../utils/fixed_header_style_manager.dart';
 import '../../models/exchange_path.dart';
 import '../../models/exchange_mode.dart';
 import '../../models/one_to_one_exchange_path.dart';
+import '../../models/supplement_exchange_path.dart';
 import '../../utils/exchange_path_converter.dart';
 import '../../utils/exchange_path_utils.dart';
 
@@ -172,6 +173,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       case ExchangeMode.chainExchange:
         notifier.setAvailableSteps([2, 3, 4, 5]);
         break;
+      case ExchangeMode.supplementExchange:
+        notifier.setAvailableSteps([2]);
+        break;
       case ExchangeMode.nonExchangeableEdit:
         notifier.setAvailableSteps([]);
         break;
@@ -246,6 +250,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   void Function(OneToOneExchangePath?) get setSelectedOneToOnePath => _stateProxy.setSelectedOneToOnePath;
   @override
   void Function(ChainExchangePath?) get setSelectedChainPath => _stateProxy.setSelectedChainPath;
+  @override
+  void Function(SupplementExchangePath?) get setSelectedSupplementPath => _stateProxy.setSelectedSupplementPath;
 
   // FilterSearchHandler 인터페이스 구현
   @override
@@ -515,6 +521,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       exchangeableTeachers: exchangeableTeachers, // 교체 가능한 교사 정보 전달
       selectedCircularPath: _selectedCircularPath, // 선택된 순환교체 경로 전달
       selectedOneToOnePath: _selectedOneToOnePath, // 선택된 1:1 교체 경로 전달
+      selectedChainPath: _selectedChainPath, // 선택된 연쇄교체 경로 전달
+      selectedSupplementPath: _stateProxy.selectedSupplementPath, // 선택된 보강교체 경로 전달
     );
     
     // Provider를 통해 그리드 데이터 업데이트
@@ -856,6 +864,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     notifier.setSelectedCircularPath(null);
     notifier.setSelectedOneToOnePath(null);
     notifier.setSelectedChainPath(null);
+    notifier.setSelectedSupplementPath(null);
 
     // TimetableGridSection의 화살표 상태 초기화
     // 타겟 셀이 초기화되면 화살표도 함께 숨겨야 함
@@ -920,6 +929,11 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       if (dataSourceChainPath != null && dataSourceChainPath.nodes.isNotEmpty) {
         return (day: dataSourceChainPath.nodes.first.day, period: dataSourceChainPath.nodes.first.period);
       }
+      
+      final dataSourceSupplementPath = screenState.dataSource?.getSelectedSupplementPath();
+      if (dataSourceSupplementPath != null && dataSourceSupplementPath.nodes.isNotEmpty) {
+        return (day: dataSourceSupplementPath.nodes.first.day, period: dataSourceSupplementPath.nodes.first.period);
+      }
     } catch (e) {
       // 경로 정보 접근 중 오류 발생 시 안전하게 처리
       AppLogger.error('경로 정보 접근 중 오류: $e');
@@ -967,6 +981,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       selectedCircularPath: _selectedCircularPath, // 순환교체 경로
       selectedOneToOnePath: _selectedOneToOnePath, // 1:1 교체 경로
       selectedChainPath: _selectedChainPath, // 연쇄교체 경로
+      selectedSupplementPath: _stateProxy.selectedSupplementPath, // 보강교체 경로
     );
 
     // setState를 사용하여 UI 강제 업데이트 (모든 교체 모드 공통)

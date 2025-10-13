@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/circular_exchange_path.dart';
 import '../../../models/chain_exchange_path.dart';
 import '../../../models/one_to_one_exchange_path.dart';
+import '../../../models/supplement_exchange_path.dart';
 import '../../../models/exchange_path.dart';
 import '../../../utils/exchange_path_utils.dart';
 import '../../../models/exchange_mode.dart';
@@ -80,6 +81,9 @@ class ExchangeScreenStateProxy {
   ChainExchangePath? get selectedChainPath => _state.selectedChainPath;
   void setSelectedChainPath(ChainExchangePath? value) => _notifier.setSelectedChainPath(value);
 
+  SupplementExchangePath? get selectedSupplementPath => _state.selectedSupplementPath;
+  void setSelectedSupplementPath(SupplementExchangePath? value) => _notifier.setSelectedSupplementPath(value);
+
   bool get isSidebarVisible => _state.isSidebarVisible;
   void setSidebarVisible(bool value) => _notifier.setSidebarVisible(value);
 
@@ -119,6 +123,7 @@ class ExchangeScreenStateProxy {
     _notifier.setSelectedOneToOnePath(null);
     _notifier.setSelectedCircularPath(null);
     _notifier.setSelectedChainPath(null);
+    _notifier.setSelectedSupplementPath(null);
   }
 
   /// 모든 경로 초기화

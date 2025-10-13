@@ -131,7 +131,8 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     _exchangeNotifier
       ..setSelectedCircularPath(null)
       ..setSelectedOneToOnePath(null)
-      ..setSelectedChainPath(null);
+      ..setSelectedChainPath(null)
+      ..setSelectedSupplementPath(null);
   }
 
   /// 헤더 테마 업데이트 (ExchangeScreen의 _updateHeaderTheme와 동일한 로직)

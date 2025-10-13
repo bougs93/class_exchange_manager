@@ -6,6 +6,7 @@ import '../models/teacher.dart';
 import '../models/circular_exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
 import '../models/chain_exchange_path.dart';
+import '../models/supplement_exchange_path.dart';
 import '../ui/widgets/simplified_timetable_cell.dart';
 import '../providers/timetable_theme_provider.dart';
 import 'exchange_algorithm.dart';
@@ -462,6 +463,13 @@ class TimetableDataSource extends DataGridSource {
     _localCache.clear(); // 로컬 캐시 초기화
     notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
   }
+
+  /// 선택된 보강교체 경로 업데이트
+  void updateSelectedSupplementPath(SupplementExchangePath? path) {
+    ref.read(timetableThemeProvider.notifier).updateSelectedSupplementPath(path);
+    _localCache.clear(); // 로컬 캐시 초기화
+    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
+  }
   
   
 
@@ -607,6 +615,11 @@ class TimetableDataSource extends DataGridSource {
   /// 선택된 연쇄교체 경로 접근자 (보기 모드용)
   ChainExchangePath? getSelectedChainPath() {
     return ref.read(timetableThemeProvider).selectedChainPath;
+  }
+
+  /// 선택된 보강교체 경로 접근자 (보기 모드용)
+  SupplementExchangePath? getSelectedSupplementPath() {
+    return ref.read(timetableThemeProvider).selectedSupplementPath;
   }
 
   /// 타겟 셀의 요일 반환 (보기 모드용)

@@ -6,6 +6,7 @@ import '../../../models/exchange_path.dart';
 import '../../../models/one_to_one_exchange_path.dart';
 import '../../../models/circular_exchange_path.dart';
 import '../../../models/chain_exchange_path.dart';
+import '../../../models/supplement_exchange_path.dart';
 import '../../../models/exchange_node.dart';
 import '../../../utils/logger.dart';
 import 'exchange_arrow_style.dart';
@@ -76,6 +77,9 @@ class WidgetArrowsManager {
         break;
       case ExchangePathType.chain:
         arrows = _createChainArrows(selectedPath as ChainExchangePath, context);
+        break;
+      case ExchangePathType.supplement:
+        arrows = _createSupplementArrows(selectedPath as SupplementExchangePath, context);
         break;
     }
     
@@ -170,6 +174,37 @@ class WidgetArrowsManager {
       ));
     }
     
+    return arrows;
+  }
+
+  /// 보강 교체 화살표 생성
+  /// 
+  /// 보강 교체는 단방향 화살표로 표시됩니다.
+  /// 보강할 셀(sourceNode)에서 보강할 교사(targetNode)로의 화살표를 생성합니다.
+  List<ArrowElement> _createSupplementArrows(SupplementExchangePath path, BuildContext context) {
+    List<ArrowElement> arrows = [];
+    
+    final sourceNode = path.sourceNode;  // 보강할 셀
+    final targetNode = path.targetNode;  // 보강할 교사
+    
+    final sourceId = _getCellId(sourceNode);
+    final targetId = _getCellId(targetNode);
+    
+    AppLogger.exchangeDebug('보강 교체 화살표 생성:');
+    AppLogger.exchangeDebug('  보강할 셀: ${sourceNode.teacherName} ${sourceNode.day}${sourceNode.period}교시 → ID: $sourceId');
+    AppLogger.exchangeDebug('  보강할 교사: ${targetNode.teacherName} ${targetNode.day}${targetNode.period}교시 → ID: $targetId');
+    
+    // 보강할 셀에서 보강할 교사로의 단방향 화살표
+    final arrowId = _generateArrowId('supplement', 'supplement');
+    arrows.add(_createArrowElement(
+      arrowId: arrowId,
+      sourceId: sourceId,
+      targetId: targetId,
+      style: ExchangeArrowStyle.supplement,
+      context: context,
+    ));
+    
+    AppLogger.exchangeDebug('보강 교체 화살표 생성 완료: ${arrows.length}개');
     return arrows;
   }
 

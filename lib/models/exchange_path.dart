@@ -33,6 +33,7 @@ enum ExchangePathType {
   oneToOne,    // 1:1교체 (2개 노드)
   circular,    // 순환교체 (3+ 노드)
   chain,       // 연쇄교체 (4개 노드: A, B, 1, 2)
+  supplement,  // 보강교체 (2개 노드: 보강할 셀, 보강할 교사)
 }
 
 /// 교체 경로 타입별 확장 메서드
@@ -46,6 +47,8 @@ extension ExchangePathTypeExtension on ExchangePathType {
         return '순환교체';
       case ExchangePathType.chain:
         return '연쇄교체';
+      case ExchangePathType.supplement:
+        return '보강교체';
     }
   }
 
@@ -58,6 +61,8 @@ extension ExchangePathTypeExtension on ExchangePathType {
         return '🔄';
       case ExchangePathType.chain:
         return '🔗';
+      case ExchangePathType.supplement:
+        return '➕';
     }
   }
 }

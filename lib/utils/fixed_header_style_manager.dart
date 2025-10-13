@@ -216,6 +216,7 @@ class FixedHeaderStyleManager {
   /// [selectedCircularPath] 순환교체 경로
   /// [selectedOneToOnePath] 1:1 교체 경로
   /// [selectedChainPath] 연쇄교체 경로
+  /// [selectedSupplementPath] 보강교체 경로
   static List<GridColumn> buildGridColumns({
     required List<String> days,
     required Map<String, Map<int, Map<String, dynamic>>> groupedData,
@@ -227,6 +228,7 @@ class FixedHeaderStyleManager {
     dynamic selectedCircularPath,
     dynamic selectedOneToOnePath,
     dynamic selectedChainPath,
+    dynamic selectedSupplementPath,
   }) {
     List<GridColumn> columns = [];
 
@@ -268,6 +270,9 @@ class FixedHeaderStyleManager {
         bool isInChainPath = _isPeriodInPath(
           day, period, selectedChainPath?.nodes,
         );
+        bool isInSupplementPath = _isPeriodInPath(
+          day, period, selectedSupplementPath?.nodes,
+        );
 
         // CellStyleConfig로 통합 관리
         final config = CellStyleConfig(
@@ -280,6 +285,7 @@ class FixedHeaderStyleManager {
           isInCircularPath: isInCircularPath,
           isInSelectedPath: isInSelectedOneToOnePath,
           isInChainPath: isInChainPath,
+          isInSupplementPath: isInSupplementPath,
           isTargetCell: isTargetCell,
           headerPosition: '$day$period', // 헤더 위치 정보 추가 (캐시 키 구분용)
         );

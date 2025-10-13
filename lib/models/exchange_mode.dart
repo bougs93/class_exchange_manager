@@ -17,6 +17,9 @@ enum ExchangeMode {
   
   /// 연쇄교체 모드 - 연쇄적으로 교체
   chainExchange,
+  
+  /// 보강교체 모드 - 보강 수업 추가
+  supplementExchange,
 }
 
 /// ExchangeMode 확장 메서드들
@@ -34,6 +37,8 @@ extension ExchangeModeExtension on ExchangeMode {
         return '순환교체';
       case ExchangeMode.chainExchange:
         return '연쇄교체';
+      case ExchangeMode.supplementExchange:
+        return '보강교체';
     }
   }
   
@@ -50,6 +55,8 @@ extension ExchangeModeExtension on ExchangeMode {
         return Icons.refresh;
       case ExchangeMode.chainExchange:
         return Icons.link;
+      case ExchangeMode.supplementExchange:
+        return Icons.add_circle;
     }
   }
   
@@ -66,6 +73,8 @@ extension ExchangeModeExtension on ExchangeMode {
         return Colors.indigo;
       case ExchangeMode.chainExchange:
         return Colors.deepOrange;
+      case ExchangeMode.supplementExchange:
+        return Colors.teal;
     }
   }
   
