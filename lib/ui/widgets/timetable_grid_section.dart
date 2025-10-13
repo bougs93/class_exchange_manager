@@ -618,40 +618,47 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                       labelSmall: TextStyle(fontSize: _getScaledFontSize(zoomFactor)),
                     ),
                   ),
-                  child: Scrollbar(
-                    // 수직 스크롤바 - 항상 표시
-                    controller: _verticalScrollController,
-                    thumbVisibility: true,
-                    trackVisibility: true,
-                    thickness: 12.0,
-                    radius: const Radius.circular(6.0),
-                    child: Scrollbar(
-                      // 수평 스크롤바 - 항상 표시
-                      controller: _horizontalScrollController,
-                      thumbVisibility: true,
-                      trackVisibility: true,
-                      thickness: 12.0,
-                      radius: const Radius.circular(6.0),
-                      scrollbarOrientation: ScrollbarOrientation.bottom,
-                      child: SfDataGrid(
-                        key: ValueKey('${widget.columns.length}_${widget.stackedHeaders.length}_${DateTime.now().millisecondsSinceEpoch}'),
-                        source: widget.dataSource!,
-                        columns: _getScaledColumns(zoomFactor),
-                        stackedHeaderRows: _getScaledStackedHeaders(zoomFactor),
-                        gridLinesVisibility: GridLinesVisibility.both,
-                        headerGridLinesVisibility: GridLinesVisibility.both,
-                        headerRowHeight: _getScaledHeaderHeight(zoomFactor),
-                        rowHeight: _getScaledRowHeight(zoomFactor),
-                        allowColumnsResizing: false,
-                        allowSorting: false,
-                        allowEditing: false,
-                        allowTriStateSorting: false,
-                        allowPullToRefresh: false,
-                        selectionMode: SelectionMode.none,
-                        columnWidthMode: ColumnWidthMode.none,
-                        frozenColumnsCount: GridLayoutConstants.frozenColumnsCount,
-                        onCellTap: _handleCellTap,
-                      ),
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: (ScrollNotification notification) {
+                      // Syncfusion DataGrid의 스크롤 이벤트 감지
+                      if (notification is ScrollUpdateNotification) {
+                        final metrics = notification.metrics;
+                        final currentState = ref.read(scrollProvider);
+                        
+                        // 현재 상태를 유지하면서 해당 축의 오프셋만 업데이트
+                        final newHorizontal = metrics.axis == Axis.horizontal 
+                            ? metrics.pixels 
+                            : currentState.horizontalOffset;
+                        final newVertical = metrics.axis == Axis.vertical 
+                            ? metrics.pixels 
+                            : currentState.verticalOffset;
+                            
+                        ref.read(scrollProvider.notifier).updateOffset(
+                          newHorizontal,
+                          newVertical,
+                        );
+                        AppLogger.exchangeDebug('스크롤 감지: ${metrics.axis} - h:$newHorizontal, v:$newVertical');
+                      }
+                      return false; // 다른 위젯도 이벤트를 받을 수 있도록
+                    },
+                    child: SfDataGrid(
+                      key: ValueKey('${widget.columns.length}_${widget.stackedHeaders.length}_${DateTime.now().millisecondsSinceEpoch}'),
+                      source: widget.dataSource!,
+                      columns: _getScaledColumns(zoomFactor),
+                      stackedHeaderRows: _getScaledStackedHeaders(zoomFactor),
+                      gridLinesVisibility: GridLinesVisibility.both,
+                      headerGridLinesVisibility: GridLinesVisibility.both,
+                      headerRowHeight: _getScaledHeaderHeight(zoomFactor),
+                      rowHeight: _getScaledRowHeight(zoomFactor),
+                      allowColumnsResizing: false,
+                      allowSorting: false,
+                      allowEditing: false,
+                      allowTriStateSorting: false,
+                      allowPullToRefresh: false,
+                      selectionMode: SelectionMode.none,
+                      columnWidthMode: ColumnWidthMode.none,
+                      frozenColumnsCount: GridLayoutConstants.frozenColumnsCount,
+                      onCellTap: _handleCellTap,
                     ),
                   ),
                 ),
