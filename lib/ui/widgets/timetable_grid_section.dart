@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/excel_service.dart';
@@ -21,6 +22,7 @@ import '../../services/exchange_history_service.dart';
 import '../../utils/exchange_algorithm.dart';
 import '../../providers/state_reset_provider.dart';
 import '../../providers/zoom_provider.dart';
+import '../../providers/scroll_provider.dart';
 import '../../utils/simplified_timetable_theme.dart';
 import 'timetable_grid/timetable_grid_constants.dart';
 import 'timetable_grid/exchange_arrow_style.dart';
@@ -159,9 +161,32 @@ class TimetableGridSection extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<TimetableGridSection> createState() => _TimetableGridSectionState();
+
+  /// 외부에서 스크롤 기능에 접근할 수 있도록 하는 static 메서드
+  /// GlobalKey를 통해 State에 접근하여 scrollToCellCenter 호출
+  static void scrollToCellCenter(
+    GlobalKey<State<TimetableGridSection>> key,
+    String teacherName,
+    String day,
+    int period,
+  ) {
+    final state = key.currentState;
+    if (state is _TimetableGridSectionState) {
+      state.scrollToCellCenter(teacherName, day, period);
+    }
+  }
 }
 
 class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
+  // 스크롤 컨트롤러들
+  final ScrollController _horizontalScrollController = ScrollController();
+  final ScrollController _verticalScrollController = ScrollController();
+  
+  // 마우스 오른쪽 버튼 및 두 손가락 드래그 상태
+  Offset? _rightClickDragStart;
+  double? _rightClickScrollStartH;
+  double? _rightClickScrollStartV;
+  
   // 헬퍼 클래스들
   late ExchangeExecutor _exchangeExecutor;
 
@@ -210,6 +235,10 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   void initState() {
     super.initState();
 
+    // 스크롤 리스너 추가
+    _horizontalScrollController.addListener(_onScrollChanged);
+    _verticalScrollController.addListener(_onScrollChanged);
+
     // ExchangeExecutor 초기화
     _exchangeExecutor = ExchangeExecutor(
       ref: ref,
@@ -244,6 +273,12 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
   @override
   void dispose() {
+    // 스크롤 리스너 제거 및 컨트롤러 정리
+    _horizontalScrollController.removeListener(_onScrollChanged);
+    _verticalScrollController.removeListener(_onScrollChanged);
+    _horizontalScrollController.dispose();
+    _verticalScrollController.dispose();
+    
     // 화살표 매니저 정리 (싱글톤이므로 clearAllArrows만 호출)
     _arrowsManager.clearAllArrows();
     
@@ -253,6 +288,14 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     
     // 기존 리소스 정리
     super.dispose();
+  }
+
+  /// 스크롤 변경 시 Provider 업데이트
+  void _onScrollChanged() {
+    ref.read(scrollProvider.notifier).updateOffset(
+      _horizontalScrollController.hasClients ? _horizontalScrollController.offset : 0.0,
+      _verticalScrollController.hasClients ? _verticalScrollController.offset : 0.0,
+    );
   }
 
   /// UI 업데이트 요청
@@ -430,6 +473,11 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     return Consumer(
       builder: (context, ref, child) {
         final zoomFactor = ref.watch(zoomFactorProvider);
+        final scrollState = ref.watch(scrollProvider);
+        final scrollOffset = Offset(
+          scrollState.horizontalOffset,
+          scrollState.verticalOffset,
+        );
         
         // 줌 팩터 변경 시 화살표 매니저 데이터 업데이트
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -448,6 +496,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                     columns: widget.columns,
                     customArrowStyle: widget.customArrowStyle,
                     zoomFactor: zoomFactor,
+                    scrollOffset: scrollOffset,
                   ),
                   child: RepaintBoundary(
                     child: Container(),
@@ -468,41 +517,127 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       builder: (context, ref, child) {
         final zoomFactor = ref.watch(zoomFactorProvider);
         
-        Widget dataGridContainer = RepaintBoundary(
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Theme(
-              data: Theme.of(context).copyWith(
-                textTheme: Theme.of(context).textTheme.copyWith(
-                  bodyMedium: TextStyle(fontSize: _getScaledFontSize(zoomFactor)),
-                  bodySmall: TextStyle(fontSize: _getScaledFontSize(zoomFactor)),
-                  titleMedium: TextStyle(fontSize: _getScaledFontSize(zoomFactor)),
-                  labelMedium: TextStyle(fontSize: _getScaledFontSize(zoomFactor)),
-                  labelLarge: TextStyle(fontSize: _getScaledFontSize(zoomFactor)),
-                  labelSmall: TextStyle(fontSize: _getScaledFontSize(zoomFactor)),
+        Widget dataGridContainer = GestureDetector(
+          // 두 손가락 드래그 스크롤 (모바일)
+          onScaleStart: (details) {
+            if (details.pointerCount == 2) {
+              _rightClickDragStart = details.focalPoint;
+              _rightClickScrollStartH = _horizontalScrollController.hasClients 
+                  ? _horizontalScrollController.offset : 0.0;
+              _rightClickScrollStartV = _verticalScrollController.hasClients 
+                  ? _verticalScrollController.offset : 0.0;
+              ref.read(scrollProvider.notifier).setScrolling(true);
+            }
+          },
+          onScaleUpdate: (details) {
+            if (details.pointerCount == 2 && 
+                _rightClickDragStart != null &&
+                _rightClickScrollStartH != null &&
+                _rightClickScrollStartV != null) {
+              
+              final delta = details.focalPoint - _rightClickDragStart!;
+              
+              // 수평 스크롤
+              if (_horizontalScrollController.hasClients) {
+                final newH = (_rightClickScrollStartH! - delta.dx)
+                    .clamp(0.0, _horizontalScrollController.position.maxScrollExtent);
+                _horizontalScrollController.jumpTo(newH);
+              }
+              
+              // 수직 스크롤
+              if (_verticalScrollController.hasClients) {
+                final newV = (_rightClickScrollStartV! - delta.dy)
+                    .clamp(0.0, _verticalScrollController.position.maxScrollExtent);
+                _verticalScrollController.jumpTo(newV);
+              }
+            }
+          },
+          onScaleEnd: (details) {
+            _rightClickDragStart = null;
+            _rightClickScrollStartH = null;
+            _rightClickScrollStartV = null;
+            ref.read(scrollProvider.notifier).setScrolling(false);
+          },
+          child: Listener(
+            // 마우스 오른쪽 버튼 스크롤 (데스크톱)
+            onPointerDown: (event) {
+              if (event.buttons == kSecondaryMouseButton) {
+                _rightClickDragStart = event.position;
+                _rightClickScrollStartH = _horizontalScrollController.hasClients 
+                    ? _horizontalScrollController.offset : 0.0;
+                _rightClickScrollStartV = _verticalScrollController.hasClients 
+                    ? _verticalScrollController.offset : 0.0;
+                ref.read(scrollProvider.notifier).setScrolling(true);
+              }
+            },
+            onPointerMove: (event) {
+              if (event.buttons == kSecondaryMouseButton && 
+                  _rightClickDragStart != null &&
+                  _rightClickScrollStartH != null &&
+                  _rightClickScrollStartV != null) {
+                
+                final delta = event.position - _rightClickDragStart!;
+                
+                // 수평 스크롤
+                if (_horizontalScrollController.hasClients) {
+                  final newH = (_rightClickScrollStartH! - delta.dx)
+                      .clamp(0.0, _horizontalScrollController.position.maxScrollExtent);
+                  _horizontalScrollController.jumpTo(newH);
+                }
+                
+                // 수직 스크롤
+                if (_verticalScrollController.hasClients) {
+                  final newV = (_rightClickScrollStartV! - delta.dy)
+                      .clamp(0.0, _verticalScrollController.position.maxScrollExtent);
+                  _verticalScrollController.jumpTo(newV);
+                }
+              }
+            },
+            onPointerUp: (event) {
+              if (event.buttons != kSecondaryMouseButton) {
+                _rightClickDragStart = null;
+                _rightClickScrollStartH = null;
+                _rightClickScrollStartV = null;
+                ref.read(scrollProvider.notifier).setScrolling(false);
+              }
+            },
+            child: RepaintBoundary(
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-              ),
-              child: SfDataGrid(
-                key: ValueKey('${widget.columns.length}_${widget.stackedHeaders.length}_${DateTime.now().millisecondsSinceEpoch}'),
-                source: widget.dataSource!,
-                columns: _getScaledColumns(zoomFactor),
-                stackedHeaderRows: _getScaledStackedHeaders(zoomFactor),
-                gridLinesVisibility: GridLinesVisibility.both,
-                headerGridLinesVisibility: GridLinesVisibility.both,
-                headerRowHeight: _getScaledHeaderHeight(zoomFactor),
-                rowHeight: _getScaledRowHeight(zoomFactor),
-                allowColumnsResizing: false,
-                allowSorting: false,
-                allowEditing: false,
-                allowTriStateSorting: false,
-                allowPullToRefresh: false,
-                selectionMode: SelectionMode.none,
-                columnWidthMode: ColumnWidthMode.none,
-                frozenColumnsCount: GridLayoutConstants.frozenColumnsCount,
-                onCellTap: _handleCellTap,
+                child: Theme(
+                  data: Theme.of(context).copyWith(
+                    textTheme: Theme.of(context).textTheme.copyWith(
+                      bodyMedium: TextStyle(fontSize: _getScaledFontSize(zoomFactor)),
+                      bodySmall: TextStyle(fontSize: _getScaledFontSize(zoomFactor)),
+                      titleMedium: TextStyle(fontSize: _getScaledFontSize(zoomFactor)),
+                      labelMedium: TextStyle(fontSize: _getScaledFontSize(zoomFactor)),
+                      labelLarge: TextStyle(fontSize: _getScaledFontSize(zoomFactor)),
+                      labelSmall: TextStyle(fontSize: _getScaledFontSize(zoomFactor)),
+                    ),
+                  ),
+                  child: SfDataGrid(
+                    key: ValueKey('${widget.columns.length}_${widget.stackedHeaders.length}_${DateTime.now().millisecondsSinceEpoch}'),
+                    source: widget.dataSource!,
+                    columns: _getScaledColumns(zoomFactor),
+                    stackedHeaderRows: _getScaledStackedHeaders(zoomFactor),
+                    gridLinesVisibility: GridLinesVisibility.both,
+                    headerGridLinesVisibility: GridLinesVisibility.both,
+                    headerRowHeight: _getScaledHeaderHeight(zoomFactor),
+                    rowHeight: _getScaledRowHeight(zoomFactor),
+                    allowColumnsResizing: false,
+                    allowSorting: false,
+                    allowEditing: false,
+                    allowTriStateSorting: false,
+                    allowPullToRefresh: false,
+                    selectionMode: SelectionMode.none,
+                    columnWidthMode: ColumnWidthMode.none,
+                    frozenColumnsCount: GridLayoutConstants.frozenColumnsCount,
+                    onCellTap: _handleCellTap,
+                  ),
+                ),
               ),
             ),
           ),
@@ -989,6 +1124,69 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     // 싱글톤 화살표 매니저를 통한 화살표 정리
     _arrowsManager.clearAllArrows();
     AppLogger.exchangeDebug('화살표 초기화 요청 (StateResetProvider에서 처리)');
+  }
+
+  /// 특정 셀을 화면 중앙으로 스크롤
+  /// 교체 경로 목록에서 셀 클릭 시 호출됨
+  void scrollToCellCenter(String teacherName, String day, int period) {
+    if (widget.timetableData == null) {
+      AppLogger.exchangeDebug('스크롤 실패: timetableData가 null입니다');
+      return;
+    }
+    
+    // 교사 인덱스 찾기
+    final teacherIndex = widget.timetableData!.teachers
+        .indexWhere((t) => t.name == teacherName);
+    if (teacherIndex == -1) {
+      AppLogger.exchangeDebug('스크롤 실패: 교사를 찾을 수 없음 - $teacherName');
+      return;
+    }
+    
+    // 컬럼 인덱스 찾기
+    final columnName = '${day}_$period';
+    final columnIndex = widget.columns
+        .indexWhere((col) => col.columnName == columnName);
+    if (columnIndex == -1) {
+      AppLogger.exchangeDebug('스크롤 실패: 컬럼을 찾을 수 없음 - $columnName');
+      return;
+    }
+    
+    final zoomFactor = ref.read(zoomFactorProvider);
+    
+    // 셀 위치 계산 (줌 팩터 적용)
+    final cellWidth = AppConstants.periodColumnWidth * zoomFactor;
+    final cellHeight = AppConstants.dataRowHeight * zoomFactor;
+    final headerHeight = AppConstants.headerRowHeight * 2 * zoomFactor;
+    final frozenWidth = AppConstants.teacherColumnWidth * zoomFactor;
+    
+    // 화면 크기
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    
+    // 목표 위치 (셀 중앙을 화면 중앙에)
+    final targetH = (columnIndex * cellWidth - frozenWidth) - (screenWidth / 2) + (cellWidth / 2);
+    final targetV = (teacherIndex * cellHeight - headerHeight) - (screenHeight / 2) + (cellHeight / 2);
+    
+    // 스크롤 실행 (애니메이션)
+    if (_horizontalScrollController.hasClients) {
+      final maxH = _horizontalScrollController.position.maxScrollExtent;
+      _horizontalScrollController.animateTo(
+        targetH.clamp(0.0, maxH),
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+    
+    if (_verticalScrollController.hasClients) {
+      final maxV = _verticalScrollController.position.maxScrollExtent;
+      _verticalScrollController.animateTo(
+        targetV.clamp(0.0, maxV),
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+    
+    AppLogger.exchangeDebug('셀 중앙 스크롤: $teacherName $day$period교시 (교사idx: $teacherIndex, 컬럼idx: $columnIndex)');
   }
 
 

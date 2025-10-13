@@ -19,6 +19,7 @@ class ExchangeArrowPainter extends CustomPainter {
   final List<GridColumn> columns;
   final ExchangeArrowStyle? customArrowStyle;
   final double zoomFactor; // 클리핑 계산용 (실제 크기는 이미 조정됨)
+  final Offset scrollOffset; // 스크롤 오프셋 (화살표가 스크롤을 따라 이동)
 
   ExchangeArrowPainter({
     required this.selectedPath,
@@ -26,6 +27,7 @@ class ExchangeArrowPainter extends CustomPainter {
     required this.columns,
     this.customArrowStyle,
     required this.zoomFactor, // 클리핑 계산용
+    required this.scrollOffset, // 스크롤 오프셋
   }) : assert(columns.isNotEmpty, 'columns cannot be empty'),
        assert(zoomFactor > 0, 'zoomFactor must be positive');
 
@@ -439,9 +441,11 @@ class ExchangeArrowPainter extends CustomPainter {
     double y = AppConstants.headerRowHeight * GridLayoutConstants.headerRowsCount * zoomFactor; // 헤더 행 높이 - 줌 배율 적용
     y += teacherIndex * AppConstants.dataRowHeight * zoomFactor; // 교사 인덱스에 따른 행 높이 - 줌 배율 적용
 
-    // 스크롤 오프셋 반영 (고정 영역 고려) - 스크롤 기능 제거로 항상 0
-    double horizontalOffset = 0.0;
-    double verticalOffset = 0.0;
+    // 스크롤 오프셋 반영 (고정 영역 제외)
+    // 교사명 열(columnIndex == 0)은 고정 영역이므로 수평 오프셋 적용 안 함
+    final isFrozenColumn = columnIndex == 0;
+    final horizontalOffset = isFrozenColumn ? 0.0 : scrollOffset.dx;
+    final verticalOffset = scrollOffset.dy;
 
     // 스크롤 오프셋을 좌표에 반영
     x -= horizontalOffset;
