@@ -50,20 +50,20 @@ class ScrollNotifier extends StateNotifier<ScrollState> {
       horizontalOffset: horizontal,
       verticalOffset: vertical,
     );
-    AppLogger.exchangeDebug('스크롤 오프셋 업데이트: h=$horizontal, v=$vertical');
+    AppLogger.exchangeDebug('📊 [스크롤] ScrollProvider 오프셋 업데이트: 수평=${horizontal.toStringAsFixed(1)}, 수직=${vertical.toStringAsFixed(1)}');
   }
   
   /// 스크롤 중 상태 설정
   /// 마우스 오른쪽 버튼 드래그 또는 두 손가락 터치 시작/종료 시 호출
   void setScrolling(bool isScrolling) {
     state = state.copyWith(isScrolling: isScrolling);
-    AppLogger.exchangeDebug('스크롤 상태 변경: $isScrolling');
+    AppLogger.exchangeDebug('🔄 [스크롤] ScrollProvider 스크롤 상태 변경: ${isScrolling ? "시작" : "종료"}');
   }
   
   /// 스크롤 상태 리셋
   void reset() {
     state = const ScrollState();
-    AppLogger.exchangeDebug('스크롤 상태 초기화');
+    AppLogger.exchangeDebug('🔄 [스크롤] ScrollProvider 상태 초기화');
   }
 }
 

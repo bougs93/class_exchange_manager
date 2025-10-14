@@ -409,34 +409,37 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     );
   }
 
-  /// 화살표 매니저 초기화
-  void _initializeArrowsManager() {
+  /// 화살표 매니저 초기화 또는 업데이트 (공통 메서드)
+  void _initializeOrUpdateArrowsManager({bool isUpdate = false}) {
     if (widget.timetableData != null) {
       final zoomFactor = ref.read(zoomFactorProvider);
       
-      _arrowsManager.initialize(
-        timetableData: widget.timetableData!,
-        columns: widget.columns,
-        zoomFactor: zoomFactor,
-      );
-      
-      AppLogger.exchangeDebug('화살표 매니저 싱글톤 초기화 완료');
+      if (isUpdate) {
+        _arrowsManager.updateData(
+          timetableData: widget.timetableData!,
+          columns: widget.columns,
+          zoomFactor: zoomFactor,
+        );
+        AppLogger.exchangeDebug('화살표 매니저 데이터 업데이트 완료 (줌 팩터: $zoomFactor)');
+      } else {
+        _arrowsManager.initialize(
+          timetableData: widget.timetableData!,
+          columns: widget.columns,
+          zoomFactor: zoomFactor,
+        );
+        AppLogger.exchangeDebug('화살표 매니저 싱글톤 초기화 완료');
+      }
     }
+  }
+
+  /// 화살표 매니저 초기화
+  void _initializeArrowsManager() {
+    _initializeOrUpdateArrowsManager(isUpdate: false);
   }
 
   /// 화살표 매니저 데이터 업데이트 (줌 변경 시 호출)
   void _updateArrowsManagerData() {
-    if (widget.timetableData != null) {
-      final zoomFactor = ref.read(zoomFactorProvider);
-      
-      _arrowsManager.updateData(
-        timetableData: widget.timetableData!,
-        columns: widget.columns,
-        zoomFactor: zoomFactor,
-      );
-      
-      AppLogger.exchangeDebug('화살표 매니저 데이터 업데이트 완료 (줌 팩터: $zoomFactor)');
-    }
+    _initializeOrUpdateArrowsManager(isUpdate: true);
   }
 
   /// DataGrid와 화살표를 함께 구성
@@ -533,6 +536,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                 final newH = (_rightClickScrollStartH! - delta.dx)
                     .clamp(0.0, _horizontalScrollController.position.maxScrollExtent);
                 _horizontalScrollController.jumpTo(newH);
+                AppLogger.exchangeDebug('🖱️ [스크롤] 두 손가락 터치 수평 스크롤: ${_rightClickScrollStartH!.toStringAsFixed(1)} → ${newH.toStringAsFixed(1)} (델타: ${delta.dx.toStringAsFixed(1)})');
               }
               
               // 수직 스크롤
@@ -540,6 +544,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                 final newV = (_rightClickScrollStartV! - delta.dy)
                     .clamp(0.0, _verticalScrollController.position.maxScrollExtent);
                 _verticalScrollController.jumpTo(newV);
+                AppLogger.exchangeDebug('🖱️ [스크롤] 두 손가락 터치 수직 스크롤: ${_rightClickScrollStartV!.toStringAsFixed(1)} → ${newV.toStringAsFixed(1)} (델타: ${delta.dy.toStringAsFixed(1)})');
               }
             }
           },
@@ -574,6 +579,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                   final newH = (_rightClickScrollStartH! - delta.dx)
                       .clamp(0.0, _horizontalScrollController.position.maxScrollExtent);
                   _horizontalScrollController.jumpTo(newH);
+                  AppLogger.exchangeDebug('🖱️ [스크롤] 마우스 오른쪽 버튼 수평 스크롤: ${_rightClickScrollStartH!.toStringAsFixed(1)} → ${newH.toStringAsFixed(1)} (델타: ${delta.dx.toStringAsFixed(1)})');
                 }
                 
                 // 수직 스크롤
@@ -581,6 +587,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                   final newV = (_rightClickScrollStartV! - delta.dy)
                       .clamp(0.0, _verticalScrollController.position.maxScrollExtent);
                   _verticalScrollController.jumpTo(newV);
+                  AppLogger.exchangeDebug('🖱️ [스크롤] 마우스 오른쪽 버튼 수직 스크롤: ${_rightClickScrollStartV!.toStringAsFixed(1)} → ${newV.toStringAsFixed(1)} (델타: ${delta.dy.toStringAsFixed(1)})');
                 }
               }
             },

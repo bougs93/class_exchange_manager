@@ -74,10 +74,7 @@ class TimetableDataSource extends DataGridSource {
     required List<Teacher> teachers,
     required this.ref,
   }) {
-    _timeSlots = timeSlots;
-    _teachers = teachers;
-    _nonExchangeableManager.setTimeSlots(timeSlots);
-    _buildDataGridRows();
+    _initializeData(timeSlots, teachers);
   }
 
   final WidgetRef ref;
@@ -96,6 +93,20 @@ class TimetableDataSource extends DataGridSource {
   
   // 로컬 캐시 관리 (위젯 빌드 중 안전하게 사용)
   final Map<String, bool> _localCache = {};
+
+  /// 공통 데이터 초기화 메서드
+  void _initializeData(List<TimeSlot> timeSlots, List<Teacher> teachers) {
+    _timeSlots = timeSlots;
+    _teachers = teachers;
+    _nonExchangeableManager.setTimeSlots(timeSlots);
+    _buildDataGridRows();
+  }
+
+  /// 공통 캐시 초기화 및 UI 업데이트 메서드
+  void _clearCacheAndNotify() {
+    _localCache.clear();
+    notifyDataSourceListeners();
+  }
 
   /// DataGrid 행 데이터 빌드
   void _buildDataGridRows() {
@@ -450,47 +461,39 @@ class TimetableDataSource extends DataGridSource {
   /// 선택된 순환교체 경로 업데이트
   void updateSelectedCircularPath(CircularExchangePath? path) {
     ref.read(cellSelectionProvider.notifier).setCircularPath(path);
-    _localCache.clear(); // 로컬 캐시 초기화
-    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
+    _clearCacheAndNotify();
   }
 
   /// 선택된 1:1 교체 경로 업데이트
   void updateSelectedOneToOnePath(OneToOneExchangePath? path) {
     ref.read(cellSelectionProvider.notifier).setOneToOnePath(path);
-    _localCache.clear(); // 로컬 캐시 초기화
-    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
+    _clearCacheAndNotify();
   }
 
   /// 선택된 연쇄교체 경로 업데이트
   void updateSelectedChainPath(ChainExchangePath? path) {
     ref.read(cellSelectionProvider.notifier).setChainPath(path);
-    _localCache.clear(); // 로컬 캐시 초기화
-    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
+    _clearCacheAndNotify();
   }
 
   /// 선택된 보강교체 경로 업데이트
   void updateSelectedSupplementPath(SupplementExchangePath? path) {
     ref.read(cellSelectionProvider.notifier).setSupplementPath(path);
-    _localCache.clear(); // 로컬 캐시 초기화
-    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
+    _clearCacheAndNotify();
   }
   
   
 
   /// 데이터 업데이트
   void updateData(List<TimeSlot> timeSlots, List<Teacher> teachers) {
-    _timeSlots = timeSlots;
-    _teachers = teachers;
-    _nonExchangeableManager.setTimeSlots(timeSlots);
-    _buildDataGridRows();
-    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
+    _initializeData(timeSlots, teachers);
+    notifyDataSourceListeners();
   }
 
   /// 교체불가 편집 모드 설정
   void setNonExchangeableEditMode(bool isEditMode) {
     _nonExchangeableManager.setNonExchangeableEditMode(isEditMode);
-    _localCache.clear(); // 로컬 캐시 초기화
-    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
+    _clearCacheAndNotify();
   }
 
   /// 교체불가 편집 모드 상태 확인
@@ -498,37 +501,32 @@ class TimetableDataSource extends DataGridSource {
 
   /// UI 업데이트 전용 메서드 (데이터 변경 없이 UI만 갱신)
   void refreshUI() {
-    _localCache.clear(); // 로컬 캐시 초기화
-    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
+    _clearCacheAndNotify();
   }
 
   /// 특정 교사의 모든 TimeSlot을 교체불가로 설정
   void setTeacherAsNonExchangeable(String teacherName) {
     _nonExchangeableManager.setTeacherAsNonExchangeable(teacherName);
-    _localCache.clear(); // 로컬 캐시 초기화
-    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
+    _clearCacheAndNotify();
   }
 
   /// 특정 교사의 모든 TimeSlot을 교체가능/교체불가로 토글
   void toggleTeacherAllTimes(String teacherName) {
     _nonExchangeableManager.toggleTeacherAllTimes(teacherName);
-    _localCache.clear(); // 로컬 캐시 초기화
-    notifyDataSourceListeners(); // Syncfusion DataGrid를 위한 notifyDataSourceListeners 사용
+    _clearCacheAndNotify();
   }
 
   /// 특정 셀을 교체불가로 설정 또는 해제 (토글 방식, 빈 셀 포함)
   void setCellAsNonExchangeable(String teacherName, String day, int period) {
     _nonExchangeableManager.setCellAsNonExchangeable(teacherName, day, period);
-    _localCache.clear(); // 로컬 캐시 초기화
-    notifyDataSourceListeners(); // Syncfusion DataGrid를 위한 notifyDataSourceListeners 사용
+    _clearCacheAndNotify();
     _onDataChanged?.call();
   }
 
   /// 모든 교체불가 설정 초기화
   void resetAllNonExchangeableSettings() {
     _nonExchangeableManager.resetAllNonExchangeableSettings();
-    _localCache.clear(); // 로컬 캐시 초기화
-    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
+    _clearCacheAndNotify();
     _onDataChanged?.call();
   }
 
