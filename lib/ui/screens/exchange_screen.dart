@@ -42,8 +42,6 @@ import 'exchange_screen/widgets/timetable_tab_content.dart';
 import 'exchange_screen/exchange_screen_viewmodel.dart';
 import 'exchange_screen/exchange_screen_state_proxy.dart';
 import 'exchange_screen/managers/exchange_operation_manager.dart';
-// PathManager는 Helper가 직접 사용하므로 현재 미사용
-// import 'exchange_screen/managers/exchange_path_manager.dart';
 
 /// 교체 관리 화면
 class ExchangeScreen extends ConsumerStatefulWidget {
@@ -76,8 +74,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   // Proxy 및 Manager (Composition)
   late final ExchangeScreenStateProxy _stateProxy;
   late final ExchangeOperationManager _operationManager;
-  // PathManager는 Helper에서 직접 Service를 사용하므로 현재 미사용
-  // late final ExchangePathManager _pathManager;
 
   // Mixin에서 요구하는 getter들 - Service는 Provider에서, 나머지는 Proxy 사용
   @override
@@ -322,16 +318,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       ),
       onRefreshHeaderTheme: _updateHeaderTheme,
     );
-
-    // PathManager는 Helper가 직접 Service를 사용하므로 현재 미사용
-    // _pathManager = ExchangePathManager(
-    //   stateProxy: _stateProxy,
-    //   exchangeService: ref.read(exchangeServiceProvider),
-    //   circularExchangeService: ref.read(circularExchangeServiceProvider),
-    //   chainExchangeService: ref.read(chainExchangeServiceProvider),
-    //   onUpdateFilteredPaths: _updateFilteredPaths,
-    //   onUpdateProgressSmoothly: _updateProgressSmoothly,
-    // );
 
     // PathSelectionManager 콜백 설정
     _pathSelectionManager.setCallbacks(

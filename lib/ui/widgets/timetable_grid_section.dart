@@ -177,18 +177,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   // 헬퍼 클래스들
   late ExchangeExecutor _exchangeExecutor;
 
-  // 내부적으로 관리하는 선택된 교체 경로 (교체된 셀 클릭 시 사용) - 제거됨
-  // ExchangePath? _internalSelectedPath;
-
-  // 교체 뷰 체크박스 상태 - Riverpod Provider로 관리됨
-  // bool _isExchangeViewEnabled = false;
-
-  // 교체된 셀의 원본 정보를 저장하는 리스트 (복원용) - Riverpod Provider로 관리됨
-  // final List<ExchangeBackupInfo> _exchangeListWork = [];
-
-  // 이미 백업 완료된 교체 개수 (간단한 추적) - Riverpod Provider로 관리됨
-  // int _backedUpCount = 0;
-
   // 싱글톤 화살표 매니저
   final WidgetArrowsManager _arrowsManager = WidgetArrowsManager();
 
@@ -272,10 +260,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     
     // 화살표 매니저 정리 (싱글톤이므로 clearAllArrows만 호출)
     _arrowsManager.clearAllArrows();
-    
-    // 교체 뷰 관련 메모리 정리는 Riverpod Provider에서 자동 처리됨
-    // _exchangeListWork.clear();
-    // _backedUpCount = 0;
     
     // 기존 리소스 정리
     super.dispose();

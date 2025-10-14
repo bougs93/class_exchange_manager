@@ -84,9 +84,6 @@ class TimetableDataSource extends DataGridSource {
   
   // 교체 옵션 정보
   List<ExchangeOption> _exchangeOptions = [];
-
-  // UI 업데이트 콜백
-  VoidCallback? _onDataChanged;
   
   // 관리자 클래스들 (전역 Provider 사용으로 간소화)
   final NonExchangeableManager _nonExchangeableManager = NonExchangeableManager();
@@ -520,37 +517,31 @@ class TimetableDataSource extends DataGridSource {
   void setCellAsNonExchangeable(String teacherName, String day, int period) {
     _nonExchangeableManager.setCellAsNonExchangeable(teacherName, day, period);
     _clearCacheAndNotify();
-    _onDataChanged?.call();
   }
 
   /// 모든 교체불가 설정 초기화
   void resetAllNonExchangeableSettings() {
     _nonExchangeableManager.resetAllNonExchangeableSettings();
     _clearCacheAndNotify();
-    _onDataChanged?.call();
   }
 
   /// 모든 캐시 초기화 (외부에서 호출 가능)
   void clearAllCaches() {
-    _localCache.clear(); // 로컬 캐시 초기화
-    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
-    _onDataChanged?.call();
+    _localCache.clear();
+    notifyDataSourceListeners();
   }
 
   /// 데이터 변경 알림 (외부에서 호출 가능) - 재렌더링 방지
   void notifyDataChanged() {
     // 캐시 초기화는 실제로 데이터가 변경된 경우에만 수행
     // 단순 UI 업데이트의 경우 캐시를 유지하여 성능 향상
-    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용 (재렌더링 방지)
-    _onDataChanged?.call();
+    notifyDataSourceListeners();
   }
   
   /// 교체된 셀 상태 업데이트 (교체 리스트 변경 시 호출)
   void updateExchangedCells(List<String> exchangedCellKeys) {
     ref.read(cellSelectionProvider.notifier).updateExchangedCells(exchangedCellKeys);
-    _localCache.clear(); // 로컬 캐시 초기화
-    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
-    _onDataChanged?.call();
+    _clearCacheAndNotify();
   }
 
   /// 교체된 목적지 셀 상태 업데이트
