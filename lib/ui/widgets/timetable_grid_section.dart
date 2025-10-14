@@ -642,7 +642,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                       return false; // 다른 위젯도 이벤트를 받을 수 있도록
                     },
                     child: SfDataGrid(
-                      key: ValueKey('${widget.columns.length}_${widget.stackedHeaders.length}_${DateTime.now().millisecondsSinceEpoch}'),
+                      key: ValueKey('${widget.columns.length}_${widget.stackedHeaders.length}'),
                       source: widget.dataSource!,
                       columns: _getScaledColumns(zoomFactor),
                       stackedHeaderRows: _getScaledStackedHeaders(zoomFactor),
