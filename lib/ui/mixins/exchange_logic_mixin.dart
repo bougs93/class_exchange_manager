@@ -124,17 +124,17 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
   
   /// 셀 선택 후 처리 로직 (1:1 교체)
   void processCellSelection() {
-    // 데이터 소스에 선택 상태 업데이트
+    // 데이터 소스에 선택 상태만 업데이트 (재렌더링 방지)
     dataSource?.updateSelection(
       exchangeService.selectedTeacher, 
       exchangeService.selectedDay, 
       exchangeService.selectedPeriod
     );
     
-    // 교체 가능한 시간 탐색 및 표시
+    // 교체 가능한 시간 탐색 및 표시 (데이터 소스 재생성 없이)
     updateExchangeableTimes();
     
-    // 테마 기반 헤더 업데이트
+    // 테마 기반 헤더 업데이트 (컬럼/헤더 재생성 없이)
     updateHeaderTheme();
   }
   

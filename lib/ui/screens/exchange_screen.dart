@@ -523,28 +523,52 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       selectedSupplementPath: _stateProxy.selectedSupplementPath, // 선택된 보강교체 경로 전달
     );
     
-    // Provider를 통해 그리드 데이터 업데이트
+    // Provider를 통해 그리드 데이터 업데이트 (변경이 필요한 경우에만 호출하여 성능 최적화)
     final notifier = ref.read(exchangeScreenProvider.notifier);
-    notifier.setColumns(result.columns);
-    notifier.setStackedHeaders(result.stackedHeaders);
+    final currentState = ref.read(exchangeScreenProvider);
     
-    // 데이터 소스 생성 및 Provider에 설정
-    final dataSource = TimetableDataSource(
-      timeSlots: globalTimetableData.timeSlots,
-      teachers: globalTimetableData.teachers,
-      ref: ref, // WidgetRef 추가
-    );
+    // 현재 상태와 비교하여 실제로 변경이 필요한 경우에만 업데이트
+    if (_shouldUpdateColumns(currentState.columns, result.columns)) {
+      notifier.setColumns(result.columns);
+    }
     
-    // 데이터 변경 시 UI 업데이트 콜백 설정
-    dataSource.setOnDataChanged(() {
-      // notifyListeners()가 자동으로 호출되므로 별도의 setState() 불필요
-    });
+    if (_shouldUpdateStackedHeaders(currentState.stackedHeaders, result.stackedHeaders)) {
+      notifier.setStackedHeaders(result.stackedHeaders);
+    }
     
-    // 교체불가 편집 모드 상태를 TimetableDataSource에 전달
-    dataSource.setNonExchangeableEditMode(ref.read(exchangeScreenProvider).currentMode == ExchangeMode.nonExchangeableEdit);
-    
-    // Provider에 데이터 소스 설정
-    notifier.setDataSource(dataSource);
+    // 데이터 소스 생성 및 Provider에 설정 (변경이 필요한 경우에만)
+    if (currentState.dataSource == null || 
+        currentState.dataSource!.timeSlots != globalTimetableData.timeSlots) {
+      
+      final dataSource = TimetableDataSource(
+        timeSlots: globalTimetableData.timeSlots,
+        teachers: globalTimetableData.teachers,
+        ref: ref, // WidgetRef 추가
+      );
+      
+      // 데이터 변경 시 UI 업데이트 콜백 설정
+      dataSource.setOnDataChanged(() {
+        // notifyListeners()가 자동으로 호출되므로 별도의 setState() 불필요
+      });
+      
+      // 교체불가 편집 모드 상태를 TimetableDataSource에 전달
+      dataSource.setNonExchangeableEditMode(ref.read(exchangeScreenProvider).currentMode == ExchangeMode.nonExchangeableEdit);
+      
+      // Provider에 데이터 소스 설정
+      notifier.setDataSource(dataSource);
+    } else {
+      // 기존 데이터 소스의 교체불가 편집 모드 상태만 업데이트 (재렌더링 방지)
+      currentState.dataSource?.setNonExchangeableEditMode(ref.read(exchangeScreenProvider).currentMode == ExchangeMode.nonExchangeableEdit);
+      
+      // 기존 데이터 소스의 선택 상태만 업데이트 (재렌더링 방지)
+      if (exchangeService.hasSelectedCell()) {
+        currentState.dataSource?.updateSelection(
+          exchangeService.selectedTeacher,
+          exchangeService.selectedDay,
+          exchangeService.selectedPeriod,
+        );
+      }
+    }
   }
   
   /// 셀 탭 이벤트 핸들러 - 교체 모드가 활성화된 경우만 동작
@@ -767,9 +791,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   
   @override
   void processCellSelection() {
-    // 새로운 셀 선택시 이전 교체 관련 상태만 초기화 (현재 선택된 셀은 유지) - Level 2
-    ref.read(stateResetProvider.notifier).resetExchangeStates(
-      reason: '새로운 셀 선택',
+    // 새로운 셀 선택시 경로만 초기화 (Level 1) - 선택된 셀은 유지하고 그리드 재생성 방지
+    ref.read(stateResetProvider.notifier).resetPathOnly(
+      reason: '새로운 셀 선택 - 경로만 초기화',
     );
 
     // 순환교체, 1:1 교체, 연쇄교체 모드에서 필터 초기화
@@ -777,7 +801,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       resetFilters();
     }
 
-    // 부모 클래스의 processCellSelection 호출
+    // 부모 클래스의 processCellSelection 호출 (데이터 소스 재생성 없이)
     super.processCellSelection();
   }
 
@@ -982,20 +1006,54 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       selectedSupplementPath: _stateProxy.selectedSupplementPath, // 보강교체 경로
     );
 
-    // setState를 사용하여 UI 강제 업데이트 (모든 교체 모드 공통)
-    if (mounted) {
-      setState(() {
-        // Provider를 통해 헤더 강제 재생성
-        final notifier = ref.read(exchangeScreenProvider.notifier);
-        notifier.setColumns(result.columns); // 헤더만 업데이트
-        notifier.setStackedHeaders(result.stackedHeaders); // 스택 헤더도 함께 업데이트 (요일 행 포함)
-      });
+    // Provider를 통한 헤더 업데이트 (변경이 필요한 경우에만 호출하여 성능 최적화)
+    final notifier = ref.read(exchangeScreenProvider.notifier);
+    final currentState = ref.read(exchangeScreenProvider);
+    
+    // 현재 상태와 비교하여 실제로 변경이 필요한 경우에만 업데이트
+    if (_shouldUpdateColumns(currentState.columns, result.columns)) {
+      notifier.setColumns(result.columns);
+    }
+    
+    if (_shouldUpdateStackedHeaders(currentState.stackedHeaders, result.stackedHeaders)) {
+      notifier.setStackedHeaders(result.stackedHeaders);
     }
 
-    // TimetableDataSource의 notifyListeners를 통한 직접 UI 업데이트
+    // TimetableDataSource의 notifyListeners를 통한 직접 UI 업데이트 (재렌더링 방지)
     screenState.dataSource?.notifyListeners();
   }
 
+
+  /// 컬럼 업데이트가 필요한지 확인
+  bool _shouldUpdateColumns(List<GridColumn> currentColumns, List<GridColumn> newColumns) {
+    if (currentColumns.length != newColumns.length) return true;
+    
+    for (int i = 0; i < currentColumns.length; i++) {
+      if (currentColumns[i].columnName != newColumns[i].columnName ||
+          currentColumns[i].width != newColumns[i].width) {
+        return true;
+      }
+    }
+    return false;
+  }
+  
+  /// 스택 헤더 업데이트가 필요한지 확인
+  bool _shouldUpdateStackedHeaders(List<StackedHeaderRow> currentHeaders, List<StackedHeaderRow> newHeaders) {
+    if (currentHeaders.length != newHeaders.length) return true;
+    
+    for (int i = 0; i < currentHeaders.length; i++) {
+      if (currentHeaders[i].cells.length != newHeaders[i].cells.length) return true;
+      
+      for (int j = 0; j < currentHeaders[i].cells.length; j++) {
+        if (currentHeaders[i].cells[j].columnNames.length != newHeaders[i].cells[j].columnNames.length) return true;
+        
+        for (int k = 0; k < currentHeaders[i].cells[j].columnNames.length; k++) {
+          if (currentHeaders[i].cells[j].columnNames[k] != newHeaders[i].cells[j].columnNames[k]) return true;
+        }
+      }
+    }
+    return false;
+  }
 
   /// 통합 경로 선택 처리 (PathSelectionManager 사용)
 

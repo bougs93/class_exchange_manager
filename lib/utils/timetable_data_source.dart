@@ -409,13 +409,13 @@ class TimetableDataSource extends DataGridSource {
     return period == 1; // 모든 요일의 첫 번째 교시
   }
 
-  /// 선택 상태 업데이트
+  /// 선택 상태 업데이트 (재렌더링 방지)
   void updateSelection(String? teacher, String? day, int? period) {
     if (teacher != null && day != null && period != null) {
       ref.read(cellSelectionProvider.notifier).selectCell(teacher, day, period);
     }
     _localCache.clear(); // 로컬 캐시 초기화
-    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
+    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용 (재렌더링 방지)
   }
   
   /// 타겟 셀 상태 업데이트
@@ -541,11 +541,11 @@ class TimetableDataSource extends DataGridSource {
     _onDataChanged?.call();
   }
 
-  /// 데이터 변경 알림 (외부에서 호출 가능)
+  /// 데이터 변경 알림 (외부에서 호출 가능) - 재렌더링 방지
   void notifyDataChanged() {
     // 캐시 초기화는 실제로 데이터가 변경된 경우에만 수행
     // 단순 UI 업데이트의 경우 캐시를 유지하여 성능 향상
-    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
+    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용 (재렌더링 방지)
     _onDataChanged?.call();
   }
   

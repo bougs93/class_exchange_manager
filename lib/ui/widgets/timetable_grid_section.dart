@@ -260,9 +260,14 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   void didUpdateWidget(TimetableGridSection oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // 테이블 데이터나 데이터 소스가 변경된 경우 UI 업데이트 요청
+    // 실제로 중요한 데이터가 변경된 경우에만 UI 업데이트 요청 (성능 최적화)
     if (widget.timetableData != oldWidget.timetableData ||
-        widget.dataSource != oldWidget.dataSource) {
+        widget.dataSource != oldWidget.dataSource ||
+        widget.isExchangeModeEnabled != oldWidget.isExchangeModeEnabled ||
+        widget.isCircularExchangeModeEnabled != oldWidget.isCircularExchangeModeEnabled ||
+        widget.isChainExchangeModeEnabled != oldWidget.isChainExchangeModeEnabled ||
+        widget.selectedExchangePath != oldWidget.selectedExchangePath) {
+      
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (widget.timetableData != null && widget.dataSource != null) {
           _requestUIUpdate();
