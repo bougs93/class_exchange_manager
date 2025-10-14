@@ -57,8 +57,8 @@ class ExchangeExecutor {
     // 5. 내부 선택된 경로 초기화
     onInternalPathClear();
 
-    // 6. UI 업데이트
-    dataSource?.notifyListeners();
+    // 6. UI 업데이트 (최적화됨 - 특정 셀만 업데이트하여 스크롤 위치 보존)
+    dataSource?.notifyDataChanged();
 
     // 7. 교체 뷰 업데이트 로깅
     AppLogger.exchangeDebug('🔄 교체 실행 완료 - 교체 뷰 업데이트');
@@ -113,8 +113,8 @@ class ExchangeExecutor {
     // 6. 내부 선택된 경로 초기화
     onInternalPathClear();
 
-    // 7. UI 업데이트
-    dataSource?.notifyListeners();
+    // 7. UI 업데이트 (최적화됨 - 특정 셀만 업데이트하여 스크롤 위치 보존)
+    dataSource?.notifyDataChanged();
   }
 
   /// 되돌리기 기능
@@ -146,8 +146,8 @@ class ExchangeExecutor {
             reason: '되돌리기 - 선택 상태 초기화',
           );
 
-      // UI 업데이트
-      dataSource?.notifyListeners();
+      // UI 업데이트 (최적화됨 - 특정 셀만 업데이트하여 스크롤 위치 보존)
+      dataSource?.notifyDataChanged();
 
       // 사용자 피드백
       ScaffoldMessenger.of(context).showSnackBar(
@@ -236,8 +236,8 @@ class ExchangeExecutor {
           reason: '다시 반복 - 선택 상태 초기화',
         );
 
-    // UI 업데이트
-    dataSource?.notifyListeners();
+    // UI 업데이트 (최적화됨 - 특정 셀만 업데이트하여 스크롤 위치 보존)
+    dataSource?.notifyDataChanged();
 
     // 사용자 피드백
     ScaffoldMessenger.of(context).showSnackBar(

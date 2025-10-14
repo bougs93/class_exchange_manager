@@ -991,47 +991,63 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       selectedSupplementPath: _stateProxy.selectedSupplementPath, // 보강교체 경로
     );
 
-    // Provider를 통한 헤더 업데이트 (변경이 필요한 경우에만 호출하여 성능 최적화)
+    // Provider를 통한 헤더 업데이트 (최적화됨 - 구조적 변경이 있는 경우에만 업데이트)
     final notifier = ref.read(exchangeScreenProvider.notifier);
     final currentState = ref.read(exchangeScreenProvider);
     
-    // 현재 상태와 비교하여 실제로 변경이 필요한 경우에만 업데이트
-    if (_shouldUpdateColumns(currentState.columns, result.columns)) {
-      notifier.setColumns(result.columns);
-    }
+    // 구조적 변경(컬럼 수, 헤더 수)이 있는 경우에만 업데이트하여 ValueKey 변경 방지
+    bool needsStructuralUpdate = _shouldUpdateColumns(currentState.columns, result.columns) ||
+                                _shouldUpdateStackedHeaders(currentState.stackedHeaders, result.stackedHeaders);
     
-    if (_shouldUpdateStackedHeaders(currentState.stackedHeaders, result.stackedHeaders)) {
-      notifier.setStackedHeaders(result.stackedHeaders);
+    if (needsStructuralUpdate) {
+      // 구조적 변경이 필요한 경우에만 columns/stackedHeaders 업데이트
+      if (_shouldUpdateColumns(currentState.columns, result.columns)) {
+        notifier.setColumns(result.columns);
+      }
+      
+      if (_shouldUpdateStackedHeaders(currentState.stackedHeaders, result.stackedHeaders)) {
+        notifier.setStackedHeaders(result.stackedHeaders);
+      }
+      
+      AppLogger.exchangeDebug('🔄 [헤더 테마] 구조적 변경으로 인한 columns/stackedHeaders 업데이트');
+    } else {
+      // 구조적 변경이 없는 경우 DataSource만 업데이트하여 스타일 변경 반영
+      AppLogger.exchangeDebug('🔄 [헤더 테마] 스타일 변경만 반영 - columns/stackedHeaders 재생성 없음');
     }
 
-    // TimetableDataSource의 notifyListeners를 통한 직접 UI 업데이트 (재렌더링 방지)
-    screenState.dataSource?.notifyListeners();
+    // TimetableDataSource의 최적화된 UI 업데이트 (배치 업데이트 지원)
+    screenState.dataSource?.notifyDataChanged();
   }
 
 
-  /// 컬럼 업데이트가 필요한지 확인
+  /// 컬럼 업데이트가 필요한지 확인 (최적화됨 - 구조적 변경만 감지)
   bool _shouldUpdateColumns(List<GridColumn> currentColumns, List<GridColumn> newColumns) {
+    // 길이가 다르면 구조적 변경
     if (currentColumns.length != newColumns.length) return true;
     
+    // 컬럼명이나 기본 구조가 변경된 경우만 업데이트 (스타일 변경은 제외)
     for (int i = 0; i < currentColumns.length; i++) {
-      if (currentColumns[i].columnName != newColumns[i].columnName ||
-          currentColumns[i].width != newColumns[i].width) {
-        return true;
+      if (currentColumns[i].columnName != newColumns[i].columnName) {
+        return true; // 컬럼명 변경은 구조적 변경
       }
+      // width 변경은 스타일 변경이므로 제외하여 불필요한 ValueKey 변경 방지
     }
     return false;
   }
   
-  /// 스택 헤더 업데이트가 필요한지 확인
+  /// 스택 헤더 업데이트가 필요한지 확인 (최적화됨 - 구조적 변경만 감지)
   bool _shouldUpdateStackedHeaders(List<StackedHeaderRow> currentHeaders, List<StackedHeaderRow> newHeaders) {
+    // 길이가 다르면 구조적 변경
     if (currentHeaders.length != newHeaders.length) return true;
     
+    // 헤더 구조가 변경된 경우만 업데이트 (스타일 변경은 제외)
     for (int i = 0; i < currentHeaders.length; i++) {
       if (currentHeaders[i].cells.length != newHeaders[i].cells.length) return true;
       
       for (int j = 0; j < currentHeaders[i].cells.length; j++) {
         if (currentHeaders[i].cells[j].columnNames.length != newHeaders[i].cells[j].columnNames.length) return true;
         
+        // 컬럼명 구조가 변경된 경우만 업데이트
         for (int k = 0; k < currentHeaders[i].cells[j].columnNames.length; k++) {
           if (currentHeaders[i].cells[j].columnNames[k] != newHeaders[i].cells[j].columnNames[k]) return true;
         }

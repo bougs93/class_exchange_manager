@@ -236,6 +236,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     super.didUpdateWidget(oldWidget);
 
     // 실제로 중요한 구조적 데이터가 변경된 경우에만 UI 업데이트 요청 (성능 최적화)
+    // 경로 선택으로 인한 columns/stackedHeaders 변경은 제외하여 불필요한 재빌드 방지
     if (widget.timetableData != oldWidget.timetableData ||
         widget.dataSource != oldWidget.dataSource ||
         widget.isExchangeModeEnabled != oldWidget.isExchangeModeEnabled ||
@@ -248,6 +249,9 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
         }
       });
     }
+    
+    // 경로 선택으로 인한 columns/stackedHeaders 변경은 ValueKey 변경 없이 처리
+    // 이제 ValueKey가 안정적이므로 경로 선택 시 위젯 재생성되지 않음
   }
 
   @override
@@ -563,7 +567,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                   final newH = (_rightClickScrollStartH! - delta.dx)
                       .clamp(0.0, _horizontalScrollController.position.maxScrollExtent);
                   _horizontalScrollController.jumpTo(newH);
-                  AppLogger.exchangeDebug('🖱️ [스크롤] 마우스 오른쪽 버튼 수평 스크롤: ${_rightClickScrollStartH!.toStringAsFixed(1)} → ${newH.toStringAsFixed(1)} (델타: ${delta.dx.toStringAsFixed(1)})');
                 }
                 
                 // 수직 스크롤
@@ -571,7 +574,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                   final newV = (_rightClickScrollStartV! - delta.dy)
                       .clamp(0.0, _verticalScrollController.position.maxScrollExtent);
                   _verticalScrollController.jumpTo(newV);
-                  AppLogger.exchangeDebug('🖱️ [스크롤] 마우스 오른쪽 버튼 수직 스크롤: ${_rightClickScrollStartV!.toStringAsFixed(1)} → ${newV.toStringAsFixed(1)} (델타: ${delta.dy.toStringAsFixed(1)})');
                 }
               }
             },
@@ -619,12 +621,13 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                           newHorizontal,
                           newVertical,
                         );
-                        AppLogger.exchangeDebug('스크롤 감지: ${metrics.axis} - h:$newHorizontal, v:$newVertical');
                       }
                       return false; // 다른 위젯도 이벤트를 받을 수 있도록
                     },
                     child: SfDataGrid(
-                      key: ValueKey('${widget.columns.length}_${widget.stackedHeaders.length}'),
+                      // 안정적인 ValueKey 사용 - 경로 선택으로 인한 불필요한 위젯 재생성 방지
+                      // 기본 구조(교사 수, 요일 수, 교시 수)만 사용하여 안정성 확보
+                      key: ValueKey('grid_${widget.timetableData?.teachers.length ?? 0}_${widget.timetableData?.timeSlots.length ?? 0}'),
                       source: widget.dataSource!,
                       columns: _getScaledColumns(zoomFactor),
                       stackedHeaderRows: _getScaledStackedHeaders(zoomFactor),

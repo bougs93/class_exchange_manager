@@ -50,7 +50,6 @@ class ScrollNotifier extends StateNotifier<ScrollState> {
       horizontalOffset: horizontal,
       verticalOffset: vertical,
     );
-    AppLogger.exchangeDebug('📊 [스크롤] ScrollProvider 오프셋 업데이트: 수평=${horizontal.toStringAsFixed(1)}, 수직=${vertical.toStringAsFixed(1)}');
   }
   
   /// 스크롤 중 상태 설정
