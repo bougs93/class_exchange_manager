@@ -59,7 +59,8 @@ class TimetableTabContent extends StatelessWidget {
         if (timetableData != null)
           Expanded(
             child: TimetableGridSection(
-              key: ValueKey('timetable_grid_${timetableData?.teachers.length ?? 0}_${columns.length}_${stackedHeaders.length}'),
+              // key: ValueKey('timetable_grid_${timetableData?.teachers.length ?? 0}_${columns.length}_${stackedHeaders.length}'),
+              key: ValueKey('timetable_grid_${timetableData?.teachers.length ?? 0}'),
               timetableData: timetableData,
               dataSource: dataSource,
               columns: columns,
