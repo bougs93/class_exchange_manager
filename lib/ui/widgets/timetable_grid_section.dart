@@ -162,19 +162,6 @@ class TimetableGridSection extends ConsumerStatefulWidget {
   @override
   ConsumerState<TimetableGridSection> createState() => _TimetableGridSectionState();
 
-  /// 외부에서 스크롤 기능에 접근할 수 있도록 하는 static 메서드
-  /// GlobalKey를 통해 State에 접근하여 scrollToCellCenter 호출
-  static void scrollToCellCenter(
-    GlobalKey<State<TimetableGridSection>> key,
-    String teacherName,
-    String day,
-    int period,
-  ) {
-    final state = key.currentState;
-    if (state is _TimetableGridSectionState) {
-      state.scrollToCellCenter(teacherName, day, period);
-    }
-  }
 }
 
 class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
@@ -1156,68 +1143,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     AppLogger.exchangeDebug('화살표 초기화 요청 (StateResetProvider에서 처리)');
   }
 
-  /// 특정 셀을 화면 중앙으로 스크롤
-  /// 교체 경로 목록에서 셀 클릭 시 호출됨
-  void scrollToCellCenter(String teacherName, String day, int period) {
-    if (widget.timetableData == null) {
-      AppLogger.exchangeDebug('스크롤 실패: timetableData가 null입니다');
-      return;
-    }
-    
-    // 교사 인덱스 찾기
-    final teacherIndex = widget.timetableData!.teachers
-        .indexWhere((t) => t.name == teacherName);
-    if (teacherIndex == -1) {
-      AppLogger.exchangeDebug('스크롤 실패: 교사를 찾을 수 없음 - $teacherName');
-      return;
-    }
-    
-    // 컬럼 인덱스 찾기
-    final columnName = '${day}_$period';
-    final columnIndex = widget.columns
-        .indexWhere((col) => col.columnName == columnName);
-    if (columnIndex == -1) {
-      AppLogger.exchangeDebug('스크롤 실패: 컬럼을 찾을 수 없음 - $columnName');
-      return;
-    }
-    
-    final zoomFactor = ref.read(zoomFactorProvider);
-    
-    // 셀 위치 계산 (줌 팩터 적용)
-    final cellWidth = AppConstants.periodColumnWidth * zoomFactor;
-    final cellHeight = AppConstants.dataRowHeight * zoomFactor;
-    final headerHeight = AppConstants.headerRowHeight * 2 * zoomFactor;
-    final frozenWidth = AppConstants.teacherColumnWidth * zoomFactor;
-    
-    // 화면 크기
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-    
-    // 목표 위치 (셀 중앙을 화면 중앙에)
-    final targetH = (columnIndex * cellWidth - frozenWidth) - (screenWidth / 2) + (cellWidth / 2);
-    final targetV = (teacherIndex * cellHeight - headerHeight) - (screenHeight / 2) + (cellHeight / 2);
-    
-    // 스크롤 실행 (애니메이션)
-    if (_horizontalScrollController.hasClients) {
-      final maxH = _horizontalScrollController.position.maxScrollExtent;
-      _horizontalScrollController.animateTo(
-        targetH.clamp(0.0, maxH),
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    }
-    
-    if (_verticalScrollController.hasClients) {
-      final maxV = _verticalScrollController.position.maxScrollExtent;
-      _verticalScrollController.animateTo(
-        targetV.clamp(0.0, maxV),
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    }
-    
-    AppLogger.exchangeDebug('셀 중앙 스크롤: $teacherName $day$period교시 (교사idx: $teacherIndex, 컬럼idx: $columnIndex)');
-  }
 
 
 
