@@ -491,15 +491,15 @@ class TimetableDataSource extends DataGridSource {
     _nonExchangeableManager.setNonExchangeableEditMode(isEditMode);
     _localCache.clear(); // 로컬 캐시 초기화
     notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
-    _onDataChanged?.call();
   }
 
   /// 교체불가 편집 모드 상태 확인
   bool get isNonExchangeableEditMode => _nonExchangeableManager.isNonExchangeableEditMode;
 
-  /// UI 업데이트 콜백 설정
-  void setOnDataChanged(VoidCallback? callback) {
-    _onDataChanged = callback;
+  /// UI 업데이트 전용 메서드 (데이터 변경 없이 UI만 갱신)
+  void refreshUI() {
+    _localCache.clear(); // 로컬 캐시 초기화
+    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
   }
 
   /// 특정 교사의 모든 TimeSlot을 교체불가로 설정
@@ -507,7 +507,6 @@ class TimetableDataSource extends DataGridSource {
     _nonExchangeableManager.setTeacherAsNonExchangeable(teacherName);
     _localCache.clear(); // 로컬 캐시 초기화
     notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
-    _onDataChanged?.call();
   }
 
   /// 특정 교사의 모든 TimeSlot을 교체가능/교체불가로 토글
@@ -515,7 +514,6 @@ class TimetableDataSource extends DataGridSource {
     _nonExchangeableManager.toggleTeacherAllTimes(teacherName);
     _localCache.clear(); // 로컬 캐시 초기화
     notifyDataSourceListeners(); // Syncfusion DataGrid를 위한 notifyDataSourceListeners 사용
-    _onDataChanged?.call();
   }
 
   /// 특정 셀을 교체불가로 설정 또는 해제 (토글 방식, 빈 셀 포함)
@@ -562,7 +560,6 @@ class TimetableDataSource extends DataGridSource {
     ref.read(cellSelectionProvider.notifier).updateExchangedDestinationCells(destinationCellKeys);
     _localCache.clear(); // 로컬 캐시 초기화
     notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
-    _onDataChanged?.call();
   }
 
   /// 모든 선택 상태 초기화 (셀 선택, 타겟 셀, 교체 경로 등)
@@ -570,7 +567,6 @@ class TimetableDataSource extends DataGridSource {
     ref.read(cellSelectionProvider.notifier).clearAllSelections();
     _localCache.clear(); // 로컬 캐시 초기화
     notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
-    _onDataChanged?.call();
   }
 
   // ========================================
@@ -584,7 +580,6 @@ class TimetableDataSource extends DataGridSource {
     ref.read(cellSelectionProvider.notifier).setChainPath(null);
     _localCache.clear(); // 로컬 캐시 초기화
     notifyDataSourceListeners(); // 한 번만 UI 업데이트
-    _onDataChanged?.call();
   }
 
   /// Level 2 전용 배치 업데이트: 교체 상태 초기화
@@ -599,7 +594,6 @@ class TimetableDataSource extends DataGridSource {
     
     _localCache.clear(); // 로컬 캐시 초기화
     notifyDataSourceListeners(); // 한 번만 UI 업데이트
-    _onDataChanged?.call();
   }
 
 

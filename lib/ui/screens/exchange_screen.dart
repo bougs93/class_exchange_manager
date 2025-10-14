@@ -397,10 +397,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       screenState.dataSource?.setNonExchangeableEditMode(screenState.currentMode == ExchangeMode.nonExchangeableEdit);
       
-      // 글로벌 시간표 데이터가 있고 로컬 그리드가 생성되지 않았거나 데이터가 변경된 경우 그리드 생성
+      // 글로벌 시간표 데이터가 있고 로컬 그리드가 생성되지 않았거나 구조적 변경이 필요한 경우에만 그리드 생성
       if (screenState.timetableData != null && 
-          (screenState.dataSource == null || screenState.columns.isEmpty || 
-           (screenState.dataSource != null && screenState.dataSource!.timeSlots != screenState.timetableData!.timeSlots))) {
+          (screenState.dataSource == null || screenState.columns.isEmpty)) {
         _createSyncfusionGridData();
       }
     });
@@ -546,11 +545,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
         ref: ref, // WidgetRef 추가
       );
       
-      // 데이터 변경 시 UI 업데이트 콜백 설정
-      dataSource.setOnDataChanged(() {
-        // notifyListeners()가 자동으로 호출되므로 별도의 setState() 불필요
-      });
-      
       // 교체불가 편집 모드 상태를 TimetableDataSource에 전달
       dataSource.setNonExchangeableEditMode(ref.read(exchangeScreenProvider).currentMode == ExchangeMode.nonExchangeableEdit);
       
@@ -607,7 +601,12 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   // Mixin에서 요구하는 추상 메서드들 구현
   @override
   void updateDataSource() {
-    _createSyncfusionGridData();
+    // 셀 선택이나 교체 경로 선택 시에는 전체 그리드 재생성 불필요
+    // TimetableDataSource의 refreshUI() 메서드로 UI만 갱신
+    final dataSource = ref.read(exchangeScreenProvider).dataSource;
+    if (dataSource != null) {
+      dataSource.refreshUI();
+    }
   }
   
   @override
