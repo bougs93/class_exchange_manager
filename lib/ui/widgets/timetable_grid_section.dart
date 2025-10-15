@@ -301,8 +301,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     final horizontalOffset = _horizontalScrollController.hasClients ? _horizontalScrollController.offset : 0.0;
     final verticalOffset = _verticalScrollController.hasClients ? _verticalScrollController.offset : 0.0;
     
-    // 스크롤 이동 로그 (사용자 스크롤)
-    AppLogger.exchangeDebug('[wg] 스크롤 이동: 수평=${horizontalOffset.toStringAsFixed(1)}, 수직=${verticalOffset.toStringAsFixed(1)}');
     
     // 🔥 스크롤 문제 해결: 스크롤 상태만 업데이트하고 다른 상태는 건드리지 않음
     // 과거 커밋의 단순한 구조를 유지하여 불필요한 상태 변경 방지
@@ -551,7 +549,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                 final newH = (_rightClickScrollStartH! - delta.dx)
                     .clamp(0.0, _horizontalScrollController.position.maxScrollExtent);
                 _horizontalScrollController.jumpTo(newH);
-                AppLogger.exchangeDebug('[wg] 스크롤 초기화: jumpTo 호출 - 수평=${newH.toStringAsFixed(1)}');
                 AppLogger.exchangeDebug('🖱️ [스크롤] 두 손가락 터치 수평 스크롤: ${_rightClickScrollStartH!.toStringAsFixed(1)} → ${newH.toStringAsFixed(1)} (델타: ${delta.dx.toStringAsFixed(1)})');
               }
               
@@ -560,7 +557,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                 final newV = (_rightClickScrollStartV! - delta.dy)
                     .clamp(0.0, _verticalScrollController.position.maxScrollExtent);
                 _verticalScrollController.jumpTo(newV);
-                AppLogger.exchangeDebug('[wg] 스크롤 초기화: jumpTo 호출 - 수직=${newV.toStringAsFixed(1)}');
                 AppLogger.exchangeDebug('🖱️ [스크롤] 두 손가락 터치 수직 스크롤: ${_rightClickScrollStartV!.toStringAsFixed(1)} → ${newV.toStringAsFixed(1)} (델타: ${delta.dy.toStringAsFixed(1)})');
               }
             }
@@ -596,7 +592,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                   final newH = (_rightClickScrollStartH! - delta.dx)
                       .clamp(0.0, _horizontalScrollController.position.maxScrollExtent);
                   _horizontalScrollController.jumpTo(newH);
-                  AppLogger.exchangeDebug('[wg] 스크롤 초기화: jumpTo 호출 (마우스) - 수평=${newH.toStringAsFixed(1)}');
                 }
                 
                 // 수직 스크롤
@@ -604,7 +599,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                   final newV = (_rightClickScrollStartV! - delta.dy)
                       .clamp(0.0, _verticalScrollController.position.maxScrollExtent);
                   _verticalScrollController.jumpTo(newV);
-                  AppLogger.exchangeDebug('[wg] 스크롤 초기화: jumpTo 호출 (마우스) - 수직=${newV.toStringAsFixed(1)}');
                 }
               }
             },
@@ -648,8 +642,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                             ? metrics.pixels 
                             : currentState.verticalOffset;
                         
-                        // Syncfusion DataGrid 스크롤 이동 로그
-                        AppLogger.exchangeDebug('[wg] Syncfusion 스크롤 이동: ${metrics.axis.name}축=${metrics.pixels.toStringAsFixed(1)}');
                             
                         ref.read(scrollProvider.notifier).updateOffset(
                           newHorizontal,

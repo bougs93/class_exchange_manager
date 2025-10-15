@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../models/exchange_mode.dart';
+import '../../utils/logger.dart';
 
 /// 교체 제어 패널 위젯
 /// 파일 선택 상태 표시와 교체 모드 선택을 담당하는 통합 제어 패널
@@ -24,14 +25,24 @@ class ExchangeControlPanel extends StatefulWidget {
 
 class _ExchangeControlPanelState extends State<ExchangeControlPanel>
     with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+  TabController? _tabController;
 
   @override
   void initState() {
     super.initState();
+    _initializeTabController();
+  }
+  
+  void _initializeTabController() {
+    final visibleModes = _getVisibleModes();
+    final initialIndex = visibleModes.indexOf(widget.currentMode);
+    
+    AppLogger.exchangeDebug('initState - TabController 길이: ${visibleModes.length}');
+    AppLogger.exchangeDebug('initState - 초기 인덱스: ${initialIndex != -1 ? initialIndex : 0}');
+    
     _tabController = TabController(
-      length: ExchangeMode.values.length,
-      initialIndex: widget.currentMode.index,
+      length: visibleModes.length,
+      initialIndex: initialIndex != -1 ? initialIndex : 0, // 보강교체 모드인 경우 보기 모드로 설정
       vsync: this,
       animationDuration: Duration.zero, // 애니메이션 지속 시간을 0으로 설정
     );
@@ -41,16 +52,35 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel>
   void didUpdateWidget(ExchangeControlPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     
-    // currentMode가 변경되었을 때 TabController 업데이트 (애니메이션 없이 즉시 변경)
-    if (oldWidget.currentMode != widget.currentMode) {
-      _tabController.index = widget.currentMode.index;
+    // currentMode가 변경되었을 때 TabController 인덱스만 업데이트
+    if (oldWidget.currentMode != widget.currentMode && _tabController != null) {
+      final visibleModes = _getVisibleModes();
+      final newIndex = visibleModes.indexOf(widget.currentMode);
+      
+      AppLogger.exchangeDebug('didUpdateWidget - 인덱스 업데이트: ${newIndex != -1 ? newIndex : 0}');
+      
+      // 보강교체 모드가 아닌 경우에만 탭 인덱스 업데이트
+      if (newIndex != -1) {
+        _tabController!.index = newIndex;
+      } else {
+        // 보강교체 모드인 경우 보기 모드로 설정
+        _tabController!.index = 0; // 보기 모드가 첫 번째 탭
+      }
     }
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _tabController?.dispose();
     super.dispose();
+  }
+
+  /// 탭 메뉴에 표시할 모드들 반환 (보강교체 제외)
+  List<ExchangeMode> _getVisibleModes() {
+    final visibleModes = ExchangeMode.values.where((mode) => mode != ExchangeMode.supplementExchange).toList();
+    AppLogger.exchangeDebug('보이는 모드 개수: ${visibleModes.length}');
+    AppLogger.exchangeDebug('보이는 모드들: ${visibleModes.map((m) => m.displayName).join(', ')}');
+    return visibleModes;
   }
 
   @override
@@ -146,13 +176,20 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel>
 
   /// 교체 모드 TabBar 구성
   Widget _buildModeTabBar() {
+    final visibleModes = _getVisibleModes();
+    
+    // TabController가 초기화되지 않은 경우 빈 컨테이너 반환
+    if (_tabController == null) {
+      return Container(height: 48); // TabBar와 동일한 높이
+    }
+    
     return TabBar(
-      controller: _tabController,
+      controller: _tabController!,
       isScrollable: true,
       onTap: (index) {
-        widget.onModeChanged(ExchangeMode.values[index]);
+        widget.onModeChanged(visibleModes[index]);
       },
-      tabs: ExchangeMode.values.map((mode) => Tab(
+      tabs: visibleModes.map((mode) => Tab(
         icon: Icon(mode.icon, size: 18),
         text: mode.displayName,
       )).toList(),
