@@ -71,6 +71,7 @@ class TimetableTabContent extends StatelessWidget {
               exchangeableCount: getActualExchangeableCount(),
               onCellTap: onCellTap,
               selectedExchangePath: getCurrentSelectedPath(),
+              onHeaderThemeUpdate: onHeaderThemeUpdate, // 헤더 테마 업데이트 콜백 전달
             ),
           )
         else

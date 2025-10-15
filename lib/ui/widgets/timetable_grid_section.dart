@@ -142,6 +142,7 @@ class TimetableGridSection extends ConsumerStatefulWidget {
   final Function(DataGridCellTapDetails) onCellTap;
   final ExchangePath? selectedExchangePath; // 선택된 교체 경로 (모든 타입 지원)
   final ExchangeArrowStyle? customArrowStyle; // 커스텀 화살표 스타일
+  final VoidCallback? onHeaderThemeUpdate; // 헤더 테마 업데이트 콜백
 
   const TimetableGridSection({
     super.key,
@@ -156,6 +157,7 @@ class TimetableGridSection extends ConsumerStatefulWidget {
     required this.onCellTap,
     this.selectedExchangePath,
     this.customArrowStyle,
+    this.onHeaderThemeUpdate,
   });
 
   @override
@@ -691,6 +693,17 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
   /// 보강을 위한 교사 이름 선택 기능 활성화
   void _enableTeacherNameSelectionForSupplement() {
+    // 🔥 Level 1 초기화: 보강 모드 진입 시 기존 교체 경로 정리
+    // - ExchangeScreenProvider 배치 업데이트 (경로들을 null로 설정)
+    // - TimetableDataSource 배치 업데이트 (Syncfusion DataGrid 전용)
+    // - 공통 초기화 작업 수행 (WidgetArrowsManager().clearAllArrows())
+    // - 화살표 상태 초기화 (hideArrow())
+    ref.read(stateResetProvider.notifier).resetPathOnly(reason: '보강 모드 진입 - 기존 교체 경로 정리');
+
+    // 🔥 헤더 테마 업데이트: 화살표 제거 및 UI 상태 정리
+    // 다른 Level 1 초기화 코드들과 동일한 패턴 적용
+    widget.onHeaderThemeUpdate?.call();
+
     // 교사 이름 선택 기능 활성화
     ref.read(exchangeScreenProvider.notifier).enableTeacherNameSelection();
     
