@@ -214,12 +214,16 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   /// - 선택된 셀 (source/target)
   /// - 경로 리스트
   /// - UI 상태
+  /// - 🔥 스크롤 위치 (과거 커밋의 단순한 구조를 참고)
   ///
   /// **사용 시점**:
   /// - 새로운 경로 선택 직전
   /// - 교체 실행 후 경로만 해제할 때
   void resetPathOnly({String? reason}) {
     AppLogger.exchangeDebug('[Level 1] 경로 선택만 초기화: ${reason ?? "이유 없음"}');
+
+    // 🔥 스크롤 문제 해결: 과거 커밋의 단순한 구조를 참고하여 스크롤 위치 보존
+    // Level 1 초기화 시에는 스크롤 상태를 건드리지 않음
 
     // ExchangeScreenProvider 배치 업데이트
     _exchangeNotifier.resetPathSelectionBatch();
@@ -262,6 +266,7 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   ///
   /// **유지 대상**:
   /// - 전역 Provider 상태
+  /// - 🔥 스크롤 위치 (과거 커밋의 단순한 구조를 참고)
   ///
   /// **사용 시점**:
   /// - 동일 모드 내에서 다른 셀 선택 시
@@ -269,6 +274,9 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   /// - 모든 모드 전환 시 (보기 ↔ 1:1 ↔ 순환 ↔ 연쇄)
   void resetExchangeStates({String? reason}) {
     AppLogger.exchangeDebug('[Level 2] 이전 교체 상태 초기화: ${reason ?? "이유 없음"}');
+
+    // 🔥 스크롤 문제 해결: 과거 커밋의 단순한 구조를 참고하여 스크롤 위치 보존
+    // Level 2 초기화 시에도 스크롤 상태를 건드리지 않음
 
     // ExchangeScreenProvider 배치 업데이트
     _exchangeNotifier.resetExchangeStatesBatch();

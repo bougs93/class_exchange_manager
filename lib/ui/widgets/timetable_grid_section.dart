@@ -165,6 +165,10 @@ class TimetableGridSection extends ConsumerStatefulWidget {
 }
 
 class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
+  // 🔥 DataGrid 재생성 문제 해결: 과거 커밋의 단순한 구조를 참고하여 GlobalKey 사용
+  // DataGrid 재생성을 위한 GlobalKey (과거 커밋과 동일한 방식)
+  final GlobalKey<SfDataGridState> _dataGridKey = GlobalKey<SfDataGridState>();
+  
   // 스크롤 컨트롤러들
   final ScrollController _horizontalScrollController = ScrollController();
   final ScrollController _verticalScrollController = ScrollController();
@@ -240,6 +244,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   void didUpdateWidget(TimetableGridSection oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    // 🔥 스크롤 문제 해결: 과거 커밋의 단순한 구조를 참고하여 불필요한 재빌드 방지
     // ValueKey는 fileLoadId를 사용하므로 파일 로드 시에만 변경됨
     // 경로 선택, 셀 선택, 헤더 업데이트 등에서는 ValueKey가 변경되지 않아 스크롤 유지됨
 
@@ -265,8 +270,9 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       });
     }
 
-    // 경로 선택으로 인한 columns/stackedHeaders 변경은 ValueKey 변경 없이 처리
+    // 🔥 스크롤 문제 해결: 경로 선택으로 인한 columns/stackedHeaders 변경은 ValueKey 변경 없이 처리
     // fileLoadId 기반 ValueKey로 인해 경로 선택 시 위젯이 재생성되지 않아 스크롤 유지됨
+    // 과거 커밋의 단순한 구조를 유지하여 스크롤 위치 보존
   }
 
   @override
@@ -291,6 +297,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   }
 
   /// 스크롤 변경 시 Provider 업데이트
+  /// 🔥 스크롤 문제 해결: 과거 커밋의 단순한 구조를 참고하여 스크롤 상태만 업데이트
   void _onScrollChanged() {
     final horizontalOffset = _horizontalScrollController.hasClients ? _horizontalScrollController.offset : 0.0;
     final verticalOffset = _verticalScrollController.hasClients ? _verticalScrollController.offset : 0.0;
@@ -298,6 +305,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     // 스크롤 이동 로그 (사용자 스크롤)
     AppLogger.exchangeDebug('[wg] 스크롤 이동: 수평=${horizontalOffset.toStringAsFixed(1)}, 수직=${verticalOffset.toStringAsFixed(1)}');
     
+    // 🔥 스크롤 문제 해결: 스크롤 상태만 업데이트하고 다른 상태는 건드리지 않음
+    // 과거 커밋의 단순한 구조를 유지하여 불필요한 상태 변경 방지
     ref.read(scrollProvider.notifier).updateOffset(horizontalOffset, verticalOffset);
   }
 
@@ -312,34 +321,40 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       return const SizedBox.shrink();
     }
 
-    // StateResetProvider 상태 감지 (화살표 초기화는 별도 처리)
-    final resetState = ref.watch(stateResetProvider);
-    
-    // Level 3 초기화 시 교체 뷰 체크박스도 초기 상태로 되돌리기
-    if (resetState.lastResetLevel == ResetLevel.allStates && ref.watch(isExchangeViewEnabledProvider)) {
-      ref.read(exchangeViewProvider.notifier).reset();
-      AppLogger.exchangeDebug('[StateResetProvider 감지] 교체 뷰 체크박스 초기화 완료 (Level 3)');
-    }
+    // 🔥 DataGrid 재생성 문제 해결: 과거 커밋의 단순한 구조를 참고하여 ref.watch 최소화
+    // StateResetProvider 상태 감지는 별도 Consumer로 분리하여 DataGrid 재생성 방지
+    return Consumer(
+      builder: (context, ref, child) {
+        // StateResetProvider 상태 감지 (화살표 초기화는 별도 처리)
+        final resetState = ref.watch(stateResetProvider);
+        
+        // Level 3 초기화 시 교체 뷰 체크박스도 초기 상태로 되돌리기
+        if (resetState.lastResetLevel == ResetLevel.allStates && ref.watch(isExchangeViewEnabledProvider)) {
+          ref.read(exchangeViewProvider.notifier).reset();
+          AppLogger.exchangeDebug('[StateResetProvider 감지] 교체 뷰 체크박스 초기화 완료 (Level 3)');
+        }
 
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(4.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 헤더
-            _buildHeader(),
+        return Card(
+          elevation: 2,
+          child: Padding(
+            padding: const EdgeInsets.all(4.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 헤더
+                _buildHeader(),
 
-            const SizedBox(height: 2),
+                const SizedBox(height: 2),
 
-            // Syncfusion DataGrid 위젯 (화살표와 함께)
-            Expanded(
-              child: _buildDataGridWithArrows(),
+                // Syncfusion DataGrid 위젯 (화살표와 함께)
+                Expanded(
+                  child: _buildDataGridWithArrows(),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -421,9 +436,13 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   }
 
   /// 화살표 매니저 초기화 또는 업데이트 (공통 메서드)
+  /// 🔥 스크롤 문제 해결: 과거 커밋의 단순한 구조를 참고하여 스크롤 위치 보존
   void _initializeOrUpdateArrowsManager({bool isUpdate = false}) {
     if (widget.timetableData != null) {
       final zoomFactor = ref.read(zoomFactorProvider);
+      
+      // 🔥 스크롤 문제 해결: 화살표 업데이트 시에도 스크롤 위치 보존
+      // 과거 커밋의 단순한 구조를 유지하여 불필요한 상태 변경 방지
       
       if (isUpdate) {
         _arrowsManager.updateData(
@@ -612,12 +631,12 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                 child: Theme(
                   data: Theme.of(context).copyWith(
                     textTheme: Theme.of(context).textTheme.copyWith(
-                      bodyMedium: TextStyle(fontSize: _getScaledFontSize(zoomFactor)),
-                      bodySmall: TextStyle(fontSize: _getScaledFontSize(zoomFactor)),
-                      titleMedium: TextStyle(fontSize: _getScaledFontSize(zoomFactor)),
-                      labelMedium: TextStyle(fontSize: _getScaledFontSize(zoomFactor)),
-                      labelLarge: TextStyle(fontSize: _getScaledFontSize(zoomFactor)),
-                      labelSmall: TextStyle(fontSize: _getScaledFontSize(zoomFactor)),
+                      bodyMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                      bodySmall: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                      titleMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                      labelMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                      labelLarge: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                      labelSmall: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
                     ),
                   ),
                   child: NotificationListener<ScrollNotification>(
@@ -646,17 +665,17 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                       return false; // 다른 위젯도 이벤트를 받을 수 있도록
                     },
                     child: SfDataGrid(
-                      // 파일 로드 시에만 변경되는 ValueKey 사용 - 스크롤 초기화 방지
-                      // fileLoadId는 파일 로드(setTimetableData) 시에만 증가하므로
-                      // 경로 선택, 셀 선택, 헤더 업데이트 등에서는 위젯이 재생성되지 않음
-                      key: ValueKey('grid_${ref.watch(exchangeScreenProvider.select((state) => state.fileLoadId))}'),
+                      // 🔥 DataGrid 재생성 문제 해결: 과거 커밋의 단순한 구조를 참고하여 GlobalKey 사용
+                      // GlobalKey를 사용하여 DataGrid 재생성 완전 방지 (과거 커밋과 동일한 방식)
+                      // 경로 선택, 셀 선택, 헤더 업데이트 등에서도 DataGrid가 재생성되지 않음
+                      key: _dataGridKey,
                       source: widget.dataSource!,
-                      columns: _getScaledColumns(zoomFactor),
-                      stackedHeaderRows: _getScaledStackedHeaders(zoomFactor),
+                      columns: widget.columns,
+                      stackedHeaderRows: widget.stackedHeaders,
                       gridLinesVisibility: GridLinesVisibility.both,
                       headerGridLinesVisibility: GridLinesVisibility.both,
-                      headerRowHeight: _getScaledHeaderHeight(zoomFactor),
-                      rowHeight: _getScaledRowHeight(zoomFactor),
+                      headerRowHeight: AppConstants.headerRowHeight,
+                      rowHeight: AppConstants.dataRowHeight,
                       allowColumnsResizing: false,
                       allowSorting: false,
                       allowEditing: false,
@@ -676,103 +695,17 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
           ),
         );
 
-        return dataGridContainer;
+        // 🔥 DataGrid 재생성 문제 해결: 과거 커밋의 단순한 구조를 참고하여 Transform.scale 사용
+        // 확대/축소 효과를 적용하여 반환 (과거 커밋과 동일한 방식)
+        return Transform.scale(
+          scale: zoomFactor,
+          alignment: Alignment.topLeft,
+          child: dataGridContainer,
+        );
       },
     );
   }
 
-  /// 확대/축소에 따른 실제 크기 조정된 열 반환
-  List<GridColumn> _getScaledColumns(double zoomFactor) {
-    return widget.columns.map((column) {
-      return GridColumn(
-        columnName: column.columnName,
-        width: _getScaledColumnWidth(column.width, zoomFactor),
-        label: _getScaledTextWidget(column.label, zoomFactor, isHeader: false),
-      );
-    }).toList();
-  }
-
-  /// 확대/축소에 따른 실제 크기 조정된 스택 헤더 반환
-  List<StackedHeaderRow> _getScaledStackedHeaders(double zoomFactor) {
-    return widget.stackedHeaders.map((headerRow) {
-      return StackedHeaderRow(
-        cells: headerRow.cells.map((cell) {
-          return StackedHeaderCell(
-            columnNames: cell.columnNames,
-            child: _getScaledTextWidget(cell.child, zoomFactor, isHeader: true),
-          );
-        }).toList(),
-      );
-    }).toList();
-  }
-
-  /// 확대/축소에 따른 실제 열 너비 반환
-  double _getScaledColumnWidth(double baseWidth, double zoomFactor) {
-    return baseWidth * zoomFactor;
-  }
-
-  /// 확대/축소에 따른 실제 크기 조정된 텍스트 위젯 반환
-  Widget _getScaledTextWidget(dynamic originalWidget, double zoomFactor, {required bool isHeader}) {
-    if (originalWidget is Text) {
-      return Text(
-        originalWidget.data ?? '',
-        style: TextStyle(
-          fontSize: _getScaledFontSize(zoomFactor),
-          fontWeight: FontWeight.w600,
-          color: isHeader ? Colors.blue[700] : Colors.black87,
-        ),
-        textAlign: originalWidget.textAlign,
-        overflow: originalWidget.overflow,
-        maxLines: originalWidget.maxLines,
-        textDirection: originalWidget.textDirection,
-      );
-    }
-
-    if (originalWidget is Container && originalWidget.child is Text) {
-      final text = originalWidget.child as Text;
-      return Container(
-        padding: originalWidget.padding,
-        decoration: originalWidget.decoration,
-        alignment: originalWidget.alignment,
-        child: Text(
-          text.data ?? '',
-          style: TextStyle(
-            fontSize: _getScaledFontSize(zoomFactor),
-            fontWeight: FontWeight.w600,
-            color: isHeader ? Colors.blue[700] : Colors.black87,
-          ),
-          textAlign: text.textAlign,
-          overflow: text.overflow,
-          maxLines: text.maxLines,
-          textDirection: text.textDirection,
-        ),
-      );
-    }
-
-    return DefaultTextStyle(
-      style: TextStyle(
-        fontSize: _getScaledFontSize(zoomFactor),
-        fontWeight: FontWeight.w600,
-        color: isHeader ? Colors.blue[700] : Colors.black87,
-      ),
-      child: originalWidget ?? const Text(''),
-    );
-  }
-
-  /// 확대/축소에 따른 실제 폰트 크기 반환
-  double _getScaledFontSize(double zoomFactor) {
-    return GridLayoutConstants.baseFontSize * zoomFactor;
-  }
-
-  /// 확대/축소에 따른 실제 헤더 높이 반환
-  double _getScaledHeaderHeight(double zoomFactor) {
-    return AppConstants.headerRowHeight * zoomFactor;
-  }
-
-  /// 확대/축소에 따른 실제 행 높이 반환
-  double _getScaledRowHeight(double zoomFactor) {
-    return AppConstants.dataRowHeight * zoomFactor;
-  }
 
 
 
@@ -954,8 +887,12 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
 
   /// 교체된 셀 클릭 처리 (Riverpod 기반)
+  /// 🔥 스크롤 문제 해결: 과거 커밋의 단순한 구조를 참고하여 스크롤 위치 보존
   void _handleExchangedCellClick(String teacherName, String day, int period) {
     AppLogger.exchangeDebug('🖱️ 교체된 셀 클릭: $teacherName | $day$period교시');
+    
+    // 🔥 스크롤 문제 해결: 교체된 셀 클릭 시에도 스크롤 위치 보존
+    // 과거 커밋의 단순한 구조를 유지하여 불필요한 상태 변경 방지
     
     // 교체된 셀 선택 상태 플래그 설정 (헤더 색상 비활성화용)
     SimplifiedTimetableTheme.setExchangedCellSelectedHeaderDisabled(true);
@@ -980,7 +917,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       // 교체된 셀 클릭 시 교체 서비스 상태 업데이트 (헤더 업데이트를 위해)
       _updateExchangeServiceForExchangedCell(teacherName, day, period);
       
-      AppLogger.exchangeDebug('🔄 교체된 셀 클릭 - UI 업데이트');
+      AppLogger.exchangeDebug('🔄 교체된 셀 클릭 - UI 업데이트 (스크롤 위치 보존)');
 
       AppLogger.exchangeDebug(
         '교체된 셀 클릭: $teacherName | $day$period교시 → 경로 ID: ${exchangePath.id}',
@@ -1018,11 +955,15 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   }
 
   /// 셀 탭 이벤트 처리
+  /// 🔥 스크롤 문제 해결: 과거 커밋의 단순한 구조를 참고하여 스크롤 위치 보존
   void _handleCellTap(DataGridCellTapDetails details) {
     final teacherName = _extractTeacherNameFromRowIndex(
       details.rowColumnIndex.rowIndex,
     );
     final columnName = details.column.columnName;
+
+    // 🔥 스크롤 문제 해결: 셀 탭 시에도 스크롤 위치 보존
+    // 과거 커밋의 단순한 구조를 유지하여 불필요한 상태 변경 방지
 
     // 교사 이름 클릭 처리 (새로 추가)
     if (columnName == 'teacher') {
@@ -1051,7 +992,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
     _hideExchangeArrows();
     widget.onCellTap(details);
-    AppLogger.exchangeDebug('🔄 일반 셀 클릭 - UI 업데이트');
+    AppLogger.exchangeDebug('🔄 일반 셀 클릭 - UI 업데이트 (스크롤 위치 보존)');
   }
 
   /// 교사 이름 클릭 처리 (교체 모드 또는 교체불가 편집 모드에서 동작)
