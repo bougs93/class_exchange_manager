@@ -243,7 +243,6 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   void _clearInternalSelectedPath() {
     // Riverpod 기반 화살표 상태 초기화
     _ref.read(cellSelectionProvider.notifier).hideArrow();
-    AppLogger.exchangeDebug('[Level 1] 화살표 상태 초기화 완료 (Riverpod)');
   }
 
   // ========================================
@@ -289,7 +288,6 @@ class StateResetNotifier extends StateNotifier<ResetState> {
 
     // 화살표 상태 초기화 (Riverpod 기반)
     _ref.read(cellSelectionProvider.notifier).hideArrow();
-    AppLogger.exchangeDebug('[Level 2] 화살표 상태 초기화 완료 (Riverpod)');
 
     // 상태 업데이트 및 로깅
     _updateStateAndLog(ResetLevel.exchangeStates, reason ?? 'Level 2 초기화');

@@ -20,18 +20,18 @@ class ExchangeScreenState {
   final bool isLoading;
   final String? errorMessage;
   final ExchangeMode currentMode;
-  
+
   // 🔥 통합된 교체 경로 리스트 (3개 → 1개로 통합)
   final List<ExchangePath> availablePaths;
   final bool isPathsLoading;
   final double loadingProgress;
-  
+
   // 선택된 경로들 (타입별로 유지)
   final OneToOneExchangePath? selectedOneToOnePath;
   final CircularExchangePath? selectedCircularPath;
   final ChainExchangePath? selectedChainPath;
   final SupplementExchangePath? selectedSupplementPath;
-  
+
   final bool isSidebarVisible;
   final String searchQuery;
   final List<int> availableSteps;
@@ -39,6 +39,9 @@ class ExchangeScreenState {
   final String? selectedDay;
   final bool isNonExchangeableEditMode;
   final bool isTeacherNameSelectionEnabled; // 교사 이름 선택 기능 활성화 상태
+
+  // 파일 로드 시에만 변경되는 고유 ID (SfDataGrid ValueKey용)
+  final int fileLoadId;
 
   const ExchangeScreenState({
     this.selectedFile,
@@ -63,6 +66,7 @@ class ExchangeScreenState {
     this.selectedDay,
     this.isNonExchangeableEditMode = false,
     this.isTeacherNameSelectionEnabled = false, // 기본값: 비활성화
+    this.fileLoadId = 0, // 기본값: 0
   });
 
   ExchangeScreenState copyWith({
@@ -88,6 +92,7 @@ class ExchangeScreenState {
     String? Function()? selectedDay,
     bool? isNonExchangeableEditMode,
     bool? isTeacherNameSelectionEnabled,
+    int? fileLoadId,
   }) {
     return ExchangeScreenState(
       selectedFile: selectedFile != null ? selectedFile() : this.selectedFile,
@@ -113,6 +118,7 @@ class ExchangeScreenState {
       selectedDay: selectedDay != null ? selectedDay() : this.selectedDay,
       isNonExchangeableEditMode: isNonExchangeableEditMode ?? this.isNonExchangeableEditMode,
       isTeacherNameSelectionEnabled: isTeacherNameSelectionEnabled ?? this.isTeacherNameSelectionEnabled,
+      fileLoadId: fileLoadId ?? this.fileLoadId,
     );
   }
 }
@@ -126,7 +132,11 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
   }
 
   void setTimetableData(TimetableData? data) {
-    state = state.copyWith(timetableData: () => data);
+    state = state.copyWith(
+      timetableData: () => data,
+      // 파일 로드 시 fileLoadId 증가 (SfDataGrid 재생성용)
+      fileLoadId: state.fileLoadId + 1,
+    );
   }
 
   void setDataSource(TimetableDataSource? dataSource) {

@@ -59,6 +59,8 @@ class ExchangeScreenStateProxy {
   File? get selectedFile => _state.selectedFile;
   void setSelectedFile(File? value) => _notifier.setSelectedFile(value);
 
+  int get fileLoadId => _state.fileLoadId;
+
   bool get isLoading => _state.isLoading;
   void setLoading(bool value) => _notifier.setLoading(value);
 

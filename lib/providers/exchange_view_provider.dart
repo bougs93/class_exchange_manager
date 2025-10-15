@@ -164,7 +164,6 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
       // UI 업데이트 (교체 성공 시에만)
       if (successCount > 0) {
         dataSource.updateData(timeSlots, teachers);
-        AppLogger.exchangeDebug('🔄 교체 뷰 활성화 완료 - UI 업데이트');
         AppLogger.exchangeInfo('교체 뷰 활성화 완료 - $successCount/${newExchanges.length}개 적용');
       }
 
@@ -228,7 +227,6 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
 
       // UI 업데이트
       dataSource.updateData(timeSlots, teachers);
-      AppLogger.exchangeDebug('🔄 교체 뷰 비활성화 완료 - UI 업데이트');
 
       state = state.copyWith(
         isEnabled: false,

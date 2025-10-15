@@ -56,7 +56,6 @@ class ScrollNotifier extends StateNotifier<ScrollState> {
   /// 마우스 오른쪽 버튼 드래그 또는 두 손가락 터치 시작/종료 시 호출
   void setScrolling(bool isScrolling) {
     state = state.copyWith(isScrolling: isScrolling);
-    AppLogger.exchangeDebug('🔄 [스크롤] ScrollProvider 스크롤 상태 변경: ${isScrolling ? "시작" : "종료"}');
   }
   
   /// 스크롤 상태 리셋

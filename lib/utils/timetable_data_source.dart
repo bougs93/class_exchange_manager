@@ -201,6 +201,7 @@ class TimetableDataSource extends DataGridSource {
   @override
   List<DataGridRow> get rows => _dataGridRows;
   
+  // TODU [wg-debug] 스크롤 초기화 발생 부분분 확인 수정이 필요함.
   @override
   DataGridRowAdapter? buildRow(DataGridRow row) {
     return DataGridRowAdapter(

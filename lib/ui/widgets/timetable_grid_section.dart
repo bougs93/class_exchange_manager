@@ -184,7 +184,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   ExchangePath? get currentSelectedPath {
     final selectedPath = ref.watch(selectedExchangePathProvider);
     final result = selectedPath ?? widget.selectedExchangePath;
-    AppLogger.exchangeDebug('🔍 [TimetableGridSection] currentSelectedPath 조회: ${result?.type}');
     return result;
   }
 
@@ -209,6 +208,12 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   @override
   void initState() {
     super.initState();
+
+    // Syncfusion DataGrid 초기화 로그
+    AppLogger.exchangeDebug('[wg2] Syncfusion DataGrid 초기화: 위젯 생성 시 (initState)');
+
+    // 스크롤 초기화 로그 (위젯 생성 시)
+    AppLogger.exchangeDebug('[wg] 스크롤 초기화: 위젯 생성 시 (initState)');
 
     // 스크롤 리스너 추가
     _horizontalScrollController.addListener(_onScrollChanged);
@@ -235,6 +240,9 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   void didUpdateWidget(TimetableGridSection oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    // ValueKey는 fileLoadId를 사용하므로 파일 로드 시에만 변경됨
+    // 경로 선택, 셀 선택, 헤더 업데이트 등에서는 ValueKey가 변경되지 않아 스크롤 유지됨
+
     // 실제로 중요한 구조적 데이터가 변경된 경우에만 UI 업데이트 요청 (성능 최적화)
     // 경로 선택으로 인한 columns/stackedHeaders 변경은 제외하여 불필요한 재빌드 방지
     if (widget.timetableData != oldWidget.timetableData ||
@@ -242,20 +250,33 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
         widget.isExchangeModeEnabled != oldWidget.isExchangeModeEnabled ||
         widget.isCircularExchangeModeEnabled != oldWidget.isCircularExchangeModeEnabled ||
         widget.isChainExchangeModeEnabled != oldWidget.isChainExchangeModeEnabled) {
-      
+
+      // Syncfusion DataGrid 초기화 로그 (위젯 업데이트 시)
+      AppLogger.exchangeDebug('[wg2] Syncfusion DataGrid 초기화: 위젯 업데이트 시 (didUpdateWidget) - 구조적 데이터 변경');
+
+      // 스크롤 초기화 로그 (위젯 업데이트 시)
+      // 파일 로드 시에만 실제로 스크롤이 초기화됨 (fileLoadId 변경)
+      AppLogger.exchangeDebug('[wg] 스크롤 초기화: 파일 로드 시 (didUpdateWidget)');
+
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (widget.timetableData != null && widget.dataSource != null) {
           _requestUIUpdate();
         }
       });
     }
-    
+
     // 경로 선택으로 인한 columns/stackedHeaders 변경은 ValueKey 변경 없이 처리
-    // 이제 ValueKey가 안정적이므로 경로 선택 시 위젯 재생성되지 않음
+    // fileLoadId 기반 ValueKey로 인해 경로 선택 시 위젯이 재생성되지 않아 스크롤 유지됨
   }
 
   @override
   void dispose() {
+    // Syncfusion DataGrid 해제 로그
+    AppLogger.exchangeDebug('[wg2] Syncfusion DataGrid 해제: 위젯 해제 시 (dispose)');
+    
+    // 스크롤 초기화 로그 (위젯 해제 시)
+    AppLogger.exchangeDebug('[wg] 스크롤 초기화: 위젯 해제 시 (dispose)');
+    
     // 스크롤 리스너 제거 및 컨트롤러 정리
     _horizontalScrollController.removeListener(_onScrollChanged);
     _verticalScrollController.removeListener(_onScrollChanged);
@@ -271,16 +292,18 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
   /// 스크롤 변경 시 Provider 업데이트
   void _onScrollChanged() {
-    ref.read(scrollProvider.notifier).updateOffset(
-      _horizontalScrollController.hasClients ? _horizontalScrollController.offset : 0.0,
-      _verticalScrollController.hasClients ? _verticalScrollController.offset : 0.0,
-    );
+    final horizontalOffset = _horizontalScrollController.hasClients ? _horizontalScrollController.offset : 0.0;
+    final verticalOffset = _verticalScrollController.hasClients ? _verticalScrollController.offset : 0.0;
+    
+    // 스크롤 이동 로그 (사용자 스크롤)
+    AppLogger.exchangeDebug('[wg] 스크롤 이동: 수평=${horizontalOffset.toStringAsFixed(1)}, 수직=${verticalOffset.toStringAsFixed(1)}');
+    
+    ref.read(scrollProvider.notifier).updateOffset(horizontalOffset, verticalOffset);
   }
 
   /// UI 업데이트 요청
   void _requestUIUpdate() {
     // UI 업데이트는 즉시 처리 (Provider 상태 변경 없이)
-    AppLogger.exchangeDebug('🔄 UI 업데이트 요청: 테이블 렌더링 완료');
   }
 
   @override
@@ -408,14 +431,12 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
           columns: widget.columns,
           zoomFactor: zoomFactor,
         );
-        AppLogger.exchangeDebug('화살표 매니저 데이터 업데이트 완료 (줌 팩터: $zoomFactor)');
       } else {
         _arrowsManager.initialize(
           timetableData: widget.timetableData!,
           columns: widget.columns,
           zoomFactor: zoomFactor,
         );
-        AppLogger.exchangeDebug('화살표 매니저 싱글톤 초기화 완료');
       }
     }
   }
@@ -435,16 +456,9 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     Widget dataGrid = _buildDataGrid();
 
     // 교체 경로가 선택된 경우에만 화살표 표시
-    AppLogger.exchangeDebug('🔍 [TimetableGridSection] 화살표 표시 조건 확인:');
-    AppLogger.exchangeDebug('  - currentSelectedPath: ${currentSelectedPath?.type}');
-    AppLogger.exchangeDebug('  - timetableData: ${widget.timetableData != null}');
-    
     if (currentSelectedPath != null && widget.timetableData != null) {
-      AppLogger.exchangeDebug('🔍 [TimetableGridSection] 화살표 표시 조건 만족 - 화살표 렌더링');
       // 현재는 기존 CustomPainter 방식 사용 (안정적)
       return _buildDataGridWithLegacyArrows(dataGrid);
-    } else {
-      AppLogger.exchangeDebug('🔍 [TimetableGridSection] 화살표 표시 조건 불만족 - 화살표 숨김');
     }
 
     return dataGrid;
@@ -524,6 +538,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                 final newH = (_rightClickScrollStartH! - delta.dx)
                     .clamp(0.0, _horizontalScrollController.position.maxScrollExtent);
                 _horizontalScrollController.jumpTo(newH);
+                AppLogger.exchangeDebug('[wg] 스크롤 초기화: jumpTo 호출 - 수평=${newH.toStringAsFixed(1)}');
                 AppLogger.exchangeDebug('🖱️ [스크롤] 두 손가락 터치 수평 스크롤: ${_rightClickScrollStartH!.toStringAsFixed(1)} → ${newH.toStringAsFixed(1)} (델타: ${delta.dx.toStringAsFixed(1)})');
               }
               
@@ -532,6 +547,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                 final newV = (_rightClickScrollStartV! - delta.dy)
                     .clamp(0.0, _verticalScrollController.position.maxScrollExtent);
                 _verticalScrollController.jumpTo(newV);
+                AppLogger.exchangeDebug('[wg] 스크롤 초기화: jumpTo 호출 - 수직=${newV.toStringAsFixed(1)}');
                 AppLogger.exchangeDebug('🖱️ [스크롤] 두 손가락 터치 수직 스크롤: ${_rightClickScrollStartV!.toStringAsFixed(1)} → ${newV.toStringAsFixed(1)} (델타: ${delta.dy.toStringAsFixed(1)})');
               }
             }
@@ -567,6 +583,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                   final newH = (_rightClickScrollStartH! - delta.dx)
                       .clamp(0.0, _horizontalScrollController.position.maxScrollExtent);
                   _horizontalScrollController.jumpTo(newH);
+                  AppLogger.exchangeDebug('[wg] 스크롤 초기화: jumpTo 호출 (마우스) - 수평=${newH.toStringAsFixed(1)}');
                 }
                 
                 // 수직 스크롤
@@ -574,6 +591,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                   final newV = (_rightClickScrollStartV! - delta.dy)
                       .clamp(0.0, _verticalScrollController.position.maxScrollExtent);
                   _verticalScrollController.jumpTo(newV);
+                  AppLogger.exchangeDebug('[wg] 스크롤 초기화: jumpTo 호출 (마우스) - 수직=${newV.toStringAsFixed(1)}');
                 }
               }
             },
@@ -616,6 +634,9 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                         final newVertical = metrics.axis == Axis.vertical 
                             ? metrics.pixels 
                             : currentState.verticalOffset;
+                        
+                        // Syncfusion DataGrid 스크롤 이동 로그
+                        AppLogger.exchangeDebug('[wg] Syncfusion 스크롤 이동: ${metrics.axis.name}축=${metrics.pixels.toStringAsFixed(1)}');
                             
                         ref.read(scrollProvider.notifier).updateOffset(
                           newHorizontal,
@@ -625,9 +646,10 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                       return false; // 다른 위젯도 이벤트를 받을 수 있도록
                     },
                     child: SfDataGrid(
-                      // 안정적인 ValueKey 사용 - 경로 선택으로 인한 불필요한 위젯 재생성 방지
-                      // 기본 구조(교사 수, 요일 수, 교시 수)만 사용하여 안정성 확보
-                      key: ValueKey('grid_${widget.timetableData?.teachers.length ?? 0}_${widget.timetableData?.timeSlots.length ?? 0}'),
+                      // 파일 로드 시에만 변경되는 ValueKey 사용 - 스크롤 초기화 방지
+                      // fileLoadId는 파일 로드(setTimetableData) 시에만 증가하므로
+                      // 경로 선택, 셀 선택, 헤더 업데이트 등에서는 위젯이 재생성되지 않음
+                      key: ValueKey('grid_${ref.watch(exchangeScreenProvider.select((state) => state.fileLoadId))}'),
                       source: widget.dataSource!,
                       columns: _getScaledColumns(zoomFactor),
                       stackedHeaderRows: _getScaledStackedHeaders(zoomFactor),
@@ -979,7 +1001,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     ref.read(stateResetProvider.notifier).resetExchangeStates(
       reason: '일반 셀 클릭 - 교체 화살표 숨김',
     );
-    AppLogger.exchangeDebug('교체 화살표 숨김 (Riverpod)');
   }
 
   /// 화살표 상태 초기화 (외부에서 호출) - StateResetProvider에서 처리됨
@@ -988,7 +1009,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     ref.read(stateResetProvider.notifier).resetExchangeStates(
       reason: '외부 호출 - 화살표 상태 초기화',
     );
-    AppLogger.exchangeDebug('[외부 호출] 화살표 상태 초기화 요청 (StateResetProvider에서 처리)');
   }
 
   /// Level 1 전용 화살표 초기화 (경로 선택만 해제) - StateResetProvider에서 처리됨
@@ -1134,7 +1154,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     
     // 싱글톤 화살표 매니저를 통한 화살표 정리
     _arrowsManager.clearAllArrows();
-    AppLogger.exchangeDebug('화살표 초기화 요청 (StateResetProvider에서 처리)');
   }
 
 

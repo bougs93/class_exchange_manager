@@ -66,8 +66,6 @@ class WidgetArrowsManager {
     
     List<ArrowElement> arrows = [];
     
-    AppLogger.exchangeDebug('화살표 생성 시작: ${selectedPath.type}');
-    
     switch (selectedPath.type) {
       case ExchangePathType.oneToOne:
         arrows = _createOneToOneArrows(selectedPath as OneToOneExchangePath, context);
@@ -82,8 +80,6 @@ class WidgetArrowsManager {
         arrows = _createSupplementArrows(selectedPath as SupplementExchangePath, context);
         break;
     }
-    
-    AppLogger.exchangeDebug('생성된 화살표 개수: ${arrows.length}');
     return arrows;
   }
 
@@ -96,10 +92,6 @@ class WidgetArrowsManager {
     
     final sourceId = _getCellId(sourceNode);
     final targetId = _getCellId(targetNode);
-    
-    AppLogger.exchangeDebug('1:1 교체 화살표 생성:');
-    AppLogger.exchangeDebug('  소스: ${sourceNode.teacherName} ${sourceNode.day}${sourceNode.period}교시 → ID: $sourceId');
-    AppLogger.exchangeDebug('  타겟: ${targetNode.teacherName} ${targetNode.day}${targetNode.period}교시 → ID: $targetId');
     
     // A → B 방향 화살표
     final arrowId1 = _generateArrowId('oneToOne', 'AtoB');
@@ -121,7 +113,6 @@ class WidgetArrowsManager {
       context: context,
     ));
     
-    AppLogger.exchangeDebug('1:1 교체 화살표 생성 완료: ${arrows.length}개');
     return arrows;
   }
 
@@ -190,10 +181,6 @@ class WidgetArrowsManager {
     final sourceId = _getCellId(sourceNode);
     final targetId = _getCellId(targetNode);
     
-    AppLogger.exchangeDebug('보강 교체 화살표 생성:');
-    AppLogger.exchangeDebug('  보강할 셀: ${sourceNode.teacherName} ${sourceNode.day}${sourceNode.period}교시 → ID: $sourceId');
-    AppLogger.exchangeDebug('  보강할 교사: ${targetNode.teacherName} ${targetNode.day}${targetNode.period}교시 → ID: $targetId');
-    
     // 보강할 셀에서 보강할 교사로의 단방향 화살표
     final arrowId = _generateArrowId('supplement', 'supplement');
     arrows.add(_createArrowElement(
@@ -204,7 +191,6 @@ class WidgetArrowsManager {
       context: context,
     ));
     
-    AppLogger.exchangeDebug('보강 교체 화살표 생성 완료: ${arrows.length}개');
     return arrows;
   }
 
