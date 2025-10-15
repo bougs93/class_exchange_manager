@@ -10,7 +10,6 @@ import '../../providers/exchange_screen_provider.dart';
 import '../../providers/cell_selection_provider.dart';
 import '../../models/exchange_mode.dart';
 import '../../utils/timetable_data_source.dart';
-import '../../utils/constants.dart';
 import '../../utils/day_utils.dart';
 import 'timetable_grid/widget_arrows_manager.dart';
 import '../../utils/logger.dart';
@@ -165,8 +164,8 @@ class TimetableGridSection extends ConsumerStatefulWidget {
 }
 
 class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
-  // 🔥 DataGrid 재생성 문제 해결: 과거 커밋의 단순한 구조를 참고하여 GlobalKey 사용
-  // DataGrid 재생성을 위한 GlobalKey (과거 커밋과 동일한 방식)
+  // 🧪 테스트: GlobalKey만 사용 - 나머지 모든 수정사항 원상복구
+  // GlobalKey만으로도 DataGrid 재생성 문제가 해결되는지 테스트
   final GlobalKey<SfDataGridState> _dataGridKey = GlobalKey<SfDataGridState>();
   
   // 스크롤 컨트롤러들
@@ -321,40 +320,35 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       return const SizedBox.shrink();
     }
 
-    // 🔥 DataGrid 재생성 문제 해결: 과거 커밋의 단순한 구조를 참고하여 ref.watch 최소화
-    // StateResetProvider 상태 감지는 별도 Consumer로 분리하여 DataGrid 재생성 방지
-    return Consumer(
-      builder: (context, ref, child) {
-        // StateResetProvider 상태 감지 (화살표 초기화는 별도 처리)
-        final resetState = ref.watch(stateResetProvider);
-        
-        // Level 3 초기화 시 교체 뷰 체크박스도 초기 상태로 되돌리기
-        if (resetState.lastResetLevel == ResetLevel.allStates && ref.watch(isExchangeViewEnabledProvider)) {
-          ref.read(exchangeViewProvider.notifier).reset();
-          AppLogger.exchangeDebug('[StateResetProvider 감지] 교체 뷰 체크박스 초기화 완료 (Level 3)');
-        }
+    // 🧪 테스트: ref.watch() 호출 복원 - Consumer 분리 제거로 원상복구
+    // StateResetProvider 상태 감지 (화살표 초기화는 별도 처리)
+    final resetState = ref.watch(stateResetProvider);
+    
+    // Level 3 초기화 시 교체 뷰 체크박스도 초기 상태로 되돌리기
+    if (resetState.lastResetLevel == ResetLevel.allStates && ref.watch(isExchangeViewEnabledProvider)) {
+      ref.read(exchangeViewProvider.notifier).reset();
+      AppLogger.exchangeDebug('[StateResetProvider 감지] 교체 뷰 체크박스 초기화 완료 (Level 3)');
+    }
 
-        return Card(
-          elevation: 2,
-          child: Padding(
-            padding: const EdgeInsets.all(4.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 헤더
-                _buildHeader(),
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(4.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 헤더
+            _buildHeader(),
 
-                const SizedBox(height: 2),
+            const SizedBox(height: 2),
 
-                // Syncfusion DataGrid 위젯 (화살표와 함께)
-                Expanded(
-                  child: _buildDataGridWithArrows(),
-                ),
-              ],
+            // Syncfusion DataGrid 위젯 (화살표와 함께)
+            Expanded(
+              child: _buildDataGridWithArrows(),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 
@@ -665,17 +659,16 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                       return false; // 다른 위젯도 이벤트를 받을 수 있도록
                     },
                     child: SfDataGrid(
-                      // 🔥 DataGrid 재생성 문제 해결: 과거 커밋의 단순한 구조를 참고하여 GlobalKey 사용
-                      // GlobalKey를 사용하여 DataGrid 재생성 완전 방지 (과거 커밋과 동일한 방식)
-                      // 경로 선택, 셀 선택, 헤더 업데이트 등에서도 DataGrid가 재생성되지 않음
+                      // 🧪 테스트: GlobalKey만 사용 - 나머지 모든 수정사항 원상복구
+                      // GlobalKey만으로도 DataGrid 재생성 문제가 해결되는지 테스트
                       key: _dataGridKey,
                       source: widget.dataSource!,
-                      columns: widget.columns,
-                      stackedHeaderRows: widget.stackedHeaders,
+                      columns: _getScaledColumns(zoomFactor),
+                      stackedHeaderRows: _getScaledStackedHeaders(zoomFactor),
                       gridLinesVisibility: GridLinesVisibility.both,
                       headerGridLinesVisibility: GridLinesVisibility.both,
-                      headerRowHeight: AppConstants.headerRowHeight,
-                      rowHeight: AppConstants.dataRowHeight,
+                      headerRowHeight: _getScaledHeaderHeight(zoomFactor),
+                      rowHeight: _getScaledRowHeight(zoomFactor),
                       allowColumnsResizing: false,
                       allowSorting: false,
                       allowEditing: false,
@@ -695,13 +688,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
           ),
         );
 
-        // 🔥 DataGrid 재생성 문제 해결: 과거 커밋의 단순한 구조를 참고하여 Transform.scale 사용
-        // 확대/축소 효과를 적용하여 반환 (과거 커밋과 동일한 방식)
-        return Transform.scale(
-          scale: zoomFactor,
-          alignment: Alignment.topLeft,
-          child: dataGridContainer,
-        );
+        // 🧪 테스트: Transform.scale 제거 - 직접 반환으로 원상복구
+        return dataGridContainer;
       },
     );
   }
@@ -1126,6 +1114,61 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       teachers: widget.timetableData!.teachers,
       dataSource: widget.dataSource!,
     );
+  }
+
+  // ==================== 줌 팩터 기반 스케일링 메서드들 ====================
+
+  /// 줌 팩터에 따라 컬럼들을 스케일링하여 반환
+  /// 
+  /// [zoomFactor] 현재 줌 팩터 (1.0 = 100%)
+  /// 
+  /// Returns: `List<GridColumn>` - 스케일링된 컬럼 목록
+  List<GridColumn> _getScaledColumns(double zoomFactor) {
+    return widget.columns.map((column) {
+      return GridColumn(
+        columnName: column.columnName,
+        width: column.width * zoomFactor, // 컬럼 너비에 줌 팩터 적용
+        label: column.label,
+      );
+    }).toList();
+  }
+
+  /// 줌 팩터에 따라 스택 헤더들을 스케일링하여 반환
+  /// 
+  /// [zoomFactor] 현재 줌 팩터 (1.0 = 100%)
+  /// 
+  /// Returns: `List<StackedHeaderRow>` - 스케일링된 스택 헤더 목록
+  List<StackedHeaderRow> _getScaledStackedHeaders(double zoomFactor) {
+    return widget.stackedHeaders.map((headerRow) {
+      return StackedHeaderRow(
+        cells: headerRow.cells.map((cell) {
+          return StackedHeaderCell(
+            child: cell.child,
+            columnNames: cell.columnNames,
+          );
+        }).toList(),
+      );
+    }).toList();
+  }
+
+  /// 줌 팩터에 따라 헤더 행 높이를 계산하여 반환
+  /// 
+  /// [zoomFactor] 현재 줌 팩터 (1.0 = 100%)
+  /// 
+  /// Returns: double - 스케일링된 헤더 행 높이
+  double _getScaledHeaderHeight(double zoomFactor) {
+    // 기본 헤더 높이에 줌 팩터 적용
+    return 25.0 * zoomFactor;
+  }
+
+  /// 줌 팩터에 따라 데이터 행 높이를 계산하여 반환
+  /// 
+  /// [zoomFactor] 현재 줌 팩터 (1.0 = 100%)
+  /// 
+  /// Returns: double - 스케일링된 데이터 행 높이
+  double _getScaledRowHeight(double zoomFactor) {
+    // 기본 데이터 행 높이에 줌 팩터 적용
+    return 25.0 * zoomFactor;
   }
 
 }
