@@ -708,6 +708,9 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     // - 화살표 상태 초기화 (hideArrow())
     ref.read(stateResetProvider.notifier).resetPathOnly(reason: '보강 모드 진입 - 기존 교체 경로 정리');
 
+    // 🔥 내부 선택된 경로 초기화 (교체 버튼과 동일한 패턴 적용)
+    ref.read(cellSelectionProvider.notifier).clearPathsOnly();
+
     // 🔥 헤더 테마 업데이트: 화살표 제거 및 UI 상태 정리
     // 다른 Level 1 초기화 코드들과 동일한 패턴 적용
     widget.onHeaderThemeUpdate?.call();
@@ -721,9 +724,9 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     // 스낵바 메시지 표시
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('보강한 교사 이름을 선택하세요'),
+        content: Text('보강 모드 활성화: 빈 셀을 클릭하여 보강할 시간을 선택하세요'),
         backgroundColor: Colors.green,
-        duration: Duration(seconds: 3),
+        duration: Duration(seconds: 4),
       ),
     );
     
@@ -833,6 +836,14 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
           _handleExchangedCellClick(teacherName, day, period);
           return;
         }
+
+        // 🔥 보강 모드에서 일반 셀 클릭 시 교사 이름 추출하여 보강교체 처리
+        final screenState = ref.read(exchangeScreenProvider);
+        if (screenState.isTeacherNameSelectionEnabled) {
+          AppLogger.exchangeDebug('보강 모드: 일반 셀 클릭 - 교사 이름 추출 처리 시도');
+          _handleGeneralCellForSupplement(teacherName, day, period);
+          return;
+        }
       }
     }
 
@@ -885,6 +896,77 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     
     // UI 업데이트 로깅
     AppLogger.exchangeDebug('🔄 교사 이름 클릭 - UI 업데이트');
+  }
+
+  /// 일반 셀에서 교사 이름 추출하여 보강교체 처리
+  /// 
+  /// 이 메서드는 보강 모드에서 일반 셀을 클릭했을 때 해당 셀의 교사 이름을 추출하여
+  /// 보강교체를 실행하는 기능을 제공합니다.
+  /// 
+  /// 보강 로직:
+  /// - 보강할 셀: 빈 셀이어야 함 (수업이 없는 시간)
+  /// - 보강할 교사: 수업이 있는 교사를 선택
+  /// 
+  /// 처리 과정:
+  /// 1. 선택된 셀의 교사 이름 추출
+  /// 2. 빈 셀인지 검사 (빈 셀이어야 보강 가능)
+  /// 3. 보강교체 실행
+  void _handleGeneralCellForSupplement(String teacherName, String day, int period) {
+    // 현재 모드 및 교사 이름 선택 기능 활성화 상태 확인
+    final screenState = ref.read(exchangeScreenProvider);
+    final isTeacherNameSelectionEnabled = screenState.isTeacherNameSelectionEnabled;
+    
+    // 교사 이름 선택 기능이 비활성화된 경우 아무 동작하지 않음
+    if (!isTeacherNameSelectionEnabled) {
+      AppLogger.exchangeDebug('일반 셀 클릭: 교사 이름 선택 기능이 비활성화됨');
+      return;
+    }
+    
+    // 1. 선택된 셀의 교사 이름 추출
+    final clickedTeacherName = teacherName;
+    
+    // 2. 빈 셀인지 검사 (빈 셀이어야 보강 가능)
+    if (!_isCellEmpty(clickedTeacherName, day, period)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('보강 실패: $clickedTeacherName의 $day$period교시는 수업이 있는 셀입니다. 빈 셀을 선택해주세요'),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      AppLogger.exchangeDebug('보강 실패: 수업이 있는 셀 클릭 - $clickedTeacherName $day$period교시');
+      return;
+    }
+    
+    // 3. 보강교체 실행 (빈 셀을 보강할 셀로 설정)
+    AppLogger.exchangeDebug('빈 셀에서 교사 이름 추출하여 보강교체 실행: $clickedTeacherName');
+    _executeSupplementExchangeViaExecutor(clickedTeacherName);
+  }
+
+  /// 셀이 비어있는지 확인 (과목이나 학급이 없는지 검사)
+  /// 
+  /// [teacherName] 교사 이름
+  /// [day] 요일 (월, 화, 수, 목, 금)
+  /// [period] 교시 (1-7)
+  /// 
+  /// Returns: `bool` - 셀이 비어있으면 true, 비어있지 않으면 false
+  bool _isCellEmpty(String teacherName, String day, int period) {
+    if (widget.timetableData == null) return false;
+    
+    try {
+      final dayNumber = DayUtils.getDayNumber(day);
+      final timeSlot = widget.timetableData!.timeSlots.firstWhere(
+        (slot) => slot.teacher == teacherName && 
+                  slot.dayOfWeek == dayNumber && 
+                  slot.period == period,
+        orElse: () => TimeSlot(), // 빈 TimeSlot 반환
+      );
+      
+      return timeSlot.isEmpty;
+    } catch (e) {
+      AppLogger.exchangeDebug('셀 비어있음 검사 중 오류: $e');
+      return false;
+    }
   }
 
   /// 보강교체 실행 (ExchangeExecutor 호출 - 1:1 교체와 동일한 패턴)
@@ -990,6 +1072,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
     return widget.timetableData!.teachers[actualRowIndex].name;
   }
+
 
   /// 교체된 셀 클릭 시 교체 서비스 상태 업데이트 (화살표 보존)
   void _updateExchangeServiceForExchangedCell(String teacherName, String day, int period) {
