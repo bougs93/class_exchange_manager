@@ -109,8 +109,9 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
       AppLogger.exchangeDebug('[백업 추적] exchangeList: ${exchangeList.length}, backedUp: ${state.backedUpCount}, work: ${state.backupData.length}');
 
       if (exchangeList.isEmpty) {
-        AppLogger.exchangeInfo('교체 리스트가 비어있습니다');
+        AppLogger.exchangeInfo('교체 리스트가 비어있습니다 - 교체 뷰 활성화 (교체 없음)');
         state = state.copyWith(
+          isEnabled: true,
           isLoading: false,
           currentOperation: null,
           lastUpdated: DateTime.now(),
