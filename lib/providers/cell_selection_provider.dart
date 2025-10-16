@@ -363,6 +363,14 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
     );
   }
 
+  /// 경로만 초기화 (셀 선택 상태는 유지)
+  void clearPathsOnly() {
+    state = state.copyWith(
+      clearPaths: true,
+      lastUpdated: DateTime.now(),
+    );
+  }
+
   /// 모든 캐시 초기화
   void clearAllCaches() {
     state = state.copyWith(

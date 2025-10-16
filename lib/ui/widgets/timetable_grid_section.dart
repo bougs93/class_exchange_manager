@@ -406,14 +406,26 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
             final supplementEnabled = isInExchangeMode && isCellSelected;
             
             return ExchangeActionButtons(
-              onUndo: () => _exchangeExecutor.undoLastExchange(context, _clearInternalPath),
+              onUndo: () => _exchangeExecutor.undoLastExchange(context, () {
+                ref.read(stateResetProvider.notifier).resetExchangeStates(
+                  reason: '내부 경로 초기화',
+                );
+              }),
               onRepeat: () => _exchangeExecutor.repeatLastExchange(context),
               onSupplement: supplementEnabled ? _enableTeacherNameSelectionForSupplement : null,
               onDelete: (currentSelectedPath != null && isFromExchangedCell)
-                ? () => _exchangeExecutor.deleteFromExchangeList(currentSelectedPath!, context, _clearInternalPath)
+                ? () => _exchangeExecutor.deleteFromExchangeList(currentSelectedPath!, context, () {
+                    ref.read(stateResetProvider.notifier).resetExchangeStates(
+                      reason: '내부 경로 초기화',
+                    );
+                  })
                 : null,
               onExchange: (isInExchangeMode && !isFromExchangedCell && currentSelectedPath != null)
-                ? () => _exchangeExecutor.executeExchange(currentSelectedPath!, context, _clearInternalPath)
+                ? () => _exchangeExecutor.executeExchange(currentSelectedPath!, context, () {
+                    ref.read(stateResetProvider.notifier).resetExchangeStates(
+                      reason: '내부 경로 초기화',
+                    );
+                  })
                 : null,
               showDeleteButton: currentSelectedPath != null && isFromExchangedCell,
               showExchangeButton: isInExchangeMode && !isFromExchangedCell,
@@ -696,9 +708,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     // - 화살표 상태 초기화 (hideArrow())
     ref.read(stateResetProvider.notifier).resetPathOnly(reason: '보강 모드 진입 - 기존 교체 경로 정리');
 
-    // 🔥 내부 선택된 경로 초기화 (교체 버튼과 동일한 패턴 적용)
-    _clearInternalPath();
-
     // 🔥 헤더 테마 업데이트: 화살표 제거 및 UI 상태 정리
     // 다른 Level 1 초기화 코드들과 동일한 패턴 적용
     widget.onHeaderThemeUpdate?.call();
@@ -943,7 +952,11 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       sourceSlot.className ?? '',
       sourceSlot.subject ?? '',
       context,
-      _clearInternalPath,
+      () {
+        ref.read(stateResetProvider.notifier).resetExchangeStates(
+          reason: '내부 경로 초기화',
+        );
+      },
     );
 
     // 교사 이름 선택 기능 비활성화
@@ -999,16 +1012,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   }
 
 
-  /// 내부 선택된 경로 초기화 (StateResetProvider에서 처리됨)
-  void _clearInternalPath() {
-    // 화살표 상태 초기화는 StateResetProvider에서 처리됨
-    ref.read(stateResetProvider.notifier).resetExchangeStates(
-      reason: '내부 경로 초기화',
-    );
-    
-    // 싱글톤 화살표 매니저를 통한 화살표 정리
-    _arrowsManager.clearAllArrows();
-  }
 
 
 

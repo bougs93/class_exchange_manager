@@ -112,7 +112,7 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   /// CellSelectionNotifier 참조 가져오기
   CellSelectionNotifier get _cellNotifier => _ref.read(cellSelectionProvider.notifier);
 
-  /// 공통 초기화 작업 수행
+  /// 공통 초기화 작업 수행 (화살표 제거만)
   void _performCommonResetTasks() {
     WidgetArrowsManager().clearAllArrows();
     _ref.read(cellSelectionProvider.notifier).hideArrow();
@@ -130,8 +130,8 @@ class StateResetNotifier extends StateNotifier<ResetState> {
       ..setSelectedChainPath(null)
       ..setSelectedSupplementPath(null);
       
-    // 🔥 추가: CellSelectionProvider의 경로도 초기화
-    _ref.read(cellSelectionProvider.notifier).clearAllSelections();
+    // 🔥 CellSelectionProvider의 경로만 초기화 (셀 선택 상태는 유지)
+    _ref.read(cellSelectionProvider.notifier).clearPathsOnly();
   }
 
   /// 모든 셀 선택 상태 강제 해제
@@ -297,6 +297,9 @@ class StateResetNotifier extends StateNotifier<ResetState> {
 
     // 공통 초기화 작업 수행 (화살표 제거 포함)
     _performCommonResetTasks();
+
+    // 🔥 Level 2 전용: 셀 선택 초기화 추가
+    _ref.read(cellSelectionProvider.notifier).clearAllSelections();
 
     // 상태 업데이트 및 로깅
     _updateStateAndLog(ResetLevel.exchangeStates, reason ?? 'Level 2 초기화');
