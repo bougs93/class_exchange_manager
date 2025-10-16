@@ -116,6 +116,22 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   void _performCommonResetTasks() {
     WidgetArrowsManager().clearAllArrows();
     _ref.read(cellSelectionProvider.notifier).hideArrow();
+    
+    // 🔥 강력한 UI 업데이트 (실제 화살표 제거를 위해)
+    _exchangeNotifier.state.dataSource?.notifyDataChanged();
+    
+    // 🔥 추가: 헤더 테마 업데이트로 화살표 완전 제거
+    _updateHeaderTheme();
+    
+    // 🔥 최종: 모든 경로를 강제로 null로 설정
+    _exchangeNotifier
+      ..setSelectedCircularPath(null)
+      ..setSelectedOneToOnePath(null)
+      ..setSelectedChainPath(null)
+      ..setSelectedSupplementPath(null);
+      
+    // 🔥 추가: CellSelectionProvider의 경로도 초기화
+    _ref.read(cellSelectionProvider.notifier).clearAllSelections();
   }
 
   /// 모든 셀 선택 상태 강제 해제
@@ -124,6 +140,7 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     _ref.read(exchangeServiceProvider).clearAllSelections();
     _ref.read(circularExchangeServiceProvider).clearAllSelections();
     _ref.read(chainExchangeServiceProvider).clearAllSelections();
+    // 보강 교체는 ExchangeService에서 처리되므로 별도 Provider 불필요
 
     // DataSource 및 테마 초기화
     _exchangeNotifier.state.dataSource?.clearAllSelections();
