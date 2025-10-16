@@ -5,6 +5,7 @@ import '../../../models/exchange_path.dart';
 import '../../../models/one_to_one_exchange_path.dart';
 import '../../../models/circular_exchange_path.dart';
 import '../../../models/chain_exchange_path.dart';
+import '../../../models/supplement_exchange_path.dart';
 import '../../../models/exchange_history_item.dart';
 import '../../../services/exchange_service.dart';
 import '../../../services/excel_service.dart';
@@ -138,6 +139,9 @@ class ExchangeViewManager {
       // 연쇄 교체 경로에서 View에서 교체 실행
       } else if (path is ChainExchangePath) {
         return _executeChainExchangeFromPathWithData(path, currentTimeSlots, currentTeachers);
+      // 보강교체 경로에서 View에서 교체 실행
+      } else if (path is SupplementExchangePath) {
+        return _executeSupplementExchangeFromPathWithData(path, currentTimeSlots, currentTeachers);
       }
 
       return false;
@@ -275,6 +279,39 @@ class ExchangeViewManager {
     return success;
   }
 
+  /// 보강교체 경로에서 교체 실행
+  bool _executeSupplementExchangeFromPathWithData(
+    SupplementExchangePath path,
+    List<TimeSlot> currentTimeSlots,
+    List<Teacher> currentTeachers,
+  ) {
+    AppLogger.exchangeInfo('보강교체 실행: ${path.id}');
+    AppLogger.exchangeInfo('  └─ 소스: ${path.sourceTeacher}(${path.sourceDay}${path.sourcePeriod}교시)');
+    AppLogger.exchangeInfo('  └─ 타겟: ${path.targetTeacher}(${path.targetDay}${path.targetPeriod}교시)');
+
+    final success = exchangeService.performSupplementExchange(
+      currentTimeSlots,
+      path.sourceTeacher,
+      path.sourceDay,
+      path.sourcePeriod,
+      path.targetTeacher,
+      path.targetDay,
+      path.targetPeriod,
+    );
+
+    if (success && dataSource != null && timetableData != null) {
+      ref.read(stateResetProvider.notifier).resetExchangeStates(
+        reason: '보강교체 실행 - DataSource 업데이트',
+      );
+      dataSource?.updateData(currentTimeSlots, currentTeachers);
+      AppLogger.exchangeInfo('✅ 보강교체 성공');
+    } else if (!success) {
+      AppLogger.exchangeDebug('❌ 보강교체 실패');
+    }
+
+    return success;
+  }
+
   /// 상세한 교체 정보 로깅
   void logDetailedExchangeInfo(int exchangeNumber, dynamic exchangeItem) {
     try {
@@ -303,6 +340,11 @@ class ExchangeViewManager {
         AppLogger.exchangeInfo('  └─ 목표: ${path.nodeA.day}|${path.nodeA.period}|${path.nodeA.className}|${path.nodeA.teacherName}|${path.nodeA.subjectName}');
         AppLogger.exchangeInfo('  └─ 대체: ${path.nodeB.day}|${path.nodeB.period}|${path.nodeB.className}|${path.nodeB.teacherName}|${path.nodeB.subjectName}');
         AppLogger.exchangeInfo('  └─ 단계 수: ${path.steps.length}개');
+      } else if (path is SupplementExchangePath) {
+        AppLogger.exchangeInfo('교체 $exchangeNumber: 보강교체');
+        AppLogger.exchangeInfo('  └─ 소스: ${path.sourceDay}|${path.sourcePeriod}|${path.className}|${path.sourceTeacher}|${path.subject}');
+        AppLogger.exchangeInfo('  └─ 타겟: ${path.targetDay}|${path.targetPeriod}|빈 셀|${path.targetTeacher}|빈 셀');
+        AppLogger.exchangeInfo('  └─ 결과: ${path.sourceTeacher}(${path.sourceDay}${path.sourcePeriod}교시) → ${path.targetTeacher}(${path.targetDay}${path.targetPeriod}교시)');
       } else {
         AppLogger.exchangeInfo('교체 $exchangeNumber: 알 수 없는 교체 타입 (${exchangeItem.runtimeType})');
       }

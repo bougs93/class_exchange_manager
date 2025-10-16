@@ -358,7 +358,8 @@ class ExchangeService extends BaseExchangeService {
     int targetPeriod,
   ) {
     try {
-      AppLogger.exchangeInfo('보강교체 시작: $sourceTeacher($sourceDay$sourcePeriod교시) → $targetTeacher($targetDay$targetPeriod교시)');
+      // 다른 경로와 다른 방식 : 타켓(2번째 클릭) -> 소스(1번째 클릭) : [주의]소스,타켓 색상 유지를 위해서 그대로 사용
+      AppLogger.exchangeInfo('보강교체 시작: $targetTeacher($targetDay$targetPeriod교시) → $sourceTeacher($sourceDay$sourcePeriod교시)');
       
       // 1. 보강 가능성 검증
       if (!_validateSupplementExchange(
@@ -389,15 +390,19 @@ class ExchangeService extends BaseExchangeService {
       //       이를 수정하면 원본 timeSlots 리스트가 직접 변경됩니다.
       
       // 보강 방식: 빈 TimeSlot에 보강 수업 내용 채우기
-      targetSlot.className = sourceSlot.className;        // 원본 셀의 학급 복사
-      targetSlot.subject = "과목 미선택";                  // 과목은 "과목 미선택"으로 설정
-      // teacher, dayOfWeek, period는 그대로 유지
+      bool moveSuccess = TimeSlot.moveTime(sourceSlot, targetSlot);
+      
+      if (!moveSuccess) {
+        AppLogger.exchangeDebug('보강 실패: moveSuccess=$moveSuccess');
+        return false;
+      }
       
       AppLogger.exchangeDebug('보강 완료 - 보강된 셀 상태:');
       AppLogger.exchangeDebug('  $targetTeacher $targetDay$targetPeriod교시: ${targetSlot.className}|${targetSlot.subject}');
 
       // 히스토리 관리는 ExchangeHistoryService에서 담당
-      AppLogger.exchangeInfo('보강교체 완료: $sourceTeacher($sourceDay$sourcePeriod교시) → $targetTeacher($targetDay$targetPeriod교시) [보강 성공]');
+      //     다른 경로와 다른 방식 : 타켓(2번째 클릭) -> 소스(1번째 클릭) : [주의]소스,타켓 색상 유지를 위해서 그대로 사용
+      AppLogger.exchangeInfo('보강교체 완료: $targetTeacher($targetDay$targetPeriod교시) → $sourceTeacher($sourceDay$sourcePeriod교시) [보강 성공]');
       return true;
       
     } catch (e) {

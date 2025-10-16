@@ -78,8 +78,6 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel>
   /// 탭 메뉴에 표시할 모드들 반환 (보강교체 제외)
   List<ExchangeMode> _getVisibleModes() {
     final visibleModes = ExchangeMode.values.where((mode) => mode != ExchangeMode.supplementExchange).toList();
-    AppLogger.exchangeDebug('보이는 모드 개수: ${visibleModes.length}');
-    AppLogger.exchangeDebug('보이는 모드들: ${visibleModes.map((m) => m.displayName).join(', ')}');
     return visibleModes;
   }
 

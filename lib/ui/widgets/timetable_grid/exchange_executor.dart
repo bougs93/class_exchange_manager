@@ -78,6 +78,79 @@ class ExchangeExecutor {
     );
   }
 
+  /// 보강교체 실행 기능 (1:1 교체와 동일한 패턴)
+  void executeSupplementExchange(
+    String sourceTeacher,
+    String sourceDay,
+    int sourcePeriod,
+    String targetTeacherName,
+    String className,
+    String subject,
+    BuildContext context,
+    VoidCallback onInternalPathClear,
+  ) {
+    final historyService = ref.read(exchangeHistoryServiceProvider);
+    
+    // 1. 보강교체 경로 생성
+    final supplementPath = SupplementExchangePath.simple(
+      id: 'supplement_${sourceTeacher}_${sourceDay}_$sourcePeriod',
+      sourceTeacher: sourceTeacher,
+      sourceDay: sourceDay,
+      sourcePeriod: sourcePeriod,
+      targetTeacher: targetTeacherName,
+      targetDay: sourceDay,
+      targetPeriod: sourcePeriod,
+      className: className,
+      subject: subject,
+    );
+
+    // 2. 교체 실행 (ExchangeHistoryService 호출)
+    historyService.executeExchange(
+      supplementPath,
+      customDescription: '보강교체 예약: $targetTeacherName → $sourceTeacher($sourceDay$sourcePeriod교시)',
+      additionalMetadata: {
+        'executionTime': DateTime.now().toIso8601String(),
+        'userAction': 'supplement_reservation',
+        'source': 'timetable_grid_section',
+      },
+    );
+
+    // 3. 콘솔 출력
+    historyService.printExchangeList();
+    historyService.printUndoHistory();
+
+    // 4. 교체된 셀 상태 업데이트
+    _updateExchangedCells();
+
+    // 5. 캐시 강제 무효화 및 UI 업데이트
+    ref.read(stateResetProvider.notifier).resetExchangeStates(
+      reason: '보강교체 예약 - 선택 상태 초기화',
+    );
+
+    // 6. 내부 선택된 경로 초기화
+    onInternalPathClear();
+
+    // 7. UI 업데이트 (최적화됨 - 특정 셀만 업데이트하여 스크롤 위치 보존)
+    dataSource?.notifyDataChanged();
+
+    // 8. 교체 뷰 업데이트 로깅
+    AppLogger.exchangeDebug('🔄 보강교체 예약 완료 - 교체 뷰에서 실제 실행됨');
+
+    // 9. 사용자 피드백
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('보강 계획이 저장되었습니다: $targetTeacherName $sourceDay$sourcePeriod교시'),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 3),
+        action: SnackBarAction(
+          label: '되돌리기',
+          textColor: Colors.white,
+          onPressed: () => undoLastExchange(context, onInternalPathClear),
+        ),
+      ),
+    );
+  }
+
   /// 교체 리스트에서 삭제 기능
   void deleteFromExchangeList(
     ExchangePath exchangePath,
@@ -288,6 +361,11 @@ class ExchangeExecutor {
         '${path.node1.teacherName}_${path.node1.day}_${path.node1.period}',
         '${path.node2.teacherName}_${path.node2.day}_${path.node2.period}',
       ];
+    } else if (path is SupplementExchangePath) {
+      // 보강교체: 소스 셀만 교체된 소스 셀로 표시
+      return [
+        '${path.sourceTeacher}_${path.sourceDay}_${path.sourcePeriod}',
+      ];
     }
     return [];
   }
@@ -335,6 +413,11 @@ class ExchangeExecutor {
         cellKeys.add('${path.nodeA.teacherName}_${path.nodeB.day}_${path.nodeB.period}');
         // nodeB 교사가 nodeA 위치로 이동
         cellKeys.add('${path.nodeB.teacherName}_${path.nodeA.day}_${path.nodeA.period}');
+
+        // 보강교체 경로의 목적지 셀 추출
+        // 타겟 교사의 위치가 목적지 셀
+      } else if (path is SupplementExchangePath) {
+        cellKeys.add('${path.targetTeacher}_${path.targetDay}_${path.targetPeriod}');
       }
     }
 

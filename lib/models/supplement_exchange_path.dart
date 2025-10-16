@@ -22,6 +22,56 @@ class SupplementExchangePath implements ExchangePath {
        _option = option,
        _customId = customId;
   
+  /// 간단한 보강교체 경로 생성 (새로운 패턴용)
+  factory SupplementExchangePath.simple({
+    required String id,
+    required String sourceTeacher,
+    required String sourceDay,
+    required int sourcePeriod,
+    required String targetTeacher,
+    required String targetDay,
+    required int targetPeriod,
+    required String className,
+    required String subject,
+  }) {
+    final sourceNode = ExchangeNode(
+      teacherName: sourceTeacher,
+      day: sourceDay,
+      period: sourcePeriod,
+      className: className,
+      subjectName: subject,
+    );
+    
+    final targetNode = ExchangeNode(
+      teacherName: targetTeacher,
+      day: targetDay,
+      period: targetPeriod,
+      className: '', // 빈 셀
+      subjectName: '', // 빈 셀
+    );
+    
+    final option = ExchangeOption(
+      teacherName: targetTeacher,
+      timeSlot: TimeSlot(
+        teacher: targetTeacher,
+        dayOfWeek: _getDayNumber(targetDay),
+        period: targetPeriod,
+        className: '',
+        subject: '',
+      ),
+      type: ExchangeType.sameClass,
+      priority: 1,
+      reason: '보강교체',
+    );
+    
+    return SupplementExchangePath(
+      sourceNode: sourceNode,
+      targetNode: targetNode,
+      option: option,
+      customId: id,
+    );
+  }
+
   /// ExchangeOption에서 SupplementExchangePath 생성하는 팩토리 메서드
   factory SupplementExchangePath.fromExchangeOption(
     String selectedTeacher,
@@ -55,7 +105,7 @@ class SupplementExchangePath implements ExchangePath {
       day: targetDay,
       period: option.timeSlot.period ?? 0,
       className: option.timeSlot.className ?? '',
-      subjectName: option.timeSlot.subject ?? '과목명 없음',
+      subjectName: option.timeSlot.subject ?? '',
     );
     
     return SupplementExchangePath(
@@ -120,6 +170,16 @@ class SupplementExchangePath implements ExchangePath {
   
   /// 대상 노드 접근자 (보강할 교사)
   ExchangeNode get targetNode => _targetNode;
+
+  /// 간단한 접근자들 (새로운 패턴용)
+  String get sourceTeacher => _sourceNode.teacherName;
+  String get sourceDay => _sourceNode.day;
+  int get sourcePeriod => _sourceNode.period;
+  String get targetTeacher => _targetNode.teacherName;
+  String get targetDay => _targetNode.day;
+  int get targetPeriod => _targetNode.period;
+  String get className => _sourceNode.className;
+  String get subject => _sourceNode.subjectName;
   
   /// 요일 번호를 문자열로 변환하는 헬퍼 메서드
   static String _getDayString(int dayOfWeek) {

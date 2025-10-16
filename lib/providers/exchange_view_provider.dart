@@ -7,6 +7,7 @@ import '../models/exchange_node.dart';
 import '../models/one_to_one_exchange_path.dart';
 import '../models/circular_exchange_path.dart';
 import '../models/chain_exchange_path.dart';
+import '../models/supplement_exchange_path.dart';
 import '../services/exchange_service.dart';
 import '../utils/timetable_data_source.dart';
 import '../utils/day_utils.dart';
@@ -275,6 +276,8 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
         _backupCircularExchange(exchangePath, timeSlots, backupData);
       } else if (exchangePath is ChainExchangePath) {
         _backupChainExchange(exchangePath, timeSlots, backupData);
+      } else if (exchangePath is SupplementExchangePath) {
+        _backupSupplementExchange(exchangePath, timeSlots, backupData);
       }
       
       AppLogger.exchangeDebug('교체 백업 완료: ${backupData.length}개 항목 저장됨');
@@ -410,6 +413,34 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
     );
   }
 
+  /// 보강 교체의 원본 정보 백업
+  /// 보강 교체에서는 소스 교사의 수업을 타겟 교사의 빈 셀로 복사하므로
+  /// 소스 교사의 원본 셀과 타겟 교사의 빈 셀을 백업해야 함
+  void _backupSupplementExchange(
+    SupplementExchangePath exchangeItem,
+    List<TimeSlot> timeSlots,
+    List<ExchangeBackupInfo> backupData,
+  ) {
+    final sourceNode = exchangeItem.sourceNode;
+    final targetNode = exchangeItem.targetNode;
+    
+    AppLogger.exchangeDebug('보강 교체 백업: ${sourceNode.displayText} → ${targetNode.displayText}');
+    
+    // 1. 소스 교사의 원본 셀 백업 (수업이 있는 셀)
+    _backupNodeData(sourceNode, timeSlots, backupData);
+    
+    // 2. 타겟 교사의 목적지 셀 백업 (빈 셀 - 보강 후 수업이 들어갈 셀)
+    _backupNodeDataByPosition(
+      targetNode.teacherName,
+      targetNode.day,
+      targetNode.period,
+      timeSlots,
+      backupData,
+    );
+    
+    AppLogger.exchangeDebug('보강 교체 백업 완료: 소스(${sourceNode.displayText}), 타겟(${targetNode.displayText})');
+  }
+
   /// ExchangeNode의 데이터를 백업
   void _backupNodeData(
     ExchangeNode node,
@@ -501,6 +532,8 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
         return _executeCircularExchange(exchangePath, timeSlots, exchangeService);
       } else if (exchangePath is ChainExchangePath) {
         return _executeChainExchange(exchangePath, timeSlots, exchangeService);
+      } else if (exchangePath is SupplementExchangePath) {
+        return _executeSupplementExchange(exchangePath, timeSlots, exchangeService);
       }
       
       AppLogger.exchangeDebug('지원하지 않는 교체 타입: ${exchangePath.type}');
@@ -611,6 +644,33 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
       
     } catch (e) {
       AppLogger.exchangeDebug('연쇄 교체 실행 중 오류: $e');
+      return false;
+    }
+  }
+
+  /// 보강 교체 실행
+  bool _executeSupplementExchange(
+    SupplementExchangePath exchangePath,
+    List<TimeSlot> timeSlots,
+    ExchangeService exchangeService,
+  ) {
+    try {
+      final sourceNode = exchangePath.sourceNode;
+      final targetNode = exchangePath.targetNode;
+      // 다른 경로와 다른 방식 : 타켓(2번째 클릭) -> 소스(1번째 클릭) : [주의]소스,타켓 색상 유지를 위해서 그대로 사용
+      AppLogger.exchangeDebug('보강 교체 실행: ${targetNode.displayText} → ${sourceNode.displayText}');
+      
+      return exchangeService.performSupplementExchange(
+        timeSlots,
+        sourceNode.teacherName,
+        sourceNode.day,
+        sourceNode.period,
+        targetNode.teacherName,
+        targetNode.day,
+        targetNode.period,
+      );
+    } catch (e) {
+      AppLogger.exchangeDebug('보강 교체 실행 중 오류: $e');
       return false;
     }
   }
