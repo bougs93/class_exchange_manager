@@ -115,6 +115,7 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   /// 공통 초기화 작업 수행
   void _performCommonResetTasks() {
     WidgetArrowsManager().clearAllArrows();
+    _ref.read(cellSelectionProvider.notifier).hideArrow();
   }
 
   /// 모든 셀 선택 상태 강제 해제
@@ -232,22 +233,13 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     final dataSource = _exchangeNotifier.state.dataSource;
     dataSource?.resetPathSelectionBatch();
 
-    // 공통 초기화 작업 수행
+    // 공통 초기화 작업 수행 (화살표 제거 포함)
     _performCommonResetTasks();
-
-    // 화살표 초기화를 위한 추가 처리
-    // Level 1에서도 _internalSelectedPath를 초기화해야 화살표가 사라짐
-    _clearInternalSelectedPath();
 
     // 상태 업데이트 및 로깅
     _updateStateAndLog(ResetLevel.pathOnly, reason ?? 'Level 1 초기화');
   }
 
-  /// 내부 선택된 경로 초기화 (화살표 제거용) - Riverpod 기반
-  void _clearInternalSelectedPath() {
-    // Riverpod 기반 화살표 상태 초기화
-    _ref.read(cellSelectionProvider.notifier).hideArrow();
-  }
 
   // ========================================
   // Level 2: 이전 교체 상태 초기화
@@ -285,17 +277,9 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     final dataSource = _exchangeNotifier.state.dataSource;
     dataSource?.resetExchangeStatesBatch();
 
-    // 캐시 초기화
-    _cellNotifier.clearAllCaches();
 
-    // 선택된 셀 초기화 (모드 전환 시) - 교사 이름 선택 상태도 포함
-    _cellNotifier.clearAllSelections();
-
-    // 공통 초기화 작업 수행
+    // 공통 초기화 작업 수행 (화살표 제거 포함)
     _performCommonResetTasks();
-
-    // 화살표 상태 초기화 (Riverpod 기반)
-    _ref.read(cellSelectionProvider.notifier).hideArrow();
 
     // 상태 업데이트 및 로깅
     _updateStateAndLog(ResetLevel.exchangeStates, reason ?? 'Level 2 초기화');
