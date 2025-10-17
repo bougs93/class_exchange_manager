@@ -699,8 +699,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   
   @override
   void clearPreviousCircularExchangeState() {
-    // 순환교체 이전 상태만 초기화 (현재 선택된 셀은 유지) - Level 2
-    ref.read(stateResetProvider.notifier).resetExchangeStates(
+    // 순환교체 이전 상태만 초기화 (현재 선택된 셀은 유지) - Level 1
+    ref.read(stateResetProvider.notifier).resetPathOnly(
       reason: '순환교체 이전 상태 초기화',
     );
 
@@ -713,8 +713,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
   @override
   void clearPreviousChainExchangeState() {
-    // 연쇄교체 이전 상태만 초기화 (현재 선택된 셀은 유지) - Level 2
-    ref.read(stateResetProvider.notifier).resetExchangeStates(
+    // 연쇄교체 이전 상태만 초기화 (현재 선택된 셀은 유지) - Level 1
+    ref.read(stateResetProvider.notifier).resetPathOnly(
       reason: '연쇄교체 이전 상태 초기화',
     );
 
