@@ -13,6 +13,7 @@ import '../../../providers/cell_selection_provider.dart';
 import '../../../providers/state_reset_provider.dart';
 import '../../../providers/services_provider.dart';
 import '../../../providers/exchange_view_provider.dart';
+import '../../../providers/exchange_screen_provider.dart';
 
 /// 교체 실행 관리 클래스
 class ExchangeExecutor {
@@ -155,12 +156,35 @@ class ExchangeExecutor {
   }
 
   /// 교체 리스트에서 삭제 기능
-  void deleteFromExchangeList(
+  /// 교체 뷰가 활성화된 경우 내부적으로 비활성화 → 삭제 → 재활성화 수행
+  Future<void> deleteFromExchangeList(
     ExchangePath exchangePath,
     BuildContext context,
     VoidCallback onInternalPathClear,
-  ) {
+  ) async {
     final historyService = ref.read(exchangeHistoryServiceProvider);
+    
+    // 교체 뷰 활성화 상태 확인
+    final isExchangeViewEnabled = ref.read(isExchangeViewEnabledProvider);
+    bool wasExchangeViewEnabled = false;
+    
+    if (isExchangeViewEnabled) {
+      AppLogger.exchangeDebug('[ExchangeExecutor] 교체 뷰가 활성화된 상태에서 삭제 요청 - 내부적으로 비활성화 후 삭제 실행');
+      wasExchangeViewEnabled = true;
+      
+      // 교체 뷰 비활성화
+      final exchangeViewNotifier = ref.read(exchangeViewProvider.notifier);
+      final screenState = ref.read(exchangeScreenProvider);
+      
+      if (screenState.timetableData != null && dataSource != null) {
+        await exchangeViewNotifier.disableExchangeView(
+          timeSlots: screenState.timetableData!.timeSlots,
+          teachers: screenState.timetableData!.teachers,
+          dataSource: dataSource!,
+        );
+        AppLogger.exchangeDebug('[ExchangeExecutor] 교체 뷰 비활성화 완료 - 삭제 실행 준비');
+      }
+    }
     
     // 1. 교체 리스트에서 찾아서 삭제
     final exchangeList = historyService.getExchangeList();
@@ -191,6 +215,23 @@ class ExchangeExecutor {
 
     // 7. UI 업데이트 (최적화됨 - 특정 셀만 업데이트하여 스크롤 위치 보존)
     dataSource?.notifyDataChanged();
+    
+    // 8. 교체 뷰가 원래 활성화되어 있었다면 다시 활성화
+    if (wasExchangeViewEnabled) {
+      AppLogger.exchangeDebug('[ExchangeExecutor] 삭제 완료 - 교체 뷰 재활성화 시작');
+      
+      final exchangeViewNotifier = ref.read(exchangeViewProvider.notifier);
+      final screenState = ref.read(exchangeScreenProvider);
+      
+      if (screenState.timetableData != null && dataSource != null) {
+        await exchangeViewNotifier.enableExchangeView(
+          timeSlots: screenState.timetableData!.timeSlots,
+          teachers: screenState.timetableData!.teachers,
+          dataSource: dataSource!,
+        );
+        AppLogger.exchangeDebug('[ExchangeExecutor] 교체 뷰 재활성화 완료');
+      }
+    }
   }
 
   /// 되돌리기 기능

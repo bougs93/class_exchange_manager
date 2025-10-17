@@ -152,7 +152,7 @@ class ExchangeActionButtons extends StatelessWidget {
   final VoidCallback onUndo;
   final VoidCallback onRepeat;
   final VoidCallback? onSupplement;
-  final VoidCallback? onDelete;
+  final Future<void> Function()? onDelete;
   final VoidCallback? onExchange;
   final bool showDeleteButton;
   final bool showExchangeButton;
@@ -254,7 +254,7 @@ class ExchangeActionButtons extends StatelessWidget {
           Container(
             margin: const EdgeInsets.only(right: 8),
             child: ElevatedButton.icon(
-              onPressed: onDelete,
+              onPressed: () async => await onDelete!(),
               icon: Icon(Icons.delete_outline, size: 16, color: Colors.red.shade700),
               label: Text('삭제', style: TextStyle(fontSize: 12, color: Colors.red.shade700)),
               style: ElevatedButton.styleFrom(

@@ -424,7 +424,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
               onRepeat: () => _exchangeExecutor.repeatLastExchange(context),
               onSupplement: supplementEnabled ? _enableTeacherNameSelectionForSupplement : null,
               onDelete: (currentSelectedPath != null && isFromExchangedCell)
-                ? () => _exchangeExecutor.deleteFromExchangeList(currentSelectedPath!, context, () {
+                ? () async => await _exchangeExecutor.deleteFromExchangeList(currentSelectedPath!, context, () {
                     ref.read(stateResetProvider.notifier).resetExchangeStates(
                       reason: '내부 경로 초기화',
                     );
