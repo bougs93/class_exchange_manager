@@ -224,6 +224,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     _exchangeExecutor = ExchangeExecutor(
       ref: ref,
       dataSource: widget.dataSource,
+      onEnableExchangeView: _enableExchangeView, // 교체 뷰 활성화 콜백 전달
     );
 
     // 화살표 매니저 초기화

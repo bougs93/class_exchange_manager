@@ -272,6 +272,7 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   /// - 필터 상태
   /// - 캐시
   /// - 선택된 셀 (source/target) - 모드 전환 시 초기화
+  /// - 교체 서비스의 셀 설정 상태 (_selectedTeacher, _selectedDay, _selectedPeriod)
   ///
   /// **유지 대상**:
   /// - 전역 Provider 상태
@@ -294,12 +295,19 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     final dataSource = _exchangeNotifier.state.dataSource;
     dataSource?.resetExchangeStatesBatch();
 
-
     // 공통 초기화 작업 수행 (화살표 제거 포함)
     _performCommonResetTasks();
 
     // 🔥 Level 2 전용: 셀 선택 초기화 추가
     _ref.read(cellSelectionProvider.notifier).clearAllSelections();
+
+    // 🔥 Level 2 전용: 교체 서비스의 셀 설정 상태 초기화 추가
+    // - ExchangeService: 1:1 교체 + 보강 교체 모두 처리
+    // - CircularExchangeService: 순환 교체 처리
+    // - ChainExchangeService: 연쇄 교체 처리
+    _ref.read(exchangeServiceProvider).clearAllSelections();
+    _ref.read(circularExchangeServiceProvider).clearAllSelections();
+    _ref.read(chainExchangeServiceProvider).clearAllSelections();
 
     // 상태 업데이트 및 로깅
     _updateStateAndLog(ResetLevel.exchangeStates, reason ?? 'Level 2 초기화');

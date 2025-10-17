@@ -12,15 +12,18 @@ import '../../../utils/timetable_data_source.dart';
 import '../../../providers/cell_selection_provider.dart';
 import '../../../providers/state_reset_provider.dart';
 import '../../../providers/services_provider.dart';
+import '../../../providers/exchange_view_provider.dart';
 
 /// 교체 실행 관리 클래스
 class ExchangeExecutor {
   final WidgetRef ref;
   final TimetableDataSource? dataSource;
+  final VoidCallback? onEnableExchangeView; // 교체 뷰 활성화 콜백
 
   ExchangeExecutor({
     required this.ref,
     required this.dataSource,
+    this.onEnableExchangeView,
   });
 
   /// 교체 실행 기능
@@ -49,19 +52,19 @@ class ExchangeExecutor {
     // 3. 교체된 셀 상태 업데이트
     _updateExchangedCells();
 
-    // 4. 캐시 강제 무효화 및 UI 업데이트
+    // 4. 교체 뷰 활성화 여부 검사 (Level 2 초기화 전)
+    _checkExchangeViewStatus();
+
+    // 5. 캐시 강제 무효화 및 UI 업데이트
     ref.read(stateResetProvider.notifier).resetExchangeStates(
           reason: '교체 실행 - 선택 상태 초기화',
         );
 
-    // 5. 내부 선택된 경로 초기화
+    // 6. 내부 선택된 경로 초기화
     onInternalPathClear();
 
-    // 6. UI 업데이트 (최적화됨 - 특정 셀만 업데이트하여 스크롤 위치 보존)
+    // 7. UI 업데이트 (최적화됨 - 특정 셀만 업데이트하여 스크롤 위치 보존)
     dataSource?.notifyDataChanged();
-
-    // 7. 교체 뷰 업데이트 로깅
-    AppLogger.exchangeDebug('🔄 교체 실행 완료 - 교체 뷰 업데이트');
 
     // 8. 사용자 피드백
     ScaffoldMessenger.of(context).showSnackBar(
@@ -122,19 +125,19 @@ class ExchangeExecutor {
     // 4. 교체된 셀 상태 업데이트
     _updateExchangedCells();
 
-    // 5. 캐시 강제 무효화 및 UI 업데이트
+    // 5. 교체 뷰 활성화 여부 검사 (Level 2 초기화 전)
+    _checkExchangeViewStatus();
+
+    // 6. 캐시 강제 무효화 및 UI 업데이트
     ref.read(stateResetProvider.notifier).resetExchangeStates(
       reason: '보강교체 예약 - 선택 상태 초기화',
     );
 
-    // 6. 내부 선택된 경로 초기화
+    // 7. 내부 선택된 경로 초기화
     onInternalPathClear();
 
-    // 7. UI 업데이트 (최적화됨 - 특정 셀만 업데이트하여 스크롤 위치 보존)
+    // 8. UI 업데이트 (최적화됨 - 특정 셀만 업데이트하여 스크롤 위치 보존)
     dataSource?.notifyDataChanged();
-
-    // 8. 교체 뷰 업데이트 로깅
-    AppLogger.exchangeDebug('🔄 보강교체 예약 완료 - 교체 뷰에서 실제 실행됨');
 
     // 9. 사용자 피드백
     ScaffoldMessenger.of(context).showSnackBar(
@@ -213,6 +216,9 @@ class ExchangeExecutor {
 
       // 교체된 셀 상태 업데이트
       _updateExchangedCells();
+
+      // 교체 뷰 활성화 여부 검사 (Level 2 초기화 전)
+      _checkExchangeViewStatus();
 
       // 캐시 강제 무효화 및 UI 업데이트
       ref.read(stateResetProvider.notifier).resetExchangeStates(
@@ -304,6 +310,9 @@ class ExchangeExecutor {
     // 교체된 셀 상태 업데이트
     _updateExchangedCells();
 
+    // 교체 뷰 활성화 여부 검사 (Level 2 초기화 전)
+    _checkExchangeViewStatus();
+
     // 캐시 강제 무효화 및 UI 업데이트
     ref.read(stateResetProvider.notifier).resetExchangeStates(
           reason: '다시 반복 - 선택 상태 초기화',
@@ -320,6 +329,27 @@ class ExchangeExecutor {
         duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  /// 교체 뷰 활성화 여부 검사 및 처리 (공통 메서드)
+  /// 각 교체 모드의 마지막 단계에서 호출되어 교체 뷰가 활성화되어 있으면 enableExchangeView 실행
+  void _checkExchangeViewStatus() {
+    // 교체 뷰가 활성화되어 있는지 검사
+    final isExchangeViewEnabled = ref.read(isExchangeViewEnabledProvider);
+    
+    if (isExchangeViewEnabled) {
+      AppLogger.exchangeDebug('[ExchangeExecutor] 교체 뷰가 활성화되어 있음 - _enableExchangeView() 실행');
+      
+      // 교체 뷰 활성화 콜백 호출
+      if (onEnableExchangeView != null) {
+        onEnableExchangeView!();
+        AppLogger.exchangeDebug('[ExchangeExecutor] _enableExchangeView() 실행 완료');
+      } else {
+        AppLogger.exchangeDebug('[ExchangeExecutor] 교체 뷰 활성화 콜백이 설정되지 않음');
+      }
+    } else {
+      AppLogger.exchangeDebug('[ExchangeExecutor] 교체 뷰가 비활성화되어 있음 - 교체는 리스트에만 저장됨');
+    }
   }
 
   /// 교체된 셀 상태 업데이트 (공통 메서드)
