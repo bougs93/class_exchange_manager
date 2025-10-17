@@ -614,4 +614,22 @@ class TimetableDataSource extends DataGridSource {
 
   /// 타겟 셀의 교시 반환 (보기 모드용)
   int? get targetPeriod => ref.read(cellSelectionProvider).targetPeriod;
+
+  /// 메모리 정리 메서드 (dispose)
+  @override
+  void dispose() {
+    // 캐시 정리
+    _localCache.clear();
+    
+    // 리스트 정리
+    _timeSlots.clear();
+    _teachers.clear();
+    _dataGridRows.clear();
+    _exchangeOptions.clear();
+    
+    // 관리자 정리
+    _nonExchangeableManager.resetAllNonExchangeableSettings();
+    
+    super.dispose();
+  }
 }

@@ -9,6 +9,7 @@ import '../models/one_to_one_exchange_path.dart';
 import '../models/supplement_exchange_path.dart';
 import '../models/exchange_mode.dart';
 import '../utils/timetable_data_source.dart';
+import '../utils/logger.dart';
 
 /// ExchangeScreen 상태 클래스
 class ExchangeScreenState {
@@ -140,6 +141,13 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
   }
 
   void setDataSource(TimetableDataSource? dataSource) {
+    // 이전 dataSource 정리 (메모리 누수 방지)
+    final previousDataSource = state.dataSource;
+    if (previousDataSource != null) {
+      AppLogger.exchangeDebug('🧹 [ExchangeScreenProvider] 이전 TimetableDataSource 정리');
+      previousDataSource.dispose();
+    }
+    
     state = state.copyWith(dataSource: () => dataSource);
   }
 

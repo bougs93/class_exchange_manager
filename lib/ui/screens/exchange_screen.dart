@@ -74,6 +74,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   // Proxy 및 Manager (Composition)
   late final ExchangeScreenStateProxy _stateProxy;
   late final ExchangeOperationManager _operationManager;
+  
+  // 마지막 처리된 fileLoadId 추적 (무한 루프 방지)
+  int _lastProcessedFileLoadId = 0;
 
   // Mixin에서 요구하는 getter들 - Service는 Provider에서, 나머지는 Proxy 사용
   @override
@@ -369,8 +372,17 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
   @override
   void dispose() {
+    // 컨트롤러 정리
     _searchController.dispose();
     _progressAnimationController?.dispose();
+    
+    // 상태 관리자 정리 (필요한 경우)
+    // _pathSelectionManager와 _filterStateManager는 일반적으로 자동 정리됨
+    
+    // 마지막 처리된 fileLoadId 초기화
+    _lastProcessedFileLoadId = 0;
+    
+    AppLogger.exchangeDebug('🧹 [ExchangeScreen] 메모리 정리 완료');
     super.dispose();
   }
 
@@ -383,10 +395,12 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       screenState.dataSource?.setNonExchangeableEditMode(screenState.currentMode == ExchangeMode.nonExchangeableEdit);
       
-      // 글로벌 시간표 데이터가 있고 로컬 그리드가 생성되지 않았거나 구조적 변경이 필요한 경우에만 그리드 생성
+      // 새로운 파일이 로드되었을 때만 그리드 생성 (무한 루프 방지)
       if (screenState.timetableData != null && 
-          (screenState.dataSource == null || screenState.columns.isEmpty)) {
+          screenState.fileLoadId != _lastProcessedFileLoadId) {
+        AppLogger.exchangeDebug('🔄 [ExchangeScreen] 새로운 파일 로드 감지 (fileLoadId: ${screenState.fileLoadId}) - 그리드 생성');
         _createSyncfusionGridData();
+        _lastProcessedFileLoadId = screenState.fileLoadId;
       }
     });
 
@@ -441,12 +455,17 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   
   /// Syncfusion DataGrid 컬럼 및 헤더 생성
   void _createSyncfusionGridData() {
+    AppLogger.exchangeDebug('🔄 [ExchangeScreen] _createSyncfusionGridData() 호출됨');
+    
     // 글로벌 Provider에서 시간표 데이터 확인 (HomeScreen에서 설정한 데이터)
     final globalTimetableData = ref.read(exchangeScreenProvider).timetableData;
     
     if (globalTimetableData == null) {
+      AppLogger.exchangeDebug('❌ [ExchangeScreen] globalTimetableData가 null입니다');
       return;
     }
+    
+    AppLogger.exchangeDebug('✅ [ExchangeScreen] globalTimetableData 확인됨: ${globalTimetableData.teachers.length}명 교사, ${globalTimetableData.timeSlots.length}개 시간표');
     
     // ExchangeService를 사용하여 교체 가능한 교사 정보 수집 (현재 선택된 교사가 있는 경우에만)
     List<Map<String, dynamic>> exchangeableTeachers = [];
@@ -521,9 +540,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       notifier.setStackedHeaders(result.stackedHeaders);
     }
     
-    // 데이터 소스 생성 및 Provider에 설정 (변경이 필요한 경우에만)
-    if (currentState.dataSource == null || 
-        currentState.dataSource!.timeSlots != globalTimetableData.timeSlots) {
+    // 엑셀 파일 로드 시마다 무조건 새로운 데이터소스 생성
+    AppLogger.exchangeDebug('🔄 [ExchangeScreen] 새로운 TimetableDataSource 생성');
       
       final dataSource = TimetableDataSource(
         timeSlots: globalTimetableData.timeSlots,
@@ -534,21 +552,11 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       // 교체불가 편집 모드 상태를 TimetableDataSource에 전달
       dataSource.setNonExchangeableEditMode(ref.read(exchangeScreenProvider).currentMode == ExchangeMode.nonExchangeableEdit);
       
-      // Provider에 데이터 소스 설정
-      notifier.setDataSource(dataSource);
-    } else {
-      // 기존 데이터 소스의 교체불가 편집 모드 상태만 업데이트 (재렌더링 방지)
-      currentState.dataSource?.setNonExchangeableEditMode(ref.read(exchangeScreenProvider).currentMode == ExchangeMode.nonExchangeableEdit);
-      
-      // 기존 데이터 소스의 선택 상태만 업데이트 (재렌더링 방지)
-      if (exchangeService.hasSelectedCell()) {
-        currentState.dataSource?.updateSelection(
-          exchangeService.selectedTeacher,
-          exchangeService.selectedDay,
-          exchangeService.selectedPeriod,
-        );
-      }
-    }
+    // Provider에 데이터 소스 설정
+    notifier.setDataSource(dataSource);
+    AppLogger.exchangeDebug('✅ [ExchangeScreen] 새로운 TimetableDataSource 생성 및 설정 완료');
+    
+    AppLogger.exchangeDebug('🎉 [ExchangeScreen] _createSyncfusionGridData() 완료 - 컬럼: ${result.columns.length}개, 헤더: ${result.stackedHeaders.length}개');
   }
   
   /// 셀 탭 이벤트 핸들러 - 교체 모드가 활성화된 경우만 동작

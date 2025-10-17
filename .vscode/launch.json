@@ -7,19 +7,31 @@
         {
             "name": "class_exchange_manager",
             "request": "launch",
-            "type": "dart"
+            "type": "dart",
+            "program": "lib/main.dart",
+            "args": [],
+            "console": "debugConsole",
+            "cwd": "${workspaceFolder}"
         },
         {
             "name": "class_exchange_manager (profile mode)",
             "request": "launch",
             "type": "dart",
-            "flutterMode": "profile"
+            "program": "lib/main.dart",
+            "flutterMode": "profile",
+            "args": [],
+            "console": "debugConsole",
+            "cwd": "${workspaceFolder}"
         },
         {
             "name": "class_exchange_manager (release mode)",
             "request": "launch",
             "type": "dart",
-            "flutterMode": "release"
+            "program": "lib/main.dart",
+            "flutterMode": "release",
+            "args": [],
+            "console": "debugConsole",
+            "cwd": "${workspaceFolder}"
         }
     ]
 }
