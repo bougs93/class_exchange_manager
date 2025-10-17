@@ -175,8 +175,12 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   double? _rightClickScrollStartH;
   double? _rightClickScrollStartV;
   
-  // 헬퍼 클래스들
-  late ExchangeExecutor _exchangeExecutor;
+  // 헬퍼 클래스들 (매번 생성하도록 변경)
+  ExchangeExecutor get _exchangeExecutor => ExchangeExecutor(
+    ref: ref,
+    dataSource: widget.dataSource,
+    onEnableExchangeView: _enableExchangeView,
+  );
 
   // 싱글톤 화살표 매니저
   final WidgetArrowsManager _arrowsManager = WidgetArrowsManager();
@@ -219,13 +223,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     // 스크롤 리스너 추가
     _horizontalScrollController.addListener(_onScrollChanged);
     _verticalScrollController.addListener(_onScrollChanged);
-
-    // ExchangeExecutor 초기화
-    _exchangeExecutor = ExchangeExecutor(
-      ref: ref,
-      dataSource: widget.dataSource,
-      onEnableExchangeView: _enableExchangeView, // 교체 뷰 활성화 콜백 전달
-    );
 
     // 화살표 매니저 초기화
     _initializeArrowsManager();
@@ -1095,23 +1092,24 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     }
   }
 
-
-
-
-
-
   /// 교체 뷰 활성화 (Riverpod 기반)
   void _enableExchangeView() {
+    AppLogger.exchangeDebug('[TimetableGridSection] _enableExchangeView() 호출됨');
+    
     if (widget.timetableData == null || widget.dataSource == null) {
-      AppLogger.exchangeDebug('교체 뷰 활성화 실패: 필수 데이터가 null입니다');
+      AppLogger.exchangeDebug('[TimetableGridSection] 교체 뷰 활성화 실패: 필수 데이터가 null입니다');
       return;
     }
 
+    AppLogger.exchangeDebug('[TimetableGridSection] ExchangeViewProvider.enableExchangeView() 호출 시작');
+    
     ref.read(exchangeViewProvider.notifier).enableExchangeView(
       timeSlots: widget.dataSource!.timeSlots,
       teachers: widget.timetableData!.teachers,
       dataSource: widget.dataSource!,
     );
+    
+    AppLogger.exchangeDebug('[TimetableGridSection] ExchangeViewProvider.enableExchangeView() 호출 완료');
   }
 
   /// 교체 뷰 비활성화 (Riverpod 기반)
