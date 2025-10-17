@@ -86,9 +86,9 @@ mixin PathSelectionHandlerMixin<T extends StatefulWidget> on State<T> {
 
     if (path != null) {
       AppLogger.exchangeDebug('1:1교체 경로 선택: ${path.id}');
-      // setTargetCellFromPath(path);
-      // updateHeaderTheme();  // [wg-debug] 스크롤 초기화 발생.
-      {}  // pass
+      // 1:1 교체에서도 타겟 셀 설정하여 시각적으로 표현
+      setTargetCellFromPath(path);
+      updateHeaderTheme();
     } else {
       AppLogger.exchangeDebug('1:1교체 경로 선택 해제');
       clearTargetCell();
