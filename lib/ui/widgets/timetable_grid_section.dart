@@ -320,8 +320,11 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     
     // Level 3 초기화 시 교체 뷰 체크박스도 초기 상태로 되돌리기
     if (resetState.lastResetLevel == ResetLevel.allStates && ref.watch(isExchangeViewEnabledProvider)) {
-      ref.read(exchangeViewProvider.notifier).reset();
-      AppLogger.exchangeDebug('[StateResetProvider 감지] 교체 뷰 체크박스 초기화 완료 (Level 3)');
+      // 위젯 트리 빌드 완료 후 실행하도록 Future로 감싸기
+      Future(() {
+        ref.read(exchangeViewProvider.notifier).reset();
+        AppLogger.exchangeDebug('[StateResetProvider 감지] 교체 뷰 체크박스 초기화 완료 (Level 3)');
+      });
     }
 
     return Card(
