@@ -44,9 +44,15 @@ dependencies:
   table_calendar: ^3.0.9
   syncfusion_flutter_datagrid: ^31.1.23
   widget_arrows: ^0.6.0
+  calendar_date_picker2: ^2.0.1
 
   # 문서 생성
   pdf: ^3.10.7
+  
+  # 국제화
+  intl: ^0.20.2
+  flutter_localizations:
+    sdk: flutter
 
   # 로깅
   logger: ^2.0.2+1
