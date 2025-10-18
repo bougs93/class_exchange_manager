@@ -19,7 +19,8 @@
       "Bash(find:*)",
       "Bash(flutter run:*)",
       "Bash(git log:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(xargs -I {} sh -c 'wc -l < \"\"\"\"{}\"\"\"\" | awk \"\"\"\"{if (\\$1 > 500) print \\$1, \\\"\"\"\"{}\\\"\"\"\"}\"\"\"\"')"
     ],
     "deny": [],
     "ask": []

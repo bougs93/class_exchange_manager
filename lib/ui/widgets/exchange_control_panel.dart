@@ -87,7 +87,7 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel>
       elevation: 2,
       margin: EdgeInsets.zero, // Card의 기본 마진 제거
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 0.0), // 하단 패딩 제거
+        padding: const EdgeInsets.fromLTRB(0.0, 0.0, 0.0, 0.0), // 하단 패딩 제거
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -188,7 +188,7 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel>
         widget.onModeChanged(visibleModes[index]);
       },
       tabs: visibleModes.map((mode) => Tab(
-        icon: Icon(mode.icon, size: 18),
+        icon: Icon(mode.icon, size: 20),
         text: mode.displayName,
       )).toList(),
       labelColor: Colors.white,

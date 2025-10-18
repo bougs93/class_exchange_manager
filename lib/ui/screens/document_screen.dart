@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../models/document_type.dart';
 import 'document_screen/widgets/substitution_plan_grid.dart';
 
 /// 문서 출력 화면
@@ -17,13 +18,33 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(
+      length: DocumentType.values.length,
+      vsync: this,
+      animationDuration: Duration.zero,
+    );
+    
+    // 탭 변경 시 색상 업데이트를 위한 리스너 추가
+    _tabController.addListener(() {
+      if (mounted) {
+        setState(() {});
+      }
+    });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  /// 현재 선택된 탭의 색상 가져오기
+  Color get _currentTabColor {
+    final currentIndex = _tabController.index;
+    if (currentIndex >= 0 && currentIndex < DocumentType.values.length) {
+      return DocumentType.values[currentIndex].color;
+    }
+    return Colors.grey; // 기본 색상
   }
 
   @override
@@ -47,9 +68,13 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen>
                 children: [
                   TabBar(
                     controller: _tabController,
-                    indicatorColor: Colors.blue.shade600,
-                    indicatorWeight: 3,
-                    labelColor: Colors.blue.shade600,
+                    indicator: BoxDecoration(
+                      color: _currentTabColor,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    indicatorPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    labelColor: Colors.white,
                     unselectedLabelColor: Colors.grey.shade600,
                     labelStyle: const TextStyle(
                       fontSize: 14,
@@ -59,20 +84,10 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen>
                       fontSize: 14,
                       fontWeight: FontWeight.normal,
                     ),
-                    tabs: const [
-                      Tab(
-                        text: '결보강계획서',
-                        icon: Icon(Icons.description, size: 18),
-                      ),
-                      Tab(
-                        text: '학급안내',
-                        icon: Icon(Icons.class_, size: 18),
-                      ),
-                      Tab(
-                        text: '교사안내',
-                        icon: Icon(Icons.person, size: 18),
-                      ),
-                    ],
+                    tabs: DocumentType.values.map((type) => Tab(
+                      text: type.displayName,
+                      icon: Icon(type.icon, size: 18),
+                    )).toList(),
                   ),
                 ],
               ),
@@ -82,11 +97,7 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen>
           Expanded(
             child: TabBarView(
               controller: _tabController,
-              children: [
-                _buildSubstitutionPlanTab(),
-                _buildClassNoticeTab(),
-                _buildTeacherNoticeTab(),
-              ],
+              children: DocumentType.values.map((type) => _buildTabContent(type)).toList(),
             ),
           ),
         ],
@@ -94,30 +105,58 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen>
     );
   }
 
-  /// 결보강계획서 탭
-  Widget _buildSubstitutionPlanTab() {
-    return const SubstitutionPlanGrid();
+  /// 문서 타입에 따른 탭 컨텐츠 생성
+  Widget _buildTabContent(DocumentType type) {
+    switch (type) {
+      case DocumentType.substitutionPlan:
+        return const SubstitutionPlanGrid();
+      case DocumentType.classNotice:
+        return _buildNoticeTab(
+          title: type.displayName,
+          description: '학급별 교체 안내문을 생성합니다.',
+          icon: Icons.class_outlined,
+          color: type.color,
+          featureTitle: '학급안내 기능',
+          featureDescription: '학급별 수업 교체 안내문 생성',
+        );
+      case DocumentType.teacherNotice:
+        return _buildNoticeTab(
+          title: type.displayName,
+          description: '교사별 교체 안내문을 생성합니다.',
+          icon: Icons.person_outline,
+          color: type.color,
+          featureTitle: '교사안내 기능',
+          featureDescription: '교사별 교체 안내문 및 QR코드 생성',
+        );
+    }
   }
 
-  /// 학급안내 탭
-  Widget _buildClassNoticeTab() {
+  /// 공통 안내 탭 UI 생성
+  Widget _buildNoticeTab({
+    required String title,
+    required String description,
+    required IconData icon,
+    required Color color,
+    required String featureTitle,
+    required String featureDescription,
+  }) {
     return Container(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '학급안내',
-            style: TextStyle(
+          Text(
+            title,
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: Colors.black87,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            '학급별 교체 안내문을 생성합니다.',
-            style: TextStyle(
+          Text(
+            description,
+            style: const TextStyle(
               fontSize: 14,
               color: Colors.grey,
             ),
@@ -129,81 +168,22 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.class_outlined,
+                    icon,
                     size: 64,
-                    color: Colors.green.shade300,
+                    color: color.withValues(alpha: 0.7),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    '학급안내 기능',
-                    style: TextStyle(
+                  Text(
+                    featureTitle,
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    '학급별 수업 교체 안내문 생성',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 교사안내 탭
-  Widget _buildTeacherNoticeTab() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '교사안내',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            '교사별 교체 안내문을 생성합니다.',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Expanded(
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.person_outline,
-                    size: 64,
-                    color: Colors.orange.shade300,
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    '교사안내 기능',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    '교사별 교체 안내문 및 QR코드 생성',
-                    style: TextStyle(
+                  Text(
+                    featureDescription,
+                    style: const TextStyle(
                       fontSize: 12,
                       color: Colors.grey,
                     ),

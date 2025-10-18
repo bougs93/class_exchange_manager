@@ -30,7 +30,7 @@ extension ExchangeModeExtension on ExchangeMode {
       case ExchangeMode.view:
         return '보기';
       case ExchangeMode.nonExchangeableEdit:
-        return '교체불가 편집';
+        return '교체불가';
       case ExchangeMode.oneToOneExchange:
         return '1:1교체';
       case ExchangeMode.circularExchange:

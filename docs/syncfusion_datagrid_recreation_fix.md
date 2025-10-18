@@ -1,5 +1,9 @@
 # Syncfusion DataGrid 재생성 문제 해결 문서
 
+> **상태**: ✅ 해결 완료 (2025-10-15)
+> **핵심 해결책**: GlobalKey 사용으로 DataGrid 재생성 방지
+> **관련 커밋**: 12bd1bf (fix: GlobalKey로 설정.스크롤 문제 해결됨)
+
 ## 📋 문제 상황
 
 ### 발생한 문제

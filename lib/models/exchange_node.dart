@@ -5,6 +5,7 @@ import '../models/time_slot.dart';
 class ExchangeNode {
   final String teacherName;  // 교사명
   final String day;           // 요일 (월, 화, 수, 목, 금)
+  final String? date;         // 날짜 (YYYY-MM-DD) - nullable로 변경
   final int period;           // 교시 (1-7)
   final String className;     // 학급명 (1-1, 2-3 등)
   final String subjectName;   // 과목명 (수학, 국어 등)
@@ -14,16 +15,18 @@ class ExchangeNode {
     required this.day,
     required this.period,
     required this.className,
+    this.date,  // nullable이므로 선택적 매개변수로 변경
     this.subjectName = '과목명 없음',  // 더 명확한 기본값으로 변경
   });
 
   /// TimeSlot에서 ExchangeNode 생성
-  factory ExchangeNode.fromTimeSlot(TimeSlot timeSlot, String day) {
+  factory ExchangeNode.fromTimeSlot(TimeSlot timeSlot, String day, {String? date}) {
     return ExchangeNode(
       teacherName: timeSlot.teacher ?? '',
       day: day,
       period: timeSlot.period ?? 0,
       className: timeSlot.className ?? '',
+      date: date,  // 선택적으로 날짜 전달 가능
       subjectName: timeSlot.subject ?? '과목명 없음', // 더 명확한 기본값으로 변경
     );
   }
@@ -43,7 +46,8 @@ class ExchangeNode {
         other.day == day &&
         other.period == period &&
         other.className == className &&
-        other.subjectName == subjectName;
+        other.subjectName == subjectName &&
+        other.date == date;  // date 필드도 비교에 포함
   }
 
   /// 해시코드 생성
@@ -59,13 +63,14 @@ class ExchangeNode {
         day.hashCode ^
         period.hashCode ^
         className.hashCode ^
-        subjectName.hashCode;
+        subjectName.hashCode ^
+        (date?.hashCode ?? 0);  // date가 null일 경우 0을 사용
   }
 
   /// 문자열 표현
   @override
   String toString() {
-    return 'ExchangeNode(teacher: $teacherName, day: $day, period: $period, class: $className, subject: $subjectName)';
+    return 'ExchangeNode(teacher: $teacherName, day: $day, date: $date, period: $period, class: $className, subject: $subjectName)';
   }
 
 }

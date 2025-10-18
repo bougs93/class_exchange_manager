@@ -34,21 +34,15 @@ class ExchangeScreenStateProxy {
   bool get isChainExchangeModeEnabled => _state.currentMode == ExchangeMode.chainExchange;
   bool get isNonExchangeableEditMode => _state.currentMode == ExchangeMode.nonExchangeableEdit;
 
-  // 편의 setter들 (기존 코드와의 호환성을 위해 추가)
-  void setExchangeModeEnabled(bool enabled) {
-    _notifier.setCurrentMode(enabled ? ExchangeMode.oneToOneExchange : ExchangeMode.view);
-  }
+  // 편의 setter들 (기존 코드와의 호환성을 위해 유지)
+  void setExchangeModeEnabled(bool enabled) => _setModeEnabled(ExchangeMode.oneToOneExchange, enabled);
+  void setCircularExchangeModeEnabled(bool enabled) => _setModeEnabled(ExchangeMode.circularExchange, enabled);
+  void setChainExchangeModeEnabled(bool enabled) => _setModeEnabled(ExchangeMode.chainExchange, enabled);
+  void setNonExchangeableEditMode(bool enabled) => _setModeEnabled(ExchangeMode.nonExchangeableEdit, enabled);
 
-  void setCircularExchangeModeEnabled(bool enabled) {
-    _notifier.setCurrentMode(enabled ? ExchangeMode.circularExchange : ExchangeMode.view);
-  }
-
-  void setChainExchangeModeEnabled(bool enabled) {
-    _notifier.setCurrentMode(enabled ? ExchangeMode.chainExchange : ExchangeMode.view);
-  }
-
-  void setNonExchangeableEditMode(bool enabled) {
-    _notifier.setCurrentMode(enabled ? ExchangeMode.nonExchangeableEdit : ExchangeMode.view);
+  /// 내부 헬퍼: 모드 활성화/비활성화 공통 로직
+  void _setModeEnabled(ExchangeMode mode, bool enabled) {
+    _notifier.setCurrentMode(enabled ? mode : ExchangeMode.view);
   }
 
   // ===== ExchangeFileHandler 관련 상태 =====
