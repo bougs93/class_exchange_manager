@@ -147,7 +147,9 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
     
     // 교체 히스토리가 있는 경우에만 데이터 로드
     if (exchangeList.isNotEmpty) {
-      _planData = exchangeList.map((item) {
+      _planData = [];
+      
+      for (final item in exchangeList) {
         final nodes = item.originalPath.nodes;
         
         // 디버그: 각 교체 항목의 노드 정보 출력
@@ -157,43 +159,81 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
           AppLogger.exchangeDebug('노드 $i: ${node.day}|${node.period}|${node.className}|${node.teacherName}|${node.subjectName}');
         }
         
-        // 1:1 교체의 경우: [sourceNode, targetNode] 순서
-        // sourceNode: 결강할 셀 (원본) - 월요일 6교시 문유란 국어
-        // targetNode: 교체할 셀 (대상) - 화요일 3교시 정영훈 국어B
-        final sourceNode = nodes.isNotEmpty ? nodes.first : null;
-        final targetNode = nodes.length > 1 ? nodes[1] : null;
-        
-        final planData = SubstitutionPlanData(
-          // 결강 정보 (sourceNode) - 월요일 6교시 문유란 국어
-          absenceDate: '선택', // 날짜는 사용자가 선택할 수 있도록
-          absenceDay: sourceNode?.day ?? '',
-          period: sourceNode?.period.toString() ?? '',
-          grade: _extractGradeFromClassName(sourceNode?.className ?? ''),
-          className: sourceNode?.className ?? '',
-          subject: sourceNode?.subjectName ?? '',
-          teacher: sourceNode?.teacherName ?? '',
+        // 순환교체의 경우: 각 교체 쌍을 별도 행으로 표시
+        if (nodes.length >= 3) {
+          // 순환교체: [A, B, C, A] 형태에서 A→B, B→C 교체 쌍 생성 (마지막 A는 제외)
+          for (int i = 0; i < nodes.length - 2; i++) {
+            final sourceNode = nodes[i];
+            final targetNode = nodes[i + 1];
+            
+            final planData = SubstitutionPlanData(
+              // 결강 정보 (sourceNode)
+              absenceDate: '선택',
+              absenceDay: sourceNode.day,
+              period: sourceNode.period.toString(),
+              grade: _extractGradeFromClassName(sourceNode.className),
+              className: sourceNode.className,
+              subject: sourceNode.subjectName,
+              teacher: sourceNode.teacherName,
+              
+              // 보강/수업변경 정보 - 비워둠 (사용자 입력용)
+              supplementSubject: '',
+              supplementTeacher: '',
+              
+              // 교체 정보 (targetNode)
+              substitutionDate: '선택',
+              substitutionDay: targetNode.day,
+              substitutionPeriod: targetNode.period.toString(),
+              substitutionSubject: targetNode.subjectName,
+              substitutionTeacher: targetNode.teacherName,
+              
+              remarks: item.notes ?? '',
+            );
+            
+            _planData.add(planData);
+            
+            // 디버그: 생성된 계획 데이터 출력
+            AppLogger.exchangeDebug('순환교체 쌍 ${i + 1}:');
+            AppLogger.exchangeDebug('  결강: ${planData.absenceDay}|${planData.period}|${planData.grade}|${planData.className}|${planData.subject}|${planData.teacher}');
+            AppLogger.exchangeDebug('  교체: ${planData.substitutionDay}|${planData.substitutionPeriod}|${planData.substitutionSubject}|${planData.substitutionTeacher}');
+          }
+        } else {
+          // 1:1 교체의 경우: [sourceNode, targetNode] 순서
+          final sourceNode = nodes.isNotEmpty ? nodes.first : null;
+          final targetNode = nodes.length > 1 ? nodes[1] : null;
           
-          // 보강/수업변경 정보 - 비워둠 (사용자 입력용)
-          supplementSubject: '', // 보강 과목은 비워둠 (사용자 입력)
-          supplementTeacher: '', // 보강 교사는 비워둠 (사용자 입력)
+          final planData = SubstitutionPlanData(
+            // 결강 정보 (sourceNode)
+            absenceDate: '선택',
+            absenceDay: sourceNode?.day ?? '',
+            period: sourceNode?.period.toString() ?? '',
+            grade: _extractGradeFromClassName(sourceNode?.className ?? ''),
+            className: sourceNode?.className ?? '',
+            subject: sourceNode?.subjectName ?? '',
+            teacher: sourceNode?.teacherName ?? '',
+            
+            // 보강/수업변경 정보 - 비워둠 (사용자 입력용)
+            supplementSubject: '',
+            supplementTeacher: '',
+            
+            // 교체 정보 (targetNode)
+            substitutionDate: '선택',
+            substitutionDay: targetNode?.day ?? '',
+            substitutionPeriod: targetNode?.period.toString() ?? '',
+            substitutionSubject: targetNode?.subjectName ?? '',
+            substitutionTeacher: targetNode?.teacherName ?? '',
+            
+            remarks: item.notes ?? '',
+          );
           
-          // 교체 정보 (targetNode) - 화요일 3교시 정영훈 국어B
-          substitutionDate: '선택', // 날짜는 사용자가 선택할 수 있도록
-          substitutionDay: targetNode?.day ?? '',
-          substitutionPeriod: targetNode?.period.toString() ?? '',
-          substitutionSubject: targetNode?.subjectName ?? '',
-          substitutionTeacher: targetNode?.teacherName ?? '',
+          _planData.add(planData);
           
-          remarks: item.notes ?? '',
-        );
-        
-        // 디버그: 생성된 계획 데이터 출력
-        AppLogger.exchangeDebug('생성된 계획 데이터:');
-        AppLogger.exchangeDebug('  결강: ${planData.absenceDay}|${planData.period}|${planData.grade}|${planData.className}|${planData.subject}|${planData.teacher}');
-        AppLogger.exchangeDebug('  교체: ${planData.substitutionDay}|${planData.substitutionPeriod}|${planData.substitutionSubject}|${planData.substitutionTeacher}');
-        
-        return planData;
-      }).toList();
+          // 디버그: 생성된 계획 데이터 출력
+          AppLogger.exchangeDebug('1:1 교체:');
+          AppLogger.exchangeDebug('  결강: ${planData.absenceDay}|${planData.period}|${planData.grade}|${planData.className}|${planData.subject}|${planData.teacher}');
+          AppLogger.exchangeDebug('  교체: ${planData.substitutionDay}|${planData.substitutionPeriod}|${planData.substitutionSubject}|${planData.substitutionTeacher}');
+        }
+      }
     } else {
       // 교체 히스토리가 없는 경우 빈 리스트
       _planData = [];
