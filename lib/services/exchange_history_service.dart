@@ -290,7 +290,8 @@ class ExchangeHistoryService {
       } else if (path is CircularExchangePath) {
         return _formatNodes(path.nodes);
       } else if (path is ChainExchangePath) {
-        return _formatNodes([path.nodeA, path.nodeB, path.node1, path.node2]);
+        // 연쇄교체: 4개 노드 모두 출력 (node1, node2, nodeA, nodeB)
+        return _formatNodes([path.node1, path.node2, path.nodeA, path.nodeB]);
       } else if (path is SupplementExchangePath) {
         return _formatNodes([path.sourceNode, path.targetNode]);
       }
