@@ -120,6 +120,10 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
   late SubstitutionPlanDataSource _dataSource;
   List<SubstitutionPlanData> _planData = [];
   
+  // 교체 히스토리 변경 감지용 (길이 + 내용 해시)
+  int _lastExchangeListLength = 0;
+  String _lastExchangeListHash = '';
+  
   // 요일 제한 설정 (true인 요일만 선택 가능)
   final Map<int, bool> _allowedWeekdays = {
     1: true,  // 월요일
@@ -141,6 +145,26 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
   void _loadPlanData() {
     final historyService = ref.read(exchangeHistoryServiceProvider);
     final exchangeList = historyService.getExchangeList();
+    
+    // 교체 히스토리 변경 감지 (길이 + 내용 해시)
+    final currentLength = exchangeList.length;
+    final currentHash = _generateExchangeListHash(exchangeList);
+    
+    final lengthChanged = _lastExchangeListLength != currentLength;
+    final contentChanged = _lastExchangeListHash != currentHash;
+    
+    if (lengthChanged || contentChanged) {
+      AppLogger.exchangeDebug('교체 히스토리 변경 감지:');
+      if (lengthChanged) {
+        AppLogger.exchangeDebug('  길이 변경: ${_lastExchangeListLength} → ${currentLength}');
+      }
+      if (contentChanged) {
+        AppLogger.exchangeDebug('  내용 변경: 해시 ${_formatHashForDisplay(_lastExchangeListHash)} → ${_formatHashForDisplay(currentHash)}');
+      }
+      
+      _lastExchangeListLength = currentLength;
+      _lastExchangeListHash = currentHash;
+    }
     
     // 디버그: 교체 히스토리 개수 출력
     AppLogger.exchangeDebug('교체 히스토리 개수: ${exchangeList.length}');
@@ -215,6 +239,35 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
     // 학급명에서 학년 추출 (예: "1-1" -> "1", "1학년 3반" -> "1")
     final gradeMatch = RegExp(r'(\d+)[-학년]').firstMatch(className);
     return gradeMatch?.group(1) ?? '';
+  }
+
+  /// 교체 리스트의 내용을 해시값으로 변환 (변경 감지용)
+  String _generateExchangeListHash(List<dynamic> exchangeList) {
+    // 각 교체 항목의 핵심 정보를 문자열로 변환하여 해시 생성
+    final contentStrings = exchangeList.map((item) {
+      // ExchangeHistoryItem의 핵심 정보 추출
+      final path = item.originalPath;
+      final nodes = path.nodes;
+      
+      // 노드 정보를 문자열로 변환
+      final nodeStrings = nodes.map((node) {
+        return '${node.day}|${node.period}|${node.className}|${node.teacherName}|${node.subjectName}';
+      }).join(';');
+      
+      // 교체 타입, 타임스탬프, 메모 등 포함
+      return '${path.runtimeType}|${item.timestamp}|${item.notes ?? ''}|$nodeStrings';
+    }).toList();
+    
+    // 모든 내용을 하나의 문자열로 합쳐서 해시 생성
+    final combinedContent = contentStrings.join('||');
+    return combinedContent.hashCode.toString();
+  }
+
+  /// 해시값을 안전하게 표시용 문자열로 변환
+  String _formatHashForDisplay(String hash) {
+    if (hash.isEmpty) return '(빈값)';
+    if (hash.length <= 8) return hash;
+    return '${hash.substring(0, 8)}...';
   }
 
   /// 날짜 포맷팅 (월.일 형태)
@@ -359,6 +412,26 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
 
   @override
   Widget build(BuildContext context) {
+    // 교체 히스토리 변경 감지 - 교체 실행 시 자동 새로고침 (길이 + 내용 해시)
+    final historyService = ref.watch(exchangeHistoryServiceProvider);
+    final exchangeList = historyService.getExchangeList();
+    final currentLength = exchangeList.length;
+    final currentHash = _generateExchangeListHash(exchangeList);
+    
+    // 교체 리스트가 변경되었을 때 자동 새로고침 (길이 또는 내용 변경)
+    if (_lastExchangeListLength != currentLength || _lastExchangeListHash != currentHash) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        AppLogger.exchangeDebug('교체 히스토리 변경 감지 - 자동 새로고침 실행');
+        if (_lastExchangeListLength != currentLength) {
+          AppLogger.exchangeDebug('  길이 변경: ${_lastExchangeListLength} → ${currentLength}');
+        }
+        if (_lastExchangeListHash != currentHash) {
+          AppLogger.exchangeDebug('  내용 변경: 해시 ${_formatHashForDisplay(_lastExchangeListHash)} → ${_formatHashForDisplay(currentHash)}');
+        }
+        _loadPlanData();
+      });
+    }
+
     return SingleChildScrollView(
       child: Container(
         padding: const EdgeInsets.all(16),
