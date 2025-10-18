@@ -203,8 +203,13 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
     // 디버그: 최종 데이터 개수 출력
     AppLogger.exchangeDebug('최종 _planData 개수: ${_planData.length}');
     
-    // 데이터 소스는 항상 초기화 (빈 데이터여도 안정적으로 작동)
-    _dataSource = SubstitutionPlanDataSource(_planData, onDateCellTap: _showDatePicker);
+    // UI 업데이트를 위해 setState 호출
+    if (mounted) {
+      setState(() {
+        // 데이터 소스는 항상 초기화 (빈 데이터여도 안정적으로 작동)
+        _dataSource = SubstitutionPlanDataSource(_planData, onDateCellTap: _showDatePicker);
+      });
+    }
     
     // 디버그: 데이터 소스 행 개수 출력
     AppLogger.exchangeDebug('데이터 소스 행 개수: ${_dataSource.rows.length}');
