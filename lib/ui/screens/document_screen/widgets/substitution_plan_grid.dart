@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:calendar_date_picker2/calendar_date_picker2.dart';
 import '../../../../providers/services_provider.dart';
-import '../../../../models/exchange_history_item.dart';
+import '../../../../utils/logger.dart';
 
 /// 여백 및 스타일 상수
 class _Spacing {
@@ -142,29 +142,79 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
     final historyService = ref.read(exchangeHistoryServiceProvider);
     final exchangeList = historyService.getExchangeList();
     
-    // 실제 교체 히스토리 데이터만 로드 (빈 행 제거)
-    _planData = exchangeList.map((item) {
-      return SubstitutionPlanData(
-        absenceDate: _formatDate(item.timestamp),
-        absenceDay: _extractDay(item),
-        period: _extractPeriod(item),
-        grade: _extractGrade(item),
-        className: _extractClassName(item),
-        subject: _extractSubject(item),
-         teacher: _extractTeacherName(item), // 결강 교사
-         supplementSubject: _extractSubject(item), // 보강 과목은 동일
-         supplementTeacher: _extractSubstitutionTeacher(item), // 보강 교사 성명
-        substitutionDate: _formatDate(item.timestamp),
-        substitutionDay: _extractDay(item),
-        substitutionPeriod: _extractPeriod(item),
-        substitutionSubject: _extractSubject(item),
-        substitutionTeacher: _extractSubstitutionTeacher(item),
-        remarks: item.notes ?? '',
-      );
-    }).toList();
+    // 디버그: 교체 히스토리 개수 출력
+    AppLogger.exchangeDebug('교체 히스토리 개수: ${exchangeList.length}');
+    
+    // 교체 히스토리가 있는 경우에만 데이터 로드
+    if (exchangeList.isNotEmpty) {
+      _planData = exchangeList.map((item) {
+        final nodes = item.originalPath.nodes;
+        
+        // 디버그: 각 교체 항목의 노드 정보 출력
+        AppLogger.exchangeDebug('교체 항목 - 노드 개수: ${nodes.length}');
+        for (int i = 0; i < nodes.length; i++) {
+          final node = nodes[i];
+          AppLogger.exchangeDebug('노드 $i: ${node.day}|${node.period}|${node.className}|${node.teacherName}|${node.subjectName}');
+        }
+        
+        // 1:1 교체의 경우: [sourceNode, targetNode] 순서
+        // sourceNode: 결강할 셀 (원본) - 월요일 6교시 문유란 국어
+        // targetNode: 교체할 셀 (대상) - 화요일 3교시 정영훈 국어B
+        final sourceNode = nodes.isNotEmpty ? nodes.first : null;
+        final targetNode = nodes.length > 1 ? nodes[1] : null;
+        
+        final planData = SubstitutionPlanData(
+          // 결강 정보 (sourceNode) - 월요일 6교시 문유란 국어
+          absenceDate: '선택', // 날짜는 사용자가 선택할 수 있도록
+          absenceDay: sourceNode?.day ?? '',
+          period: sourceNode?.period.toString() ?? '',
+          grade: _extractGradeFromClassName(sourceNode?.className ?? ''),
+          className: sourceNode?.className ?? '',
+          subject: sourceNode?.subjectName ?? '',
+          teacher: sourceNode?.teacherName ?? '',
+          
+          // 보강/수업변경 정보 - 비워둠 (사용자 입력용)
+          supplementSubject: '', // 보강 과목은 비워둠 (사용자 입력)
+          supplementTeacher: '', // 보강 교사는 비워둠 (사용자 입력)
+          
+          // 교체 정보 (targetNode) - 화요일 3교시 정영훈 국어B
+          substitutionDate: '선택', // 날짜는 사용자가 선택할 수 있도록
+          substitutionDay: targetNode?.day ?? '',
+          substitutionPeriod: targetNode?.period.toString() ?? '',
+          substitutionSubject: targetNode?.subjectName ?? '',
+          substitutionTeacher: targetNode?.teacherName ?? '',
+          
+          remarks: item.notes ?? '',
+        );
+        
+        // 디버그: 생성된 계획 데이터 출력
+        AppLogger.exchangeDebug('생성된 계획 데이터:');
+        AppLogger.exchangeDebug('  결강: ${planData.absenceDay}|${planData.period}|${planData.grade}|${planData.className}|${planData.subject}|${planData.teacher}');
+        AppLogger.exchangeDebug('  교체: ${planData.substitutionDay}|${planData.substitutionPeriod}|${planData.substitutionSubject}|${planData.substitutionTeacher}');
+        
+        return planData;
+      }).toList();
+    } else {
+      // 교체 히스토리가 없는 경우 빈 리스트
+      _planData = [];
+      AppLogger.exchangeDebug('교체 히스토리가 없어서 빈 리스트로 설정');
+    }
 
+    // 디버그: 최종 데이터 개수 출력
+    AppLogger.exchangeDebug('최종 _planData 개수: ${_planData.length}');
+    
     // 데이터 소스는 항상 초기화 (빈 데이터여도 안정적으로 작동)
     _dataSource = SubstitutionPlanDataSource(_planData, onDateCellTap: _showDatePicker);
+    
+    // 디버그: 데이터 소스 행 개수 출력
+    AppLogger.exchangeDebug('데이터 소스 행 개수: ${_dataSource.rows.length}');
+  }
+
+  /// 학급명에서 학년 추출
+  String _extractGradeFromClassName(String className) {
+    // 학급명에서 학년 추출 (예: "1-1" -> "1", "1학년 3반" -> "1")
+    final gradeMatch = RegExp(r'(\d+)[-학년]').firstMatch(className);
+    return gradeMatch?.group(1) ?? '';
   }
 
   /// 날짜 포맷팅 (월.일 형태)
@@ -172,73 +222,6 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
     return '${date.month}.${date.day}';
   }
 
-  /// 요일 추출
-  String _extractDay(ExchangeHistoryItem item) {
-    final nodes = item.originalPath.nodes;
-    if (nodes.isNotEmpty) {
-      return nodes.first.day;
-    }
-    return '';
-  }
-
-  /// 교시 추출
-  String _extractPeriod(ExchangeHistoryItem item) {
-    // ExchangeHistoryItem에서 교시 정보 추출
-    final nodes = item.originalPath.nodes;
-    if (nodes.isNotEmpty) {
-      return nodes.first.period.toString();
-    }
-    return '';
-  }
-
-  /// 학년 추출
-  String _extractGrade(ExchangeHistoryItem item) {
-    // ExchangeHistoryItem에서 학년 정보 추출
-    final nodes = item.originalPath.nodes;
-    if (nodes.isNotEmpty) {
-      // 학급명에서 학년 추출 (예: "1학년 3반" -> "1")
-      final className = nodes.first.className;
-      final gradeMatch = RegExp(r'(\d+)학년').firstMatch(className);
-      return gradeMatch?.group(1) ?? '';
-    }
-    return '';
-  }
-
-  /// 반 추출
-  String _extractClassName(ExchangeHistoryItem item) {
-    final nodes = item.originalPath.nodes;
-    if (nodes.isNotEmpty) {
-      return nodes.first.className;
-    }
-    return '';
-  }
-
-  /// 과목 추출
-  String _extractSubject(ExchangeHistoryItem item) {
-    final nodes = item.originalPath.nodes;
-    if (nodes.isNotEmpty) {
-      return nodes.first.subjectName;
-    }
-    return '';
-  }
-
-  /// 교사명 추출
-  String _extractTeacherName(ExchangeHistoryItem item) {
-    final nodes = item.originalPath.nodes;
-    if (nodes.isNotEmpty) {
-      return nodes.first.teacherName;
-    }
-    return '';
-  }
-
-  /// 교체 교사명 추출
-  String _extractSubstitutionTeacher(ExchangeHistoryItem item) {
-    final nodes = item.originalPath.nodes;
-    if (nodes.length > 1) {
-      return nodes[1].teacherName;
-    }
-    return '';
-  }
 
   /// 날짜 선택기 표시 (calendar_date_picker2 사용)
   Future<void> _showDatePicker(DataGridCell dataGridCell, DataGridRow row) async {
@@ -420,14 +403,14 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
               ),
             ),
             const SizedBox(height: _Spacing.mediumSpacing),
-            // 고정 높이로 설정하여 TabBarView 내에서 크기 문제 해결
+            // 헤더는 항상 표시하고, 데이터가 없을 때는 안내 메시지 오버레이 표시
             SizedBox(
               height: 500, // 고정 높이로 설정
               child: Stack(
                 children: [
                   // 헤더와 데이터 그리드는 항상 표시
                   SfDataGrid(
-                    source: _dataSource, // 항상 동일한 데이터 소스 사용
+                    source: _dataSource,
                     columns: _buildColumns(),
                     stackedHeaderRows: _buildStackedHeaders(),
                     allowColumnsResizing: true,
@@ -437,6 +420,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
                     selectionMode: SelectionMode.single,
                     headerRowHeight: 35, // 50에서 35로 줄임
                     rowHeight: 28, // 40에서 28로 줄임
+                    allowEditing: false, // 편집 비활성화
                   ),
                   // 데이터가 없을 때만 안내 메시지 오버레이 표시
                   if (_planData.isEmpty)
