@@ -225,38 +225,19 @@ class ZoomNotifier extends StateNotifier<ZoomState> {
 }
 
 /// 줌 상태 Provider
-/// 
+///
 /// 앱 전체에서 줌 상태를 공유하고 관리합니다.
+///
+/// **사용 예시:**
+/// ```dart
+/// // 전체 상태 구독
+/// final zoomState = ref.watch(zoomProvider);
+///
+/// // 특정 필드만 구독 (성능 최적화 - select 사용)
+/// final zoomFactor = ref.watch(zoomProvider.select((s) => s.zoomFactor));
+/// final canZoomIn = ref.watch(zoomProvider.select((s) => s.canZoomIn));
+/// final percentage = ref.watch(zoomProvider.select((s) => s.zoomPercentage));
+/// ```
 final zoomProvider = StateNotifierProvider<ZoomNotifier, ZoomState>((ref) {
   return ZoomNotifier();
-});
-
-/// 줌 팩터만을 반환하는 Provider (성능 최적화용)
-/// 
-/// 줌 팩터만 필요한 경우 사용하여 불필요한 리빌드를 방지합니다.
-final zoomFactorProvider = Provider<double>((ref) {
-  return ref.watch(zoomProvider).zoomFactor;
-});
-
-/// 줌 퍼센트만을 반환하는 Provider (성능 최적화용)
-/// 
-/// 줌 퍼센트만 필요한 경우 사용하여 불필요한 리빌드를 방지합니다.
-final zoomPercentageProvider = Provider<int>((ref) {
-  return ref.watch(zoomProvider).zoomPercentage;
-});
-
-/// 줌 가능 여부를 반환하는 Provider들 (성능 최적화용)
-final canZoomInProvider = Provider<bool>((ref) {
-  return ref.watch(zoomProvider).canZoomIn;
-});
-
-final canZoomOutProvider = Provider<bool>((ref) {
-  return ref.watch(zoomProvider).canZoomOut;
-});
-
-/// 줌 정보를 반환하는 Provider
-/// 
-/// 디버깅이나 상태 확인용으로 사용합니다.
-final zoomInfoProvider = Provider<Map<String, dynamic>>((ref) {
-  return ref.watch(zoomProvider.notifier).getZoomInfo();
 });

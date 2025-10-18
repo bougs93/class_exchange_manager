@@ -66,20 +66,20 @@ class ScrollNotifier extends StateNotifier<ScrollState> {
 }
 
 /// 스크롤 상태 Provider
-/// 시간표 그리드의 스크롤 오프셋과 상태를 관리
+///
+/// 시간표 그리드의 스크롤 오프셋과 상태를 관리합니다.
+///
+/// **사용 예시:**
+/// ```dart
+/// // 전체 상태 구독
+/// final scrollState = ref.watch(scrollProvider);
+///
+/// // 특정 필드만 구독 (성능 최적화 - select 사용)
+/// final hOffset = ref.watch(scrollProvider.select((s) => s.horizontalOffset));
+/// final vOffset = ref.watch(scrollProvider.select((s) => s.verticalOffset));
+/// final isScrolling = ref.watch(scrollProvider.select((s) => s.isScrolling));
+/// ```
 final scrollProvider = StateNotifierProvider<ScrollNotifier, ScrollState>((ref) {
   return ScrollNotifier();
-});
-
-/// 수평 오프셋만 반환하는 Provider
-/// 화살표 그리기 시 수평 오프셋만 필요한 경우 사용
-final horizontalOffsetProvider = Provider<double>((ref) {
-  return ref.watch(scrollProvider.select((state) => state.horizontalOffset));
-});
-
-/// 수직 오프셋만 반환하는 Provider
-/// 화살표 그리기 시 수직 오프셋만 필요한 경우 사용
-final verticalOffsetProvider = Provider<double>((ref) {
-  return ref.watch(scrollProvider.select((state) => state.verticalOffset));
 });
 

@@ -25,71 +25,6 @@ import 'timetable_grid/exchange_arrow_painter.dart';
 import 'timetable_grid/exchange_executor.dart';
 import 'timetable_grid/grid_header_widgets.dart';
 
-/// TimeSlots 백업 상태 관리
-class TimeSlotsBackupState {
-  final List<TimeSlot>? originalTimeSlots;
-  final bool isValid;
-  final int count;
-
-  const TimeSlotsBackupState({
-    this.originalTimeSlots,
-    this.isValid = false,
-    this.count = 0,
-  });
-
-  TimeSlotsBackupState copyWith({
-    List<TimeSlot>? originalTimeSlots,
-    bool? isValid,
-    int? count,
-  }) {
-    return TimeSlotsBackupState(
-      originalTimeSlots: originalTimeSlots ?? this.originalTimeSlots,
-      isValid: isValid ?? this.isValid,
-      count: count ?? this.count,
-    );
-  }
-}
-
-/// TimeSlots 백업 데이터 Notifier
-class TimeSlotsBackupNotifier extends StateNotifier<TimeSlotsBackupState> {
-  TimeSlotsBackupNotifier() : super(const TimeSlotsBackupState());
-
-  /// 백업 데이터 생성
-  void createBackup(List<TimeSlot> timeSlots) {
-    try {
-      final backupSlots = timeSlots.map((slot) => slot.copy()).toList();
-      state = TimeSlotsBackupState(
-        originalTimeSlots: backupSlots,
-        isValid: true,
-        count: backupSlots.length,
-      );
-      AppLogger.exchangeInfo('TimeSlots 백업 생성 완료: ${backupSlots.length}개');
-    } catch (e) {
-      AppLogger.exchangeDebug('TimeSlots 백업 생성 중 오류: $e');
-      state = const TimeSlotsBackupState();
-    }
-  }
-
-  /// 백업 데이터 복원
-  List<TimeSlot>? restoreBackup() {
-    if (state.isValid && state.originalTimeSlots != null) {
-      return state.originalTimeSlots!.map((slot) => slot.copy()).toList();
-    }
-    return null;
-  }
-
-  /// 백업 데이터 초기화
-  void clear() {
-    state = const TimeSlotsBackupState();
-    AppLogger.exchangeInfo('TimeSlots 백업 데이터 초기화 완료');
-  }
-}
-
-/// TimeSlots 백업 데이터 Provider
-final timeSlotsBackupProvider = StateNotifierProvider<TimeSlotsBackupNotifier, TimeSlotsBackupState>((ref) {
-  return TimeSlotsBackupNotifier();
-});
-
 /// 교체된 셀의 원본 정보를 저장하는 클래스
 /// 복원에 필요한 최소한의 정보만 포함
 class ExchangeBackupInfo {
@@ -451,7 +386,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   /// 🔥 스크롤 문제 해결: 과거 커밋의 단순한 구조를 참고하여 스크롤 위치 보존
   void _initializeOrUpdateArrowsManager({bool isUpdate = false}) {
     if (widget.timetableData != null) {
-      final zoomFactor = ref.read(zoomFactorProvider);
+      final zoomFactor = ref.read(zoomProvider.select((s) => s.zoomFactor));
       
       // 🔥 스크롤 문제 해결: 화살표 업데이트 시에도 스크롤 위치 보존
       // 과거 커밋의 단순한 구조를 유지하여 불필요한 상태 변경 방지
@@ -499,7 +434,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   Widget _buildDataGridWithLegacyArrows(Widget dataGridWithGestures) {
     return Consumer(
       builder: (context, ref, child) {
-        final zoomFactor = ref.watch(zoomFactorProvider);
+        final zoomFactor = ref.watch(zoomProvider.select((s) => s.zoomFactor));
         final scrollState = ref.watch(scrollProvider);
         final scrollOffset = Offset(
           scrollState.horizontalOffset,
@@ -542,8 +477,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   Widget _buildDataGrid() {
     return Consumer(
       builder: (context, ref, child) {
-        final zoomFactor = ref.watch(zoomFactorProvider);
-        
+        final zoomFactor = ref.watch(zoomProvider.select((s) => s.zoomFactor));
+
         Widget dataGridContainer = GestureDetector(
           // 두 손가락 드래그 스크롤 (모바일)
           onScaleStart: (details) {

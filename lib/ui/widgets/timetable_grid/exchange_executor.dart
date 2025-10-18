@@ -27,6 +27,71 @@ class ExchangeExecutor {
     this.onEnableExchangeView,
   });
 
+  /// 공통 후처리 로직
+  /// 모든 교체 작업(실행, 삭제, 되돌리기) 후 반복되는 로직을 통합
+  void _executeCommonPostProcess({
+    required BuildContext context,
+    required VoidCallback onInternalPathClear,
+    required String message,
+    Color? snackBarColor,
+    String? undoButtonLabel,
+    VoidCallback? onUndoPressed,
+  }) {
+    final historyService = ref.read(exchangeHistoryServiceProvider);
+
+    // 1. 콘솔 출력
+    historyService.printExchangeList();
+    historyService.printUndoHistory();
+
+    // 2. 교체된 셀 상태 업데이트
+    _updateExchangedCells();
+
+    // 3. 교체 뷰 활성화 여부 검사
+    _checkExchangeViewStatus();
+
+    // 4. 캐시 강제 무효화 및 UI 업데이트
+    ref.read(stateResetProvider.notifier).resetExchangeStates(reason: message);
+
+    // 5. 내부 선택된 경로 초기화
+    onInternalPathClear();
+
+    // 6. UI 업데이트
+    dataSource?.notifyDataChanged();
+
+    // 7. 사용자 피드백
+    _showSnackBar(
+      context,
+      message,
+      snackBarColor ?? Colors.blue,
+      undoButtonLabel,
+      onUndoPressed,
+    );
+  }
+
+  /// SnackBar 표시 헬퍼
+  void _showSnackBar(
+    BuildContext context,
+    String message,
+    Color backgroundColor,
+    String? actionLabel,
+    VoidCallback? onActionPressed,
+  ) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: backgroundColor,
+        duration: const Duration(seconds: 3),
+        action: actionLabel != null && onActionPressed != null
+            ? SnackBarAction(
+                label: actionLabel,
+                textColor: Colors.white,
+                onPressed: onActionPressed,
+              )
+            : null,
+      ),
+    );
+  }
+
   /// 교체 실행 기능
   void executeExchange(
     ExchangePath exchangePath,
@@ -34,8 +99,8 @@ class ExchangeExecutor {
     VoidCallback onInternalPathClear,
   ) {
     final historyService = ref.read(exchangeHistoryServiceProvider);
-    
-    // 1. 교체 실행
+
+    // 교체 실행
     historyService.executeExchange(
       exchangePath,
       customDescription: '교체 실행: ${exchangePath.displayTitle}',
@@ -46,43 +111,18 @@ class ExchangeExecutor {
       },
     );
 
-    // 2. 콘솔 출력
-    historyService.printExchangeList();
-    historyService.printUndoHistory();
-
-    // 3. 교체된 셀 상태 업데이트
-    _updateExchangedCells();
-
-    // 4. 교체 뷰 활성화 여부 검사 (Level 2 초기화 전)
-    _checkExchangeViewStatus();
-
-    // 5. 캐시 강제 무효화 및 UI 업데이트
-    ref.read(stateResetProvider.notifier).resetExchangeStates(
-          reason: '교체 실행 - 선택 상태 초기화',
-        );
-
-    // 6. 내부 선택된 경로 초기화
-    onInternalPathClear();
-
-    // 7. UI 업데이트 (최적화됨 - 특정 셀만 업데이트하여 스크롤 위치 보존)
-    dataSource?.notifyDataChanged();
-
-    // 8. 사용자 피드백
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('교체 경로 "${exchangePath.id}"가 실행되었습니다'),
-        backgroundColor: Colors.blue,
-        duration: const Duration(seconds: 3),
-        action: SnackBarAction(
-          label: '되돌리기',
-          textColor: Colors.white,
-          onPressed: () => undoLastExchange(context, onInternalPathClear),
-        ),
-      ),
+    // 공통 후처리
+    _executeCommonPostProcess(
+      context: context,
+      onInternalPathClear: onInternalPathClear,
+      message: '교체 경로 "${exchangePath.id}"가 실행되었습니다',
+      snackBarColor: Colors.blue,
+      undoButtonLabel: '되돌리기',
+      onUndoPressed: () => undoLastExchange(context, onInternalPathClear),
     );
   }
 
-  /// 보강교체 실행 기능 (1:1 교체와 동일한 패턴)
+  /// 보강교체 실행 기능
   void executeSupplementExchange(
     String sourceTeacher,
     String sourceDay,
@@ -94,8 +134,8 @@ class ExchangeExecutor {
     VoidCallback onInternalPathClear,
   ) {
     final historyService = ref.read(exchangeHistoryServiceProvider);
-    
-    // 1. 보강교체 경로 생성
+
+    // 보강교체 경로 생성
     final supplementPath = SupplementExchangePath.simple(
       id: 'supplement_${sourceTeacher}_${sourceDay}_$sourcePeriod',
       sourceTeacher: sourceTeacher,
@@ -108,7 +148,7 @@ class ExchangeExecutor {
       subject: subject,
     );
 
-    // 2. 교체 실행 (ExchangeHistoryService 호출)
+    // 교체 실행
     historyService.executeExchange(
       supplementPath,
       customDescription: '보강교체 예약: $targetTeacherName → $sourceTeacher($sourceDay$sourcePeriod교시)',
@@ -119,39 +159,14 @@ class ExchangeExecutor {
       },
     );
 
-    // 3. 콘솔 출력
-    historyService.printExchangeList();
-    historyService.printUndoHistory();
-
-    // 4. 교체된 셀 상태 업데이트
-    _updateExchangedCells();
-
-    // 5. 교체 뷰 활성화 여부 검사 (Level 2 초기화 전)
-    _checkExchangeViewStatus();
-
-    // 6. 캐시 강제 무효화 및 UI 업데이트
-    ref.read(stateResetProvider.notifier).resetExchangeStates(
-      reason: '보강교체 예약 - 선택 상태 초기화',
-    );
-
-    // 7. 내부 선택된 경로 초기화
-    onInternalPathClear();
-
-    // 8. UI 업데이트 (최적화됨 - 특정 셀만 업데이트하여 스크롤 위치 보존)
-    dataSource?.notifyDataChanged();
-
-    // 9. 사용자 피드백
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('보강 계획이 저장되었습니다: $targetTeacherName $sourceDay$sourcePeriod교시'),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 3),
-        action: SnackBarAction(
-          label: '되돌리기',
-          textColor: Colors.white,
-          onPressed: () => undoLastExchange(context, onInternalPathClear),
-        ),
-      ),
+    // 공통 후처리
+    _executeCommonPostProcess(
+      context: context,
+      onInternalPathClear: onInternalPathClear,
+      message: '보강 계획이 저장되었습니다: $targetTeacherName $sourceDay$sourcePeriod교시',
+      snackBarColor: Colors.green,
+      undoButtonLabel: '되돌리기',
+      onUndoPressed: () => undoLastExchange(context, onInternalPathClear),
     );
   }
 
