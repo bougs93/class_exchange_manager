@@ -120,10 +120,6 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
   late SubstitutionPlanDataSource _dataSource;
   List<SubstitutionPlanData> _planData = [];
   
-  // 교체 히스토리 변경 감지용 (길이 + 내용 해시)
-  int _lastExchangeListLength = 0;
-  String _lastExchangeListHash = '';
-  
   // 요일 제한 설정 (true인 요일만 선택 가능)
   final Map<int, bool> _allowedWeekdays = {
     1: true,  // 월요일
@@ -145,26 +141,6 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
   void _loadPlanData() {
     final historyService = ref.read(exchangeHistoryServiceProvider);
     final exchangeList = historyService.getExchangeList();
-    
-    // 교체 히스토리 변경 감지 (길이 + 내용 해시)
-    final currentLength = exchangeList.length;
-    final currentHash = _generateExchangeListHash(exchangeList);
-    
-    final lengthChanged = _lastExchangeListLength != currentLength;
-    final contentChanged = _lastExchangeListHash != currentHash;
-    
-    if (lengthChanged || contentChanged) {
-      AppLogger.exchangeDebug('교체 히스토리 변경 감지:');
-      if (lengthChanged) {
-        AppLogger.exchangeDebug('  길이 변경: ${_lastExchangeListLength} → ${currentLength}');
-      }
-      if (contentChanged) {
-        AppLogger.exchangeDebug('  내용 변경: 해시 ${_formatHashForDisplay(_lastExchangeListHash)} → ${_formatHashForDisplay(currentHash)}');
-      }
-      
-      _lastExchangeListLength = currentLength;
-      _lastExchangeListHash = currentHash;
-    }
     
     // 디버그: 교체 히스토리 개수 출력
     AppLogger.exchangeDebug('교체 히스토리 개수: ${exchangeList.length}');
@@ -239,35 +215,6 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
     // 학급명에서 학년 추출 (예: "1-1" -> "1", "1학년 3반" -> "1")
     final gradeMatch = RegExp(r'(\d+)[-학년]').firstMatch(className);
     return gradeMatch?.group(1) ?? '';
-  }
-
-  /// 교체 리스트의 내용을 해시값으로 변환 (변경 감지용)
-  String _generateExchangeListHash(List<dynamic> exchangeList) {
-    // 각 교체 항목의 핵심 정보를 문자열로 변환하여 해시 생성
-    final contentStrings = exchangeList.map((item) {
-      // ExchangeHistoryItem의 핵심 정보 추출
-      final path = item.originalPath;
-      final nodes = path.nodes;
-      
-      // 노드 정보를 문자열로 변환
-      final nodeStrings = nodes.map((node) {
-        return '${node.day}|${node.period}|${node.className}|${node.teacherName}|${node.subjectName}';
-      }).join(';');
-      
-      // 교체 타입, 타임스탬프, 메모 등 포함
-      return '${path.runtimeType}|${item.timestamp}|${item.notes ?? ''}|$nodeStrings';
-    }).toList();
-    
-    // 모든 내용을 하나의 문자열로 합쳐서 해시 생성
-    final combinedContent = contentStrings.join('||');
-    return combinedContent.hashCode.toString();
-  }
-
-  /// 해시값을 안전하게 표시용 문자열로 변환
-  String _formatHashForDisplay(String hash) {
-    if (hash.isEmpty) return '(빈값)';
-    if (hash.length <= 8) return hash;
-    return '${hash.substring(0, 8)}...';
   }
 
   /// 날짜 포맷팅 (월.일 형태)
@@ -412,26 +359,6 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
 
   @override
   Widget build(BuildContext context) {
-    // 교체 히스토리 변경 감지 - 교체 실행 시 자동 새로고침 (길이 + 내용 해시)
-    final historyService = ref.watch(exchangeHistoryServiceProvider);
-    final exchangeList = historyService.getExchangeList();
-    final currentLength = exchangeList.length;
-    final currentHash = _generateExchangeListHash(exchangeList);
-    
-    // 교체 리스트가 변경되었을 때 자동 새로고침 (길이 또는 내용 변경)
-    if (_lastExchangeListLength != currentLength || _lastExchangeListHash != currentHash) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        AppLogger.exchangeDebug('교체 히스토리 변경 감지 - 자동 새로고침 실행');
-        if (_lastExchangeListLength != currentLength) {
-          AppLogger.exchangeDebug('  길이 변경: ${_lastExchangeListLength} → ${currentLength}');
-        }
-        if (_lastExchangeListHash != currentHash) {
-          AppLogger.exchangeDebug('  내용 변경: 해시 ${_formatHashForDisplay(_lastExchangeListHash)} → ${_formatHashForDisplay(currentHash)}');
-        }
-        _loadPlanData();
-      });
-    }
-
     return SingleChildScrollView(
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -476,65 +403,80 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
               ),
             ),
             const SizedBox(height: _Spacing.mediumSpacing),
-            // 헤더는 항상 표시하고, 데이터가 없을 때는 안내 메시지 오버레이 표시
+            // 데이터가 있을 때는 그리드 표시, 없을 때는 안내 메시지 표시
             SizedBox(
               height: 500, // 고정 높이로 설정
-              child: Stack(
-                children: [
-                  // 헤더와 데이터 그리드는 항상 표시
-                  SfDataGrid(
-                    source: _dataSource,
-                    columns: _buildColumns(),
-                    stackedHeaderRows: _buildStackedHeaders(),
-                    allowColumnsResizing: true,
-                    columnResizeMode: ColumnResizeMode.onResize,
-                    gridLinesVisibility: GridLinesVisibility.both,
-                    headerGridLinesVisibility: GridLinesVisibility.both,
-                    selectionMode: SelectionMode.single,
-                    headerRowHeight: 35, // 50에서 35로 줄임
-                    rowHeight: 28, // 40에서 28로 줄임
-                    allowEditing: false, // 편집 비활성화
-                  ),
-                  // 데이터가 없을 때만 안내 메시지 오버레이 표시
-                  if (_planData.isEmpty)
-                    Positioned.fill(
-                      child: Container(
-                        color: Colors.white.withValues(alpha: 0.5),
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.description_outlined,
-                                size: 64,
-                                color: Colors.grey.shade400,
+              child: _planData.isNotEmpty
+                  ? SfDataGrid(
+                      source: _dataSource,
+                      columns: _buildColumns(),
+                      stackedHeaderRows: _buildStackedHeaders(),
+                      allowColumnsResizing: true,
+                      columnResizeMode: ColumnResizeMode.onResize,
+                      gridLinesVisibility: GridLinesVisibility.both,
+                      headerGridLinesVisibility: GridLinesVisibility.both,
+                      selectionMode: SelectionMode.single,
+                      headerRowHeight: 35, // 50에서 35로 줄임
+                      rowHeight: 28, // 40에서 28로 줄임
+                      allowEditing: false, // 편집 비활성화
+                    )
+                  : Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.description_outlined,
+                              size: 64,
+                              color: Colors.grey.shade400,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              '교체 기록이 없습니다',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey.shade600,
                               ),
-                              const SizedBox(height: 16),
-                              Text(
-                                '교체 기록이 없습니다',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.grey.shade600,
-                                ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '교체를 실행하면 여기에 기록이 표시됩니다',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey.shade500,
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '교체를 실행하면 여기에 기록이 표시됩니다',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey.shade500,
-                                ),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                ],
-              ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// 헤더 라벨 생성 헬퍼 메서드
+  Widget _buildHeaderLabel(String text) {
+    return Container(
+      padding: _Spacing.headerPadding,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: _Spacing.cellFontSize,
+          height: 1.0, // 줄 간격 최소화
         ),
       ),
     );
@@ -546,80 +488,80 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
       // 결강 섹션 (7개 컬럼) - 너비 최소화
       GridColumn(
         columnName: 'absenceDate',
-        label: const Text(''), // 스택 헤더 사용 시 빈 텍스트
+        label: _buildHeaderLabel('결강일'),
         width: 70, // 80에서 70으로 줄임
       ),
       GridColumn(
         columnName: 'absenceDay',
-        label: const Text(''),
+        label: _buildHeaderLabel('요일'),
         width: 45, // 50에서 45로 줄임
       ),
       GridColumn(
         columnName: 'period',
-        label: const Text(''),
+        label: _buildHeaderLabel('교시'),
         width: 45, // 50에서 45로 줄임
       ),
       GridColumn(
         columnName: 'grade',
-        label: const Text(''),
+        label: _buildHeaderLabel('학년'),
         width: 45, // 50에서 45로 줄임
       ),
       GridColumn(
         columnName: 'className',
-        label: const Text(''),
+        label: _buildHeaderLabel('반'),
         width: 55, // 60에서 55로 줄임
       ),
       GridColumn(
         columnName: 'subject',
-        label: const Text(''),
+        label: _buildHeaderLabel('과목'),
         width: 70, // 80에서 70으로 줄임
       ),
       GridColumn(
         columnName: 'teacher',
-        label: const Text(''),
+        label: _buildHeaderLabel('교사'),
         width: 70, // 80에서 70으로 줄임
       ),
       // 보강/수업변경 섹션 (2개 컬럼) - 너비 최소화
       GridColumn(
         columnName: 'supplementSubject',
-        label: const Text(''),
+        label: _buildHeaderLabel('과목'),
         width: 70, // 80에서 70으로 줄임
       ),
       GridColumn(
         columnName: 'supplementTeacher',
-        label: const Text(''),
+        label: _buildHeaderLabel('성명'),
         width: 90, // 100에서 90으로 줄임
       ),
       // 수업 교체 섹션 (5개 컬럼) - 너비 최소화
       GridColumn(
         columnName: 'substitutionDate',
-        label: const Text(''),
+        label: _buildHeaderLabel('교체일'),
         width: 70, // 80에서 70으로 줄임
       ),
       GridColumn(
         columnName: 'substitutionDay',
-        label: const Text(''),
+        label: _buildHeaderLabel('요일'),
         width: 45, // 50에서 45로 줄임
       ),
       GridColumn(
         columnName: 'substitutionPeriod',
-        label: const Text(''),
+        label: _buildHeaderLabel('교시'),
         width: 45, // 50에서 45로 줄임
       ),
       GridColumn(
         columnName: 'substitutionSubject',
-        label: const Text(''),
+        label: _buildHeaderLabel('과목'),
         width: 70, // 80에서 70으로 줄임
       ),
       GridColumn(
         columnName: 'substitutionTeacher',
-        label: const Text(''),
+        label: _buildHeaderLabel('교사'),
         width: 90, // 100에서 90으로 줄임
       ),
       // 비고 섹션 (1개 컬럼) - 너비 최소화
       GridColumn(
         columnName: 'remarks',
-        label: const Text(''),
+        label: _buildHeaderLabel('비고'),
         width: 100, // 120에서 100으로 줄임
       ),
     ];
@@ -706,300 +648,6 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: _Spacing.headerFontSize,
-                  height: 1.0, // 줄 간격 최소화
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-      // 두 번째 헤더 행 (세부 항목)
-      StackedHeaderRow(
-        cells: [
-          // 결강 섹션 세부 항목들
-          StackedHeaderCell(
-            columnNames: ['absenceDate'],
-            child: Container(
-              padding: _Spacing.headerPadding,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: const Text(
-                '결강일',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: _Spacing.cellFontSize,
-                  height: 1.0, // 줄 간격 최소화
-                ),
-              ),
-            ),
-          ),
-          StackedHeaderCell(
-            columnNames: ['absenceDay'],
-            child: Container(
-              padding: _Spacing.headerPadding,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: const Text(
-                '요일',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: _Spacing.cellFontSize,
-                  height: 1.0, // 줄 간격 최소화
-                ),
-              ),
-            ),
-          ),
-          StackedHeaderCell(
-            columnNames: ['period'],
-            child: Container(
-              padding: _Spacing.headerPadding,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: const Text(
-                '교시',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: _Spacing.cellFontSize,
-                  height: 1.0, // 줄 간격 최소화
-                ),
-              ),
-            ),
-          ),
-          StackedHeaderCell(
-            columnNames: ['grade'],
-            child: Container(
-              padding: _Spacing.headerPadding,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: const Text(
-                '학년',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: _Spacing.cellFontSize,
-                  height: 1.0, // 줄 간격 최소화
-                ),
-              ),
-            ),
-          ),
-          StackedHeaderCell(
-            columnNames: ['className'],
-            child: Container(
-              padding: _Spacing.headerPadding,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: const Text(
-                '반',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: _Spacing.cellFontSize,
-                  height: 1.0, // 줄 간격 최소화
-                ),
-              ),
-            ),
-          ),
-          StackedHeaderCell(
-            columnNames: ['subject'],
-            child: Container(
-              padding: _Spacing.headerPadding,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: const Text(
-                '과목',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: _Spacing.cellFontSize,
-                  height: 1.0, // 줄 간격 최소화
-                ),
-              ),
-            ),
-          ),
-          StackedHeaderCell(
-            columnNames: ['teacher'],
-            child: Container(
-              padding: _Spacing.headerPadding,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: const Text(
-                '교사',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: _Spacing.cellFontSize,
-                  height: 1.0, // 줄 간격 최소화
-                ),
-              ),
-            ),
-          ),
-          // 보강/수업변경 섹션 세부 항목들
-          StackedHeaderCell(
-            columnNames: ['supplementSubject'],
-            child: Container(
-              padding: _Spacing.headerPadding,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: const Text(
-                '과목',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: _Spacing.cellFontSize,
-                  height: 1.0, // 줄 간격 최소화
-                ),
-              ),
-            ),
-          ),
-          StackedHeaderCell(
-            columnNames: ['supplementTeacher'],
-            child: Container(
-              padding: _Spacing.headerPadding,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: const Text(
-                '성명',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: _Spacing.cellFontSize,
-                  height: 1.0, // 줄 간격 최소화
-                ),
-              ),
-            ),
-          ),
-          // 수업 교체 섹션 세부 항목들
-          StackedHeaderCell(
-            columnNames: ['substitutionDate'],
-            child: Container(
-              padding: _Spacing.headerPadding,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: const Text(
-                '교체일',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: _Spacing.cellFontSize,
-                  height: 1.0, // 줄 간격 최소화
-                ),
-              ),
-            ),
-          ),
-          StackedHeaderCell(
-            columnNames: ['substitutionDay'],
-            child: Container(
-              padding: _Spacing.headerPadding,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: const Text(
-                '요일',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: _Spacing.cellFontSize,
-                  height: 1.0, // 줄 간격 최소화
-                ),
-              ),
-            ),
-          ),
-          StackedHeaderCell(
-            columnNames: ['substitutionPeriod'],
-            child: Container(
-              padding: _Spacing.headerPadding,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: const Text(
-                '교시',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: _Spacing.cellFontSize,
-                  height: 1.0, // 줄 간격 최소화
-                ),
-              ),
-            ),
-          ),
-          StackedHeaderCell(
-            columnNames: ['substitutionSubject'],
-            child: Container(
-              padding: _Spacing.headerPadding,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: const Text(
-                '과목',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: _Spacing.cellFontSize,
-                  height: 1.0, // 줄 간격 최소화
-                ),
-              ),
-            ),
-          ),
-          StackedHeaderCell(
-            columnNames: ['substitutionTeacher'],
-            child: Container(
-              padding: _Spacing.headerPadding,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: const Text(
-                '교사',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: _Spacing.cellFontSize,
-                  height: 1.0, // 줄 간격 최소화
-                ),
-              ),
-            ),
-          ),
-          // 비고 섹션 (2행 병합이므로 두 번째 행에서는 빈 공간)
-          StackedHeaderCell(
-            columnNames: ['remarks'],
-            child: Container(
-              padding: _Spacing.headerPadding,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: const Text(
-                '(참고사항)',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: _Spacing.cellFontSize,
                   height: 1.0, // 줄 간격 최소화
                 ),
               ),
