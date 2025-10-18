@@ -1,5 +1,6 @@
 import '../utils/exchange_algorithm.dart';
 import '../models/time_slot.dart';
+import '../utils/day_utils.dart';
 import 'exchange_path.dart';
 import 'exchange_node.dart';
 
@@ -99,7 +100,7 @@ class SupplementExchangePath implements ExchangePath {
     );
     
     // 보강 대상 셀의 노드 생성 (보강할 교사)
-    String targetDay = _getDayString(option.timeSlot.dayOfWeek ?? 0);
+    String targetDay = DayUtils.getDayName(option.timeSlot.dayOfWeek ?? 0);
     ExchangeNode targetNode = ExchangeNode(
       teacherName: option.teacherName,
       day: targetDay,
@@ -180,21 +181,7 @@ class SupplementExchangePath implements ExchangePath {
   int get targetPeriod => _targetNode.period;
   String get className => _sourceNode.className;
   String get subject => _sourceNode.subjectName;
-  
-  /// 요일 번호를 문자열로 변환하는 헬퍼 메서드
-  static String _getDayString(int dayOfWeek) {
-    switch (dayOfWeek) {
-      case 1: return '월';
-      case 2: return '화';
-      case 3: return '수';
-      case 4: return '목';
-      case 5: return '금';
-      case 6: return '토';
-      case 7: return '일';
-      default: return '알 수 없음';
-    }
-  }
-  
+
   /// 시간표 데이터에서 특정 시간의 과목명을 가져오는 헬퍼 메서드
   static String _getSubjectFromTimeSlot(
     String teacherName,

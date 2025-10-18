@@ -106,7 +106,7 @@ class SyncfusionTimetableHelper {
       
       if (dayOfWeek == null) continue; // 요일이 없으면 건너뛰기
       
-      String day = _convertDayOfWeekToString(dayOfWeek);
+      String day = DayUtils.getDayName(dayOfWeek);
       
       if (!groupedData.containsKey(day)) {
         groupedData[day] = {};
@@ -118,18 +118,5 @@ class SyncfusionTimetableHelper {
     }
     
     return groupedData;
-  }
-  
-  
-  /// 요일 숫자를 문자열로 변환
-  static String _convertDayOfWeekToString(int dayOfWeek) {
-    switch (dayOfWeek) {
-      case 1: return '월';
-      case 2: return '화';
-      case 3: return '수';
-      case 4: return '목';
-      case 5: return '금';
-      default: return '월';
-    }
   }
 }
