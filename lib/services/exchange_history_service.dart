@@ -290,7 +290,7 @@ class ExchangeHistoryService {
       } else if (path is CircularExchangePath) {
         return _formatNodes(path.nodes);
       } else if (path is ChainExchangePath) {
-        return _formatNodes([path.node1, path.node2]);
+        return _formatNodes([path.nodeA, path.nodeB, path.node1, path.node2]);
       } else if (path is SupplementExchangePath) {
         return _formatNodes([path.sourceNode, path.targetNode]);
       }

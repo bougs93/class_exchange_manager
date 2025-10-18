@@ -71,13 +71,16 @@ class ChainExchangePath implements ExchangePath {
   String get id {
     if (_customId != null) return _customId!;
     
-    // 더 명확한 형태: 1단계_n 교체 _2단계_n 교체
-    String step1Id = '${node1.teacherName}_${node1.day}${node1.period}교시';
-    String step1TargetId = '${node2.teacherName}_${node2.day}${node2.period}교시';
-    String step2Id = '${nodeA.teacherName}_${nodeA.day}${nodeA.period}교시';
-    String step2TargetId = '${nodeB.teacherName}_${nodeB.day}${nodeB.period}교시';
+    // 원하는 형태: chain_1단계_문유란_수2교시_↔_정영훈, 목4교시_2단계_문유란_월5교시_↔_정수정_수2교시
+    // 1단계: node1 ↔ node2 (교사명_요일교시 형태)
+    String step1From = '${node1.teacherName}_${node1.day}${node1.period}교시';
+    String step1To = '${node2.teacherName}, ${node2.day}${node2.period}교시';
     
-    return 'chain_1단계_${step1Id}_↔_${step1TargetId}_2단계_${step2Id}_↔_$step2TargetId';
+    // 2단계: nodeA ↔ nodeB (교사명_요일교시 형태)
+    String step2From = '${nodeA.teacherName}_${nodeA.day}${nodeA.period}교시';
+    String step2To = '${nodeB.teacherName}_${nodeB.day}${nodeB.period}교시';
+    
+    return 'chain_1단계_${step1From}_↔_${step1To}_2단계_${step2From}_↔_$step2To';
   }
 
   /// 사용자 정의 ID 설정
