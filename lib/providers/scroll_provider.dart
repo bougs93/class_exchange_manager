@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../utils/logger.dart';
 
@@ -61,7 +62,9 @@ class ScrollNotifier extends StateNotifier<ScrollState> {
   /// 스크롤 상태 리셋
   void reset() {
     state = const ScrollState();
-    AppLogger.exchangeDebug('🔄 [스크롤] ScrollProvider 상태 초기화');
+    if (kDebugMode) {
+      AppLogger.exchangeDebug('🔄 [스크롤] ScrollProvider 상태 초기화');
+    }
   }
 }
 

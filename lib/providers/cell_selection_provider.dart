@@ -105,34 +105,27 @@ class CellSelectionState {
     bool? isFromExchangedCell,
     bool? cacheInvalidated,
     DateTime? lastUpdated,
-    // 편의 플래그들
-    bool clearSelection = false,
-    bool clearTarget = false,
-    bool clearPaths = false,
-    bool clearExchangedCells = false,
-    bool clearTeacherNameSelection = false,
-    bool clearCaches = false,
   }) {
     return CellSelectionState(
-      selectedTeacher: clearSelection ? null : (selectedTeacher ?? this.selectedTeacher),
-      selectedDay: clearSelection ? null : (selectedDay ?? this.selectedDay),
-      selectedPeriod: clearSelection ? null : (selectedPeriod ?? this.selectedPeriod),
-      targetTeacher: clearTarget ? null : (targetTeacher ?? this.targetTeacher),
-      targetDay: clearTarget ? null : (targetDay ?? this.targetDay),
-      targetPeriod: clearTarget ? null : (targetPeriod ?? this.targetPeriod),
-      selectedTeacherName: clearTeacherNameSelection ? null : (selectedTeacherName ?? this.selectedTeacherName),
+      selectedTeacher: selectedTeacher ?? this.selectedTeacher,
+      selectedDay: selectedDay ?? this.selectedDay,
+      selectedPeriod: selectedPeriod ?? this.selectedPeriod,
+      targetTeacher: targetTeacher ?? this.targetTeacher,
+      targetDay: targetDay ?? this.targetDay,
+      targetPeriod: targetPeriod ?? this.targetPeriod,
+      selectedTeacherName: selectedTeacherName ?? this.selectedTeacherName,
       currentMode: currentMode ?? this.currentMode,
-      selectedOneToOnePath: clearPaths ? null : (selectedOneToOnePath ?? this.selectedOneToOnePath),
-      selectedCircularPath: clearPaths ? null : (selectedCircularPath ?? this.selectedCircularPath),
-      selectedChainPath: clearPaths ? null : (selectedChainPath ?? this.selectedChainPath),
-      selectedSupplementPath: clearPaths ? null : (selectedSupplementPath ?? this.selectedSupplementPath),
+      selectedOneToOnePath: selectedOneToOnePath ?? this.selectedOneToOnePath,
+      selectedCircularPath: selectedCircularPath ?? this.selectedCircularPath,
+      selectedChainPath: selectedChainPath ?? this.selectedChainPath,
+      selectedSupplementPath: selectedSupplementPath ?? this.selectedSupplementPath,
       exchangeableTeachers: exchangeableTeachers ?? this.exchangeableTeachers,
-      exchangedCells: clearExchangedCells ? const {} : (exchangedCells ?? this.exchangedCells),
-      exchangedDestinationCells: clearExchangedCells ? const {} : (exchangedDestinationCells ?? this.exchangedDestinationCells),
+      exchangedCells: exchangedCells ?? this.exchangedCells,
+      exchangedDestinationCells: exchangedDestinationCells ?? this.exchangedDestinationCells,
       isArrowVisible: isArrowVisible ?? this.isArrowVisible,
       arrowReason: arrowReason ?? this.arrowReason,
       isFromExchangedCell: isFromExchangedCell ?? this.isFromExchangedCell,
-      cacheInvalidated: clearCaches ? false : (cacheInvalidated ?? this.cacheInvalidated),
+      cacheInvalidated: cacheInvalidated ?? this.cacheInvalidated,
       lastUpdated: lastUpdated ?? this.lastUpdated,
     );
   }
@@ -350,15 +343,18 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
   }
 
   // ==================== 상태 초기화 ====================
-  
+
   /// 모든 선택 상태 초기화
   void clearAllSelections() {
-    state = state.copyWith(
-      clearSelection: true,
-      clearTarget: true,
-      clearPaths: true,
-      clearTeacherNameSelection: true,
-      exchangeableTeachers: [],
+    state = CellSelectionState(
+      currentMode: state.currentMode,
+      exchangeableTeachers: const [],
+      exchangedCells: state.exchangedCells,
+      exchangedDestinationCells: state.exchangedDestinationCells,
+      isArrowVisible: state.isArrowVisible,
+      arrowReason: state.arrowReason,
+      isFromExchangedCell: state.isFromExchangedCell,
+      cacheInvalidated: state.cacheInvalidated,
       lastUpdated: DateTime.now(),
     );
   }
@@ -366,7 +362,10 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
   /// 경로만 초기화 (셀 선택 상태는 유지)
   void clearPathsOnly() {
     state = state.copyWith(
-      clearPaths: true,
+      selectedOneToOnePath: null,
+      selectedCircularPath: null,
+      selectedChainPath: null,
+      selectedSupplementPath: null,
       lastUpdated: DateTime.now(),
     );
   }
@@ -374,7 +373,7 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
   /// 모든 캐시 초기화
   void clearAllCaches() {
     state = state.copyWith(
-      clearCaches: true,
+      cacheInvalidated: false,
       lastUpdated: DateTime.now(),
     );
   }
@@ -382,7 +381,8 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
   /// 교체된 셀 상태 초기화
   void clearExchangedCells() {
     state = state.copyWith(
-      clearExchangedCells: true,
+      exchangedCells: const {},
+      exchangedDestinationCells: const {},
       lastUpdated: DateTime.now(),
     );
   }

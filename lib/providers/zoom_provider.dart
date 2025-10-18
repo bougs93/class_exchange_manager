@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../ui/widgets/timetable_grid/timetable_grid_constants.dart';
 import '../utils/simplified_timetable_theme.dart';
@@ -116,63 +117,47 @@ class ZoomNotifier extends StateNotifier<ZoomState> {
   }
 
   /// 그리드 확대
-  /// 
+  ///
   /// 최대 확대 비율을 초과하지 않는 범위에서 확대합니다.
   void zoomIn() {
-    if (!state.canZoomIn) {
-      AppLogger.exchangeDebug('줌 인 불가: 이미 최대 확대 비율에 도달함 (${state.zoomPercentage}%)');
-      return;
-    }
+    if (!state.canZoomIn) return;
 
     final newZoomFactor = (state.zoomFactor + state.zoomStep)
         .clamp(state.minZoom, state.maxZoom);
-    
+
     _updateZoomFactor(newZoomFactor);
-    AppLogger.exchangeDebug('줌 인: ${state.zoomPercentage}% → ${(newZoomFactor * 100).round()}%');
   }
 
   /// 그리드 축소
-  /// 
+  ///
   /// 최소 확대 비율을 하회하지 않는 범위에서 축소합니다.
   void zoomOut() {
-    if (!state.canZoomOut) {
-      AppLogger.exchangeDebug('줌 아웃 불가: 이미 최소 확대 비율에 도달함 (${state.zoomPercentage}%)');
-      return;
-    }
+    if (!state.canZoomOut) return;
 
     final newZoomFactor = (state.zoomFactor - state.zoomStep)
         .clamp(state.minZoom, state.maxZoom);
-    
+
     _updateZoomFactor(newZoomFactor);
-    AppLogger.exchangeDebug('줌 아웃: ${state.zoomPercentage}% → ${(newZoomFactor * 100).round()}%');
   }
 
   /// 확대/축소 초기화
-  /// 
+  ///
   /// 기본 확대 비율(100%)로 되돌립니다.
   void resetZoom() {
-    if (state.isDefaultZoom) {
-      AppLogger.exchangeDebug('줌 리셋 불필요: 이미 기본 확대 비율임 (${state.zoomPercentage}%)');
-      return;
-    }
+    if (state.isDefaultZoom) return;
 
     _updateZoomFactor(state.defaultZoomFactor);
-    AppLogger.exchangeDebug('줌 리셋: ${state.zoomPercentage}% → ${(state.defaultZoomFactor * 100).round()}%');
   }
 
   /// 특정 확대 비율로 설정
-  /// 
+  ///
   /// [zoomFactor] 설정할 확대 비율 (minZoom ~ maxZoom 범위)
   void setZoomFactor(double zoomFactor) {
     final clampedZoomFactor = zoomFactor.clamp(state.minZoom, state.maxZoom);
-    
-    if (clampedZoomFactor == state.zoomFactor) {
-      AppLogger.exchangeDebug('줌 설정 불필요: 이미 동일한 확대 비율임 (${state.zoomPercentage}%)');
-      return;
-    }
+
+    if (clampedZoomFactor == state.zoomFactor) return;
 
     _updateZoomFactor(clampedZoomFactor);
-    AppLogger.exchangeDebug('줌 설정: ${state.zoomPercentage}% → ${(clampedZoomFactor * 100).round()}%');
   }
 
   /// 확대 비율 업데이트 (내부 메서드)
@@ -191,20 +176,24 @@ class ZoomNotifier extends StateNotifier<ZoomState> {
   }
 
   /// 폰트 스케일 팩터 업데이트
-  /// 
+  ///
   /// SimplifiedTimetableTheme에 현재 줌 팩터를 적용합니다.
   void _updateFontScaleFactor() {
     SimplifiedTimetableTheme.setFontScaleFactor(state.zoomFactor);
-    AppLogger.exchangeDebug('폰트 스케일 팩터 업데이트: ${state.zoomFactor}');
+    if (kDebugMode) {
+      AppLogger.exchangeDebug('폰트 스케일 팩터 업데이트: ${state.zoomFactor}');
+    }
   }
 
   /// 줌 상태 초기화
-  /// 
+  ///
   /// 모든 줌 관련 상태를 기본값으로 되돌립니다.
   void reset() {
     state = _createInitialState();
     _updateFontScaleFactor();
-    AppLogger.exchangeDebug('줌 상태 초기화 완료');
+    if (kDebugMode) {
+      AppLogger.exchangeDebug('줌 상태 초기화 완료');
+    }
   }
 
   /// 줌 설정 정보 조회

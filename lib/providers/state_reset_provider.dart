@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../utils/logger.dart';
 import 'exchange_screen_provider.dart';
@@ -203,9 +204,13 @@ class StateResetNotifier extends StateNotifier<ResetState> {
       final historyService = ExchangeHistoryService();
       historyService.clearExchangeList();
       historyService.clearUndoStack();
-      AppLogger.exchangeDebug('[Level 3] 교체 히스토리 초기화 완료');
+      if (kDebugMode) {
+        AppLogger.exchangeDebug('[Level 3] 교체 히스토리 초기화 완료');
+      }
     } catch (e) {
-      AppLogger.exchangeDebug('[Level 3] 교체 히스토리 초기화 중 오류: $e');
+      if (kDebugMode) {
+        AppLogger.exchangeDebug('[Level 3] 교체 히스토리 초기화 중 오류: $e');
+      }
     }
   }
 
@@ -213,9 +218,13 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   void _resetZoomState() {
     try {
       _ref.read(zoomProvider.notifier).reset();
-      AppLogger.exchangeDebug('[Level 3] 줌 상태 초기화 완료');
+      if (kDebugMode) {
+        AppLogger.exchangeDebug('[Level 3] 줌 상태 초기화 완료');
+      }
     } catch (e) {
-      AppLogger.exchangeDebug('[Level 3] 줌 상태 초기화 중 오류: $e');
+      if (kDebugMode) {
+        AppLogger.exchangeDebug('[Level 3] 줌 상태 초기화 중 오류: $e');
+      }
     }
   }
 
