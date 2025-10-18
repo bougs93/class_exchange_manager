@@ -241,7 +241,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
                 substitutionSubject: targetNode.subjectName,
                 substitutionTeacher: targetNode.teacherName,
                 
-                remarks: item.notes ?? '',
+                remarks: i == 2 ? '(삭제가능)' : '순환교체${i + 1}',
               );
               
               _planData.add(planData);
@@ -286,7 +286,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
               substitutionSubject: absentNode.subjectName,
               substitutionTeacher: absentNode.teacherName,
               
-              remarks: item.notes ?? '',
+              remarks: '연쇄교체(중간)',
             );
             
             // 두 번째 교체 쌍: 중간교체1 ↔ 중간교체2 (중간 단계) - 순서 바꿈
@@ -308,7 +308,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
               substitutionSubject: intermediateNode2.subjectName,
               substitutionTeacher: intermediateNode2.teacherName,
               
-              remarks: item.notes ?? '',
+              remarks: '연쇄교체(최종)',
             );
             
             _planData.addAll([finalExchangePlanData, intermediateExchangePlanData]);
@@ -339,8 +339,8 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
               subject: sourceNode.subjectName,
               teacher: sourceNode.teacherName,
               
-              // 보강/수업변경 정보 - 보강할 교사 정보
-              supplementSubject: targetNode.subjectName,
+              // 보강/수업변경 정보 - 보강할 교사 정보 (과목은 비우고 성명만 표시)
+              supplementSubject: '',
               supplementTeacher: targetNode.teacherName,
               
               // 교체 정보 - 보강교체는 직접 교체가 아닌 보강이므로 비워둠
@@ -350,7 +350,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
               substitutionSubject: '',
               substitutionTeacher: '',
               
-              remarks: '${item.notes ?? ''} [보강교체]',
+              remarks: '보강',
             );
             
             _planData.add(planData);
@@ -358,7 +358,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
             // 디버그: 생성된 계획 데이터 출력
             AppLogger.exchangeDebug('보강교체 처리 완료:');
             AppLogger.exchangeDebug('  보강할 셀: ${planData.absenceDay}|${planData.period}|${planData.grade}|${planData.className}|${planData.subject}|${planData.teacher}');
-            AppLogger.exchangeDebug('  보강할 교사: ${planData.supplementTeacher}|${planData.supplementSubject}');
+            AppLogger.exchangeDebug('  보강할 교사: ${planData.supplementTeacher}');
             break;
         }
       }
