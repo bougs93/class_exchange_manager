@@ -91,6 +91,42 @@ class SubstitutionPlanDataSource extends DataGridSource {
     return DataGridRowAdapter(
       cells: row.getCells().map<Widget>((dataGridCell) {
         
+        // 날짜 셀인 경우 클릭 가능한 위젯으로 표시
+        if (dataGridCell.columnName == 'absenceDate' || dataGridCell.columnName == 'substitutionDate') {
+          final isSelectable = dataGridCell.value == '선택';
+          final displayText = isSelectable ? '선택' : (dataGridCell.value?.toString() ?? '');
+          
+          AppLogger.exchangeDebug('날짜 셀 렌더링 - 컬럼: ${dataGridCell.columnName}, 값: ${dataGridCell.value}, 표시 텍스트: $displayText, 선택 가능: $isSelectable');
+          
+          return GestureDetector(
+            onTap: () {
+              AppLogger.exchangeDebug('날짜 셀 클릭됨 - 컬럼: ${dataGridCell.columnName}, 값: ${dataGridCell.value}');
+              if (onDateCellTap != null) {
+                onDateCellTap!(dataGridCell, row);
+              }
+            },
+            child: Container(
+              alignment: Alignment.center,
+              padding: _Spacing.cellPadding,
+              decoration: BoxDecoration(
+                color: isSelectable ? Colors.blue.shade50 : Colors.transparent,
+                border: isSelectable ? Border.all(color: Colors.blue.shade200) : null,
+                borderRadius: isSelectable ? BorderRadius.circular(4) : null,
+              ),
+              child: Text(
+                displayText,
+                style: TextStyle(
+                  fontSize: _Spacing.cellFontSize,
+                  height: 1.0,
+                  color: isSelectable ? Colors.blue.shade700 : Colors.black87,
+                  fontWeight: isSelectable ? FontWeight.w500 : FontWeight.normal,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+        }
+        
         // 다른 컬럼들은 기본 텍스트 표시
         return Container(
           alignment: Alignment.center,
@@ -121,6 +157,9 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
   late SubstitutionPlanDataSource _dataSource;
   List<SubstitutionPlanData> _planData = [];
   
+  // 사용자가 입력한 날짜 정보를 저장하는 맵
+  // 키: "행인덱스_컬럼명" (예: "0_absenceDate"), 값: 날짜 문자열
+  Map<String, String> _savedDates = {};
 
   @override
   void initState() {
@@ -128,6 +167,21 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
     _loadPlanData();
   }
 
+  /// 사용자가 입력한 날짜 정보를 저장
+  void _saveDate(int rowIndex, String columnName, String date) {
+    final key = '${rowIndex}_$columnName';
+    _savedDates[key] = date;
+    AppLogger.exchangeDebug('날짜 저장: $key = $date');
+  }
+  
+  /// 저장된 날짜 정보를 복원
+  String _getSavedDate(int rowIndex, String columnName) {
+    final key = '${rowIndex}_$columnName';
+    final savedDate = _savedDates[key];
+    AppLogger.exchangeDebug('날짜 복원: $key = $savedDate');
+    return savedDate ?? '선택';
+  }
+  
   /// 교체 히스토리에서 보강계획서 데이터 로드
   void _loadPlanData() {
     final historyService = ref.read(exchangeHistoryServiceProvider);
@@ -168,7 +222,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
             
             final planData = SubstitutionPlanData(
               // 결강 정보 (sourceNode)
-              absenceDate: '선택',
+              absenceDate: _getSavedDate(_planData.length, 'absenceDate'),
               absenceDay: sourceNode.day,
               period: sourceNode.period.toString(),
               grade: _extractGradeFromClassName(sourceNode.className),
@@ -181,7 +235,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
               supplementTeacher: '',
               
               // 교체 정보 (targetNode)
-              substitutionDate: '선택',
+              substitutionDate: _getSavedDate(_planData.length, 'substitutionDate'),
               substitutionDay: targetNode.day,
               substitutionPeriod: targetNode.period.toString(),
               substitutionSubject: targetNode.subjectName,
@@ -212,7 +266,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
               
               final planData = SubstitutionPlanData(
                 // 결강 정보 (sourceNode)
-                absenceDate: '선택',
+                absenceDate: _getSavedDate(_planData.length, 'absenceDate'),
                 absenceDay: sourceNode.day,
                 period: sourceNode.period.toString(),
                 grade: _extractGradeFromClassName(sourceNode.className),
@@ -225,7 +279,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
                 supplementTeacher: '',
                 
                 // 교체 정보 (targetNode)
-                substitutionDate: '선택',
+                substitutionDate: _getSavedDate(_planData.length, 'substitutionDate'),
                 substitutionDay: targetNode.day,
                 substitutionPeriod: targetNode.period.toString(),
                 substitutionSubject: targetNode.subjectName,
@@ -259,7 +313,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
             
             // 첫 번째 교체 쌍: 대체수업 ↔ 결강수업 (최종 목표) - 순서 바꿈
             final finalExchangePlanData = SubstitutionPlanData(
-              absenceDate: '선택',
+              absenceDate: _getSavedDate(_planData.length, 'absenceDate'),
               absenceDay: substituteNode.day,
               period: substituteNode.period.toString(),
               grade: _extractGradeFromClassName(substituteNode.className),
@@ -270,7 +324,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
               supplementSubject: '',
               supplementTeacher: '',
               
-              substitutionDate: '선택',
+              substitutionDate: _getSavedDate(_planData.length, 'substitutionDate'),
               substitutionDay: absentNode.day,
               substitutionPeriod: absentNode.period.toString(),
               substitutionSubject: absentNode.subjectName,
@@ -281,7 +335,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
             
             // 두 번째 교체 쌍: 중간교체1 ↔ 중간교체2 (중간 단계) - 순서 바꿈
             final intermediateExchangePlanData = SubstitutionPlanData(
-              absenceDate: '선택',
+              absenceDate: _getSavedDate(_planData.length + 1, 'absenceDate'),
               absenceDay: intermediateNode1.day,
               period: intermediateNode1.period.toString(),
               grade: _extractGradeFromClassName(intermediateNode1.className),
@@ -292,7 +346,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
               supplementSubject: '',
               supplementTeacher: '',
               
-              substitutionDate: '선택',
+              substitutionDate: _getSavedDate(_planData.length + 1, 'substitutionDate'),
               substitutionDay: intermediateNode2.day,
               substitutionPeriod: intermediateNode2.period.toString(),
               substitutionSubject: intermediateNode2.subjectName,
@@ -321,7 +375,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
             
             final planData = SubstitutionPlanData(
               // 결강 정보 (sourceNode - 보강할 셀)
-              absenceDate: '선택',
+              absenceDate: _getSavedDate(_planData.length, 'absenceDate'),
               absenceDay: sourceNode.day,
               period: sourceNode.period.toString(),
               grade: _extractGradeFromClassName(sourceNode.className),
@@ -446,8 +500,11 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
 
   /// 날짜 선택기 표시 (calendar_date_picker2 사용)
   Future<void> _showDatePicker(DataGridCell dataGridCell, DataGridRow row) async {
+    AppLogger.exchangeDebug('날짜 선택기 시작 - 컬럼: ${dataGridCell.columnName}, 현재 값: ${dataGridCell.value}');
+    
     // 오늘 날짜를 초기값으로 설정
     DateTime initialDate = DateTime.now();
+    AppLogger.exchangeDebug('초기 날짜 설정: ${initialDate.toString()}');
     
     // calendar_date_picker2를 사용한 날짜 선택기
     final List<DateTime?>? selectedDates = await showCalendarDatePicker2Dialog(
@@ -507,18 +564,86 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
       value: [initialDate],
     );
     
+    AppLogger.exchangeDebug('날짜 선택기 결과: $selectedDates');
+    
     final DateTime? selectedDate = selectedDates?.isNotEmpty == true ? selectedDates!.first : null;
+    AppLogger.exchangeDebug('선택된 날짜: $selectedDate');
 
     if (selectedDate != null) {
       // 선택된 날짜를 포맷팅
       final formattedDate = _formatDate(selectedDate);
+      AppLogger.exchangeDebug('포맷팅된 날짜: $formattedDate');
       
-      // 데이터 업데이트
-      final rowIndex = _dataSource.rows.indexOf(row);
+      // 데이터 업데이트 - 행 인덱스를 다른 방법으로 찾기
+      int rowIndex = -1;
+      
+      // 방법 1: _dataSource.rows에서 찾기
+      try {
+        rowIndex = _dataSource.rows.indexOf(row);
+        AppLogger.exchangeDebug('방법 1 - _dataSource.rows.indexOf: $rowIndex');
+      } catch (e) {
+        AppLogger.exchangeDebug('방법 1 실패: $e');
+      }
+      
+      // 방법 2: row의 첫 번째 셀 값으로 찾기
+      if (rowIndex == -1) {
+        try {
+          final firstCell = row.getCells().first;
+          AppLogger.exchangeDebug('첫 번째 셀 값: ${firstCell.value}');
+          
+          // _planData에서 해당 값과 일치하는 행 찾기
+          for (int i = 0; i < _planData.length; i++) {
+            final planData = _planData[i];
+            // 교사명으로 매칭 시도
+            if (planData.teacher == firstCell.value.toString()) {
+              rowIndex = i;
+              AppLogger.exchangeDebug('방법 2 - 교사명으로 매칭: $rowIndex');
+              break;
+            }
+          }
+        } catch (e) {
+          AppLogger.exchangeDebug('방법 2 실패: $e');
+        }
+      }
+      
+      // 방법 3: 클릭된 셀의 컬럼명과 값으로 찾기
+      if (rowIndex == -1) {
+        try {
+          AppLogger.exchangeDebug('방법 3 - 클릭된 셀 정보: 컬럼=${dataGridCell.columnName}, 값=${dataGridCell.value}');
+          
+          // 모든 행을 순회하면서 해당 컬럼의 값이 일치하는지 확인
+          for (int i = 0; i < _planData.length; i++) {
+            final planData = _planData[i];
+            String cellValue = '';
+            
+            if (dataGridCell.columnName == 'absenceDate') {
+              cellValue = planData.absenceDate;
+            } else if (dataGridCell.columnName == 'substitutionDate') {
+              cellValue = planData.substitutionDate;
+            }
+            
+            if (cellValue == dataGridCell.value.toString()) {
+              rowIndex = i;
+              AppLogger.exchangeDebug('방법 3 - 셀 값으로 매칭: $rowIndex');
+              break;
+            }
+          }
+        } catch (e) {
+          AppLogger.exchangeDebug('방법 3 실패: $e');
+        }
+      }
+      
+      AppLogger.exchangeDebug('최종 행 인덱스: $rowIndex, 전체 데이터 개수: ${_planData.length}');
+      
       if (rowIndex >= 0 && rowIndex < _planData.length) {
         setState(() {
           // 어떤 날짜 컬럼인지에 따라 업데이트
           if (dataGridCell.columnName == 'absenceDate') {
+            AppLogger.exchangeDebug('결강일 업데이트 - 이전 값: ${_planData[rowIndex].absenceDate} -> 새 값: $formattedDate');
+            
+            // 날짜 정보 저장
+            _saveDate(rowIndex, 'absenceDate', formattedDate);
+            
             _planData[rowIndex] = SubstitutionPlanData(
               absenceDate: formattedDate,
               absenceDay: _planData[rowIndex].absenceDay,
@@ -537,6 +662,11 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
               remarks: _planData[rowIndex].remarks,
             );
           } else if (dataGridCell.columnName == 'substitutionDate') {
+            AppLogger.exchangeDebug('교체일 업데이트 - 이전 값: ${_planData[rowIndex].substitutionDate} -> 새 값: $formattedDate');
+            
+            // 날짜 정보 저장
+            _saveDate(rowIndex, 'substitutionDate', formattedDate);
+            
             _planData[rowIndex] = SubstitutionPlanData(
               absenceDate: _planData[rowIndex].absenceDate,
               absenceDay: _planData[rowIndex].absenceDay,
@@ -559,7 +689,26 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
         
         // 데이터 소스 새로고침
         _dataSource = SubstitutionPlanDataSource(_planData, onDateCellTap: _showDatePicker);
+        AppLogger.exchangeDebug('데이터 소스 새로고침 완료 - 새로운 데이터 소스 행 개수: ${_dataSource.rows.length}');
+        
+        // 업데이트된 데이터 확인
+        final updatedRow = _dataSource.rows[rowIndex];
+        final updatedCell = updatedRow.getCells().firstWhere(
+          (cell) => cell.columnName == dataGridCell.columnName,
+          orElse: () => DataGridCell<String>(columnName: '', value: ''),
+        );
+        AppLogger.exchangeDebug('업데이트된 셀 값 확인: ${updatedCell.value}');
+        
+        // 전체 _planData 상태 확인
+        AppLogger.exchangeDebug('전체 _planData 상태:');
+        for (int i = 0; i < _planData.length; i++) {
+          AppLogger.exchangeDebug('  행 $i: absenceDate=${_planData[i].absenceDate}, substitutionDate=${_planData[i].substitutionDate}');
+        }
+      } else {
+        AppLogger.exchangeDebug('행 인덱스가 유효하지 않음: $rowIndex');
       }
+    } else {
+      AppLogger.exchangeDebug('날짜 선택이 취소되었거나 실패함');
     }
   }
 
