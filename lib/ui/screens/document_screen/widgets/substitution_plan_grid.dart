@@ -121,16 +121,6 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
   late SubstitutionPlanDataSource _dataSource;
   List<SubstitutionPlanData> _planData = [];
   
-  // 요일 제한 설정 (true인 요일만 선택 가능)
-  final Map<int, bool> _allowedWeekdays = {
-    1: true,  // 월요일
-    2: true,  // 화요일
-    3: true,  // 수요일
-    4: true,  // 목요일
-    5: true,  // 금요일
-    6: false, // 토요일
-    7: false, // 일요일
-  };
 
   @override
   void initState() {
@@ -385,9 +375,25 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
 
   /// 학급명에서 학년 추출
   String _extractGradeFromClassName(String className) {
-    // 학급명에서 학년 추출 (예: "1-1" -> "1", "1학년 3반" -> "1")
-    final gradeMatch = RegExp(r'(\d+)[-학년]').firstMatch(className);
-    return gradeMatch?.group(1) ?? '';
+    try {
+      className = className.trim();
+      
+      // 1. 3자리 숫자 형태 처리 (예: "103" -> "1", "203" -> "2")
+      if (className.length == 3 && RegExp(r'^\d{3}$').hasMatch(className)) {
+        return className[0]; // 첫 번째 자리: 학년
+      }
+      
+      // 2. 기존 패턴 처리 (예: "1-1" -> "1", "1학년 3반" -> "1")
+      final gradeMatch = RegExp(r'(\d+)[-학년]').firstMatch(className);
+      if (gradeMatch != null) {
+        return gradeMatch.group(1) ?? '';
+      }
+      
+      return '';
+    } catch (e) {
+      AppLogger.exchangeDebug('학년 추출 중 오류 발생: $e');
+      return '';
+    }
   }
 
   /// 날짜 포맷팅 (월.일 형태)
@@ -398,19 +404,8 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
 
   /// 날짜 선택기 표시 (calendar_date_picker2 사용)
   Future<void> _showDatePicker(DataGridCell dataGridCell, DataGridRow row) async {
-    // 선택 가능한 날짜를 찾아서 initialDate로 설정
+    // 오늘 날짜를 초기값으로 설정
     DateTime initialDate = DateTime.now();
-    
-    // 현재 날짜가 선택 가능하지 않다면, 다음 선택 가능한 날짜를 찾음
-    if (!(_allowedWeekdays[initialDate.weekday] ?? false)) {
-      for (int i = 1; i <= 7; i++) {
-        final testDate = initialDate.add(Duration(days: i));
-        if (_allowedWeekdays[testDate.weekday] ?? false) {
-          initialDate = testDate;
-          break;
-        }
-      }
-    }
     
     // calendar_date_picker2를 사용한 날짜 선택기
     final List<DateTime?>? selectedDates = await showCalendarDatePicker2Dialog(
@@ -439,10 +434,6 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
           fontSize: _Spacing.headerFontSize, // 일반 날짜 숫자 크기
           color: Colors.black87,
         ),
-        selectableDayPredicate: (DateTime date) {
-          // 설정된 요일만 선택 가능
-          return _allowedWeekdays[date.weekday] ?? false;
-        },
         cancelButtonTextStyle: TextStyle(
           color: Colors.grey.shade600,
           fontSize: 16,
@@ -559,16 +550,6 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
                     label: const Text('PDF 출력'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red.shade600,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(width: _Spacing.smallSpacing),
-                  ElevatedButton.icon(
-                    onPressed: _showWeekdaySettings,
-                    icon: const Icon(Icons.calendar_month, size: 16),
-                    label: const Text('요일 설정'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green.shade600,
                       foregroundColor: Colors.white,
                     ),
                   ),
@@ -829,41 +810,6 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
         ],
       ),
     ];
-  }
-
-  /// 요일 설정 다이얼로그 표시
-  void _showWeekdaySettings() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('선택 가능한 요일 설정'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('날짜 선택 시 선택 가능한 요일을 설정하세요:'),
-            const SizedBox(height: _Spacing.mediumSpacing),
-            ..._allowedWeekdays.entries.map((entry) {
-              final weekdayNames = ['', '월', '화', '수', '목', '금', '토', '일'];
-              return CheckboxListTile(
-                title: Text('${weekdayNames[entry.key]}요일'),
-                value: entry.value,
-                onChanged: (bool? value) {
-                  setState(() {
-                    _allowedWeekdays[entry.key] = value ?? false;
-                  });
-                },
-              );
-            }),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('확인'),
-          ),
-        ],
-      ),
-    );
   }
 
   /// PDF 출력 기능

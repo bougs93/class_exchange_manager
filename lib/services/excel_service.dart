@@ -820,6 +820,36 @@ class ExcelService {
     }
   }
 
+  /// 학급명에서 학년 추출하는 유틸리티 메서드
+  /// 
+  /// 추출 규칙:
+  /// - "103", "110" → "1" (3자리 숫자: 첫 자리=학년)
+  /// - "203", "210" → "2" (3자리 숫자: 첫 자리=학년)
+  /// - "1-1" → "1" (하이픈 형태)
+  /// - "1학년 3반" → "1" (학년 포함 형태)
+  /// - "1반" → "1" (단순 숫자 시작)
+  static String extractGradeFromClassName(String className) {
+    try {
+      className = className.trim();
+      
+      // 1. 3자리 숫자 형태 처리 (예: "103" -> "1", "203" -> "2")
+      if (className.length == 3 && RegExp(r'^\d{3}$').hasMatch(className)) {
+        return className[0]; // 첫 번째 자리: 학년
+      }
+      
+      // 2. 하이픈 또는 학년 포함 패턴 처리 (예: "1-1" -> "1", "1학년 3반" -> "1")
+      final gradeMatch = RegExp(r'(\d+)[-학년]').firstMatch(className);
+      if (gradeMatch != null) {
+        return gradeMatch.group(1) ?? '';
+      }
+      
+      return '';
+    } catch (e) {
+      developer.log('학년 추출 중 오류 발생: $e', name: 'ExcelService');
+      return '';
+    }
+  }
+
   /// 시간표 셀을 파싱하는 메서드
   /// 
   /// 셀 내용 예시:
