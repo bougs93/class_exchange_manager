@@ -12,6 +12,7 @@ mixin SidebarBuilder<T extends StatefulWidget> on State<T> {
   bool get isExchangeModeEnabled;
   bool get isCircularExchangeModeEnabled;
   bool get isChainExchangeModeEnabled;
+  bool get isSupplementExchangeModeEnabled;
 
   OneToOneExchangePath? get selectedOneToOnePath;
   CircularExchangePath? get selectedCircularPath;
@@ -51,8 +52,12 @@ mixin SidebarBuilder<T extends StatefulWidget> on State<T> {
       currentMode = ExchangePathType.oneToOne;
     } else if (isCircularExchangeModeEnabled) {
       currentMode = ExchangePathType.circular;
-    } else {
+    } else if (isChainExchangeModeEnabled) {
       currentMode = ExchangePathType.chain;
+    } else if (isSupplementExchangeModeEnabled) {
+      currentMode = ExchangePathType.supplement;
+    } else {
+      currentMode = ExchangePathType.chain; // 기본값
     }
 
     // 선택된 경로 결정
@@ -64,6 +69,7 @@ mixin SidebarBuilder<T extends StatefulWidget> on State<T> {
     } else if (isChainExchangeModeEnabled) {
       selectedPath = selectedChainPath;
     }
+    // 보강교체 모드에서는 선택된 경로가 없음 (메시지만 표시)
 
     // 경로 리스트 결정
     List<ExchangePath> paths;
@@ -71,8 +77,10 @@ mixin SidebarBuilder<T extends StatefulWidget> on State<T> {
       paths = oneToOnePaths;
     } else if (isCircularExchangeModeEnabled) {
       paths = circularPaths;
-    } else {
+    } else if (isChainExchangeModeEnabled) {
       paths = chainPaths;
+    } else {
+      paths = []; // 보강교체 모드에서는 빈 리스트
     }
 
     // 로딩 상태 결정

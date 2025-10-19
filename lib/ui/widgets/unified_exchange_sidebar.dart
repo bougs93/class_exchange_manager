@@ -240,7 +240,9 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
       child: Column(
         children: [
           _buildHeader(),
-          _buildSearchBar(),
+          // 보강교체 모드가 아닌 경우에만 검색바 표시
+          if (widget.mode != ExchangePathType.supplement)
+            _buildSearchBar(),
           // 순환교체, 1:1 교체, 연쇄교체 모드에서 검색 필터 그룹 표시
           if (widget.mode == ExchangePathType.circular || 
               widget.mode == ExchangePathType.oneToOne || 
@@ -279,7 +281,9 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
             child: Text(
               widget.isLoading 
                 ? '경로 탐색 중...'
-                : '${widget.filteredPaths.length}개 경로',
+                : widget.mode == ExchangePathType.supplement
+                  ? '보강교체 안내'
+                  : '${widget.filteredPaths.length}개 경로',
               style: TextStyle(
                 fontSize: _SidebarFontSizes.headerText,
                 color: Colors.blue.shade500,
@@ -396,6 +400,33 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
 
   /// 빈 콘텐츠 구성
   Widget _buildEmptyContent() {
+    // 보강교체 모드인 경우 특별한 안내 메시지 표시
+    if (widget.mode == ExchangePathType.supplement) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.info_outline,
+              size: 64,
+              color: Colors.blue.shade400,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '보강교체를 위해 빈 셀을 선택하거나\n교사명을 클릭해주세요',
+              style: TextStyle(
+                color: Colors.blue.shade600,
+                fontSize: _SidebarFontSizes.emptyMessage,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+    
+    // 다른 모드에서는 기존 로직 유지
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
