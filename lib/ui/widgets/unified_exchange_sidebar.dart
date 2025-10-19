@@ -547,9 +547,9 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
               border: Border.all(color: Colors.blue.shade200),
             ),
             child: Text(
-              '보강받을 교사의 빈 셀을\n클릭하거나 교사명을 선택하세요',
+              '보강할 교사의 빈 셀을\n클릭하거나 교사명을 선택하세요',
               style: TextStyle(
-                fontSize: _SidebarFontSizes.emptyMessage - 1,
+                fontSize: _SidebarFontSizes.emptyMessage - 2,
                 color: Colors.blue.shade700,
                 fontWeight: FontWeight.w500,
               ),

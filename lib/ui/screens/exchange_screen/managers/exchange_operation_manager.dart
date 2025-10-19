@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:excel/excel.dart' hide Border;
 import '../../../../services/excel_service.dart';
@@ -8,6 +9,7 @@ import '../../../../services/exchange_history_service.dart';
 import '../../../../utils/logger.dart';
 import '../../../../utils/non_exchangeable_manager.dart';
 import '../../../../models/exchange_mode.dart';
+import '../../../../providers/exchange_screen_provider.dart';
 import '../exchange_screen_state_proxy.dart';
 
 /// 파일 선택, 로딩, 교체 모드 전환 등 핵심 비즈니스 로직을 관리하는 Manager
@@ -15,6 +17,7 @@ import '../exchange_screen_state_proxy.dart';
 /// ExchangeFileHandler와 ExchangeModeHandler Mixin을 대체합니다.
 class ExchangeOperationManager {
   final BuildContext context;
+  final WidgetRef ref;
   final ExchangeScreenStateProxy stateProxy;
   final VoidCallback onCreateSyncfusionGridData;
   final VoidCallback onClearAllExchangeStates;
@@ -28,6 +31,7 @@ class ExchangeOperationManager {
 
   ExchangeOperationManager({
     required this.context,
+    required this.ref,
     required this.stateProxy,
     required this.onCreateSyncfusionGridData,
     required this.onClearAllExchangeStates,
@@ -375,8 +379,9 @@ class ExchangeOperationManager {
   /// 2. 교체불가 편집 모드 비활성화
   /// 3. 보강교체 모드 활성화 (토글이 아닌 항상 활성화)
   /// 4. Level 2 초기화 + 단계 설정 (2단계)
-  /// 5. 헤더 테마 업데이트
-  /// 6. 사용자 피드백 (SnackBar)
+  /// 5. 교사 이름 선택 기능 활성화
+  /// 6. 헤더 테마 업데이트
+  /// 7. 사용자 피드백 (SnackBar)
   void toggleSupplementExchangeMode() {
     AppLogger.exchangeDebug('보강교체 모드 토글 시작');
 
@@ -404,7 +409,11 @@ class ExchangeOperationManager {
     stateProxy.setSelectedStep(null);
     stateProxy.setSelectedDay(null);
 
-    // 4. 헤더 테마 업데이트
+    // 4. 교사 이름 선택 기능 활성화
+    ref.read(exchangeScreenProvider.notifier).enableTeacherNameSelection();
+    AppLogger.exchangeDebug('[보강 모드] 교사 이름 선택 기능 활성화');
+
+    // 5. 헤더 테마 업데이트
     onRefreshHeaderTheme();
 
   }

@@ -34,6 +34,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Manager 초기화 (엑셀 파일 처리 및 상태 관리)
     _operationManager = ExchangeOperationManager(
       context: context,
+      ref: ref,
       stateProxy: _stateProxy!,
         onCreateSyncfusionGridData: () {
           // 파일이 선택되고 파싱이 완료된 후 시간표 그리드 생성

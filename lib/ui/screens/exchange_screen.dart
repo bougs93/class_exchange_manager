@@ -248,7 +248,10 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     // 사이드바 표시 (선택된 셀 정보가 자동으로 표시됨)
     ref.read(exchangeScreenProvider.notifier).setSidebarVisible(true);
     
-    AppLogger.exchangeDebug('보강교체: 셀 선택 후 처리 완료 - 사이드바 활성화');
+    // 교사 이름 선택 기능 활성화 (보강받을 교사 선택을 위해)
+    ref.read(exchangeScreenProvider.notifier).enableTeacherNameSelection();
+    
+    AppLogger.exchangeDebug('보강교체: 셀 선택 후 처리 완료 - 사이드바 활성화 및 교사 이름 선택 기능 활성화');
   }
 
   /// 셀에 수업이 있는지 확인 (보강교체용)
@@ -376,6 +379,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     // Manager 초기화 (Composition 패턴)
     _operationManager = ExchangeOperationManager(
       context: context,
+      ref: ref,
       stateProxy: _stateProxy,
       onCreateSyncfusionGridData: _createSyncfusionGridData,
       onClearAllExchangeStates: () => ref.read(stateResetProvider.notifier).resetExchangeStates(
@@ -691,18 +695,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     bool hasClass = _isCellNotEmpty(teacherName, dayPeriodInfo.day, dayPeriodInfo.period);
     AppLogger.exchangeDebug('보강교체 셀 상태: 수업 있음=$hasClass');
     
-    // 수업이 있는 셀이 아닌 경우 안내 메시지 표시
+    // 수업이 있는 셀이 아닌 경우 아무 동작하지 않음
     if (!hasClass) {
-      AppLogger.exchangeDebug('보강교체: 빈 셀 클릭 - 안내 메시지 표시');
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('보강할 수업이 있는 셀을 선택해주세요'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 2),
-        ),
-      );
-      
+      AppLogger.exchangeDebug('보강교체: 빈 셀 클릭 - 아무 동작하지 않음');
       return;
     }
     
