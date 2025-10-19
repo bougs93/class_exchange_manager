@@ -367,4 +367,45 @@ class ExchangeOperationManager {
     //   );
     // }
   }
+
+  /// 보강교체 모드 토글
+  ///
+  /// **처리 순서**:
+  /// 1. 다른 모드 비활성화 (1:1/순환/연쇄)
+  /// 2. 교체불가 편집 모드 비활성화
+  /// 3. 보강교체 모드 활성화 (토글이 아닌 항상 활성화)
+  /// 4. Level 2 초기화 + 단계 설정 (2단계)
+  /// 5. 헤더 테마 업데이트
+  /// 6. 사용자 피드백 (SnackBar)
+  void toggleSupplementExchangeMode() {
+    AppLogger.exchangeDebug('보강교체 모드 토글 시작');
+
+    bool hasOtherModesActive =
+        stateProxy.isExchangeModeEnabled ||
+        stateProxy.isCircularExchangeModeEnabled ||
+        stateProxy.isChainExchangeModeEnabled;
+
+    // 1. 다른 모드 비활성화
+    if (hasOtherModesActive) {
+      stateProxy.setExchangeModeEnabled(false);
+      stateProxy.setCircularExchangeModeEnabled(false);
+      stateProxy.setChainExchangeModeEnabled(false);
+    }
+
+    // 2. 교체불가 편집 모드 비활성화
+    if (stateProxy.isNonExchangeableEditMode) {
+      stateProxy.setNonExchangeableEditMode(false);
+    }
+
+    // 3. 보강교체 모드 활성화
+    stateProxy.setSupplementExchangeModeEnabled(true);
+    onClearAllExchangeStates();
+    stateProxy.setAvailableSteps([2]); // 보강교체는 2단계 (보강할 셀 선택 → 보강받을 셀 선택)
+    stateProxy.setSelectedStep(null);
+    stateProxy.setSelectedDay(null);
+
+    // 4. 헤더 테마 업데이트
+    onRefreshHeaderTheme();
+
+  }
 }

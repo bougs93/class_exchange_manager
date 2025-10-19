@@ -42,7 +42,7 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel>
     
     _tabController = TabController(
       length: visibleModes.length,
-      initialIndex: initialIndex != -1 ? initialIndex : 0, // 보강교체 모드인 경우 보기 모드로 설정
+      initialIndex: initialIndex != -1 ? initialIndex : 0,
       vsync: this,
       animationDuration: Duration.zero, // 애니메이션 지속 시간을 0으로 설정
     );
@@ -59,12 +59,12 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel>
       
       AppLogger.exchangeDebug('didUpdateWidget - 인덱스 업데이트: ${newIndex != -1 ? newIndex : 0}');
       
-      // 보강교체 모드가 아닌 경우에만 탭 인덱스 업데이트
+      // 탭 인덱스 업데이트
       if (newIndex != -1) {
         _tabController!.index = newIndex;
       } else {
-        // 보강교체 모드인 경우 보기 모드로 설정
-        _tabController!.index = 0; // 보기 모드가 첫 번째 탭
+        // 모드를 찾을 수 없는 경우 첫 번째 탭으로 설정
+        _tabController!.index = 0;
       }
     }
   }
@@ -75,10 +75,9 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel>
     super.dispose();
   }
 
-  /// 탭 메뉴에 표시할 모드들 반환 (보강교체 제외)
+  /// 탭 메뉴에 표시할 모드들 반환 (모든 모드 포함)
   List<ExchangeMode> _getVisibleModes() {
-    final visibleModes = ExchangeMode.values.where((mode) => mode != ExchangeMode.supplementExchange).toList();
-    return visibleModes;
+    return ExchangeMode.values;
   }
 
   @override

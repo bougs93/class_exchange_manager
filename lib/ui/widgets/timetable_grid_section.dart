@@ -344,43 +344,30 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
         const Spacer(),
 
-        // 보강/교체 버튼들
-        Builder(
-          builder: (context) {
-            // 보강 버튼 활성화 조건 확인
-            final supplementEnabled = isInExchangeMode && isCellSelected;
-            final screenState = ref.read(exchangeScreenProvider);
-            final isSupplementModeActive = screenState.isTeacherNameSelectionEnabled;
-            
-            return ExchangeActionButtons(
-              onUndo: () => _exchangeExecutor.undoLastExchange(context, () {
+        // 교체 버튼들
+        ExchangeActionButtons(
+          onUndo: () => _exchangeExecutor.undoLastExchange(context, () {
+            ref.read(stateResetProvider.notifier).resetExchangeStates(
+              reason: '내부 경로 초기화',
+            );
+          }),
+          onRepeat: () => _exchangeExecutor.repeatLastExchange(context),
+          onDelete: (currentSelectedPath != null && isFromExchangedCell)
+            ? () async => await _exchangeExecutor.deleteFromExchangeList(currentSelectedPath!, context, () {
                 ref.read(stateResetProvider.notifier).resetExchangeStates(
                   reason: '내부 경로 초기화',
                 );
-              }),
-              onRepeat: () => _exchangeExecutor.repeatLastExchange(context),
-              onSupplement: supplementEnabled ? _enableTeacherNameSelectionForSupplement : null,
-              onCancelSupplement: isSupplementModeActive ? _cancelSupplementMode : null,
-              onDelete: (currentSelectedPath != null && isFromExchangedCell)
-                ? () async => await _exchangeExecutor.deleteFromExchangeList(currentSelectedPath!, context, () {
-                    ref.read(stateResetProvider.notifier).resetExchangeStates(
-                      reason: '내부 경로 초기화',
-                    );
-                  })
-                : null,
-              onExchange: (isInExchangeMode && !isFromExchangedCell && currentSelectedPath != null)
-                ? () => _exchangeExecutor.executeExchange(currentSelectedPath!, context, () {
-                    ref.read(stateResetProvider.notifier).resetExchangeStates(
-                      reason: '내부 경로 초기화',
-                    );
-                  })
-                : null,
-              showDeleteButton: currentSelectedPath != null && isFromExchangedCell,
-              showExchangeButton: isInExchangeMode && !isFromExchangedCell,
-              showSupplementButton: isInExchangeMode, // 교체 모드에서만 보강 버튼 표시
-              isSupplementModeActive: isSupplementModeActive, // 보강 모드 활성화 상태
-            );
-          },
+              })
+            : null,
+          onExchange: (isInExchangeMode && !isFromExchangedCell && currentSelectedPath != null)
+            ? () => _exchangeExecutor.executeExchange(currentSelectedPath!, context, () {
+                ref.read(stateResetProvider.notifier).resetExchangeStates(
+                  reason: '내부 경로 초기화',
+                );
+              })
+            : null,
+          showDeleteButton: currentSelectedPath != null && isFromExchangedCell,
+          showExchangeButton: isInExchangeMode && !isFromExchangedCell,
         ),
       ],
     );
@@ -649,6 +636,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
 
   /// 보강을 위한 교사 이름 선택 기능 활성화
+  // ignore: unused_element
   void _enableTeacherNameSelectionForSupplement() {
     // 현재 선택된 셀이 수업이 있는 셀인지 확인
     final exchangeService = ref.read(exchangeServiceProvider);
@@ -701,7 +689,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       ),
     );
     
-    AppLogger.exchangeDebug('보강을 위한 교사 이름 선택 기능 활성화');
+    AppLogger.exchangeDebug('[보강 1단계] 보강을 위한 교사 이름 선택 기능 활성화');
   }
 
   /// 보강 모드 취소
@@ -710,24 +698,16 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     ref.read(exchangeScreenProvider.notifier).disableTeacherNameSelection();
     ref.read(cellSelectionProvider.notifier).selectTeacherName(null);
     
+    // 🔥 Level 2 초기화: 보강 모드 취소 시 모든 교체 상태 초기화
+    ref.read(stateResetProvider.notifier).resetExchangeStates(
+      reason: '보강 모드 취소 - 모든 교체 상태 초기화',
+    );
+    
     // UI 업데이트
     widget.dataSource?.notifyDataChanged();
     
-    // 사용자 피드백
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('보강 모드가 취소되었습니다'),
-        backgroundColor: Colors.orange,
-        duration: Duration(seconds: 2),
-      ),
-    );
-    
-    AppLogger.exchangeDebug('보강 모드 취소');
+    AppLogger.exchangeDebug('[보강 취소소]보강 모드 취소');
   }
-
-
-
-
 
 
   /// 교체된 셀 클릭 처리 (Riverpod 기반)

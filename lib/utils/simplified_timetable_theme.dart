@@ -158,9 +158,9 @@ class SimplifiedTimetableTheme {
     required bool isHeader, // 헤더인지 여부 추가
     required bool isTeacherNameSelected, // 교사 이름 선택 상태 (새로 추가)
   }) {
-    // 교사 이름 선택 상태인 경우 파란색 배경 (최우선순위)
+    // 교사 이름 선택 상태인 경우 노란색 배경 (최우선순위)
     if (isTeacherNameSelected) {
-      return selectedTeacherNameColor;
+      return selectedColorLight; // 노란색 배경
     }
     
     // 교체된 목적지 셀인 경우 연한 파란색 배경
@@ -233,15 +233,12 @@ class SimplifiedTimetableTheme {
     required bool isExchangedSourceCell,
     required bool isTeacherNameSelected, // 새로 추가
   }) {
-    // 교사 이름 선택 상태인 경우 기본 테두리 사용 (최우선순위)
+    // 교사 이름 선택 상태인 경우 빨간색 테두리 사용 (최우선순위)
     if (isTeacherNameSelected) {
-      return Border(
-        left: BorderSide(
-          color: isFirstColumnOfDay ? dayBorderColor : normalBorderColor,
-          width: isFirstColumnOfDay ? dayBorderWidth : normalBorderWidth,
-        ),
-        right: const BorderSide(color: normalBorderColor, width: normalBorderWidth),
-        bottom: const BorderSide(color: normalBorderColor, width: normalBorderWidth),
+      return Border.all(
+        color: selectedCellBorderColor, 
+        width: selectedCellBorderWidth,
+        style: selectedCellBorderStyle, // 점선 또는 실선 스타일 적용
       );
     }
     

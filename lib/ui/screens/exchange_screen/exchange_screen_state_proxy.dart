@@ -32,12 +32,14 @@ class ExchangeScreenStateProxy {
   bool get isExchangeModeEnabled => _state.currentMode == ExchangeMode.oneToOneExchange;
   bool get isCircularExchangeModeEnabled => _state.currentMode == ExchangeMode.circularExchange;
   bool get isChainExchangeModeEnabled => _state.currentMode == ExchangeMode.chainExchange;
+  bool get isSupplementExchangeModeEnabled => _state.currentMode == ExchangeMode.supplementExchange;
   bool get isNonExchangeableEditMode => _state.currentMode == ExchangeMode.nonExchangeableEdit;
 
   // 편의 setter들 (기존 코드와의 호환성을 위해 유지)
   void setExchangeModeEnabled(bool enabled) => _setModeEnabled(ExchangeMode.oneToOneExchange, enabled);
   void setCircularExchangeModeEnabled(bool enabled) => _setModeEnabled(ExchangeMode.circularExchange, enabled);
   void setChainExchangeModeEnabled(bool enabled) => _setModeEnabled(ExchangeMode.chainExchange, enabled);
+  void setSupplementExchangeModeEnabled(bool enabled) => _setModeEnabled(ExchangeMode.supplementExchange, enabled);
   void setNonExchangeableEditMode(bool enabled) => _setModeEnabled(ExchangeMode.nonExchangeableEdit, enabled);
 
   /// 내부 헬퍼: 모드 활성화/비활성화 공통 로직
