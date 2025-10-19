@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/exchange_path.dart';
 import '../../models/circular_exchange_path.dart';
 import '../../models/one_to_one_exchange_path.dart';
 import '../../models/chain_exchange_path.dart';
 import '../../models/exchange_node.dart';
+import '../../models/time_slot.dart';
 import '../../utils/logger.dart';
+import '../../utils/day_utils.dart';
+import '../../providers/cell_selection_provider.dart';
+import '../../providers/exchange_screen_provider.dart';
 import 'exchange_filter_widget.dart';
 
 /// 사이드바 폰트 사이즈 상수
@@ -402,28 +407,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
   Widget _buildEmptyContent() {
     // 보강교체 모드인 경우 특별한 안내 메시지 표시
     if (widget.mode == ExchangePathType.supplement) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.info_outline,
-              size: 64,
-              color: Colors.blue.shade400,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '보강교체를 위해 빈 셀을 선택하거나\n교사명을 클릭해주세요',
-              style: TextStyle(
-                color: Colors.blue.shade600,
-                fontSize: _SidebarFontSizes.emptyMessage,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      );
+      return _buildSupplementContent();
     }
     
     // 다른 모드에서는 기존 로직 유지
@@ -447,6 +431,224 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// 보강교체 모드 콘텐츠 구성
+  Widget _buildSupplementContent() {
+    return Consumer(
+      builder: (context, ref, child) {
+        // 선택된 셀 정보 가져오기
+        final cellSelectionState = ref.watch(cellSelectionProvider);
+        final hasSelectedCell = cellSelectionState.selectedTeacher != null &&
+                               cellSelectionState.selectedDay != null &&
+                               cellSelectionState.selectedPeriod != null;
+
+        if (hasSelectedCell) {
+          // 선택된 셀이 있는 경우: 셀 정보 표시 (상단 간격 추가)
+          return Padding(
+            padding: const EdgeInsets.only(top: 16.0), // 헤더와 노드 사각형 사이 간격
+            child: _buildSelectedCellInfo(cellSelectionState),
+          );
+        } else {
+          // 선택된 셀이 없는 경우: 안내 메시지 표시 (상단 간격 추가)
+          return Padding(
+            padding: const EdgeInsets.only(top: 16.0), // 헤더와 안내 메시지 사이 간격
+            child: _buildSupplementGuide(),
+          );
+        }
+      },
+    );
+  }
+
+  /// 보강교체 안내 메시지
+  Widget _buildSupplementGuide() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.info_outline,
+            size: 64,
+            color: Colors.blue.shade400,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            '보강교체를 위해 빈 셀을 선택하거나\n교사명을 클릭해주세요',
+            style: TextStyle(
+              color: Colors.blue.shade600,
+              fontSize: _SidebarFontSizes.emptyMessage,
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 선택된 셀 정보 표시 (1:1 교체와 동일한 디자인)
+  Widget _buildSelectedCellInfo(CellSelectionState cellSelectionState) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: Column(
+        children: [
+          // 2개 노드를 감싸는 박스 (1:1 교체와 동일한 구조)
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: _PathColorScheme.getScheme(ExchangePathType.supplement).primary,
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: _PathColorScheme.getScheme(ExchangePathType.supplement).shadow,
+                  blurRadius: 2,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(6),
+              child: Column(
+                children: [
+                  // 1번째 노드 (선택된 셀) - 1:1 교체와 동일한 디자인
+                  _buildSupplementNode1(cellSelectionState),
+                  
+                  // 화살표 (보강교체 특징: 단방향)
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 2),
+                    child: Icon(
+                      Icons.keyboard_arrow_down,
+                      color: _PathColorScheme.getScheme(ExchangePathType.supplement).primary,
+                      size: 14,
+                    ),
+                  ),
+                  
+                  // 2번째 노드 (빈 박스) - 보강받을 셀
+                  _buildSupplementNode2(),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 12),
+          
+          // 안내 메시지
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.blue.shade200),
+            ),
+            child: Text(
+              '보강받을 교사의 빈 셀을\n클릭하거나 교사명을 선택하세요',
+              style: TextStyle(
+                fontSize: _SidebarFontSizes.emptyMessage - 1,
+                color: Colors.blue.shade700,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 1번째 노드 (선택된 셀) - 1:1 교체와 동일한 디자인
+  Widget _buildSupplementNode1(CellSelectionState cellSelectionState) {
+    return Consumer(
+      builder: (context, ref, child) {
+        // 시간표 데이터에서 선택된 셀의 상세 정보 가져오기
+        final timetableData = ref.watch(exchangeScreenProvider).timetableData;
+        
+        if (timetableData == null) {
+          return _buildEmptyNode('시간표 데이터 없음');
+        }
+
+        // 선택된 셀의 TimeSlot 찾기
+        final selectedSlot = timetableData.timeSlots.firstWhere(
+          (slot) => slot.teacher == cellSelectionState.selectedTeacher &&
+                   slot.dayOfWeek == DayUtils.getDayNumber(cellSelectionState.selectedDay!) &&
+                   slot.period == cellSelectionState.selectedPeriod &&
+                   slot.isNotEmpty,
+          orElse: () => TimeSlot(),
+        );
+
+        // ExchangeNode 생성 (1:1 교체와 동일한 형식)
+        final node = ExchangeNode(
+          teacherName: cellSelectionState.selectedTeacher!,
+          day: cellSelectionState.selectedDay!,
+          period: cellSelectionState.selectedPeriod!,
+          className: selectedSlot.className ?? '',
+          subjectName: selectedSlot.subject ?? '',
+        );
+
+        // 1:1 교체와 동일한 노드 컨테이너 사용
+        return _buildNodeContainer(
+          node, 
+          'supplement_0', 
+          true, // 선택된 상태
+          true, // 시작 노드
+          _PathColorScheme.getScheme(ExchangePathType.supplement),
+        );
+      },
+    );
+  }
+
+  /// 2번째 노드 (빈 박스) - 보강받을 셀
+  Widget _buildSupplementNode2() {
+    // 빈 노드 컨테이너 (회색 스타일)
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(
+          color: Colors.grey.shade300,
+          width: 1,
+        ),
+      ),
+      child: Text(
+        '빈 셀 선택 대기',
+        style: TextStyle(
+          fontSize: _SidebarFontSizes.nodeText,
+          fontWeight: FontWeight.w500,
+          color: Colors.grey.shade600,
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+
+  /// 빈 노드 생성 (에러 처리용)
+  Widget _buildEmptyNode(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(
+          color: Colors.grey.shade300,
+          width: 1,
+        ),
+      ),
+      child: Text(
+        message,
+        style: TextStyle(
+          fontSize: _SidebarFontSizes.nodeText,
+          fontWeight: FontWeight.w500,
+          color: Colors.grey.shade600,
+        ),
+        textAlign: TextAlign.center,
       ),
     );
   }

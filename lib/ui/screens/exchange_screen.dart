@@ -245,21 +245,10 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     // 테마 기반 헤더 업데이트 (컬럼/헤더 재생성 없이)
     _updateHeaderTheme();
     
-    // 사이드바에 안내 메시지 표시
-    _showSupplementGuidanceMessage();
-    
-    AppLogger.exchangeDebug('보강교체: 셀 선택 후 처리 완료');
-  }
-
-  /// 보강교체 안내 메시지를 사이드바에 표시
-  void _showSupplementGuidanceMessage() {
-    // 사이드바에 안내 메시지 표시
+    // 사이드바 표시 (선택된 셀 정보가 자동으로 표시됨)
     ref.read(exchangeScreenProvider.notifier).setSidebarVisible(true);
     
-    // 안내 메시지를 위한 더미 데이터 설정 (사이드바 표시용)
-    ref.read(exchangeScreenProvider.notifier).setSearchQuery('보강교체를 위해 빈 셀을 선택하거나 교사명을 클릭해주세요');
-    
-    AppLogger.exchangeDebug('보강교체 안내 메시지 표시: 사이드바 활성화');
+    AppLogger.exchangeDebug('보강교체: 셀 선택 후 처리 완료 - 사이드바 활성화');
   }
 
   /// 셀에 수업이 있는지 확인 (보강교체용)
@@ -702,18 +691,17 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     bool hasClass = _isCellNotEmpty(teacherName, dayPeriodInfo.day, dayPeriodInfo.period);
     AppLogger.exchangeDebug('보강교체 셀 상태: 수업 있음=$hasClass');
     
-    // 수업이 있는 셀이 아닌 경우 사이드바를 표시하지 않음
+    // 수업이 있는 셀이 아닌 경우 안내 메시지 표시
     if (!hasClass) {
-      AppLogger.exchangeDebug('보강교체: 빈 셀 클릭 - 사이드바 표시하지 않음');
+      AppLogger.exchangeDebug('보강교체: 빈 셀 클릭 - 안내 메시지 표시');
       
-      // 셀 선택은 하되 사이드바는 표시하지 않음
-      exchangeService.selectCell(teacherName, dayPeriodInfo.day, dayPeriodInfo.period);
-      ref.read(cellSelectionProvider.notifier).selectCell(teacherName, dayPeriodInfo.day, dayPeriodInfo.period);
-      ref.read(cellSelectionProvider.notifier).selectTeacherName(teacherName);
-      ref.read(cellSelectionProvider.notifier).setExchangeMode(ExchangeMode.supplementExchange);
-      
-      // 테마 기반 헤더 업데이트만 수행
-      _updateHeaderTheme();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('보강할 수업이 있는 셀을 선택해주세요'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 2),
+        ),
+      );
       
       return;
     }
