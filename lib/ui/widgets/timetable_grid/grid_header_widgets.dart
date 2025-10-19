@@ -152,22 +152,26 @@ class ExchangeActionButtons extends StatelessWidget {
   final VoidCallback onUndo;
   final VoidCallback onRepeat;
   final VoidCallback? onSupplement;
+  final VoidCallback? onCancelSupplement;
   final Future<void> Function()? onDelete;
   final VoidCallback? onExchange;
   final bool showDeleteButton;
   final bool showExchangeButton;
   final bool showSupplementButton;
+  final bool isSupplementModeActive;
 
   const ExchangeActionButtons({
     super.key,
     required this.onUndo,
     required this.onRepeat,
     this.onSupplement,
+    this.onCancelSupplement,
     this.onDelete,
     this.onExchange,
     required this.showDeleteButton,
     required this.showExchangeButton,
     required this.showSupplementButton,
+    this.isSupplementModeActive = false,
   });
 
   @override
@@ -215,33 +219,43 @@ class ExchangeActionButtons extends StatelessWidget {
           ),
         ),
 
-        // 보강 버튼 (교체 모드에서만 표시)
+        // 보강/취소 버튼 (교체 모드에서만 표시)
         if (showSupplementButton) ...[
           Container(
             margin: const EdgeInsets.only(right: 8),
             child: ElevatedButton.icon(
-              onPressed: onSupplement,
+              onPressed: isSupplementModeActive ? onCancelSupplement : onSupplement,
               icon: Icon(
-                Icons.add_circle_outline,
+                isSupplementModeActive ? Icons.cancel_outlined : Icons.add_circle_outline,
                 size: 16,
-                color: onSupplement != null ? Colors.green.shade700 : Colors.grey.shade400,
+                color: isSupplementModeActive 
+                    ? (onCancelSupplement != null ? Colors.red.shade700 : Colors.grey.shade400)
+                    : (onSupplement != null ? Colors.green.shade700 : Colors.grey.shade400),
               ),
               label: Text(
-                '보강',
+                isSupplementModeActive ? '취소' : '보강',
                 style: TextStyle(
                   fontSize: 12,
-                  color: onSupplement != null ? Colors.green.shade700 : Colors.grey.shade400,
+                  color: isSupplementModeActive 
+                      ? (onCancelSupplement != null ? Colors.red.shade700 : Colors.grey.shade400)
+                      : (onSupplement != null ? Colors.green.shade700 : Colors.grey.shade400),
                 ),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: onSupplement != null ? Colors.green.shade100 : Colors.grey.shade100,
-                foregroundColor: onSupplement != null ? Colors.green.shade700 : Colors.grey.shade400,
+                backgroundColor: isSupplementModeActive 
+                    ? (onCancelSupplement != null ? Colors.red.shade100 : Colors.grey.shade100)
+                    : (onSupplement != null ? Colors.green.shade100 : Colors.grey.shade100),
+                foregroundColor: isSupplementModeActive 
+                    ? (onCancelSupplement != null ? Colors.red.shade700 : Colors.grey.shade400)
+                    : (onSupplement != null ? Colors.green.shade700 : Colors.grey.shade400),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 minimumSize: const Size(60, 40),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(5),
                   side: BorderSide(
-                    color: onSupplement != null ? Colors.green.shade300 : Colors.grey.shade300,
+                    color: isSupplementModeActive 
+                        ? (onCancelSupplement != null ? Colors.red.shade300 : Colors.grey.shade300)
+                        : (onSupplement != null ? Colors.green.shade300 : Colors.grey.shade300),
                   ),
                 ),
               ),

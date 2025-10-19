@@ -349,6 +349,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
           builder: (context) {
             // 보강 버튼 활성화 조건 확인
             final supplementEnabled = isInExchangeMode && isCellSelected;
+            final screenState = ref.read(exchangeScreenProvider);
+            final isSupplementModeActive = screenState.isTeacherNameSelectionEnabled;
             
             return ExchangeActionButtons(
               onUndo: () => _exchangeExecutor.undoLastExchange(context, () {
@@ -358,6 +360,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
               }),
               onRepeat: () => _exchangeExecutor.repeatLastExchange(context),
               onSupplement: supplementEnabled ? _enableTeacherNameSelectionForSupplement : null,
+              onCancelSupplement: isSupplementModeActive ? _cancelSupplementMode : null,
               onDelete: (currentSelectedPath != null && isFromExchangedCell)
                 ? () async => await _exchangeExecutor.deleteFromExchangeList(currentSelectedPath!, context, () {
                     ref.read(stateResetProvider.notifier).resetExchangeStates(
@@ -375,6 +378,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
               showDeleteButton: currentSelectedPath != null && isFromExchangedCell,
               showExchangeButton: isInExchangeMode && !isFromExchangedCell,
               showSupplementButton: isInExchangeMode, // 교체 모드에서만 보강 버튼 표시
+              isSupplementModeActive: isSupplementModeActive, // 보강 모드 활성화 상태
             );
           },
         ),
@@ -646,6 +650,28 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
   /// 보강을 위한 교사 이름 선택 기능 활성화
   void _enableTeacherNameSelectionForSupplement() {
+    // 현재 선택된 셀이 수업이 있는 셀인지 확인
+    final exchangeService = ref.read(exchangeServiceProvider);
+    if (exchangeService.hasSelectedCell()) {
+      final selectedTeacher = exchangeService.selectedTeacher!;
+      final selectedDay = exchangeService.selectedDay!;
+      final selectedPeriod = exchangeService.selectedPeriod!;
+      
+      // 선택된 셀이 빈 셀인 경우 보강 모드 취소
+      if (_isCellEmpty(selectedTeacher, selectedDay, selectedPeriod)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('수업이 있는 시간을 선택하고 보강 버튼을 눌려주세요.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+        
+        AppLogger.exchangeDebug('보강 모드 진입 실패: 빈 셀이 선택됨 - $selectedTeacher $selectedDay$selectedPeriod교시');
+        return;
+      }
+    }
+
     // 🔥 Level 1 초기화: 보강 모드 진입 시 기존 교체 경로 정리
     // - ExchangeScreenProvider 배치 업데이트 (경로들을 null로 설정)
     // - TimetableDataSource 배치 업데이트 (Syncfusion DataGrid 전용)
@@ -676,6 +702,27 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     );
     
     AppLogger.exchangeDebug('보강을 위한 교사 이름 선택 기능 활성화');
+  }
+
+  /// 보강 모드 취소
+  void _cancelSupplementMode() {
+    // 교사 이름 선택 기능 비활성화
+    ref.read(exchangeScreenProvider.notifier).disableTeacherNameSelection();
+    ref.read(cellSelectionProvider.notifier).selectTeacherName(null);
+    
+    // UI 업데이트
+    widget.dataSource?.notifyDataChanged();
+    
+    // 사용자 피드백
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('보강 모드가 취소되었습니다'),
+        backgroundColor: Colors.orange,
+        duration: Duration(seconds: 2),
+      ),
+    );
+    
+    AppLogger.exchangeDebug('보강 모드 취소');
   }
 
 
@@ -843,19 +890,18 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     AppLogger.exchangeDebug('🔄 교사 이름 클릭 - UI 업데이트');
   }
 
-  /// 일반 셀에서 교사 이름 추출하여 보강교체 처리
+  /// 보강 모드에서 일반 셀 클릭 처리
   /// 
-  /// 이 메서드는 보강 모드에서 일반 셀을 클릭했을 때 해당 셀의 교사 이름을 추출하여
-  /// 보강교체를 실행하는 기능을 제공합니다.
+  /// 이 메서드는 보강 모드에서 일반 셀을 클릭했을 때의 동작을 처리합니다.
   /// 
   /// 보강 로직:
-  /// - 보강할 셀: 빈 셀이어야 함 (수업이 없는 시간)
-  /// - 보강할 교사: 수업이 있는 교사를 선택
+  /// - 보강할 셀: 수업이 있는 셀이어야 함 (빈 셀이 아님)
+  /// - 보강할 교사: 빈 셀의 교사를 선택
   /// 
   /// 처리 과정:
-  /// 1. 선택된 셀의 교사 이름 추출
-  /// 2. 빈 셀인지 검사 (빈 셀이어야 보강 가능)
-  /// 3. 보강교체 실행
+  /// 1. 클릭된 셀이 빈 셀인지 검사
+  /// 2. 빈 셀인 경우: 보강교체 실행
+  /// 3. 수업이 있는 셀인 경우: 보강 모드 취소 및 안내 메시지 표시
   void _handleGeneralCellForSupplement(String teacherName, String day, int period) {
     // 현재 모드 및 교사 이름 선택 기능 활성화 상태 확인
     final screenState = ref.read(exchangeScreenProvider);
@@ -867,25 +913,25 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       return;
     }
     
-    // 1. 선택된 셀의 교사 이름 추출
-    final clickedTeacherName = teacherName;
-    
-    // 2. 빈 셀인지 검사 (빈 셀이어야 보강 가능)
-    if (!_isCellEmpty(clickedTeacherName, day, period)) {
+    // 1. 빈 셀인지 검사
+    if (_isCellEmpty(teacherName, day, period)) {
+      // 빈 셀을 클릭한 경우: 보강교체 실행
+      AppLogger.exchangeDebug('빈 셀에서 교사 이름 추출하여 보강교체 실행: $teacherName');
+      _executeSupplementExchangeViaExecutor(teacherName);
+    } else {
+      // 수업이 있는 셀을 클릭한 경우: 보강 모드 취소 및 안내 메시지 표시
+      _cancelSupplementMode();
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('보강 실패: $clickedTeacherName의 $day$period교시는 수업이 있는 셀입니다. 빈 셀을 선택해주세요'),
+          content: Text('보강할 시간은 빈 셀을 선택해주세요. $teacherName의 $day$period교시는 수업이 있는 시간입니다.'),
           backgroundColor: Colors.orange,
           duration: const Duration(seconds: 3),
         ),
       );
-      AppLogger.exchangeDebug('보강 실패: 수업이 있는 셀 클릭 - $clickedTeacherName $day$period교시');
-      return;
+      
+      AppLogger.exchangeDebug('보강 모드 취소: 수업이 있는 셀 클릭 - $teacherName $day$period교시');
     }
-    
-    // 3. 보강교체 실행 (빈 셀을 보강할 셀로 설정)
-    AppLogger.exchangeDebug('빈 셀에서 교사 이름 추출하여 보강교체 실행: $clickedTeacherName');
-    _executeSupplementExchangeViaExecutor(clickedTeacherName);
   }
 
   /// 셀이 비어있는지 확인 (과목이나 학급이 없는지 검사)
