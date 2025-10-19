@@ -366,6 +366,10 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   @override
   bool get isSupplementExchangeModeEnabled => _isSupplementExchangeModeEnabled;
 
+  // 보강교체 교사 버튼 클릭 콜백 구현
+  @override
+  void Function(String, String, int)? get onSupplementTeacherTap => _onSupplementTeacherTap;
+
   // StateResetHandler Mixin 제거 완료
   // 모든 초기화는 StateResetProvider를 통해 처리됨
 
@@ -1260,6 +1264,45 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   void _toggleSidebar() {
     final notifier = ref.read(exchangeScreenProvider.notifier);
     notifier.setSidebarVisible(!_isSidebarVisible);
+  }
+
+  /// 보강교체 교사 버튼 클릭 처리
+  void _onSupplementTeacherTap(String teacherName, String day, int period) {
+    AppLogger.exchangeDebug('보강교체 교사 버튼 클릭: $teacherName ($day $period교시)');
+    
+    // 선택된 셀이 있는지 확인
+    if (!exchangeService.hasSelectedCell()) {
+      AppLogger.exchangeDebug('보강교체 실패: 선택된 셀이 없음');
+      showSnackBar('먼저 보강할 셀을 선택해주세요.', backgroundColor: Colors.orange);
+      return;
+    }
+    
+    // 교사 이름 선택 상태 설정
+    ref.read(cellSelectionProvider.notifier).selectTeacherName(teacherName);
+    
+    // 보강교체 실행 (ExchangeExecutor 호출)
+    _executeSupplementExchangeViaExecutor(teacherName);
+  }
+
+  /// 보강교체 실행 (ExchangeExecutor 호출)
+  void _executeSupplementExchangeViaExecutor(String teacherName) {
+    AppLogger.exchangeDebug('보강교체 실행 시작: $teacherName');
+    
+    // TimetableGridSection의 보강교체 실행 메서드 호출
+    final timetableGridState = _timetableGridKey.currentState;
+    if (timetableGridState != null) {
+      try {
+        // TimetableGridSection의 _executeSupplementExchangeViaExecutor 메서드 호출
+        (timetableGridState as dynamic).executeSupplementExchangeViaExecutor(teacherName);
+        AppLogger.exchangeDebug('보강교체 실행 완료: $teacherName');
+      } catch (e) {
+        AppLogger.error('보강교체 실행 중 오류 발생: $e');
+        showSnackBar('보강교체 실행 중 오류가 발생했습니다.', backgroundColor: Colors.red);
+      }
+    } else {
+      AppLogger.error('TimetableGridSection 상태를 찾을 수 없음');
+      showSnackBar('보강교체 실행 중 오류가 발생했습니다.', backgroundColor: Colors.red);
+    }
   }
 
   

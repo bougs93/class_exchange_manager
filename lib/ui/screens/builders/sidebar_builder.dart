@@ -43,6 +43,7 @@ mixin SidebarBuilder<T extends StatefulWidget> on State<T> {
   String Function(ExchangeNode) get getSubjectName;
   void onStepChanged(int? step);
   void onDayChanged(String? day);
+  void Function(String, String, int)? onSupplementTeacherTap; // 보강교체 교사 버튼 클릭 콜백
 
   /// 통합 교체 사이드바 빌드
   Widget buildUnifiedExchangeSidebar() {
@@ -112,6 +113,8 @@ mixin SidebarBuilder<T extends StatefulWidget> on State<T> {
       onStepChanged: (isCircularExchangeModeEnabled || isExchangeModeEnabled || isChainExchangeModeEnabled) ? onStepChanged : null,
       selectedDay: (isCircularExchangeModeEnabled || isExchangeModeEnabled || isChainExchangeModeEnabled) ? selectedDay : null,
       onDayChanged: (isCircularExchangeModeEnabled || isExchangeModeEnabled || isChainExchangeModeEnabled) ? onDayChanged : null,
+      // 보강교체 모드에서 사용되는 교사 버튼 클릭 콜백
+      onSupplementTeacherTap: isSupplementExchangeModeEnabled ? onSupplementTeacherTap : null,
     );
   }
 

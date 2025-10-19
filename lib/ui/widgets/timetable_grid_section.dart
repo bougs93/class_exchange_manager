@@ -860,7 +860,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       ref.read(cellSelectionProvider.notifier).selectTeacherName(teacherName);
       
       // 보강교체 실행 (ExchangeExecutor 호출)
-      _executeSupplementExchangeViaExecutor(teacherName);
+      executeSupplementExchangeViaExecutor(teacherName);
       return;
     }
     
@@ -915,8 +915,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     }
   }
 
-  /// 보강교체 실행 (ExchangeExecutor 호출 - 1:1 교체와 동일한 패턴)
-  void _executeSupplementExchangeViaExecutor(String targetTeacherName) {
+  /// 보강교체 실행 (ExchangeExecutor 호출 - 1:1 교체와 동일한 패턴) - public 메서드로 변경
+  void executeSupplementExchangeViaExecutor(String targetTeacherName) {
     if (widget.timetableData == null) {
       AppLogger.exchangeDebug('보강교체 실행 실패: timetableData가 null입니다');
       return;

@@ -750,6 +750,59 @@ class ExchangeService extends BaseExchangeService {
     
     return exchangeableTeachers;
   }
+
+  /// 보강교체용 교사 목록 가져오기 (선택된 시간에 빈 시간이 있는 모든 교사)
+  List<Map<String, dynamic>> getSupplementExchangeableTeachers(
+    List<TimeSlot> timeSlots,
+    List<Teacher> teachers,
+  ) {
+    if (selectedTeacher == null || selectedDay == null || selectedPeriod == null) {
+      return [];
+    }
+    
+    List<Map<String, dynamic>> supplementTeachers = [];
+    
+    // 선택된 시간에 빈 시간이 있는 모든 교사 찾기
+    for (Teacher teacher in teachers) {
+      if (teacher.name == selectedTeacher) continue; // 자기 자신 제외
+      
+      // 해당 교사가 선택된 시간에 수업이 있는지 확인
+      bool hasClassAtSelectedTime = timeSlots.any((slot) => 
+        slot.teacher == teacher.name &&
+        slot.dayOfWeek == DayUtils.getDayNumber(selectedDay!) &&
+        slot.period == selectedPeriod &&
+        slot.isNotEmpty &&
+        slot.canExchange // 교체 가능한 셀만 고려
+      );
+      
+      // 선택된 시간에 수업이 없는 교사만 보강 가능한 교사로 추가
+      if (!hasClassAtSelectedTime) {
+        // 해당 교사가 다른 시간에 가르치는 과목 정보 가져오기 (표시용)
+        String subjectInfo = _getTeacherSubjectInfo(teacher.name, timeSlots);
+        
+        supplementTeachers.add({
+          'teacherName': teacher.name,
+          'day': selectedDay!,
+          'period': selectedPeriod!,
+          'subject': subjectInfo,
+        });
+      }
+    }
+    
+    AppLogger.exchangeDebug('보강교체 가능한 교사 수: ${supplementTeachers.length}명');
+    return supplementTeachers;
+  }
+
+  /// 교사의 과목 정보 가져오기 (표시용)
+  String _getTeacherSubjectInfo(String teacherName, List<TimeSlot> timeSlots) {
+    // 해당 교사가 가르치는 과목들 중 첫 번째 과목 반환
+    for (var slot in timeSlots) {
+      if (slot.teacher == teacherName && slot.isNotEmpty && slot.subject != null) {
+        return slot.subject!;
+      }
+    }
+    return '과목정보없음';
+  }
   
   /// 빈시간에 같은 반을 가르치는 교사 찾기
   List<Map<String, dynamic>> _findSameClassTeachers(

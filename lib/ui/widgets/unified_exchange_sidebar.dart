@@ -10,6 +10,7 @@ import '../../utils/logger.dart';
 import '../../utils/day_utils.dart';
 import '../../providers/cell_selection_provider.dart';
 import '../../providers/exchange_screen_provider.dart';
+import '../../providers/services_provider.dart';
 import 'exchange_filter_widget.dart';
 
 /// 사이드바 폰트 사이즈 상수
@@ -143,6 +144,9 @@ class UnifiedExchangeSidebar extends StatefulWidget {
   // 순환교체 모드에서만 사용되는 요일 필터 관련 매개변수
   final String? selectedDay;                          // 선택된 요일 (null이면 모든 요일 표시)
   final Function(String?)? onDayChanged;              // 요일 변경 콜백
+  
+  // 보강교체 모드에서 사용되는 교사 버튼 클릭 콜백
+  final Function(String, String, int)? onSupplementTeacherTap;  // 교사명, 요일, 교시
 
   const UnifiedExchangeSidebar({
     super.key,
@@ -166,6 +170,8 @@ class UnifiedExchangeSidebar extends StatefulWidget {
     // 순환교체 모드에서만 사용되는 요일 필터 매개변수들
     this.selectedDay,
     this.onDayChanged,
+    // 보강교체 모드에서 사용되는 교사 버튼 클릭 콜백
+    this.onSupplementTeacherTap,
   });
 
   @override
@@ -446,10 +452,22 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
                                cellSelectionState.selectedPeriod != null;
 
         if (hasSelectedCell) {
-          // 선택된 셀이 있는 경우: 셀 정보 표시 (상단 간격 추가)
+          // 선택된 셀이 있는 경우: 셀 정보와 보강 가능한 교사 버튼 표시
           return Padding(
             padding: const EdgeInsets.only(top: 16.0), // 헤더와 노드 사각형 사이 간격
-            child: _buildSelectedCellInfo(cellSelectionState),
+            child: Column(
+              children: [
+                // 선택된 셀 정보
+                _buildSelectedCellInfo(cellSelectionState),
+                
+                const SizedBox(height: 16),
+                
+                // 보강 가능한 교사 버튼 섹션
+                Expanded(
+                  child: _buildSupplementTeacherButtons(cellSelectionState),
+                ),
+              ],
+            ),
           );
         } else {
           // 선택된 셀이 없는 경우: 안내 메시지 표시 (상단 간격 추가)
@@ -536,26 +554,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
           ),
           
           const SizedBox(height: 12),
-          
-          // 안내 메시지
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: Colors.blue.shade200),
-            ),
-            child: Text(
-              '보강할 교사의 빈 셀을\n클릭하거나 교사명을 선택하세요',
-              style: TextStyle(
-                fontSize: _SidebarFontSizes.emptyMessage - 2,
-                color: Colors.blue.shade700,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
+
         ],
       ),
     );
@@ -624,6 +623,210 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
           color: Colors.grey.shade600,
         ),
         textAlign: TextAlign.center,
+      ),
+    );
+  }
+
+  /// 보강 가능한 교사 버튼 섹션
+  Widget _buildSupplementTeacherButtons(CellSelectionState cellSelectionState) {
+    return Consumer(
+      builder: (context, ref, child) {
+        // ExchangeService에서 보강 가능한 교사 목록 가져오기
+        final exchangeService = ref.watch(exchangeServiceProvider);
+        final timetableData = ref.watch(exchangeScreenProvider).timetableData;
+        
+        if (timetableData == null) {
+          return _buildNoDataMessage();
+        }
+
+        // 보강 가능한 교사 목록 가져오기
+        final exchangeableTeachers = exchangeService.getSupplementExchangeableTeachers(
+          timetableData.timeSlots,
+          timetableData.teachers,
+        );
+
+        if (exchangeableTeachers.isEmpty) {
+          return _buildNoAvailableTeachersMessage();
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 섹션 헤더
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.symmetric(horizontal: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.teal.shade50,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.teal.shade200),
+              ),
+              child: Text(
+                '보강 가능한 교사',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.teal.shade700,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            
+            const SizedBox(height: 8),
+            
+            // 교사 버튼 목록
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                itemCount: exchangeableTeachers.length,
+                itemBuilder: (context, index) {
+                  final teacher = exchangeableTeachers[index];
+                  return _buildTeacherButton(teacher, index);
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 교사 버튼 구성
+  Widget _buildTeacherButton(Map<String, dynamic> teacher, int index) {
+    final teacherName = teacher['teacherName'] as String;
+    final day = teacher['day'] as String;
+    final period = teacher['period'] as int;
+    final subject = teacher['subject'] as String;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      child: InkWell(
+        onTap: () => _onTeacherButtonTap(teacherName, day, period),
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: Colors.teal.shade300,
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.teal.shade100,
+                blurRadius: 2,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              // 교사 이름 (강조)
+              Expanded(
+                flex: 3,
+                child: Text(
+                  teacherName,
+                  style: TextStyle(
+                    fontSize: _SidebarFontSizes.nodeText,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.teal.shade700,
+                  ),
+                ),
+              ),
+              
+              // 구분선
+              Container(
+                width: 1,
+                height: 16,
+                color: Colors.teal.shade200,
+                margin: const EdgeInsets.symmetric(horizontal: 6),
+              ),
+              
+              // 과목 정보
+              Expanded(
+                flex: 2,
+                child: Text(
+                  subject,
+                  style: TextStyle(
+                    fontSize: _SidebarFontSizes.nodeText - 1,
+                    color: Colors.teal.shade600,
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 교사 버튼 탭 처리
+  void _onTeacherButtonTap(String teacherName, String day, int period) {
+    AppLogger.exchangeDebug('보강 가능한 교사 버튼 클릭: $teacherName ($day $period교시)');
+    
+    // 보강교체 모드이고 콜백이 제공된 경우 보강교체 실행
+    if (widget.mode == ExchangePathType.supplement && widget.onSupplementTeacherTap != null) {
+      widget.onSupplementTeacherTap!(teacherName, day, period);
+    }
+  }
+
+  /// 데이터 없음 메시지
+  Widget _buildNoDataMessage() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.error_outline,
+            size: 48,
+            color: Colors.grey.shade400,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '시간표 데이터가 없습니다',
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: _SidebarFontSizes.emptyMessage - 2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 보강 가능한 교사 없음 메시지
+  Widget _buildNoAvailableTeachersMessage() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.person_off,
+            size: 48,
+            color: Colors.grey.shade400,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '보강 가능한 교사가 없습니다',
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: _SidebarFontSizes.emptyMessage - 2,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '같은 반을 가르치는 교사 중\n빈 시간이 있는 교사가 없습니다',
+            style: TextStyle(
+              color: Colors.grey.shade500,
+              fontSize: _SidebarFontSizes.emptyMessage - 4,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
