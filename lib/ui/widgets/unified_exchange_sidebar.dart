@@ -724,9 +724,31 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
           ),
           child: Row(
             children: [
+              // 시간 정보 (월1)
+              Expanded(
+                flex: 1,
+                child: Text(
+                  '$day$period',
+                  style: TextStyle(
+                    fontSize: _SidebarFontSizes.nodeText - 1,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.teal.shade600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              
+              // 구분선
+              Container(
+                width: 1,
+                height: 16,
+                color: Colors.teal.shade200,
+                margin: const EdgeInsets.symmetric(horizontal: 6),
+              ),
+              
               // 교사 이름 (강조)
               Expanded(
-                flex: 3,
+                flex: 2,
                 child: Text(
                   teacherName,
                   style: TextStyle(
@@ -734,6 +756,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
                     fontWeight: FontWeight.w600,
                     color: Colors.teal.shade700,
                   ),
+                  textAlign: TextAlign.center,
                 ),
               ),
               
@@ -754,7 +777,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
                     fontSize: _SidebarFontSizes.nodeText - 1,
                     color: Colors.teal.shade600,
                   ),
-                  textAlign: TextAlign.right,
+                  textAlign: TextAlign.center,
                 ),
               ),
             ],
