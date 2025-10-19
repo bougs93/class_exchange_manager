@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:calendar_date_picker2/calendar_date_picker2.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
+import '../../../../utils/logger.dart';
 
 /// 여백 및 스타일 상수
 class _Spacing {
@@ -16,14 +17,16 @@ class _Spacing {
 
 /// 보강계획서 데이터 소스
 class SubstitutionPlanDataSource extends DataGridSource {
-  final List<SubstitutionPlanData> _data;
+  final List<SubstitutionPlanData> planData;
   final Function(String, String)? onDateCellTap;
 
-  SubstitutionPlanDataSource(this._data, {this.onDateCellTap});
+  SubstitutionPlanDataSource(this.planData, {this.onDateCellTap});
 
   @override
-  List<DataGridRow> get rows => _data.map<DataGridRow>((data) {
+  List<DataGridRow> get rows => planData.map<DataGridRow>((data) {
     return DataGridRow(cells: [
+      // exchangeId를 첫 번째 숨김 컬럼으로 추가
+      DataGridCell<String>(columnName: '_exchangeId', value: data.exchangeId),
       DataGridCell<String>(columnName: 'absenceDate', value: data.absenceDate),
       DataGridCell<String>(columnName: 'absenceDay', value: data.absenceDay),
       DataGridCell<String>(columnName: 'period', value: data.period),
@@ -44,14 +47,15 @@ class SubstitutionPlanDataSource extends DataGridSource {
 
   @override
   DataGridRowAdapter buildRow(DataGridRow row) {
-    return DataGridRowAdapter(
-      cells: row.getCells().map<Widget>((cell) {
-        if (cell.columnName == 'absenceDate' || cell.columnName == 'substitutionDate') {
-          return _buildDateCell(cell, row);
-        }
-        return _buildNormalCell(cell);
-      }).toList(),
-    );
+    // exchangeId 컬럼을 제외한 나머지 셀들만 렌더링
+    final cells = row.getCells().where((cell) => cell.columnName != '_exchangeId').map<Widget>((cell) {
+      if (cell.columnName == 'absenceDate' || cell.columnName == 'substitutionDate') {
+        return _buildDateCell(cell, row);
+      }
+      return _buildNormalCell(cell);
+    }).toList();
+
+    return DataGridRowAdapter(cells: cells);
   }
 
   Widget _buildDateCell(DataGridCell cell, DataGridRow row) {
@@ -60,12 +64,24 @@ class SubstitutionPlanDataSource extends DataGridSource {
 
     return GestureDetector(
       onTap: () {
+        AppLogger.exchangeDebug('셀 클릭 - 컬럼: ${cell.columnName}, 값: ${cell.value}');
         if (onDateCellTap != null) {
-          // exchangeId 추출 (첫 번째 데이터에서)
-          final rowIndex = rows.indexOf(row);
-          if (rowIndex >= 0 && rowIndex < _data.length) {
-            onDateCellTap!(_data[rowIndex].exchangeId, cell.columnName);
+          // exchangeId를 row의 첫 번째 셀에서 추출
+          final exchangeIdCell = row.getCells().firstWhere(
+            (c) => c.columnName == '_exchangeId',
+            orElse: () => DataGridCell<String>(columnName: '_exchangeId', value: ''),
+          );
+          final exchangeId = exchangeIdCell.value?.toString() ?? '';
+
+          AppLogger.exchangeDebug('exchangeId: $exchangeId, 콜백 호출');
+
+          if (exchangeId.isNotEmpty) {
+            onDateCellTap!(exchangeId, cell.columnName);
+          } else {
+            AppLogger.warning('exchangeId가 비어있습니다');
           }
+        } else {
+          AppLogger.warning('onDateCellTap이 null입니다');
         }
       },
       child: Container(
@@ -319,64 +335,86 @@ class SubstitutionPlanGrid extends ConsumerWidget {
     String columnName,
     List<SubstitutionPlanData> planData,
   ) async {
+    AppLogger.exchangeDebug('날짜 선택 시작 - exchangeId: $exchangeId, columnName: $columnName');
+
     // 해당 데이터 찾기
-    final data = planData.firstWhere((d) => d.exchangeId == exchangeId);
+    try {
+      final data = planData.firstWhere((d) => d.exchangeId == exchangeId);
+      AppLogger.exchangeDebug('데이터 찾기 성공');
 
-    // 요일 정보 추출
-    final targetWeekday = columnName == 'absenceDate' ? data.absenceDay : data.substitutionDay;
+      // 요일 정보 추출
+      final targetWeekday = columnName == 'absenceDate' ? data.absenceDay : data.substitutionDay;
+      AppLogger.exchangeDebug('대상 요일: $targetWeekday');
 
-    // 날짜 선택기 표시
-    final selectedDates = await showCalendarDatePicker2Dialog(
-      context: context,
-      config: CalendarDatePicker2WithActionButtonsConfig(
-        calendarType: CalendarDatePicker2Type.single,
-        firstDate: DateTime(2020),
-        lastDate: DateTime(2030),
-        weekdayLabels: ['일', '월', '화', '수', '목', '금', '토'],
-        selectableDayPredicate: targetWeekday.isNotEmpty
-            ? (date) => _isTargetWeekday(date, targetWeekday)
-            : null,
-        selectedDayHighlightColor: Colors.blue.shade600,
-        okButton: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.blue.shade600,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: const Text('확인', style: TextStyle(color: Colors.white)),
-        ),
-        cancelButton: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade200,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text('취소', style: TextStyle(color: Colors.grey.shade600)),
-        ),
-      ),
-      dialogSize: const Size(350, 360),
-      borderRadius: BorderRadius.circular(5),
-      value: [DateTime.now()],
-    );
-
-    final selectedDate = selectedDates?.isNotEmpty == true ? selectedDates!.first : null;
-
-    if (selectedDate != null) {
-      if (targetWeekday.isNotEmpty && !_isTargetWeekday(selectedDate, targetWeekday)) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('$targetWeekday요일이 아닌 날짜는 선택할 수 없습니다.'),
-              backgroundColor: Colors.red.shade600,
-              duration: const Duration(seconds: 3),
+      // 날짜 선택기 표시
+      final selectedDates = await showCalendarDatePicker2Dialog(
+        context: context,
+        config: CalendarDatePicker2WithActionButtonsConfig(
+          calendarType: CalendarDatePicker2Type.single,
+          firstDate: DateTime(2020),
+          lastDate: DateTime(2030),
+          weekdayLabels: ['일', '월', '화', '수', '목', '금', '토'],
+          selectableDayPredicate: targetWeekday.isNotEmpty
+              ? (date) => _isTargetWeekday(date, targetWeekday)
+              : null,
+          selectedDayHighlightColor: Colors.blue.shade600,
+          okButton: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade600,
+              borderRadius: BorderRadius.circular(6),
             ),
-          );
-        }
-        return;
-      }
+            child: const Text('확인', style: TextStyle(color: Colors.white)),
+          ),
+          cancelButton: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade200,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text('취소', style: TextStyle(color: Colors.grey.shade600)),
+          ),
+        ),
+        dialogSize: const Size(350, 360),
+        borderRadius: BorderRadius.circular(5),
+        value: [DateTime.now()],
+      );
 
-      final formattedDate = '${selectedDate.month}.${selectedDate.day}';
-      viewModel.updateDate(exchangeId, columnName, formattedDate);
+      AppLogger.exchangeDebug('선택 결과: $selectedDates');
+
+      final selectedDate = selectedDates?.isNotEmpty == true ? selectedDates!.first : null;
+
+      if (selectedDate != null) {
+        if (targetWeekday.isNotEmpty && !_isTargetWeekday(selectedDate, targetWeekday)) {
+          AppLogger.warning('요일 불일치 - 선택: ${selectedDate.weekday}, 대상: $targetWeekday');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('$targetWeekday요일이 아닌 날짜는 선택할 수 없습니다.'),
+                backgroundColor: Colors.red.shade600,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+          return;
+        }
+
+        final formattedDate = '${selectedDate.month}.${selectedDate.day}';
+        AppLogger.exchangeInfo('날짜 업데이트: $formattedDate');
+        viewModel.updateDate(exchangeId, columnName, formattedDate);
+      } else {
+        AppLogger.exchangeDebug('날짜 선택 취소됨');
+      }
+    } catch (e) {
+      AppLogger.error('날짜 선택 중 오류 발생', e);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('날짜 선택 중 오류가 발생했습니다: $e'),
+            backgroundColor: Colors.red.shade600,
+          ),
+        );
+      }
     }
   }
 
