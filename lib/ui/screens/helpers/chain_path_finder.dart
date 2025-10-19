@@ -43,16 +43,16 @@ class ChainPathFinder {
 
       // 경로에 따른 사이드바 표시 설정
       bool shouldShowSidebar;
-      String message;
+      String? message;
 
       if (paths.isEmpty) {
         shouldShowSidebar = false;
-        message = '연쇄교체 가능한 경로가 없습니다.';
+        message = null; // 스낵바 메시지 제거
         AppLogger.exchangeDebug('연쇄교체 경로가 없어서 사이드바를 숨김니다.');
         AppLogger.exchangeInfo('연쇄교체: 경로 없음');
       } else {
         shouldShowSidebar = true;
-        message = '연쇄교체 경로 ${paths.length}개를 찾았습니다.';
+        message = null; // 스낵바 메시지 제거
         AppLogger.exchangeDebug('연쇄교체 경로 ${paths.length}개를 찾았습니다. 사이드바를 표시합니다.');
         AppLogger.exchangeInfo('연쇄교체: ${paths.length}개 경로 발견');
       }
@@ -71,7 +71,7 @@ class ChainPathFinder {
         paths: [],
         filteredPaths: [],
         shouldShowSidebar: false,
-        message: '연쇄교체 경로 탐색 중 오류가 발생했습니다: $e',
+        message: null, // 스낵바 메시지 제거
         error: e.toString(),
       );
     }
