@@ -37,24 +37,29 @@ class ExchangeOperationManager {
   // ===== 파일 관리 =====
 
   /// Excel 파일 선택
-  Future<void> selectExcelFile() async {
+  /// 
+  /// Returns: 파일 선택 성공 여부 (true: 성공, false: 취소 또는 실패)
+  Future<bool> selectExcelFile() async {
     stateProxy.setLoading(true);
     stateProxy.setErrorMessage(null);
 
     try {
+      bool success = false;
       if (kIsWeb) {
-        await _selectExcelFileWeb();
+        success = await _selectExcelFileWeb();
       } else {
-        await _selectExcelFileNative();
+        success = await _selectExcelFileNative();
       }
+      return success;
     } catch (e) {
       stateProxy.setErrorMessage('파일 선택 중 오류가 발생했습니다: $e');
+      return false;
     } finally {
       stateProxy.setLoading(false);
     }
   }
 
-  Future<void> _selectExcelFileWeb() async {
+  Future<bool> _selectExcelFileWeb() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['xlsx', 'xls'],
@@ -65,17 +70,21 @@ class ExchangeOperationManager {
       final bytes = result.files.first.bytes;
       if (bytes != null) {
         await processExcelBytes(bytes);
+        return true; // 파일 선택 성공
       }
     }
+    return false; // 파일 선택 취소 또는 실패
   }
 
-  Future<void> _selectExcelFileNative() async {
+  Future<bool> _selectExcelFileNative() async {
     File? file = await ExcelService.pickExcelFile();
 
     if (file != null) {
       stateProxy.setSelectedFile(file);
       await loadExcelData();
+      return true; // 파일 선택 성공
     }
+    return false; // 파일 선택 취소
   }
 
   Future<void> loadExcelData() async {

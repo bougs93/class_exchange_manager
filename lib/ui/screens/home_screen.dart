@@ -67,20 +67,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // 엑셀 파일 선택 메서드
   Future<void> _selectExcelFile() async {
     if (_operationManager != null) {
-      await _operationManager!.selectExcelFile();
+      // 파일 선택 시도
+      bool fileSelected = await _operationManager!.selectExcelFile();
       
-      // 파일 선택 후 보기 모드로 전환
-      final globalNotifier = ref.read(exchangeScreenProvider.notifier);
-      globalNotifier.setCurrentMode(ExchangeMode.view);
+      // 파일 선택이 성공한 경우에만 초기화 수행
+      if (fileSelected) {
+        // 파일 선택 후 보기 모드로 전환
+        final globalNotifier = ref.read(exchangeScreenProvider.notifier);
+        globalNotifier.setCurrentMode(ExchangeMode.view);
 
-      // 파일 선택 후 Level 3 초기화
-      ref.read(stateResetProvider.notifier).resetAllStates(
-        reason: '파일 선택 후 전체 상태 초기화',
-      );
-      
-      if (mounted) {
-        setState(() {});
+        // 파일 선택 후 Level 3 초기화
+        ref.read(stateResetProvider.notifier).resetAllStates(
+          reason: '파일 선택 후 전체 상태 초기화',
+        );
+        
+        if (mounted) {
+          setState(() {});
+        }
       }
+      // 파일 선택이 취소된 경우 아무 동작하지 않음
     }
   }
 

@@ -223,7 +223,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   // ===== Manager 위임 메서드 (Mixin 대체) =====
 
   /// Excel 파일 선택 (OperationManager 위임)
-  Future<void> selectExcelFile() => _operationManager.selectExcelFile();
+  Future<bool> selectExcelFile() => _operationManager.selectExcelFile();
 
   /// 엑셀 파일 선택 해제 (OperationManager 위임)
   void clearSelectedFile() => _operationManager.clearSelectedFile();
