@@ -94,8 +94,3 @@ class SubstitutionPlanNotifier extends StateNotifier<SubstitutionPlanState> {
 final substitutionPlanProvider = StateNotifierProvider<SubstitutionPlanNotifier, SubstitutionPlanState>((ref) {
   return SubstitutionPlanNotifier();
 });
-
-/// 결보강 계획서 Notifier Provider (편의용)
-final substitutionPlanNotifierProvider = Provider<SubstitutionPlanNotifier>((ref) {
-  return ref.read(substitutionPlanProvider.notifier);
-});

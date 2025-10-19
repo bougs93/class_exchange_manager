@@ -507,63 +507,17 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
 // ==================== Provider 정의 ====================
 
 /// 통합된 셀 선택 상태 Provider
+///
+/// **사용 예시** (select 패턴 권장):
+/// ```dart
+/// // ❌ 비효율적 - 전체 상태 구독
+/// final state = ref.watch(cellSelectionProvider);
+///
+/// // ✅ 효율적 - 필요한 필드만 구독
+/// final selectedTeacher = ref.watch(cellSelectionProvider.select((s) => s.selectedTeacher));
+/// final isArrowVisible = ref.watch(cellSelectionProvider.select((s) => s.isArrowVisible));
+/// final currentMode = ref.watch(cellSelectionProvider.select((s) => s.currentMode));
+/// ```
 final cellSelectionProvider = StateNotifierProvider<CellSelectionNotifier, CellSelectionState>(
   (ref) => CellSelectionNotifier(),
 );
-
-// ==================== 편의 Provider들 ====================
-
-/// 현재 선택된 셀 정보만 반환하는 Provider
-final selectedCellProvider = Provider<Map<String, dynamic>?>((ref) {
-  final state = ref.watch(cellSelectionProvider);
-  if (state.selectedTeacher == null || state.selectedDay == null || state.selectedPeriod == null) {
-    return null;
-  }
-  return {
-    'teacher': state.selectedTeacher,
-    'day': state.selectedDay,
-    'period': state.selectedPeriod,
-  };
-});
-
-/// 현재 타겟 셀 정보만 반환하는 Provider
-final targetCellProvider = Provider<Map<String, dynamic>?>((ref) {
-  final state = ref.watch(cellSelectionProvider);
-  if (state.targetTeacher == null || state.targetDay == null || state.targetPeriod == null) {
-    return null;
-  }
-  return {
-    'teacher': state.targetTeacher,
-    'day': state.targetDay,
-    'period': state.targetPeriod,
-  };
-});
-
-/// 현재 교체 모드만 반환하는 Provider
-final currentExchangeModeProvider = Provider<ExchangeMode>((ref) {
-  final state = ref.watch(cellSelectionProvider);
-  return state.currentMode;
-});
-
-/// 화살표 표시 여부만 반환하는 Provider
-final isArrowVisibleProvider = Provider<bool>((ref) {
-  final state = ref.watch(cellSelectionProvider);
-  return state.isArrowVisible;
-});
-
-/// 현재 선택된 교체 경로만 반환하는 Provider
-final selectedExchangePathProvider = Provider<ExchangePath?>((ref) {
-  final state = ref.watch(cellSelectionProvider);
-  final result = state.selectedOneToOnePath ??
-         state.selectedCircularPath ??
-         state.selectedChainPath ??
-         state.selectedSupplementPath;
-  AppLogger.debug('🔍 [selectedExchangePathProvider] 경로 조회: ${result?.type}');
-  return result;
-});
-
-/// 교체된 셀에서 선택된 경로인지 확인하는 Provider
-final isFromExchangedCellProvider = Provider<bool>((ref) {
-  final state = ref.watch(cellSelectionProvider);
-  return state.isFromExchangedCell;
-});

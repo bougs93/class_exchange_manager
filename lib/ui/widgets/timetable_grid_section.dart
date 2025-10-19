@@ -122,7 +122,11 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
   /// 현재 선택된 교체 경로 (Riverpod 기반)
   ExchangePath? get currentSelectedPath {
-    final selectedPath = ref.watch(selectedExchangePathProvider);
+    final cellState = ref.watch(cellSelectionProvider);
+    final selectedPath = cellState.selectedOneToOnePath ??
+                        cellState.selectedCircularPath ??
+                        cellState.selectedChainPath ??
+                        cellState.selectedSupplementPath;
     final result = selectedPath ?? widget.selectedExchangePath;
     return result;
   }
@@ -131,10 +135,11 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   bool get isInExchangeMode => widget.isExchangeModeEnabled ||
                                widget.isCircularExchangeModeEnabled ||
                                widget.isChainExchangeModeEnabled;
-  
+
   /// 교체된 셀에서 선택된 경로인지 확인 (Riverpod 기반)
   bool get isFromExchangedCell {
-    return ref.watch(isFromExchangedCellProvider);
+    final cellState = ref.watch(cellSelectionProvider);
+    return cellState.isFromExchangedCell;
   }
   
   /// 셀이 선택된 상태인지 확인 (보강 버튼 활성화용)
