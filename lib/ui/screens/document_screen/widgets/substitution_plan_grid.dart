@@ -23,6 +23,7 @@ class _Spacing {
 
 /// 보강계획서 데이터 모델
 class SubstitutionPlanData {
+  final String exchangeId;      // 교체 식별자 (고유 키)
   final String absenceDate;      // 결강일
   final String absenceDay;       // 결강 요일
   final String period;           // 교시
@@ -40,6 +41,7 @@ class SubstitutionPlanData {
   final String remarks;         // 비고
 
   SubstitutionPlanData({
+    required this.exchangeId,
     required this.absenceDate,
     required this.absenceDay,
     required this.period,
@@ -158,8 +160,8 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
   List<SubstitutionPlanData> _planData = [];
   
   // 사용자가 입력한 날짜 정보를 저장하는 맵
-  // 키: "행인덱스_컬럼명" (예: "0_absenceDate"), 값: 날짜 문자열
-  Map<String, String> _savedDates = {};
+  // 키: "교체식별자_컬럼명" (예: "문유란_월5_absenceDate"), 값: 날짜 문자열
+  final Map<String, String> _savedDates = <String, String>{};
 
   @override
   void initState() {
@@ -167,16 +169,21 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
     _loadPlanData();
   }
 
+  /// 교체 항목의 고유 식별자 생성
+  String _generateExchangeId(String teacher, String day, String period, String subject) {
+    return '${teacher}_$day${period}_$subject';
+  }
+  
   /// 사용자가 입력한 날짜 정보를 저장
-  void _saveDate(int rowIndex, String columnName, String date) {
-    final key = '${rowIndex}_$columnName';
+  void _saveDate(String exchangeId, String columnName, String date) {
+    final key = '${exchangeId}_$columnName';
     _savedDates[key] = date;
     AppLogger.exchangeDebug('날짜 저장: $key = $date');
   }
   
   /// 저장된 날짜 정보를 복원
-  String _getSavedDate(int rowIndex, String columnName) {
-    final key = '${rowIndex}_$columnName';
+  String _getSavedDate(String exchangeId, String columnName) {
+    final key = '${exchangeId}_$columnName';
     final savedDate = _savedDates[key];
     AppLogger.exchangeDebug('날짜 복원: $key = $savedDate');
     return savedDate ?? '선택';
@@ -220,9 +227,13 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
             final sourceNode = nodes[0];  // 결강할 셀
             final targetNode = nodes[1];  // 교체할 셀
             
+            // 교체 식별자 생성
+            final exchangeId = _generateExchangeId(sourceNode.teacherName, sourceNode.day, sourceNode.period.toString(), sourceNode.subjectName);
+            
             final planData = SubstitutionPlanData(
+              exchangeId: exchangeId,
               // 결강 정보 (sourceNode)
-              absenceDate: _getSavedDate(_planData.length, 'absenceDate'),
+              absenceDate: _getSavedDate(exchangeId, 'absenceDate'),
               absenceDay: sourceNode.day,
               period: sourceNode.period.toString(),
               grade: _extractGradeFromClassName(sourceNode.className),
@@ -235,7 +246,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
               supplementTeacher: '',
               
               // 교체 정보 (targetNode)
-              substitutionDate: _getSavedDate(_planData.length, 'substitutionDate'),
+              substitutionDate: _getSavedDate(exchangeId, 'substitutionDate'),
               substitutionDay: targetNode.day,
               substitutionPeriod: targetNode.period.toString(),
               substitutionSubject: targetNode.subjectName,
@@ -264,9 +275,13 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
               final sourceNode = nodes[i];
               final targetNode = nodes[i + 1];
               
+              // 교체 식별자 생성 (순환교체는 순서 번호 포함)
+              final exchangeId = '${_generateExchangeId(sourceNode.teacherName, sourceNode.day, sourceNode.period.toString(), sourceNode.subjectName)}_순환${i + 1}';
+              
               final planData = SubstitutionPlanData(
+                exchangeId: exchangeId,
                 // 결강 정보 (sourceNode)
-                absenceDate: _getSavedDate(_planData.length, 'absenceDate'),
+                absenceDate: _getSavedDate(exchangeId, 'absenceDate'),
                 absenceDay: sourceNode.day,
                 period: sourceNode.period.toString(),
                 grade: _extractGradeFromClassName(sourceNode.className),
@@ -279,7 +294,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
                 supplementTeacher: '',
                 
                 // 교체 정보 (targetNode)
-                substitutionDate: _getSavedDate(_planData.length, 'substitutionDate'),
+                substitutionDate: _getSavedDate(exchangeId, 'substitutionDate'),
                 substitutionDay: targetNode.day,
                 substitutionPeriod: targetNode.period.toString(),
                 substitutionSubject: targetNode.subjectName,
@@ -312,8 +327,10 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
             final intermediateNode2 = nodes[3]; // 중간 교체 2
             
             // 첫 번째 교체 쌍: 대체수업 ↔ 결강수업 (최종 목표) - 순서 바꿈
+            final finalExchangeId = '${_generateExchangeId(substituteNode.teacherName, substituteNode.day, substituteNode.period.toString(), substituteNode.subjectName)}_연쇄최종';
             final finalExchangePlanData = SubstitutionPlanData(
-              absenceDate: _getSavedDate(_planData.length, 'absenceDate'),
+              exchangeId: finalExchangeId,
+              absenceDate: _getSavedDate(finalExchangeId, 'absenceDate'),
               absenceDay: substituteNode.day,
               period: substituteNode.period.toString(),
               grade: _extractGradeFromClassName(substituteNode.className),
@@ -324,7 +341,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
               supplementSubject: '',
               supplementTeacher: '',
               
-              substitutionDate: _getSavedDate(_planData.length, 'substitutionDate'),
+              substitutionDate: _getSavedDate(finalExchangeId, 'substitutionDate'),
               substitutionDay: absentNode.day,
               substitutionPeriod: absentNode.period.toString(),
               substitutionSubject: absentNode.subjectName,
@@ -334,8 +351,10 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
             );
             
             // 두 번째 교체 쌍: 중간교체1 ↔ 중간교체2 (중간 단계) - 순서 바꿈
+            final intermediateExchangeId = '${_generateExchangeId(intermediateNode1.teacherName, intermediateNode1.day, intermediateNode1.period.toString(), intermediateNode1.subjectName)}_연쇄중간';
             final intermediateExchangePlanData = SubstitutionPlanData(
-              absenceDate: _getSavedDate(_planData.length + 1, 'absenceDate'),
+              exchangeId: intermediateExchangeId,
+              absenceDate: _getSavedDate(intermediateExchangeId, 'absenceDate'),
               absenceDay: intermediateNode1.day,
               period: intermediateNode1.period.toString(),
               grade: _extractGradeFromClassName(intermediateNode1.className),
@@ -346,7 +365,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
               supplementSubject: '',
               supplementTeacher: '',
               
-              substitutionDate: _getSavedDate(_planData.length + 1, 'substitutionDate'),
+              substitutionDate: _getSavedDate(intermediateExchangeId, 'substitutionDate'),
               substitutionDay: intermediateNode2.day,
               substitutionPeriod: intermediateNode2.period.toString(),
               substitutionSubject: intermediateNode2.subjectName,
@@ -373,9 +392,13 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
             final sourceNode = nodes[0];  // 보강할 셀
             final targetNode = nodes[1];  // 보강할 교사
             
+            // 교체 식별자 생성
+            final exchangeId = '${_generateExchangeId(sourceNode.teacherName, sourceNode.day, sourceNode.period.toString(), sourceNode.subjectName)}_보강';
+            
             final planData = SubstitutionPlanData(
+              exchangeId: exchangeId,
               // 결강 정보 (sourceNode - 보강할 셀)
-              absenceDate: _getSavedDate(_planData.length, 'absenceDate'),
+              absenceDate: _getSavedDate(exchangeId, 'absenceDate'),
               absenceDay: sourceNode.day,
               period: sourceNode.period.toString(),
               grade: _extractGradeFromClassName(sourceNode.className),
@@ -497,10 +520,59 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
     return '${date.month}.${date.day}';
   }
 
+  /// 특정 요일에 해당하는 날짜인지 확인
+  bool _isTargetWeekday(DateTime date, String targetWeekday) {
+    // 한글 요일을 숫자로 변환 (일요일=0, 월요일=1, ..., 토요일=6)
+    final weekdayMap = {
+      '일': 0,
+      '월': 1,
+      '화': 2,
+      '수': 3,
+      '목': 4,
+      '금': 5,
+      '토': 6,
+    };
+    
+    final targetWeekdayNumber = weekdayMap[targetWeekday];
+    if (targetWeekdayNumber == null) {
+      AppLogger.exchangeDebug('알 수 없는 요일: $targetWeekday');
+      return true; // 요일을 알 수 없으면 모든 날짜 선택 가능
+    }
+    
+    // DateTime.weekday는 월요일=1, 화요일=2, ..., 일요일=7
+    // 따라서 일요일 처리를 위해 변환 필요
+    final dateWeekday = date.weekday == 7 ? 0 : date.weekday;
+    
+    final isMatch = dateWeekday == targetWeekdayNumber;
+    AppLogger.exchangeDebug('날짜 $date의 요일($dateWeekday)과 대상 요일($targetWeekdayNumber) 매칭: $isMatch');
+    
+    return isMatch;
+  }
+
 
   /// 날짜 선택기 표시 (calendar_date_picker2 사용)
   Future<void> _showDatePicker(DataGridCell dataGridCell, DataGridRow row) async {
     AppLogger.exchangeDebug('날짜 선택기 시작 - 컬럼: ${dataGridCell.columnName}, 현재 값: ${dataGridCell.value}');
+    
+    // 해당 행에서 요일 정보 추출
+    String targetWeekday = '';
+    if (dataGridCell.columnName == 'absenceDate') {
+      // 결강일인 경우 결강 요일 가져오기
+      final absenceDayCell = row.getCells().firstWhere(
+        (cell) => cell.columnName == 'absenceDay',
+        orElse: () => DataGridCell<String>(columnName: '', value: ''),
+      );
+      targetWeekday = absenceDayCell.value?.toString() ?? '';
+    } else if (dataGridCell.columnName == 'substitutionDate') {
+      // 교체일인 경우 교체 요일 가져오기
+      final substitutionDayCell = row.getCells().firstWhere(
+        (cell) => cell.columnName == 'substitutionDay',
+        orElse: () => DataGridCell<String>(columnName: '', value: ''),
+      );
+      targetWeekday = substitutionDayCell.value?.toString() ?? '';
+    }
+    
+    AppLogger.exchangeDebug('대상 요일: $targetWeekday');
     
     // 오늘 날짜를 초기값으로 설정
     DateTime initialDate = DateTime.now();
@@ -533,6 +605,10 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
           fontSize: _Spacing.headerFontSize, // 일반 날짜 숫자 크기
           color: Colors.black87,
         ),
+        // 요일 필터링을 위한 선택 가능한 날짜 제한
+        selectableDayPredicate: targetWeekday.isNotEmpty 
+            ? (DateTime date) => _isTargetWeekday(date, targetWeekday)
+            : null,
         cancelButtonTextStyle: TextStyle(
           color: Colors.grey.shade600,
           fontSize: 16,
@@ -570,6 +646,24 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
     AppLogger.exchangeDebug('선택된 날짜: $selectedDate');
 
     if (selectedDate != null) {
+      // 요일 검증 수행
+      if (targetWeekday.isNotEmpty && !_isTargetWeekday(selectedDate, targetWeekday)) {
+        AppLogger.exchangeDebug('선택된 날짜($selectedDate)가 대상 요일($targetWeekday)과 일치하지 않음');
+        
+        // 스낵바로 알림 표시
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$targetWeekday요일이 아닌 날짜는 선택할 수 없습니다.'),
+              backgroundColor: Colors.red.shade600,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+        
+        return; // 함수 종료하여 데이터 업데이트 방지
+      }
+      
       // 선택된 날짜를 포맷팅
       final formattedDate = _formatDate(selectedDate);
       AppLogger.exchangeDebug('포맷팅된 날짜: $formattedDate');
@@ -641,10 +735,11 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
           if (dataGridCell.columnName == 'absenceDate') {
             AppLogger.exchangeDebug('결강일 업데이트 - 이전 값: ${_planData[rowIndex].absenceDate} -> 새 값: $formattedDate');
             
-            // 날짜 정보 저장
-            _saveDate(rowIndex, 'absenceDate', formattedDate);
+            // 교체 식별자로 날짜 정보 저장
+            _saveDate(_planData[rowIndex].exchangeId, 'absenceDate', formattedDate);
             
             _planData[rowIndex] = SubstitutionPlanData(
+              exchangeId: _planData[rowIndex].exchangeId,
               absenceDate: formattedDate,
               absenceDay: _planData[rowIndex].absenceDay,
               period: _planData[rowIndex].period,
@@ -664,10 +759,11 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
           } else if (dataGridCell.columnName == 'substitutionDate') {
             AppLogger.exchangeDebug('교체일 업데이트 - 이전 값: ${_planData[rowIndex].substitutionDate} -> 새 값: $formattedDate');
             
-            // 날짜 정보 저장
-            _saveDate(rowIndex, 'substitutionDate', formattedDate);
+            // 교체 식별자로 날짜 정보 저장
+            _saveDate(_planData[rowIndex].exchangeId, 'substitutionDate', formattedDate);
             
             _planData[rowIndex] = SubstitutionPlanData(
+              exchangeId: _planData[rowIndex].exchangeId,
               absenceDate: _planData[rowIndex].absenceDate,
               absenceDay: _planData[rowIndex].absenceDay,
               period: _planData[rowIndex].period,
@@ -731,6 +827,16 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
                     label: const Text('새로고침'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue.shade600,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: _Spacing.smallSpacing),
+                  ElevatedButton.icon(
+                    onPressed: _clearAllDates,
+                    icon: const Icon(Icons.clear, size: 16),
+                    label: const Text('날짜 지우기'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange.shade600,
                       foregroundColor: Colors.white,
                     ),
                   ),
@@ -1001,6 +1107,91 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
         ],
       ),
     ];
+  }
+
+  /// 모든 날짜 정보 지우기
+  void _clearAllDates() {
+    AppLogger.exchangeDebug('모든 날짜 정보 지우기 시작');
+    
+    // 확인 다이얼로그 표시
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('날짜 지우기'),
+          content: const Text('입력한 모든 날짜 정보를 지우시겠습니까?\n이 작업은 되돌릴 수 없습니다.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // 다이얼로그 닫기
+              },
+              child: Text(
+                '취소',
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // 다이얼로그 닫기
+                _performClearAllDates(); // 실제 지우기 작업 수행
+              },
+              child: Text(
+                '지우기',
+                style: TextStyle(color: Colors.red.shade600),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+  
+  /// 실제 날짜 지우기 작업 수행
+  void _performClearAllDates() {
+    AppLogger.exchangeDebug('실제 날짜 지우기 작업 수행');
+    
+    // 저장된 날짜 정보 모두 지우기
+    _savedDates.clear();
+    AppLogger.exchangeDebug('저장된 날짜 정보 개수: ${_savedDates.length}');
+    
+    // 모든 계획 데이터의 날짜 필드를 '선택'으로 초기화
+    for (int i = 0; i < _planData.length; i++) {
+      final planData = _planData[i];
+      _planData[i] = SubstitutionPlanData(
+        exchangeId: planData.exchangeId,
+        absenceDate: '선택',
+        absenceDay: planData.absenceDay,
+        period: planData.period,
+        grade: planData.grade,
+        className: planData.className,
+        subject: planData.subject,
+        teacher: planData.teacher,
+        supplementSubject: planData.supplementSubject,
+        supplementTeacher: planData.supplementTeacher,
+        substitutionDate: '선택',
+        substitutionDay: planData.substitutionDay,
+        substitutionPeriod: planData.substitutionPeriod,
+        substitutionSubject: planData.substitutionSubject,
+        substitutionTeacher: planData.substitutionTeacher,
+        remarks: planData.remarks,
+      );
+    }
+    
+    // UI 업데이트
+    setState(() {
+      _dataSource = SubstitutionPlanDataSource(_planData, onDateCellTap: _showDatePicker);
+    });
+    
+    // 성공 메시지 표시
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('모든 날짜 정보가 지워졌습니다.'),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 2),
+      ),
+    );
+    
+    AppLogger.exchangeDebug('날짜 지우기 작업 완료');
   }
 
   /// PDF 출력 기능
