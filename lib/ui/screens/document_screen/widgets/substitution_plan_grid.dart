@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:calendar_date_picker2/calendar_date_picker2.dart';
 import '../../../../providers/services_provider.dart';
+import '../../../../providers/substitution_plan_provider.dart';
 import '../../../../utils/logger.dart';
 import '../../../../models/exchange_path.dart';
 
@@ -158,9 +159,8 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
   late SubstitutionPlanDataSource _dataSource;
   List<SubstitutionPlanData> _planData = [];
   
-  // 사용자가 입력한 날짜 정보를 저장하는 맵
-  // 키: "교체식별자_컬럼명" (예: "문유란_월5_absenceDate"), 값: 날짜 문자열
-  final Map<String, String> _savedDates = <String, String>{};
+  // 로컬 날짜 저장 맵 제거 - 이제 Provider 사용
+  // final Map<String, String> _savedDates = <String, String>{};
 
   @override
   void initState() {
@@ -178,19 +178,15 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
     return '$day|$period|$grade|$className|$subject|$teacher';
   }
   
-  /// 사용자가 입력한 날짜 정보를 저장
+  /// 사용자가 입력한 날짜 정보를 저장 (Provider 사용)
   void _saveDate(String exchangeId, String columnName, String date) {
-    final key = '${exchangeId}_$columnName';
-    _savedDates[key] = date;
-    AppLogger.exchangeDebug('날짜 저장: $key = $date');
+    ref.read(substitutionPlanNotifierProvider).saveDate(exchangeId, columnName, date);
   }
   
-  /// 저장된 날짜 정보를 복원
+  /// 저장된 날짜 정보를 복원 (Provider 사용)
   String _getSavedDate(String exchangeId, String columnName) {
-    final key = '${exchangeId}_$columnName';
-    final savedDate = _savedDates[key];
-    AppLogger.exchangeDebug('날짜 복원: $key = $savedDate');
-    return savedDate ?? '선택';
+    final savedDate = ref.read(substitutionPlanNotifierProvider).getSavedDate(exchangeId, columnName);
+    return savedDate.isNotEmpty ? savedDate : '선택';
   }
   
   /// 동일한 수업 조건을 가진 항목들의 날짜를 연동 업데이트
@@ -1352,9 +1348,9 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
   void _performClearAllDates() {
     AppLogger.exchangeDebug('실제 날짜 지우기 작업 수행');
     
-    // 저장된 날짜 정보 모두 지우기
-    _savedDates.clear();
-    AppLogger.exchangeDebug('저장된 날짜 정보 개수: ${_savedDates.length}');
+    // 저장된 날짜 정보 모두 지우기 (Provider 사용)
+    ref.read(substitutionPlanNotifierProvider).clearAllDates();
+    AppLogger.exchangeDebug('저장된 날짜 정보 모두 초기화 완료');
     
     // 모든 계획 데이터의 날짜 필드를 '선택'으로 초기화
     for (int i = 0; i < _planData.length; i++) {
