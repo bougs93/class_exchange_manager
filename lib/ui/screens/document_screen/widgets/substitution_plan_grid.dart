@@ -270,13 +270,15 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
               break;
             }
             
-            // 순환교체: [A, B, C, A] 형태에서 A→B, B→C 교체 쌍 생성 (마지막 A는 제외)
-            for (int i = 0; i < nodes.length - 1; i++) {
-              final sourceNode = nodes[i];
-              final targetNode = nodes[i + 1];
+            // 3개 노드인 경우: 첫 번째 쌍만 표시 (A→B)
+            if (nodes.length == 3) {
+              AppLogger.exchangeDebug('순환교체 3개 노드: 첫 번째 쌍만 표시');
               
-              // 교체 식별자 생성 (순환교체는 순서 번호 포함)
-              final exchangeId = '${_generateExchangeId(sourceNode.teacherName, sourceNode.day, sourceNode.period.toString(), sourceNode.subjectName)}_순환${i + 1}';
+              final sourceNode = nodes[0];  // 첫 번째 노드 (결강할 셀)
+              final targetNode = nodes[1]; // 두 번째 노드 (교체할 셀)
+              
+              // 교체 식별자 생성
+              final exchangeId = '${_generateExchangeId(sourceNode.teacherName, sourceNode.day, sourceNode.period.toString(), sourceNode.subjectName)}_순환';
               
               final planData = SubstitutionPlanData(
                 exchangeId: exchangeId,
@@ -300,15 +302,59 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
                 substitutionSubject: targetNode.subjectName,
                 substitutionTeacher: targetNode.teacherName,
                 
-                remarks: i == 2 ? '(삭제가능)' : '순환교체${i + 1}',
+                remarks: '',
               );
               
               _planData.add(planData);
               
               // 디버그: 생성된 계획 데이터 출력
-              AppLogger.exchangeDebug('순환교체 쌍 ${i + 1}:');
+              AppLogger.exchangeDebug('순환교체 처리 완료 (첫 번째 쌍만 표시):');
               AppLogger.exchangeDebug('  결강: ${planData.absenceDay}|${planData.period}|${planData.grade}|${planData.className}|${planData.subject}|${planData.teacher}');
               AppLogger.exchangeDebug('  교체: ${planData.substitutionDay}|${planData.substitutionPeriod}|${planData.substitutionSubject}|${planData.substitutionTeacher}');
+            } else {
+              // 4개 이상 노드인 경우: 모든 교체 쌍 표시 (기존 로직 유지)
+              AppLogger.exchangeDebug('순환교체 4개 이상 노드: 모든 교체 쌍 표시');
+              
+              // 순환교체: [A, B, C, D, A] 형태에서 A→B, B→C, C→D 교체 쌍 생성 (마지막 A는 제외)
+              for (int i = 0; i < nodes.length - 1; i++) {
+                final sourceNode = nodes[i];
+                final targetNode = nodes[i + 1];
+                
+                // 교체 식별자 생성 (순환교체는 순서 번호 포함)
+                final exchangeId = '${_generateExchangeId(sourceNode.teacherName, sourceNode.day, sourceNode.period.toString(), sourceNode.subjectName)}_순환${i + 1}';
+                
+                final planData = SubstitutionPlanData(
+                  exchangeId: exchangeId,
+                  // 결강 정보 (sourceNode)
+                  absenceDate: _getSavedDate(exchangeId, 'absenceDate'),
+                  absenceDay: sourceNode.day,
+                  period: sourceNode.period.toString(),
+                  grade: _extractGradeFromClassName(sourceNode.className),
+                  className: _extractClassNumberFromClassName(sourceNode.className),
+                  subject: sourceNode.subjectName,
+                  teacher: sourceNode.teacherName,
+                  
+                  // 보강/수업변경 정보 - 비워둠 (사용자 입력용)
+                  supplementSubject: '',
+                  supplementTeacher: '',
+                  
+                  // 교체 정보 (targetNode)
+                  substitutionDate: _getSavedDate(exchangeId, 'substitutionDate'),
+                  substitutionDay: targetNode.day,
+                  substitutionPeriod: targetNode.period.toString(),
+                  substitutionSubject: targetNode.subjectName,
+                  substitutionTeacher: targetNode.teacherName,
+                  
+                  remarks: i == nodes.length - 2 ? '(삭제가능)' : '순환교체${i + 1}',
+                );
+                
+                _planData.add(planData);
+                
+                // 디버그: 생성된 계획 데이터 출력
+                AppLogger.exchangeDebug('순환교체 쌍 ${i + 1}:');
+                AppLogger.exchangeDebug('  결강: ${planData.absenceDay}|${planData.period}|${planData.grade}|${planData.className}|${planData.subject}|${planData.teacher}');
+                AppLogger.exchangeDebug('  교체: ${planData.substitutionDay}|${planData.substitutionPeriod}|${planData.substitutionSubject}|${planData.substitutionTeacher}');
+              }
             }
             break;
             
