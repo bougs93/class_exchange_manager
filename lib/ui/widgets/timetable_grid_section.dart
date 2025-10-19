@@ -773,7 +773,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
     // 교사 이름 클릭 처리 (새로 추가)
     if (columnName == 'teacher') {
-      _handleTeacherNameClick(teacherName);
+      handleTeacherNameClick(teacherName);
       return;
     }
 
@@ -806,8 +806,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     AppLogger.exchangeDebug('🔄 일반 셀 클릭 - UI 업데이트 (스크롤 위치 보존)');
   }
 
-  /// 교사 이름 클릭 처리 (교체 모드 또는 교체불가 편집 모드에서 동작)
-  void _handleTeacherNameClick(String teacherName) {
+  /// 교사 이름 클릭 처리 (교체 모드 또는 교체불가 편집 모드에서 동작) - public 메서드로 변경
+  void handleTeacherNameClick(String teacherName) {
     // 현재 모드 및 교사 이름 선택 기능 활성화 상태 확인
     final screenState = ref.read(exchangeScreenProvider);
     final currentMode = screenState.currentMode;
