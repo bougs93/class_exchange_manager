@@ -172,7 +172,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
               absenceDay: sourceNode.day,
               period: sourceNode.period.toString(),
               grade: _extractGradeFromClassName(sourceNode.className),
-              className: sourceNode.className,
+              className: _extractClassNumberFromClassName(sourceNode.className),
               subject: sourceNode.subjectName,
               teacher: sourceNode.teacherName,
               
@@ -216,7 +216,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
                 absenceDay: sourceNode.day,
                 period: sourceNode.period.toString(),
                 grade: _extractGradeFromClassName(sourceNode.className),
-                className: sourceNode.className,
+                className: _extractClassNumberFromClassName(sourceNode.className),
                 subject: sourceNode.subjectName,
                 teacher: sourceNode.teacherName,
                 
@@ -263,7 +263,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
               absenceDay: substituteNode.day,
               period: substituteNode.period.toString(),
               grade: _extractGradeFromClassName(substituteNode.className),
-              className: substituteNode.className,
+              className: _extractClassNumberFromClassName(substituteNode.className),
               subject: substituteNode.subjectName,
               teacher: substituteNode.teacherName,
               
@@ -285,7 +285,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
               absenceDay: intermediateNode1.day,
               period: intermediateNode1.period.toString(),
               grade: _extractGradeFromClassName(intermediateNode1.className),
-              className: intermediateNode1.className,
+              className: _extractClassNumberFromClassName(intermediateNode1.className),
               subject: intermediateNode1.subjectName,
               teacher: intermediateNode1.teacherName,
               
@@ -325,7 +325,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
               absenceDay: sourceNode.day,
               period: sourceNode.period.toString(),
               grade: _extractGradeFromClassName(sourceNode.className),
-              className: sourceNode.className,
+              className: _extractClassNumberFromClassName(sourceNode.className),
               subject: sourceNode.subjectName,
               teacher: sourceNode.teacherName,
               
@@ -383,15 +383,57 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
         return className[0]; // 첫 번째 자리: 학년
       }
       
-      // 2. 기존 패턴 처리 (예: "1-1" -> "1", "1학년 3반" -> "1")
+      // 2. 하이픈 형태 처리 (예: "1-1" -> "1")
       final gradeMatch = RegExp(r'(\d+)[-학년]').firstMatch(className);
       if (gradeMatch != null) {
         return gradeMatch.group(1) ?? '';
       }
       
+      // 3. 학년 포함 형태 처리 (예: "1학년 3반" -> "1", "2학년 10반" -> "2")
+      final gradeYearMatch = RegExp(r'(\d+)학년').firstMatch(className);
+      if (gradeYearMatch != null) {
+        return gradeYearMatch.group(1) ?? '';
+      }
+      
       return '';
     } catch (e) {
       AppLogger.exchangeDebug('학년 추출 중 오류 발생: $e');
+      return '';
+    }
+  }
+
+  /// 학급명에서 반 번호만 추출
+  String _extractClassNumberFromClassName(String className) {
+    try {
+      className = className.trim();
+      
+      // 1. 3자리 숫자 형태 처리 (예: "103" -> "3", "110" -> "10")
+      if (className.length == 3 && RegExp(r'^\d{3}$').hasMatch(className)) {
+        String classNum = className.substring(1); // 나머지: 반
+        // 반 번호가 한 자리인 경우 앞의 0 제거
+        if (classNum.startsWith('0') && classNum.length > 1) {
+          classNum = classNum.substring(1);
+        }
+        return classNum;
+      }
+      
+      // 2. 하이픈 형태 처리 (예: "1-3" -> "3", "2-10" -> "10")
+      if (className.contains('-')) {
+        final parts = className.split('-');
+        if (parts.length >= 2) {
+          return parts[1].trim();
+        }
+      }
+      
+      // 3. 학년 포함 형태 처리 (예: "1학년 3반" -> "3", "2학년 10반" -> "10")
+      final classMatch = RegExp(r'학년\s*(\d+)반').firstMatch(className);
+      if (classMatch != null) {
+        return classMatch.group(1) ?? '';
+      }
+      
+      return '';
+    } catch (e) {
+      AppLogger.exchangeDebug('반 번호 추출 중 오류 발생: $e');
       return '';
     }
   }
