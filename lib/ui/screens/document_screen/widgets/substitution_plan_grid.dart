@@ -98,7 +98,6 @@ class SubstitutionPlanDataSource extends DataGridSource {
           final isSelectable = dataGridCell.value == '선택';
           final displayText = isSelectable ? '선택' : (dataGridCell.value?.toString() ?? '');
           
-          AppLogger.exchangeDebug('날짜 셀 렌더링 - 컬럼: ${dataGridCell.columnName}, 값: ${dataGridCell.value}, 표시 텍스트: $displayText, 선택 가능: $isSelectable');
           
           return GestureDetector(
             onTap: () {
@@ -174,6 +173,11 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
     return '${teacher}_$day${period}_$subject';
   }
   
+  /// 수업 조건 키 생성 (요일, 교시, 학년, 반, 과목, 교사)
+  String _generateClassConditionKey(String day, String period, String grade, String className, String subject, String teacher) {
+    return '$day|$period|$grade|$className|$subject|$teacher';
+  }
+  
   /// 사용자가 입력한 날짜 정보를 저장
   void _saveDate(String exchangeId, String columnName, String date) {
     final key = '${exchangeId}_$columnName';
@@ -187,6 +191,131 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
     final savedDate = _savedDates[key];
     AppLogger.exchangeDebug('날짜 복원: $key = $savedDate');
     return savedDate ?? '선택';
+  }
+  
+  /// 동일한 수업 조건을 가진 항목들의 날짜를 연동 업데이트
+  void _updateLinkedDates(String day, String period, String grade, String className, String subject, String teacher, String newDate, String columnName) {
+    final classConditionKey = _generateClassConditionKey(day, period, grade, className, subject, teacher);
+    AppLogger.exchangeDebug('연동 업데이트 시작 - 수업 조건: $classConditionKey, 새 날짜: $newDate, 컬럼: $columnName');
+    
+    List<int> updateIndices = [];
+    
+    // 모든 계획 데이터를 순회하며 동일한 수업 조건을 가진 항목 찾기
+    for (int i = 0; i < _planData.length; i++) {
+      final planData = _planData[i];
+      bool shouldUpdateAbsence = false;
+      bool shouldUpdateSubstitution = false;
+      
+      // 결강일 섹션의 수업 조건 검사
+      final absenceKey = _generateClassConditionKey(
+        planData.absenceDay, 
+        planData.period, 
+        planData.grade, 
+        planData.className, 
+        planData.subject, 
+        planData.teacher
+      );
+      
+      if (absenceKey == classConditionKey) {
+        shouldUpdateAbsence = true;
+        AppLogger.exchangeDebug('결강일 연동 발견 - 행 $i: ${planData.absenceDay}|${planData.period}|${planData.grade}|${planData.className}|${planData.subject}|${planData.teacher}');
+      }
+      
+      // 교체일 섹션의 수업 조건 검사
+      final substitutionKey = _generateClassConditionKey(
+        planData.substitutionDay, 
+        planData.substitutionPeriod, 
+        planData.grade, 
+        planData.className, 
+        planData.substitutionSubject, 
+        planData.substitutionTeacher
+      );
+      
+      if (substitutionKey == classConditionKey) {
+        shouldUpdateSubstitution = true;
+        AppLogger.exchangeDebug('교체일 연동 발견 - 행 $i: ${planData.substitutionDay}|${planData.substitutionPeriod}|${planData.grade}|${planData.className}|${planData.substitutionSubject}|${planData.substitutionTeacher}');
+      }
+      
+      // 업데이트가 필요한 경우 인덱스와 업데이트 타입 저장
+      if (shouldUpdateAbsence || shouldUpdateSubstitution) {
+        updateIndices.add(i);
+        AppLogger.exchangeDebug('연동 대상 추가 - 행 $i (결강일: $shouldUpdateAbsence, 교체일: $shouldUpdateSubstitution)');
+      }
+    }
+    
+    // 실제 업데이트 수행
+    for (int index in updateIndices) {
+      final planData = _planData[index];
+      
+      // 결강일과 교체일 섹션 모두에서 동일한 수업 조건 확인
+      final absenceKey = _generateClassConditionKey(
+        planData.absenceDay, 
+        planData.period, 
+        planData.grade, 
+        planData.className, 
+        planData.subject, 
+        planData.teacher
+      );
+      
+      final substitutionKey = _generateClassConditionKey(
+        planData.substitutionDay, 
+        planData.substitutionPeriod, 
+        planData.grade, 
+        planData.className, 
+        planData.substitutionSubject, 
+        planData.substitutionTeacher
+      );
+      
+      bool updateAbsence = (absenceKey == classConditionKey);
+      bool updateSubstitution = (substitutionKey == classConditionKey);
+      
+      // 교체 식별자로 날짜 정보 저장
+      if (updateAbsence) {
+        _saveDate(planData.exchangeId, 'absenceDate', newDate);
+      }
+      if (updateSubstitution) {
+        _saveDate(planData.exchangeId, 'substitutionDate', newDate);
+      }
+      
+      // 계획 데이터 업데이트
+      _planData[index] = SubstitutionPlanData(
+        exchangeId: planData.exchangeId,
+        absenceDate: updateAbsence ? newDate : planData.absenceDate,
+        absenceDay: planData.absenceDay,
+        period: planData.period,
+        grade: planData.grade,
+        className: planData.className,
+        subject: planData.subject,
+        teacher: planData.teacher,
+        supplementSubject: planData.supplementSubject,
+        supplementTeacher: planData.supplementTeacher,
+        substitutionDate: updateSubstitution ? newDate : planData.substitutionDate,
+        substitutionDay: planData.substitutionDay,
+        substitutionPeriod: planData.substitutionPeriod,
+        substitutionSubject: planData.substitutionSubject,
+        substitutionTeacher: planData.substitutionTeacher,
+        remarks: planData.remarks,
+      );
+      
+      String updateInfo = '';
+      if (updateAbsence) updateInfo += '결강일 ';
+      if (updateSubstitution) updateInfo += '교체일 ';
+      AppLogger.exchangeDebug('연동 업데이트 완료 - 행 $index, $updateInfo: $newDate');
+    }
+    
+    if (updateIndices.isNotEmpty) {
+      AppLogger.exchangeDebug('총 ${updateIndices.length}개 항목이 연동 업데이트되었습니다.');
+      
+      // 연동 업데이트된 항목들의 상세 정보 출력
+      for (int index in updateIndices) {
+        final updatedData = _planData[index];
+        AppLogger.exchangeDebug('  연동 완료 - 행 $index: ${columnName == 'absenceDate' ? '결강일' : '교체일'}=${columnName == 'absenceDate' ? updatedData.absenceDate : updatedData.substitutionDate}');
+      }
+    } else {
+      AppLogger.exchangeDebug('연동할 항목이 없습니다.');
+      AppLogger.exchangeDebug('검색 조건: $classConditionKey');
+      AppLogger.exchangeDebug('현재 데이터 개수: ${_planData.length}');
+    }
   }
   
   /// 교체 히스토리에서 보강계획서 데이터 로드
@@ -590,7 +719,6 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
     final dateWeekday = date.weekday == 7 ? 0 : date.weekday;
     
     final isMatch = dateWeekday == targetWeekdayNumber;
-    AppLogger.exchangeDebug('날짜 $date의 요일($dateWeekday)과 대상 요일($targetWeekdayNumber) 매칭: $isMatch');
     
     return isMatch;
   }
@@ -776,14 +904,26 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
       AppLogger.exchangeDebug('최종 행 인덱스: $rowIndex, 전체 데이터 개수: ${_planData.length}');
       
       if (rowIndex >= 0 && rowIndex < _planData.length) {
-        setState(() {
-          // 어떤 날짜 컬럼인지에 따라 업데이트
-          if (dataGridCell.columnName == 'absenceDate') {
-            AppLogger.exchangeDebug('결강일 업데이트 - 이전 값: ${_planData[rowIndex].absenceDate} -> 새 값: $formattedDate');
-            
-            // 교체 식별자로 날짜 정보 저장
-            _saveDate(_planData[rowIndex].exchangeId, 'absenceDate', formattedDate);
-            
+        // 어떤 날짜 컬럼인지에 따라 업데이트
+        if (dataGridCell.columnName == 'absenceDate') {
+          AppLogger.exchangeDebug('결강일 업데이트 - 이전 값: ${_planData[rowIndex].absenceDate} -> 새 값: $formattedDate');
+          
+          // 교체 식별자로 날짜 정보 저장
+          _saveDate(_planData[rowIndex].exchangeId, 'absenceDate', formattedDate);
+          
+          // 동일한 수업 조건을 가진 항목들의 날짜 연동 업데이트
+          _updateLinkedDates(
+            _planData[rowIndex].absenceDay,
+            _planData[rowIndex].period,
+            _planData[rowIndex].grade,
+            _planData[rowIndex].className,
+            _planData[rowIndex].subject,
+            _planData[rowIndex].teacher,
+            formattedDate,
+            'absenceDate'
+          );
+          
+          setState(() {
             _planData[rowIndex] = SubstitutionPlanData(
               exchangeId: _planData[rowIndex].exchangeId,
               absenceDate: formattedDate,
@@ -802,12 +942,26 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
               substitutionTeacher: _planData[rowIndex].substitutionTeacher,
               remarks: _planData[rowIndex].remarks,
             );
-          } else if (dataGridCell.columnName == 'substitutionDate') {
-            AppLogger.exchangeDebug('교체일 업데이트 - 이전 값: ${_planData[rowIndex].substitutionDate} -> 새 값: $formattedDate');
-            
-            // 교체 식별자로 날짜 정보 저장
-            _saveDate(_planData[rowIndex].exchangeId, 'substitutionDate', formattedDate);
-            
+          });
+        } else if (dataGridCell.columnName == 'substitutionDate') {
+          AppLogger.exchangeDebug('교체일 업데이트 - 이전 값: ${_planData[rowIndex].substitutionDate} -> 새 값: $formattedDate');
+          
+          // 교체 식별자로 날짜 정보 저장
+          _saveDate(_planData[rowIndex].exchangeId, 'substitutionDate', formattedDate);
+          
+          // 동일한 수업 조건을 가진 항목들의 날짜 연동 업데이트
+          _updateLinkedDates(
+            _planData[rowIndex].substitutionDay,
+            _planData[rowIndex].substitutionPeriod,
+            _planData[rowIndex].grade,
+            _planData[rowIndex].className,
+            _planData[rowIndex].substitutionSubject,
+            _planData[rowIndex].substitutionTeacher,
+            formattedDate,
+            'substitutionDate'
+          );
+          
+          setState(() {
             _planData[rowIndex] = SubstitutionPlanData(
               exchangeId: _planData[rowIndex].exchangeId,
               absenceDate: _planData[rowIndex].absenceDate,
@@ -826,11 +980,13 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid> {
               substitutionTeacher: _planData[rowIndex].substitutionTeacher,
               remarks: _planData[rowIndex].remarks,
             );
-          }
-        });
+          });
+        }
         
-        // 데이터 소스 새로고침
-        _dataSource = SubstitutionPlanDataSource(_planData, onDateCellTap: _showDatePicker);
+        // 연동 업데이트 후 전체 UI 새로고침
+        setState(() {
+          _dataSource = SubstitutionPlanDataSource(_planData, onDateCellTap: _showDatePicker);
+        });
         AppLogger.exchangeDebug('데이터 소스 새로고침 완료 - 새로운 데이터 소스 행 개수: ${_dataSource.rows.length}');
         
         // 업데이트된 데이터 확인
