@@ -130,10 +130,11 @@ mixin PathSelectionHandlerMixin<T extends StatefulWidget> on State<T> {
       AppLogger.exchangeDebug('연쇄교체 경로 선택 해제');
       clearTargetCell();
       updateHeaderTheme();
-      showSnackBar(
-        '연쇄교체 경로 선택이 해제되었습니다.',
-        backgroundColor: Colors.grey.shade600,
-      );
+      // 연쇄교체 경로 선택 해제 스낵바 제거
+      // showSnackBar(
+      //   '연쇄교체 경로 선택이 해제되었습니다.',
+      //   backgroundColor: Colors.grey.shade600,
+      // );
     }
   }
 

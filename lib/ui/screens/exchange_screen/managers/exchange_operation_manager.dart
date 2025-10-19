@@ -356,15 +356,15 @@ class ExchangeOperationManager {
     // 5. 헤더 테마 업데이트
     onRefreshHeaderTheme();
 
-    // 6. 사용자 피드백
-    if (stateProxy.isChainExchangeModeEnabled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('연쇄교체 모드가 활성화되었습니다. 연쇄적으로 교체 경로를 찾을 수 있습니다.'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 3),
-        ),
-      );
-    }
+    // 6. 사용자 피드백 - 연쇄교체 모드 활성화 스낵바 제거
+    // if (stateProxy.isChainExchangeModeEnabled) {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     const SnackBar(
+    //       content: Text('연쇄교체 모드가 활성화되었습니다. 연쇄적으로 교체 경로를 찾을 수 있습니다.'),
+    //       backgroundColor: Colors.orange,
+    //       duration: Duration(seconds: 3),
+    //     ),
+    //   );
+    // }
   }
 }

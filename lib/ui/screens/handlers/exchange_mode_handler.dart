@@ -155,15 +155,15 @@ mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
     // 헤더 테마 업데이트
     refreshHeaderTheme();
 
-    // 연쇄교체 모드 활성화 시 안내 메시지
-    if (isChainExchangeModeEnabled && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('연쇄교체 모드가 활성화되었습니다. 2단계 교체로 결강을 해결할 수 있습니다.'),
-          backgroundColor: Colors.deepOrange,
-          duration: Duration(seconds: 3),
-        ),
-      );
-    }
+    // 연쇄교체 모드 활성화 시 안내 메시지 - 스낵바 제거
+    // if (isChainExchangeModeEnabled && mounted) {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     const SnackBar(
+    //       content: Text('연쇄교체 모드가 활성화되었습니다. 2단계 교체로 결강을 해결할 수 있습니다.'),
+    //       backgroundColor: Colors.deepOrange,
+    //       duration: Duration(seconds: 3),
+    //     ),
+    //   );
+    // }
   }
 }
