@@ -8,17 +8,17 @@ import '../../../../models/exchange_path.dart';
 
 /// 여백 및 스타일 상수
 class _Spacing {
-  // 패딩 - 최소화
-  static const EdgeInsets headerPadding = EdgeInsets.symmetric(horizontal: 2.0, vertical: 1.0);
-  static const EdgeInsets cellPadding = EdgeInsets.symmetric(horizontal: 2.0, vertical: 1.0);
+  // 패딩 - 최소화 (좌우 간격 더 줄임)
+  static const EdgeInsets headerPadding = EdgeInsets.symmetric(horizontal: 1.0, vertical: 1.0);
+  static const EdgeInsets cellPadding = EdgeInsets.symmetric(horizontal: 1.0, vertical: 1.0);
   
   // 간격 - 최소화
-  static const double smallSpacing = 4.0;
-  static const double mediumSpacing = 8.0; // 16.0에서 8.0으로 줄임
+  static const double smallSpacing = 2.0; // 4.0에서 2.0으로 더 줄임
+  static const double mediumSpacing = 2.0; // 8.0에서 4.0으로 더 줄임
   
   // 폰트 크기
-  static const double headerFontSize = 12.0; // 14.0에서 12.0으로 줄임
-  static const double cellFontSize = 11.0; // 12.0에서 11.0으로 줄임
+  static const double headerFontSize = 12.0; // 12.0에서 11.0으로 더 줄임
+  static const double cellFontSize = 12.0; // 11.0에서 10.0으로 더 줄임
 }
 
 /// 보강계획서 데이터 모델
