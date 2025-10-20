@@ -152,7 +152,14 @@ class SubstitutionPlanGrid extends ConsumerWidget {
       child: Row(
         children: [
           ElevatedButton.icon(
-            onPressed: () => viewModel.loadPlanData(),
+            onPressed: () async {
+              // 새로고침 실행
+              await viewModel.loadPlanData();
+              // 새로고침 완료 후 planData 디버그 출력
+              // ref를 통해 현재 상태를 가져와서 디버그 출력
+              final currentState = ref.read(substitutionPlanViewModelProvider);
+              _debugPrintPlanDataTable(currentState.planData);
+            },
             icon: const Icon(Icons.refresh, size: 16),
             label: const Text('새로고침'),
             style: ElevatedButton.styleFrom(
@@ -464,5 +471,127 @@ class SubstitutionPlanGrid extends ConsumerWidget {
         backgroundColor: Colors.orange,
       ),
     );
+  }
+
+  /// planData 테이블을 디버그 콘솔에 표 형태로 출력하는 함수
+  /// 
+  /// 새로고침 시 호출되어 현재 planData의 내용을 콘솔에 표 형태로 출력합니다.
+  /// 각 컬럼의 너비를 맞춰서 가독성 있게 표시합니다.
+  void _debugPrintPlanDataTable(List<SubstitutionPlanData> planData) {
+    if (planData.isEmpty) {
+      AppLogger.exchangeDebug('=== PlanData 테이블 (빈 데이터) ===');
+      return;
+    }
+
+    // 컬럼 헤더 정의 (한글명과 영문명 매핑)
+    final Map<String, String> columnHeaders = {
+      'exchangeId': '교체ID',
+      'absenceDate': '결강일',
+      'absenceDay': '결강요일',
+      'period': '교시',
+      'grade': '학년',
+      'className': '반',
+      'subject': '과목',
+      'teacher': '교사',
+      'supplementSubject': '보강과목',
+      'supplementTeacher': '보강교사',
+      'substitutionDate': '교체일',
+      'substitutionDay': '교체요일',
+      'substitutionPeriod': '교체교시',
+      'substitutionSubject': '교체과목',
+      'substitutionTeacher': '교체교사',
+      'remarks': '비고',
+    };
+
+    // 출력할 컬럼 순서 정의 (exchangeId는 제외)
+    final List<String> displayColumns = [
+      'absenceDate', 'absenceDay', 'period', 'grade', 'className', 'subject', 'teacher',
+      'supplementSubject', 'supplementTeacher', 'substitutionDate', 'substitutionDay',
+      'substitutionPeriod', 'substitutionSubject', 'substitutionTeacher', 'remarks'
+    ];
+
+    // 각 컬럼의 최대 너비 계산
+    Map<String, int> columnWidths = {};
+    for (String column in displayColumns) {
+      int maxWidth = columnHeaders[column]!.length; // 헤더 길이로 초기화
+      for (SubstitutionPlanData data in planData) {
+        String value = _getColumnValue(data, column);
+        maxWidth = maxWidth > value.length ? maxWidth : value.length;
+      }
+      columnWidths[column] = maxWidth;
+    }
+
+    // 테이블 출력 시작
+    AppLogger.exchangeDebug('=== PlanData 테이블 (총 ${planData.length}개 항목) ===');
+    
+    // 헤더 출력
+    String headerLine = '';
+    for (String column in displayColumns) {
+      String header = columnHeaders[column]!;
+      headerLine += header.padRight(columnWidths[column]! + 2);
+    }
+    AppLogger.exchangeDebug(headerLine);
+    
+    // 구분선 출력
+    String separatorLine = '';
+    for (String column in displayColumns) {
+      separatorLine += '-'.padRight(columnWidths[column]! + 2, '-');
+    }
+    AppLogger.exchangeDebug(separatorLine);
+
+    // 데이터 행 출력
+    for (int i = 0; i < planData.length; i++) {
+      SubstitutionPlanData data = planData[i];
+      String dataLine = '';
+      for (String column in displayColumns) {
+        String value = _getColumnValue(data, column);
+        dataLine += value.padRight(columnWidths[column]! + 2);
+      }
+      AppLogger.exchangeDebug('${(i + 1).toString().padLeft(3)}: $dataLine');
+    }
+    
+    AppLogger.exchangeDebug('=== 테이블 출력 완료 ===');
+  }
+
+  /// SubstitutionPlanData 객체에서 특정 컬럼의 값을 문자열로 반환하는 헬퍼 함수
+  /// 
+  /// [data]: SubstitutionPlanData 객체
+  /// [columnName]: 컬럼명 (영문)
+  /// 반환: 해당 컬럼의 값 (문자열)
+  String _getColumnValue(SubstitutionPlanData data, String columnName) {
+    switch (columnName) {
+      case 'absenceDate':
+        return data.absenceDate;
+      case 'absenceDay':
+        return data.absenceDay;
+      case 'period':
+        return data.period;
+      case 'grade':
+        return data.grade;
+      case 'className':
+        return data.className;
+      case 'subject':
+        return data.subject;
+      case 'teacher':
+        return data.teacher;
+      case 'supplementSubject':
+        return data.supplementSubject;
+      case 'supplementTeacher':
+        return data.supplementTeacher;
+      case 'substitutionDate':
+        return data.substitutionDate;
+      case 'substitutionDay':
+        return data.substitutionDay;
+      case 'substitutionPeriod':
+        return data.substitutionPeriod;
+      case 'substitutionSubject':
+        return data.substitutionSubject;
+      case 'substitutionTeacher':
+        return data.substitutionTeacher;
+      case 'remarks':
+        return data.remarks;
+      default:
+        return '';
+    }
   }
 }
