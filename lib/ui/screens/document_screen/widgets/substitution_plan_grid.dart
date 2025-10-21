@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:calendar_date_picker2/calendar_date_picker2.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
+import '../../../../providers/exchange_screen_provider.dart';
 import '../../../../utils/logger.dart';
 
 /// 여백 및 스타일 상수
@@ -19,8 +20,9 @@ class _Spacing {
 class SubstitutionPlanDataSource extends DataGridSource {
   final List<SubstitutionPlanData> planData;
   final Function(String, String)? onDateCellTap;
+  final Function(String)? onSupplementSubjectTap;
 
-  SubstitutionPlanDataSource(this.planData, {this.onDateCellTap});
+  SubstitutionPlanDataSource(this.planData, {this.onDateCellTap, this.onSupplementSubjectTap});
 
   @override
   List<DataGridRow> get rows => planData.map<DataGridRow>((data) {
@@ -52,10 +54,54 @@ class SubstitutionPlanDataSource extends DataGridSource {
       if (cell.columnName == 'absenceDate' || cell.columnName == 'substitutionDate') {
         return _buildDateCell(cell, row);
       }
+      if (cell.columnName == 'supplementSubject') {
+        return _buildSupplementSubjectCell(cell, row);
+      }
       return _buildNormalCell(cell);
     }).toList();
 
     return DataGridRowAdapter(cells: cells);
+  }
+
+  /// 보강 과목 셀 렌더링: 값이 비어있으면 선택 버튼을 제공
+  Widget _buildSupplementSubjectCell(DataGridCell cell, DataGridRow row) {
+    final value = (cell.value?.toString() ?? '').trim();
+    final isEmpty = value.isEmpty;
+
+    // exchangeId 추출
+    final exchangeIdCell = row.getCells().firstWhere(
+      (c) => c.columnName == '_exchangeId',
+      orElse: () => const DataGridCell<String>(columnName: '_exchangeId', value: ''),
+    );
+    final exchangeId = exchangeIdCell.value?.toString() ?? '';
+
+    return GestureDetector(
+      onTap: () async {
+        if (exchangeId.isEmpty) return;
+        if (onSupplementSubjectTap != null) {
+          onSupplementSubjectTap!(exchangeId);
+        }
+      },
+      child: Container(
+        alignment: Alignment.center,
+        padding: _Spacing.cellPadding,
+        decoration: BoxDecoration(
+          color: isEmpty ? Colors.blue.shade50 : Colors.transparent,
+          border: isEmpty ? Border.all(color: Colors.blue.shade200) : null,
+          borderRadius: isEmpty ? BorderRadius.circular(4) : null,
+        ),
+        child: Text(
+          isEmpty ? '과목선택' : value,
+          style: TextStyle(
+            fontSize: _Spacing.cellFontSize,
+            height: 1.0,
+            color: isEmpty ? Colors.blue.shade700 : Colors.black87,
+            fontWeight: isEmpty ? FontWeight.w500 : FontWeight.normal,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
   }
 
   Widget _buildDateCell(DataGridCell cell, DataGridRow row) {
@@ -209,6 +255,7 @@ class SubstitutionPlanGrid extends ConsumerWidget {
     final dataSource = SubstitutionPlanDataSource(
       state.planData,
       onDateCellTap: (exchangeId, columnName) => _showDatePicker(context, ref, viewModel, exchangeId, columnName, state.planData),
+      onSupplementSubjectTap: (exchangeId) => _showSubjectPickerDialog(context, ref, viewModel, exchangeId, state.planData),
     );
 
     return SizedBox(
@@ -236,6 +283,146 @@ class SubstitutionPlanGrid extends ConsumerWidget {
         child: CircularProgressIndicator(),
       ),
     );
+  }
+
+  /// 과목 선택 다이얼로그 표시
+  Future<void> _showSubjectPickerDialog(
+    BuildContext context,
+    WidgetRef ref,
+    SubstitutionPlanViewModel viewModel,
+    String exchangeId,
+    List<SubstitutionPlanData> planData,
+  ) async {
+    // 1) 행 데이터에서 교사명 결정 (보강교사 우선, 없으면 원래 교사)
+    final SubstitutionPlanData rowData = planData.firstWhere(
+      (d) => d.exchangeId == exchangeId,
+      orElse: () => SubstitutionPlanData(
+        exchangeId: '',
+        absenceDate: '',
+        absenceDay: '',
+        period: '',
+        grade: '',
+        className: '',
+        subject: '',
+        teacher: '',
+        supplementSubject: '',
+        supplementTeacher: '',
+        substitutionDate: '',
+        substitutionDay: '',
+        substitutionPeriod: '',
+        substitutionSubject: '',
+        substitutionTeacher: '',
+        remarks: '',
+      ),
+    );
+
+    if (rowData.exchangeId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('행 정보를 찾을 수 없습니다.')),
+      );
+      return;
+    }
+
+    final String teacherName = (rowData.supplementTeacher.isNotEmpty)
+        ? rowData.supplementTeacher
+        : rowData.teacher;
+
+    if (teacherName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('교사 정보를 찾을 수 없습니다.')),
+      );
+      return;
+    }
+
+    // 2) 전역 시간표에서 해당 교사가 실제로 가르친 과목 목록 추출
+    final timetableData = ref.read(exchangeScreenProvider).timetableData;
+    if (timetableData == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('시간표 데이터가 없어 과목을 불러올 수 없습니다.')),
+      );
+      return;
+    }
+
+    final Set<String> subjectSet = <String>{};
+    for (final slot in timetableData.timeSlots) {
+      if (slot.teacher == teacherName && (slot.subject != null) && slot.subject!.trim().isNotEmpty) {
+        subjectSet.add(slot.subject!.trim());
+      }
+    }
+
+    final List<String> subjects = subjectSet.toList()..sort();
+
+    if (subjects.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('교사 "$teacherName"의 과목 정보를 찾지 못했습니다.')),
+      );
+      return;
+    }
+
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        String customInput = '';
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text('보강 과목 선택 - $teacherName'),
+              content: SizedBox(
+                width: 380,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ...subjects
+                          .map((s) => ListTile(
+                                title: Text(s),
+                                onTap: () => Navigator.of(ctx).pop(s),
+                              )),
+                      const Divider(),
+                      const Text('직접 입력'),
+                      const SizedBox(height: 8),
+                      TextField(
+                        decoration: const InputDecoration(
+                          hintText: '과목명을 입력하세요',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        onChanged: (v) => setState(() => customInput = v),
+                        onSubmitted: (v) {
+                          final t = v.trim();
+                          if (t.isNotEmpty) Navigator.of(ctx).pop(t);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('취소'),
+                ),
+                TextButton(
+                  onPressed: customInput.trim().isEmpty
+                      ? null
+                      : () => Navigator.of(ctx).pop(customInput.trim()),
+                  child: const Text('입력 적용'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (selected != null && selected.isNotEmpty) {
+      // 비동기 갭 이후 BuildContext 사용을 안전하게 보장
+      if (!context.mounted) return;
+      viewModel.updateSupplementSubject(exchangeId, selected);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('보강 과목이 "$selected"(으)로 설정되었습니다.')),
+      );
+    }
   }
 
   Widget _buildEmptyState() {

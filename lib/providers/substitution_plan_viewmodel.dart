@@ -176,7 +176,13 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
         }
       }
 
-      state = state.copyWith(planData: newPlanData, isLoading: false);
+      // 저장된 보강 과목 복원 적용
+      final restored = newPlanData.map((d) {
+        final saved = _ref.read(substitutionPlanProvider.notifier).getSupplementSubject(d.exchangeId);
+        return saved.isNotEmpty ? d.copyWith(supplementSubject: saved) : d;
+      }).toList();
+
+      state = state.copyWith(planData: restored, isLoading: false);
       AppLogger.exchangeDebug('최종 planData 개수: ${newPlanData.length}');
     } catch (e) {
       state = state.copyWith(
@@ -471,6 +477,22 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
     }).toList();
 
     state = state.copyWith(planData: clearedPlanData);
+  }
+
+  /// 보강 과목 업데이트 (해당 교체 항목만 반영)
+  void updateSupplementSubject(String exchangeId, String newSubject) {
+    // 전역 Provider에 저장
+    _ref.read(substitutionPlanProvider.notifier).saveSupplementSubject(exchangeId, newSubject);
+
+    final updated = state.planData.map((data) {
+      if (data.exchangeId == exchangeId) {
+        return data.copyWith(supplementSubject: newSubject);
+      }
+      return data;
+    }).toList();
+
+    state = state.copyWith(planData: updated);
+    AppLogger.exchangeInfo('보강 과목 업데이트: $exchangeId -> $newSubject');
   }
 }
 
