@@ -248,9 +248,9 @@ ${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.su
       // 옵션1: 교체 형태
       if (isFirstMessage) {
         return ''''$teacherName' 선생님
-'$teacherName','${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject}' <-> '${data.substitutionTeacher}','${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject}' 수업 교체되었습니다.''';
+'${data.teacher}','${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject}' <-> '${data.substitutionTeacher}','${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject}' 수업 교체되었습니다.''';
       } else {
-        return '''$teacherName','${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject}' <-> '${data.substitutionTeacher}','${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject}' 수업 교체되었습니다.''';
+        return '''${data.teacher}','${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject}' <-> '${data.substitutionTeacher}','${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject}' 수업 교체되었습니다.''';
       }
     } else {
       // 옵션2: 분리된 형태

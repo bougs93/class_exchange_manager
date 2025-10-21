@@ -35,8 +35,41 @@ class _TeacherNoticeWidgetState extends ConsumerState<TeacherNoticeWidget> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 메시지 옵션 선택 (새로고침 버튼 포함)
-          _buildMessageOptionSelector(noticeState, noticeNotifier),
+          // 새로고침 버튼과 메시지 옵션 선택
+          Row(
+            children: [
+              // 새로고침 버튼 (카드 밖으로 분리) - 오렌지 색상 유지
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.orange.shade200,
+                    width: 1,
+                  ),
+                ),
+                child: IconButton(
+                  onPressed: () => noticeNotifier.refreshAllMessages(),
+                  icon: Icon(
+                    Icons.refresh,
+                    size: 18,
+                    color: Colors.orange.shade700,
+                  ),
+                  padding: const EdgeInsets.all(6),
+                  constraints: const BoxConstraints(
+                    minWidth: 22,
+                    minHeight: 22,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              
+              // 메시지 옵션 선택 (새로고침 버튼 제외)
+              Expanded(
+                child: _buildMessageOptionSelector(noticeState, noticeNotifier),
+              ),
+            ],
+          ),
           
           // 메시지 카드 리스트
           Expanded(
@@ -48,7 +81,7 @@ class _TeacherNoticeWidgetState extends ConsumerState<TeacherNoticeWidget> {
   }
 
 
-  /// 메시지 옵션 선택 위젯 생성 (새로고침 버튼 포함)
+  /// 메시지 옵션 선택 위젯 생성 (새로고침 버튼 제외)
   Widget _buildMessageOptionSelector(
     NoticeMessageState noticeState,
     NoticeMessageNotifier noticeNotifier,
@@ -64,69 +97,36 @@ class _TeacherNoticeWidgetState extends ConsumerState<TeacherNoticeWidget> {
               padding: const EdgeInsets.all(5),
               child: Column(
                 children: [
-                  // 새로고침 버튼과 라디오 버튼 옵션을 한 줄에 배치
-                  Row(
-                    children: [
-                      // 새로고침 버튼 (원형 아이콘) - 오렌지 색상 유지
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.orange.shade50,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.orange.shade200,
-                            width: 1,
+                  // 라디오 버튼 옵션만
+                  RadioGroup<MessageOption>(
+                    groupValue: noticeState.teacherMessageOption,
+                    onChanged: (value) {
+                      if (value != null) {
+                        noticeNotifier.setTeacherMessageOption(value);
+                      }
+                    },
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: RadioListTile<MessageOption>(
+                            title: const Text('화살표로 안내'),
+                            // subtitle: const Text('교체 형태로 표시'),
+                            value: MessageOption.option1,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+                            dense: true,
                           ),
                         ),
-                        child: IconButton(
-                          onPressed: () => noticeNotifier.refreshAllMessages(),
-                          icon: Icon(
-                            Icons.refresh,
-                            size: 18,
-                            color: Colors.orange.shade700,
-                          ),
-                          padding: const EdgeInsets.all(6),
-                          constraints: const BoxConstraints(
-                            minWidth: 22,
-                            minHeight: 22,
+                        Expanded(
+                          child: RadioListTile<MessageOption>(
+                            title: const Text('수업으로 안내 '),
+                            // subtitle: const Text('교체된 수업 형태로 표시'),
+                            value: MessageOption.option2,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+                            dense: true,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      
-                      // 라디오 버튼 옵션
-                      Expanded(
-                        child: RadioGroup<MessageOption>(
-                          groupValue: noticeState.teacherMessageOption,
-                          onChanged: (value) {
-                            if (value != null) {
-                              noticeNotifier.setTeacherMessageOption(value);
-                            }
-                          },
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: RadioListTile<MessageOption>(
-                                  title: const Text('화살표로 안내'),
-                                  // subtitle: const Text('교체 형태로 표시'),
-                                  value: MessageOption.option1,
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
-                                  dense: true,
-                                ),
-                              ),
-                              Expanded(
-                                child: RadioListTile<MessageOption>(
-                                  title: const Text('수업으로 안내 '),
-                                  // subtitle: const Text('교체된 수업 형태로 표시'),
-                                  value: MessageOption.option2,
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
-                                  dense: true,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
