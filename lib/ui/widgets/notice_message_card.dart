@@ -40,12 +40,6 @@ class NoticeMessageCard extends StatelessWidget {
             
             // 메시지 내용
             _buildMessageContent(),
-            
-            // 통계 정보 (선택적)
-            if (messageGroup.messages.length > 1) ...[
-              const SizedBox(height: 12),
-              _buildStatsInfo(),
-            ],
           ],
         ),
       ),
@@ -168,51 +162,6 @@ class NoticeMessageCard extends StatelessWidget {
     );
   }
 
-  /// 통계 정보 위젯 생성
-  Widget _buildStatsInfo() {
-    final exchangeTypeCounts = messageGroup.exchangeTypeCounts;
-    final totalMessages = messageGroup.messages.length;
-    
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.info_outline,
-            size: 14,
-            color: Colors.grey.shade600,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            '총 $totalMessages개 메시지',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey.shade600,
-            ),
-          ),
-          if (exchangeTypeCounts.isNotEmpty) ...[
-            const SizedBox(width: 8),
-            ...exchangeTypeCounts.entries.map((entry) {
-              return Padding(
-                padding: const EdgeInsets.only(right: 4),
-                child: Text(
-                  '${entry.key.displayName} ${entry.value}개',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-              );
-            }),
-          ],
-        ],
-      ),
-    );
-  }
 
   /// 클립보드에 복사
   Future<void> _copyToClipboard(BuildContext context) async {
