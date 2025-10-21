@@ -252,7 +252,7 @@ ${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.su
     if (teacherName == data.teacher) {
       // 원래 교사 (결강)
       return ''''$teacherName' 선생님
-'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject} ${data.supplementTeacher}' 결강(보강)되었습니다.''';
+'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject}' 결강(보강)되었습니다.''';
     } else {
       // 보강 교사
       return ''''$teacherName' 선생님
