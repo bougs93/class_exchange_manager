@@ -210,8 +210,8 @@ ${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.su
   /// 학급 보강 메시지 생성
   static String _generateClassSupplementMessage(SubstitutionPlanData data) {
     final className = '${data.grade}-${data.className}';
-    return ''''$className'
-'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject} ${data.supplementTeacher}' 보강 수업이 있습니다.''';
+    return '''$className 수업 교체되었습니다.
+'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject} ${data.supplementTeacher}' 수업 입니다.''';
   }
   
   /// 교사 수업교체 메시지 생성
@@ -251,11 +251,11 @@ ${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.su
     
     if (teacherName == data.teacher) {
       // 원래 교사 (결강)
-      return ''''$teacherName'
+      return ''''$teacherName' 선생님
 '${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject} ${data.supplementTeacher}' 결강(보강)되었습니다.''';
     } else {
       // 보강 교사
-      return ''''$teacherName'
+      return ''''$teacherName' 선생님
 '${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject} ${data.supplementTeacher}' 보강 수업이 있습니다.''';
     }
   }
