@@ -31,17 +31,12 @@ class _TeacherNoticeWidgetState extends ConsumerState<TeacherNoticeWidget> {
     final noticeNotifier = ref.read(noticeMessageProvider.notifier);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 제목 및 새로고침 버튼
-          _buildHeader(noticeNotifier),
-          const SizedBox(height: 16),
-          
-          // 메시지 옵션 선택
+          // 메시지 옵션 선택 (새로고침 버튼 포함)
           _buildMessageOptionSelector(noticeState, noticeNotifier),
-          const SizedBox(height: 16),
           
           // 메시지 카드 리스트
           Expanded(
@@ -52,34 +47,8 @@ class _TeacherNoticeWidgetState extends ConsumerState<TeacherNoticeWidget> {
     );
   }
 
-  /// 헤더 위젯 생성 (제목 + 새로고침 버튼)
-  Widget _buildHeader(NoticeMessageNotifier noticeNotifier) {
-    return Row(
-      children: [
-        const Expanded(
-          child: Text(
-            '교사안내',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-        ),
-        IconButton(
-          onPressed: () => noticeNotifier.refreshAllMessages(),
-          icon: const Icon(Icons.refresh),
-          tooltip: '메시지 새로고침',
-          style: IconButton.styleFrom(
-            backgroundColor: Colors.orange.shade50,
-            foregroundColor: Colors.orange.shade700,
-          ),
-        ),
-      ],
-    );
-  }
 
-  /// 메시지 옵션 선택 위젯 생성
+  /// 메시지 옵션 선택 위젯 생성 (새로고침 버튼 포함)
   Widget _buildMessageOptionSelector(
     NoticeMessageState noticeState,
     NoticeMessageNotifier noticeNotifier,
@@ -87,44 +56,75 @@ class _TeacherNoticeWidgetState extends ConsumerState<TeacherNoticeWidget> {
     return Card(
       elevation: 1,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(1),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '메시지 옵션',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 12),
-            // RadioGroup을 사용하여 deprecated 경고 해결
-            RadioGroup<MessageOption>(
-              groupValue: noticeState.teacherMessageOption,
-              onChanged: (MessageOption? value) {
-                if (value != null) {
-                  noticeNotifier.setTeacherMessageOption(value);
-                }
-              },
-              child: Row(
+            Padding(
+              padding: const EdgeInsets.all(5),
+              child: Column(
                 children: [
-                  Expanded(
-                    child: RadioListTile<MessageOption>(
-                      title: const Text('옵션1'),
-                      subtitle: const Text('교체 형태로 표시'),
-                      value: MessageOption.option1,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  Expanded(
-                    child: RadioListTile<MessageOption>(
-                      title: const Text('옵션2'),
-                      subtitle: const Text('분리된 형태로 표시'),
-                      value: MessageOption.option2,
-                      contentPadding: EdgeInsets.zero,
-                    ),
+                  // 새로고침 버튼과 라디오 버튼 옵션을 한 줄에 배치
+                  Row(
+                    children: [
+                      // 새로고침 버튼 (원형 아이콘) - 오렌지 색상 유지
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.orange.shade200,
+                            width: 1,
+                          ),
+                        ),
+                        child: IconButton(
+                          onPressed: () => noticeNotifier.refreshAllMessages(),
+                          icon: Icon(
+                            Icons.refresh,
+                            size: 18,
+                            color: Colors.orange.shade700,
+                          ),
+                          padding: const EdgeInsets.all(6),
+                          constraints: const BoxConstraints(
+                            minWidth: 22,
+                            minHeight: 22,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      
+                      // 라디오 버튼 옵션
+                      Expanded(
+                        child: RadioGroup<MessageOption>(
+                          groupValue: noticeState.teacherMessageOption,
+                          onChanged: (value) {
+                            if (value != null) {
+                              noticeNotifier.setTeacherMessageOption(value);
+                            }
+                          },
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: RadioListTile<MessageOption>(
+                                  title: const Text('화살표로 안내'),
+                                  // subtitle: const Text('교체 형태로 표시'),
+                                  value: MessageOption.option1,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                              ),
+                              Expanded(
+                                child: RadioListTile<MessageOption>(
+                                  title: const Text('수업으로 안내 '),
+                                  // subtitle: const Text('교체된 수업 형태로 표시'),
+                                  value: MessageOption.option2,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

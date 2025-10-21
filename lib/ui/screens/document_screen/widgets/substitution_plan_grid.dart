@@ -63,7 +63,7 @@ class SubstitutionPlanDataSource extends DataGridSource {
     return DataGridRowAdapter(cells: cells);
   }
 
-  /// 보강 과목 셀 렌더링: 값이 비어있으면 선택 버튼을 제공
+  /// 보강 과목 셀 렌더링: 보강 교사명이 있고 과목이 비어있으면 선택 버튼을 제공
   Widget _buildSupplementSubjectCell(DataGridCell cell, DataGridRow row) {
     final value = (cell.value?.toString() ?? '').trim();
     final isEmpty = value.isEmpty;
@@ -75,9 +75,20 @@ class SubstitutionPlanDataSource extends DataGridSource {
     );
     final exchangeId = exchangeIdCell.value?.toString() ?? '';
 
+    // 보강 교사명(성명) 셀 찾기
+    final supplementTeacherCell = row.getCells().firstWhere(
+      (c) => c.columnName == 'supplementTeacher',
+      orElse: () => const DataGridCell<String>(columnName: 'supplementTeacher', value: ''),
+    );
+    final supplementTeacher = (supplementTeacherCell.value?.toString() ?? '').trim();
+    final hasTeacher = supplementTeacher.isNotEmpty;
+
+    // 보강 교사명이 있고 과목이 비어있을 때만 활성화
+    final isSelectable = hasTeacher && isEmpty;
+
     return GestureDetector(
       onTap: () async {
-        if (exchangeId.isEmpty) return;
+        if (exchangeId.isEmpty || !isSelectable) return;
         if (onSupplementSubjectTap != null) {
           onSupplementSubjectTap!(exchangeId);
         }
@@ -86,17 +97,17 @@ class SubstitutionPlanDataSource extends DataGridSource {
         alignment: Alignment.center,
         padding: _Spacing.cellPadding,
         decoration: BoxDecoration(
-          color: isEmpty ? Colors.blue.shade50 : Colors.transparent,
-          border: isEmpty ? Border.all(color: Colors.blue.shade200) : null,
-          borderRadius: isEmpty ? BorderRadius.circular(4) : null,
+          color: isSelectable ? Colors.blue.shade50 : Colors.transparent,
+          border: isSelectable ? Border.all(color: Colors.blue.shade200) : null,
+          borderRadius: isSelectable ? BorderRadius.circular(4) : null,
         ),
         child: Text(
-          isEmpty ? '과목선택' : value,
+          isEmpty ? (hasTeacher ? '과목선택' : '') : value,
           style: TextStyle(
             fontSize: _Spacing.cellFontSize,
             height: 1.0,
-            color: isEmpty ? Colors.blue.shade700 : Colors.black87,
-            fontWeight: isEmpty ? FontWeight.w500 : FontWeight.normal,
+            color: isSelectable ? Colors.blue.shade700 : Colors.black87,
+            fontWeight: isSelectable ? FontWeight.w500 : FontWeight.normal,
           ),
           textAlign: TextAlign.center,
         ),
@@ -217,7 +228,7 @@ class SubstitutionPlanGrid extends ConsumerWidget {
           ElevatedButton.icon(
             onPressed: () => _clearAllDates(context, viewModel),
             icon: const Icon(Icons.clear, size: 16),
-            label: const Text('날짜 지우기'),
+            label: const Text('지우기'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.orange.shade600,
               foregroundColor: Colors.white,
@@ -625,8 +636,8 @@ class SubstitutionPlanGrid extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('날짜 지우기'),
-        content: const Text('입력한 모든 날짜 정보를 지우시겠습니까?\n이 작업은 되돌릴 수 없습니다.'),
+        title: const Text('지우기'),
+        content: const Text('입력한 모든 날짜 정보와 과목 선택을 지우시겠습니까?\n이 작업은 되돌릴 수 없습니다.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -638,7 +649,7 @@ class SubstitutionPlanGrid extends ConsumerWidget {
               viewModel.clearAllDates();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('모든 날짜 정보가 지워졌습니다.'),
+                  content: Text('모든 날짜 정보와 과목 선택이 지워졌습니다.'),
                   backgroundColor: Colors.green,
                   duration: Duration(seconds: 2),
                 ),

@@ -27,16 +27,16 @@ class NoticeMessageCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       elevation: 2,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       color: cardColor ?? _getDefaultCardColor(),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 헤더 (제목 + 복사 버튼)
             _buildHeader(context),
-            const SizedBox(height: 12),
+            const SizedBox(height: 4),
             
             // 메시지 내용
             _buildMessageContent(),
@@ -52,21 +52,28 @@ class NoticeMessageCard extends StatelessWidget {
     );
   }
 
-  /// 헤더 위젯 생성 (제목 + 복사 버튼)
+  /// 헤더 위젯 생성 (제목 + 교체 유형 + 복사 버튼)
   Widget _buildHeader(BuildContext context) {
     return Row(
       children: [
+        const SizedBox(width: 8),
         // 그룹 식별자 (학급명 또는 교사명)
-        Expanded(
-          child: Text(
-            messageGroup.groupIdentifier,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
+        Text(
+          messageGroup.groupIdentifier,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
           ),
         ),
+        
+        const SizedBox(width: 8),
+        
+        // 교체 유형 칩들 (첫 번째 메시지의 유형만 표시)
+        if (messageGroup.messages.isNotEmpty)
+          _buildExchangeTypeChip(messageGroup.messages.first.exchangeType),
+        
+        const Spacer(),
         
         // 복사 버튼
         IconButton(
@@ -86,7 +93,7 @@ class NoticeMessageCard extends StatelessWidget {
   Widget _buildMessageContent() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(8),
@@ -100,10 +107,6 @@ class NoticeMessageCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 교체 유형 표시
-                _buildExchangeTypeChip(message.exchangeType),
-                const SizedBox(height: 4),
-                
                 // 메시지 내용
                 Text(
                   message.content,
@@ -290,7 +293,7 @@ class NoticeMessageCardList extends StatelessWidget {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 0),
       itemCount: messageGroups.length,
       itemBuilder: (context, index) {
         final messageGroup = messageGroups[index];

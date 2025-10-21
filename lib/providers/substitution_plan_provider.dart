@@ -98,9 +98,9 @@ class SubstitutionPlanNotifier extends StateNotifier<SubstitutionPlanState> {
     state = state.copyWith(savedSupplementSubjects: newSaved);
   }
 
-  /// 모든 날짜 정보 초기화
+  /// 모든 날짜 정보 및 보강 과목 초기화
   void clearAllDates() {
-    AppLogger.exchangeDebug('모든 날짜 정보 초기화 (전역)');
+    AppLogger.exchangeDebug('모든 날짜 정보 및 보강 과목 초기화 (전역)');
     state = const SubstitutionPlanState();
   }
 

@@ -465,7 +465,7 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
     state = state.copyWith(planData: updatedPlanData);
   }
 
-  /// 모든 날짜 초기화
+  /// 모든 날짜 및 보강 과목 초기화
   void clearAllDates() {
     _ref.read(substitutionPlanProvider.notifier).clearAllDates();
 
@@ -473,6 +473,7 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
       return data.copyWith(
         absenceDate: '선택',
         substitutionDate: '선택',
+        supplementSubject: '', // 보강 과목도 초기화
       );
     }).toList();
 

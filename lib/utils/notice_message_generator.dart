@@ -197,11 +197,11 @@ class NoticeMessageGenerator {
     
     if (messageOption == MessageOption.option1) {
       // 옵션1: 교체 형태
-      return '''$className 수업이 교체되었습니다.
+      return '''$className 수업 교체되었습니다.
 ${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' <-> '${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' ''';
     } else {
       // 옵션2: 분리된 형태
-      return '''$className 수업이 교체되었습니다.
+      return '''$className 수업 교체되었습니다.
 '${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' 수업입니다.
 '${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업입니다.''';
     }

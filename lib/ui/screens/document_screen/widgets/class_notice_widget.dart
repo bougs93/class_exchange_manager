@@ -31,17 +31,12 @@ class _ClassNoticeWidgetState extends ConsumerState<ClassNoticeWidget> {
     final noticeNotifier = ref.read(noticeMessageProvider.notifier);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 제목 및 새로고침 버튼
-          _buildHeader(noticeNotifier),
-          const SizedBox(height: 16),
-          
-          // 메시지 옵션 선택
+          // 메시지 옵션 선택 (새로고침 버튼 포함)
           _buildMessageOptionSelector(noticeState, noticeNotifier),
-          const SizedBox(height: 16),
           
           // 메시지 카드 리스트
           Expanded(
@@ -52,34 +47,8 @@ class _ClassNoticeWidgetState extends ConsumerState<ClassNoticeWidget> {
     );
   }
 
-  /// 헤더 위젯 생성 (제목 + 새로고침 버튼)
-  Widget _buildHeader(NoticeMessageNotifier noticeNotifier) {
-    return Row(
-      children: [
-        const Expanded(
-          child: Text(
-            '학급안내',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-        ),
-        IconButton(
-          onPressed: () => noticeNotifier.refreshAllMessages(),
-          icon: const Icon(Icons.refresh),
-          tooltip: '메시지 새로고침',
-          style: IconButton.styleFrom(
-            backgroundColor: Colors.blue.shade50,
-            foregroundColor: Colors.blue.shade700,
-          ),
-        ),
-      ],
-    );
-  }
 
-  /// 메시지 옵션 선택 위젯 생성
+  /// 메시지 옵션 선택 위젯 생성 (새로고침 버튼 포함)
   Widget _buildMessageOptionSelector(
     NoticeMessageState noticeState,
     NoticeMessageNotifier noticeNotifier,
@@ -87,35 +56,75 @@ class _ClassNoticeWidgetState extends ConsumerState<ClassNoticeWidget> {
     return Card(
       elevation: 1,
       child: Padding(
-        padding: const EdgeInsets.all(0),
+        padding: const EdgeInsets.all(1),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
-            RadioGroup<MessageOption>(
-              groupValue: noticeState.classMessageOption,
-              onChanged: (value) {
-                if (value != null) {
-                  noticeNotifier.setClassMessageOption(value);
-                }
-              },
-              child: Row(
+            Padding(
+              padding: const EdgeInsets.all(5),
+              child: Column(
                 children: [
-                  Expanded(
-                    child: RadioListTile<MessageOption>(
-                      title: const Text('옵션1'),
-                      subtitle: const Text('교체 형태로 표시'),
-                      value: MessageOption.option1,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  Expanded(
-                    child: RadioListTile<MessageOption>(
-                      title: const Text('옵션2'),
-                      subtitle: const Text('교체된 수업 형태로 표시'),
-                      value: MessageOption.option2,
-                      contentPadding: EdgeInsets.zero,
-                    ),
+                  // 새로고침 버튼과 라디오 버튼 옵션을 한 줄에 배치
+                  Row(
+                    children: [
+                      // 새로고침 버튼 (원형 아이콘)
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.blue.shade200,
+                            width: 1,
+                          ),
+                        ),
+                        child: IconButton(
+                          onPressed: () => noticeNotifier.refreshAllMessages(),
+                          icon: Icon(
+                            Icons.refresh,
+                            size: 18,
+                            color: Colors.blue.shade700,
+                          ),
+                          padding: const EdgeInsets.all(6),
+                          constraints: const BoxConstraints(
+                            minWidth: 22,
+                            minHeight: 22,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      
+                      // 라디오 버튼 옵션
+                      Expanded(
+                        child: RadioGroup<MessageOption>(
+                          groupValue: noticeState.classMessageOption,
+                          onChanged: (value) {
+                            if (value != null) {
+                              noticeNotifier.setClassMessageOption(value);
+                            }
+                          },
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: RadioListTile<MessageOption>(
+                                  title: const Text('화살표로 안내'),
+                                  // subtitle: const Text('교체 형태로 표시'),
+                                  value: MessageOption.option1,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                              ),
+                              Expanded(
+                                child: RadioListTile<MessageOption>(
+                                  title: const Text('수업으로 안내 '),
+                                  // subtitle: const Text('교체된 수업 형태로 표시'),
+                                  value: MessageOption.option2,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
