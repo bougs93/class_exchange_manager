@@ -37,8 +37,10 @@ class NoticeMessageGenerator {
       
       final List<NoticeMessage> messages = [];
       
-      for (final data in classDataList) {
-        final message = _generateClassMessage(data, messageOption);
+      for (int i = 0; i < classDataList.length; i++) {
+        final data = classDataList[i];
+        final isFirstMessage = i == 0; // 첫 번째 메시지인지 확인
+        final message = _generateClassMessage(data, messageOption, isFirstMessage);
         if (message != null) {
           messages.add(message);
         }
@@ -125,6 +127,7 @@ class NoticeMessageGenerator {
   static NoticeMessage? _generateClassMessage(
     SubstitutionPlanData data,
     MessageOption messageOption,
+    bool isFirstMessage,
   ) {
     // 교체 유형 판단
     final exchangeType = data.substitutionDate.isNotEmpty 
@@ -135,10 +138,10 @@ class NoticeMessageGenerator {
     
     if (exchangeType == ExchangeType.substitution) {
       // 수업교체 메시지
-      content = _generateClassSubstitutionMessage(data, messageOption);
+      content = _generateClassSubstitutionMessage(data, messageOption, isFirstMessage);
     } else {
       // 보강 메시지
-      content = _generateClassSupplementMessage(data);
+      content = _generateClassSupplementMessage(data, isFirstMessage);
     }
     
     if (content.isEmpty) {
@@ -195,26 +198,41 @@ class NoticeMessageGenerator {
   static String _generateClassSubstitutionMessage(
     SubstitutionPlanData data,
     MessageOption messageOption,
+    bool isFirstMessage,
   ) {
     final className = '${data.grade}-${data.className}';
     
     if (messageOption == MessageOption.option1) {
       // 옵션1: 교체 형태
-      return '''$className 수업 교체되었습니다.
+      if (isFirstMessage) {
+        return '''$className 수업 교체되었습니다.
 ${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' <-> '${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' ''';
+      } else {
+        return '''${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' <-> '${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' ''';
+      }
     } else {
       // 옵션2: 분리된 형태
-      return '''$className 수업 교체되었습니다.
+      if (isFirstMessage) {
+        return '''$className 수업 교체되었습니다.
 '${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' 수업입니다.
 '${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업입니다.''';
+      } else {
+        return ''''${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' 수업입니다.
+'${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업입니다.''';
+      }
     }
   }
   
   /// 학급 보강 메시지 생성
-  static String _generateClassSupplementMessage(SubstitutionPlanData data) {
+  static String _generateClassSupplementMessage(SubstitutionPlanData data, bool isFirstMessage) {
     final className = '${data.grade}-${data.className}';
-    return '''$className 수업 교체되었습니다.
+    
+    if (isFirstMessage) {
+      return '''$className 수업 교체되었습니다.
 '${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject} ${data.supplementTeacher}' 수업 입니다.''';
+    } else {
+      return ''''${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject} ${data.supplementTeacher}' 수업 입니다.''';
+    }
   }
   
   /// 교사 수업교체 메시지 생성
