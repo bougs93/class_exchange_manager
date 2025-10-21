@@ -1,0 +1,276 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../models/notice_message.dart';
+import '../../../../providers/notice_message_provider.dart';
+import '../../../widgets/notice_message_card.dart';
+
+/// 학급안내 위젯
+/// 
+/// 학급별로 그룹화된 교체 안내 메시지를 표시합니다.
+/// 라디오 버튼으로 메시지 옵션(옵션1/옵션2)을 선택할 수 있습니다.
+class ClassNoticeWidget extends ConsumerStatefulWidget {
+  const ClassNoticeWidget({super.key});
+
+  @override
+  ConsumerState<ClassNoticeWidget> createState() => _ClassNoticeWidgetState();
+}
+
+class _ClassNoticeWidgetState extends ConsumerState<ClassNoticeWidget> {
+  @override
+  void initState() {
+    super.initState();
+    // 위젯 초기화 시 메시지 새로고침
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(noticeMessageProvider.notifier).refreshAllMessages();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final noticeState = ref.watch(noticeMessageProvider);
+    final noticeNotifier = ref.read(noticeMessageProvider.notifier);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 제목 및 새로고침 버튼
+          _buildHeader(noticeNotifier),
+          const SizedBox(height: 16),
+          
+          // 메시지 옵션 선택
+          _buildMessageOptionSelector(noticeState, noticeNotifier),
+          const SizedBox(height: 16),
+          
+          // 메시지 카드 리스트
+          Expanded(
+            child: _buildMessageList(noticeState),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 헤더 위젯 생성 (제목 + 새로고침 버튼)
+  Widget _buildHeader(NoticeMessageNotifier noticeNotifier) {
+    return Row(
+      children: [
+        const Expanded(
+          child: Text(
+            '학급안내',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+        ),
+        IconButton(
+          onPressed: () => noticeNotifier.refreshAllMessages(),
+          icon: const Icon(Icons.refresh),
+          tooltip: '메시지 새로고침',
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.blue.shade50,
+            foregroundColor: Colors.blue.shade700,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 메시지 옵션 선택 위젯 생성
+  Widget _buildMessageOptionSelector(
+    NoticeMessageState noticeState,
+    NoticeMessageNotifier noticeNotifier,
+  ) {
+    return Card(
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.all(0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+
+            RadioGroup<MessageOption>(
+              groupValue: noticeState.classMessageOption,
+              onChanged: (value) {
+                if (value != null) {
+                  noticeNotifier.setClassMessageOption(value);
+                }
+              },
+              child: Row(
+                children: [
+                  Expanded(
+                    child: RadioListTile<MessageOption>(
+                      title: const Text('옵션1'),
+                      subtitle: const Text('교체 형태로 표시'),
+                      value: MessageOption.option1,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  Expanded(
+                    child: RadioListTile<MessageOption>(
+                      title: const Text('옵션2'),
+                      subtitle: const Text('교체된 수업 형태로 표시'),
+                      value: MessageOption.option2,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 메시지 리스트 위젯 생성
+  Widget _buildMessageList(NoticeMessageState noticeState) {
+    if (noticeState.isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (noticeState.errorMessage != null) {
+      return _buildErrorState(noticeState.errorMessage!);
+    }
+
+    if (noticeState.classMessageGroups.isEmpty) {
+      return const NoticeMessageCardList(
+        messageGroups: [],
+        emptyMessage: '학급별 교체 안내 메시지가 없습니다.',
+        emptyIcon: Icons.class_outlined,
+      );
+    }
+
+    return NoticeMessageCardList(
+      messageGroups: noticeState.classMessageGroups,
+      cardColor: Colors.green.shade50,
+    );
+  }
+
+  /// 에러 상태 위젯 생성
+  Widget _buildErrorState(String errorMessage) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.error_outline,
+            size: 64,
+            color: Colors.red.shade400,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            '오류가 발생했습니다',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.red.shade600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              errorMessage,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.red.shade500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: () {
+              ref.read(noticeMessageProvider.notifier).refreshAllMessages();
+            },
+            icon: const Icon(Icons.refresh),
+            label: const Text('다시 시도'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 학급안내 통계 위젯
+/// 
+/// 학급별 메시지 통계를 표시하는 위젯입니다.
+class ClassNoticeStatsWidget extends ConsumerWidget {
+  const ClassNoticeStatsWidget({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final noticeState = ref.watch(noticeMessageProvider);
+    
+    if (noticeState.classMessageGroups.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final noticeNotifier = ref.read(noticeMessageProvider.notifier);
+    final totalMessages = noticeNotifier.totalClassMessages;
+    final exchangeTypeStats = noticeNotifier.classExchangeTypeStats;
+
+    return Card(
+      elevation: 1,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Icon(
+              Icons.analytics_outlined,
+              color: Colors.green.shade600,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '총 ${noticeState.classMessageGroups.length}개 학급, $totalMessages개 메시지',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.green.shade700,
+              ),
+            ),
+            const Spacer(),
+            if (exchangeTypeStats.isNotEmpty) ...[
+              ...exchangeTypeStats.entries.map((entry) {
+                return Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: entry.key == ExchangeType.substitution 
+                          ? Colors.blue.shade100 
+                          : Colors.orange.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${entry.key.displayName} ${entry.value}개',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: entry.key == ExchangeType.substitution 
+                            ? Colors.blue.shade800 
+                            : Colors.orange.shade800,
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}

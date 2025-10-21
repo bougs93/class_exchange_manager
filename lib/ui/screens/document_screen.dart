@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/document_type.dart';
 import 'document_screen/widgets/substitution_plan_grid.dart';
+import 'document_screen/widgets/class_notice_widget.dart';
+import 'document_screen/widgets/teacher_notice_widget.dart';
 
 /// 문서 출력 화면
 class DocumentScreen extends ConsumerStatefulWidget {
@@ -111,90 +113,11 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen>
       case DocumentType.substitutionPlan:
         return const SubstitutionPlanGrid();
       case DocumentType.classNotice:
-        return _buildNoticeTab(
-          title: type.displayName,
-          description: '학급별 교체 안내문을 생성합니다.',
-          icon: Icons.class_outlined,
-          color: type.color,
-          featureTitle: '학급안내 기능',
-          featureDescription: '학급별 수업 교체 안내문 생성',
-        );
+        return const ClassNoticeWidget();
       case DocumentType.teacherNotice:
-        return _buildNoticeTab(
-          title: type.displayName,
-          description: '교사별 교체 안내문을 생성합니다.',
-          icon: Icons.person_outline,
-          color: type.color,
-          featureTitle: '교사안내 기능',
-          featureDescription: '교사별 교체 안내문 및 QR코드 생성',
-        );
+        return const TeacherNoticeWidget();
     }
   }
 
-  /// 공통 안내 탭 UI 생성
-  Widget _buildNoticeTab({
-    required String title,
-    required String description,
-    required IconData icon,
-    required Color color,
-    required String featureTitle,
-    required String featureDescription,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            description,
-            style: const TextStyle(
-              fontSize: 14,
-              color: Colors.grey,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Expanded(
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    icon,
-                    size: 64,
-                    color: color.withValues(alpha: 0.7),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    featureTitle,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    featureDescription,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
