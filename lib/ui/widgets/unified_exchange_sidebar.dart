@@ -14,7 +14,7 @@ import '../../providers/services_provider.dart';
 import 'exchange_filter_widget.dart';
 
 /// 사이드바 폰트 사이즈 상수
-class _SidebarFontSizes {
+class SidebarFontSizes {
   // 헤더 영역
   static const double headerText = 12.0;          // 경로 개수 텍스트
   
@@ -34,7 +34,7 @@ class _SidebarFontSizes {
 }
 
 /// 경로 타입별 색상 시스템
-class _PathColorScheme {
+class PathColorScheme {
   final Color primary;              // 메인 색상 (화살표, 강조)
   final Color nodeBackground;       // 노드 배경색 (선택된 상태)
   final Color nodeBackgroundUnselected; // 노드 배경색 (선택되지 않은 상태)
@@ -44,7 +44,7 @@ class _PathColorScheme {
   final Color nodeTextUnselected;   // 노드 텍스트 색상 (선택되지 않은 상태)
   final Color shadow;               // 그림자 색상
   
-  const _PathColorScheme({
+  const PathColorScheme({
     required this.primary,
     required this.nodeBackground,
     required this.nodeBackgroundUnselected,
@@ -56,7 +56,7 @@ class _PathColorScheme {
   });
   
   /// 1:1교체 색상 스키마 (초록색 계열)
-  static const oneToOne = _PathColorScheme(
+  static const oneToOne = PathColorScheme(
     primary: Color(0xFF4CAF50),                    // 초록색 화살표
     nodeBackground: Color(0xFFE8F5E8),             // 연한 초록색 노드 배경 (선택됨)
     nodeBackgroundUnselected: Color(0xFFF8FFF8),   // 매우 연한 초록색 노드 배경 (선택안됨)
@@ -68,7 +68,7 @@ class _PathColorScheme {
   );
   
   /// 순환교체 색상 스키마 (보라색 계열)
-  static const circular = _PathColorScheme(
+  static const circular = PathColorScheme(
     primary: Color(0xFF9C27B0),                    // 보라색 화살표
     nodeBackground: Color(0xFFF3E5F5),             // 연한 보라색 노드 배경 (선택됨)
     nodeBackgroundUnselected: Color(0xFFF8FFF8),   // 매우 연한 보라색 노드 배경 (선택안됨)
@@ -80,7 +80,7 @@ class _PathColorScheme {
   );
 
   /// 연쇄교체 색상 스키마 (주황색 계열)
-  static const chain = _PathColorScheme(
+  static const chain = PathColorScheme(
     primary: Color(0xFFFF5722),                    // 주황색 화살표
     nodeBackground: Color(0xFFFBE9E7),             // 연한 주황색 노드 배경 (선택됨)
     nodeBackgroundUnselected: Color(0xFFFFF8F8),   // 매우 연한 주황색 노드 배경 (선택안됨)
@@ -92,7 +92,7 @@ class _PathColorScheme {
   );
 
   /// 보강교체 색상 스키마 (틸 색상 계열)
-  static const supplement = _PathColorScheme(
+  static const supplement = PathColorScheme(
     primary: Color(0xFF20B2AA),                    // 틸 색상 화살표
     nodeBackground: Color(0xFFE0F2F1),             // 연한 틸 색상 노드 배경 (선택됨)
     nodeBackgroundUnselected: Color(0xFFF0FFFF),   // 매우 연한 틸 색상 노드 배경 (선택안됨)
@@ -104,7 +104,7 @@ class _PathColorScheme {
   );
 
   /// 경로 타입에 따른 색상 스키마 반환
-  static _PathColorScheme getScheme(ExchangePathType type) {
+  static PathColorScheme getScheme(ExchangePathType type) {
     switch (type) {
       case ExchangePathType.oneToOne:
         return oneToOne;
@@ -296,7 +296,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
                   ? '보강교체 안내'
                   : '${widget.filteredPaths.length}개 경로',
               style: TextStyle(
-                fontSize: _SidebarFontSizes.headerText,
+                fontSize: SidebarFontSizes.headerText,
                 color: Colors.blue.shade500,
               ),
               textAlign: TextAlign.center, // 가운데 정렬 추가
@@ -326,7 +326,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
         controller: widget.searchController,
          decoration: InputDecoration(
            hintText: '요일,교사,학급,과목 검색...',
-           hintStyle: TextStyle(fontSize: _SidebarFontSizes.searchHint),
+           hintStyle: TextStyle(fontSize: SidebarFontSizes.searchHint),
           isDense: true, // 조밀한 레이아웃 적용
           prefixIcon: Padding(
             padding: const EdgeInsets.only(left: 6, right: 2), // 아이콘 여백 조정
@@ -350,7 +350,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
           contentPadding: const EdgeInsets.symmetric(horizontal: 3, vertical: 4), // 2 → 0으로 최소화
         ),
         style: TextStyle(
-          fontSize: _SidebarFontSizes.searchInput,
+          fontSize: SidebarFontSizes.searchInput,
           height: 3, // 줄 높이 조정으로 텍스트 영역 축소
         ),
         onChanged: widget.onUpdateSearchQuery,
@@ -393,7 +393,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
             '경로 탐색 중...',
             style: TextStyle(
               color: Colors.blue.shade600,
-              fontSize: _SidebarFontSizes.loadingMessage,
+              fontSize: SidebarFontSizes.loadingMessage,
             ),
           ),
           const SizedBox(height: 6),
@@ -401,7 +401,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
             '${(widget.loadingProgress * 100).toInt()}%',
             style: TextStyle(
               color: Colors.blue.shade400,
-              fontSize: _SidebarFontSizes.loadingProgress,
+              fontSize: SidebarFontSizes.loadingProgress,
             ),
           ),
         ],
@@ -433,7 +433,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
                 : '교체 가능한 경로가 없습니다',
             style: TextStyle(
               color: Colors.grey.shade600,
-              fontSize: _SidebarFontSizes.emptyMessage,
+              fontSize: SidebarFontSizes.emptyMessage,
             ),
           ),
         ],
@@ -496,7 +496,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
             '보강교체를 위해 빈 셀을 선택하거나\n교사명을 클릭해주세요',
             style: TextStyle(
               color: Colors.blue.shade600,
-              fontSize: _SidebarFontSizes.emptyMessage,
+              fontSize: SidebarFontSizes.emptyMessage,
               fontWeight: FontWeight.w500,
             ),
             textAlign: TextAlign.center,
@@ -518,12 +518,12 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
               color: Colors.white,
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
-                color: _PathColorScheme.getScheme(ExchangePathType.supplement).primary,
+                color: PathColorScheme.getScheme(ExchangePathType.supplement).primary,
                 width: 1,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: _PathColorScheme.getScheme(ExchangePathType.supplement).shadow,
+                  color: PathColorScheme.getScheme(ExchangePathType.supplement).shadow,
                   blurRadius: 2,
                   offset: const Offset(0, 1),
                 ),
@@ -541,7 +541,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
                     margin: const EdgeInsets.symmetric(vertical: 2),
                     child: Icon(
                       Icons.keyboard_arrow_down,
-                      color: _PathColorScheme.getScheme(ExchangePathType.supplement).primary,
+                      color: PathColorScheme.getScheme(ExchangePathType.supplement).primary,
                       size: 14,
                     ),
                   ),
@@ -595,7 +595,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
           'supplement_0', 
           true, // 선택된 상태
           true, // 시작 노드
-          _PathColorScheme.getScheme(ExchangePathType.supplement),
+          PathColorScheme.getScheme(ExchangePathType.supplement),
         );
       },
     );
@@ -618,7 +618,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
       child: Text(
         '빈 셀 선택 대기',
         style: TextStyle(
-          fontSize: _SidebarFontSizes.nodeText,
+          fontSize: SidebarFontSizes.nodeText,
           fontWeight: FontWeight.w500,
           color: Colors.grey.shade600,
         ),
@@ -730,7 +730,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
                 child: Text(
                   '$day$period',
                   style: TextStyle(
-                    fontSize: _SidebarFontSizes.nodeText - 1,
+                    fontSize: SidebarFontSizes.nodeText - 1,
                     fontWeight: FontWeight.w500,
                     color: Colors.teal.shade600,
                   ),
@@ -752,7 +752,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
                 child: Text(
                   teacherName,
                   style: TextStyle(
-                    fontSize: _SidebarFontSizes.nodeText,
+                    fontSize: SidebarFontSizes.nodeText,
                     fontWeight: FontWeight.w600,
                     color: Colors.teal.shade700,
                   ),
@@ -774,7 +774,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
                 child: Text(
                   subject,
                   style: TextStyle(
-                    fontSize: _SidebarFontSizes.nodeText - 1,
+                    fontSize: SidebarFontSizes.nodeText - 1,
                     color: Colors.teal.shade600,
                   ),
                   textAlign: TextAlign.center,
@@ -813,7 +813,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
             '시간표 데이터가 없습니다',
             style: TextStyle(
               color: Colors.grey.shade600,
-              fontSize: _SidebarFontSizes.emptyMessage - 2,
+              fontSize: SidebarFontSizes.emptyMessage - 2,
             ),
           ),
         ],
@@ -837,7 +837,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
             '보강 가능한 교사가 없습니다',
             style: TextStyle(
               color: Colors.grey.shade600,
-              fontSize: _SidebarFontSizes.emptyMessage - 2,
+              fontSize: SidebarFontSizes.emptyMessage - 2,
             ),
           ),
           const SizedBox(height: 4),
@@ -845,7 +845,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
             '같은 반을 가르치는 교사 중\n빈 시간이 있는 교사가 없습니다',
             style: TextStyle(
               color: Colors.grey.shade500,
-              fontSize: _SidebarFontSizes.emptyMessage - 4,
+              fontSize: SidebarFontSizes.emptyMessage - 4,
             ),
             textAlign: TextAlign.center,
           ),
@@ -870,7 +870,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
       child: Text(
         message,
         style: TextStyle(
-          fontSize: _SidebarFontSizes.nodeText,
+          fontSize: SidebarFontSizes.nodeText,
           fontWeight: FontWeight.w500,
           color: Colors.grey.shade600,
         ),
@@ -889,7 +889,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
     bool isSelected = widget.selectedPath == path;
     
     // 경로 타입별 색상 스키마 가져오기
-    _PathColorScheme colorScheme = _PathColorScheme.getScheme(path.type);
+    PathColorScheme colorScheme = PathColorScheme.getScheme(path.type);
     
     return Container(
       margin: const EdgeInsets.only(bottom: 2),
@@ -940,7 +940,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
   }
 
   /// 경로 노드들 구성 (타입별 화살표 차별화)
-  Widget _buildPathNodes(ExchangePath path, int index, bool isSelected, _PathColorScheme colorScheme) {
+  Widget _buildPathNodes(ExchangePath path, int index, bool isSelected, PathColorScheme colorScheme) {
     if (path.type == ExchangePathType.oneToOne) {
       return _buildOneToOneNodes(path as OneToOneExchangePath, index, isSelected, colorScheme);
     } else if (path.type == ExchangePathType.circular) {
@@ -951,7 +951,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
   }
 
   /// 1:1교체 노드들 구성
-  Widget _buildOneToOneNodes(OneToOneExchangePath path, int index, bool isSelected, _PathColorScheme colorScheme) {
+  Widget _buildOneToOneNodes(OneToOneExchangePath path, int index, bool isSelected, PathColorScheme colorScheme) {
     return Column(
       children: [
         // 첫 번째 노드 (선택된 셀)
@@ -977,7 +977,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
   // 기존 _buildCircularPathItem 메서드 제거 (공통 메서드로 통합됨)
 
   /// 연쇄교체 노드들 구성
-  Widget _buildChainNodes(ChainExchangePath path, int index, bool isSelected, _PathColorScheme colorScheme) {
+  Widget _buildChainNodes(ChainExchangePath path, int index, bool isSelected, PathColorScheme colorScheme) {
     List<Widget> nodeWidgets = [];
     
     // 연쇄교체 단계별 표시:
@@ -1089,7 +1089,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
   }
 
   /// 순환교체 노드들 구성
-  Widget _buildCircularNodes(CircularExchangePath path, int index, bool isSelected, _PathColorScheme colorScheme) {
+  Widget _buildCircularNodes(CircularExchangePath path, int index, bool isSelected, PathColorScheme colorScheme) {
     List<Widget> nodeWidgets = [];
     
     // 시작점 표시 (첫 번째 노드)
@@ -1248,7 +1248,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
   }
 
   /// 노드 배경색 계산
-  Color _getNodeBackgroundColor(bool isSelected, bool isLastNode, bool isSecondNode, _PathColorScheme colorScheme) {
+  Color _getNodeBackgroundColor(bool isSelected, bool isLastNode, bool isSecondNode, PathColorScheme colorScheme) {
     if (isLastNode) {
       return isSelected
           ? colorScheme.nodeBackground.withValues(alpha: 0.3)
@@ -1267,7 +1267,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
   }
 
   /// 노드 테두리색 계산
-  Color _getNodeBorderColor(bool isSelected, bool isLastNode, bool isSecondNode, _PathColorScheme colorScheme) {
+  Color _getNodeBorderColor(bool isSelected, bool isLastNode, bool isSecondNode, PathColorScheme colorScheme) {
     if (isLastNode) {
       return isSelected
           ? colorScheme.nodeBorder.withValues(alpha: 0.3)
@@ -1286,7 +1286,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
   }
 
   /// 노드 텍스트 색상 계산
-  Color _getNodeTextColor(bool isSelected, bool isLastNode, bool isSecondNode, _PathColorScheme colorScheme) {
+  Color _getNodeTextColor(bool isSelected, bool isLastNode, bool isSecondNode, PathColorScheme colorScheme) {
     if (isLastNode) {
       return isSelected
           ? colorScheme.nodeText.withValues(alpha: 0.4)
@@ -1305,7 +1305,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
   }
 
   /// 노드 컨테이너 구성 (공통)
-  Widget _buildNodeContainer(ExchangeNode node, String nodeKey, bool isSelected, bool isStartNode, _PathColorScheme colorScheme, {bool isLastNode = false, bool isSecondNode = false}) {
+  Widget _buildNodeContainer(ExchangeNode node, String nodeKey, bool isSelected, bool isStartNode, PathColorScheme colorScheme, {bool isLastNode = false, bool isSecondNode = false}) {
     return GestureDetector(
       onTap: () => _handleNodeTap(node, nodeKey, isSelected),
       child: AnimatedBuilder(
@@ -1340,7 +1340,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
               child: Text(
                 '${node.day}${node.period}|${node.className}|${node.teacherName}|${widget.getSubjectName(node)}',
                 style: TextStyle(
-                  fontSize: _SidebarFontSizes.nodeText,
+                  fontSize: SidebarFontSizes.nodeText,
                   fontWeight: FontWeight.w500,
                    // 노드 타입별 텍스트 색상 적용
                    color: _getNodeTextColor(isSelected, isLastNode, isSecondNode, colorScheme),
