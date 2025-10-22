@@ -11,7 +11,7 @@ import '../../providers/cell_selection_provider.dart';
 import '../../models/exchange_mode.dart';
 import '../../utils/timetable_data_source.dart';
 import '../../utils/day_utils.dart';
-import 'timetable_grid/widget_arrows_manager.dart';
+import 'timetable_grid/arrow_state_manager.dart';
 import '../../utils/logger.dart';
 import '../../models/exchange_path.dart';
 import '../../models/time_slot.dart';
@@ -111,8 +111,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
   double? _rightClickScrollStartH;
   double? _rightClickScrollStartV;
   
-  // 싱글톤 화살표 매니저
-  final WidgetArrowsManager _arrowsManager = WidgetArrowsManager();
+  // 싱글톤 화살표 상태 매니저
+  final ArrowStateManager _arrowStateManager = ArrowStateManager();
 
   // ExchangeExecutor (필요 시 생성)
   late final ExchangeExecutor _exchangeExecutor;
@@ -136,9 +136,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     // 스크롤 리스너 추가
     _horizontalScrollController.addListener(_onScrollChanged);
     _verticalScrollController.addListener(_onScrollChanged);
-
-    // 화살표 매니저 초기화
-    _initializeArrowsManager();
 
     // 테이블 렌더링 완료 후 UI 업데이트 요청
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -196,10 +193,10 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     _verticalScrollController.removeListener(_onScrollChanged);
     _horizontalScrollController.dispose();
     _verticalScrollController.dispose();
-    
-    // 화살표 매니저 정리 (싱글톤이므로 clearAllArrows만 호출)
-    _arrowsManager.clearAllArrows();
-    
+
+    // 화살표 상태 정리
+    _arrowStateManager.clearAllArrows();
+
     // 기존 리소스 정리
     super.dispose();
   }
@@ -364,40 +361,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     );
   }
 
-  /// 화살표 매니저 초기화 또는 업데이트 (공통 메서드)
-  /// 🔥 스크롤 문제 해결: 과거 커밋의 단순한 구조를 참고하여 스크롤 위치 보존
-  void _initializeOrUpdateArrowsManager({bool isUpdate = false}) {
-    if (widget.timetableData != null) {
-      final zoomFactor = ref.read(zoomProvider.select((s) => s.zoomFactor));
-      
-      // 🔥 스크롤 문제 해결: 화살표 업데이트 시에도 스크롤 위치 보존
-      // 과거 커밋의 단순한 구조를 유지하여 불필요한 상태 변경 방지
-      
-      if (isUpdate) {
-        _arrowsManager.updateData(
-          timetableData: widget.timetableData!,
-          columns: widget.columns,
-          zoomFactor: zoomFactor,
-        );
-      } else {
-        _arrowsManager.initialize(
-          timetableData: widget.timetableData!,
-          columns: widget.columns,
-          zoomFactor: zoomFactor,
-        );
-      }
-    }
-  }
-
-  /// 화살표 매니저 초기화
-  void _initializeArrowsManager() {
-    _initializeOrUpdateArrowsManager(isUpdate: false);
-  }
-
-  /// 화살표 매니저 데이터 업데이트 (줌 변경 시 호출)
-  void _updateArrowsManagerData() {
-    _initializeOrUpdateArrowsManager(isUpdate: true);
-  }
 
   /// DataGrid와 화살표를 함께 구성
   Widget _buildDataGridWithArrows() {
@@ -433,11 +396,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
           scrollState.horizontalOffset,
           scrollState.verticalOffset,
         );
-
-        // 줌 팩터 변경 시 화살표 매니저 데이터 업데이트
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _updateArrowsManagerData();
-        });
 
         return Stack(
           children: [

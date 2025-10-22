@@ -5,7 +5,7 @@ import 'exchange_screen_provider.dart';
 import 'cell_selection_provider.dart';
 import 'services_provider.dart';
 import 'zoom_provider.dart';
-import '../ui/widgets/timetable_grid/widget_arrows_manager.dart';
+import '../ui/widgets/timetable_grid/arrow_state_manager.dart';
 import '../utils/fixed_header_style_manager.dart';
 import '../utils/syncfusion_timetable_helper.dart';
 import '../services/exchange_history_service.dart';
@@ -115,7 +115,7 @@ class StateResetNotifier extends StateNotifier<ResetState> {
 
   /// 공통 초기화 작업 수행 (화살표 제거만)
   void _performCommonResetTasks() {
-    WidgetArrowsManager().clearAllArrows();
+    ArrowStateManager().clearAllArrows();
     _ref.read(cellSelectionProvider.notifier).hideArrow();
     
     // 🔥 강력한 UI 업데이트 (실제 화살표 제거를 위해)

@@ -43,7 +43,6 @@ dependencies:
   flutter_layout_grid: ^2.0.6
   table_calendar: ^3.0.9
   syncfusion_flutter_datagrid: ^31.1.23
-  widget_arrows: ^0.6.0
   calendar_date_picker2: ^2.0.1
 
   # 문서 생성
