@@ -37,6 +37,7 @@ class ExchangeHistoryService {
     Map<String, dynamic>? additionalMetadata,
     String? notes,
     List<String>? tags,
+    int? stepCount, // 순환교체 단계 수 (선택적)
   }) {
     // 실제 교체 실행 (TimetableDataSource 업데이트는 외부에서 처리)
     AppLogger.exchangeInfo('[교체 실행] ${path.displayTitle}');
@@ -48,6 +49,7 @@ class ExchangeHistoryService {
       additionalMetadata: additionalMetadata,
       notes: notes,
       tags: tags,
+      stepCount: stepCount,
     );
   }
 
@@ -57,6 +59,7 @@ class ExchangeHistoryService {
     Map<String, dynamic>? additionalMetadata,
     String? notes,
     List<String>? tags,
+    int? stepCount, // 순환교체 단계 수 (선택적)
   }) {
     // ExchangeHistoryItem 생성
     final item = ExchangeHistoryItem.fromExchangePath(
@@ -65,6 +68,7 @@ class ExchangeHistoryService {
       additionalMetadata: additionalMetadata,
       notes: notes,
       tags: tags,
+      stepCount: stepCount,
     );
 
     // 교체 리스트에 추가 (영구 보관)

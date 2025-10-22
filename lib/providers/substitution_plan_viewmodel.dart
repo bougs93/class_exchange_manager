@@ -23,6 +23,7 @@ class SubstitutionPlanData {
   final String substitutionSubject; // 교체 과목
   final String substitutionTeacher; // 교체 교사 성명
   final String remarks;         // 비고
+  final String? groupId;        // 교체 그룹 ID (순환교체 4단계 이상에서 그룹 구분용)
 
   SubstitutionPlanData({
     required this.exchangeId,
@@ -41,6 +42,7 @@ class SubstitutionPlanData {
     required this.substitutionSubject,
     required this.substitutionTeacher,
     required this.remarks,
+    this.groupId,
   });
 
   SubstitutionPlanData copyWith({
@@ -60,6 +62,7 @@ class SubstitutionPlanData {
     String? substitutionSubject,
     String? substitutionTeacher,
     String? remarks,
+    String? groupId,
   }) {
     return SubstitutionPlanData(
       exchangeId: exchangeId ?? this.exchangeId,
@@ -78,6 +81,7 @@ class SubstitutionPlanData {
       substitutionSubject: substitutionSubject ?? this.substitutionSubject,
       substitutionTeacher: substitutionTeacher ?? this.substitutionTeacher,
       remarks: remarks ?? this.remarks,
+      groupId: groupId ?? this.groupId,
     );
   }
 }
@@ -159,19 +163,19 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
 
         switch (exchangeType) {
           case ExchangePathType.oneToOne:
-            _handleOneToOneExchange(nodes, item.notes, newPlanData);
+            _handleOneToOneExchange(nodes, item.notes, newPlanData, item.id);
             break;
 
           case ExchangePathType.circular:
-            _handleCircularExchange(nodes, newPlanData);
+            _handleCircularExchange(nodes, newPlanData, item.id);
             break;
 
           case ExchangePathType.chain:
-            _handleChainExchange(nodes, newPlanData);
+            _handleChainExchange(nodes, newPlanData, item.id);
             break;
 
           case ExchangePathType.supplement:
-            _handleSupplementExchange(nodes, newPlanData);
+            _handleSupplementExchange(nodes, newPlanData, item.id);
             break;
         }
       }
@@ -194,7 +198,7 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
   }
 
   /// 1:1 교체 처리
-  void _handleOneToOneExchange(List nodes, String? notes, List<SubstitutionPlanData> planData) {
+  void _handleOneToOneExchange(List nodes, String? notes, List<SubstitutionPlanData> planData, String groupId) {
     if (nodes.length < 2) {
       AppLogger.exchangeDebug('1:1 교체: 노드가 부족합니다 (${nodes.length}개)');
       return;
@@ -222,17 +226,25 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
       substitutionSubject: targetNode.subjectName,
       substitutionTeacher: targetNode.teacherName,
       remarks: notes ?? '',
+      groupId: groupId,
     ));
 
     AppLogger.exchangeDebug('1:1 교체 처리 완료');
   }
 
   /// 순환 교체 처리
-  void _handleCircularExchange(List nodes, List<SubstitutionPlanData> planData) {
+  void _handleCircularExchange(List nodes, List<SubstitutionPlanData> planData, String groupId) {
     if (nodes.length < 3) {
       AppLogger.exchangeDebug('순환교체: 노드가 부족합니다 (${nodes.length}개)');
       return;
     }
+
+    // 순환교체 단계 수 계산 (노드 수 - 1)
+    final stepCount = nodes.length - 1;
+    AppLogger.exchangeDebug('순환교체 단계 수: $stepCount');
+    
+    // 그룹ID는 이미 단계 정보가 포함되어 있음 (ExchangeHistoryItem에서 생성됨)
+    AppLogger.exchangeDebug('그룹ID: $groupId');
 
     // 3개 노드: 첫 번째 쌍만 표시
     if (nodes.length == 3) {
@@ -257,7 +269,8 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
         substitutionPeriod: targetNode.period.toString(),
         substitutionSubject: targetNode.subjectName,
         substitutionTeacher: targetNode.teacherName,
-        remarks: '순환대체1',
+        remarks: _getCircularExchangeRemarks(0, nodes.length),
+        groupId: groupId,
       ));
     } else {
       // 4개 이상: 모든 교체 쌍 표시
@@ -283,7 +296,8 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
           substitutionPeriod: targetNode.period.toString(),
           substitutionSubject: targetNode.subjectName,
           substitutionTeacher: targetNode.teacherName,
-          remarks: i == 2 ? '순환대체${i + 1}*' : (i == nodes.length - 2 ? '(삭제가능)' : '순환대체${i + 1}'),
+          remarks: _getCircularExchangeRemarks(i, nodes.length),
+          groupId: groupId,
         ));
       }
     }
@@ -291,8 +305,21 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
     AppLogger.exchangeDebug('순환교체 처리 완료');
   }
 
+  /// 순환교체 비고란 생성 헬퍼 메서드
+  String _getCircularExchangeRemarks(int index, int totalNodes) {
+    final stepCount = totalNodes; // 노드 수 = 단계 수
+    
+    // 2단계, 3단계 순환교체: 비고란 빈칸
+    if (stepCount <= 3) {
+      return '';
+    }
+    
+    // 4단계 이상: 기존 로직 유지
+    return index == totalNodes - 2 ? '순환대체${index + 1}*' : '순환대체${index + 1}';
+  }
+
   /// 연쇄 교체 처리
-  void _handleChainExchange(List nodes, List<SubstitutionPlanData> planData) {
+  void _handleChainExchange(List nodes, List<SubstitutionPlanData> planData, String groupId) {
     if (nodes.length < 4) {
       AppLogger.exchangeDebug('연쇄교체: 노드가 부족합니다 (${nodes.length}개)');
       return;
@@ -324,6 +351,7 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
       substitutionSubject: absentNode.subjectName,
       substitutionTeacher: absentNode.teacherName,
       remarks: '연쇄교체(중간)',
+      groupId: groupId,
     ));
 
     // 중간 교체
@@ -347,13 +375,14 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
       substitutionSubject: intermediateNode2.subjectName,
       substitutionTeacher: intermediateNode2.teacherName,
       remarks: '연쇄교체(최종)',
+      groupId: groupId,
     ));
 
     AppLogger.exchangeDebug('연쇄교체 처리 완료');
   }
 
   /// 보강 교체 처리
-  void _handleSupplementExchange(List nodes, List<SubstitutionPlanData> planData) {
+  void _handleSupplementExchange(List nodes, List<SubstitutionPlanData> planData, String groupId) {
     if (nodes.length < 2) {
       AppLogger.exchangeDebug('보강교체: 노드가 부족합니다 (${nodes.length}개)');
       return;
@@ -381,6 +410,7 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
       substitutionSubject: '',
       substitutionTeacher: '',
       remarks: '보강',
+      groupId: groupId,
     ));
 
     AppLogger.exchangeDebug('보강교체 처리 완료');

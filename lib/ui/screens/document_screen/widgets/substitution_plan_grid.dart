@@ -731,13 +731,14 @@ class SubstitutionPlanGrid extends ConsumerWidget {
       'substitutionSubject': '교체과목',
       'substitutionTeacher': '교체교사',
       'remarks': '비고',
+      'groupId': '그룹ID',
     };
 
     // 출력할 컬럼 순서 정의 (exchangeId는 제외)
     final List<String> displayColumns = [
       'absenceDate', 'absenceDay', 'period', 'grade', 'className', 'subject', 'teacher',
       'supplementSubject', 'supplementTeacher', 'substitutionDate', 'substitutionDay',
-      'substitutionPeriod', 'substitutionSubject', 'substitutionTeacher', 'remarks'
+      'substitutionPeriod', 'substitutionSubject', 'substitutionTeacher', 'remarks', 'groupId'
     ];
 
     // 각 컬럼의 최대 너비 계산
@@ -820,6 +821,8 @@ class SubstitutionPlanGrid extends ConsumerWidget {
         return data.substitutionTeacher;
       case 'remarks':
         return data.remarks;
+      case 'groupId':
+        return data.groupId ?? '';
       default:
         return '';
     }

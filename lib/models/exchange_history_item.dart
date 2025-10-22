@@ -51,17 +51,22 @@ class ExchangeHistoryItem {
     Map<String, dynamic>? additionalMetadata,
     String? notes,
     List<String>? tags,
+    int? stepCount, // 순환교체 단계 수 (선택적)
   }) {
+    final pathType = _getPathType(path);
+    final generatedId = customId ?? _generateId(pathType, stepCount);
+    
     return ExchangeHistoryItem(
-      id: customId ?? _generateId(),
+      id: generatedId,
       timestamp: DateTime.now(),
       originalPath: path,
       description: customDescription ?? path.displayTitle,
-      type: _getPathType(path),
+      type: pathType,
       metadata: {
         'executionTime': DateTime.now().toIso8601String(),
         'userAction': 'manual',
         'pathId': path.id,
+        if (stepCount != null) 'stepCount': stepCount,
         ...?additionalMetadata,
       },
       notes: notes,
@@ -70,10 +75,24 @@ class ExchangeHistoryItem {
     );
   }
 
-  /// 고유 ID 생성
-  static String _generateId() {
+  /// 고유 ID 생성 (교체 유형 및 단계 정보 포함)
+  static String _generateId(ExchangePathType pathType, [int? stepCount]) {
     final now = DateTime.now();
-    return 'exchange_${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}_${now.millisecond.toString().padLeft(3, '0')}';
+    final timestamp = '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}_${now.millisecond.toString().padLeft(3, '0')}';
+    
+    switch (pathType) {
+      case ExchangePathType.oneToOne:
+        return 'one_to_one_exchange_$timestamp';
+      case ExchangePathType.circular:
+        if (stepCount != null) {
+          return 'circular_exchange_${stepCount}_$timestamp';
+        }
+        return 'circular_exchange_$timestamp';
+      case ExchangePathType.chain:
+        return 'chain_exchange_$timestamp';
+      case ExchangePathType.supplement:
+        return 'supplement_exchange_$timestamp';
+    }
   }
 
   /// ExchangePath의 타입을 ExchangePathType으로 변환

@@ -100,7 +100,12 @@ class ExchangeExecutor {
   ) {
     final historyService = ref.read(exchangeHistoryServiceProvider);
 
-    // 교체 실행
+    // 교체 실행 - 순환교체의 경우 단계 수 전달
+    int? stepCount;
+    if (exchangePath is CircularExchangePath) {
+      stepCount = exchangePath.nodes.length; // 노드 수 = 단계 수
+    }
+    
     historyService.executeExchange(
       exchangePath,
       customDescription: '교체 실행: ${exchangePath.displayTitle}',
@@ -109,6 +114,7 @@ class ExchangeExecutor {
         'userAction': 'manual',
         'source': 'timetable_grid_section',
       },
+      stepCount: stepCount,
     );
 
     // 공통 후처리
@@ -347,7 +353,12 @@ class ExchangeExecutor {
     // 가장 최근 교체 항목
     final lastItem = exchangeList.last;
 
-    // 교체 다시 실행
+    // 교체 다시 실행 - 순환교체의 경우 단계 수 전달
+    int? stepCount;
+    if (lastItem.originalPath is CircularExchangePath) {
+      stepCount = (lastItem.originalPath as CircularExchangePath).nodes.length; // 노드 수 = 단계 수
+    }
+    
     historyService.executeExchange(
       lastItem.originalPath,
       customDescription: '다시 반복: ${lastItem.description}',
@@ -357,6 +368,7 @@ class ExchangeExecutor {
         'source': 'timetable_grid_section',
         'originalId': lastItem.id,
       },
+      stepCount: stepCount,
     );
 
     // 콘솔 출력
