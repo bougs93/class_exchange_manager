@@ -141,6 +141,10 @@ class NoticeMessageCard extends StatelessWidget {
         chipColor = Colors.orange.shade100;
         chipText = '보강';
         break;
+      case ExchangeType.circular:
+        chipColor = Colors.purple.shade100;
+        chipText = '순환교체';
+        break;
     }
     
     return Container(

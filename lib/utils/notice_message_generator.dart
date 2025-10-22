@@ -344,7 +344,7 @@ ${classLines.join('\n')}''',
             } else if (teacherName == data.supplementTeacher) {
               // 보강 교사: 보강 수업을 맡는다는 메시지
               exchangeLines.add(
-                "-> '${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject}' 보강 수업입니다."
+                "'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject}' 보강 수업입니다."
               );
             }
             break;
@@ -470,7 +470,15 @@ ${classLines.join('\n')}''',
         if (data.groupId!.startsWith('supplement_exchange_')) {
           return ExchangeType.supplement;
         } else if (data.groupId!.startsWith('circular_exchange_')) {
-          return ExchangeType.substitution; // 순환교체도 수업교체로 분류
+          // 순환교체 단계 수 확인
+          final stepMatch = RegExp(r'circular_exchange_(\d+)_').firstMatch(data.groupId!);
+          if (stepMatch != null) {
+            final stepCount = int.tryParse(stepMatch.group(1)!) ?? 0;
+            if (stepCount >= 4) {
+              return ExchangeType.circular; // 4단계 이상은 순환교체
+            }
+          }
+          return ExchangeType.substitution; // 3단계 이하는 수업교체
         } else if (data.groupId!.startsWith('one_to_one_exchange_')) {
           return ExchangeType.substitution;
         } else if (data.groupId!.startsWith('chain_exchange_')) {

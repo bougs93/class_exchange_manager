@@ -8,6 +8,9 @@ enum ExchangeType {
   
   /// 보강 (substitutionDate가 비어있음)
   supplement,
+  
+  /// 순환교체 (4단계 이상)
+  circular,
 }
 
 /// ExchangeType 확장 메서드
@@ -19,6 +22,8 @@ extension ExchangeTypeExtension on ExchangeType {
         return '수업교체';
       case ExchangeType.supplement:
         return '보강';
+      case ExchangeType.circular:
+        return '순환교체';
     }
   }
 }
