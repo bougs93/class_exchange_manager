@@ -214,11 +214,11 @@ ${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.su
       // 옵션2: 분리된 형태
       if (isFirstMessage) {
         return '''$className 수업 교체되었습니다.
-'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' 수업입니다.
-'${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업입니다.''';
+'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업입니다.
+'${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.subject} ${data.teacher}' 수업입니다.''';
       } else {
-        return ''''${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' 수업입니다.
-'${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업입니다.''';
+        return ''''${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업입니다.
+'${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.subject} ${data.teacher}' 수업입니다.''';
       }
     }
   }
@@ -259,19 +259,19 @@ ${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.su
         if (isFirstMessage) {
           return ''''$teacherName' 선생님 
 '${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject}' 결강입니다.
-'${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject}' 수업입니다.''';
+'${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.subject}' 수업입니다.''';
         } else {
           return ''''${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject}' 결강입니다.
-'${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject}' 수업입니다.''';
+'${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.subject}' 수업입니다.''';
         }
       } else {
         // 교체 교사
         if (isFirstMessage) {
           return ''''$teacherName' 선생님 
-'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject}' 수업입니다.
+'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.substitutionSubject}' 수업입니다.
 '${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject}' 결강입니다.''';
         } else {
-          return ''''${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject}' 수업입니다.
+          return ''''${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.substitutionSubject}' 수업입니다.
 '${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject}' 결강입니다.''';
         }
       }

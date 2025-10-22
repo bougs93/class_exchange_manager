@@ -63,7 +63,7 @@ class SubstitutionPlanDataSource extends DataGridSource {
     return DataGridRowAdapter(cells: cells);
   }
 
-  /// 보강 과목 셀 렌더링: 보강 교사명이 있고 과목이 비어있으면 선택 버튼을 제공
+  /// 보강 과목 셀 렌더링: 보강 교사명이 있으면 과목 선택 버튼을 제공 (과목이 있어도 재선택 가능)
   Widget _buildSupplementSubjectCell(DataGridCell cell, DataGridRow row) {
     final value = (cell.value?.toString() ?? '').trim();
     final isEmpty = value.isEmpty;
@@ -83,8 +83,8 @@ class SubstitutionPlanDataSource extends DataGridSource {
     final supplementTeacher = (supplementTeacherCell.value?.toString() ?? '').trim();
     final hasTeacher = supplementTeacher.isNotEmpty;
 
-    // 보강 교사명이 있고 과목이 비어있을 때만 활성화
-    final isSelectable = hasTeacher && isEmpty;
+    // 보강 교사명이 있으면 항상 활성화 (과목이 있어도 재선택 가능)
+    final isSelectable = hasTeacher;
 
     return GestureDetector(
       onTap: () async {
@@ -97,17 +97,20 @@ class SubstitutionPlanDataSource extends DataGridSource {
         alignment: Alignment.center,
         padding: _Spacing.cellPadding,
         decoration: BoxDecoration(
-          color: isSelectable ? Colors.blue.shade50 : Colors.transparent,
-          border: isSelectable ? Border.all(color: Colors.blue.shade200) : null,
-          borderRadius: isSelectable ? BorderRadius.circular(4) : null,
+          // 과목이 비어있을 때만 버튼 스타일 적용
+          color: isSelectable && isEmpty ? Colors.blue.shade50 : Colors.transparent,
+          border: isSelectable && isEmpty ? Border.all(color: Colors.blue.shade200) : null,
+          borderRadius: isSelectable && isEmpty ? BorderRadius.circular(4) : null,
         ),
         child: Text(
           isEmpty ? (hasTeacher ? '과목선택' : '') : value,
           style: TextStyle(
             fontSize: _Spacing.cellFontSize,
             height: 1.0,
-            color: isSelectable ? Colors.blue.shade700 : Colors.black87,
-            fontWeight: isSelectable ? FontWeight.w500 : FontWeight.normal,
+            // 과목이 비어있을 때만 파란색 적용, 있을 때는 일반 텍스트 색상
+            color: isSelectable && isEmpty ? Colors.blue.shade700 : Colors.black87,
+            fontWeight: isSelectable && isEmpty ? FontWeight.w500 : FontWeight.normal,
+            decoration: TextDecoration.none, // 밑줄 제거
           ),
           textAlign: TextAlign.center,
         ),
@@ -116,12 +119,38 @@ class SubstitutionPlanDataSource extends DataGridSource {
   }
 
   Widget _buildDateCell(DataGridCell cell, DataGridRow row) {
-    final isSelectable = cell.value == '선택';
-    final displayText = isSelectable ? '선택' : (cell.value?.toString() ?? '');
+    // 교체일(substitutionDate) 컬럼인 경우 교사 이름 확인
+    bool isSelectable = false;
+    String displayText = '';
+    
+    if (cell.columnName == 'substitutionDate') {
+      // 교체일 컬럼의 경우: 교체 교사가 있을 때만 선택 가능
+      final substitutionTeacherCell = row.getCells().firstWhere(
+        (c) => c.columnName == 'substitutionTeacher',
+        orElse: () => const DataGridCell<String>(columnName: 'substitutionTeacher', value: ''),
+      );
+      final substitutionTeacher = (substitutionTeacherCell.value?.toString() ?? '').trim();
+      final hasSubstitutionTeacher = substitutionTeacher.isNotEmpty;
+      
+      // 교체 교사가 있고 현재 값이 '선택'이거나 비어있을 때만 활성화
+      isSelectable = hasSubstitutionTeacher && (cell.value == '선택' || cell.value == null || cell.value.toString().trim().isEmpty);
+      displayText = isSelectable ? '선택' : (cell.value?.toString() ?? '');
+    } else {
+      // 다른 날짜 컬럼(결강일 등)의 경우 기존 로직 유지
+      isSelectable = cell.value == '선택';
+      displayText = isSelectable ? '선택' : (cell.value?.toString() ?? '');
+    }
 
     return GestureDetector(
       onTap: () {
-        AppLogger.exchangeDebug('셀 클릭 - 컬럼: ${cell.columnName}, 값: ${cell.value}');
+        AppLogger.exchangeDebug('셀 클릭 - 컬럼: ${cell.columnName}, 값: ${cell.value}, 선택가능: $isSelectable');
+        
+        // 선택 불가능한 경우 클릭 무시
+        if (!isSelectable) {
+          AppLogger.exchangeDebug('교체일 선택 불가: 교체 교사가 없거나 이미 날짜가 설정됨');
+          return;
+        }
+        
         if (onDateCellTap != null) {
           // exchangeId를 row의 첫 번째 셀에서 추출
           final exchangeIdCell = row.getCells().firstWhere(
