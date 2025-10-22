@@ -257,7 +257,7 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
         substitutionPeriod: targetNode.period.toString(),
         substitutionSubject: targetNode.subjectName,
         substitutionTeacher: targetNode.teacherName,
-        remarks: '',
+        remarks: '순환대체1',
       ));
     } else {
       // 4개 이상: 모든 교체 쌍 표시
@@ -283,7 +283,7 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
           substitutionPeriod: targetNode.period.toString(),
           substitutionSubject: targetNode.subjectName,
           substitutionTeacher: targetNode.teacherName,
-          remarks: i == nodes.length - 2 ? '(삭제가능)' : '순환교체${i + 1}',
+          remarks: i == 2 ? '순환대체${i + 1}*' : (i == nodes.length - 2 ? '(삭제가능)' : '순환대체${i + 1}'),
         ));
       }
     }

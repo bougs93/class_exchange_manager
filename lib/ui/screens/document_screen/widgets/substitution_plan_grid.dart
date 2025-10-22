@@ -124,7 +124,7 @@ class SubstitutionPlanDataSource extends DataGridSource {
     String displayText = '';
     
     if (cell.columnName == 'substitutionDate') {
-      // 교체일 컬럼의 경우: 교체 교사가 있을 때만 선택 가능
+      // 교체일 컬럼의 경우: 교체 교사가 있으면 항상 선택 가능 (날짜가 설정되어 있어도 재선택 가능)
       final substitutionTeacherCell = row.getCells().firstWhere(
         (c) => c.columnName == 'substitutionTeacher',
         orElse: () => const DataGridCell<String>(columnName: 'substitutionTeacher', value: ''),
@@ -132,13 +132,13 @@ class SubstitutionPlanDataSource extends DataGridSource {
       final substitutionTeacher = (substitutionTeacherCell.value?.toString() ?? '').trim();
       final hasSubstitutionTeacher = substitutionTeacher.isNotEmpty;
       
-      // 교체 교사가 있고 현재 값이 '선택'이거나 비어있을 때만 활성화
-      isSelectable = hasSubstitutionTeacher && (cell.value == '선택' || cell.value == null || cell.value.toString().trim().isEmpty);
-      displayText = isSelectable ? '선택' : (cell.value?.toString() ?? '');
+      // 교체 교사가 있으면 항상 활성화 (날짜가 설정되어 있어도 재선택 가능)
+      isSelectable = hasSubstitutionTeacher;
+      displayText = cell.value?.toString() ?? '';
     } else {
-      // 다른 날짜 컬럼(결강일 등)의 경우 기존 로직 유지
-      isSelectable = cell.value == '선택';
-      displayText = isSelectable ? '선택' : (cell.value?.toString() ?? '');
+      // 다른 날짜 컬럼(결강일 등)의 경우: 항상 선택 가능 (날짜가 설정되어 있어도 재선택 가능)
+      isSelectable = true;
+      displayText = cell.value?.toString() ?? '';
     }
 
     return GestureDetector(
@@ -174,17 +174,20 @@ class SubstitutionPlanDataSource extends DataGridSource {
         alignment: Alignment.center,
         padding: _Spacing.cellPadding,
         decoration: BoxDecoration(
-          color: isSelectable ? Colors.blue.shade50 : Colors.transparent,
-          border: isSelectable ? Border.all(color: Colors.blue.shade200) : null,
-          borderRadius: isSelectable ? BorderRadius.circular(4) : null,
+          // 날짜가 비어있거나 '선택'일 때만 버튼 스타일 적용
+          color: isSelectable && (displayText.isEmpty || displayText == '선택') ? Colors.blue.shade50 : Colors.transparent,
+          border: isSelectable && (displayText.isEmpty || displayText == '선택') ? Border.all(color: Colors.blue.shade200) : null,
+          borderRadius: isSelectable && (displayText.isEmpty || displayText == '선택') ? BorderRadius.circular(4) : null,
         ),
         child: Text(
           displayText,
           style: TextStyle(
             fontSize: _Spacing.cellFontSize,
             height: 1.0,
-            color: isSelectable ? Colors.blue.shade700 : Colors.black87,
-            fontWeight: isSelectable ? FontWeight.w500 : FontWeight.normal,
+            // 날짜가 비어있거나 '선택'일 때만 파란색 적용, 있을 때는 일반 텍스트 색상
+            color: isSelectable && (displayText.isEmpty || displayText == '선택') ? Colors.blue.shade700 : Colors.black87,
+            fontWeight: isSelectable && (displayText.isEmpty || displayText == '선택') ? FontWeight.w500 : FontWeight.normal,
+            decoration: TextDecoration.none, // 밑줄 제거
           ),
           textAlign: TextAlign.center,
         ),
