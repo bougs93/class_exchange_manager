@@ -1,0 +1,259 @@
+Date : 2025-10-23 00:22:37
+Directory : d:\Project\flutter_apps\class_exchange_manager
+Total : 159 files,  23757 codes, 4087 comments, 4788 blanks, all 32632 lines
+
+Languages
++------------+------------+------------+------------+------------+------------+
+| language   | files      | code       | comment    | blank      | total      |
++------------+------------+------------+------------+------------+------------+
+| Dart       |         97 |     18,518 |      3,792 |      3,540 |     25,850 |
+| Markdown   |         18 |      3,832 |          0 |        987 |      4,819 |
+| C++        |         16 |        540 |        131 |        189 |        860 |
+| XML        |         10 |        470 |         53 |         12 |        535 |
+| JSON       |          5 |        276 |          0 |          5 |        281 |
+| Swift      |          6 |         57 |          7 |         21 |         85 |
+| YAML       |          3 |         36 |         88 |         25 |        149 |
+| HTML       |          1 |         19 |         15 |          5 |         39 |
+| Properties |          2 |          8 |          0 |          2 |         10 |
+| Ignore     |          1 |          1 |          1 |          2 |          4 |
++------------+------------+------------+------------+------------+------------+
+
+Directories
++---------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                                                      | files      | code       | comment    | blank      | total      |
++---------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                                                         |        159 |     23,757 |      4,087 |      4,788 |     32,632 |
+| . (Files)                                                                                                                 |          8 |        562 |         89 |        178 |        829 |
+| .claude                                                                                                                   |          1 |         28 |          0 |          1 |         29 |
+| android                                                                                                                   |          9 |         74 |         51 |         11 |        136 |
+| android (Files)                                                                                                           |          1 |          3 |          0 |          1 |          4 |
+| android\app                                                                                                               |          7 |         66 |         51 |          9 |        126 |
+| android\app\src                                                                                                           |          7 |         66 |         51 |          9 |        126 |
+| android\app\src\debug                                                                                                     |          1 |          3 |          4 |          1 |          8 |
+| android\app\src\main                                                                                                      |          5 |         60 |         43 |          7 |        110 |
+| android\app\src\main (Files)                                                                                              |          1 |         34 |         11 |          1 |         46 |
+| android\app\src\main\res                                                                                                  |          4 |         26 |         32 |          6 |         64 |
+| android\app\src\main\res\drawable                                                                                         |          1 |          4 |          7 |          2 |         13 |
+| android\app\src\main\res\drawable-v21                                                                                     |          1 |          4 |          7 |          2 |         13 |
+| android\app\src\main\res\values                                                                                           |          1 |          9 |          9 |          1 |         19 |
+| android\app\src\main\res\values-night                                                                                     |          1 |          9 |          9 |          1 |         19 |
+| android\app\src\profile                                                                                                   |          1 |          3 |          4 |          1 |          8 |
+| android\gradle                                                                                                            |          1 |          5 |          0 |          1 |          6 |
+| android\gradle\wrapper                                                                                                    |          1 |          5 |          0 |          1 |          6 |
+| docs                                                                                                                      |         13 |      3,304 |          0 |        834 |      4,138 |
+| ios                                                                                                                       |          8 |        229 |          4 |         13 |        246 |
+| ios\Runner                                                                                                                |          7 |        222 |          2 |          9 |        233 |
+| ios\Runner (Files)                                                                                                        |          2 |         13 |          0 |          3 |         16 |
+| ios\RunnerTests                                                                                                           |          1 |          7 |          2 |          4 |         13 |
+| ios\Runner\Assets.xcassets                                                                                                |          3 |        148 |          0 |          4 |        152 |
+| ios\Runner\Assets.xcassets\AppIcon.appiconset                                                                             |          1 |        122 |          0 |          1 |        123 |
+| ios\Runner\Assets.xcassets\LaunchImage.imageset                                                                           |          2 |         26 |          0 |          3 |         29 |
+| ios\Runner\Base.lproj                                                                                                     |          2 |         61 |          2 |          2 |         65 |
+| lib                                                                                                                       |         95 |     18,364 |      3,768 |      3,494 |     25,626 |
+| lib (Files)                                                                                                               |          1 |         34 |          2 |          5 |         41 |
+| lib\examples                                                                                                              |          3 |        455 |         58 |         64 |        577 |
+| lib\models                                                                                                                |         13 |      1,271 |        257 |        263 |      1,791 |
+| lib\providers                                                                                                             |         12 |      2,312 |        564 |        480 |      3,356 |
+| lib\services                                                                                                              |          6 |      2,405 |        766 |        559 |      3,730 |
+| lib\ui                                                                                                                    |         42 |      9,316 |      1,551 |      1,610 |     12,477 |
+| lib\ui\mixins                                                                                                             |          1 |        213 |         61 |         63 |        337 |
+| lib\ui\screens                                                                                                            |         27 |      4,643 |        709 |        831 |      6,183 |
+| lib\ui\screens (Files)                                                                                                    |          5 |      1,390 |        263 |        302 |      1,955 |
+| lib\ui\screens\builders                                                                                                   |          1 |        107 |         13 |         14 |        134 |
+| lib\ui\screens\document_screen                                                                                            |          4 |      1,239 |         76 |        109 |      1,424 |
+| lib\ui\screens\document_screen\widgets                                                                                    |          4 |      1,239 |         76 |        109 |      1,424 |
+| lib\ui\screens\exchange_screen                                                                                            |          8 |      1,037 |        192 |        211 |      1,440 |
+| lib\ui\screens\exchange_screen (Files)                                                                                    |          2 |        270 |         49 |         72 |        391 |
+| lib\ui\screens\exchange_screen\helpers                                                                                    |          2 |         96 |         12 |         13 |        121 |
+| lib\ui\screens\exchange_screen\managers                                                                                   |          2 |        375 |        112 |         91 |        578 |
+| lib\ui\screens\exchange_screen\widgets                                                                                    |          2 |        296 |         19 |         35 |        350 |
+| lib\ui\screens\handlers                                                                                                   |          7 |        677 |        132 |        154 |        963 |
+| lib\ui\screens\helpers                                                                                                    |          2 |        193 |         33 |         41 |        267 |
+| lib\ui\state_managers                                                                                                     |          2 |        210 |         53 |         45 |        308 |
+| lib\ui\widgets                                                                                                            |         12 |      4,250 |        728 |        671 |      5,649 |
+| lib\ui\widgets (Files)                                                                                                    |          6 |      2,844 |        401 |        394 |      3,639 |
+| lib\ui\widgets\timetable_grid                                                                                             |          6 |      1,406 |        327 |        277 |      2,010 |
+| lib\utils                                                                                                                 |         18 |      2,571 |        570 |        513 |      3,654 |
+| linux                                                                                                                     |          5 |        103 |         37 |         45 |        185 |
+| linux\flutter                                                                                                             |          2 |          8 |          9 |         11 |         28 |
+| linux\runner                                                                                                              |          3 |         95 |         28 |         34 |        157 |
+| macos                                                                                                                     |          6 |        449 |          5 |         17 |        471 |
+| macos\Flutter                                                                                                             |          1 |          8 |          3 |          4 |         15 |
+| macos\Runner                                                                                                              |          4 |        434 |          0 |          9 |        443 |
+| macos\Runner (Files)                                                                                                      |          2 |         23 |          0 |          7 |         30 |
+| macos\RunnerTests                                                                                                         |          1 |          7 |          2 |          4 |         13 |
+| macos\Runner\Assets.xcassets                                                                                              |          1 |         68 |          0 |          1 |         69 |
+| macos\Runner\Assets.xcassets\AppIcon.appiconset                                                                           |          1 |         68 |          0 |          1 |         69 |
+| macos\Runner\Base.lproj                                                                                                   |          1 |        343 |          0 |          1 |        344 |
+| test                                                                                                                      |          2 |        154 |         24 |         46 |        224 |
+| web                                                                                                                       |          2 |         54 |         15 |          6 |         75 |
+| windows                                                                                                                   |         10 |        436 |         94 |        143 |        673 |
+| windows\flutter                                                                                                           |          2 |          8 |          9 |         11 |         28 |
+| windows\runner                                                                                                            |          8 |        428 |         85 |        132 |        645 |
++---------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++---------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| filename                                                                                                                  | language   | code       | comment    | blank      | total      |
++---------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| d:\Project\flutter_apps\class_exchange_manager\.claude\settings.local.json                                                | JSON       |         28 |          0 |          1 |         29 |
+| d:\Project\flutter_apps\class_exchange_manager\.cursorindexingignore                                                      | Ignore     |          1 |          1 |          2 |          4 |
+| d:\Project\flutter_apps\class_exchange_manager\CLAUDE.md                                                                  | Markdown   |        229 |          0 |         58 |        287 |
+| d:\Project\flutter_apps\class_exchange_manager\GEMINI.md                                                                  | Markdown   |         54 |          0 |         18 |         72 |
+| d:\Project\flutter_apps\class_exchange_manager\README.md                                                                  | Markdown   |         88 |          0 |         34 |        122 |
+| d:\Project\flutter_apps\class_exchange_manager\analysis_options.yaml                                                      | YAML       |          3 |         22 |          4 |         29 |
+| d:\Project\flutter_apps\class_exchange_manager\android\app\src\debug\AndroidManifest.xml                                  | XML        |          3 |          4 |          1 |          8 |
+| d:\Project\flutter_apps\class_exchange_manager\android\app\src\main\AndroidManifest.xml                                   | XML        |         34 |         11 |          1 |         46 |
+| d:\Project\flutter_apps\class_exchange_manager\android\app\src\main\res\drawable-v21\launch_background.xml                | XML        |          4 |          7 |          2 |         13 |
+| d:\Project\flutter_apps\class_exchange_manager\android\app\src\main\res\drawable\launch_background.xml                    | XML        |          4 |          7 |          2 |         13 |
+| d:\Project\flutter_apps\class_exchange_manager\android\app\src\main\res\values-night\styles.xml                           | XML        |          9 |          9 |          1 |         19 |
+| d:\Project\flutter_apps\class_exchange_manager\android\app\src\main\res\values\styles.xml                                 | XML        |          9 |          9 |          1 |         19 |
+| d:\Project\flutter_apps\class_exchange_manager\android\app\src\profile\AndroidManifest.xml                                | XML        |          3 |          4 |          1 |          8 |
+| d:\Project\flutter_apps\class_exchange_manager\android\gradle.properties                                                  | Properties |          3 |          0 |          1 |          4 |
+| d:\Project\flutter_apps\class_exchange_manager\android\gradle\wrapper\gradle-wrapper.properties                           | Properties |          5 |          0 |          1 |          6 |
+| d:\Project\flutter_apps\class_exchange_manager\devtools_options.yaml                                                      | YAML       |          3 |          0 |          1 |          4 |
+| d:\Project\flutter_apps\class_exchange_manager\docs\chain_exchange_algorithm.md                                           | Markdown   |        420 |          0 |         93 |        513 |
+| d:\Project\flutter_apps\class_exchange_manager\docs\chain_note.md                                                         | Markdown   |         53 |          0 |         14 |         67 |
+| d:\Project\flutter_apps\class_exchange_manager\docs\current_exchange_systems.md                                           | Markdown   |        639 |          0 |        152 |        791 |
+| d:\Project\flutter_apps\class_exchange_manager\docs\design.md                                                             | Markdown   |        421 |          0 |         78 |        499 |
+| d:\Project\flutter_apps\class_exchange_manager\docs\exchange_path_type_implementation.md                                  | Markdown   |        142 |          0 |         37 |        179 |
+| d:\Project\flutter_apps\class_exchange_manager\docs\exchange_validation_system.md                                         | Markdown   |        393 |          0 |        123 |        516 |
+| d:\Project\flutter_apps\class_exchange_manager\docs\global_rules.md                                                       | Markdown   |        107 |          0 |         20 |        127 |
+| d:\Project\flutter_apps\class_exchange_manager\docs\provider_migration_examples.md                                        | Markdown   |        198 |          0 |         50 |        248 |
+| d:\Project\flutter_apps\class_exchange_manager\docs\provider_refactoring_guide.md                                         | Markdown   |        127 |          0 |         42 |        169 |
+| d:\Project\flutter_apps\class_exchange_manager\docs\requirements.md                                                       | Markdown   |        161 |          0 |         51 |        212 |
+| d:\Project\flutter_apps\class_exchange_manager\docs\syncfusion_datagrid_recreation_fix.md                                 | Markdown   |        250 |          0 |         55 |        305 |
+| d:\Project\flutter_apps\class_exchange_manager\docs\technical_issues.md                                                   | Markdown   |        210 |          0 |         64 |        274 |
+| d:\Project\flutter_apps\class_exchange_manager\docs\ui_reset_levels.md                                                    | Markdown   |        183 |          0 |         55 |        238 |
+| d:\Project\flutter_apps\class_exchange_manager\ios\RunnerTests\RunnerTests.swift                                          | Swift      |          7 |          2 |          4 |         13 |
+| d:\Project\flutter_apps\class_exchange_manager\ios\Runner\AppDelegate.swift                                               | Swift      |         12 |          0 |          2 |         14 |
+| d:\Project\flutter_apps\class_exchange_manager\ios\Runner\Assets.xcassets\AppIcon.appiconset\Contents.json                | JSON       |        122 |          0 |          1 |        123 |
+| d:\Project\flutter_apps\class_exchange_manager\ios\Runner\Assets.xcassets\LaunchImage.imageset\Contents.json              | JSON       |         23 |          0 |          1 |         24 |
+| d:\Project\flutter_apps\class_exchange_manager\ios\Runner\Assets.xcassets\LaunchImage.imageset\README.md                  | Markdown   |          3 |          0 |          2 |          5 |
+| d:\Project\flutter_apps\class_exchange_manager\ios\Runner\Base.lproj\LaunchScreen.storyboard                              | XML        |         36 |          1 |          1 |         38 |
+| d:\Project\flutter_apps\class_exchange_manager\ios\Runner\Base.lproj\Main.storyboard                                      | XML        |         25 |          1 |          1 |         27 |
+| d:\Project\flutter_apps\class_exchange_manager\ios\Runner\Runner-Bridging-Header.h                                        | C++        |          1 |          0 |          1 |          2 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\examples\exchange_filter_example.dart                                  | Dart       |        212 |         23 |         27 |        262 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\examples\new_move_method_example.dart                                  | Dart       |        134 |         26 |         26 |        186 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\examples\target_cell_background_example.dart                           | Dart       |        109 |          9 |         11 |        129 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\main.dart                                                              | Dart       |         34 |          2 |          5 |         41 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\models\chain_exchange_path.dart                                        | Dart       |        127 |         31 |         28 |        186 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\models\chain_step.dart                                                 | Dart       |         49 |         10 |          7 |         66 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\models\circular_exchange_path.dart                                     | Dart       |        105 |         18 |         28 |        151 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\models\document_type.dart                                              | Dart       |         38 |          8 |          7 |         53 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\models\exchange_history_item.dart                                      | Dart       |        162 |         26 |         30 |        218 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\models\exchange_mode.dart                                              | Dart       |         65 |         14 |         12 |         91 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\models\exchange_node.dart                                              | Dart       |         53 |         14 |          9 |         76 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\models\exchange_path.dart                                              | Dart       |         43 |         14 |         12 |         69 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\models\notice_message.dart                                             | Dart       |        181 |         37 |         40 |        258 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\models\one_to_one_exchange_path.dart                                   | Dart       |        132 |         20 |         28 |        180 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\models\supplement_exchange_path.dart                                   | Dart       |        185 |         22 |         33 |        240 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\models\teacher.dart                                                    | Dart       |         42 |          2 |          7 |         51 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\models\time_slot.dart                                                  | Dart       |         89 |         41 |         22 |        152 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\providers\cell_selection_provider.dart                                 | Dart       |        375 |         79 |         70 |        524 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\providers\exchange_screen_provider.dart                                | Dart       |        276 |         34 |         42 |        352 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\providers\exchange_view_provider.dart                                  | Dart       |        525 |         70 |        101 |        696 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\providers\navigation_provider.dart                                     | Dart       |          2 |          1 |          2 |          5 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\providers\notice_message_provider.dart                                 | Dart       |        179 |         25 |         36 |        240 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\providers\scroll_provider.dart                                         | Dart       |         49 |         27 |         13 |         89 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\providers\services_provider.dart                                       | Dart       |         21 |          5 |          6 |         32 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\providers\state_reset_provider.dart                                    | Dart       |        172 |        191 |         63 |        426 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\providers\substitution_plan_helpers.dart                               | Dart       |        139 |         22 |         21 |        182 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\providers\substitution_plan_provider.dart                              | Dart       |         87 |         18 |         23 |        128 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\providers\substitution_plan_viewmodel.dart                             | Dart       |        348 |         33 |         68 |        449 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\providers\zoom_provider.dart                                           | Dart       |        139 |         59 |         35 |        233 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\services\base_exchange_service.dart                                    | Dart       |        109 |         22 |         20 |        151 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\services\chain_exchange_service.dart                                   | Dart       |        310 |         79 |         77 |        466 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\services\circular_exchange_service.dart                                | Dart       |        437 |        191 |        116 |        744 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\services\excel_service.dart                                            | Dart       |        612 |        233 |        127 |        972 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\services\exchange_history_service.dart                                 | Dart       |        252 |         55 |         58 |        365 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\services\exchange_service.dart                                         | Dart       |        685 |        186 |        161 |      1,032 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\mixins\exchange_logic_mixin.dart                                    | Dart       |        213 |         61 |         63 |        337 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\builders\sidebar_builder.dart                               | Dart       |        107 |         13 |         14 |        134 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\document_screen.dart                                        | Dart       |        106 |          6 |         12 |        124 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\document_screen\widgets\class_notice_widget.dart            | Dart       |        250 |         18 |         20 |        288 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\document_screen\widgets\substitution_plan_grid.dart         | Dart       |        431 |         11 |         38 |        480 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\document_screen\widgets\substitution_plan_grid_helpers.dart | Dart       |        308 |         29 |         31 |        368 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\document_screen\widgets\teacher_notice_widget.dart          | Dart       |        250 |         18 |         20 |        288 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\exchange_screen.dart                                        | Dart       |        924 |        229 |        253 |      1,406 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\exchange_screen\exchange_screen_state_proxy.dart            | Dart       |         88 |         22 |         37 |        147 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\exchange_screen\exchange_screen_viewmodel.dart              | Dart       |        182 |         27 |         35 |        244 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\exchange_screen\helpers\cell_tap_helper.dart                | Dart       |         57 |          7 |          8 |         72 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\exchange_screen\helpers\grid_helper.dart                    | Dart       |         39 |          5 |          5 |         49 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\exchange_screen\managers\exchange_operation_manager.dart    | Dart       |        258 |         96 |         67 |        421 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\exchange_screen\managers\exchange_path_manager.dart         | Dart       |        117 |         16 |         24 |        157 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\exchange_screen\widgets\exchange_app_bar.dart               | Dart       |        219 |         13 |         28 |        260 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\exchange_screen\widgets\timetable_tab_content.dart          | Dart       |         77 |          6 |          7 |         90 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\handlers\exchange_file_handler.dart                         | Dart       |         97 |         10 |         17 |        124 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\handlers\exchange_mode_handler.dart                         | Dart       |        127 |         37 |         34 |        198 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\handlers\exchange_path_handler.dart                         | Dart       |        115 |         14 |         29 |        158 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\handlers\exchange_ui_builder.dart                           | Dart       |         73 |          4 |          6 |         83 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\handlers\filter_search_handler.dart                         | Dart       |         70 |         14 |         17 |        101 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\handlers\path_selection_handler_mixin.dart                  | Dart       |        119 |         23 |         20 |        162 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\handlers\target_cell_handler.dart                           | Dart       |         76 |         30 |         31 |        137 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\helpers\chain_path_finder.dart                              | Dart       |         92 |         10 |         14 |        116 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\helpers\circular_path_finder.dart                           | Dart       |        101 |         23 |         27 |        151 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\home_screen.dart                                            | Dart       |        290 |         26 |         29 |        345 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\personal_schedule_screen.dart                               | Dart       |         35 |          1 |          4 |         40 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\screens\settings_screen.dart                                        | Dart       |         35 |          1 |          4 |         40 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\state_managers\filter_state_manager.dart                            | Dart       |        124 |         33 |         28 |        185 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\state_managers\path_selection_manager.dart                          | Dart       |         86 |         20 |         17 |        123 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\widgets\exchange_control_panel.dart                                 | Dart       |        173 |         15 |         24 |        212 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\widgets\exchange_filter_widget.dart                                 | Dart       |        364 |         37 |         42 |        443 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\widgets\notice_message_card.dart                                    | Dart       |        255 |         32 |         30 |        317 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\widgets\simplified_timetable_cell.dart                              | Dart       |         92 |          9 |          6 |        107 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\widgets\timetable_grid\exchange_arrow_painter.dart                  | Dart       |        524 |        178 |        122 |        824 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\widgets\timetable_grid\exchange_arrow_style.dart                    | Dart       |         50 |          5 |          7 |         62 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\widgets\timetable_grid\exchange_executor.dart                       | Dart       |        370 |         77 |         78 |        525 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\widgets\timetable_grid\grid_header_widgets.dart                     | Dart       |        245 |         12 |         16 |        273 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\widgets\timetable_grid\timetable_grid_constants.dart                | Dart       |         29 |         10 |          8 |         47 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\widgets\timetable_grid\widget_arrows_manager.dart                   | Dart       |        188 |         45 |         46 |        279 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\widgets\timetable_grid_section.dart                                 | Dart       |        792 |        177 |        170 |      1,139 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\ui\widgets\unified_exchange_sidebar.dart                               | Dart       |      1,168 |        131 |        122 |      1,421 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\utils\cell_cache_manager.dart                                          | Dart       |         69 |         20 |         19 |        108 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\utils\cell_state_manager.dart                                          | Dart       |        187 |         42 |         46 |        275 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\utils\cell_style_config.dart                                           | Dart       |         40 |          1 |          2 |         43 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\utils\class_name_parser.dart                                           | Dart       |         52 |         26 |         11 |         89 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\utils\constants.dart                                                   | Dart       |          9 |          4 |          4 |         17 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\utils\day_utils.dart                                                   | Dart       |         32 |         43 |          8 |         83 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\utils\exchange_algorithm.dart                                          | Dart       |        122 |         22 |         27 |        171 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\utils\exchange_path_converter.dart                                     | Dart       |        103 |          9 |         12 |        124 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\utils\exchange_path_utils.dart                                         | Dart       |         37 |         11 |         10 |         58 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\utils\exchange_visualizer.dart                                         | Dart       |        116 |          7 |         20 |        143 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\utils\fixed_header_style_manager.dart                                  | Dart       |        297 |         99 |         54 |        450 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\utils\logger.dart                                                      | Dart       |         35 |         10 |          9 |         54 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\utils\non_exchangeable_manager.dart                                    | Dart       |        110 |         29 |         21 |        160 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\utils\notice_message_generator.dart                                    | Dart       |        361 |         63 |         78 |        502 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\utils\notice_message_helpers.dart                                      | Dart       |         95 |         20 |         17 |        132 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\utils\simplified_timetable_theme.dart                                  | Dart       |        366 |         62 |         59 |        487 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\utils\syncfusion_timetable_helper.dart                                 | Dart       |         87 |         20 |         15 |        122 |
+| d:\Project\flutter_apps\class_exchange_manager\lib\utils\timetable_data_source.dart                                       | Dart       |        453 |         82 |        101 |        636 |
+| d:\Project\flutter_apps\class_exchange_manager\linux\flutter\generated_plugin_registrant.cc                               | C++        |          3 |          4 |          5 |         12 |
+| d:\Project\flutter_apps\class_exchange_manager\linux\flutter\generated_plugin_registrant.h                                | C++        |          5 |          5 |          6 |         16 |
+| d:\Project\flutter_apps\class_exchange_manager\linux\runner\main.cc                                                       | C++        |          5 |          0 |          2 |          7 |
+| d:\Project\flutter_apps\class_exchange_manager\linux\runner\my_application.cc                                             | C++        |         83 |         21 |         27 |        131 |
+| d:\Project\flutter_apps\class_exchange_manager\linux\runner\my_application.h                                              | C++        |          7 |          7 |          5 |         19 |
+| d:\Project\flutter_apps\class_exchange_manager\macos\Flutter\GeneratedPluginRegistrant.swift                              | Swift      |          8 |          3 |          4 |         15 |
+| d:\Project\flutter_apps\class_exchange_manager\macos\RunnerTests\RunnerTests.swift                                        | Swift      |          7 |          2 |          4 |         13 |
+| d:\Project\flutter_apps\class_exchange_manager\macos\Runner\AppDelegate.swift                                             | Swift      |         11 |          0 |          3 |         14 |
+| d:\Project\flutter_apps\class_exchange_manager\macos\Runner\Assets.xcassets\AppIcon.appiconset\Contents.json              | JSON       |         68 |          0 |          1 |         69 |
+| d:\Project\flutter_apps\class_exchange_manager\macos\Runner\Base.lproj\MainMenu.xib                                       | XML        |        343 |          0 |          1 |        344 |
+| d:\Project\flutter_apps\class_exchange_manager\macos\Runner\MainFlutterWindow.swift                                       | Swift      |         12 |          0 |          4 |         16 |
+| d:\Project\flutter_apps\class_exchange_manager\pubspec.yaml                                                               | YAML       |         30 |         66 |         20 |        116 |
+| d:\Project\flutter_apps\class_exchange_manager\test\unit_test_examples.dart                                               | Dart       |        140 |         14 |         39 |        193 |
+| d:\Project\flutter_apps\class_exchange_manager\test\widget_test.dart                                                      | Dart       |         14 |         10 |          7 |         31 |
+| d:\Project\flutter_apps\class_exchange_manager\web\index.html                                                             | HTML       |         19 |         15 |          5 |         39 |
+| d:\Project\flutter_apps\class_exchange_manager\web\manifest.json                                                          | JSON       |         35 |          0 |          1 |         36 |
+| d:\Project\flutter_apps\class_exchange_manager\windows\flutter\generated_plugin_registrant.cc                             | C++        |          3 |          4 |          5 |         12 |
+| d:\Project\flutter_apps\class_exchange_manager\windows\flutter\generated_plugin_registrant.h                              | C++        |          5 |          5 |          6 |         16 |
+| d:\Project\flutter_apps\class_exchange_manager\windows\runner\flutter_window.cpp                                          | C++        |         49 |          7 |         16 |         72 |
+| d:\Project\flutter_apps\class_exchange_manager\windows\runner\flutter_window.h                                            | C++        |         20 |          5 |          9 |         34 |
+| d:\Project\flutter_apps\class_exchange_manager\windows\runner\main.cpp                                                    | C++        |         30 |          4 |         10 |         44 |
+| d:\Project\flutter_apps\class_exchange_manager\windows\runner\resource.h                                                  | C++        |          9 |          6 |          2 |         17 |
+| d:\Project\flutter_apps\class_exchange_manager\windows\runner\utils.cpp                                                   | C++        |         54 |          2 |         10 |         66 |
+| d:\Project\flutter_apps\class_exchange_manager\windows\runner\utils.h                                                     | C++        |          8 |          6 |          6 |         20 |
+| d:\Project\flutter_apps\class_exchange_manager\windows\runner\win32_window.cpp                                            | C++        |        210 |         24 |         55 |        289 |
+| d:\Project\flutter_apps\class_exchange_manager\windows\runner\win32_window.h                                              | C++        |         48 |         31 |         24 |        103 |
+| d:\Project\flutter_apps\class_exchange_manager\마우스_스크롤_구현_문서.md                                                           | Markdown   |        154 |          0 |         41 |        195 |
+| Total                                                                                                                     |            |     23,757 |      4,087 |      4,788 |     32,632 |
++---------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+

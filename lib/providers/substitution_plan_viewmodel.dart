@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/exchange_path.dart';
 import '../utils/logger.dart';
-import '../utils/class_name_parser.dart';
 import 'services_provider.dart';
 import 'substitution_plan_provider.dart';
+import 'substitution_plan_helpers.dart';
 
 /// 보강계획서 데이터 모델
 class SubstitutionPlanData {
@@ -116,25 +116,17 @@ class SubstitutionPlanViewModelState {
 /// 교체 히스토리를 보강계획서 데이터로 변환하고 관리합니다.
 class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelState> {
   SubstitutionPlanViewModel(this._ref) : super(const SubstitutionPlanViewModelState()) {
+    _parser = ExchangeNodeParser(_ref);
     loadPlanData();
   }
 
   final Ref _ref;
+  late final ExchangeNodeParser _parser;
 
   /// 교체 항목의 고유 식별자 생성
-  String _generateExchangeId(String teacher, String day, String period, String subject) {
-    return '${teacher}_$day${period}_$subject';
-  }
-
-  /// 수업 조건 키 생성 (요일, 교시, 학년, 반, 과목, 교사)
-  String _generateClassConditionKey(String day, String period, String grade, String className, String subject, String teacher) {
-    return '$day|$period|$grade|$className|$subject|$teacher';
-  }
-
-  /// 저장된 날짜 정보를 복원
-  String _getSavedDate(String exchangeId, String columnName) {
-    final savedDate = _ref.read(substitutionPlanProvider.notifier).getSavedDate(exchangeId, columnName);
-    return savedDate.isNotEmpty ? savedDate : '선택';
+  String _generateExchangeId(String teacher, String day, String period, String subject, {String? suffix}) {
+    final base = '${teacher}_$day${period}_$subject';
+    return suffix != null ? '${base}_$suffix' : base;
   }
 
   /// 교체 히스토리에서 보강계획서 데이터 로드
@@ -152,6 +144,9 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
         AppLogger.exchangeDebug('교체 히스토리가 없어서 빈 리스트로 설정');
         return;
       }
+
+      // 캐시 클리어
+      _parser.clearCache();
 
       final List<SubstitutionPlanData> newPlanData = [];
 
@@ -207,28 +202,16 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
     final sourceNode = nodes[0];
     final targetNode = nodes[1];
     final exchangeId = _generateExchangeId(sourceNode.teacherName, sourceNode.day, sourceNode.period.toString(), sourceNode.subjectName);
-    final parsed = ClassNameParser.parse(sourceNode.className);
 
-    planData.add(SubstitutionPlanData(
+    final data = _parser.parseNode(
+      sourceNode: sourceNode,
+      targetNode: targetNode,
       exchangeId: exchangeId,
-      absenceDate: _getSavedDate(exchangeId, 'absenceDate'),
-      absenceDay: sourceNode.day,
-      period: sourceNode.period.toString(),
-      grade: parsed['grade']!,
-      className: parsed['class']!,
-      subject: sourceNode.subjectName,
-      teacher: sourceNode.teacherName,
-      supplementSubject: '',
-      supplementTeacher: '',
-      substitutionDate: _getSavedDate(exchangeId, 'substitutionDate'),
-      substitutionDay: targetNode.day,
-      substitutionPeriod: targetNode.period.toString(),
-      substitutionSubject: targetNode.subjectName,
-      substitutionTeacher: targetNode.teacherName,
-      remarks: notes ?? '',
       groupId: groupId,
-    ));
+      remarks: notes,
+    );
 
+    planData.add(data);
     AppLogger.exchangeDebug('1:1 교체 처리 완료');
   }
 
@@ -239,66 +222,43 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
       return;
     }
 
-    // 순환교체 단계 수 계산 (노드 수 - 1)
+    // 순환교체 단계 수 계산
     final stepCount = nodes.length - 1;
-    AppLogger.exchangeDebug('순환교체 단계 수: $stepCount');
-    
-    // 그룹ID는 이미 단계 정보가 포함되어 있음 (ExchangeHistoryItem에서 생성됨)
-    AppLogger.exchangeDebug('그룹ID: $groupId');
+    AppLogger.exchangeDebug('순환교체 단계 수: $stepCount, 그룹ID: $groupId');
 
     // 3개 노드: 첫 번째 쌍만 표시
     if (nodes.length == 3) {
       final sourceNode = nodes[0];
       final targetNode = nodes[1];
-      final exchangeId = '${_generateExchangeId(sourceNode.teacherName, sourceNode.day, sourceNode.period.toString(), sourceNode.subjectName)}_순환';
-      final parsed = ClassNameParser.parse(sourceNode.className);
+      final exchangeId = _generateExchangeId(sourceNode.teacherName, sourceNode.day, sourceNode.period.toString(), sourceNode.subjectName, suffix: '순환');
 
-      planData.add(SubstitutionPlanData(
+      final data = _parser.parseNode(
+        sourceNode: sourceNode,
+        targetNode: targetNode,
         exchangeId: exchangeId,
-        absenceDate: _getSavedDate(exchangeId, 'absenceDate'),
-        absenceDay: sourceNode.day,
-        period: sourceNode.period.toString(),
-        grade: parsed['grade']!,
-        className: parsed['class']!,
-        subject: sourceNode.subjectName,
-        teacher: sourceNode.teacherName,
-        supplementSubject: '',
-        supplementTeacher: '',
-        substitutionDate: _getSavedDate(exchangeId, 'substitutionDate'),
-        substitutionDay: targetNode.day,
-        substitutionPeriod: targetNode.period.toString(),
-        substitutionSubject: targetNode.subjectName,
-        substitutionTeacher: targetNode.teacherName,
-        remarks: _getCircularExchangeRemarks(0, nodes.length),
         groupId: groupId,
-      ));
+        remarks: _getCircularExchangeRemarks(0, nodes.length),
+        isCircular: true,
+      );
+
+      planData.add(data);
     } else {
       // 4개 이상: 모든 교체 쌍 표시
       for (int i = 0; i < nodes.length - 1; i++) {
         final sourceNode = nodes[i];
         final targetNode = nodes[i + 1];
-        final exchangeId = '${_generateExchangeId(sourceNode.teacherName, sourceNode.day, sourceNode.period.toString(), sourceNode.subjectName)}_순환${i + 1}';
-        final parsed = ClassNameParser.parse(sourceNode.className);
+        final exchangeId = _generateExchangeId(sourceNode.teacherName, sourceNode.day, sourceNode.period.toString(), sourceNode.subjectName, suffix: '순환${i + 1}');
 
-        planData.add(SubstitutionPlanData(
+        final data = _parser.parseNode(
+          sourceNode: sourceNode,
+          targetNode: targetNode,
           exchangeId: exchangeId,
-          absenceDate: _getSavedDate(exchangeId, 'absenceDate'),
-          absenceDay: sourceNode.day,
-          period: sourceNode.period.toString(),
-          grade: parsed['grade']!,
-          className: parsed['class']!,
-          subject: sourceNode.subjectName,
-          teacher: sourceNode.teacherName,
-          supplementSubject: '',
-          supplementTeacher: '',
-          substitutionDate: _getSavedDate(exchangeId, 'substitutionDate'),
-          substitutionDay: targetNode.day,
-          substitutionPeriod: targetNode.period.toString(),
-          substitutionSubject: targetNode.subjectName,
-          substitutionTeacher: targetNode.teacherName,
-          remarks: _getCircularExchangeRemarks(i, nodes.length),
           groupId: groupId,
-        ));
+          remarks: _getCircularExchangeRemarks(i, nodes.length),
+          isCircular: true,
+        );
+
+        planData.add(data);
       }
     }
 
@@ -307,14 +267,14 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
 
   /// 순환교체 비고란 생성 헬퍼 메서드
   String _getCircularExchangeRemarks(int index, int totalNodes) {
-    final stepCount = totalNodes; // 노드 수 = 단계 수
-    
+    final stepCount = totalNodes;
+
     // 2단계, 3단계 순환교체: 비고란 빈칸
     if (stepCount <= 3) {
       return '';
     }
-    
-    // 4단계 이상: 기존 로직 유지
+
+    // 4단계 이상
     return index == totalNodes - 2 ? '순환대체${index + 1}*' : '순환대체${index + 1}';
   }
 
@@ -331,52 +291,28 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
     final intermediateNode2 = nodes[3];
 
     // 최종 교체
-    final finalExchangeId = '${_generateExchangeId(substituteNode.teacherName, substituteNode.day, substituteNode.period.toString(), substituteNode.subjectName)}_연쇄최종';
-    final finalParsed = ClassNameParser.parse(substituteNode.className);
-
-    planData.add(SubstitutionPlanData(
+    final finalExchangeId = _generateExchangeId(substituteNode.teacherName, substituteNode.day, substituteNode.period.toString(), substituteNode.subjectName, suffix: '연쇄최종');
+    final finalData = _parser.parseNode(
+      sourceNode: substituteNode,
+      targetNode: absentNode,
       exchangeId: finalExchangeId,
-      absenceDate: _getSavedDate(finalExchangeId, 'absenceDate'),
-      absenceDay: substituteNode.day,
-      period: substituteNode.period.toString(),
-      grade: finalParsed['grade']!,
-      className: finalParsed['class']!,
-      subject: substituteNode.subjectName,
-      teacher: substituteNode.teacherName,
-      supplementSubject: '',
-      supplementTeacher: '',
-      substitutionDate: _getSavedDate(finalExchangeId, 'substitutionDate'),
-      substitutionDay: absentNode.day,
-      substitutionPeriod: absentNode.period.toString(),
-      substitutionSubject: absentNode.subjectName,
-      substitutionTeacher: absentNode.teacherName,
-      remarks: '연쇄교체(중간)',
       groupId: groupId,
-    ));
+      remarks: '연쇄교체(중간)',
+      isChain: true,
+    );
+    planData.add(finalData);
 
     // 중간 교체
-    final intermediateExchangeId = '${_generateExchangeId(intermediateNode1.teacherName, intermediateNode1.day, intermediateNode1.period.toString(), intermediateNode1.subjectName)}_연쇄중간';
-    final intermediateParsed = ClassNameParser.parse(intermediateNode1.className);
-
-    planData.add(SubstitutionPlanData(
+    final intermediateExchangeId = _generateExchangeId(intermediateNode1.teacherName, intermediateNode1.day, intermediateNode1.period.toString(), intermediateNode1.subjectName, suffix: '연쇄중간');
+    final intermediateData = _parser.parseNode(
+      sourceNode: intermediateNode1,
+      targetNode: intermediateNode2,
       exchangeId: intermediateExchangeId,
-      absenceDate: _getSavedDate(intermediateExchangeId, 'absenceDate'),
-      absenceDay: intermediateNode1.day,
-      period: intermediateNode1.period.toString(),
-      grade: intermediateParsed['grade']!,
-      className: intermediateParsed['class']!,
-      subject: intermediateNode1.subjectName,
-      teacher: intermediateNode1.teacherName,
-      supplementSubject: '',
-      supplementTeacher: '',
-      substitutionDate: _getSavedDate(intermediateExchangeId, 'substitutionDate'),
-      substitutionDay: intermediateNode2.day,
-      substitutionPeriod: intermediateNode2.period.toString(),
-      substitutionSubject: intermediateNode2.subjectName,
-      substitutionTeacher: intermediateNode2.teacherName,
-      remarks: '연쇄교체(최종)',
       groupId: groupId,
-    ));
+      remarks: '연쇄교체(최종)',
+      isChain: true,
+    );
+    planData.add(intermediateData);
 
     AppLogger.exchangeDebug('연쇄교체 처리 완료');
   }
@@ -390,33 +326,21 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
 
     final sourceNode = nodes[0];
     final targetNode = nodes[1];
-    final exchangeId = '${_generateExchangeId(sourceNode.teacherName, sourceNode.day, sourceNode.period.toString(), sourceNode.subjectName)}_보강';
-    final parsed = ClassNameParser.parse(sourceNode.className);
+    final exchangeId = _generateExchangeId(sourceNode.teacherName, sourceNode.day, sourceNode.period.toString(), sourceNode.subjectName, suffix: '보강');
 
-    planData.add(SubstitutionPlanData(
+    final data = _parser.parseNode(
+      sourceNode: sourceNode,
+      targetNode: targetNode,
       exchangeId: exchangeId,
-      absenceDate: _getSavedDate(exchangeId, 'absenceDate'),
-      absenceDay: sourceNode.day,
-      period: sourceNode.period.toString(),
-      grade: parsed['grade']!,
-      className: parsed['class']!,
-      subject: sourceNode.subjectName,
-      teacher: sourceNode.teacherName,
-      supplementSubject: '',
-      supplementTeacher: targetNode.teacherName,
-      substitutionDate: '',
-      substitutionDay: '',
-      substitutionPeriod: '',
-      substitutionSubject: '',
-      substitutionTeacher: '',
-      remarks: '보강',
       groupId: groupId,
-    ));
+      isSupplement: true,
+    );
 
+    planData.add(data);
     AppLogger.exchangeDebug('보강교체 처리 완료');
   }
 
-  /// 날짜 업데이트 (동일 수업 조건 연동)
+  /// 날짜 업데이트 (동일 수업 조건 연동) - 성능 최적화 버전 O(n)
   void updateDate(String exchangeId, String columnName, String newDate) {
     // Provider에 날짜 저장
     _ref.read(substitutionPlanProvider.notifier).saveDate(exchangeId, columnName, newDate);
@@ -428,32 +352,16 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
     final currentData = state.planData[currentIndex];
 
     // 수업 조건 키 생성
-    String day, period, grade, className, subject, teacher;
-    if (columnName == 'absenceDate') {
-      day = currentData.absenceDay;
-      period = currentData.period;
-      grade = currentData.grade;
-      className = currentData.className;
-      subject = currentData.subject;
-      teacher = currentData.teacher;
-    } else {
-      day = currentData.substitutionDay;
-      period = currentData.substitutionPeriod;
-      grade = currentData.grade;
-      className = currentData.className;
-      subject = currentData.substitutionSubject;
-      teacher = currentData.substitutionTeacher;
-    }
+    final targetKey = ClassConditionMatcher.extractTargetKey(currentData, columnName);
 
-    final classConditionKey = _generateClassConditionKey(day, period, grade, className, subject, teacher);
+    // 연동 대상 인덱스 추출
+    final indicesToUpdate = <int, String>{}; // index -> columnName
 
-    // 연동 업데이트
-    final updatedPlanData = state.planData.map((data) {
-      bool shouldUpdateAbsence = false;
-      bool shouldUpdateSubstitution = false;
+    for (int i = 0; i < state.planData.length; i++) {
+      final data = state.planData[i];
 
       // 결강일 섹션 검사
-      final absenceKey = _generateClassConditionKey(
+      final absenceKey = ClassConditionMatcher.generateKey(
         data.absenceDay,
         data.period,
         data.grade,
@@ -462,35 +370,41 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
         data.teacher,
       );
 
-      if (absenceKey == classConditionKey) {
-        shouldUpdateAbsence = true;
+      if (absenceKey == targetKey) {
+        indicesToUpdate[i] = 'absenceDate';
         _ref.read(substitutionPlanProvider.notifier).saveDate(data.exchangeId, 'absenceDate', newDate);
       }
 
       // 교체일 섹션 검사
-      final substitutionKey = _generateClassConditionKey(
-        data.substitutionDay,
-        data.substitutionPeriod,
-        data.grade,
-        data.className,
-        data.substitutionSubject,
-        data.substitutionTeacher,
-      );
-
-      if (substitutionKey == classConditionKey) {
-        shouldUpdateSubstitution = true;
-        _ref.read(substitutionPlanProvider.notifier).saveDate(data.exchangeId, 'substitutionDate', newDate);
-      }
-
-      if (shouldUpdateAbsence || shouldUpdateSubstitution) {
-        return data.copyWith(
-          absenceDate: shouldUpdateAbsence ? newDate : data.absenceDate,
-          substitutionDate: shouldUpdateSubstitution ? newDate : data.substitutionDate,
+      if (data.substitutionDay.isNotEmpty) {
+        final substitutionKey = ClassConditionMatcher.generateKey(
+          data.substitutionDay,
+          data.substitutionPeriod,
+          data.grade,
+          data.className,
+          data.substitutionSubject,
+          data.substitutionTeacher,
         );
-      }
 
-      return data;
-    }).toList();
+        if (substitutionKey == targetKey) {
+          indicesToUpdate[i] = 'substitutionDate';
+          _ref.read(substitutionPlanProvider.notifier).saveDate(data.exchangeId, 'substitutionDate', newDate);
+        }
+      }
+    }
+
+    // 인덱스 기반 업데이트 (불변성 유지)
+    final updatedPlanData = List<SubstitutionPlanData>.from(state.planData);
+    for (final entry in indicesToUpdate.entries) {
+      final index = entry.key;
+      final column = entry.value;
+
+      if (column == 'absenceDate') {
+        updatedPlanData[index] = updatedPlanData[index].copyWith(absenceDate: newDate);
+      } else {
+        updatedPlanData[index] = updatedPlanData[index].copyWith(substitutionDate: newDate);
+      }
+    }
 
     state = state.copyWith(planData: updatedPlanData);
   }
