@@ -106,10 +106,10 @@ class NoticeMessageGenerator {
         return aPeriod.compareTo(bPeriod);
       });
       
-      for (int i = 0; i < otherData.length; i++) {
-        final data = otherData[i];
-        final isFirstMessage = i == 0 && circularGroups.isEmpty; // 순환교체가 없을 때만 첫 번째 메시지
-        final message = _generateClassMessage(data, messageOption, isFirstMessage);
+      // 일반 교체가 있는 경우 하나의 통합 메시지로 생성
+      if (otherData.isNotEmpty) {
+        final isFirstMessage = circularGroups.isEmpty; // 순환교체가 없을 때만 첫 번째 메시지
+        final message = _generateClassCombinedMessage(otherData, messageOption, isFirstMessage);
         if (message != null) {
           messages.add(message);
         }
@@ -185,7 +185,8 @@ class NoticeMessageGenerator {
         identifier: className,
         content: '''$className 수업 교체되었습니다.
 ${exchangeLines.join('\n')}''',
-        exchangeType: ExchangeType.substitution,
+        exchangeType: _determineExchangeType(groupDataList),
+        exchangeTypeCombination: _determineExchangeTypeCombination(groupDataList),
         messageOption: messageOption,
         exchangeId: groupDataList.first.exchangeId,
       );
@@ -221,7 +222,8 @@ ${exchangeLines.join('\n')}''',
         identifier: className,
         content: '''$className 수업 교체되었습니다.
 ${classLines.join('\n')}''',
-        exchangeType: ExchangeType.substitution,
+        exchangeType: _determineExchangeType(groupDataList),
+        exchangeTypeCombination: _determineExchangeTypeCombination(groupDataList),
         messageOption: messageOption,
         exchangeId: groupDataList.first.exchangeId,
       );
@@ -337,9 +339,9 @@ ${classLines.join('\n')}''',
           case ExchangeCategory.supplement:
             // 보강 교체
             if (teacherName == data.teacher) {
-              // 원래 교사: 자신의 수업이 보강(결강)되었다는 메시지
+              // 원래 교사: 자신의 수업이 결강(보강)되었다는 메시지
               exchangeLines.add(
-                "'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject}' 보강(결강) 되었습니다."
+                "'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject}' 결강(보강) 되었습니다."
               );
             } else if (teacherName == data.supplementTeacher) {
               // 보강 교사: 보강 수업을 맡는다는 메시지
@@ -356,6 +358,7 @@ ${classLines.join('\n')}''',
         content: ''''$teacherName' 선생님
 ${exchangeLines.join('\n')}''',
         exchangeType: _determineExchangeType(sortedDataList),
+        exchangeTypeCombination: _determineExchangeTypeCombination(sortedDataList),
         messageOption: messageOption,
         exchangeId: sortedDataList.first.exchangeId,
       );
@@ -402,9 +405,9 @@ ${exchangeLines.join('\n')}''',
           case ExchangeCategory.supplement:
             // 보강 교체
             if (teacherName == data.teacher) {
-              // 원래 교사: 자신의 수업이 보강(결강)되었다는 메시지
+              // 원래 교사: 자신의 수업이결강(보강)되었다는 메시지
               classLines.add(
-                "'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject}' 보강(결강) 되었습니다."
+                "'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject}' 결강(보강) 되었습니다."
               );
             } else if (teacherName == data.supplementTeacher) {
               // 보강 교사: 보강 수업을 맡는다는 메시지
@@ -423,6 +426,7 @@ ${exchangeLines.join('\n')}''',
           content: ''''$teacherName' 선생님
 ${classLines.join('\n')}''',
           exchangeType: _determineExchangeType(sortedDataList),
+        exchangeTypeCombination: _determineExchangeTypeCombination(sortedDataList),
           messageOption: messageOption,
           exchangeId: sortedDataList.first.exchangeId,
         );
@@ -456,6 +460,38 @@ ${classLines.join('\n')}''',
   }
 
   /// 교체 유형 결정 헬퍼 메서드 (그룹ID 기반)
+  static ExchangeTypeCombination _determineExchangeTypeCombination(List<SubstitutionPlanData> dataList) {
+    List<ExchangeType> types = [];
+    
+    for (final data in dataList) {
+      ExchangeType type;
+      
+      if (data.supplementTeacher.isNotEmpty) {
+        type = ExchangeType.supplement;
+      } else if (data.groupId != null && data.groupId!.startsWith('circular_exchange_')) {
+        final stepMatch = RegExp(r'circular_exchange_(\d+)_').firstMatch(data.groupId!);
+        if (stepMatch != null) {
+          final stepCount = int.tryParse(stepMatch.group(1)!) ?? 0;
+          if (stepCount >= 4) {
+            type = ExchangeType.circular;
+          } else {
+            type = ExchangeType.substitution;
+          }
+        } else {
+          type = ExchangeType.substitution;
+        }
+      } else {
+        type = ExchangeType.substitution;
+      }
+      
+      if (!types.contains(type)) {
+        types.add(type);
+      }
+    }
+    
+    return ExchangeTypeCombination(types);
+  }
+
   static ExchangeType _determineExchangeType(List<SubstitutionPlanData> dataList) {
     // 보강 교체가 하나라도 있으면 보강으로 분류
     for (final data in dataList) {
@@ -492,40 +528,59 @@ ${classLines.join('\n')}''',
   }
   
   /// 개별 학급 메시지 생성
-  static NoticeMessage? _generateClassMessage(
-    SubstitutionPlanData data,
+  /// 학급 통합 메시지 생성 (여러 교체 유형을 하나의 메시지로)
+  static NoticeMessage? _generateClassCombinedMessage(
+    List<SubstitutionPlanData> dataList,
     MessageOption messageOption,
     bool isFirstMessage,
   ) {
-    // 교체 유형 판단
-    final exchangeType = data.substitutionDate.isNotEmpty 
-        ? ExchangeType.substitution 
-        : ExchangeType.supplement;
+    if (dataList.isEmpty) return null;
     
-    String content;
+    final className = '${dataList.first.grade}-${dataList.first.className}';
+    final List<String> messageLines = [];
     
-    if (exchangeType == ExchangeType.substitution) {
-      // 수업교체 메시지
-      content = _generateClassSubstitutionMessage(data, messageOption, isFirstMessage);
-    } else {
-      // 보강 메시지
-      content = _generateClassSupplementMessage(data, isFirstMessage);
+    // 헤더 메시지 추가 (한 번만)
+    messageLines.add('$className 수업 교체되었습니다.');
+    
+    // 교체 유형별로 메시지 생성 (헤더 제외)
+    for (final data in dataList) {
+      final exchangeType = data.substitutionDate.isNotEmpty 
+          ? ExchangeType.substitution 
+          : ExchangeType.supplement;
+      
+      String content;
+      
+      if (exchangeType == ExchangeType.substitution) {
+        // 수업교체 메시지 (헤더 제외)
+        content = _generateClassSubstitutionMessage(data, messageOption, false);
+      } else {
+        // 보강 메시지 (헤더 제외)
+        content = _generateClassSupplementMessage(data, false);
+      }
+      
+      if (content.isNotEmpty) {
+        messageLines.add(content);
+      }
     }
     
-    if (content.isEmpty) {
-      AppLogger.warning('학급 메시지 생성 실패 - 데이터: ${data.exchangeId}');
+    if (messageLines.length <= 1) {
+      AppLogger.warning('학급 통합 메시지 생성 실패 - 데이터 개수: ${dataList.length}');
       return null;
     }
     
+    // 모든 메시지를 하나로 합치기
+    final combinedContent = messageLines.join('\n');
+    
     return NoticeMessage(
-      identifier: '${data.grade}-${data.className}',
-      content: content,
-      exchangeType: exchangeType,
+      identifier: className,
+      content: combinedContent,
+      exchangeType: _determineExchangeType(dataList),
+      exchangeTypeCombination: _determineExchangeTypeCombination(dataList),
       messageOption: messageOption,
-      exchangeId: data.exchangeId,
+      exchangeId: dataList.first.exchangeId,
     );
   }
-  
+
   /// 학급 수업교체 메시지 생성
   static String _generateClassSubstitutionMessage(
     SubstitutionPlanData data,
@@ -580,9 +635,9 @@ ${classLines.join('\n')}''',
     
     if (isFirstMessage) {
       return '''$className 수업 교체되었습니다.
-'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject} ${data.supplementTeacher}' 수업 입니다.''';
+'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject} ${data.supplementTeacher}' 보강 수업입니다.''';
     } else {
-      return ''''${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject} ${data.supplementTeacher}' 수업 입니다.''';
+      return ''''${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject} ${data.supplementTeacher}' 보강 수업입니다.''';
     }
   }
 }

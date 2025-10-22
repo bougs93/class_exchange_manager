@@ -63,9 +63,29 @@ class NoticeMessageCard extends StatelessWidget {
         
         const SizedBox(width: 8),
         
-        // 교체 유형 칩들 (첫 번째 메시지의 유형만 표시)
-        if (messageGroup.messages.isNotEmpty)
-          _buildExchangeTypeChip(messageGroup.messages.first.exchangeType),
+        // 교체 유형 칩들 (다중 유형인 경우 개별 칩으로 표시)
+        if (messageGroup.messages.isNotEmpty) ...[
+          Builder(
+            builder: (context) {
+              final firstMessage = messageGroup.messages.first;
+              if (firstMessage.exchangeTypeCombination != null && 
+                  firstMessage.exchangeTypeCombination!.types.length > 1) {
+                // 다중 유형: 개별 칩으로 표시
+                return Row(
+                  children: firstMessage.exchangeTypeCombination!.types.map((type) => 
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: _buildSingleExchangeTypeChip(type),
+                    )
+                  ).toList(),
+                );
+              } else {
+                // 단일 유형: 기존 로직
+                return _buildSingleExchangeTypeChip(firstMessage.exchangeType);
+              }
+            },
+          ),
+        ],
         
         const Spacer(),
         
@@ -127,8 +147,8 @@ class NoticeMessageCard extends StatelessWidget {
     );
   }
 
-  /// 교체 유형 칩 위젯 생성
-  Widget _buildExchangeTypeChip(ExchangeType exchangeType) {
+  /// 단일 교체 유형 칩 위젯 생성
+  Widget _buildSingleExchangeTypeChip(ExchangeType exchangeType) {
     Color chipColor;
     String chipText;
     
@@ -160,7 +180,9 @@ class NoticeMessageCard extends StatelessWidget {
           fontWeight: FontWeight.w600,
           color: chipColor == Colors.blue.shade100 
               ? Colors.blue.shade800 
-              : Colors.orange.shade800,
+              : chipColor == Colors.orange.shade100 
+                  ? Colors.orange.shade800 
+                  : Colors.purple.shade800,
         ),
       ),
     );

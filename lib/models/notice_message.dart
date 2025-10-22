@@ -13,6 +13,56 @@ enum ExchangeType {
   circular,
 }
 
+/// 교체 유형 조합 클래스
+class ExchangeTypeCombination {
+  final List<ExchangeType> types;
+  
+  const ExchangeTypeCombination(this.types);
+  
+  /// 교체 유형별 개수 계산
+  Map<ExchangeType, int> get typeCounts {
+    Map<ExchangeType, int> counts = {};
+    for (final type in types) {
+      counts[type] = (counts[type] ?? 0) + 1;
+    }
+    return counts;
+  }
+  
+  /// 표시용 텍스트 생성
+  String get displayText {
+    if (types.length == 1) {
+      return types.first.displayName;
+    }
+    
+    // 여러 유형이 있는 경우
+    final counts = typeCounts;
+    List<String> parts = [];
+    
+    if (counts.containsKey(ExchangeType.supplement)) {
+      parts.add('보강 ${counts[ExchangeType.supplement]}건');
+    }
+    if (counts.containsKey(ExchangeType.circular)) {
+      parts.add('순환교체 ${counts[ExchangeType.circular]}건');
+    }
+    if (counts.containsKey(ExchangeType.substitution)) {
+      parts.add('수업교체 ${counts[ExchangeType.substitution]}건');
+    }
+    
+    return parts.join(', ');
+  }
+  
+  /// 우선순위 기반 메인 타입 (기존 호환성)
+  ExchangeType get primaryType {
+    if (types.contains(ExchangeType.supplement)) {
+      return ExchangeType.supplement;
+    } else if (types.contains(ExchangeType.circular)) {
+      return ExchangeType.circular;
+    } else {
+      return ExchangeType.substitution;
+    }
+  }
+}
+
 /// ExchangeType 확장 메서드
 extension ExchangeTypeExtension on ExchangeType {
   /// 교체 유형별 표시 이름
@@ -61,6 +111,9 @@ class NoticeMessage {
   /// 교체 유형
   final ExchangeType exchangeType;
   
+  /// 교체 유형 조합 (다중 유형 지원)
+  final ExchangeTypeCombination? exchangeTypeCombination;
+  
   /// 메시지 옵션
   final MessageOption messageOption;
   
@@ -71,6 +124,7 @@ class NoticeMessage {
     required this.identifier,
     required this.content,
     required this.exchangeType,
+    this.exchangeTypeCombination,
     required this.messageOption,
     required this.exchangeId,
   });
@@ -80,6 +134,7 @@ class NoticeMessage {
     String? identifier,
     String? content,
     ExchangeType? exchangeType,
+    ExchangeTypeCombination? exchangeTypeCombination,
     MessageOption? messageOption,
     String? exchangeId,
   }) {
@@ -87,6 +142,7 @@ class NoticeMessage {
       identifier: identifier ?? this.identifier,
       content: content ?? this.content,
       exchangeType: exchangeType ?? this.exchangeType,
+      exchangeTypeCombination: exchangeTypeCombination ?? this.exchangeTypeCombination,
       messageOption: messageOption ?? this.messageOption,
       exchangeId: exchangeId ?? this.exchangeId,
     );
