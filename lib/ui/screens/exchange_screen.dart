@@ -225,7 +225,11 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
         }
         break;
       case ExchangeMode.chainExchange:
-        notifier.setAvailableSteps([2, 3, 4, 5]);
+        // 연쇄교체: 단계 필터 불필요 - 빈 배열로 설정하고 단계 필터 강제 초기화
+        notifier.setAvailableSteps([]);
+        notifier.setSelectedStep(null); // 단계 필터 강제 초기화
+        // FilterStateManager에서도 강제 초기화
+        _filterStateManager.setStepFilter(null);
         // 셀이 선택된 상태라면 연쇄교체 경로 탐색
         if (isExchangeModeSwitch && chainExchangeService.hasSelectedCell()) {
           findChainPathsWithProgress();

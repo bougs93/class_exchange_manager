@@ -10,11 +10,11 @@ import '../../models/supplement_exchange_path.dart';
 /// 순환교체, 연쇄교체, 1:1교체, 보강교체 등 모든 교체 모드에서 공용으로 사용하는 필터 위젯
 /// 
 /// 주요 기능:
-/// - 단계 필터: 순환교체(2~5단계, 경로가 있을 때만), 연쇄교체(2단계), 1:1교체, 보강교체
+/// - 단계 필터: 순환교체(2~5단계, 경로가 있을 때만), 연쇄교체(필터 불필요), 1:1교체, 보강교체
 /// - 요일 필터: 월~금 요일별 필터링
 /// - 로딩 상태 처리: 경로 탐색 중에는 단계 필터 숨김
 /// - 빈 경로 처리: 교체 가능한 경로가 없을 때는 단계 필터 숨김
-/// - 모드별 특화: 순환교체에서만 2~5단계 표시, 다른 모드는 조건부 표시
+/// - 모드별 특화: 순환교체에서만 2~5단계 표시, 연쇄교체는 필터 숨김
 class ExchangeFilterWidget extends StatelessWidget {
   final ExchangePathType mode;                    // 현재 모드
   final List<ExchangePath> paths;                 // 전체 경로 리스트
@@ -105,7 +105,7 @@ class ExchangeFilterWidget extends StatelessWidget {
   }
 
   /// 단계 필터 표시 여부 결정
-  /// 순환교체에서만 2~5단계 표시, 다른 모드는 조건부 표시
+  /// 순환교체에서만 2~5단계 표시, 연쇄교체는 필터 불필요
   bool _shouldShowStepFilter() {
     // 기본 조건: 사용 가능한 단계가 있고 로딩 중이 아니어야 함
     if (availableSteps == null || availableSteps!.isEmpty || isLoading) {
@@ -117,9 +117,9 @@ class ExchangeFilterWidget extends StatelessWidget {
       return paths.isNotEmpty && _hasCircularPaths();
     }
 
-    // 연쇄교체 모드: 경로가 있을 때만 2단계 표시
+    // 연쇄교체 모드: 필터 동작 불필요 - 항상 숨김
     if (mode == ExchangePathType.chain) {
-      return paths.isNotEmpty && _hasChainPaths();
+      return false;
     }
 
     // 1:1교체, 보강교체 모드: 경로가 있을 때 표시
@@ -133,11 +133,6 @@ class ExchangeFilterWidget extends StatelessWidget {
   /// 순환교체 경로가 있는지 확인
   bool _hasCircularPaths() {
     return paths.any((path) => path is CircularExchangePath);
-  }
-
-  /// 연쇄교체 경로가 있는지 확인
-  bool _hasChainPaths() {
-    return paths.any((path) => path is ChainExchangePath);
   }
 
   /// 필터 헤더 구성

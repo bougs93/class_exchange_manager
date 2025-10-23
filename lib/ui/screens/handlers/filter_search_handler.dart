@@ -24,13 +24,18 @@ mixin FilterSearchHandler<T extends StatefulWidget> on State<T> {
   List<int> get availableSteps;
   void Function(List<int>) get setAvailableSteps;
 
-  /// 단계 필터 변경 처리 (순환교체, 1:1 교체, 연쇄교체 모드)
+  /// 단계 필터 변경 처리 (순환교체, 1:1 교체 모드만)
   void onStepChanged(int? step) {
+    // 연쇄교체에서는 단계 필터 동작 불필요
+    if (isChainExchangeModeEnabled) {
+      AppLogger.exchangeDebug('연쇄교체: 단계 필터 변경 무시 (필터 동작 불필요)');
+      return;
+    }
+
     setSelectedStep(step);
     filterStateManager.setStepFilter(step);
 
-    String mode = isExchangeModeEnabled ? '1:1교체' :
-                  isCircularExchangeModeEnabled ? '순환교체' : '연쇄교체';
+    String mode = isExchangeModeEnabled ? '1:1교체' : '순환교체';
     AppLogger.exchangeDebug('$mode 단계 필터 변경: ${step ?? "전체"}');
   }
 
@@ -59,8 +64,9 @@ mixin FilterSearchHandler<T extends StatefulWidget> on State<T> {
       setSelectedStep(availableSteps.isNotEmpty ? availableSteps.first : null);
       filterStateManager.setStepFilter(selectedStep);
     } else if (isChainExchangeModeEnabled) {
-      setSelectedStep(availableSteps.isNotEmpty ? availableSteps.first : null);
-      filterStateManager.setStepFilter(selectedStep);
+      // 연쇄교체: 단계 필터 항상 null (필터 동작 불필요)
+      setSelectedStep(null);
+      filterStateManager.setStepFilter(null);
     }
 
     // 요일 필터 초기화

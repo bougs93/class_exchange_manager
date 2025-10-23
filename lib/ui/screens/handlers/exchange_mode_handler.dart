@@ -142,8 +142,8 @@ mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
     // 연쇄교체 모드가 활성화되면 초기화
     if (isChainExchangeModeEnabled) {
       clearAllExchangeStates();
-      availableSteps = [2, 3, 4, 5]; // 연쇄교체는 2~5단계
-      selectedStep = null;
+      availableSteps = []; // 연쇄교체: 단계 필터 불필요
+      selectedStep = null; // 단계 필터 강제 초기화
       selectedDay = null;
     } else {
       // 비활성화: 단계 설정만 초기화

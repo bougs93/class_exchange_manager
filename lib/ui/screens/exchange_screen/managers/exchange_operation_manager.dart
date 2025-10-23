@@ -346,10 +346,10 @@ class ExchangeOperationManager {
     stateProxy.setChainExchangeModeEnabled(!wasEnabled);
 
     if (stateProxy.isChainExchangeModeEnabled) {
-      // 4. 활성화: Level 2 초기화 + 단계 설정
+      // 4. 활성화: Level 2 초기화 + 단계 필터 강제 비활성화
       onClearAllExchangeStates();
-      stateProxy.setAvailableSteps([2, 3, 4, 5]); // 연쇄: 2~5단계
-      stateProxy.setSelectedStep(null);
+      stateProxy.setAvailableSteps([]); // 연쇄교체: 단계 필터 불필요
+      stateProxy.setSelectedStep(null); // 단계 필터 강제 초기화
       stateProxy.setSelectedDay(null);
     } else {
       // 비활성화: 단계 설정만 초기화
