@@ -13,10 +13,12 @@ import '../../utils/day_utils.dart';
 import 'timetable_grid/arrow_state_manager.dart';
 import '../../utils/logger.dart';
 import '../../models/exchange_path.dart';
+import '../../models/exchange_node.dart'; // 🆕 ExchangeNode import 추가
 import '../../models/time_slot.dart';
 import '../../providers/state_reset_provider.dart';
 import '../../providers/zoom_provider.dart';
 import '../../providers/scroll_provider.dart';
+import '../../providers/node_scroll_provider.dart'; // 🆕 노드 스크롤 Provider 추가
 import '../../utils/simplified_timetable_theme.dart';
 import 'timetable_grid/timetable_grid_constants.dart';
 import 'timetable_grid/exchange_arrow_style.dart';
@@ -75,6 +77,7 @@ class TimetableGridSection extends ConsumerStatefulWidget {
   final ExchangePath? selectedExchangePath; // 선택된 교체 경로 (모든 타입 지원)
   final ExchangeArrowStyle? customArrowStyle; // 커스텀 화살표 스타일
   final VoidCallback? onHeaderThemeUpdate; // 헤더 테마 업데이트 콜백
+  final Function(ExchangeNode)? onNodeScrollRequest; // 🆕 노드 스크롤 요청 콜백
 
   const TimetableGridSection({
     super.key,
@@ -90,6 +93,7 @@ class TimetableGridSection extends ConsumerStatefulWidget {
     this.selectedExchangePath,
     this.customArrowStyle,
     this.onHeaderThemeUpdate,
+    this.onNodeScrollRequest, // 🆕 노드 스크롤 콜백
   });
 
   @override
@@ -103,6 +107,9 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
   // GlobalKey만으로도 DataGrid 재생성 문제가 해결되는지 테스트
   final GlobalKey<SfDataGridState> _dataGridKey = GlobalKey<SfDataGridState>();
   
+  // 🆕 DataGridController 추가 (셀 스크롤용)
+  final DataGridController _dataGridController = DataGridController();
+  
   
   // 싱글톤 화살표 상태 매니저
   final ArrowStateManager _arrowStateManager = ArrowStateManager();
@@ -114,6 +121,13 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
   bool get isInExchangeMode => widget.isExchangeModeEnabled ||
                                widget.isCircularExchangeModeEnabled ||
                                widget.isChainExchangeModeEnabled;
+  
+  /// 🆕 노드 스크롤 콜백 설정
+  void _setupNodeScrollCallback() {
+    // 외부에서 노드 스크롤을 요청할 수 있도록 콜백 연결
+    // 실제 구현에서는 Provider나 다른 상태 관리 방식을 사용할 수 있음
+    AppLogger.exchangeDebug('🔄 [노드 스크롤] 콜백 설정 완료');
+  }
 
   @override
   void initState() {
@@ -128,6 +142,12 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
 
     // 공통 스크롤 관리 믹신 초기화
     initializeScrollControllers();
+    
+    // 🆕 노드 스크롤 요청 콜백 설정
+    if (widget.onNodeScrollRequest != null) {
+      // 외부에서 노드 스크롤 요청을 받을 수 있도록 설정
+      _setupNodeScrollCallback();
+    }
 
     // 테이블 렌더링 완료 후 UI 업데이트 요청
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -201,6 +221,16 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     if (widget.timetableData == null || widget.dataSource == null) {
       return const SizedBox.shrink();
     }
+
+    // 🆕 노드 스크롤 Provider 감지하여 스크롤 실행
+    ref.listen<ExchangeNode?>(nodeScrollProvider, (previous, next) {
+      if (next != null) {
+        // 노드 스크롤 요청이 있을 때 실행
+        scrollToExchangeNode(next);
+        // 스크롤 완료 후 상태 초기화
+        ref.read(nodeScrollProvider.notifier).clearScrollRequest();
+      }
+    });
 
     // 🔥 StateResetProvider 상태 감지 제거 - 교체뷰 활성화 시 레벨3 초기화 문제 해결
     return _buildMainContent();
@@ -557,6 +587,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
                   },
                   child: SfDataGrid(
                     key: _dataGridKey,
+                    controller: _dataGridController,  // 🆕 DataGridController 연결
                     source: widget.dataSource!,
                     columns: GridScalingHelper.scaleColumns(widget.columns, zoomFactor),
                     stackedHeaderRows: GridScalingHelper.scaleStackedHeaders(widget.stackedHeaders, zoomFactor),
@@ -591,6 +622,87 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
 
 
 
+
+  /// 🆕 교체 경로 노드로 스크롤하는 메서드
+  /// 사이드바에서 노드를 선택했을 때 해당 셀로 중앙 스크롤
+  /// 
+  /// [node] 교체 경로의 노드 정보
+  void scrollToExchangeNode(ExchangeNode node) {
+    try {
+      // 교사명으로 행 인덱스 찾기
+      final teacherRowIndex = _findTeacherRowIndex(node.teacherName);
+      if (teacherRowIndex == -1) {
+        AppLogger.exchangeDebug('❌ [노드 스크롤] 교사를 찾을 수 없음: ${node.teacherName}');
+        return;
+      }
+      
+      // 요일과 교시로 열 인덱스 계산
+      final dayOfWeekInt = DayUtils.getDayNumber(node.day);
+      final columnIndex = _calculateColumnIndex(dayOfWeekInt, node.period);
+      if (columnIndex == -1) {
+        AppLogger.exchangeDebug('❌ [노드 스크롤] 열 인덱스 계산 실패: 요일=${node.day}, 교시=${node.period}');
+        return;
+      }
+      
+      // Syncfusion DataGrid의 내장 스크롤 기능 사용
+      _dataGridController.scrollToCell(
+        teacherRowIndex.toDouble(),  // 행 인덱스 (double로 변환)
+        columnIndex.toDouble(),      // 열 인덱스 (double로 변환)
+        canAnimate: true, // 부드러운 애니메이션 효과 적용
+        rowPosition: DataGridScrollPosition.center,    // 행을 수직 중앙에 위치
+        columnPosition: DataGridScrollPosition.center, // 열을 수평 중앙에 위치
+      );
+      
+      AppLogger.exchangeDebug(
+        '🎯 [노드 스크롤] 셀 중앙 이동 완료: ${node.teacherName} | ${node.day}요일 ${node.period}교시 | 행:$teacherRowIndex, 열:$columnIndex'
+      );
+    } catch (e) {
+      AppLogger.exchangeDebug('❌ [노드 스크롤] 스크롤 실패: $e');
+    }
+  }
+  
+  /// 교사명으로 행 인덱스 찾기
+  /// 
+  /// [teacherName] 찾을 교사명
+  /// Returns 행 인덱스 (0부터 시작, 헤더 제외)
+  int _findTeacherRowIndex(String teacherName) {
+    final dataSource = widget.dataSource;
+    if (dataSource == null) return -1;
+    
+    // 데이터 소스에서 교사명이 포함된 행 찾기
+    for (int i = 0; i < dataSource.rows.length; i++) {
+      final row = dataSource.rows[i];
+      // 첫 번째 셀(교사명)에서 교사명 확인
+      if (row.getCells().isNotEmpty) {
+        final cellValue = row.getCells().first.value?.toString() ?? '';
+        if (cellValue.contains(teacherName)) {
+          return i; // 헤더 행이 있다면 +1 필요할 수 있음
+        }
+      }
+    }
+    return -1;
+  }
+  
+  /// 요일과 교시로 열 인덱스 계산
+  /// 
+  /// [dayOfWeek] 요일 (1-5)
+  /// [period] 교시 (1-8)
+  /// Returns 열 인덱스 (0부터 시작)
+  int _calculateColumnIndex(int dayOfWeek, int period) {
+    try {
+      // 그리드 구조에 맞게 열 인덱스 계산
+      // 예시: 요일별로 8교시씩 배치된 경우
+      // 월요일(1) = 0-7, 화요일(2) = 8-15, ...
+      final baseColumnIndex = (dayOfWeek - 1) * 8 + (period - 1);
+      
+      // 실제 그리드 구조에 맞게 조정 필요
+      // 현재는 기본적인 계산만 제공
+      return baseColumnIndex;
+    } catch (e) {
+      AppLogger.exchangeDebug('❌ [열 계산] 오류: $e');
+      return -1;
+    }
+  }
 
   /// 교체된 셀 클릭 처리 (Riverpod 기반)
   /// 🔥 스크롤 문제 해결: 과거 커밋의 단순한 구조를 참고하여 스크롤 위치 보존

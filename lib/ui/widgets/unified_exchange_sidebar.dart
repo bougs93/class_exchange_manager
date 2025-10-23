@@ -8,6 +8,7 @@ import '../../models/exchange_node.dart';
 import '../../models/time_slot.dart';
 import '../../utils/logger.dart';
 import '../../utils/day_utils.dart';
+import '../../providers/node_scroll_provider.dart'; // 🆕 노드 스크롤 Provider 추가
 import '../../providers/cell_selection_provider.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../providers/services_provider.dart';
@@ -120,7 +121,7 @@ class PathColorScheme {
 
 /// 통합 교체 사이드바 위젯
 /// 1:1교체와 순환교체 경로를 모두 표시할 수 있는 통합 사이드바
-class UnifiedExchangeSidebar extends StatefulWidget {
+class UnifiedExchangeSidebar extends ConsumerStatefulWidget {
   final double width;
   final List<ExchangePath> paths;                    // 통합된 경로 리스트
   final List<ExchangePath> filteredPaths;           // 필터링된 경로 리스트
@@ -175,10 +176,10 @@ class UnifiedExchangeSidebar extends StatefulWidget {
   });
 
   @override
-  State<UnifiedExchangeSidebar> createState() => _UnifiedExchangeSidebarState();
+  ConsumerState<UnifiedExchangeSidebar> createState() => _UnifiedExchangeSidebarState();
 }
 
-class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar> 
+class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar> 
     with TickerProviderStateMixin {
   
   // 물결 효과를 위한 애니메이션 컨트롤러들
@@ -1230,8 +1231,28 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
 
     // 이미 선택된 경로의 노드를 클릭한 경우에만 물결 효과와 스크롤 실행
     _triggerRippleEffect(nodeKey);
+    
+    // 🆕 선택된 경로의 노드 클릭 시 해당 셀로 스크롤
+    _requestNodeScroll(node);
 
     // 노드 클릭 시 선택 처리
+  }
+  
+  /// 🆕 노드 스크롤 요청
+  /// 선택된 경로의 노드를 클릭했을 때 해당 셀로 스크롤 요청
+  void _requestNodeScroll(ExchangeNode node) {
+    try {
+      AppLogger.exchangeDebug(
+        '🎯 [사이드바] 노드 스크롤 요청: ${node.teacherName} | ${node.day}요일 ${node.period}교시'
+      );
+      
+      // 🆕 노드 스크롤 Provider를 통해 스크롤 요청
+      ref.read(nodeScrollProvider.notifier).requestScrollToNode(node);
+      
+      AppLogger.exchangeDebug('✅ [사이드바] 노드 스크롤 요청 전송 완료');
+    } catch (e) {
+      AppLogger.exchangeDebug('❌ [사이드바] 노드 스크롤 요청 실패: $e');
+    }
   }
 
   /// nodeKey에서 경로 인덱스를 추출하여 경로 선택
