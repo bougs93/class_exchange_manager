@@ -36,8 +36,8 @@ class ZoomControlWidget extends StatelessWidget {
           IconButton(
             onPressed: zoomPercentage != 100 ? onResetZoom : null,
             icon: const Icon(Icons.refresh, size: 16),
-            padding: const EdgeInsets.all(8),
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            padding: const EdgeInsets.all(2),
+            constraints: const BoxConstraints(minWidth: 25, minHeight: 36),
             color: zoomPercentage != 100 ? Colors.grey.shade600 : Colors.grey.shade400,
             tooltip: '확대/축소 초기화',
           ),
@@ -45,8 +45,8 @@ class ZoomControlWidget extends StatelessWidget {
           IconButton(
             onPressed: zoomFactor > minZoom ? onZoomOut : null,
             icon: const Icon(Icons.zoom_out, size: 18),
-            padding: const EdgeInsets.all(8),
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            padding: const EdgeInsets.all(1),
+            constraints: const BoxConstraints(minWidth: 20, minHeight: 36),
             color: zoomFactor > minZoom ? Colors.blue : Colors.grey,
             tooltip: '축소',
           ),
@@ -66,8 +66,8 @@ class ZoomControlWidget extends StatelessWidget {
           IconButton(
             onPressed: zoomFactor < maxZoom ? onZoomIn : null,
             icon: const Icon(Icons.zoom_in, size: 18),
-            padding: const EdgeInsets.all(8),
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            padding: const EdgeInsets.all(1),
+            constraints: const BoxConstraints(minWidth: 20, minHeight: 36),
             color: zoomFactor < maxZoom ? Colors.blue : Colors.grey,
             tooltip: '확대',
           ),
@@ -89,10 +89,10 @@ class TeacherCountWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.green.shade50,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: Colors.green.shade200),
       ),
       child: Text(
@@ -241,6 +241,7 @@ class ExchangeActionButtons extends StatelessWidget {
   final VoidCallback? onExchange;
   final bool showDeleteButton;
   final bool showExchangeButton;
+  final bool hideUndoRedoButtons; // 되돌리기/재실행 버튼 숨김 옵션
 
   const ExchangeActionButtons({
     super.key,
@@ -250,6 +251,7 @@ class ExchangeActionButtons extends StatelessWidget {
     this.onExchange,
     required this.showDeleteButton,
     required this.showExchangeButton,
+    this.hideUndoRedoButtons = false, // 기본값은 false (표시)
   });
 
   @override
@@ -257,45 +259,47 @@ class ExchangeActionButtons extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 되돌리기 버튼
-        Container(
-          margin: const EdgeInsets.only(right: 8),
-          child: ElevatedButton.icon(
-            onPressed: onUndo,
-            icon: const Icon(Icons.undo, size: 16),
-            label: const Text('', style: TextStyle(fontSize: 12)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange.shade100,
-              foregroundColor: Colors.orange.shade700,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              minimumSize: const Size(50, 40),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(5),
-                side: BorderSide(color: Colors.orange.shade300),
+        // 되돌리기 버튼 (화면이 충분히 넓을 때만)
+        if (!hideUndoRedoButtons) ...[
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            child: ElevatedButton.icon(
+              onPressed: onUndo,
+              icon: const Icon(Icons.undo, size: 16),
+              label: const Text('', style: TextStyle(fontSize: 12)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange.shade100,
+                foregroundColor: Colors.orange.shade700,
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                minimumSize: const Size(40, 40),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(5),
+                  side: BorderSide(color: Colors.orange.shade300),
+                ),
               ),
             ),
           ),
-        ),
 
-        // 다시 반복 버튼
-        Container(
-          margin: const EdgeInsets.only(right: 8),
-          child: ElevatedButton.icon(
-            onPressed: onRepeat,
-            icon: const Icon(Icons.redo, size: 16),
-            label: const Text('', style: TextStyle(fontSize: 12)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.purple.shade100,
-              foregroundColor: Colors.purple.shade700,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              minimumSize: const Size(50, 40),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(5),
-                side: BorderSide(color: Colors.purple.shade300),
+          // 다시 반복 버튼 (화면이 충분히 넓을 때만)
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            child: ElevatedButton.icon(
+              onPressed: onRepeat,
+              icon: const Icon(Icons.redo, size: 16),
+              label: const Text('', style: TextStyle(fontSize: 12)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple.shade100,
+                foregroundColor: Colors.purple.shade700,
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                minimumSize: const Size(40, 40),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(5),
+                  side: BorderSide(color: Colors.purple.shade300),
+                ),
               ),
             ),
           ),
-        ),
+        ],
 
         // 삭제 버튼
         if (showDeleteButton && onDelete != null) ...[

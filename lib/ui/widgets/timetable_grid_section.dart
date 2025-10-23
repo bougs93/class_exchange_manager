@@ -267,6 +267,10 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       builder: (context, constraints) {
         // 화면 폭이 800px 미만일 때 세로 레이아웃으로 변경
         final bool useVerticalLayout = constraints.maxWidth < 800;
+        // 화면 폭이 600px 미만일 때 교사 수 표시 위젯 숨김
+        final bool hideTeacherCount = constraints.maxWidth < 600;
+        // 화면 폭이 500px 미만일 때 되돌리기/재실행 버튼 숨김
+        final bool hideUndoRedoButtons = constraints.maxWidth < 500;
         
         if (useVerticalLayout) {
           // 세로 레이아웃 (화면이 좁을 때)
@@ -298,12 +302,13 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                   
                   const SizedBox(width: 8),
                   
-                  // 전체 교사 수 표시
-                  TeacherCountWidget(
-                    teacherCount: widget.timetableData!.teachers.length,
-                  ),
-                  
-                  const SizedBox(width: 8),
+                  // 전체 교사 수 표시 (화면이 충분히 넓을 때만)
+                  if (!hideTeacherCount) ...[
+                    TeacherCountWidget(
+                      teacherCount: widget.timetableData!.teachers.length,
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   
                   // 교체 뷰 체크박스
                   ExchangeViewCheckbox(
@@ -355,6 +360,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                           : null,
                         showDeleteButton: currentSelectedPath != null && isFromExchangedCell,
                         showExchangeButton: isInExchangeMode && !isFromExchangedCell,
+                        hideUndoRedoButtons: hideUndoRedoButtons, // 되돌리기/재실행 버튼 숨김
                       );
                     },
                   ),
@@ -390,12 +396,13 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
               const SizedBox(width: 8),
 
-              // 전체 교사 수 표시
-              TeacherCountWidget(
-                teacherCount: widget.timetableData!.teachers.length,
-              ),
-
-              const SizedBox(width: 4),
+              // 전체 교사 수 표시 (화면이 충분히 넓을 때만)
+              if (!hideTeacherCount) ...[
+                TeacherCountWidget(
+                  teacherCount: widget.timetableData!.teachers.length,
+                ),
+                const SizedBox(width: 4),
+              ],
 
               // 교체 뷰 체크박스
               ExchangeViewCheckbox(
@@ -449,6 +456,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
                       : null,
                     showDeleteButton: currentSelectedPath != null && isFromExchangedCell,
                     showExchangeButton: isInExchangeMode && !isFromExchangedCell,
+                    hideUndoRedoButtons: hideUndoRedoButtons, // 되돌리기/재실행 버튼 숨김
                   );
                 },
               ),
