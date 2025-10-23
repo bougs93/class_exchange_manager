@@ -115,6 +115,7 @@ class _ExchangeFilterExampleState extends State<ExchangeFilterExample> {
             mode: _currentMode,
             paths: _paths,
             searchQuery: _searchQuery,
+            isLoading: false,                        // 예제에서는 로딩 상태 없음
             availableSteps: _currentMode == ExchangePathType.circular 
                 ? _availableSteps 
                 : _chainAvailableSteps,

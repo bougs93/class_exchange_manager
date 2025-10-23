@@ -262,6 +262,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
               mode: widget.mode,
               paths: widget.paths,
               searchQuery: widget.searchQuery,
+              isLoading: widget.isLoading,              // 로딩 상태 전달
               availableSteps: widget.availableSteps,
               selectedStep: widget.selectedStep,
               onStepChanged: widget.onStepChanged,

@@ -7,11 +7,19 @@ import '../../models/one_to_one_exchange_path.dart';
 import '../../models/supplement_exchange_path.dart';
 
 /// 교체 경로 필터 위젯
-/// 순환교체, 연쇄교체 등 다양한 교체 모드에서 공용으로 사용할 수 있는 필터 위젯
+/// 순환교체, 연쇄교체, 1:1교체, 보강교체 등 모든 교체 모드에서 공용으로 사용하는 필터 위젯
+/// 
+/// 주요 기능:
+/// - 단계 필터: 순환교체(2~5단계, 경로가 있을 때만), 연쇄교체(2단계), 1:1교체, 보강교체
+/// - 요일 필터: 월~금 요일별 필터링
+/// - 로딩 상태 처리: 경로 탐색 중에는 단계 필터 숨김
+/// - 빈 경로 처리: 교체 가능한 경로가 없을 때는 단계 필터 숨김
+/// - 모드별 특화: 순환교체에서만 2~5단계 표시, 다른 모드는 조건부 표시
 class ExchangeFilterWidget extends StatelessWidget {
   final ExchangePathType mode;                    // 현재 모드
   final List<ExchangePath> paths;                 // 전체 경로 리스트
   final String searchQuery;                       // 검색 쿼리
+  final bool isLoading;                           // 로딩 상태 (경로 탐색 중인지 여부)
   
   // 단계 필터 관련 매개변수 (순환교체, 연쇄교체에서 사용)
   final List<int>? availableSteps;                // 사용 가능한 단계들
@@ -37,6 +45,7 @@ class ExchangeFilterWidget extends StatelessWidget {
     required this.mode,
     required this.paths,
     required this.searchQuery,
+    this.isLoading = false,                        // 기본값 false로 설정
     this.availableSteps,
     this.selectedStep,
     this.onStepChanged,
@@ -70,8 +79,8 @@ class ExchangeFilterWidget extends StatelessWidget {
           _buildFilterHeader(),
           const SizedBox(height: 4),
           
-          // 단계 필터 (사용 가능한 단계가 있을 때만 표시)
-          if (availableSteps != null && availableSteps!.isNotEmpty) ...[
+          // 단계 필터 (순환교체에서만 2~5단계 표시, 다른 모드는 조건부 표시)
+          if (_shouldShowStepFilter()) ...[
             _buildStepFilter(),
             const SizedBox(height: 4),
           ],
@@ -93,6 +102,42 @@ class ExchangeFilterWidget extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// 단계 필터 표시 여부 결정
+  /// 순환교체에서만 2~5단계 표시, 다른 모드는 조건부 표시
+  bool _shouldShowStepFilter() {
+    // 기본 조건: 사용 가능한 단계가 있고 로딩 중이 아니어야 함
+    if (availableSteps == null || availableSteps!.isEmpty || isLoading) {
+      return false;
+    }
+
+    // 순환교체 모드: 경로가 있을 때만 2~5단계 표시
+    if (mode == ExchangePathType.circular) {
+      return paths.isNotEmpty && _hasCircularPaths();
+    }
+
+    // 연쇄교체 모드: 경로가 있을 때만 2단계 표시
+    if (mode == ExchangePathType.chain) {
+      return paths.isNotEmpty && _hasChainPaths();
+    }
+
+    // 1:1교체, 보강교체 모드: 경로가 있을 때 표시
+    if (mode == ExchangePathType.oneToOne || mode == ExchangePathType.supplement) {
+      return paths.isNotEmpty;
+    }
+
+    return false;
+  }
+
+  /// 순환교체 경로가 있는지 확인
+  bool _hasCircularPaths() {
+    return paths.any((path) => path is CircularExchangePath);
+  }
+
+  /// 연쇄교체 경로가 있는지 확인
+  bool _hasChainPaths() {
+    return paths.any((path) => path is ChainExchangePath);
   }
 
   /// 필터 헤더 구성
