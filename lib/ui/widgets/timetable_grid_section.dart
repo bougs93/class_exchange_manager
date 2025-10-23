@@ -224,28 +224,13 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       return const SizedBox.shrink();
     }
 
-    // 🧪 테스트: ref.watch() 호출 복원 - Consumer 분리 제거로 원상복구
-    // StateResetProvider 상태 감지 (화살표 초기화는 별도 처리)
-    final resetState = ref.watch(stateResetProvider);
-    
-    // Level 3 초기화 시 교체 뷰 체크박스 초기화 및 UI 업데이트
-    if (resetState.lastResetLevel == ResetLevel.allStates) {
-      // 위젯 트리 빌드 완료 후 실행하도록 Future로 감싸기
-      Future(() {
-        // 교체 뷰 체크박스가 활성화되어 있으면 초기화
-        if (ref.read(isExchangeViewEnabledProvider)) {
-          ref.read(exchangeViewProvider.notifier).reset();
-          AppLogger.exchangeDebug('[StateResetProvider 감지] 교체 뷰 체크박스 초기화 완료 (Level 3)');
-        }
-        
-        // 엑셀 파일 로드 시 헤더셀, 일반셀 UI 업데이트 (교체 뷰 상태와 관계없이)
-        if (widget.dataSource != null) {
-          widget.dataSource!.notifyDataChanged();
-          AppLogger.exchangeDebug('[StateResetProvider 감지] Level 3 초기화 - DataSource UI 업데이트 완료');
-        }
-      });
-    }
+    // 🔥 StateResetProvider 상태 감지 제거 - 교체뷰 활성화 시 레벨3 초기화 문제 해결
+    return _buildMainContent();
+  }
 
+  /// 메인 콘텐츠 빌드 메서드
+  /// StateResetProvider 상태 감지 제거 후 UI 구성 요소만 담당
+  Widget _buildMainContent() {
     return Card(
       elevation: 2,
       child: Padding(
