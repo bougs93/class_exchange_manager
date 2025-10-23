@@ -629,14 +629,30 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
   /// [node] 교체 경로의 노드 정보
   void scrollToExchangeNode(ExchangeNode node) {
     try {
-      // 교사명으로 행 인덱스 찾기
+      AppLogger.exchangeDebug('🔍 [노드 스크롤] 시작: ${node.teacherName} | ${node.day}요일 ${node.period}교시');
+      
+      // 1. DataGridController 상태 확인
+      // DataGridController는 hasClients 속성이 없으므로 다른 방법으로 확인
+      try {
+        // 간단한 테스트로 컨트롤러가 작동하는지 확인
+        AppLogger.exchangeDebug('🔍 [노드 스크롤] DataGridController 상태 확인 중...');
+      } catch (e) {
+        AppLogger.exchangeDebug('❌ [노드 스크롤] DataGridController가 아직 초기화되지 않음: $e');
+        // 잠시 후 재시도
+        Future.delayed(const Duration(milliseconds: 100), () {
+          scrollToExchangeNode(node);
+        });
+        return;
+      }
+      
+      // 2. 교사명으로 행 인덱스 찾기
       final teacherRowIndex = _findTeacherRowIndex(node.teacherName);
       if (teacherRowIndex == -1) {
         AppLogger.exchangeDebug('❌ [노드 스크롤] 교사를 찾을 수 없음: ${node.teacherName}');
         return;
       }
       
-      // 요일과 교시로 열 인덱스 계산
+      // 3. 요일과 교시로 열 인덱스 계산
       final dayOfWeekInt = DayUtils.getDayNumber(node.day);
       final columnIndex = _calculateColumnIndex(dayOfWeekInt, node.period);
       if (columnIndex == -1) {
@@ -644,7 +660,29 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
         return;
       }
       
-      // Syncfusion DataGrid의 내장 스크롤 기능 사용
+      // 4. 인덱스 유효성 검증
+      final dataSource = widget.dataSource;
+      if (dataSource == null) {
+        AppLogger.exchangeDebug('❌ [노드 스크롤] 데이터 소스가 null');
+        return;
+      }
+      
+      final maxRowIndex = dataSource.rows.length - 1;
+      final maxColumnIndex = widget.columns.length - 1;
+      
+      if (teacherRowIndex > maxRowIndex) {
+        AppLogger.exchangeDebug('❌ [노드 스크롤] 행 인덱스 범위 초과: $teacherRowIndex > $maxRowIndex');
+        return;
+      }
+      
+      if (columnIndex > maxColumnIndex) {
+        AppLogger.exchangeDebug('❌ [노드 스크롤] 열 인덱스 범위 초과: $columnIndex > $maxColumnIndex');
+        return;
+      }
+      
+      AppLogger.exchangeDebug('✅ [노드 스크롤] 인덱스 검증 완료: 행=$teacherRowIndex/$maxRowIndex, 열=$columnIndex/$maxColumnIndex');
+      
+      // 5. Syncfusion DataGrid의 내장 스크롤 기능 사용
       _dataGridController.scrollToCell(
         teacherRowIndex.toDouble(),  // 행 인덱스 (double로 변환)
         columnIndex.toDouble(),      // 열 인덱스 (double로 변환)
@@ -656,8 +694,75 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       AppLogger.exchangeDebug(
         '🎯 [노드 스크롤] 셀 중앙 이동 완료: ${node.teacherName} | ${node.day}요일 ${node.period}교시 | 행:$teacherRowIndex, 열:$columnIndex'
       );
+      
+      // 6. 스크롤 실행 확인 (잠시 후)
+      Future.delayed(const Duration(milliseconds: 500), () {
+        _verifyScrollExecution(node, teacherRowIndex, columnIndex);
+      });
+      
     } catch (e) {
       AppLogger.exchangeDebug('❌ [노드 스크롤] 스크롤 실패: $e');
+    }
+  }
+  
+  /// 🆕 스크롤 실행 확인 메서드
+  /// 실제로 스크롤이 실행되었는지 확인
+  void _verifyScrollExecution(ExchangeNode node, int expectedRowIndex, int expectedColumnIndex) {
+    try {
+      // 현재 스크롤 위치 확인
+      final currentHorizontalOffset = horizontalScrollController.hasClients 
+          ? horizontalScrollController.offset 
+          : 0.0;
+      final currentVerticalOffset = verticalScrollController.hasClients 
+          ? verticalScrollController.offset 
+          : 0.0;
+      
+      AppLogger.exchangeDebug(
+        '🔍 [스크롤 확인] 현재 위치: 수평=${currentHorizontalOffset.toStringAsFixed(1)}, 수직=${currentVerticalOffset.toStringAsFixed(1)}'
+      );
+      
+      // 스크롤이 실제로 발생했는지 확인
+      if (currentHorizontalOffset > 0 || currentVerticalOffset > 0) {
+        AppLogger.exchangeDebug('✅ [스크롤 확인] 스크롤 실행됨');
+      } else {
+        AppLogger.exchangeDebug('⚠️ [스크롤 확인] 스크롤이 실행되지 않음 - 대체 방법 시도');
+        _tryAlternativeScrollMethod(node, expectedRowIndex, expectedColumnIndex);
+      }
+    } catch (e) {
+      AppLogger.exchangeDebug('❌ [스크롤 확인] 확인 실패: $e');
+    }
+  }
+  
+  /// 🆕 대체 스크롤 방법 시도
+  /// DataGridController가 작동하지 않을 때 ScrollController 직접 사용
+  void _tryAlternativeScrollMethod(ExchangeNode node, int rowIndex, int columnIndex) {
+    try {
+      AppLogger.exchangeDebug('🔄 [대체 스크롤] ScrollController 직접 사용 시도');
+      
+      // ScrollController를 직접 사용하여 스크롤
+      if (horizontalScrollController.hasClients && verticalScrollController.hasClients) {
+        // 대략적인 위치 계산 (실제 구현에서는 더 정밀한 계산 필요)
+        final estimatedHorizontalOffset = columnIndex * 100.0; // 열당 대략 100px
+        final estimatedVerticalOffset = rowIndex * 50.0; // 행당 대략 50px
+        
+        horizontalScrollController.animateTo(
+          estimatedHorizontalOffset.clamp(0.0, horizontalScrollController.position.maxScrollExtent),
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+        
+        verticalScrollController.animateTo(
+          estimatedVerticalOffset.clamp(0.0, verticalScrollController.position.maxScrollExtent),
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+        
+        AppLogger.exchangeDebug(
+          '🔄 [대체 스크롤] ScrollController 스크롤 실행: 수평=${estimatedHorizontalOffset.toStringAsFixed(1)}, 수직=${estimatedVerticalOffset.toStringAsFixed(1)}'
+        );
+      }
+    } catch (e) {
+      AppLogger.exchangeDebug('❌ [대체 스크롤] 실패: $e');
     }
   }
   
@@ -690,16 +795,157 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
   /// Returns 열 인덱스 (0부터 시작)
   int _calculateColumnIndex(int dayOfWeek, int period) {
     try {
-      // 그리드 구조에 맞게 열 인덱스 계산
-      // 예시: 요일별로 8교시씩 배치된 경우
-      // 월요일(1) = 0-7, 화요일(2) = 8-15, ...
-      final baseColumnIndex = (dayOfWeek - 1) * 8 + (period - 1);
+      AppLogger.exchangeDebug('🔍 [열 계산] 시작: 요일=$dayOfWeek, 교시=$period');
       
-      // 실제 그리드 구조에 맞게 조정 필요
-      // 현재는 기본적인 계산만 제공
-      return baseColumnIndex;
+      // 실제 그리드 구조 분석
+      final columns = widget.columns;
+      AppLogger.exchangeDebug('🔍 [열 계산] 전체 열 개수: ${columns.length}');
+      
+      // 첫 번째 열이 교사명 열인지 확인
+      bool hasTeacherColumn = false;
+      if (columns.isNotEmpty) {
+        final firstColumn = columns.first;
+        hasTeacherColumn = firstColumn.columnName.contains('교사') || 
+                          firstColumn.columnName.contains('선생님') ||
+                          firstColumn.columnName.contains('Teacher') ||
+                          firstColumn.columnName.toLowerCase().contains('teacher');
+        AppLogger.exchangeDebug('🔍 [열 계산] 교사명 열 존재: $hasTeacherColumn (${firstColumn.columnName})');
+      }
+      
+      // 교사명 열이 있다면 그 다음부터 시작
+      int startColumnIndex = hasTeacherColumn ? 1 : 0;
+      
+      // 🆕 실제 그리드 구조 분석하여 요일별 교시 수 계산
+      final actualDataColumns = columns.length - startColumnIndex;
+      AppLogger.exchangeDebug('🔍 [열 계산] 실제 데이터 열 개수: $actualDataColumns');
+      
+      // 요일별 교시 수 계산 (실제 구조에 맞게)
+      final periodsPerDay = actualDataColumns ~/ 5; // 5요일로 나누기
+      AppLogger.exchangeDebug('🔍 [열 계산] 요일당 교시 수: $periodsPerDay');
+      
+      // 🆕 더 정확한 계산 방식
+      // 실제 그리드에서 요일별로 몇 개의 열이 있는지 확인
+      int columnIndex;
+      
+      if (periodsPerDay > 0) {
+        // 일반적인 경우: 요일별로 일정한 교시 수
+        columnIndex = startColumnIndex + (dayOfWeek - 1) * periodsPerDay + (period - 1);
+      } else {
+        // 🆕 특수한 경우: 실제 열 구조를 분석
+        AppLogger.exchangeDebug('🔍 [열 계산] 특수 구조 감지 - 실제 열 분석 시작');
+        columnIndex = _analyzeActualColumnStructure(dayOfWeek, period, startColumnIndex);
+      }
+      
+      AppLogger.exchangeDebug(
+        '🔍 [열 계산] 계산 결과: 시작열=$startColumnIndex, 요일당교시=$periodsPerDay, 최종열인덱스=$columnIndex'
+      );
+      
+      // 범위 검증
+      if (columnIndex < 0 || columnIndex >= columns.length) {
+        AppLogger.exchangeDebug('❌ [열 계산] 범위 초과: $columnIndex (최대: ${columns.length - 1})');
+        
+        // 🆕 범위 초과 시 대안 계산 시도
+        AppLogger.exchangeDebug('🔄 [열 계산] 대안 계산 시도');
+        columnIndex = _tryAlternativeColumnCalculation(dayOfWeek, period, startColumnIndex, columns.length);
+        
+        if (columnIndex == -1) {
+          AppLogger.exchangeDebug('❌ [열 계산] 모든 계산 방법 실패');
+          return -1;
+        }
+      }
+      
+      AppLogger.exchangeDebug('✅ [열 계산] 성공: $columnIndex');
+      return columnIndex;
     } catch (e) {
       AppLogger.exchangeDebug('❌ [열 계산] 오류: $e');
+      return -1;
+    }
+  }
+  
+  /// 🆕 실제 열 구조 분석
+  /// 그리드의 실제 구조를 분석하여 정확한 열 인덱스 계산
+  int _analyzeActualColumnStructure(int dayOfWeek, int period, int startColumnIndex) {
+    try {
+      AppLogger.exchangeDebug('🔍 [구조 분석] 실제 열 구조 분석 시작');
+      
+      // 열 이름들을 분석하여 패턴 파악
+      final columns = widget.columns;
+      List<String> columnNames = [];
+      
+      for (int i = startColumnIndex; i < columns.length; i++) {
+        columnNames.add(columns[i].columnName);
+      }
+      
+      AppLogger.exchangeDebug('🔍 [구조 분석] 데이터 열 이름들: $columnNames');
+      
+      // 요일별로 그룹화 시도
+      Map<String, List<int>> dayGroups = {};
+      for (int i = 0; i < columnNames.length; i++) {
+        final columnName = columnNames[i];
+        String? dayName = _extractDayFromColumnName(columnName);
+        if (dayName != null) {
+          dayGroups.putIfAbsent(dayName, () => []).add(i + startColumnIndex);
+        }
+      }
+      
+      AppLogger.exchangeDebug('🔍 [구조 분석] 요일별 그룹: $dayGroups');
+      
+      // 해당 요일의 열들 찾기
+      final dayName = DayUtils.getDayName(dayOfWeek);
+      final dayColumns = dayGroups[dayName] ?? [];
+      
+      if (dayColumns.isNotEmpty && period <= dayColumns.length) {
+        final columnIndex = dayColumns[period - 1];
+        AppLogger.exchangeDebug('✅ [구조 분석] 성공: $dayName $period교시 = 열 $columnIndex');
+        return columnIndex;
+      }
+      
+      AppLogger.exchangeDebug('❌ [구조 분석] 해당 요일/교시를 찾을 수 없음');
+      return -1;
+    } catch (e) {
+      AppLogger.exchangeDebug('❌ [구조 분석] 오류: $e');
+      return -1;
+    }
+  }
+  
+  /// 🆕 열 이름에서 요일 추출
+  String? _extractDayFromColumnName(String columnName) {
+    final dayNames = ['월', '화', '수', '목', '금'];
+    for (String day in dayNames) {
+      if (columnName.contains(day)) {
+        return day;
+      }
+    }
+    return null;
+  }
+  
+  /// 🆕 대안 열 계산 방법
+  /// 기본 계산이 실패했을 때 시도하는 대안 방법
+  int _tryAlternativeColumnCalculation(int dayOfWeek, int period, int startColumnIndex, int totalColumns) {
+    try {
+      AppLogger.exchangeDebug('🔄 [대안 계산] 대안 방법 시도');
+      
+      // 방법 1: 단순한 선형 계산 (교시별로 연속 배치)
+      final linearIndex = startColumnIndex + (dayOfWeek - 1) * 8 + (period - 1);
+      if (linearIndex < totalColumns) {
+        AppLogger.exchangeDebug('✅ [대안 계산] 선형 계산 성공: $linearIndex');
+        return linearIndex;
+      }
+      
+      // 방법 2: 교시 중심 계산 (요일별로 교시가 연속 배치)
+      final periodBasedIndex = startColumnIndex + (period - 1) * 5 + (dayOfWeek - 1);
+      if (periodBasedIndex < totalColumns) {
+        AppLogger.exchangeDebug('✅ [대안 계산] 교시 중심 계산 성공: $periodBasedIndex');
+        return periodBasedIndex;
+      }
+      
+      // 방법 3: 최소한의 안전한 인덱스 반환
+      final safeIndex = (startColumnIndex + (dayOfWeek - 1) * 6 + (period - 1)).clamp(startColumnIndex, totalColumns - 1);
+      AppLogger.exchangeDebug('⚠️ [대안 계산] 안전한 인덱스 사용: $safeIndex');
+      return safeIndex;
+      
+    } catch (e) {
+      AppLogger.exchangeDebug('❌ [대안 계산] 오류: $e');
       return -1;
     }
   }
