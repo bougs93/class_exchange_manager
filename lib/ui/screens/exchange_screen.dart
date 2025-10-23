@@ -771,9 +771,10 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     bool hasClass = _isCellNotEmpty(teacherName, dayPeriodInfo.day, dayPeriodInfo.period);
     AppLogger.exchangeDebug('보강교체 셀 상태: 수업 있음=$hasClass');
     
-    // 수업이 있는 셀이 아닌 경우 아무 동작하지 않음
+    // 빈 셀인 경우 다른 교체 모드와 동일하게 처리
     if (!hasClass) {
-      AppLogger.exchangeDebug('보강교체: 빈 셀 클릭 - 아무 동작하지 않음');
+      AppLogger.exchangeDebug('보강교체: 빈 셀 클릭 - 다른 교체 모드와 동일하게 처리');
+      _processEmptyCellSelection(teacherName, dayPeriodInfo.day, dayPeriodInfo.period);
       return;
     }
     
@@ -806,6 +807,41 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     // 4. 셀 선택 후 처리 (사이드바 표시 포함)
     _processSupplementCellSelection();
   }
+
+  /// 보강교체에서 빈 셀 선택 처리 (다른 교체 모드와 동일한 방식)
+  void _processEmptyCellSelection(String teacherName, String day, int period) {
+    AppLogger.exchangeDebug('보강교체: 빈 셀 선택 처리 - $teacherName $day$period교시');
+    
+    // 동일한 셀을 다시 클릭했는지 확인
+    if (exchangeService.isSameCell(teacherName, day, period)) {
+      // 동일한 셀 클릭 시 교체 대상 해제
+      exchangeService.clearCellSelection();
+      ref.read(cellSelectionProvider.notifier).clearAllSelections();
+      ref.read(cellSelectionProvider.notifier).selectTeacherName(null);
+      AppLogger.exchangeDebug('보강교체: 동일한 빈 셀 클릭 - 셀 선택 해제');
+      return;
+    }
+    
+    // 새로운 빈 셀 선택 (다른 교체 모드와 동일한 방식)
+    AppLogger.exchangeDebug('보강교체: 새로운 빈 셀 선택 - $teacherName $day$period교시');
+    
+    // 1. 셀 선택 (ExchangeService와 CellSelectionProvider에 저장)
+    exchangeService.selectCell(teacherName, day, period);
+    ref.read(cellSelectionProvider.notifier).selectCell(teacherName, day, period);
+    AppLogger.exchangeDebug('보강교체: 빈 셀 선택 완료 - $teacherName $day$period교시');
+    
+    // 2. 교사 이름 선택 상태 설정 (교사 이름 테마 변경용)
+    ref.read(cellSelectionProvider.notifier).selectTeacherName(teacherName);
+    AppLogger.exchangeDebug('보강교체: 교사 이름 선택 완료 - $teacherName');
+    
+    // 3. 교체 모드 설정 (테마 변경용)
+    ref.read(cellSelectionProvider.notifier).setExchangeMode(ExchangeMode.supplementExchange);
+    AppLogger.exchangeDebug('보강교체: 교체 모드 설정 완료 - supplementExchange');
+    
+    // 4. 다른 교체 모드와 동일하게 빈 셀 선택 처리 (경로만 초기화, 셀 선택 유지)
+    onEmptyCellSelected();
+  }
+
   
   // Mixin에서 요구하는 추상 메서드들 구현
   @override
