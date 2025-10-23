@@ -157,28 +157,87 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   void _performModeChangeTasks(ExchangeMode newMode) {
     final notifier = ref.read(exchangeScreenProvider.notifier);
     
-    // [중요] 모드 변경 전에 현재 선택된 셀 강제 해제
-    // 이 코드가 없으면 모드 전환 시 선택된 셀이 유지되어 문제가 발생함
-    //   -> 헤더 테마 유지됨.
-    _clearAllCellSelections();
+    // 교체 모드 간 전환인지 확인 (간단한 플래그 사용)
+    final isExchangeModeSwitch = _isExchangeMode(newMode) && _isExchangeMode(_stateProxy.currentMode);
+    
+    // 교체 모드 간 전환이 아닌 경우에만 셀 선택 해제
+    if (!isExchangeModeSwitch) {
+      _clearAllCellSelections();
+    }
 
-    // 모든 모드 전환 시 Level 2 초기화로 통일
+    // 모든 모드 전환 시 Level 2 초기화로 통일 (교체 모드 간 전환 시 셀 선택 유지)
     ref.read(stateResetProvider.notifier).resetExchangeStates(
       reason: '${newMode.displayName} 모드로 전환',
+      preserveCellSelection: isExchangeModeSwitch,
     );
-      
+
+    // 교체 모드 간 전환 시 셀 선택 정보를 각 서비스에 동기화
+    if (isExchangeModeSwitch) {
+      final cellState = ref.read(cellSelectionProvider);
+      if (cellState.selectedTeacher != null && 
+          cellState.selectedDay != null && 
+          cellState.selectedPeriod != null) {
+        
+        // 새로운 모드의 서비스에 셀 선택 정보 설정
+        switch (newMode) {
+          case ExchangeMode.oneToOneExchange:
+            exchangeService.selectCell(
+              cellState.selectedTeacher!,
+              cellState.selectedDay!,
+              cellState.selectedPeriod!,
+            );
+            break;
+          case ExchangeMode.circularExchange:
+            circularExchangeService.selectCell(
+              cellState.selectedTeacher!,
+              cellState.selectedDay!,
+              cellState.selectedPeriod!,
+            );
+            break;
+          case ExchangeMode.chainExchange:
+            chainExchangeService.selectCell(
+              cellState.selectedTeacher!,
+              cellState.selectedDay!,
+              cellState.selectedPeriod!,
+            );
+            break;
+          // 보강교체는 _operationManager.toggleSupplementExchangeMode()에서 처리되므로 제거
+          default:
+            break;
+        }
+      }
+    }
+
     // 각 모드별 초기 설정
     switch (newMode) {
       case ExchangeMode.oneToOneExchange:
         notifier.setAvailableSteps([2]);
+        // 셀이 선택된 상태라면 1:1교체 경로 탐색
+        if (isExchangeModeSwitch && exchangeService.hasSelectedCell()) {
+          updateExchangeableTimes();
+        }
         break;
       case ExchangeMode.circularExchange:
+        notifier.setAvailableSteps([2, 3, 4, 5]);
+        // 셀이 선택된 상태라면 순환교체 경로 탐색
+        if (isExchangeModeSwitch && circularExchangeService.hasSelectedCell()) {
+          findCircularPathsWithProgress();
+        }
+        break;
       case ExchangeMode.chainExchange:
         notifier.setAvailableSteps([2, 3, 4, 5]);
+        // 셀이 선택된 상태라면 연쇄교체 경로 탐색
+        if (isExchangeModeSwitch && chainExchangeService.hasSelectedCell()) {
+          findChainPathsWithProgress();
+        }
         break;
       case ExchangeMode.supplementExchange:
-        // 보강교체 모드 활성화
-        _operationManager.toggleSupplementExchangeMode();
+        // 보강교체 모드 활성화 (셀 선택 유지)
+        _operationManager.toggleSupplementExchangeMode(preserveCellSelection: isExchangeModeSwitch);
+        // 셀이 선택된 상태라면 보강교체 경로 탐색
+        if (isExchangeModeSwitch && exchangeService.hasSelectedCell()) {
+          _processSupplementCellSelection();
+        }
         return; // 보강교체 모드 토글에서 모든 처리를 완료하므로 여기서 종료
       case ExchangeMode.nonExchangeableEdit:
         notifier.setAvailableSteps([]);
@@ -196,6 +255,14 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     // 이 코드가 없으면 모드 전환 시 헤더 테마가 업데이트되지 않아 문제가 발생함
     //   -> 헤더 테마 유지됨.
     _updateHeaderTheme();
+  }
+
+  /// 교체 모드인지 확인하는 간단한 헬퍼 메서드
+  bool _isExchangeMode(ExchangeMode mode) {
+    return mode == ExchangeMode.oneToOneExchange ||
+           mode == ExchangeMode.circularExchange ||
+           mode == ExchangeMode.chainExchange ||
+           mode == ExchangeMode.supplementExchange;
   }
 
   /// 셀을 교체불가로 설정 또는 해제 (ViewModel 사용)

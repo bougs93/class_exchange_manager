@@ -41,6 +41,15 @@ class ChainExchangeService extends BaseExchangeService {
   // Getter: 선택된 학급 정보만 제공 (연쇄 교체 전용)
   String? get selectedClass => _selectedClass;
 
+  /// 셀 선택 상태 설정 (연쇄교체 전용 오버라이드)
+  /// BaseExchangeService의 selectCell을 오버라이드하여 _selectedClass도 함께 설정
+  @override
+  void selectCell(String teacherName, String day, int period) {
+    super.selectCell(teacherName, day, period);
+    // _selectedClass는 findChainExchangePaths에서 자동으로 설정됨
+    _selectedClass = null; // 초기화하여 다음에 다시 찾도록 함
+  }
+
   /// 연쇄교체 모드에서 셀 탭 처리
   ///
   /// 매개변수:

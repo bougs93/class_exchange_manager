@@ -10,6 +10,7 @@ import '../../../../utils/logger.dart';
 import '../../../../utils/non_exchangeable_manager.dart';
 import '../../../../models/exchange_mode.dart';
 import '../../../../providers/exchange_screen_provider.dart';
+import '../../../../providers/state_reset_provider.dart';
 import '../exchange_screen_state_proxy.dart';
 
 /// 파일 선택, 로딩, 교체 모드 전환 등 핵심 비즈니스 로직을 관리하는 Manager
@@ -382,7 +383,7 @@ class ExchangeOperationManager {
   /// 5. 교사 이름 선택 기능 활성화
   /// 6. 헤더 테마 업데이트
   /// 7. 사용자 피드백 (SnackBar)
-  void toggleSupplementExchangeMode() {
+  void toggleSupplementExchangeMode({bool preserveCellSelection = false}) {
     AppLogger.exchangeDebug('보강교체 모드 토글 시작');
 
     bool hasOtherModesActive =
@@ -404,7 +405,19 @@ class ExchangeOperationManager {
 
     // 3. 보강교체 모드 활성화
     stateProxy.setSupplementExchangeModeEnabled(true);
-    onClearAllExchangeStates();
+    
+    // 셀 선택 유지 옵션에 따라 초기화 처리
+    if (preserveCellSelection) {
+      // 셀 선택 유지: Level 2 초기화에서 셀 선택만 제외
+      ref.read(stateResetProvider.notifier).resetExchangeStates(
+        reason: '보강교체 모드로 전환 (셀 선택 유지)',
+        preserveCellSelection: true,
+      );
+    } else {
+      // 셀 선택 초기화: 기존 동작
+      onClearAllExchangeStates();
+    }
+    
     stateProxy.setAvailableSteps([2]); // 보강교체는 2단계 (보강할 셀 선택 → 보강받을 셀 선택)
     stateProxy.setSelectedStep(null);
     stateProxy.setSelectedDay(null);

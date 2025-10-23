@@ -37,7 +37,7 @@ class ChainPathFinder {
           'teacher': chainExchangeService.selectedTeacher!,
           'day': chainExchangeService.selectedDay!,
           'period': chainExchangeService.selectedPeriod!,
-          'className': chainExchangeService.selectedClass!,
+          'className': chainExchangeService.selectedClass ?? '',
         },
       );
 

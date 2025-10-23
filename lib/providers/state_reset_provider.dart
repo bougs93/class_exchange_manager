@@ -306,7 +306,7 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   /// - 동일 모드 내에서 다른 셀 선택 시
   /// - 교체 후 다음 작업 준비 시
   /// - 모든 모드 전환 시 (보기 ↔ 1:1 ↔ 순환 ↔ 연쇄)
-  void resetExchangeStates({String? reason}) {
+  void resetExchangeStates({String? reason, bool preserveCellSelection = false}) {
     AppLogger.exchangeDebug('[Level 2] 이전 교체 상태 초기화: ${reason ?? "이유 없음"}');
 
     // 🔥 스크롤 문제 해결: 과거 커밋의 단순한 구조를 참고하여 스크롤 위치 보존
@@ -322,16 +322,20 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     // 공통 초기화 작업 수행 (화살표 제거 포함)
     _performCommonResetTasks();
 
-    // 🔥 Level 2 전용: 셀 선택 초기화 추가
-    _ref.read(cellSelectionProvider.notifier).clearAllSelections();
+    // 🔥 Level 2 전용: 셀 선택 초기화 (조건부)
+    if (!preserveCellSelection) {
+      _ref.read(cellSelectionProvider.notifier).clearAllSelections();
+    }
 
-    // 🔥 Level 2 전용: 교체 서비스의 셀 설정 상태 초기화 추가
+    // 🔥 Level 2 전용: 교체 서비스의 셀 설정 상태 초기화 (조건부)
     // - ExchangeService: 1:1 교체 + 보강 교체 모두 처리
     // - CircularExchangeService: 순환 교체 처리
     // - ChainExchangeService: 연쇄 교체 처리
-    _ref.read(exchangeServiceProvider).clearAllSelections();
-    _ref.read(circularExchangeServiceProvider).clearAllSelections();
-    _ref.read(chainExchangeServiceProvider).clearAllSelections();
+    if (!preserveCellSelection) {
+      _ref.read(exchangeServiceProvider).clearAllSelections();
+      _ref.read(circularExchangeServiceProvider).clearAllSelections();
+      _ref.read(chainExchangeServiceProvider).clearAllSelections();
+    }
 
     // 상태 업데이트 및 로깅
     _updateStateAndLog(ResetLevel.exchangeStates, reason ?? 'Level 2 초기화');
