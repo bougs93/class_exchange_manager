@@ -97,36 +97,34 @@ class _TeacherNoticeWidgetState extends ConsumerState<TeacherNoticeWidget> {
               padding: const EdgeInsets.all(5),
               child: Column(
                 children: [
-                  // 라디오 버튼 옵션만
-                  RadioGroup<MessageOption>(
-                    groupValue: noticeState.teacherMessageOption,
-                    onChanged: (value) {
-                      if (value != null) {
-                        noticeNotifier.setTeacherMessageOption(value);
-                      }
-                    },
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: RadioListTile<MessageOption>(
-                            title: const Text('화살표로 안내'),
-                            // subtitle: const Text('교체 형태로 표시'),
-                            value: MessageOption.option1,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
-                            dense: true,
-                          ),
+                  // 스위치 옵션
+                  Row(
+                    children: [
+                      Transform.scale(
+                        scale: 0.8,
+                        child: Switch(
+                          value: noticeState.teacherMessageOption == MessageOption.option2,
+                          onChanged: (value) {
+                            noticeNotifier.setTeacherMessageOption(
+                              value ? MessageOption.option2 : MessageOption.option1
+                            );
+                          },
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          activeThumbColor: Colors.blue.shade600,
+                          activeTrackColor: Colors.blue.shade200,
+                          inactiveThumbColor: Colors.grey.shade400,
+                          inactiveTrackColor: Colors.grey.shade300,
                         ),
-                        Expanded(
-                          child: RadioListTile<MessageOption>(
-                            title: const Text('수업으로 안내 '),
-                            // subtitle: const Text('교체된 수업 형태로 표시'),
-                            value: MessageOption.option2,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
-                            dense: true,
-                          ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '수업 안내',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade700,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ],
               ),

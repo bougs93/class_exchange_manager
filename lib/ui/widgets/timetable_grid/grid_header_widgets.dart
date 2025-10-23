@@ -107,7 +107,7 @@ class TeacherCountWidget extends StatelessWidget {
   }
 }
 
-/// 교체 뷰 체크박스 위젯
+/// 교체 뷰 스위치 위젯
 class ExchangeViewCheckbox extends StatelessWidget {
   final bool isEnabled;
   final ValueChanged<bool?> onChanged;
@@ -125,13 +125,17 @@ class ExchangeViewCheckbox extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Checkbox(
-            value: isEnabled,
-            onChanged: onChanged,
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
-            activeColor: Colors.blue.shade600,
-            checkColor: Colors.white,
+          Transform.scale(
+            scale: 0.8,
+            child: Switch(
+              value: isEnabled,
+              onChanged: onChanged,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              activeThumbColor: Colors.blue.shade600,
+              activeTrackColor: Colors.blue.shade200,
+              inactiveThumbColor: Colors.grey.shade400,
+              inactiveTrackColor: Colors.grey.shade300,
+            ),
           ),
           Text(
             '교체 뷰',
