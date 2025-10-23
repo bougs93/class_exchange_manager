@@ -201,7 +201,14 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
               cellState.selectedPeriod!,
             );
             break;
-          // 보강교체는 _operationManager.toggleSupplementExchangeMode()에서 처리되므로 제거
+          case ExchangeMode.supplementExchange:
+            // 보강교체는 exchangeService를 사용하므로 동기화 필요
+            exchangeService.selectCell(
+              cellState.selectedTeacher!,
+              cellState.selectedDay!,
+              cellState.selectedPeriod!,
+            );
+            break;
           default:
             break;
         }
@@ -214,14 +221,26 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
         notifier.setAvailableSteps([2]);
         // 셀이 선택된 상태라면 1:1교체 경로 탐색
         if (isExchangeModeSwitch && exchangeService.hasSelectedCell()) {
-          updateExchangeableTimes();
+          // 선택된 셀이 빈 셀인지 확인
+          if (_isSelectedCellEmpty()) {
+            AppLogger.exchangeDebug('1:1교체: 빈 셀이 선택됨 - 경로 탐색 건너뜀');
+            onEmptyCellSelected();
+          } else {
+            updateExchangeableTimes();
+          }
         }
         break;
       case ExchangeMode.circularExchange:
         notifier.setAvailableSteps([2, 3, 4, 5]);
         // 셀이 선택된 상태라면 순환교체 경로 탐색
         if (isExchangeModeSwitch && circularExchangeService.hasSelectedCell()) {
-          findCircularPathsWithProgress();
+          // 선택된 셀이 빈 셀인지 확인
+          if (_isSelectedCellEmpty()) {
+            AppLogger.exchangeDebug('순환교체: 빈 셀이 선택됨 - 경로 탐색 건너뜀');
+            onEmptyCellSelected();
+          } else {
+            findCircularPathsWithProgress();
+          }
         }
         break;
       case ExchangeMode.chainExchange:
@@ -232,7 +251,13 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
         _filterStateManager.setStepFilter(null);
         // 셀이 선택된 상태라면 연쇄교체 경로 탐색
         if (isExchangeModeSwitch && chainExchangeService.hasSelectedCell()) {
-          findChainPathsWithProgress();
+          // 선택된 셀이 빈 셀인지 확인
+          if (_isSelectedCellEmpty()) {
+            AppLogger.exchangeDebug('연쇄교체: 빈 셀이 선택됨 - 경로 탐색 건너뜀');
+            onEmptyChainCellSelected();
+          } else {
+            findChainPathsWithProgress();
+          }
         }
         break;
       case ExchangeMode.supplementExchange:
@@ -240,7 +265,13 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
         _operationManager.toggleSupplementExchangeMode(preserveCellSelection: isExchangeModeSwitch);
         // 셀이 선택된 상태라면 보강교체 경로 탐색
         if (isExchangeModeSwitch && exchangeService.hasSelectedCell()) {
-          _processSupplementCellSelection();
+          // 선택된 셀이 빈 셀인지 확인
+          if (_isSelectedCellEmpty()) {
+            AppLogger.exchangeDebug('보강교체: 빈 셀이 선택됨 - 경로 탐색 건너뜀');
+            onEmptyCellSelected();
+          } else {
+            _processSupplementCellSelection();
+          }
         }
         return; // 보강교체 모드 토글에서 모든 처리를 완료하므로 여기서 종료
       case ExchangeMode.nonExchangeableEdit:
@@ -326,7 +357,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     AppLogger.exchangeDebug('보강교체: 셀 선택 후 처리 완료 - 사이드바 활성화 및 교사 이름 선택 기능 활성화');
   }
 
-  /// 셀에 수업이 있는지 확인 (보강교체용)
+  /// 공통 빈셀 확인 메서드 (모든 교체 모드에서 사용)
   /// 
   /// [teacherName] 교사 이름
   /// [day] 요일 (월, 화, 수, 목, 금)
@@ -346,13 +377,37 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       );
       
       bool hasClass = timeSlot.isNotEmpty;
-      AppLogger.exchangeDebug('보강교체 셀 확인: $teacherName $day$period교시, 수업있음=$hasClass');
+      AppLogger.exchangeDebug('셀 확인: $teacherName $day$period교시, 수업있음=$hasClass');
       
       return hasClass;
     } catch (e) {
-      AppLogger.exchangeDebug('보강교체 셀 확인 중 오류: $e');
+      AppLogger.exchangeDebug('셀 확인 중 오류: $e');
       return false;
     }
+  }
+
+  /// 선택된 셀이 빈 셀인지 확인 (모든 교체 모드용)
+  bool _isSelectedCellEmpty() {
+    // 현재 교체 모드에 따라 적절한 서비스 선택
+    String? teacher;
+    String? day;
+    int? period;
+    
+    if (_isChainExchangeModeEnabled) {
+      teacher = chainExchangeService.selectedTeacher;
+      day = chainExchangeService.selectedDay;
+      period = chainExchangeService.selectedPeriod;
+    } else {
+      teacher = exchangeService.selectedTeacher;
+      day = exchangeService.selectedDay;
+      period = exchangeService.selectedPeriod;
+    }
+    
+    if (teacher == null || day == null || period == null || _timetableData == null) {
+      return true;
+    }
+
+    return !_isCellNotEmpty(teacher, day, period);
   }
 
   /// Excel 파일 선택 (OperationManager 위임)
@@ -773,7 +828,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     
     // 빈 셀인 경우 다른 교체 모드와 동일하게 처리
     if (!hasClass) {
-      AppLogger.exchangeDebug('보강교체: 빈 셀 클릭 - 다른 교체 모드와 동일하게 처리');
+      AppLogger.exchangeDebug('보강교체: 빈 셀 클릭 - 공통 빈셀 처리');
       _processEmptyCellSelection(teacherName, dayPeriodInfo.day, dayPeriodInfo.period);
       return;
     }
@@ -808,7 +863,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     _processSupplementCellSelection();
   }
 
-  /// 보강교체에서 빈 셀 선택 처리 (다른 교체 모드와 동일한 방식)
+  /// 보강교체에서 빈 셀 선택 처리 (공통 빈셀 처리 방식)
   void _processEmptyCellSelection(String teacherName, String day, int period) {
     AppLogger.exchangeDebug('보강교체: 빈 셀 선택 처리 - $teacherName $day$period교시');
     
@@ -822,23 +877,20 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       return;
     }
     
-    // 새로운 빈 셀 선택 (다른 교체 모드와 동일한 방식)
+    // 새로운 빈 셀 선택
     AppLogger.exchangeDebug('보강교체: 새로운 빈 셀 선택 - $teacherName $day$period교시');
     
     // 1. 셀 선택 (ExchangeService와 CellSelectionProvider에 저장)
     exchangeService.selectCell(teacherName, day, period);
     ref.read(cellSelectionProvider.notifier).selectCell(teacherName, day, period);
-    AppLogger.exchangeDebug('보강교체: 빈 셀 선택 완료 - $teacherName $day$period교시');
     
     // 2. 교사 이름 선택 상태 설정 (교사 이름 테마 변경용)
     ref.read(cellSelectionProvider.notifier).selectTeacherName(teacherName);
-    AppLogger.exchangeDebug('보강교체: 교사 이름 선택 완료 - $teacherName');
     
     // 3. 교체 모드 설정 (테마 변경용)
     ref.read(cellSelectionProvider.notifier).setExchangeMode(ExchangeMode.supplementExchange);
-    AppLogger.exchangeDebug('보강교체: 교체 모드 설정 완료 - supplementExchange');
     
-    // 4. 다른 교체 모드와 동일하게 빈 셀 선택 처리 (경로만 초기화, 셀 선택 유지)
+    // 4. 공통 빈 셀 선택 처리 (경로만 초기화, 셀 선택 유지)
     onEmptyCellSelected();
   }
 
@@ -990,9 +1042,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
     // 시간표 그리드 테마 업데이트 (이전 경로 표시 제거)
     _updateHeaderTheme();
-
-    showSnackBar('빈 셀은 연쇄교체할 수 없습니다.');
-    AppLogger.exchangeInfo('연쇄교체: 빈 셀 선택됨 - 경로 탐색 건너뜀');
   }
 
   @override
@@ -1399,7 +1448,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       final selectedPeriod = exchangeService.selectedPeriod!;
       
       // 교사 이름 클릭 시 해당 교사의 해당 시간대가 빈 셀인지 검사
-      if (!_isCellEmpty(teacherName, selectedDay, selectedPeriod)) {
+      if (_isCellNotEmpty(teacherName, selectedDay, selectedPeriod)) {
         AppLogger.exchangeDebug('보강교체 실행 실패: $teacherName의 $selectedDay$selectedPeriod교시는 수업이 있는 시간입니다');
         showSnackBar('보강할 시간에 수업이 없는 교사을 선택해주세요. $teacherName의 $selectedDay$selectedPeriod교시는 수업이 있는 시간입니다.', backgroundColor: Colors.orange);
         return;
@@ -1414,31 +1463,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     }
   }
 
-  /// 셀이 비어있는지 확인 (과목이나 학급이 없는지 검사)
-  /// 
-  /// [teacherName] 교사 이름
-  /// [day] 요일 (월, 화, 수, 목, 금)
-  /// [period] 교시 (1-7)
-  /// 
-  /// Returns: `bool` - 셀이 비어있으면 true, 비어있지 않으면 false
-  bool _isCellEmpty(String teacherName, String day, int period) {
-    if (_timetableData == null) return false;
-    
-    try {
-      final dayNumber = DayUtils.getDayNumber(day);
-      final timeSlot = _timetableData!.timeSlots.firstWhere(
-        (slot) => slot.teacher == teacherName && 
-                  slot.dayOfWeek == dayNumber && 
-                  slot.period == period,
-        orElse: () => TimeSlot(), // 빈 TimeSlot 반환
-      );
-      
-      return timeSlot.isEmpty;
-    } catch (e) {
-      AppLogger.exchangeDebug('셀 비어있음 검사 중 오류: $e');
-      return false;
-    }
-  }
 
   /// 보강교체 실행 (ExchangeExecutor 호출)
   void _executeSupplementExchangeViaExecutor(String targetTeacherName) {

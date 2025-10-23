@@ -9,7 +9,6 @@ import '../../models/chain_exchange_path.dart';
 import '../../utils/timetable_data_source.dart';
 import '../../utils/exchange_algorithm.dart';
 import '../../utils/logger.dart';
-import '../../utils/day_utils.dart';
 
 /// 교체 로직을 담당하는 Mixin
 /// 1:1 교체, 순환교체, 연쇄교체 관련 비즈니스 로직을 분리
@@ -152,13 +151,7 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
     // 테마 기반 헤더 업데이트
     updateHeaderTheme();
 
-    // 선택된 셀이 빈 셀인지 확인
-    if (timetableData != null && isSelectedCellEmpty()) {
-      AppLogger.exchangeDebug('순환교체: 빈 셀이 선택됨 - 경로 탐색 건너뜀');
-      // 빈 셀인 경우 처리 (구현 클래스에서 처리)
-      onEmptyCellSelected();
-      return;
-    }
+    // 빈 셀 확인은 ExchangeScreen에서 처리됨
 
     // 순환 교체 경로 찾기 시작 (구현 클래스에서 처리)
     if (timetableData != null) {
@@ -180,13 +173,7 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
     // 테마 기반 헤더 업데이트
     updateHeaderTheme();
 
-    // 선택된 셀이 빈 셀인지 확인
-    if (timetableData != null && isSelectedChainCellEmpty()) {
-      AppLogger.exchangeDebug('연쇄교체: 빈 셀이 선택됨 - 경로 탐색 건너뜀');
-      // 빈 셀인 경우 처리 (구현 클래스에서 처리)
-      onEmptyChainCellSelected();
-      return;
-    }
+    // 빈 셀 확인은 ExchangeScreen에서 처리됨
 
     // 연쇄 교체 경로 찾기 시작 (구현 클래스에서 처리)
     if (timetableData != null) {
@@ -263,65 +250,6 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
     return exchangeableTeachers.length;
   }
 
-  /// 선택된 셀이 빈 셀인지 확인 (순환교체)
-  bool isSelectedCellEmpty() {
-    if (circularExchangeService.selectedTeacher == null ||
-        circularExchangeService.selectedDay == null ||
-        circularExchangeService.selectedPeriod == null ||
-        timetableData == null) {
-      return true;
-    }
-
-    // 선택된 교사, 요일, 교시에 해당하는 시간표 슬롯 찾기
-    String teacherName = circularExchangeService.selectedTeacher!;
-    String selectedDay = circularExchangeService.selectedDay!;
-    int selectedPeriod = circularExchangeService.selectedPeriod!;
-
-    // 요일을 숫자로 변환
-    int dayOfWeek = DayUtils.getDayNumber(selectedDay);
-
-    // 해당 시간에 수업이 있는지 확인
-    bool hasClass = timetableData!.timeSlots.any((slot) =>
-      slot.teacher == teacherName &&
-      slot.dayOfWeek == dayOfWeek &&
-      slot.period == selectedPeriod &&
-      slot.isNotEmpty
-    );
-
-    AppLogger.exchangeDebug('순환교체 빈 셀 확인: 교사=$teacherName, 요일=$selectedDay($dayOfWeek), 교시=$selectedPeriod, 수업있음=$hasClass');
-
-    return !hasClass; // 수업이 없으면 빈 셀
-  }
-
-  /// 선택된 셀이 빈 셀인지 확인 (연쇄교체)
-  bool isSelectedChainCellEmpty() {
-    if (chainExchangeService.selectedTeacher == null ||
-        chainExchangeService.selectedDay == null ||
-        chainExchangeService.selectedPeriod == null ||
-        timetableData == null) {
-      return true;
-    }
-
-    // 선택된 교사, 요일, 교시에 해당하는 시간표 슬롯 찾기
-    String teacherName = chainExchangeService.selectedTeacher!;
-    String selectedDay = chainExchangeService.selectedDay!;
-    int selectedPeriod = chainExchangeService.selectedPeriod!;
-
-    // 요일을 숫자로 변환
-    int dayOfWeek = DayUtils.getDayNumber(selectedDay);
-
-    // 해당 시간에 수업이 있는지 확인
-    bool hasClass = timetableData!.timeSlots.any((slot) =>
-      slot.teacher == teacherName &&
-      slot.dayOfWeek == dayOfWeek &&
-      slot.period == selectedPeriod &&
-      slot.isNotEmpty
-    );
-
-    AppLogger.exchangeDebug('연쇄교체 빈 셀 확인: 교사=$teacherName, 요일=$selectedDay($dayOfWeek), 교시=$selectedPeriod, 수업있음=$hasClass');
-
-    return !hasClass; // 수업이 없으면 빈 셀
-  }
   
   // 추상 메서드들 - 구현 클래스에서 구현해야 함
   void onEmptyCellSelected();

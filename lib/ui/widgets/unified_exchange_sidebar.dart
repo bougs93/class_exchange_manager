@@ -617,7 +617,7 @@ class _UnifiedExchangeSidebarState extends State<UnifiedExchangeSidebar>
         ),
       ),
       child: Text(
-        '빈 셀 선택 대기',
+        '빈 수업 선택 대기',
         style: TextStyle(
           fontSize: SidebarFontSizes.nodeText,
           fontWeight: FontWeight.w500,
