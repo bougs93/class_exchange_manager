@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/excel_service.dart';
@@ -25,6 +24,7 @@ import 'timetable_grid/exchange_arrow_painter.dart';
 import 'timetable_grid/exchange_executor.dart';
 import 'timetable_grid/grid_header_widgets.dart';
 import 'timetable_grid/grid_scaling_helper.dart';
+import '../mixins/scroll_management_mixin.dart';
 
 /// 교체된 셀의 원본 정보를 저장하는 클래스
 /// 복원에 필요한 최소한의 정보만 포함
@@ -97,19 +97,12 @@ class TimetableGridSection extends ConsumerStatefulWidget {
 
 }
 
-class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
+class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> 
+    with ScrollManagementMixin {
   // 🧪 테스트: GlobalKey만 사용 - 나머지 모든 수정사항 원상복구
   // GlobalKey만으로도 DataGrid 재생성 문제가 해결되는지 테스트
   final GlobalKey<SfDataGridState> _dataGridKey = GlobalKey<SfDataGridState>();
   
-  // 스크롤 컨트롤러들
-  final ScrollController _horizontalScrollController = ScrollController();
-  final ScrollController _verticalScrollController = ScrollController();
-  
-  // 마우스 오른쪽 버튼 및 두 손가락 드래그 상태
-  Offset? _rightClickDragStart;
-  double? _rightClickScrollStartH;
-  double? _rightClickScrollStartV;
   
   // 싱글톤 화살표 상태 매니저
   final ArrowStateManager _arrowStateManager = ArrowStateManager();
@@ -133,9 +126,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       onEnableExchangeView: _enableExchangeView,
     );
 
-    // 스크롤 리스너 추가
-    _horizontalScrollController.addListener(_onScrollChanged);
-    _verticalScrollController.addListener(_onScrollChanged);
+    // 공통 스크롤 관리 믹신 초기화
+    initializeScrollControllers();
 
     // 테이블 렌더링 완료 후 UI 업데이트 요청
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -188,11 +180,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     // 스크롤 초기화 로그 (위젯 해제 시)
     AppLogger.exchangeDebug('[wg] 스크롤 초기화: 위젯 해제 시 (dispose)');
     
-    // 스크롤 리스너 제거 및 컨트롤러 정리
-    _horizontalScrollController.removeListener(_onScrollChanged);
-    _verticalScrollController.removeListener(_onScrollChanged);
-    _horizontalScrollController.dispose();
-    _verticalScrollController.dispose();
+    // 공통 스크롤 관리 믹신 해제
+    disposeScrollControllers();
 
     // 화살표 상태 정리
     _arrowStateManager.clearAllArrows();
@@ -201,17 +190,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
     super.dispose();
   }
 
-  /// 스크롤 변경 시 Provider 업데이트
-  /// 🔥 스크롤 문제 해결: 과거 커밋의 단순한 구조를 참고하여 스크롤 상태만 업데이트
-  void _onScrollChanged() {
-    final horizontalOffset = _horizontalScrollController.hasClients ? _horizontalScrollController.offset : 0.0;
-    final verticalOffset = _verticalScrollController.hasClients ? _verticalScrollController.offset : 0.0;
-    
-    
-    // 🔥 스크롤 문제 해결: 스크롤 상태만 업데이트하고 다른 상태는 건드리지 않음
-    // 과거 커밋의 단순한 구조를 유지하여 불필요한 상태 변경 방지
-    ref.read(scrollProvider.notifier).updateOffset(horizontalOffset, verticalOffset);
-  }
 
   /// UI 업데이트 요청
   void _requestUIUpdate() {
@@ -536,153 +514,67 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
       builder: (context, ref, child) {
         final zoomFactor = ref.watch(zoomProvider.select((s) => s.zoomFactor));
 
-        Widget dataGridContainer = GestureDetector(
-          // 두 손가락 드래그 스크롤 (모바일)
-          onScaleStart: (details) {
-            if (details.pointerCount == 2) {
-              _rightClickDragStart = details.focalPoint;
-              _rightClickScrollStartH = _horizontalScrollController.hasClients 
-                  ? _horizontalScrollController.offset : 0.0;
-              _rightClickScrollStartV = _verticalScrollController.hasClients 
-                  ? _verticalScrollController.offset : 0.0;
-              ref.read(scrollProvider.notifier).setScrolling(true);
-            }
-          },
-          onScaleUpdate: (details) {
-            if (details.pointerCount == 2 && 
-                _rightClickDragStart != null &&
-                _rightClickScrollStartH != null &&
-                _rightClickScrollStartV != null) {
-              
-              final delta = details.focalPoint - _rightClickDragStart!;
-              
-              // 수평 스크롤
-              if (_horizontalScrollController.hasClients) {
-                final newH = (_rightClickScrollStartH! - delta.dx)
-                    .clamp(0.0, _horizontalScrollController.position.maxScrollExtent);
-                _horizontalScrollController.jumpTo(newH);
-                AppLogger.exchangeDebug('🖱️ [스크롤] 두 손가락 터치 수평 스크롤: ${_rightClickScrollStartH!.toStringAsFixed(1)} → ${newH.toStringAsFixed(1)} (델타: ${delta.dx.toStringAsFixed(1)})');
-              }
-              
-              // 수직 스크롤
-              if (_verticalScrollController.hasClients) {
-                final newV = (_rightClickScrollStartV! - delta.dy)
-                    .clamp(0.0, _verticalScrollController.position.maxScrollExtent);
-                _verticalScrollController.jumpTo(newV);
-                AppLogger.exchangeDebug('🖱️ [스크롤] 두 손가락 터치 수직 스크롤: ${_rightClickScrollStartV!.toStringAsFixed(1)} → ${newV.toStringAsFixed(1)} (델타: ${delta.dy.toStringAsFixed(1)})');
-              }
-            }
-          },
-          onScaleEnd: (details) {
-            _rightClickDragStart = null;
-            _rightClickScrollStartH = null;
-            _rightClickScrollStartV = null;
-            ref.read(scrollProvider.notifier).setScrolling(false);
-          },
-          child: Listener(
-            // 마우스 오른쪽 버튼 스크롤 (데스크톱)
-            onPointerDown: (event) {
-              if (event.buttons == kSecondaryMouseButton) {
-                _rightClickDragStart = event.position;
-                _rightClickScrollStartH = _horizontalScrollController.hasClients 
-                    ? _horizontalScrollController.offset : 0.0;
-                _rightClickScrollStartV = _verticalScrollController.hasClients 
-                    ? _verticalScrollController.offset : 0.0;
-                ref.read(scrollProvider.notifier).setScrolling(true);
-              }
-            },
-            onPointerMove: (event) {
-              if (event.buttons == kSecondaryMouseButton && 
-                  _rightClickDragStart != null &&
-                  _rightClickScrollStartH != null &&
-                  _rightClickScrollStartV != null) {
-                
-                final delta = event.position - _rightClickDragStart!;
-                
-                // 수평 스크롤
-                if (_horizontalScrollController.hasClients) {
-                  final newH = (_rightClickScrollStartH! - delta.dx)
-                      .clamp(0.0, _horizontalScrollController.position.maxScrollExtent);
-                  _horizontalScrollController.jumpTo(newH);
-                }
-                
-                // 수직 스크롤
-                if (_verticalScrollController.hasClients) {
-                  final newV = (_rightClickScrollStartV! - delta.dy)
-                      .clamp(0.0, _verticalScrollController.position.maxScrollExtent);
-                  _verticalScrollController.jumpTo(newV);
-                }
-              }
-            },
-            onPointerUp: (event) {
-              if (event.buttons != kSecondaryMouseButton) {
-                _rightClickDragStart = null;
-                _rightClickScrollStartH = null;
-                _rightClickScrollStartV = null;
-                ref.read(scrollProvider.notifier).setScrolling(false);
-              }
-            },
-            child: RepaintBoundary(
-              child: Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Theme(
-                  data: Theme.of(context).copyWith(
-                    textTheme: Theme.of(context).textTheme.copyWith(
-                      bodyMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                      bodySmall: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                      titleMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                      labelMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                      labelLarge: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                      labelSmall: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                    ),
+        Widget dataGridContainer = wrapWithDragScroll(
+          RepaintBoundary(
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  textTheme: Theme.of(context).textTheme.copyWith(
+                    bodyMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                    bodySmall: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                    titleMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                    labelMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                    labelLarge: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                    labelSmall: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
                   ),
-                  child: NotificationListener<ScrollNotification>(
-                    onNotification: (ScrollNotification notification) {
-                      // Syncfusion DataGrid의 스크롤 이벤트 감지
-                      if (notification is ScrollUpdateNotification) {
-                        final metrics = notification.metrics;
-                        final currentState = ref.read(scrollProvider);
-                        
-                        // 현재 상태를 유지하면서 해당 축의 오프셋만 업데이트
-                        final newHorizontal = metrics.axis == Axis.horizontal 
-                            ? metrics.pixels 
-                            : currentState.horizontalOffset;
-                        final newVertical = metrics.axis == Axis.vertical 
-                            ? metrics.pixels 
-                            : currentState.verticalOffset;
-                        
-                            
-                        ref.read(scrollProvider.notifier).updateOffset(
-                          newHorizontal,
-                          newVertical,
-                        );
-                      }
-                      return false; // 다른 위젯도 이벤트를 받을 수 있도록
-                    },
-                    child: SfDataGrid(
-                      key: _dataGridKey,
-                      source: widget.dataSource!,
-                      columns: GridScalingHelper.scaleColumns(widget.columns, zoomFactor),
-                      stackedHeaderRows: GridScalingHelper.scaleStackedHeaders(widget.stackedHeaders, zoomFactor),
-                      gridLinesVisibility: GridLinesVisibility.both,
-                      headerGridLinesVisibility: GridLinesVisibility.both,
-                      headerRowHeight: GridScalingHelper.scaleHeaderHeight(zoomFactor),
-                      rowHeight: GridScalingHelper.scaleRowHeight(zoomFactor),
-                      allowColumnsResizing: false,
-                      allowSorting: false,
-                      allowEditing: false,
-                      allowTriStateSorting: false,
-                      allowPullToRefresh: false,
-                      selectionMode: SelectionMode.none,
-                      columnWidthMode: ColumnWidthMode.none,
-                      frozenColumnsCount: GridLayoutConstants.frozenColumnsCount,
-                      onCellTap: _handleCellTap,
-                      horizontalScrollController: _horizontalScrollController,
-                      verticalScrollController: _verticalScrollController,
-                    ),
+                ),
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: (ScrollNotification notification) {
+                    // Syncfusion DataGrid의 스크롤 이벤트 감지
+                    if (notification is ScrollUpdateNotification) {
+                      final metrics = notification.metrics;
+                      final currentState = ref.read(scrollProvider);
+                      
+                      // 현재 상태를 유지하면서 해당 축의 오프셋만 업데이트
+                      final newHorizontal = metrics.axis == Axis.horizontal 
+                          ? metrics.pixels 
+                          : currentState.horizontalOffset;
+                      final newVertical = metrics.axis == Axis.vertical 
+                          ? metrics.pixels 
+                          : currentState.verticalOffset;
+                      
+                          
+                      ref.read(scrollProvider.notifier).updateOffset(
+                        newHorizontal,
+                        newVertical,
+                      );
+                    }
+                    return false; // 다른 위젯도 이벤트를 받을 수 있도록
+                  },
+                  child: SfDataGrid(
+                    key: _dataGridKey,
+                    source: widget.dataSource!,
+                    columns: GridScalingHelper.scaleColumns(widget.columns, zoomFactor),
+                    stackedHeaderRows: GridScalingHelper.scaleStackedHeaders(widget.stackedHeaders, zoomFactor),
+                    gridLinesVisibility: GridLinesVisibility.both,
+                    headerGridLinesVisibility: GridLinesVisibility.both,
+                    headerRowHeight: GridScalingHelper.scaleHeaderHeight(zoomFactor),
+                    rowHeight: GridScalingHelper.scaleRowHeight(zoomFactor),
+                    allowColumnsResizing: false,
+                    allowSorting: false,
+                    allowEditing: false,
+                    allowTriStateSorting: false,
+                    allowPullToRefresh: false,
+                    selectionMode: SelectionMode.none,
+                    columnWidthMode: ColumnWidthMode.none,
+                    frozenColumnsCount: GridLayoutConstants.frozenColumnsCount,
+                    onCellTap: _handleCellTap,
+                    horizontalScrollController: horizontalScrollController,
+                    verticalScrollController: verticalScrollController,
                   ),
                 ),
               ),

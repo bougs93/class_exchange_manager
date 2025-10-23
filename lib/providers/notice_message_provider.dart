@@ -27,8 +27,8 @@ class NoticeMessageState {
   const NoticeMessageState({
     this.classMessageGroups = const [],
     this.teacherMessageGroups = const [],
-    this.classMessageOption = MessageOption.option1,
-    this.teacherMessageOption = MessageOption.option1,
+    this.classMessageOption = MessageOption.option2,
+    this.teacherMessageOption = MessageOption.option2,
     this.isLoading = false,
     this.errorMessage,
   });

@@ -86,7 +86,7 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel>
       elevation: 2,
       margin: EdgeInsets.zero, // Card의 기본 마진 제거
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(0.0, 0.0, 0.0, 0.0), // 하단 패딩 제거
+        padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 8.0), // 전체 패딩 최소화
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -180,32 +180,38 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel>
       return Container(height: 48); // TabBar와 동일한 높이
     }
     
-    return TabBar(
-      controller: _tabController!,
-      isScrollable: true,
-      onTap: (index) {
-        widget.onModeChanged(visibleModes[index]);
-      },
-      tabs: visibleModes.map((mode) => Tab(
-        icon: Icon(mode.icon, size: 20),
-        text: mode.displayName,
-      )).toList(),
-      labelColor: Colors.white,
-      unselectedLabelColor: Colors.grey.shade600,
-      indicator: BoxDecoration(
-        color: widget.currentMode.color,
-        borderRadius: BorderRadius.circular(8),
+    return Padding(
+      padding: const EdgeInsets.only(left: 0.0), // 왼쪽 여백 더 최소화
+      child: TabBar(
+        controller: _tabController!,
+        isScrollable: true,
+        onTap: (index) {
+          widget.onModeChanged(visibleModes[index]);
+        },
+        tabs: visibleModes.map((mode) => Tab(
+          icon: Icon(mode.icon, size: 20),
+          text: mode.displayName,
+        )).toList(),
+        labelColor: Colors.white,
+        unselectedLabelColor: Colors.grey.shade600,
+        indicator: BoxDecoration(
+          color: widget.currentMode.color,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        indicatorSize: TabBarIndicatorSize.tab,
+        // indicatorPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2), // horizontal 패딩 줄임
+        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        unselectedLabelStyle: const TextStyle(fontSize: 12),
+        tabAlignment: TabAlignment.start, // 탭들을 왼쪽 정렬
+        dividerColor: Colors.transparent, // 탭 아래 경계선 제거
+        dividerHeight: 0, // 탭 아래 경계선 높이 0으로 설정
+        // 최대 성능 최적화
+        overlayColor: WidgetStateProperty.all(Colors.transparent), // 오버레이 색상 투명화
+        splashFactory: NoSplash.splashFactory, // 스플래시 효과 제거
+        mouseCursor: SystemMouseCursors.click, // 마우스 커서만 유지
+        enableFeedback: false, // 햅틱 피드백 제거
+        // physics 제거: 가로폭이 좁을 때 스크롤 가능하도록 함
       ),
-      indicatorSize: TabBarIndicatorSize.tab,
-      indicatorPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-      unselectedLabelStyle: const TextStyle(fontSize: 12),
-      // 최대 성능 최적화
-      overlayColor: WidgetStateProperty.all(Colors.transparent), // 오버레이 색상 투명화
-      splashFactory: NoSplash.splashFactory, // 스플래시 효과 제거
-      mouseCursor: SystemMouseCursors.click, // 마우스 커서만 유지
-      enableFeedback: false, // 햅틱 피드백 제거
-      physics: const NeverScrollableScrollPhysics(), // 스크롤 물리 효과 제거 (isScrollable과 함께 사용)
     );
   }
 }

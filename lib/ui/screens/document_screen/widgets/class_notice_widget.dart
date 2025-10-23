@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../models/notice_message.dart';
 import '../../../../providers/notice_message_provider.dart';
 import '../../../widgets/notice_message_card.dart';
+import '../../../widgets/notice_control_panel.dart';
 
 /// 학급안내 위젯
 /// 
@@ -28,47 +29,16 @@ class _ClassNoticeWidgetState extends ConsumerState<ClassNoticeWidget> {
   @override
   Widget build(BuildContext context) {
     final noticeState = ref.watch(noticeMessageProvider);
-    final noticeNotifier = ref.read(noticeMessageProvider.notifier);
 
     return Container(
       padding: const EdgeInsets.all(5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 새로고침 버튼과 메시지 옵션 선택
-          Row(
-            children: [
-              // 새로고침 버튼 (카드 밖으로 분리)
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.blue.shade200,
-                    width: 1,
-                  ),
-                ),
-                child: IconButton(
-                  onPressed: () => noticeNotifier.refreshAllMessages(),
-                  icon: Icon(
-                    Icons.refresh,
-                    size: 18,
-                    color: Colors.blue.shade700,
-                  ),
-                  padding: const EdgeInsets.all(6),
-                  constraints: const BoxConstraints(
-                    minWidth: 22,
-                    minHeight: 22,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              
-              // 메시지 옵션 선택 (새로고침 버튼 제외)
-              Expanded(
-                child: _buildMessageOptionSelector(noticeState, noticeNotifier),
-              ),
-            ],
+          // 공통 제어 패널 사용 (학급안내 탭 색상과 동일)
+          NoticeControlPanel(
+            messageType: NoticeMessageType.classNotice,
+            refreshButtonColor: Colors.green,
           ),
           
           // 메시지 카드 리스트
@@ -81,59 +51,6 @@ class _ClassNoticeWidgetState extends ConsumerState<ClassNoticeWidget> {
   }
 
 
-  /// 메시지 옵션 선택 위젯 생성 (새로고침 버튼 제외)
-  Widget _buildMessageOptionSelector(
-    NoticeMessageState noticeState,
-    NoticeMessageNotifier noticeNotifier,
-  ) {
-    return Card(
-      elevation: 1,
-      child: Padding(
-        padding: const EdgeInsets.all(1),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(5),
-              child: Column(
-                children: [
-                  // 스위치 옵션
-                  Row(
-                    children: [
-                      Transform.scale(
-                        scale: 0.8,
-                        child: Switch(
-                          value: noticeState.classMessageOption == MessageOption.option2,
-                          onChanged: (value) {
-                            noticeNotifier.setClassMessageOption(
-                              value ? MessageOption.option2 : MessageOption.option1
-                            );
-                          },
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          activeThumbColor: Colors.blue.shade600,
-                          activeTrackColor: Colors.blue.shade200,
-                          inactiveThumbColor: Colors.grey.shade400,
-                          inactiveTrackColor: Colors.grey.shade300,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '수업 안내',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   /// 메시지 리스트 위젯 생성
   Widget _buildMessageList(NoticeMessageState noticeState) {

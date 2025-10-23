@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../utils/simplified_timetable_theme.dart';
 
 /// 확대/축소 컨트롤 위젯
 class ZoomControlWidget extends StatelessWidget {
@@ -116,27 +117,36 @@ class CellThemeLegend extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        // 선택된 셀 예시
+        _buildLegendItem(
+          backgroundColor: SimplifiedTimetableTheme.selectedColorLight,
+          borderColor: SimplifiedTimetableTheme.selectedCellBorderColor,
+          borderWidth: SimplifiedTimetableTheme.selectedCellBorderWidth,
+          label: '선택한 수업',
+        ),
+        const SizedBox(width: 8),
+        
         // 타겟 셀 예시
         _buildLegendItem(
-          backgroundColor: const Color.fromARGB(255, 255, 255, 255), // 흰색
-          borderColor: const Color(0xFFFF0000), // 빨간색
-          borderWidth: 2.5,
+          backgroundColor: SimplifiedTimetableTheme.targetCellBackgroundColor,
+          borderColor: SimplifiedTimetableTheme.targetCellBorderColor,
+          borderWidth: SimplifiedTimetableTheme.targetCellBorderWidth,
           label: '교체후 수업',
         ),
         const SizedBox(width: 8),
         
         // 교체된 소스 셀 예시
         _buildLegendItem(
-          backgroundColor: const Color.fromARGB(255, 255, 255, 255), // 흰색
-          borderColor: const Color(0xFF2196F3), // 파란색
-          borderWidth: 2.0,
+          backgroundColor: SimplifiedTimetableTheme.defaultColor,
+          borderColor: SimplifiedTimetableTheme.exchangedSourceCellBorderColor,
+          borderWidth: SimplifiedTimetableTheme.exchangedSourceCellBorderWidth,
           label: '비워진 수업',
         ),
         const SizedBox(width: 8),
         
         // 교체된 목적지 셀 예시
         _buildLegendItem(
-          backgroundColor: const Color.fromARGB(255, 144, 199, 245), // 연한 파란색
+          backgroundColor: SimplifiedTimetableTheme.exchangedDestinationCellBackgroundColor,
           borderColor: Colors.transparent,
           borderWidth: 0,
           label: '채워진 수업 ',
@@ -145,7 +155,7 @@ class CellThemeLegend extends StatelessWidget {
         
         // 교체불가 셀 예시
         _buildLegendItem(
-          backgroundColor: const Color(0xFFFFCDD2), // 연한 빨간색
+          backgroundColor: SimplifiedTimetableTheme.nonExchangeableColor,
           borderColor: Colors.transparent,
           borderWidth: 0,
           label: '교체불가 수업',

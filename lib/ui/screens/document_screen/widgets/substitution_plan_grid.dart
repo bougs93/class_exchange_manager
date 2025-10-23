@@ -5,6 +5,7 @@ import 'package:calendar_date_picker2/calendar_date_picker2.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../../providers/exchange_screen_provider.dart';
 import '../../../../utils/logger.dart';
+import '../../../mixins/scroll_management_mixin.dart';
 import 'substitution_plan_grid_helpers.dart';
 
 /// 보강계획서 데이터 소스
@@ -55,11 +56,32 @@ class SubstitutionPlanDataSource extends DataGridSource {
 }
 
 /// 보강계획서 그리드 위젯 (리팩토링 버전)
-class SubstitutionPlanGrid extends ConsumerWidget {
+class SubstitutionPlanGrid extends ConsumerStatefulWidget {
   const SubstitutionPlanGrid({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SubstitutionPlanGrid> createState() => _SubstitutionPlanGridState();
+}
+
+class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
+    with ScrollManagementMixin {
+  
+  @override
+  void initState() {
+    super.initState();
+    // 공통 스크롤 관리 믹신 초기화
+    initializeScrollControllers();
+  }
+
+  @override
+  void dispose() {
+    // 공통 스크롤 관리 믹신 해제
+    disposeScrollControllers();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     // Riverpod select 패턴 사용 - 필요한 상태만 구독
     final planData = ref.watch(
       substitutionPlanViewModelProvider.select((state) => state.planData)
@@ -69,17 +91,15 @@ class SubstitutionPlanGrid extends ConsumerWidget {
     );
     final viewModel = ref.read(substitutionPlanViewModelProvider.notifier);
 
-    return SingleChildScrollView(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildActionButtons(context, ref, viewModel),
-            const SizedBox(height: SubstitutionPlanGridConfig.mediumSpacing),
-            _buildDataGrid(context, ref, planData, isLoading, viewModel),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildActionButtons(context, ref, viewModel),
+          const SizedBox(height: 10),
+          _buildDataGrid(context, ref, planData, isLoading, viewModel),
+        ],
       ),
     );
   }
@@ -124,6 +144,7 @@ class SubstitutionPlanGrid extends ConsumerWidget {
               foregroundColor: Colors.white,
             ),
           ),
+          SizedBox(height: 20,),
         ],
       ),
     );
@@ -150,50 +171,64 @@ class SubstitutionPlanGrid extends ConsumerWidget {
       onSupplementSubjectTap: (exchangeId) => _showSubjectPickerDialog(context, ref, viewModel, exchangeId, planData),
     );
 
-    return SizedBox(
-      height: 500,
-      child: SfDataGrid(
-        source: dataSource,
-        columns: SubstitutionPlanGridConfig.getColumns(),
-        stackedHeaderRows: SubstitutionPlanGridConfig.getStackedHeaders(),
-        allowColumnsResizing: true,
-        columnResizeMode: ColumnResizeMode.onResize,
-        gridLinesVisibility: GridLinesVisibility.both,
-        headerGridLinesVisibility: GridLinesVisibility.both,
-        selectionMode: SelectionMode.single,
-        headerRowHeight: 35,
-        rowHeight: 28,
-        allowEditing: false,
+    return Expanded(
+      child: wrapWithDragScroll(
+        SfDataGrid(
+          source: dataSource,
+          columns: SubstitutionPlanGridConfig.getColumns(),
+          stackedHeaderRows: SubstitutionPlanGridConfig.getStackedHeaders(),
+          allowColumnsResizing: true,
+          columnResizeMode: ColumnResizeMode.onResize,
+          gridLinesVisibility: GridLinesVisibility.both,
+          headerGridLinesVisibility: GridLinesVisibility.both,
+          selectionMode: SelectionMode.single,
+          headerRowHeight: 35,
+          rowHeight: 28,
+          allowEditing: false,
+          // 교체 관리 시간표와 동일한 스크롤 컨트롤러 적용 (공통 믹신 사용)
+          horizontalScrollController: horizontalScrollController,
+          verticalScrollController: verticalScrollController,
+        ),
       ),
     );
   }
 
   Widget _buildLoadingIndicator() {
-    return const SizedBox(
-      height: 500,
-      child: Center(
-        child: CircularProgressIndicator(),
+    return Expanded(
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: const Center(
+          child: CircularProgressIndicator(),
+        ),
       ),
     );
   }
 
   Widget _buildEmptyState() {
-    return Container(
-      height: 500,
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.description_outlined, size: 64, color: Colors.grey.shade400),
-            const SizedBox(height: 16),
-            Text('교체 기록이 없습니다', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: Colors.grey.shade600)),
-            const SizedBox(height: 8),
-            Text('교체를 실행하면 여기에 기록이 표시됩니다', style: TextStyle(fontSize: 14, color: Colors.grey.shade500)),
-          ],
+    return Expanded(
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.description_outlined, size: 50, color: Colors.grey.shade400),
+                const SizedBox(height: 16),
+                Text('교체 기록이 없습니다', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: Colors.grey.shade600)),
+                const SizedBox(height: 8),
+                Text('교체를 실행하면 여기에 기록이 표시됩니다', style: TextStyle(fontSize: 14, color: Colors.grey.shade500)),
+              ],
+            ),
+          ),
         ),
       ),
     );

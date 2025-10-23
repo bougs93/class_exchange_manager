@@ -22,7 +22,9 @@ class MyApp extends StatelessWidget {
       title: 'Class Exchange Manager',
       theme: ThemeData(
         primarySwatch: Colors.blue,
+      
       ),
+      debugShowCheckedModeBanner: false,
       locale: const Locale('ko', 'KR'),
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,

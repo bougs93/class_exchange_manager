@@ -116,7 +116,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       'screen': PersonalScheduleScreen(),
     },
     {
-      'title': '문서 출력',
+      'title': '출력/안내',
       'icon': Icons.print,
       'screen': DocumentScreen(),
     },
