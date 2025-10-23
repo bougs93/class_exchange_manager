@@ -247,6 +247,14 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
             Expanded(
               child: _buildDataGridWithArrows(),
             ),
+
+            const SizedBox(height: 8),
+
+            // 셀 테마 예시 (그리드 하단)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: const CellThemeLegend(),
+            ),
           ],
         ),
       ),
@@ -255,94 +263,199 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> {
 
   /// 헤더 구성
   Widget _buildHeader() {
-    return Row(
-      children: [
-        const SizedBox(width: 8),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 화면 폭이 800px 미만일 때 세로 레이아웃으로 변경
+        final bool useVerticalLayout = constraints.maxWidth < 800;
+        
+        if (useVerticalLayout) {
+          // 세로 레이아웃 (화면이 좁을 때)
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 첫 번째 행: 확대/축소, 교사 수, 교체 뷰
+              Row(
+                children: [
+                  const SizedBox(width: 8),
+                  
+                  // 확대/축소 컨트롤
+                  Consumer(
+                    builder: (context, ref, child) {
+                      final zoomState = ref.watch(zoomProvider);
+                      final zoomNotifier = ref.read(zoomProvider.notifier);
+                      
+                      return ZoomControlWidget(
+                        zoomPercentage: zoomState.zoomPercentage,
+                        zoomFactor: zoomState.zoomFactor,
+                        minZoom: zoomState.minZoom,
+                        maxZoom: zoomState.maxZoom,
+                        onZoomIn: zoomNotifier.zoomIn,
+                        onZoomOut: zoomNotifier.zoomOut,
+                        onResetZoom: zoomNotifier.resetZoom,
+                      );
+                    },
+                  ),
+                  
+                  const SizedBox(width: 8),
+                  
+                  // 전체 교사 수 표시
+                  TeacherCountWidget(
+                    teacherCount: widget.timetableData!.teachers.length,
+                  ),
+                  
+                  const SizedBox(width: 8),
+                  
+                  // 교체 뷰 체크박스
+                  ExchangeViewCheckbox(
+                    isEnabled: ref.watch(isExchangeViewEnabledProvider),
+                    onChanged: (bool? value) {
+                      final isEnabled = value ?? false;
+                      
+                      if (isEnabled) {
+                        _enableExchangeView();
+                      } else {
+                        _disableExchangeView();
+                      }
+                    },
+                  ),
+                  
+                  const Spacer(),
+                  
+                  // 교체 버튼들
+                  Consumer(
+                    builder: (context, ref, child) {
+                      final cellState = ref.watch(cellSelectionProvider);
+                      final currentSelectedPath = cellState.selectedOneToOnePath ??
+                                                cellState.selectedCircularPath ??
+                                                cellState.selectedChainPath ??
+                                                cellState.selectedSupplementPath ??
+                                                widget.selectedExchangePath;
+                      final isFromExchangedCell = cellState.isFromExchangedCell;
 
-        // 확대/축소 컨트롤
-        Consumer(
-          builder: (context, ref, child) {
-            final zoomState = ref.watch(zoomProvider);
-            final zoomNotifier = ref.read(zoomProvider.notifier);
-            
-            return ZoomControlWidget(
-              zoomPercentage: zoomState.zoomPercentage,
-              zoomFactor: zoomState.zoomFactor,
-              minZoom: zoomState.minZoom,
-              maxZoom: zoomState.maxZoom,
-              onZoomIn: zoomNotifier.zoomIn,
-              onZoomOut: zoomNotifier.zoomOut,
-              onResetZoom: zoomNotifier.resetZoom,
-            );
-          },
-        ),
+                      return ExchangeActionButtons(
+                        onUndo: () => _exchangeExecutor.undoLastExchange(context, () {
+                          ref.read(stateResetProvider.notifier).resetExchangeStates(
+                            reason: '내부 경로 초기화',
+                          );
+                        }),
+                        onRepeat: () => _exchangeExecutor.repeatLastExchange(context),
+                        onDelete: (currentSelectedPath != null && isFromExchangedCell)
+                          ? () async => await _exchangeExecutor.deleteFromExchangeList(currentSelectedPath, context, () {
+                              ref.read(stateResetProvider.notifier).resetExchangeStates(
+                                reason: '내부 경로 초기화',
+                              );
+                            })
+                          : null,
+                        onExchange: (isInExchangeMode && !isFromExchangedCell && currentSelectedPath != null)
+                          ? () => _exchangeExecutor.executeExchange(currentSelectedPath, context, () {
+                              ref.read(stateResetProvider.notifier).resetExchangeStates(
+                                reason: '내부 경로 초기화',
+                              );
+                            })
+                          : null,
+                        showDeleteButton: currentSelectedPath != null && isFromExchangedCell,
+                        showExchangeButton: isInExchangeMode && !isFromExchangedCell,
+                      );
+                    },
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 8),
+            ],
+          );
+        } else {
+          // 가로 레이아웃 (화면이 넓을 때 - 기존 방식)
+          return Row(
+            children: [
+              const SizedBox(width: 8),
 
-        const SizedBox(width: 8),
+              // 확대/축소 컨트롤
+              Consumer(
+                builder: (context, ref, child) {
+                  final zoomState = ref.watch(zoomProvider);
+                  final zoomNotifier = ref.read(zoomProvider.notifier);
+                  
+                  return ZoomControlWidget(
+                    zoomPercentage: zoomState.zoomPercentage,
+                    zoomFactor: zoomState.zoomFactor,
+                    minZoom: zoomState.minZoom,
+                    maxZoom: zoomState.maxZoom,
+                    onZoomIn: zoomNotifier.zoomIn,
+                    onZoomOut: zoomNotifier.zoomOut,
+                    onResetZoom: zoomNotifier.resetZoom,
+                  );
+                },
+              ),
 
-        // 전체 교사 수 표시
-        TeacherCountWidget(
-          teacherCount: widget.timetableData!.teachers.length,
-        ),
+              const SizedBox(width: 8),
 
-        const SizedBox(width: 8),
+              // 전체 교사 수 표시
+              TeacherCountWidget(
+                teacherCount: widget.timetableData!.teachers.length,
+              ),
 
-        // 교체 뷰 체크박스
-        ExchangeViewCheckbox(
-          isEnabled: ref.watch(isExchangeViewEnabledProvider),
-          onChanged: (bool? value) {
-            final isEnabled = value ?? false;
-            
-            if (isEnabled) {
-              _enableExchangeView();
-            } else {
-              _disableExchangeView();
-            }
-          },
-        ),
+              const SizedBox(width: 4),
 
-        const SizedBox(width: 8),
+              // 교체 뷰 체크박스
+              ExchangeViewCheckbox(
+                isEnabled: ref.watch(isExchangeViewEnabledProvider),
+                onChanged: (bool? value) {
+                  final isEnabled = value ?? false;
+                  
+                  if (isEnabled) {
+                    _enableExchangeView();
+                  } else {
+                    _disableExchangeView();
+                  }
+                },
+              ),
 
-        const Spacer(),
+              const SizedBox(width: 8),
 
-        // 교체 버튼들
-        Consumer(
-          builder: (context, ref, child) {
-            // select 패턴으로 필요한 상태만 구독
-            final cellState = ref.watch(cellSelectionProvider);
-            final currentSelectedPath = cellState.selectedOneToOnePath ??
-                                      cellState.selectedCircularPath ??
-                                      cellState.selectedChainPath ??
-                                      cellState.selectedSupplementPath ??
-                                      widget.selectedExchangePath;
-            final isFromExchangedCell = cellState.isFromExchangedCell;
+              const Spacer(),
 
-            return ExchangeActionButtons(
-              onUndo: () => _exchangeExecutor.undoLastExchange(context, () {
-                ref.read(stateResetProvider.notifier).resetExchangeStates(
-                  reason: '내부 경로 초기화',
-                );
-              }),
-              onRepeat: () => _exchangeExecutor.repeatLastExchange(context),
-              onDelete: (currentSelectedPath != null && isFromExchangedCell)
-                ? () async => await _exchangeExecutor.deleteFromExchangeList(currentSelectedPath, context, () {
-                    ref.read(stateResetProvider.notifier).resetExchangeStates(
-                      reason: '내부 경로 초기화',
-                    );
-                  })
-                : null,
-              onExchange: (isInExchangeMode && !isFromExchangedCell && currentSelectedPath != null)
-                ? () => _exchangeExecutor.executeExchange(currentSelectedPath, context, () {
-                    ref.read(stateResetProvider.notifier).resetExchangeStates(
-                      reason: '내부 경로 초기화',
-                    );
-                  })
-                : null,
-              showDeleteButton: currentSelectedPath != null && isFromExchangedCell,
-              showExchangeButton: isInExchangeMode && !isFromExchangedCell,
-            );
-          },
-        ),
-      ],
+              // 교체 버튼들
+              Consumer(
+                builder: (context, ref, child) {
+                  final cellState = ref.watch(cellSelectionProvider);
+                  final currentSelectedPath = cellState.selectedOneToOnePath ??
+                                            cellState.selectedCircularPath ??
+                                            cellState.selectedChainPath ??
+                                            cellState.selectedSupplementPath ??
+                                            widget.selectedExchangePath;
+                  final isFromExchangedCell = cellState.isFromExchangedCell;
+
+                  return ExchangeActionButtons(
+                    onUndo: () => _exchangeExecutor.undoLastExchange(context, () {
+                      ref.read(stateResetProvider.notifier).resetExchangeStates(
+                        reason: '내부 경로 초기화',
+                      );
+                    }),
+                    onRepeat: () => _exchangeExecutor.repeatLastExchange(context),
+                    onDelete: (currentSelectedPath != null && isFromExchangedCell)
+                      ? () async => await _exchangeExecutor.deleteFromExchangeList(currentSelectedPath, context, () {
+                          ref.read(stateResetProvider.notifier).resetExchangeStates(
+                            reason: '내부 경로 초기화',
+                          );
+                        })
+                      : null,
+                    onExchange: (isInExchangeMode && !isFromExchangedCell && currentSelectedPath != null)
+                      ? () => _exchangeExecutor.executeExchange(currentSelectedPath, context, () {
+                          ref.read(stateResetProvider.notifier).resetExchangeStates(
+                            reason: '내부 경로 초기화',
+                          );
+                        })
+                      : null,
+                    showDeleteButton: currentSelectedPath != null && isFromExchangedCell,
+                    showExchangeButton: isInExchangeMode && !isFromExchangedCell,
+                  );
+                },
+              ),
+            ],
+          );
+        }
+      },
     );
   }
 

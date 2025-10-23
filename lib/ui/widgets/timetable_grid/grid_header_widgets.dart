@@ -107,6 +107,88 @@ class TeacherCountWidget extends StatelessWidget {
   }
 }
 
+/// 셀 테마 예시 위젯
+class CellThemeLegend extends StatelessWidget {
+  const CellThemeLegend({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 타겟 셀 예시
+        _buildLegendItem(
+          backgroundColor: const Color.fromARGB(255, 255, 255, 255), // 흰색
+          borderColor: const Color(0xFFFF0000), // 빨간색
+          borderWidth: 2.5,
+          label: '교체후 수업',
+        ),
+        const SizedBox(width: 8),
+        
+        // 교체된 소스 셀 예시
+        _buildLegendItem(
+          backgroundColor: const Color.fromARGB(255, 255, 255, 255), // 흰색
+          borderColor: const Color(0xFF2196F3), // 파란색
+          borderWidth: 2.0,
+          label: '비워진 수업',
+        ),
+        const SizedBox(width: 8),
+        
+        // 교체된 목적지 셀 예시
+        _buildLegendItem(
+          backgroundColor: const Color.fromARGB(255, 144, 199, 245), // 연한 파란색
+          borderColor: Colors.transparent,
+          borderWidth: 0,
+          label: '채워진 수업 ',
+        ),
+        const SizedBox(width: 8),
+        
+        // 교체불가 셀 예시
+        _buildLegendItem(
+          backgroundColor: const Color(0xFFFFCDD2), // 연한 빨간색
+          borderColor: Colors.transparent,
+          borderWidth: 0,
+          label: '교체불가 수업',
+        ),
+      ],
+    );
+  }
+
+  /// 개별 범례 아이템 생성
+  Widget _buildLegendItem({
+    required Color backgroundColor,
+    required Color borderColor,
+    required double borderWidth,
+    required String label,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            border: borderWidth > 0 
+                ? Border.all(color: borderColor, width: borderWidth)
+                : null,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: Colors.grey,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// 교체 뷰 스위치 위젯
 class ExchangeViewCheckbox extends StatelessWidget {
   final bool isEnabled;
