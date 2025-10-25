@@ -279,10 +279,13 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
 
     AppLogger.exchangeDebug('1:1 교체: 비동기 경로 탐색 시작');
 
-    // 로딩 시작
+    // ✅ 로딩 상태 시작 (1:1 교체용)
     setState(() {
       // UI 로딩 상태 표시
     });
+    
+    // 로딩 상태 설정은 구현 클래스에서 처리
+    onStartLoading();
 
     try {
       // 비동기로 교체 가능한 시간 탐색
@@ -298,7 +301,9 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
       // 1:1교체 경로 생성 (구현 클래스에서 처리)
       // ⚠️ 이 시점에서 Provider에 경로가 추가되고 UI 리스너가 트리거됨
       // ⚠️ 사이드바도 이 시점에서 표시됨 (generateOneToOnePaths 내부)
+      AppLogger.exchangeDebug('1:1 교체: generateOneToOnePaths 호출 직전');
       generateOneToOnePaths(options);
+      AppLogger.exchangeDebug('1:1 교체: generateOneToOnePaths 호출 완료');
 
       setState(() {
         // UI 상태 업데이트
@@ -319,10 +324,17 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
 
       AppLogger.exchangeDebug('1:1 교체: Provider 및 DataSource 업데이트 완료');
 
+      // ✅ 로딩 완료 상태 설정 (1:1 교체용)
+      onFinishLoading();
+
       // ✅ 모든 데이터 업데이트 완료
       // 헤더 테마 업데이트는 호출자(.then())에서 수행
-    } catch (e) {
+    } catch (e, stackTrace) {
       AppLogger.exchangeDebug('1:1 교체 경로 탐색 중 오류: $e');
+      AppLogger.exchangeDebug('스택 트레이스: $stackTrace');
+      
+      // ✅ 오류 발생 시에도 로딩 상태 해제
+      onErrorLoading();
     }
   }
 
@@ -369,6 +381,11 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
   void onEmptyCellSelected();
   void onEmptyChainCellSelected();
   Future<void> findCircularPathsWithProgress();
+  
+  // 로딩 상태 관리 콜백들 - 구현 클래스에서 구현해야 함
+  void onStartLoading();
+  void onFinishLoading();
+  void onErrorLoading();
   Future<void> findChainPathsWithProgress();
   void generateOneToOnePaths(List<dynamic> options); // ExchangeOption 리스트
   void onPathSelected(CircularExchangePath path);

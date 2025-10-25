@@ -366,6 +366,12 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
   /// 보강교체 셀 선택 후 처리 로직 (다른 교체 모드들과 동일)
   void _processSupplementCellSelection() {
+    // ✅ 로딩 상태 시작 (일관된 사용자 경험을 위해)
+    final notifier = ref.read(exchangeScreenProvider.notifier);
+    notifier.setPathsLoading(true);
+    notifier.setLoadingProgress(0.0);
+    notifier.setSidebarVisible(true); // 로딩 중에도 사이드바 표시
+    
     // 데이터 소스에 선택 상태만 업데이트 (재렌더링 방지)
     _dataSource?.updateSelection(
       exchangeService.selectedTeacher, 
@@ -379,11 +385,12 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     // 테마 기반 헤더 업데이트 (컬럼/헤더 재생성 없이)
     _updateHeaderTheme();
     
-    // 사이드바 표시 (선택된 셀 정보가 자동으로 표시됨)
-    ref.read(exchangeScreenProvider.notifier).setSidebarVisible(true);
-    
     // 교사 이름 선택 기능 활성화 (보강받을 교사 선택을 위해)
-    ref.read(exchangeScreenProvider.notifier).enableTeacherNameSelection();
+    notifier.enableTeacherNameSelection();
+    
+    // ✅ 로딩 완료 상태 설정 (즉시 완료)
+    notifier.setPathsLoading(false);
+    notifier.setLoadingProgress(1.0);
     
     AppLogger.exchangeDebug('보강교체: 셀 선택 후 처리 완료 - 사이드바 활성화 및 교사 이름 선택 기능 활성화');
   }
@@ -648,7 +655,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
           // 통합 교체 사이드바
           if (isSidebarVisible && (
-            (isExchangeModeEnabled && ExchangePathUtils.hasPathsOfType<OneToOneExchangePath>(availablePaths)) ||
+            (isExchangeModeEnabled && (ExchangePathUtils.hasPathsOfType<OneToOneExchangePath>(availablePaths) || isPathsLoading)) ||
             (isCircularExchangeModeEnabled && (ExchangePathUtils.hasPathsOfType<CircularExchangePath>(availablePaths) || isPathsLoading)) ||
             (isChainExchangeModeEnabled && (ExchangePathUtils.hasPathsOfType<ChainExchangePath>(availablePaths) || isPathsLoading)) ||
             (_isSupplementExchangeModeEnabled) // 보강교체 모드에서는 항상 사이드바 표시
@@ -1052,6 +1059,29 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     // 시간표 그리드 테마 업데이트 (이전 경로 표시 제거)
     _updateHeaderTheme();
   }
+  
+  // 로딩 상태 관리 콜백들 구현
+  @override
+  void onStartLoading() {
+    final notifier = ref.read(exchangeScreenProvider.notifier);
+    notifier.setPathsLoading(true);
+    notifier.setLoadingProgress(0.0);
+    notifier.setSidebarVisible(true); // 로딩 중에도 사이드바 표시
+  }
+  
+  @override
+  void onFinishLoading() {
+    final notifier = ref.read(exchangeScreenProvider.notifier);
+    notifier.setPathsLoading(false);
+    notifier.setLoadingProgress(1.0);
+  }
+  
+  @override
+  void onErrorLoading() {
+    final notifier = ref.read(exchangeScreenProvider.notifier);
+    notifier.setPathsLoading(false);
+    notifier.setLoadingProgress(0.0);
+  }
 
   @override
   Future<void> findChainPathsWithProgress() async {
@@ -1109,13 +1139,16 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
   @override
   void generateOneToOnePaths(List<dynamic> options) {
+    AppLogger.exchangeDebug('1:1 교체: generateOneToOnePaths 시작 (options=${options.length})');
+
     if (!exchangeService.hasSelectedCell() || timetableData == null) {
+      AppLogger.exchangeDebug('1:1 교체: 셀 미선택 또는 시간표 없음 - 사이드바 숨김');
       final notifier = ref.read(exchangeScreenProvider.notifier);
-      
+
       // 기존 경로들에서 1:1교체 경로 제거
       List<ExchangePath> otherPaths = ExchangePathUtils.removePaths<OneToOneExchangePath>(_stateProxy.availablePaths);
       notifier.setAvailablePaths(otherPaths);
-      
+
       notifier.setSelectedOneToOnePath(null);
       notifier.setSidebarVisible(false);
       return;
@@ -1145,18 +1178,24 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     }
 
     final notifier = ref.read(exchangeScreenProvider.notifier);
-    
+
+    AppLogger.exchangeDebug('1:1 교체: 생성된 경로 수 = ${paths.length}');
+
     // 기존 경로들에서 1:1교체 경로 제거 후 새로운 경로들 추가
     List<ExchangePath> newPaths = ExchangePathUtils.replacePaths(_stateProxy.availablePaths, paths);
     notifier.setAvailablePaths(newPaths);
-    
+
+    AppLogger.exchangeDebug('1:1 교체: 전체 경로 수 = ${newPaths.length}');
+
     notifier.setSelectedOneToOnePath(null);
 
     // 필터링된 경로 업데이트
     _updateFilteredPaths();
 
     // 경로가 있으면 사이드바 표시
-    notifier.setSidebarVisible(paths.isNotEmpty);
+    final shouldShowSidebar = paths.isNotEmpty;
+    AppLogger.exchangeDebug('1:1 교체: 사이드바 표시 = $shouldShowSidebar (paths=${paths.length})');
+    notifier.setSidebarVisible(shouldShowSidebar);
   }
 
   /// 필터링된 경로 업데이트 (통합)

@@ -405,15 +405,20 @@ class ExchangeOperationManager {
     // 3. 보강교체 모드 강제 활성화
     stateProxy.setSupplementExchangeModeEnabled(true);
 
-    // 4. Level 2 초기화 + 단계 설정
-    onClearAllExchangeStates();
-    stateProxy.setAvailableSteps([2]); // 보강교체는 2단계 (보강할 셀 선택 → 보강받을 셀 선택)
-    stateProxy.setSelectedStep(null);
-    stateProxy.setSelectedDay(null);
+        // 4. Level 2 초기화 + 단계 설정
+        onClearAllExchangeStates();
+        stateProxy.setAvailableSteps([2]); // 보강교체는 2단계 (보강할 셀 선택 → 보강받을 셀 선택)
+        stateProxy.setSelectedStep(null);
+        stateProxy.setSelectedDay(null);
 
-    // 5. 교사 이름 선택 기능 활성화
-    ref.read(exchangeScreenProvider.notifier).enableTeacherNameSelection();
-    AppLogger.exchangeDebug('[보강 모드] 교사 이름 선택 기능 활성화');
+        // 5. 교사 이름 선택 기능 활성화
+        ref.read(exchangeScreenProvider.notifier).enableTeacherNameSelection();
+        AppLogger.exchangeDebug('[보강 모드] 교사 이름 선택 기능 활성화');
+        
+        // 6. 로딩 상태 설정 (일관된 사용자 경험을 위해)
+        ref.read(exchangeScreenProvider.notifier).setPathsLoading(false);
+        ref.read(exchangeScreenProvider.notifier).setLoadingProgress(1.0);
+        ref.read(exchangeScreenProvider.notifier).setSidebarVisible(true);
 
     // 6. 헤더 테마 업데이트
     onRefreshHeaderTheme();
@@ -454,26 +459,35 @@ class ExchangeOperationManager {
     // 3. 보강교체 모드 토글
     stateProxy.setSupplementExchangeModeEnabled(!wasEnabled);
 
-    if (stateProxy.isSupplementExchangeModeEnabled) {
-      // 4. 활성화: Level 2 초기화 + 단계 설정
-      onClearAllExchangeStates();
-      stateProxy.setAvailableSteps([2]); // 보강교체는 2단계 (보강할 셀 선택 → 보강받을 셀 선택)
-      stateProxy.setSelectedStep(null);
-      stateProxy.setSelectedDay(null);
+        if (stateProxy.isSupplementExchangeModeEnabled) {
+          // 4. 활성화: Level 2 초기화 + 단계 설정
+          onClearAllExchangeStates();
+          stateProxy.setAvailableSteps([2]); // 보강교체는 2단계 (보강할 셀 선택 → 보강받을 셀 선택)
+          stateProxy.setSelectedStep(null);
+          stateProxy.setSelectedDay(null);
 
-      // 5. 교사 이름 선택 기능 활성화
-      ref.read(exchangeScreenProvider.notifier).enableTeacherNameSelection();
-      AppLogger.exchangeDebug('[보강 모드] 교사 이름 선택 기능 활성화');
-    } else {
-      // 비활성화: 단계 설정만 초기화
-      stateProxy.setAvailableSteps([]);
-      stateProxy.setSelectedStep(null);
-      stateProxy.setSelectedDay(null);
+          // 5. 교사 이름 선택 기능 활성화
+          ref.read(exchangeScreenProvider.notifier).enableTeacherNameSelection();
+          AppLogger.exchangeDebug('[보강 모드] 교사 이름 선택 기능 활성화');
+          
+          // 6. 로딩 상태 설정 (일관된 사용자 경험을 위해)
+          ref.read(exchangeScreenProvider.notifier).setPathsLoading(false);
+          ref.read(exchangeScreenProvider.notifier).setLoadingProgress(1.0);
+          ref.read(exchangeScreenProvider.notifier).setSidebarVisible(true);
+        } else {
+          // 비활성화: 단계 설정만 초기화
+          stateProxy.setAvailableSteps([]);
+          stateProxy.setSelectedStep(null);
+          stateProxy.setSelectedDay(null);
 
-      // 교사 이름 선택 기능 비활성화
-      ref.read(exchangeScreenProvider.notifier).disableTeacherNameSelection();
-      AppLogger.exchangeDebug('[보강 모드] 교사 이름 선택 기능 비활성화');
-    }
+          // 교사 이름 선택 기능 비활성화
+          ref.read(exchangeScreenProvider.notifier).disableTeacherNameSelection();
+          AppLogger.exchangeDebug('[보강 모드] 교사 이름 선택 기능 비활성화');
+          
+          // 로딩 상태 해제
+          ref.read(exchangeScreenProvider.notifier).setPathsLoading(false);
+          ref.read(exchangeScreenProvider.notifier).setLoadingProgress(0.0);
+        }
 
     // 6. 헤더 테마 업데이트
     onRefreshHeaderTheme();

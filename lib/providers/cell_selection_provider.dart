@@ -349,12 +349,12 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
     state = CellSelectionState(
       currentMode: state.currentMode,
       exchangeableTeachers: const [],
-      exchangedCells: state.exchangedCells,
-      exchangedDestinationCells: state.exchangedDestinationCells,
-      isArrowVisible: state.isArrowVisible,
-      arrowReason: state.arrowReason,
-      isFromExchangedCell: state.isFromExchangedCell,
-      cacheInvalidated: state.cacheInvalidated,
+      exchangedCells: const {},              // ✅ 초기화: 교체된 셀 정보 제거
+      exchangedDestinationCells: const {},   // ✅ 초기화: 교체된 목적지 셀 정보 제거
+      isArrowVisible: false,                // ✅ 초기화: 화살표 숨김
+      arrowReason: ArrowDisplayReason.manualHide, // ✅ 초기화: 화살표 이유 초기화
+      isFromExchangedCell: false,           // ✅ 초기화: 교체된 셀에서 온 화살표 아님
+      cacheInvalidated: false,              // ✅ 초기화: 캐시 무효화 상태 초기화
       lastUpdated: DateTime.now(),
     );
   }

@@ -84,12 +84,17 @@ mixin SidebarBuilder<T extends StatefulWidget> on State<T> {
       paths = []; // 보강교체 모드에서는 빈 리스트
     }
 
-    // 로딩 상태 결정
+    // 로딩 상태 결정 (모든 모드 통합 처리)
     bool isLoading = false;
-    if (isCircularExchangeModeEnabled) {
+    if (isExchangeModeEnabled) {
+      isLoading = isCircularPathsLoading; // 1:1 교체도 동일한 로딩 상태 사용
+    } else if (isCircularExchangeModeEnabled) {
       isLoading = isCircularPathsLoading;
     } else if (isChainExchangeModeEnabled) {
       isLoading = isChainPathsLoading;
+    } else if (isSupplementExchangeModeEnabled) {
+      // 보강교체는 실제 로딩이 없지만 일관성을 위해 동일한 로딩 상태 사용
+      isLoading = isCircularPathsLoading;
     }
 
     return UnifiedExchangeSidebar(

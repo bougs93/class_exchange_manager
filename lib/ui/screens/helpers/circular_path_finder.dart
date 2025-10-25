@@ -40,12 +40,26 @@ class CircularPathFinder {
       AppLogger.exchangeDebug('경로 탐색 실행 시작 - 선택된 셀: ${circularExchangeService.selectedTeacher}, ${circularExchangeService.selectedDay}, ${circularExchangeService.selectedPeriod}');
 
       // 백그라운드에서 경로 탐색 실행 (compute 사용)
+      // null 체크 강화
+      final selectedTeacher = circularExchangeService.selectedTeacher;
+      final selectedDay = circularExchangeService.selectedDay;
+      final selectedPeriod = circularExchangeService.selectedPeriod;
+      
+      if (selectedTeacher == null || selectedDay == null || selectedPeriod == null) {
+        AppLogger.exchangeDebug('순환교체: 백그라운드 탐색 취소 - 셀 정보 누락 (teacher=$selectedTeacher, day=$selectedDay, period=$selectedPeriod)');
+        return CircularPathResult(
+          paths: [],
+          shouldShowSidebar: false,
+          error: '선택된 셀 정보가 없습니다.',
+        );
+      }
+      
       Map<String, dynamic> data = {
         'timeSlots': timetableData!.timeSlots,
         'teachers': timetableData.teachers,
-        'selectedTeacher': circularExchangeService.selectedTeacher,
-        'selectedDay': circularExchangeService.selectedDay,
-        'selectedPeriod': circularExchangeService.selectedPeriod,
+        'selectedTeacher': selectedTeacher,
+        'selectedDay': selectedDay,
+        'selectedPeriod': selectedPeriod,
       };
 
       List<CircularExchangePath> paths = await compute(_findCircularExchangePathsInBackground, data);
@@ -122,11 +136,21 @@ List<CircularExchangePath> _findCircularExchangePathsInBackground(Map<String, dy
   // 백그라운드에서 새로운 CircularExchangeService 인스턴스 생성
   CircularExchangeService service = CircularExchangeService();
 
+  // 선택된 셀 정보 검증
+  final selectedTeacher = data['selectedTeacher'];
+  final selectedDay = data['selectedDay'];
+  final selectedPeriod = data['selectedPeriod'];
+
+  if (selectedTeacher == null || selectedDay == null || selectedPeriod == null) {
+    AppLogger.exchangeDebug('순환교체: 백그라운드 탐색 - 셀 정보 누락 (teacher=$selectedTeacher, day=$selectedDay, period=$selectedPeriod)');
+    return [];
+  }
+
   // 선택된 셀 정보 설정
   service.selectCell(
-    data['selectedTeacher'] as String,
-    data['selectedDay'] as String,
-    data['selectedPeriod'] as int,
+    selectedTeacher as String,
+    selectedDay as String,
+    selectedPeriod as int,
   );
 
   // 경로 탐색 실행

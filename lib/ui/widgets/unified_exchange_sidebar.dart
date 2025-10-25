@@ -293,7 +293,9 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
           Expanded(
             child: Text(
               widget.isLoading 
-                ? '경로 탐색 중...'
+                ? (widget.mode == ExchangePathType.supplement 
+                    ? '보강교체 준비 중...'
+                    : '경로 탐색 중...')
                 : widget.mode == ExchangePathType.supplement
                   ? '보강교체 안내'
                   : '${widget.filteredPaths.length}개 경로',
@@ -392,7 +394,9 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
           ),
           const SizedBox(height: 12),
           Text(
-            '경로 탐색 중...',
+            widget.mode == ExchangePathType.supplement 
+              ? '보강교체 준비 중...'
+              : '경로 탐색 중...',
             style: TextStyle(
               color: Colors.blue.shade600,
               fontSize: SidebarFontSizes.loadingMessage,
