@@ -321,8 +321,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
         ref.read(cellSelectionProvider.notifier).selectCell(teacher, day, period);
         ref.read(cellSelectionProvider.notifier).selectTeacherName(teacher);
         ref.read(cellSelectionProvider.notifier).setExchangeMode(ExchangeMode.supplementExchange);
-        // 보강 교체는 별도 경로 탐색 없음 (전체 빈 시간 표시)
-        _updateHeaderTheme();
+        // 보강교체 셀 선택 후 처리 (사이드바 표시 포함)
+        _processSupplementCellSelection();
         break;
 
       default:
@@ -658,7 +658,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
             (isExchangeModeEnabled && (ExchangePathUtils.hasPathsOfType<OneToOneExchangePath>(availablePaths) || isPathsLoading)) ||
             (isCircularExchangeModeEnabled && (ExchangePathUtils.hasPathsOfType<CircularExchangePath>(availablePaths) || isPathsLoading)) ||
             (isChainExchangeModeEnabled && (ExchangePathUtils.hasPathsOfType<ChainExchangePath>(availablePaths) || isPathsLoading)) ||
-            (_isSupplementExchangeModeEnabled && exchangeService.hasSelectedCell()) // 보강교체 모드에서는 셀 선택 시에만 사이드바 표시
+            (_isSupplementExchangeModeEnabled && ref.read(cellSelectionProvider.notifier).hasSelectedCell) // 보강교체 모드에서는 셀 선택 시에만 사이드바 표시
           ))
             buildUnifiedExchangeSidebar(),
         ],

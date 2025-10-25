@@ -451,6 +451,13 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
            state.selectedSupplementPath != null;
   }
 
+  /// 현재 선택된 셀이 있는지 확인
+  bool get hasSelectedCell {
+    return state.selectedTeacher != null &&
+           state.selectedDay != null &&
+           state.selectedPeriod != null;
+  }
+
   /// 화살표가 표시 중인지 확인
   bool get isArrowVisible => state.isArrowVisible;
 
