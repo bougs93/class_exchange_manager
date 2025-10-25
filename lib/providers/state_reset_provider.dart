@@ -116,18 +116,18 @@ class StateResetNotifier extends StateNotifier<ResetState> {
 
   /// 공통 초기화 작업 수행 (DataSource 및 화살표 제거)
   ///
-  /// **전제 조건**: 호출 전에 Provider 배치 업데이트가 먼저 완료되어야 함
+  /// **전제 조건**: 호출 전에 Provider와 DataSource 배치 업데이트가 먼저 완료되어야 함
   /// - Level 1: `resetPathSelectionBatch()` 호출 후
   /// - Level 2: `resetExchangeStatesBatch()` 호출 후
   ///
   /// **실행 순서**:
   /// 1. 화살표 메모리 제거
-  /// 2. DataSource 경로 초기화 (Provider는 이미 초기화됨)
-  /// 3. CellSelectionProvider 경로 초기화
-  /// 4. UI 업데이트
+  /// 2. DataSource 경로 초기화 (UI 렌더링에 필수)
+  /// 3. UI 업데이트
   ///
   /// **주의**:
-  /// - Provider 경로 초기화는 배치 업데이트에서 이미 완료됨 (중복 방지)
+  /// - Provider 경로는 배치 업데이트에서 이미 초기화됨
+  /// - CellSelectionProvider 경로도 DataSource 배치 업데이트에서 이미 초기화됨
   /// - 헤더 테마 업데이트는 포함하지 않음 (호출자가 결정)
   void _performCommonResetTasks() {
     // 1. 화살표 메모리 제거
@@ -135,7 +135,7 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     _ref.read(cellSelectionProvider.notifier).hideArrow();
 
     // 2. DataSource 경로 초기화 (UI 렌더링에 필수)
-    // ⚠️ Provider는 배치 업데이트에서 이미 초기화됨
+    // ⚠️ Provider와 CellSelectionProvider는 배치 업데이트에서 이미 초기화됨
     final dataSource = _exchangeNotifier.state.dataSource;
     if (dataSource != null) {
       dataSource.updateSelectedCircularPath(null);
@@ -144,34 +144,11 @@ class StateResetNotifier extends StateNotifier<ResetState> {
       dataSource.updateSelectedSupplementPath(null);
     }
 
-    // 3. CellSelectionProvider 경로 초기화 (셀 선택 상태는 유지)
-    _ref.read(cellSelectionProvider.notifier).clearPathsOnly();
-
-    // 4. UI 업데이트 (경로 초기화 완료 후!)
+    // 3. UI 업데이트 (경로 초기화 완료 후!)
     dataSource?.notifyDataChanged();
   }
 
-  /// 모든 셀 선택 상태 강제 해제
-  void _clearAllCellSelections() {
-    // 모든 교체 서비스 초기화
-    _ref.read(exchangeServiceProvider).clearAllSelections();
-    _ref.read(circularExchangeServiceProvider).clearAllSelections();
-    _ref.read(chainExchangeServiceProvider).clearAllSelections();
-    // 보강 교체는 ExchangeService에서 처리되므로 별도 Provider 불필요
-
-    // DataSource 및 테마 초기화
-    _exchangeNotifier.state.dataSource?.clearAllSelections();
-    _cellNotifier.clearAllSelections();
-
-    // Provider 경로 상태 초기화
-    _exchangeNotifier
-      ..setSelectedCircularPath(null)
-      ..setSelectedOneToOnePath(null)
-      ..setSelectedChainPath(null)
-      ..setSelectedSupplementPath(null);
-  }
-
-  /// 헤더 테마 업데이트 (ExchangeScreen의 _updateHeaderTheme와 동일한 로직)
+  /// 헤더 테마 업데이트 (Level 3 전용 - 모든 값 null)
   void _updateHeaderTheme() {
     final screenState = _exchangeNotifier.state;
     if (screenState.timetableData == null) return;
@@ -331,26 +308,21 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   void resetExchangeStates({String? reason}) {
     AppLogger.exchangeDebug('[Level 2] 이전 교체 상태 초기화: ${reason ?? "이유 없음"}');
 
-    // ExchangeScreenProvider 배치 업데이트
-    _exchangeNotifier.resetExchangeStatesBatch();
-
-    // TimetableDataSource 배치 업데이트 (Syncfusion DataGrid 전용)
-    final dataSource = _exchangeNotifier.state.dataSource;
-    dataSource?.resetExchangeStatesBatch();
-
-    // 공통 초기화 작업 수행 (경로 초기화 및 화살표 제거)
-    _performCommonResetTasks();
-
-    // Level 2 전용: 셀 선택 초기화
+    // 1. 먼저 서비스 상태 초기화 (UI 업데이트 전에)
     _ref.read(cellSelectionProvider.notifier).clearAllSelections();
-
-    // Level 2 전용: 교체 서비스의 셀 설정 상태 초기화
-    // - ExchangeService: 1:1 교체 + 보강 교체 모두 처리
-    // - CircularExchangeService: 순환 교체 처리
-    // - ChainExchangeService: 연쇄 교체 처리
     _ref.read(exchangeServiceProvider).clearAllSelections();
     _ref.read(circularExchangeServiceProvider).clearAllSelections();
     _ref.read(chainExchangeServiceProvider).clearAllSelections();
+
+    // 2. ExchangeScreenProvider 배치 업데이트
+    _exchangeNotifier.resetExchangeStatesBatch();
+
+    // 3. TimetableDataSource 배치 업데이트 (Syncfusion DataGrid 전용)
+    final dataSource = _exchangeNotifier.state.dataSource;
+    dataSource?.resetExchangeStatesBatch();
+
+    // 4. 공통 초기화 작업 수행 (화살표 제거 및 DataSource 경로 초기화, 마지막에 UI 업데이트)
+    _performCommonResetTasks();
 
     // ⚠️ 헤더 테마는 업데이트하지 않음
     // → ExchangeScreen에서 _updateHeaderTheme() 수동 호출 필요 (필요시)
@@ -367,14 +339,16 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   /// Level 3: 전체 상태 초기화
   ///
   /// **초기화 대상**:
-  /// - 모든 교체 서비스 상태
-  /// - 선택된 교체 경로 (Level 2 호출)
-  /// - 경로 리스트
-  /// - 선택된 셀 (source/target)
-  /// - 전역 Provider (선택, 캐시, 교체된 셀)
-  /// - UI 상태
+  /// - 모든 교체 서비스 상태 (Level 2에서 처리)
+  /// - 선택된 교체 경로 (Level 2에서 처리)
+  /// - 경로 리스트 (Level 2에서 처리)
+  /// - 선택된 셀 (Level 2에서 처리)
+  /// - 전역 Provider (CellSelectionProvider 완전 리셋)
+  /// - UI 상태 (Level 2에서 처리)
   /// - 헤더 테마 (기본값으로 복원)
   /// - 교체 히스토리 (_undoStack, _exchangeList)
+  /// - 줌 상태
+  /// - 교체뷰 상태
   ///
   /// **사용 시점**:
   /// - 파일 선택/해제 시
@@ -383,45 +357,26 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   void resetAllStates({String? reason}) {
     AppLogger.exchangeDebug('[Level 3] 전체 상태 초기화: ${reason ?? "이유 없음"}');
 
-    // Level 2 먼저 호출 (교체 상태 초기화)
+    // Level 2 먼저 호출 (교체 상태, 서비스, 셀 선택 모두 초기화됨)
     resetExchangeStates(reason: reason);
 
-    // Level 3 추가 작업: 전역 Provider 상태 초기화
+    // Level 3 추가 작업: 전역 Provider 완전 리셋
     _cellNotifier.reset();
 
     // 헤더 테마를 기본값으로 복원 (빈 상태로 설정)
     _exchangeNotifier.setColumns([]);
     _exchangeNotifier.setStackedHeaders([]);
 
-    // 모든 교체 모드 상태 초기화 (Level 3 전용 추가 초기화)
-    // Level 2에서 대부분 초기화되지만, 일부 누락된 상태들을 추가로 초기화
+    // 모든 교체 모드 상태 초기화
     _exchangeNotifier.setSelectedDay(null);
 
-    // 🔥 추가: 모든 셀 선택 상태 강제 해제 (ExchangeScreen의 _clearAllCellSelections와 동일한 동작)
-    // 이 코드가 없으면 모드 전환 시 선택된 셀이 유지되어 문제가 발생함
-    //   -> 헤더 테마 유지됨.
-    _clearAllCellSelections();
-
-    // 🔥 추가: 헤더 테마 업데이트 (모든 모드 변경 시 필수)
-    // 이 코드가 없으면 모드 전환 시 헤더 테마가 업데이트되지 않아 문제가 발생함
-    //   -> 헤더 테마 유지됨.
+    // 헤더 테마 업데이트 (모든 값 null로 재생성)
     _updateHeaderTheme();
 
-    // 🔥 추가: 교체 히스토리 초기화 (Level 3 전용)
-    // 파일 선택/해제 시 모든 교체 히스토리를 초기화
+    // Level 3 전용 초기화
     _clearExchangeHistory();
-
-    // 🔥 추가: 줌 상태 초기화 (Level 3 전용)
-    // 파일 선택/해제 시 줌 상태를 기본값으로 되돌림
     _resetZoomState();
-
-    // 🔥 추가: 교체뷰 상태 초기화 (Level 3 전용)
-    // 파일 선택/해제 시 교체뷰를 비활성화하고 상태를 초기화
     _resetExchangeViewState();
-
-    // 교체 서비스 초기화
-    // 주의: 서비스는 exchange_screen.dart에서 별도로 초기화됨
-    // Provider 순환 참조를 피하기 위해 여기서는 생략
 
     // 상태 업데이트 및 로깅
     _updateStateAndLog(ResetLevel.allStates, reason ?? 'Level 3 초기화');
