@@ -44,11 +44,11 @@ class SimplifiedTimetableTheme {
   // 교체된 셀 선택 시 헤더 색상 비활성화 플래그
   static bool _isExchangedCellSelectedHeaderDisabled = false;
 
-// 타겟 셀 테두리 색상 상수 (이동할 같은 교사의 셀 테두리)
-  static const Color targetCellBorderColor = Color(0xFFFF0000); // 타겟 셀 테두리 색상 (빨간색)
-  static const double targetCellBorderWidth = 2.5; // 타겟 셀 테두리 두께
-  static BorderStyle targetCellBorderStyle = BorderStyle.solid; // 타겟 셀 테두리 스타일 (solid만 지원, 점선은 CustomPainter 사용)
-  static const bool showTargetCellBorder = true; // 타겟 셀 테두리 표시 여부
+// 셀 선택시 선택교사가 이동할 목적지 셀 테두리 색상 상수 (선택교사가 이동할 같은 교사의 셀 테두리)
+  static const Color selectedTeacherDestinationBorderColor = Color(0xFFFF0000); // 선택된 교사가 이동할 목적지 셀 테두리 색상 (빨간색)
+  static const double selectedTeacherDestinationBorderWidth = 2.5; // 선택된 교사가 이동할 목적지 셀 테두리 두께
+  static BorderStyle selectedTeacherDestinationBorderStyle = BorderStyle.solid; // 선택된 교사가 이동할 목적지 셀 테두리 스타일 (solid만 지원, 점선은 CustomPainter 사용)
+  static const bool showSelectedTeacherDestinationBorder = true; // 선택된 교사가 이동할 목적지 셀 테두리 표시 여부
 
 // 교체된 소스 셀 테두리 색상 상수 (교체가 완료된 소스 셀의 테두리) - 원본 수업이 있던 셀
   static const Color exchangedSourceCellBorderColor = Color(0xFF2196F3); // 교체된 소스 셀 테두리 색상 (파란색)
@@ -59,9 +59,6 @@ class SimplifiedTimetableTheme {
   static const Color exchangedDestinationCellBackgroundColor = Color.fromARGB(255, 144, 199, 245); // 교체된 목적지 셀 배경색 (연한 파란색)
   static const bool showExchangedDestinationCellBackground = true; // 교체된 목적지 셀 배경색 표시 여부
   
-  // 타겟 셀 배경색 상수 (교체 대상의 같은 행 셀 배경색)
-  static const Color targetCellBackgroundColor = Color.fromARGB(255, 255, 255, 255); // 타겟 셀 배경색 (연한 녹색)
-  static const bool showTargetCellBackground = true; // 타겟 셀 배경색 표시 여부
 
   // 텍스트 색상 상수
   static const Color selectedTextColor = Colors.black; // 선택된 셀의 텍스트 색상 (흰색)
@@ -173,11 +170,6 @@ class SimplifiedTimetableTheme {
       return nonExchangeableColor;
     }
     
-    // 타겟 셀 배경색이 표시 여부가 true인 경우
-    if (isTargetCell && showTargetCellBackground) {
-      return targetCellBackgroundColor;
-    }
-    
     // 다른 상태들 (타겟 셀이 아닌 경우에만 적용)
     // 교체된 셀 선택 시 헤더의 노란색 배경 비활성화
     if (isSelected && !(isHeader && _isExchangedCellSelectedHeaderDisabled)) {
@@ -252,13 +244,13 @@ class SimplifiedTimetableTheme {
       );
     }
     
-    // 타겟 셀의 경우 빨간색 테두리 (표시 여부 설정에 따라)
+    // 선택된 교사가 이동할 목적지 셀의 경우 빨간색 테두리 (표시 여부 설정에 따라)
     // 헤더 셀과 일반 셀 모두에 적용
-    if (isTargetCell && showTargetCellBorder) {
+    if (isTargetCell && showSelectedTeacherDestinationBorder) {
       return Border.all(
-        color: targetCellBorderColor, 
-        width: targetCellBorderWidth,
-        style: targetCellBorderStyle, // 점선 또는 실선 스타일 적용
+        color: selectedTeacherDestinationBorderColor, 
+        width: selectedTeacherDestinationBorderWidth,
+        style: selectedTeacherDestinationBorderStyle, // 점선 또는 실선 스타일 적용
       );
     }
     

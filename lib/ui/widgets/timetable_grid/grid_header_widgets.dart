@@ -126,11 +126,11 @@ class CellThemeLegend extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         
-        // 타겟 셀 예시
+        // 선택된 교사가 이동할 목적지 셀 예시 (테두리만 표시)
         _buildLegendItem(
-          backgroundColor: SimplifiedTimetableTheme.targetCellBackgroundColor,
-          borderColor: SimplifiedTimetableTheme.targetCellBorderColor,
-          borderWidth: SimplifiedTimetableTheme.targetCellBorderWidth,
+          backgroundColor: SimplifiedTimetableTheme.defaultColor, // 기본 배경색 사용
+          borderColor: SimplifiedTimetableTheme.selectedTeacherDestinationBorderColor,
+          borderWidth: SimplifiedTimetableTheme.selectedTeacherDestinationBorderWidth,
           label: '교체후 수업',
         ),
         const SizedBox(width: 8),
