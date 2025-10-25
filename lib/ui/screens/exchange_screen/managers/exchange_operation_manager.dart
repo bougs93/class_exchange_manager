@@ -418,7 +418,7 @@ class ExchangeOperationManager {
         // 6. 로딩 상태 설정 (일관된 사용자 경험을 위해)
         ref.read(exchangeScreenProvider.notifier).setPathsLoading(false);
         ref.read(exchangeScreenProvider.notifier).setLoadingProgress(1.0);
-        ref.read(exchangeScreenProvider.notifier).setSidebarVisible(true);
+        ref.read(exchangeScreenProvider.notifier).setSidebarVisible(false); // 셀 선택 전에는 사이드바 숨김
 
     // 6. 헤더 테마 업데이트
     onRefreshHeaderTheme();
@@ -473,7 +473,7 @@ class ExchangeOperationManager {
           // 6. 로딩 상태 설정 (일관된 사용자 경험을 위해)
           ref.read(exchangeScreenProvider.notifier).setPathsLoading(false);
           ref.read(exchangeScreenProvider.notifier).setLoadingProgress(1.0);
-          ref.read(exchangeScreenProvider.notifier).setSidebarVisible(true);
+          ref.read(exchangeScreenProvider.notifier).setSidebarVisible(false); // 셀 선택 전에는 사이드바 숨김
         } else {
           // 비활성화: 단계 설정만 초기화
           stateProxy.setAvailableSteps([]);

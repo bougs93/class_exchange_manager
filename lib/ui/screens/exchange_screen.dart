@@ -658,7 +658,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
             (isExchangeModeEnabled && (ExchangePathUtils.hasPathsOfType<OneToOneExchangePath>(availablePaths) || isPathsLoading)) ||
             (isCircularExchangeModeEnabled && (ExchangePathUtils.hasPathsOfType<CircularExchangePath>(availablePaths) || isPathsLoading)) ||
             (isChainExchangeModeEnabled && (ExchangePathUtils.hasPathsOfType<ChainExchangePath>(availablePaths) || isPathsLoading)) ||
-            (_isSupplementExchangeModeEnabled) // 보강교체 모드에서는 항상 사이드바 표시
+            (_isSupplementExchangeModeEnabled && exchangeService.hasSelectedCell()) // 보강교체 모드에서는 셀 선택 시에만 사이드바 표시
           ))
             buildUnifiedExchangeSidebar(),
         ],
