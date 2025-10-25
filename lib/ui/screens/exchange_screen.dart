@@ -289,9 +289,10 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
         exchangeService.selectCell(teacher, day, period);
         ref.read(cellSelectionProvider.notifier).selectCell(teacher, day, period);
         ref.read(cellSelectionProvider.notifier).setExchangeMode(ExchangeMode.oneToOneExchange);
-        // 경로 탐색
-        updateExchangeableTimes();
-        _updateHeaderTheme();
+        // 경로 탐색 (비동기)
+        updateExchangeableTimesWithProgress().then((_) {
+          _updateHeaderTheme();
+        });
         break;
 
       case ExchangeMode.circularExchange:

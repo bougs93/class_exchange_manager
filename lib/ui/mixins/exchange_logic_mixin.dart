@@ -138,14 +138,14 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
       onEmptyCellSelected();
       return;
     }
-    
-    // 교체 가능한 시간 탐색 및 표시 (데이터 소스 재생성 없이)
-    updateExchangeableTimes();
-    
-    // 테마 기반 헤더 업데이트 (컬럼/헤더 재생성 없이)
-    updateHeaderTheme();
+
+    // 교체 가능한 시간 탐색 및 표시 (비동기 방식)
+    updateExchangeableTimesWithProgress().then((_) {
+      // 경로 탐색 완료 후 테마 기반 헤더 업데이트
+      updateHeaderTheme();
+    });
   }
-  
+
   /// 순환교체 셀 선택 후 처리 로직
   Future<void> processCircularCellSelection() async {
     AppLogger.exchangeDebug('순환교체: 셀 선택 후 처리 시작');
@@ -257,8 +257,18 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
     return !_isCellNotEmpty(teacher, day, period);
   }
 
-  /// 교체 가능한 시간 업데이트
-  void updateExchangeableTimes() {
+  /// 교체 가능한 시간 업데이트 (비동기 방식)
+  ///
+  /// **중요**: 헤더 테마 업데이트는 이 메서드 완료 후 호출자가 수행해야 함
+  /// - 경로 탐색 완료 → Provider 업데이트 → `.then()` → 헤더 테마 업데이트
+  ///
+  /// **실행 순서**:
+  /// 1. 로딩 상태 시작
+  /// 2. 경로 탐색
+  /// 3. generateOneToOnePaths() → Provider 경로 추가 + 사이드바 표시
+  /// 4. DataSource 업데이트
+  /// 5. 완료 (`.then()`에서 헤더 테마 업데이트)
+  Future<void> updateExchangeableTimesWithProgress() async {
     if (timetableData == null || !exchangeService.hasSelectedCell()) {
       setState(() {
         // 빈 목록으로 설정
@@ -266,32 +276,60 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
       dataSource?.updateExchangeOptions([]);
       return;
     }
-    
-    // ExchangeService를 사용하여 교체 가능한 시간 탐색
-    List<ExchangeOption> options = exchangeService.updateExchangeableTimes(
-      timetableData!.timeSlots,
-      timetableData!.teachers,
-    );
-    
-    // 1:1교체 경로 생성 (구현 클래스에서 처리)
-    generateOneToOnePaths(options);
-    
+
+    AppLogger.exchangeDebug('1:1 교체: 비동기 경로 탐색 시작');
+
+    // 로딩 시작
     setState(() {
-      // UI 상태 업데이트
+      // UI 로딩 상태 표시
     });
-    
-    // 데이터 소스에 교체 옵션 업데이트
-    dataSource?.updateExchangeOptions(options);
-    
-    // 교체 가능한 교사 정보를 별도로 업데이트
-    List<Map<String, dynamic>> exchangeableTeachers = exchangeService.getCurrentExchangeableTeachers(
-      timetableData!.timeSlots,
-      timetableData!.teachers,
-    );
-    dataSource?.updateExchangeableTeachers(exchangeableTeachers);
-    
-    // 디버그 로그 출력
-    exchangeService.logExchangeableInfo(exchangeableTeachers);
+
+    try {
+      // 비동기로 교체 가능한 시간 탐색
+      await Future.delayed(Duration.zero); // UI 업데이트를 위한 프레임 양보
+
+      List<ExchangeOption> options = exchangeService.updateExchangeableTimes(
+        timetableData!.timeSlots,
+        timetableData!.teachers,
+      );
+
+      AppLogger.exchangeDebug('1:1 교체: 경로 탐색 완료 - ${options.length}개 경로 발견');
+
+      // 1:1교체 경로 생성 (구현 클래스에서 처리)
+      // ⚠️ 이 시점에서 Provider에 경로가 추가되고 UI 리스너가 트리거됨
+      // ⚠️ 사이드바도 이 시점에서 표시됨 (generateOneToOnePaths 내부)
+      generateOneToOnePaths(options);
+
+      setState(() {
+        // UI 상태 업데이트
+      });
+
+      // 데이터 소스에 교체 옵션 업데이트
+      dataSource?.updateExchangeOptions(options);
+
+      // 교체 가능한 교사 정보를 별도로 업데이트
+      List<Map<String, dynamic>> exchangeableTeachers = exchangeService.getCurrentExchangeableTeachers(
+        timetableData!.timeSlots,
+        timetableData!.teachers,
+      );
+      dataSource?.updateExchangeableTeachers(exchangeableTeachers);
+
+      // 디버그 로그 출력
+      exchangeService.logExchangeableInfo(exchangeableTeachers);
+
+      AppLogger.exchangeDebug('1:1 교체: Provider 및 DataSource 업데이트 완료');
+
+      // ✅ 모든 데이터 업데이트 완료
+      // 헤더 테마 업데이트는 호출자(.then())에서 수행
+    } catch (e) {
+      AppLogger.exchangeDebug('1:1 교체 경로 탐색 중 오류: $e');
+    }
+  }
+
+  /// 교체 가능한 시간 업데이트 (하위 호환성을 위한 동기 래퍼)
+  @Deprecated('Use updateExchangeableTimesWithProgress() instead')
+  void updateExchangeableTimes() {
+    updateExchangeableTimesWithProgress();
   }
   
   /// 경로 선택 처리 (토글 기능 제거)
