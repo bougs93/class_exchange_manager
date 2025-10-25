@@ -141,22 +141,42 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   /// 교체 모드 변경 (TabBar에서 호출)
   void _changeMode(ExchangeMode newMode) {
     final notifier = ref.read(exchangeScreenProvider.notifier);
-    
+
+    // 모드 전환 전 선택된 셀 정보 저장
+    final cellState = ref.read(cellSelectionProvider);
+    final savedTeacher = cellState.selectedTeacher;
+    final savedDay = cellState.selectedDay;
+    final savedPeriod = cellState.selectedPeriod;
+
+    AppLogger.exchangeDebug(
+      '[모드 전환] 셀 정보 저장: $savedTeacher $savedDay$savedPeriod'
+    );
+
     // 즉시 모드 변경 (UI 반응성 향상)
     notifier.setCurrentMode(newMode);
-    
+
     // 무거운 작업들은 비동기로 처리
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        _performModeChangeTasks(newMode);
+        _performModeChangeTasks(
+          newMode,
+          savedTeacher: savedTeacher,
+          savedDay: savedDay,
+          savedPeriod: savedPeriod,
+        );
       }
     });
   }
-  
+
   /// 모드 변경 시 무거운 작업들을 비동기로 처리
-  void _performModeChangeTasks(ExchangeMode newMode) {
+  void _performModeChangeTasks(
+    ExchangeMode newMode, {
+    String? savedTeacher,
+    String? savedDay,
+    int? savedPeriod,
+  }) {
     final notifier = ref.read(exchangeScreenProvider.notifier);
-    
+
     // 모든 모드 전환 시 셀 선택 초기화 (단순화)
     _clearAllCellSelections();
 
@@ -191,15 +211,122 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
         notifier.setAvailableSteps([]);
         break;
     }
-    
+
     // 공통 초기화
     notifier.setSelectedStep(null);
     notifier.setSelectedDay(null);
-    
+
     // [중요] 헤더 테마 업데이트 (모든 모드 변경 시 필수)
-    // 이 코드가 없으면 모드 전환 시 헤더 테마가 업데이트되지 않아 문제가 발생함
-    //   -> 헤더 테마 유지됨.
     _updateHeaderTheme();
+
+    // 저장된 셀 정보가 있고, 교체 모드인 경우 셀 복원 및 자동 선택
+    if (savedTeacher != null && savedDay != null && savedPeriod != null) {
+      _restoreAndSelectCell(newMode, savedTeacher, savedDay, savedPeriod);
+    }
+  }
+
+  /// 저장된 셀을 복원하고 자동으로 선택 동작 수행
+  void _restoreAndSelectCell(
+    ExchangeMode mode,
+    String teacher,
+    String day,
+    int period,
+  ) {
+    // 교체 모드가 아니면 복원하지 않음
+    if (!mode.isExchangeMode &&
+        mode != ExchangeMode.circularExchange &&
+        mode != ExchangeMode.chainExchange &&
+        mode != ExchangeMode.supplementExchange) {
+      AppLogger.exchangeDebug('[모드 전환] 비교체 모드 - 셀 복원 건너뜀');
+      return;
+    }
+
+    AppLogger.exchangeDebug(
+      '[모드 전환] 셀 복원 시도: $teacher $day$period'
+    );
+
+    // DataSource가 없으면 복원 불가
+    if (_dataSource == null) {
+      AppLogger.exchangeDebug('[모드 전환] DataSource 없음 - 셀 복원 실패');
+      return;
+    }
+
+    // 다음 프레임에서 셀 선택 처리 (초기화 완료 후)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      try {
+        // 해당 셀에 대한 모의 탭 이벤트 생성
+        _simulateCellTap(teacher, day, period);
+
+        AppLogger.exchangeDebug(
+          '[모드 전환] 셀 복원 완료: $teacher $day$period'
+        );
+      } catch (e) {
+        AppLogger.exchangeDebug('[모드 전환] 셀 복원 중 오류: $e');
+      }
+    });
+  }
+
+  /// 셀 탭 시뮬레이션 (모드에 맞는 동작 수행)
+  void _simulateCellTap(String teacher, String day, int period) {
+    // 셀이 비어있는지 확인
+    final hasClass = _isCellNotEmpty(teacher, day, period);
+
+    if (!hasClass) {
+      // 빈 셀인 경우
+      AppLogger.exchangeDebug('[셀 복원] 빈 셀 처리: $teacher $day$period');
+      _processEmptyCellSelection(teacher, day, period);
+      return;
+    }
+
+    // 수업이 있는 셀인 경우 모드에 맞는 처리
+    final currentMode = ref.read(exchangeScreenProvider).currentMode;
+
+    switch (currentMode) {
+      case ExchangeMode.oneToOneExchange:
+        // 1:1 교체 시작
+        exchangeService.selectCell(teacher, day, period);
+        ref.read(cellSelectionProvider.notifier).selectCell(teacher, day, period);
+        ref.read(cellSelectionProvider.notifier).setExchangeMode(ExchangeMode.oneToOneExchange);
+        // 경로 탐색
+        updateExchangeableTimes();
+        _updateHeaderTheme();
+        break;
+
+      case ExchangeMode.circularExchange:
+        // 순환 교체 시작
+        circularExchangeService.selectCell(teacher, day, period);
+        ref.read(cellSelectionProvider.notifier).selectCell(teacher, day, period);
+        ref.read(cellSelectionProvider.notifier).setExchangeMode(ExchangeMode.circularExchange);
+        // 경로 탐색 (비동기)
+        findCircularPathsWithProgress();
+        _updateHeaderTheme();
+        break;
+
+      case ExchangeMode.chainExchange:
+        // 연쇄 교체 시작
+        chainExchangeService.selectCell(teacher, day, period);
+        ref.read(cellSelectionProvider.notifier).selectCell(teacher, day, period);
+        ref.read(cellSelectionProvider.notifier).setExchangeMode(ExchangeMode.chainExchange);
+        // 경로 탐색 (비동기)
+        findChainPathsWithProgress();
+        _updateHeaderTheme();
+        break;
+
+      case ExchangeMode.supplementExchange:
+        // 보강 교체 시작
+        exchangeService.selectCell(teacher, day, period);
+        ref.read(cellSelectionProvider.notifier).selectCell(teacher, day, period);
+        ref.read(cellSelectionProvider.notifier).selectTeacherName(teacher);
+        ref.read(cellSelectionProvider.notifier).setExchangeMode(ExchangeMode.supplementExchange);
+        // 보강 교체는 별도 경로 탐색 없음 (전체 빈 시간 표시)
+        _updateHeaderTheme();
+        break;
+
+      default:
+        AppLogger.exchangeDebug('[셀 복원] 지원하지 않는 모드: $currentMode');
+    }
   }
 
 
