@@ -706,9 +706,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     bool hasClass = _isCellNotEmpty(teacherName, dayPeriodInfo.day, dayPeriodInfo.period);
     AppLogger.exchangeDebug('보강교체 셀 상태: 수업 있음=$hasClass');
     
-    // 빈 셀인 경우 다른 교체 모드와 동일하게 처리
+    // 빈 셀인 경우 경로 탐색하지 않음
     if (!hasClass) {
-      AppLogger.exchangeDebug('보강교체: 빈 셀 클릭 - 공통 빈셀 처리');
+      AppLogger.exchangeDebug('보강교체: 빈 셀 클릭 - 경로 탐색 건너뜀');
       _processEmptyCellSelection(teacherName, dayPeriodInfo.day, dayPeriodInfo.period);
       return;
     }

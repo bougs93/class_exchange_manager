@@ -6,8 +6,10 @@ import '../../services/chain_exchange_service.dart';
 import '../../services/excel_service.dart';
 import '../../models/circular_exchange_path.dart';
 import '../../models/chain_exchange_path.dart';
+import '../../models/time_slot.dart';
 import '../../utils/timetable_data_source.dart';
 import '../../utils/exchange_algorithm.dart';
+import '../../utils/day_utils.dart';
 import '../../utils/logger.dart';
 
 /// 교체 로직을 담당하는 Mixin
@@ -130,6 +132,13 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
       exchangeService.selectedPeriod
     );
     
+    // 빈 셀인 경우 경로 탐색하지 않음
+    if (_isSelectedCellEmpty()) {
+      AppLogger.exchangeDebug('1:1교체: 빈 셀 선택 - 경로 탐색 건너뜀');
+      onEmptyCellSelected();
+      return;
+    }
+    
     // 교체 가능한 시간 탐색 및 표시 (데이터 소스 재생성 없이)
     updateExchangeableTimes();
     
@@ -151,7 +160,12 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
     // 테마 기반 헤더 업데이트
     updateHeaderTheme();
 
-    // 빈 셀 확인은 ExchangeScreen에서 처리됨
+    // 빈 셀인 경우 경로 탐색하지 않음
+    if (_isSelectedCellEmpty()) {
+      AppLogger.exchangeDebug('순환교체: 빈 셀 선택 - 경로 탐색 건너뜀');
+      onEmptyCellSelected();
+      return;
+    }
 
     // 순환 교체 경로 찾기 시작 (구현 클래스에서 처리)
     if (timetableData != null) {
@@ -173,7 +187,12 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
     // 테마 기반 헤더 업데이트
     updateHeaderTheme();
 
-    // 빈 셀 확인은 ExchangeScreen에서 처리됨
+    // 빈 셀인 경우 경로 탐색하지 않음
+    if (_isSelectedCellEmpty()) {
+      AppLogger.exchangeDebug('연쇄교체: 빈 셀 선택 - 경로 탐색 건너뜀');
+      onEmptyChainCellSelected();
+      return;
+    }
 
     // 연쇄 교체 경로 찾기 시작 (구현 클래스에서 처리)
     if (timetableData != null) {
@@ -181,6 +200,63 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
     }
   }
   
+  /// 셀이 비어있지 않은지 확인 (과목이나 학급이 있는지 검사)
+  /// 
+  /// [teacherName] 교사 이름
+  /// [day] 요일 (월, 화, 수, 목, 금)
+  /// [period] 교시 (1-7)
+  /// 
+  /// Returns: `bool` - 수업이 있으면 true, 없으면 false
+  bool _isCellNotEmpty(String teacherName, String day, int period) {
+    if (timetableData == null) return false;
+    
+    try {
+      final dayNumber = DayUtils.getDayNumber(day);
+      final timeSlot = timetableData!.timeSlots.firstWhere(
+        (slot) => slot.teacher == teacherName && 
+                  slot.dayOfWeek == dayNumber && 
+                  slot.period == period,
+        orElse: () => TimeSlot(), // 빈 TimeSlot 반환
+      );
+      
+      bool hasClass = timeSlot.isNotEmpty;
+      AppLogger.exchangeDebug('셀 확인: $teacherName $day$period교시, 수업있음=$hasClass');
+      
+      return hasClass;
+    } catch (e) {
+      AppLogger.exchangeDebug('셀 확인 중 오류: $e');
+      return false;
+    }
+  }
+
+  /// 선택된 셀이 빈 셀인지 확인 (모든 교체 모드용)
+  bool _isSelectedCellEmpty() {
+    // 현재 교체 모드에 따라 적절한 서비스 선택
+    String? teacher;
+    String? day;
+    int? period;
+    
+    if (isChainExchangeModeEnabled) {
+      teacher = chainExchangeService.selectedTeacher;
+      day = chainExchangeService.selectedDay;
+      period = chainExchangeService.selectedPeriod;
+    } else if (isCircularExchangeModeEnabled) {
+      teacher = circularExchangeService.selectedTeacher;
+      day = circularExchangeService.selectedDay;
+      period = circularExchangeService.selectedPeriod;
+    } else {
+      teacher = exchangeService.selectedTeacher;
+      day = exchangeService.selectedDay;
+      period = exchangeService.selectedPeriod;
+    }
+    
+    if (teacher == null || day == null || period == null || timetableData == null) {
+      return true;
+    }
+
+    return !_isCellNotEmpty(teacher, day, period);
+  }
+
   /// 교체 가능한 시간 업데이트
   void updateExchangeableTimes() {
     if (timetableData == null || !exchangeService.hasSelectedCell()) {
