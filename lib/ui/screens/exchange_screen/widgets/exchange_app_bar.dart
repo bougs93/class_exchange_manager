@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../providers/exchange_screen_provider.dart';
@@ -13,11 +14,13 @@ import '../../../../utils/logger.dart';
 class ExchangeAppBar extends ConsumerWidget implements PreferredSizeWidget {
   final ExchangeScreenState state;
   final VoidCallback onToggleSidebar;
+  final VoidCallback onUpdateHeaderTheme;
 
   const ExchangeAppBar({
     super.key,
     required this.state,
     required this.onToggleSidebar,
+    required this.onUpdateHeaderTheme,
   });
 
   @override
@@ -122,29 +125,30 @@ class ExchangeAppBar extends ConsumerWidget implements PreferredSizeWidget {
     
     switch (action) {
       case 'level1':
-        AppLogger.exchangeDebug('🧪 [테스트] Level 1 초기화 실행');
+        if (kDebugMode) {
+          AppLogger.exchangeDebug('🧪 [Level 1] 초기화 실행');
+        }
         stateResetNotifier.resetPathOnly(reason: '테스트 - Level 1 초기화');
+        onUpdateHeaderTheme(); // 헤더 테마 업데이트 필수
         _showTestResult(context, 'Level 1 초기화 완료', Colors.green);
         break;
-        
+
       case 'level2':
-        AppLogger.exchangeDebug('🧪 [테스트] Level 2 초기화 실행');
-        
-        // 초기화 전 상태 로깅
-        final beforeState = ref.read(cellSelectionProvider);
-        AppLogger.exchangeDebug('🧪 [테스트] 초기화 전 셀 선택 상태: ${beforeState.selectedTeacher} ${beforeState.selectedDay}${beforeState.selectedPeriod}');
-        
+        if (kDebugMode) {
+          final beforeState = ref.read(cellSelectionProvider);
+          AppLogger.exchangeDebug(
+            '🧪 [Level 2] 초기화: ${beforeState.selectedTeacher} '
+            '${beforeState.selectedDay}${beforeState.selectedPeriod} → 초기화됨'
+          );
+        }
         stateResetNotifier.resetExchangeStates(reason: '테스트 - Level 2 초기화');
-        
-        // 초기화 후 상태 로깅
-        final afterState = ref.read(cellSelectionProvider);
-        AppLogger.exchangeDebug('🧪 [테스트] 초기화 후 셀 선택 상태: ${afterState.selectedTeacher} ${afterState.selectedDay}${afterState.selectedPeriod}');
-        
         _showTestResult(context, 'Level 2 초기화 완료', Colors.orange);
         break;
-        
+
       case 'level3':
-        AppLogger.exchangeDebug('🧪 [테스트] Level 3 초기화 실행');
+        if (kDebugMode) {
+          AppLogger.exchangeDebug('🧪 [Level 3] 전체 상태 초기화 실행');
+        }
         stateResetNotifier.resetAllStates(reason: '테스트 - Level 3 초기화');
         _showTestResult(context, 'Level 3 초기화 완료', Colors.red);
         break;

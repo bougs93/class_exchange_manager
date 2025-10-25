@@ -495,6 +495,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       appBar: ExchangeAppBar(
         state: screenState,
         onToggleSidebar: _toggleSidebar,
+        onUpdateHeaderTheme: _updateHeaderTheme,
       ),
       body: Row(
         children: [

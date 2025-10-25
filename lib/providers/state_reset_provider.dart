@@ -114,26 +114,41 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   /// CellSelectionNotifier 참조 가져오기
   CellSelectionNotifier get _cellNotifier => _ref.read(cellSelectionProvider.notifier);
 
-  /// 공통 초기화 작업 수행 (화살표 제거만)
+  /// 공통 초기화 작업 수행 (DataSource 및 화살표 제거)
+  ///
+  /// **전제 조건**: 호출 전에 Provider 배치 업데이트가 먼저 완료되어야 함
+  /// - Level 1: `resetPathSelectionBatch()` 호출 후
+  /// - Level 2: `resetExchangeStatesBatch()` 호출 후
+  ///
+  /// **실행 순서**:
+  /// 1. 화살표 메모리 제거
+  /// 2. DataSource 경로 초기화 (Provider는 이미 초기화됨)
+  /// 3. CellSelectionProvider 경로 초기화
+  /// 4. UI 업데이트
+  ///
+  /// **주의**:
+  /// - Provider 경로 초기화는 배치 업데이트에서 이미 완료됨 (중복 방지)
+  /// - 헤더 테마 업데이트는 포함하지 않음 (호출자가 결정)
   void _performCommonResetTasks() {
+    // 1. 화살표 메모리 제거
     ArrowStateManager().clearAllArrows();
     _ref.read(cellSelectionProvider.notifier).hideArrow();
-    
-    // 🔥 강력한 UI 업데이트 (실제 화살표 제거를 위해)
-    _exchangeNotifier.state.dataSource?.notifyDataChanged();
-    
-    // 🔥 추가: 헤더 테마 업데이트로 화살표 완전 제거
-    _updateHeaderTheme();
-    
-    // 🔥 최종: 모든 경로를 강제로 null로 설정
-    _exchangeNotifier
-      ..setSelectedCircularPath(null)
-      ..setSelectedOneToOnePath(null)
-      ..setSelectedChainPath(null)
-      ..setSelectedSupplementPath(null);
-      
-    // 🔥 CellSelectionProvider의 경로만 초기화 (셀 선택 상태는 유지)
+
+    // 2. DataSource 경로 초기화 (UI 렌더링에 필수)
+    // ⚠️ Provider는 배치 업데이트에서 이미 초기화됨
+    final dataSource = _exchangeNotifier.state.dataSource;
+    if (dataSource != null) {
+      dataSource.updateSelectedCircularPath(null);
+      dataSource.updateSelectedOneToOnePath(null);
+      dataSource.updateSelectedChainPath(null);
+      dataSource.updateSelectedSupplementPath(null);
+    }
+
+    // 3. CellSelectionProvider 경로 초기화 (셀 선택 상태는 유지)
     _ref.read(cellSelectionProvider.notifier).clearPathsOnly();
+
+    // 4. UI 업데이트 (경로 초기화 완료 후!)
+    dataSource?.notifyDataChanged();
   }
 
   /// 모든 셀 선택 상태 강제 해제
@@ -251,21 +266,21 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   ///
   /// **초기화 대상**:
   /// - 선택된 교체 경로 (OneToOne/Circular/Chain)
+  /// - 화살표 상태
   ///
   /// **유지 대상**:
   /// - 선택된 셀 (source/target)
   /// - 경로 리스트
   /// - UI 상태
-  /// - 🔥 스크롤 위치 (과거 커밋의 단순한 구조를 참고)
+  /// - 스크롤 위치
   ///
   /// **사용 시점**:
   /// - 새로운 경로 선택 직전
   /// - 교체 실행 후 경로만 해제할 때
+  ///
+  /// **주의**: 헤더 테마 업데이트는 호출자(ExchangeScreen)에서 수동으로 호출해야 함
   void resetPathOnly({String? reason}) {
     AppLogger.exchangeDebug('[Level 1] 경로 선택만 초기화: ${reason ?? "이유 없음"}');
-
-    // 🔥 스크롤 문제 해결: 과거 커밋의 단순한 구조를 참고하여 스크롤 위치 보존
-    // Level 1 초기화 시에는 스크롤 상태를 건드리지 않음
 
     // ExchangeScreenProvider 배치 업데이트
     _exchangeNotifier.resetPathSelectionBatch();
@@ -274,8 +289,12 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     final dataSource = _exchangeNotifier.state.dataSource;
     dataSource?.resetPathSelectionBatch();
 
-    // 공통 초기화 작업 수행 (화살표 제거 포함)
+    // 공통 초기화 작업 수행 (경로 초기화 및 화살표 제거)
     _performCommonResetTasks();
+
+    // ⚠️ 헤더 테마는 업데이트하지 않음
+    // → ExchangeScreen에서 _updateHeaderTheme() 수동 호출 필요
+    // → 이유: Level 1은 선택된 셀을 유지하므로 셀 기반 헤더 업데이트 필요
 
     // 상태 업데이트 및 로깅
     _updateStateAndLog(ResetLevel.pathOnly, reason ?? 'Level 1 초기화');
@@ -289,7 +308,7 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   /// Level 2: 이전 교체 상태 초기화
   ///
   /// **초기화 대상**:
-  /// - 선택된 교체 경로 (Level 1 호출)
+  /// - 선택된 교체 경로
   /// - 경로 리스트 (circular/oneToOne/chain)
   /// - 사이드바 표시 상태
   /// - 로딩 상태
@@ -297,20 +316,20 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   /// - 캐시
   /// - 선택된 셀 (source/target)
   /// - 교체 서비스의 셀 설정 상태 (_selectedTeacher, _selectedDay, _selectedPeriod)
+  /// - 화살표 상태
   ///
   /// **유지 대상**:
   /// - 전역 Provider 상태
-  /// - 🔥 스크롤 위치 (과거 커밋의 단순한 구조를 참고)
+  /// - 스크롤 위치
   ///
   /// **사용 시점**:
   /// - 동일 모드 내에서 다른 셀 선택 시
   /// - 교체 후 다음 작업 준비 시
   /// - 모든 모드 전환 시 (보기 ↔ 1:1 ↔ 순환 ↔ 연쇄)
+  ///
+  /// **주의**: 헤더 테마 업데이트는 호출자(ExchangeScreen)에서 수동으로 호출해야 함
   void resetExchangeStates({String? reason}) {
     AppLogger.exchangeDebug('[Level 2] 이전 교체 상태 초기화: ${reason ?? "이유 없음"}');
-
-    // 🔥 스크롤 문제 해결: 과거 커밋의 단순한 구조를 참고하여 스크롤 위치 보존
-    // Level 2 초기화 시에도 스크롤 상태를 건드리지 않음
 
     // ExchangeScreenProvider 배치 업데이트
     _exchangeNotifier.resetExchangeStatesBatch();
@@ -319,19 +338,23 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     final dataSource = _exchangeNotifier.state.dataSource;
     dataSource?.resetExchangeStatesBatch();
 
-    // 공통 초기화 작업 수행 (화살표 제거 포함)
+    // 공통 초기화 작업 수행 (경로 초기화 및 화살표 제거)
     _performCommonResetTasks();
 
-    // 🔥 Level 2 전용: 셀 선택 초기화 (항상 초기화)
+    // Level 2 전용: 셀 선택 초기화
     _ref.read(cellSelectionProvider.notifier).clearAllSelections();
 
-    // 🔥 Level 2 전용: 교체 서비스의 셀 설정 상태 초기화 (항상 초기화)
+    // Level 2 전용: 교체 서비스의 셀 설정 상태 초기화
     // - ExchangeService: 1:1 교체 + 보강 교체 모두 처리
     // - CircularExchangeService: 순환 교체 처리
     // - ChainExchangeService: 연쇄 교체 처리
     _ref.read(exchangeServiceProvider).clearAllSelections();
     _ref.read(circularExchangeServiceProvider).clearAllSelections();
     _ref.read(chainExchangeServiceProvider).clearAllSelections();
+
+    // ⚠️ 헤더 테마는 업데이트하지 않음
+    // → ExchangeScreen에서 _updateHeaderTheme() 수동 호출 필요 (필요시)
+    // → Level 2는 셀 선택을 초기화하므로 빈 상태 헤더가 적절할 수 있음
 
     // 상태 업데이트 및 로깅
     _updateStateAndLog(ResetLevel.exchangeStates, reason ?? 'Level 2 초기화');
