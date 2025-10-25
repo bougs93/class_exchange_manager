@@ -157,91 +157,21 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   void _performModeChangeTasks(ExchangeMode newMode) {
     final notifier = ref.read(exchangeScreenProvider.notifier);
     
-    // 교체 모드 간 전환인지 확인 (간단한 플래그 사용)
-    final isExchangeModeSwitch = _isExchangeMode(newMode) && _isExchangeMode(_stateProxy.currentMode);
-    
-    // 교체 모드 간 전환이 아닌 경우에만 셀 선택 해제
-    if (!isExchangeModeSwitch) {
-      _clearAllCellSelections();
-    }
+    // 모든 모드 전환 시 셀 선택 초기화 (단순화)
+    _clearAllCellSelections();
 
-    // 모든 모드 전환 시 Level 2 초기화로 통일 (교체 모드 간 전환 시 셀 선택 유지)
+    // 모든 모드 전환 시 Level 2 초기화로 통일
     ref.read(stateResetProvider.notifier).resetExchangeStates(
       reason: '${newMode.displayName} 모드로 전환',
-      preserveCellSelection: isExchangeModeSwitch,
     );
-
-    // 교체 모드 간 전환 시 셀 선택 정보를 각 서비스에 동기화
-    if (isExchangeModeSwitch) {
-      final cellState = ref.read(cellSelectionProvider);
-      if (cellState.selectedTeacher != null && 
-          cellState.selectedDay != null && 
-          cellState.selectedPeriod != null) {
-        
-        // 새로운 모드의 서비스에 셀 선택 정보 설정
-        switch (newMode) {
-          case ExchangeMode.oneToOneExchange:
-            exchangeService.selectCell(
-              cellState.selectedTeacher!,
-              cellState.selectedDay!,
-              cellState.selectedPeriod!,
-            );
-            break;
-          case ExchangeMode.circularExchange:
-            circularExchangeService.selectCell(
-              cellState.selectedTeacher!,
-              cellState.selectedDay!,
-              cellState.selectedPeriod!,
-            );
-            break;
-          case ExchangeMode.chainExchange:
-            chainExchangeService.selectCell(
-              cellState.selectedTeacher!,
-              cellState.selectedDay!,
-              cellState.selectedPeriod!,
-            );
-            break;
-          case ExchangeMode.supplementExchange:
-            // 보강교체는 exchangeService를 사용하므로 동기화 필요
-            exchangeService.selectCell(
-              cellState.selectedTeacher!,
-              cellState.selectedDay!,
-              cellState.selectedPeriod!,
-            );
-            break;
-          default:
-            break;
-        }
-      }
-    }
 
     // 각 모드별 초기 설정
     switch (newMode) {
       case ExchangeMode.oneToOneExchange:
         notifier.setAvailableSteps([2]);
-        // 셀이 선택된 상태라면 1:1교체 경로 탐색
-        if (isExchangeModeSwitch && exchangeService.hasSelectedCell()) {
-          // 선택된 셀이 빈 셀인지 확인
-          if (_isSelectedCellEmpty()) {
-            AppLogger.exchangeDebug('1:1교체: 빈 셀이 선택됨 - 경로 탐색 건너뜀');
-            onEmptyCellSelected();
-          } else {
-            updateExchangeableTimes();
-          }
-        }
         break;
       case ExchangeMode.circularExchange:
         notifier.setAvailableSteps([2, 3, 4, 5]);
-        // 셀이 선택된 상태라면 순환교체 경로 탐색
-        if (isExchangeModeSwitch && circularExchangeService.hasSelectedCell()) {
-          // 선택된 셀이 빈 셀인지 확인
-          if (_isSelectedCellEmpty()) {
-            AppLogger.exchangeDebug('순환교체: 빈 셀이 선택됨 - 경로 탐색 건너뜀');
-            onEmptyCellSelected();
-          } else {
-            findCircularPathsWithProgress();
-          }
-        }
         break;
       case ExchangeMode.chainExchange:
         // 연쇄교체: 단계 필터 불필요 - 빈 배열로 설정하고 단계 필터 강제 초기화
@@ -249,31 +179,11 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
         notifier.setSelectedStep(null); // 단계 필터 강제 초기화
         // FilterStateManager에서도 강제 초기화
         _filterStateManager.setStepFilter(null);
-        // 셀이 선택된 상태라면 연쇄교체 경로 탐색
-        if (isExchangeModeSwitch && chainExchangeService.hasSelectedCell()) {
-          // 선택된 셀이 빈 셀인지 확인
-          if (_isSelectedCellEmpty()) {
-            AppLogger.exchangeDebug('연쇄교체: 빈 셀이 선택됨 - 경로 탐색 건너뜀');
-            onEmptyChainCellSelected();
-          } else {
-            findChainPathsWithProgress();
-          }
-        }
         break;
       case ExchangeMode.supplementExchange:
-        // 보강교체 모드 활성화 (셀 선택 유지)
-        _operationManager.toggleSupplementExchangeMode(preserveCellSelection: isExchangeModeSwitch);
-        // 셀이 선택된 상태라면 보강교체 경로 탐색
-        if (isExchangeModeSwitch && exchangeService.hasSelectedCell()) {
-          // 선택된 셀이 빈 셀인지 확인
-          if (_isSelectedCellEmpty()) {
-            AppLogger.exchangeDebug('보강교체: 빈 셀이 선택됨 - 경로 탐색 건너뜀');
-            onEmptyCellSelected();
-          } else {
-            _processSupplementCellSelection();
-          }
-        }
-        return; // 보강교체 모드 토글에서 모든 처리를 완료하므로 여기서 종료
+        // 보강교체 모드 활성화
+        _operationManager.toggleSupplementExchangeMode();
+        break;
       case ExchangeMode.nonExchangeableEdit:
         notifier.setAvailableSteps([]);
         break;
@@ -292,13 +202,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     _updateHeaderTheme();
   }
 
-  /// 교체 모드인지 확인하는 간단한 헬퍼 메서드
-  bool _isExchangeMode(ExchangeMode mode) {
-    return mode == ExchangeMode.oneToOneExchange ||
-           mode == ExchangeMode.circularExchange ||
-           mode == ExchangeMode.chainExchange ||
-           mode == ExchangeMode.supplementExchange;
-  }
 
   /// 셀을 교체불가로 설정 또는 해제 (ViewModel 사용)
   void _setCellAsNonExchangeable(DataGridCellTapDetails details) {
@@ -386,29 +289,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     }
   }
 
-  /// 선택된 셀이 빈 셀인지 확인 (모든 교체 모드용)
-  bool _isSelectedCellEmpty() {
-    // 현재 교체 모드에 따라 적절한 서비스 선택
-    String? teacher;
-    String? day;
-    int? period;
-    
-    if (_isChainExchangeModeEnabled) {
-      teacher = chainExchangeService.selectedTeacher;
-      day = chainExchangeService.selectedDay;
-      period = chainExchangeService.selectedPeriod;
-    } else {
-      teacher = exchangeService.selectedTeacher;
-      day = exchangeService.selectedDay;
-      period = exchangeService.selectedPeriod;
-    }
-    
-    if (teacher == null || day == null || period == null || _timetableData == null) {
-      return true;
-    }
-
-    return !_isCellNotEmpty(teacher, day, period);
-  }
 
   /// Excel 파일 선택 (OperationManager 위임)
   Future<bool> selectExcelFile() => _operationManager.selectExcelFile();
