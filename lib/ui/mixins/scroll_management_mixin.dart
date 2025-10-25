@@ -162,7 +162,6 @@ mixin ScrollManagementMixin<T extends ConsumerStatefulWidget> on ConsumerState<T
               final newH = (_rightClickScrollStartH! - delta.dx)
                   .clamp(0.0, horizontalScrollController.position.maxScrollExtent);
               horizontalScrollController.jumpTo(newH);
-              AppLogger.exchangeDebug('🖱️ [스크롤] 마우스 오른쪽 버튼 수평 스크롤: ${_rightClickScrollStartH!.toStringAsFixed(1)} → ${newH.toStringAsFixed(1)} (델타: ${delta.dx.toStringAsFixed(1)})');
             }
             
             // 수직 스크롤
@@ -170,7 +169,6 @@ mixin ScrollManagementMixin<T extends ConsumerStatefulWidget> on ConsumerState<T
               final newV = (_rightClickScrollStartV! - delta.dy)
                   .clamp(0.0, verticalScrollController.position.maxScrollExtent);
               verticalScrollController.jumpTo(newV);
-              AppLogger.exchangeDebug('🖱️ [스크롤] 마우스 오른쪽 버튼 수직 스크롤: ${_rightClickScrollStartV!.toStringAsFixed(1)} → ${newV.toStringAsFixed(1)} (델타: ${delta.dy.toStringAsFixed(1)})');
             }
           }
         },
