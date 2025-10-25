@@ -188,9 +188,12 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel>
         onTap: (index) {
           widget.onModeChanged(visibleModes[index]);
         },
-        tabs: visibleModes.map((mode) => Tab(
-          icon: Icon(mode.icon, size: 20),
-          text: mode.displayName,
+        tabs: visibleModes.map((mode) => Container(
+          width: 50, // 고정 폭 설정
+          child: Tab(
+            icon: Icon(mode.icon, size: 20),
+            text: mode.displayName,
+          ),
         )).toList(),
         labelColor: Colors.white,
         unselectedLabelColor: Colors.grey.shade600,
@@ -211,6 +214,7 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel>
         mouseCursor: SystemMouseCursors.click, // 마우스 커서만 유지
         enableFeedback: false, // 햅틱 피드백 제거
         // physics 제거: 가로폭이 좁을 때 스크롤 가능하도록 함
+        
       ),
     );
   }
