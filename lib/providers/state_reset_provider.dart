@@ -360,8 +360,8 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     // Level 2 먼저 호출 (교체 상태, 서비스, 셀 선택 모두 초기화됨)
     resetExchangeStates(reason: reason);
 
-    // Level 3 추가 작업: 전역 Provider 완전 리셋
-    _cellNotifier.reset();
+    // Level 3 추가 작업: 전역 Provider 완전 리셋 (교체된 셀 정보 포함)
+    _cellNotifier.clearAllSelectionsIncludingExchanged();
 
     // 헤더 테마를 기본값으로 복원 (빈 상태로 설정)
     _exchangeNotifier.setColumns([]);

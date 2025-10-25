@@ -423,11 +423,21 @@ class ExchangeExecutor {
   /// 교체된 셀 상태 업데이트 (공통 메서드)
   void _updateExchangedCells() {
     final cellNotifier = ref.read(cellSelectionProvider.notifier);
+    
+    // 교체된 셀 정보 추출
+    final exchangedCells = _extractExchangedCells();
+    final destinationCells = _extractDestinationCells();
+    
+    AppLogger.exchangeDebug('🔄 [ExchangeExecutor] 교체된 셀 정보 업데이트:');
+    AppLogger.exchangeDebug('  - 소스 셀: ${exchangedCells.length}개 - $exchangedCells');
+    AppLogger.exchangeDebug('  - 목적지 셀: ${destinationCells.length}개 - $destinationCells');
        
     // 교체된 소스 셀(교체 전 원본 수업이 있던 셀)의 테두리 스타일 업데이트
-    cellNotifier.updateExchangedCells(_extractExchangedCells());
+    cellNotifier.updateExchangedCells(exchangedCells);
     // 교체된 목적지 셀(교체 후 새 교사가 배정된 셀)의 배경색 업데이트
-    cellNotifier.updateExchangedDestinationCells(_extractDestinationCells());
+    cellNotifier.updateExchangedDestinationCells(destinationCells);
+    
+    AppLogger.exchangeDebug('✅ [ExchangeExecutor] 교체된 셀 상태 업데이트 완료');
   }
 
   /// 교체된 소스 셀 목록 추출 (교체 전 원본 위치의 셀들)

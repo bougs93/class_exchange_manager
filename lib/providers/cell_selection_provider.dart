@@ -349,8 +349,8 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
     state = CellSelectionState(
       currentMode: state.currentMode,
       exchangeableTeachers: const [],
-      exchangedCells: const {},              // ✅ 초기화: 교체된 셀 정보 제거
-      exchangedDestinationCells: const {},   // ✅ 초기화: 교체된 목적지 셀 정보 제거
+      exchangedCells: state.exchangedCells,              // ✅ 보존: 교체된 셀 정보 유지
+      exchangedDestinationCells: state.exchangedDestinationCells,   // ✅ 보존: 교체된 목적지 셀 정보 유지
       isArrowVisible: false,                // ✅ 초기화: 화살표 숨김
       arrowReason: ArrowDisplayReason.manualHide, // ✅ 초기화: 화살표 이유 초기화
       isFromExchangedCell: false,           // ✅ 초기화: 교체된 셀에서 온 화살표 아님
@@ -383,6 +383,21 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
     state = state.copyWith(
       exchangedCells: const {},
       exchangedDestinationCells: const {},
+      lastUpdated: DateTime.now(),
+    );
+  }
+
+  /// 모든 선택 상태 초기화 (교체된 셀 정보 포함)
+  void clearAllSelectionsIncludingExchanged() {
+    state = CellSelectionState(
+      currentMode: state.currentMode,
+      exchangeableTeachers: const [],
+      exchangedCells: const {},              // ✅ 초기화: 교체된 셀 정보 제거
+      exchangedDestinationCells: const {},   // ✅ 초기화: 교체된 목적지 셀 정보 제거
+      isArrowVisible: false,                // ✅ 초기화: 화살표 숨김
+      arrowReason: ArrowDisplayReason.manualHide, // ✅ 초기화: 화살표 이유 초기화
+      isFromExchangedCell: false,           // ✅ 초기화: 교체된 셀에서 온 화살표 아님
+      cacheInvalidated: false,              // ✅ 초기화: 캐시 무효화 상태 초기화
       lastUpdated: DateTime.now(),
     );
   }
