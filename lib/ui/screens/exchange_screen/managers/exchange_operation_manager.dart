@@ -372,6 +372,54 @@ class ExchangeOperationManager {
     // }
   }
 
+  /// 보강교체 모드 강제 활성화 (TabBar에서 호출)
+  ///
+  /// **처리 순서**:
+  /// 1. 다른 모드 비활성화 (1:1/순환/연쇄)
+  /// 2. 교체불가 편집 모드 비활성화
+  /// 3. 보강교체 모드 강제 활성화
+  /// 4. Level 2 초기화 + 단계 설정 (2단계)
+  /// 5. 교사 이름 선택 기능 활성화
+  /// 6. 헤더 테마 업데이트
+  /// 7. 사용자 피드백 (SnackBar)
+  void activateSupplementExchangeMode() {
+    AppLogger.exchangeDebug('보강교체 모드 강제 활성화 시작');
+
+    bool hasOtherModesActive =
+        stateProxy.isExchangeModeEnabled ||
+        stateProxy.isCircularExchangeModeEnabled ||
+        stateProxy.isChainExchangeModeEnabled;
+
+    // 1. 다른 모드 비활성화
+    if (hasOtherModesActive) {
+      stateProxy.setExchangeModeEnabled(false);
+      stateProxy.setCircularExchangeModeEnabled(false);
+      stateProxy.setChainExchangeModeEnabled(false);
+    }
+
+    // 2. 교체불가 편집 모드 비활성화
+    if (stateProxy.isNonExchangeableEditMode) {
+      stateProxy.setNonExchangeableEditMode(false);
+    }
+
+    // 3. 보강교체 모드 강제 활성화
+    stateProxy.setSupplementExchangeModeEnabled(true);
+
+    // 4. Level 2 초기화 + 단계 설정
+    onClearAllExchangeStates();
+    stateProxy.setAvailableSteps([2]); // 보강교체는 2단계 (보강할 셀 선택 → 보강받을 셀 선택)
+    stateProxy.setSelectedStep(null);
+    stateProxy.setSelectedDay(null);
+
+    // 5. 교사 이름 선택 기능 활성화
+    ref.read(exchangeScreenProvider.notifier).enableTeacherNameSelection();
+    AppLogger.exchangeDebug('[보강 모드] 교사 이름 선택 기능 활성화');
+
+    // 6. 헤더 테마 업데이트
+    onRefreshHeaderTheme();
+
+  }
+
   /// 보강교체 모드 토글
   ///
   /// **처리 순서**:

@@ -181,8 +181,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
         _filterStateManager.setStepFilter(null);
         break;
       case ExchangeMode.supplementExchange:
-        // 보강교체 모드 활성화
-        _operationManager.toggleSupplementExchangeMode();
+        // 보강교체 모드 활성화 (토글이 아닌 강제 활성화)
+        _operationManager.activateSupplementExchangeMode();
         break;
       case ExchangeMode.nonExchangeableEdit:
         notifier.setAvailableSteps([]);
