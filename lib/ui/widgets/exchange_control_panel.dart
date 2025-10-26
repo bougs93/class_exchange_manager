@@ -188,7 +188,7 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel>
         onTap: (index) {
           widget.onModeChanged(visibleModes[index]);
         },
-        tabs: visibleModes.map((mode) => Container(
+        tabs: visibleModes.map((mode) => SizedBox(
           width: 50, // 고정 폭 설정
           child: Tab(
             icon: Icon(mode.icon, size: 20),

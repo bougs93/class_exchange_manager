@@ -10,6 +10,9 @@ enum DocumentType {
   
   /// 교사안내
   teacherNotice,
+
+  /// 파일 출력
+  fileExport,
 }
 
 /// DocumentType 확장 메서드들
@@ -23,6 +26,8 @@ extension DocumentTypeExtension on DocumentType {
         return '학급안내';
       case DocumentType.teacherNotice:
         return '교사안내';
+      case DocumentType.fileExport:
+        return '파일 출력';
     }
   }
   
@@ -35,6 +40,8 @@ extension DocumentTypeExtension on DocumentType {
         return Icons.class_;
       case DocumentType.teacherNotice:
         return Icons.person;
+      case DocumentType.fileExport:
+        return Icons.file_present;
     }
   }
   
@@ -47,6 +54,8 @@ extension DocumentTypeExtension on DocumentType {
         return Colors.green;
       case DocumentType.teacherNotice:
         return Colors.orange;
+      case DocumentType.fileExport:
+        return Colors.purple;
     }
   }
 }

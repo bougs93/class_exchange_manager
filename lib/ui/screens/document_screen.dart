@@ -4,6 +4,7 @@ import '../../models/document_type.dart';
 import 'document_screen/widgets/substitution_plan_grid.dart';
 import 'document_screen/widgets/class_notice_widget.dart';
 import 'document_screen/widgets/teacher_notice_widget.dart';
+import 'document_screen/widgets/file_export_widget.dart';
 
 /// 문서 출력 화면
 class DocumentScreen extends ConsumerStatefulWidget {
@@ -15,11 +16,20 @@ class DocumentScreen extends ConsumerStatefulWidget {
 
 class _DocumentScreenState extends ConsumerState<DocumentScreen>
     with TickerProviderStateMixin {
-  late TabController _tabController;
+  TabController? _tabController;
 
   @override
   void initState() {
     super.initState();
+    _initializeTabController();
+  }
+
+  /// TabController 초기화
+  void _initializeTabController() {
+    // 기존 컨트롤러가 있으면 해제
+    _tabController?.dispose();
+    
+    // 새로운 컨트롤러 생성
     _tabController = TabController(
       length: DocumentType.values.length,
       vsync: this,
@@ -27,7 +37,7 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen>
     );
     
     // 탭 변경 시 색상 업데이트를 위한 리스너 추가
-    _tabController.addListener(() {
+    _tabController!.addListener(() {
       if (mounted) {
         setState(() {});
       }
@@ -36,13 +46,15 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen>
 
   @override
   void dispose() {
-    _tabController.dispose();
+    // null-safe 호출: _tabController가 null이 아닐 때만 dispose 호출
+    _tabController?.dispose();
     super.dispose();
   }
 
   /// 현재 선택된 탭의 색상 가져오기
   Color get _currentTabColor {
-    final currentIndex = _tabController.index;
+    // null-safe 접근: _tabController가 null일 경우 기본 색상 반환
+    final currentIndex = _tabController?.index ?? 0;
     if (currentIndex >= 0 && currentIndex < DocumentType.values.length) {
       return DocumentType.values[currentIndex].color;
     }
@@ -53,7 +65,7 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('출력/안내'),
+        title: const Text('결보강/안내'),
         backgroundColor: Colors.blue.shade50,
         elevation: 0,
       ),
@@ -116,6 +128,8 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen>
         return const ClassNoticeWidget();
       case DocumentType.teacherNotice:
         return const TeacherNoticeWidget();
+      case DocumentType.fileExport:
+        return const FileExportWidget();
     }
   }
 

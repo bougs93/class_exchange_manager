@@ -134,16 +134,6 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
               foregroundColor: Colors.white,
             ),
           ),
-          const SizedBox(width: SubstitutionPlanGridConfig.smallSpacing),
-          ElevatedButton.icon(
-            onPressed: () => _exportToPDF(context),
-            icon: const Icon(Icons.picture_as_pdf, size: 16),
-            label: const Text('PDF 출력'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade600,
-              foregroundColor: Colors.white,
-            ),
-          ),
           SizedBox(height: 20,),
         ],
       ),
@@ -503,12 +493,4 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
     );
   }
 
-  void _exportToPDF(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('PDF 출력 기능은 추후 구현 예정입니다.'),
-        backgroundColor: Colors.orange,
-      ),
-    );
-  }
 }
