@@ -158,7 +158,7 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel>
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '선택된 파일: ${widget.selectedFile!.path.split('\\').last}',
+              '파일: ${widget.selectedFile!.path.split('\\').last}',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
