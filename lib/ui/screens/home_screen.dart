@@ -111,15 +111,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       'screen': ExchangeScreen(),
     },
     {
+      'title': '결보강계획서/안내',
+      'icon': Icons.print,
+      'screen': DocumentScreen(),
+    },
+    {
       'title': '개인 시간표',
       'icon': Icons.person,
       'screen': PersonalScheduleScreen(),
     },
-    {
-      'title': '결보강강/안내',
-      'icon': Icons.print,
-      'screen': DocumentScreen(),
-    },
+
     {
       'title': '설정',
       'icon': Icons.settings,

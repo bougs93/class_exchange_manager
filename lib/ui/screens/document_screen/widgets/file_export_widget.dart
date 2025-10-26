@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
+import '../../../../providers/substitution_plan_viewmodel.dart';
+import '../../../mixins/scroll_management_mixin.dart';
 import 'substitution_plan_grid_helpers.dart';
 
 /// 파일 출력 위젯
@@ -13,7 +16,84 @@ class FileExportWidget extends ConsumerStatefulWidget {
   ConsumerState<FileExportWidget> createState() => _FileExportWidgetState();
 }
 
-class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
+/// 파일 출력 위젯의 테이블 미리보기 설정 상수
+class FileExportTableConfig {
+  /// 각 글자에 할당할 픽셀 (한글 기준)
+  static const double characterWidth = 8.5;
+  
+  /// 최소 셀 폭
+  static const double minCellWidth = 40.0;
+  
+  /// 최대 셀 폭
+  static const double maxCellWidth = 120.0;
+  
+  /// 큰 헤더(스택 헤더) 셀 높이
+  static const double stackedHeaderHeight = 35.0;
+  
+  /// 세부 헤더 셀 높이
+  static const double detailHeaderHeight = 30.0;
+  
+  /// 데이터 셀 높이
+  static const double dataCellHeight = 40.0;
+  
+  /// 셀 내부 패딩 (상하)
+  static const double cellPaddingVertical = 8.0;
+  
+  /// 셀 내부 패딩 (좌우)
+  static const double cellPaddingHorizontal = 0.0;
+  
+  /// 헤더 셀 내부 패딩 (상하)
+  static const double headerPaddingVertical = 6.0;
+  
+  /// 셀 테두리 두께
+  static const double borderWidth = 0.5;
+  
+  /// 각 컬럼의 개별 폭 설정 (선택사항)
+  /// 
+  /// 컬럼명을 키로 하여 원하는 폭을 지정할 수 있습니다.
+  /// 지정하지 않은 컬럼은 자동으로 텍스트 길이에 따라 계산됩니다.
+  static const Map<String, double> customColumnWidths = {
+    // 결강 관련 컬럼
+    'absenceDate': 80.0,    // 결강일
+    'absenceDay': 70.0,     // 요일
+    'period': 40.0,         // 교시
+    'grade': 40.0,          // 학년
+    'className': 65.0,      // 반
+    'subject': 50.0,        // 과목
+    'teacher': 55.0,        // 교사
+    
+    // 보강/수업변경 관련 컬럼
+    'supplementSubject': 110.0,   // 과목
+    'supplementTeacher': 110.0,   // 성명
+    
+    // 수업 교체 관련 컬럼
+    'substitutionDate': 100.0,    // 교체일
+    'substitutionDay': 100.0,      // 요일
+    'substitutionPeriod': 110.0,   // 교시
+    'substitutionSubject': 110.0, // 과목
+    'substitutionTeacher': 110.0, // 교사
+    
+    // 비고
+    'remarks': 60.0,       // 비고
+  };
+}
+
+class _FileExportWidgetState extends ConsumerState<FileExportWidget>
+    with ScrollManagementMixin {
+  @override
+  void initState() {
+    super.initState();
+    // 공통 스크롤 관리 믹신 초기화
+    initializeScrollControllers();
+  }
+
+  @override
+  void dispose() {
+    // 공통 스크롤 관리 믹신 해제
+    disposeScrollControllers();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -26,17 +106,12 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
           // 안내 문구
           _buildInfoSection(),
           
-          const SizedBox(height: 32),
-          
-          // 내보내기 형식 표시
-          _buildFormatInfo(),
-          
-          const SizedBox(height: 32),
+          const SizedBox(height: 15),
           
           // 내보내기 버튼
           _buildExportButton(),
           
-          const SizedBox(height: 24),
+          const SizedBox(height: 15),
           
           // 주의사항
           _buildNoticeSection(),
@@ -78,7 +153,9 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
           ),
           const SizedBox(height: 12),
           Text(
-            '교체 기록을 선택한 형식으로 내보낼 수 있습니다.\n내보내기 전에 교체 기록이 정확히 입력되어 있는지 확인하세요.\n출력할 파일은 "결보강계획서_양식.xlsx" 파일이 필요합니다.',
+            '결보강 계획서, 학급안내, 교사안내를 엑셀 파일로 내보낼 수 있습니다.\n'
+            '양식 파일로 "결보강계획서_양식.xlsx"이 필요합니다.\n'
+            '양식 파일에서 테이블 테그를 찾아 해당 컬럼에 내용이 기록됩니다.',
             style: TextStyle(
               fontSize: 14,
               color: Colors.blue.shade800,
@@ -87,14 +164,32 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
           ),
           const SizedBox(height: 16),
           
-          // 테이블 미리보기
-          Text(
-            '출력될 파일 형식:',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.blue.shade900,
-            ),
+          // 테이블 미리보기 헤더 (제목과 복사 버튼)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                '엑셀 테이블 테그:',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.blue.shade900,
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () => _copyTableToClipboard(context),
+                icon: const Icon(Icons.copy, size: 12),
+                label: const Text(
+                  '테이블테그 복사',
+                  style: TextStyle(fontSize: 12),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.blue.shade700,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           _buildTablePreview(),
@@ -108,234 +203,176 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
   /// 결보강계획서 테이블의 헤더 구조를 미리보기로 보여줍니다.
   /// SubstitutionPlanGridConfig를 사용하여 공통 구조를 재사용합니다.
   Widget _buildTablePreview() {
+    // 예시 데이터 생성
+    final exampleData = _createExamplePlanData();
+    
     // SubstitutionPlanGridConfig에서 헤더 정보 가져오기
-    final columns = SubstitutionPlanGridConfig.getColumns();
+    final columns = _getCustomColumns();
     final stackedHeaders = SubstitutionPlanGridConfig.getStackedHeaders();
     
-    // 스택 헤더 정보 추출
-    if (stackedHeaders.isEmpty) return const SizedBox.shrink();
-    final firstStackedHeader = stackedHeaders[0];
-    final stackedCells = firstStackedHeader.cells;
+    // 데이터 소스 생성
+    final dataSource = _ExampleDataSource(exampleData);
     
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.blue.shade300),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 첫 번째 행: 큰 헤더 (결강, 보강/수업변경, 수업 교체, 비고)
-            _buildStackedHeaderRow(stackedCells),
-            
-            // 두 번째 행: 세부 헤더
-            _buildDetailHeaderRow(columns),
-            
-            // 예시 데이터 행 (이미지와 같은 형식으로)
-            _buildExampleDataRow(),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  /// 스택 헤더 행 생성 (상단 큰 헤더)
-  Widget _buildStackedHeaderRow(List<StackedHeaderCell> stackedCells) {
-    return Row(
-      children: stackedCells.map((cell) {
-        // 각 스택 셀의 columnNames 개수에 따라 너비 계산
-        final colSpan = cell.columnNames.length;
-        final cellWidth = 60.0 * colSpan; // 각 셀 너비는 약 60
-        
-        // 텍스트 추출
-        String text = _extractTextFromWidget(cell.child);
-        
-        return Container(
-          width: cellWidth,
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade200,
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: Center(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-  
-  /// 세부 헤더 행 생성 (하단 상세 헤더)
-  Widget _buildDetailHeaderRow(List<GridColumn> columns) {
-    return Row(
-      children: columns.map((column) {
-        // GridColumn의 label에서 텍스트 추출
-        final columnLabel = column.label;
-        final label = _extractTextFromWidget(columnLabel);
-        
-        return Container(
-          width: 60, // 각 셀 너비를 60으로 고정
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-  
-  /// 예시 데이터 행 생성 (이미지 형식 참고)
-  Widget _buildExampleDataRow() {
-    return Row(
+    // 데이터 행 수에 맞는 높이 계산
+    // 큰 헤더(35) + 작은 헤더(30) + 데이터 행 수 × 행 높이(40)
+    final rowCount = exampleData.length;
+    final calculatedHeight = FileExportTableConfig.stackedHeaderHeight + 
+                            FileExportTableConfig.detailHeaderHeight + 
+                            (rowCount * FileExportTableConfig.dataCellHeight)+25;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 결강일 영역 (7개 컬럼)
-        _buildExampleCell('월', isButton: true),
-        _buildExampleCell('월'),
-        _buildExampleCell('4'),
-        _buildExampleCell('2'),
-        _buildExampleCell('5'),
-        _buildExampleCell('국어'),
-        _buildExampleCell('정수정'),
-        // 보강/수업변경 영역 (2개 컬럼)
-        _buildExampleCell(''),
-        _buildExampleCell(''),
-        // 수업 교체 영역 (5개 컬럼)
-        _buildExampleCell('수', isButton: true),
-        _buildExampleCell('수'),
-        _buildExampleCell('4'),
-        _buildExampleCell('역사'),
-        _buildExampleCell('유인성'),
-        // 비고 영역 (1개 컬럼)
-        _buildExampleCell(''),
+        // 테이블
+        SizedBox(
+          height: calculatedHeight,
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.blue.shade300),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: wrapWithDragScroll(
+              SfDataGrid(
+                source: dataSource,
+                columns: columns,
+                stackedHeaderRows: stackedHeaders,
+                allowColumnsResizing: false,
+                gridLinesVisibility: GridLinesVisibility.both,
+                headerGridLinesVisibility: GridLinesVisibility.both,
+                selectionMode: SelectionMode.none,
+                headerRowHeight: FileExportTableConfig.stackedHeaderHeight,
+                rowHeight: FileExportTableConfig.dataCellHeight,
+                allowEditing: false,
+                horizontalScrollController: horizontalScrollController,
+                verticalScrollController: verticalScrollController,
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
   
-  /// 예시 셀 생성
-  Widget _buildExampleCell(String text, {bool isButton = false}) {
-    return Container(
-      width: 60,
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Center(
-        child: isButton
-            ? Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  border: Border.all(color: Colors.blue.shade300),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  text.isEmpty ? '선택' : text,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.blue.shade700,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              )
-            : Text(
-                text,
-                style: const TextStyle(
-                  fontSize: 11,
-                ),
-              ),
-      ),
-    );
+  /// 테이블 내용을 클립보드에 복사
+  Future<void> _copyTableToClipboard(BuildContext context) async {
+    final exampleData = _createExamplePlanData();
+    
+    // 테이블 내용을 텍스트로 변환
+    final tableText = _generateTableText(exampleData);
+    
+    await Clipboard.setData(ClipboardData(text: tableText));
+    
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('테이블 내용이 클립보드에 복사되었습니다.'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
   
-  /// 위젯에서 텍스트 추출 (간단한 경우만)
-  String _extractTextFromWidget(Widget widget) {
-    if (widget is Text) {
-      return widget.data ?? '';
-    } else if (widget is Container) {
-      final child = widget.child;
-      if (child != null) {
-        if (child is Text) {
-          return child.data ?? '';
-        } else if (child is Center || child is Align) {
-          // Center나 Align 내부의 child를 확인
-          final dynamic childWidget = (child as dynamic).child;
-          if (childWidget is Text) {
-            return childWidget.data ?? '';
-          }
-        }
-      }
+  /// 테이블 내용을 텍스트 형식으로 변환
+  /// 
+  /// 탭(\t)으로 구분하여 엑셀에서 붙여넣기 시 각 셀에 데이터가 자동으로 분리됩니다.
+  String _generateTableText(List<SubstitutionPlanData> data) {
+    final buffer = StringBuffer();
+    
+    // 헤더 행 (탭으로 구분)
+    final headers = [
+      '결강일',
+      '요일',
+      '교시',
+      '학년',
+      '반',
+      '과목',
+      '교사',
+      '보강/수업변경 과목',
+      '보강/수업변경 성명',
+      '교체일',
+      '교체요일',
+      '교체교시',
+      '교체과목',
+      '교체교사',
+      '비고',
+    ];
+    buffer.writeln(headers.join('\t'));
+    
+    // 데이터 행
+    for (final row in data) {
+      final cells = [
+        row.absenceDate.isEmpty ? '' : row.absenceDate,
+        row.absenceDay,
+        row.period,
+        row.grade,
+        row.className,
+        row.subject,
+        row.teacher,
+        row.supplementSubject,
+        row.supplementTeacher,
+        row.substitutionDate,
+        row.substitutionDay,
+        row.substitutionPeriod,
+        row.substitutionSubject,
+        row.substitutionTeacher,
+        row.remarks,
+      ];
+      buffer.writeln(cells.join('\t'));
     }
-    return '';
+    
+    return buffer.toString();
   }
-
-  /// 내보내기 형식 정보 표시
-  Widget _buildFormatInfo() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.purple.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.purple.shade200, width: 2),
+  
+  /// 컬럼 폭을 적용한 GridColumn 리스트 생성
+  List<GridColumn> _getCustomColumns() {
+    final baseColumns = SubstitutionPlanGridConfig.getColumns();
+    
+    return baseColumns.map((column) {
+      final columnName = column.columnName;
+      double? customWidth;
+      
+      // customColumnWidths에서 지정된 폭 확인
+      if (FileExportTableConfig.customColumnWidths.containsKey(columnName)) {
+        customWidth = FileExportTableConfig.customColumnWidths[columnName];
+      }
+      
+      // 폭이 지정되어 있으면 새로운 GridColumn 생성
+      if (customWidth != null) {
+        return GridColumn(
+          columnName: column.columnName,
+          width: customWidth,
+          label: column.label,
+        );
+      }
+      
+      // 지정되지 않았으면 원본 컬럼 유지
+      return column;
+    }).toList();
+  }
+  
+  /// 예시 데이터 생성
+  List<SubstitutionPlanData> _createExamplePlanData() {
+    return [
+      SubstitutionPlanData(
+        exchangeId: 'example_1',
+        absenceDate: 'absenceDate',      // 결강일
+        absenceDay: 'absenceDay',         // 요일
+        period: 'period',             // 교시
+        grade: 'grade',              // 학년
+        className: 'className',           // 반
+        subject: 'subject',          // 과목
+        teacher: 'teacher',        // 교사
+        supplementSubject: 'supplementSubject',    // 보강 과목
+        supplementTeacher: 'supplementTeacher',   // 보강 교사
+        substitutionDate: 'substitutionDate',   // 교체일
+        substitutionDay: 'substitutionDay',    // 요일
+        substitutionPeriod: 'substitutionPeriod',  // 교시
+        substitutionSubject: 'substitutionSubject',  // 과목
+        substitutionTeacher: 'substitutionTeacher', // 교사
+        remarks: 'remarks',             // 비고
       ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.table_chart,
-            color: Colors.purple.shade600,
-            size: 32,
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Excel 파일 (.xlsx)',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.purple.shade700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '엑셀로 열 수 있는 표 형식 파일',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.purple.shade600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Icon(
-            Icons.check_circle,
-            color: Colors.purple.shade600,
-            size: 28,
-          ),
-        ],
-      ),
-    );
+    ];
   }
 
   /// 내보내기 버튼
@@ -344,9 +381,9 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
       width: double.infinity,
       child: ElevatedButton.icon(
         onPressed: () => _handleExport(),
-        icon: const Icon(Icons.download, size: 24),
+        icon: const Icon(Icons.table_chart, size: 24),
         label: const Text(
-          '파일 내보내기',
+          'Excel 파일 내보내기',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -398,7 +435,6 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
           const SizedBox(height: 8),
           ...[
             '파일을 저장할 위치를 미리 확인하세요',
-            '내보낸 파일은 다른 이름으로 변경하여 저장할 수 있습니다',
             '파일 내보내기 중에는 프로그램을 종료하지 마세요',
           ].map((notice) {
             return Padding(
@@ -479,6 +515,58 @@ extension ExportFormatExtension on ExportFormat {
       case ExportFormat.excel:
         return Icons.table_chart;
     }
+  }
+}
+
+/// 예시 데이터 소스
+/// 
+/// 파일 출력 위젯의 테이블 미리보기용 간단한 데이터 소스입니다.
+class _ExampleDataSource extends DataGridSource {
+  final List<SubstitutionPlanData> planData;
+
+  _ExampleDataSource(this.planData);
+
+  @override
+  List<DataGridRow> get rows => planData.map<DataGridRow>((data) {
+    return DataGridRow(cells: [
+      DataGridCell<String>(columnName: 'absenceDate', value: data.absenceDate),
+      DataGridCell<String>(columnName: 'absenceDay', value: data.absenceDay),
+      DataGridCell<String>(columnName: 'period', value: data.period),
+      DataGridCell<String>(columnName: 'grade', value: data.grade),
+      DataGridCell<String>(columnName: 'className', value: data.className),
+      DataGridCell<String>(columnName: 'subject', value: data.subject),
+      DataGridCell<String>(columnName: 'teacher', value: data.teacher),
+      DataGridCell<String>(columnName: 'supplementSubject', value: data.supplementSubject),
+      DataGridCell<String>(columnName: 'supplementTeacher', value: data.supplementTeacher),
+      DataGridCell<String>(columnName: 'substitutionDate', value: data.substitutionDate),
+      DataGridCell<String>(columnName: 'substitutionDay', value: data.substitutionDay),
+      DataGridCell<String>(columnName: 'substitutionPeriod', value: data.substitutionPeriod),
+      DataGridCell<String>(columnName: 'substitutionSubject', value: data.substitutionSubject),
+      DataGridCell<String>(columnName: 'substitutionTeacher', value: data.substitutionTeacher),
+      DataGridCell<String>(columnName: 'remarks', value: data.remarks),
+    ]);
+  }).toList();
+
+  @override
+  DataGridRowAdapter buildRow(DataGridRow row) {
+    return DataGridRowAdapter(
+      cells: row.getCells().map<Widget>((cell) {
+        final value = cell.value?.toString() ?? '';
+        final isEmpty = value.isEmpty;
+        
+        return Container(
+          alignment: Alignment.center,
+          padding: EdgeInsets.all(FileExportTableConfig.cellPaddingHorizontal),
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              color: isEmpty ? Colors.transparent : Colors.black87,
+            ),
+          ),
+        );
+      }).toList(),
+    );
   }
 }
 
