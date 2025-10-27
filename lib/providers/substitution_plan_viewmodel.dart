@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/exchange_path.dart';
+import '../services/excel_template_service.dart';
 import '../utils/logger.dart';
 import 'services_provider.dart';
 import 'substitution_plan_provider.dart';
@@ -445,4 +447,49 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
 final substitutionPlanViewModelProvider =
     StateNotifierProvider<SubstitutionPlanViewModel, SubstitutionPlanViewModelState>((ref) {
   return SubstitutionPlanViewModel(ref);
+});
+
+/// 엑셀 템플릿 상태 Notifier
+/// 
+/// 엑셀 템플릿 정보를 관리합니다.
+class ExcelTemplateNotifier extends StateNotifier<ExcelTemplateInfo?> {
+  ExcelTemplateNotifier() : super(null);
+  
+  /// 템플릿 정보 설정
+  void setTemplate(ExcelTemplateInfo template) {
+    state = template;
+    AppLogger.exchangeInfo('엑셀 템플릿 정보가 설정되었습니다.');
+  }
+  
+  /// 템플릿 초기화
+  void clearTemplate() {
+    state = null;
+    AppLogger.exchangeDebug('엑셀 템플릿 정보가 초기화되었습니다.');
+  }
+  
+  /// 파일에서 템플릿 로드
+  Future<bool> loadTemplateFromFile(String filePath) async {
+    try {
+      final info = await ExcelTemplateService().extractTemplateInfo(
+        File(filePath) as dynamic,
+      );
+      
+      if (info != null) {
+        setTemplate(info);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      AppLogger.error('템플릿 로드 실패: $e');
+      return false;
+    }
+  }
+}
+
+/// 엑셀 템플릿 상태 Provider
+/// 
+/// 앱 전역에서 엑셀 템플릿 정보에 접근할 수 있습니다.
+final excelTemplateProvider = 
+    StateNotifierProvider<ExcelTemplateNotifier, ExcelTemplateInfo?>((ref) {
+  return ExcelTemplateNotifier();
 });

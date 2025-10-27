@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
-import 'package:file_picker/file_picker.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../mixins/scroll_management_mixin.dart';
 import 'substitution_plan_grid_helpers.dart';
@@ -109,8 +108,6 @@ class FileExportTableConfig {
 
 class _FileExportWidgetState extends ConsumerState<FileExportWidget>
     with ScrollManagementMixin {
-  // 선택된 양식 파일 경로를 저장할 변수
-  String? _selectedTemplateFilePath;
 
   @override
   void initState() {
@@ -137,11 +134,6 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget>
           
           // 안내 문구
           _buildInfoSection(),
-          
-          const SizedBox(height: 15),
-
-          // 양식파일 선택 섹션
-          _buildTemplateFileSelectionWidget(),
           
           const SizedBox(height: 15),
           
@@ -504,98 +496,6 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget>
     );
   }
 
-  /// 양식파일 선택 위젯
-  Widget _buildTemplateFileSelectionWidget() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.green.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.green.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _selectedTemplateFilePath != null
-              ? Row(
-                  children: [
-                    Icon(
-                      Icons.check_circle,
-                      size: 20,
-                      color: Colors.green.shade600,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '선택된 파일:',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.green.shade600,
-                            ),
-                          ),
-                          Text(
-                            _getFileName(_selectedTemplateFilePath!),
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.green.shade700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    TextButton.icon(
-                      onPressed: () => _selectTemplateFile(),
-                      icon: const Icon(Icons.edit, size: 14),
-                      label: const Text(
-                        '다시 선택',
-                        style: TextStyle(fontSize: 12),
-                      ),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.green.shade600,
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      ),
-                    ),
-                  ],
-                )
-              : ElevatedButton.icon(
-                  onPressed: () => _selectTemplateFile(),
-                  icon: const Icon(Icons.folder_open, size: 16),
-                  label: const Text(
-                    '양식 파일 선택',
-                    style: TextStyle(fontSize: 14),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green.shade600,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
-                ),
-        ],
-      ),
-    );
-  }
-
-  /// 양식 파일을 선택하는 메서드
-  Future<void> _selectTemplateFile() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['xlsx'],
-      dialogTitle: '양식 파일 선택',
-    );
-
-    if (result != null && result.files.isNotEmpty) {
-      _selectedTemplateFilePath = result.files.first.path;
-      setState(() {});
-    }
-  }
 
   /// 파일 내보내기 처리
   Future<void> _handleExport() async {
@@ -614,11 +514,6 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget>
     );
   }
 
-  /// 파일 경로에서 파일명만 추출하는 유틸리티 메서드
-  String _getFileName(String? filePath) {
-    if (filePath == null) return '선택된 파일 없음';
-    return filePath.split('/').last;
-  }
 }
 
 /// 내보내기 파일 형식 열거형
