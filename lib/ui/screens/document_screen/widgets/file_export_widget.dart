@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../services/excel_export_service.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
 
 /// 파일 출력 위젯
 /// 
-/// 교체 기록을 다양한 형식으로 내보낼 수 있는 위젯입니다.
+/// 결보강 계획서를 PDF 형식으로 내보낼 수 있는 위젯입니다.
 class FileExportWidget extends ConsumerStatefulWidget {
   const FileExportWidget({super.key});
 
@@ -75,7 +73,7 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
           ),
           const SizedBox(height: 12),
           Text(
-            '결보강 계획서, 학급안내, 교사안내를 엑셀 파일로 내보낼 수 있습니다.',
+            '결보강 계획서를 PDF 파일로 내보낼 수 있습니다.',
             style: TextStyle(
               fontSize: 14,
               color: Colors.blue.shade800,
@@ -93,9 +91,9 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
       width: double.infinity,
       child: ElevatedButton.icon(
         onPressed: () => _handleExport(),
-        icon: const Icon(Icons.table_chart, size: 24),
+        icon: const Icon(Icons.picture_as_pdf, size: 24),
         label: const Text(
-          'Excel 파일 내보내기',
+          'PDF 파일 내보내기',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -198,40 +196,33 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
         return;
       }
 
-      // 2) 파일명 생성 (MM.dd 결보강계획서.xlsx)
-      final now = DateTime.now();
-      final fileName =
-          '${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')} 결보강계획서.xlsx';
-      final outputPath = '${Directory.current.path}/$fileName';
+      // 2) 파일명 생성 (MM.dd 결보강계획서.pdf)
+      // final now = DateTime.now();
+      // final fileName =
+      //     '${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')} 결보강계획서.pdf';
+      // final outputPath = '${Directory.current.path}/$fileName';
 
       // 3) 중복 파일 체크
-      final finalOutputPath = _getUniqueFilePath(outputPath);
+      // final finalOutputPath = _getUniqueFilePath(outputPath);
 
-      // 4) 내보내기 실행
-      final success = await ExcelExportService.exportSubstitutionPlan(
-        planData: planData,
-        outputPath: finalOutputPath,
-        context: context,
-      );
+      // 4) PDF 내보내기 실행
+      // TODO: PDF 생성 서비스 구현 필요
+      // final success = await PdfExportService.exportSubstitutionPlan(
+      //   planData: planData,
+      //   outputPath: finalOutputPath,
+      //   context: context,
+      // );
 
       if (!mounted) return;
 
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('저장 완료: $finalOutputPath'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('파일 내보내기에 실패했습니다.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      // 임시 메시지 (PDF 서비스 구현 후 제거)
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('PDF 내보내기 기능은 준비 중입니다.'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 2),
+        ),
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -241,62 +232,6 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
           ),
         );
       }
-    }
-  }
-
-  /// 고유한 파일 경로 생성
-  String _getUniqueFilePath(String originalPath) {
-    final file = File(originalPath);
-    if (!file.existsSync()) {
-      return originalPath;
-    }
-
-    final path = file.path;
-    final lastDot = path.lastIndexOf('.');
-    final fileNameWithoutExt =
-        lastDot == -1 ? path : path.substring(0, lastDot);
-    final extension = lastDot == -1 ? '' : path.substring(lastDot);
-
-    int counter = 1;
-    while (true) {
-      final newPath = '$fileNameWithoutExt ($counter)$extension';
-      if (!File(newPath).existsSync()) {
-        return newPath;
-      }
-      counter++;
-    }
-  }
-}
-
-/// 내보내기 파일 형식 열거형
-enum ExportFormat {
-  /// Excel 파일
-  excel,
-}
-
-/// ExportFormat 확장 메서드들
-extension ExportFormatExtension on ExportFormat {
-  /// 형식별 표시 이름
-  String get displayName {
-    switch (this) {
-      case ExportFormat.excel:
-        return 'Excel 파일 (.xlsx)';
-    }
-  }
-  
-  /// 형식별 설명
-  String get description {
-    switch (this) {
-      case ExportFormat.excel:
-        return '엑셀로 열 수 있는 표 형식 파일';
-    }
-  }
-  
-  /// 형식별 아이콘
-  IconData get icon {
-    switch (this) {
-      case ExportFormat.excel:
-        return Icons.table_chart;
     }
   }
 }
