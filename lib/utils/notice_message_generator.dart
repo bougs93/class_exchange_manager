@@ -115,7 +115,7 @@ class NoticeMessageGenerator {
 
     return NoticeMessage(
       identifier: className,
-      content: '''$className 수업 교체되었습니다.
+      content: '''$className 수업변경 안내
 ${exchangeLines.join('\n')}''',
       exchangeType: _determineExchangeType(groupDataList),
       exchangeTypeCombination: _determineExchangeTypeCombination(groupDataList),
@@ -414,7 +414,7 @@ ${classLines.join('\n')}''',
     final List<String> messageLines = [];
 
     // 헤더 메시지 추가 (한 번만)
-    messageLines.add('$className 수업 교체되었습니다.');
+    messageLines.add('$className 수업변경 안내');
 
     // 교체 유형별로 메시지 생성 (헤더 제외)
     for (final data in dataList) {
@@ -469,7 +469,7 @@ ${classLines.join('\n')}''',
       final arrowFormat = category == ExchangeCategory.circularFourPlus ? '->' : '<->';
 
       if (isFirstMessage) {
-        return '''$className 수업 교체되었습니다.
+        return '''$className 수업변경 안내
 '${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' $arrowFormat '${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' ''';
       } else {
         return ''''${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' $arrowFormat '${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' ''';
@@ -477,7 +477,7 @@ ${classLines.join('\n')}''',
     } else {
       // 옵션2: 분리된 형태
       if (isFirstMessage) {
-        return '''$className 수업 교체되었습니다.
+        return '''$className 수업변경 안내
 '${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업입니다.
 '${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.subject} ${data.teacher}' 수업입니다.''';
       } else {
@@ -492,7 +492,7 @@ ${classLines.join('\n')}''',
     final className = '${data.grade}-${data.className}';
 
     if (isFirstMessage) {
-      return '''$className 수업 교체되었습니다.
+      return '''$className 수업변경 안내
 '${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject} ${data.supplementTeacher}' 보강 수업입니다.''';
     } else {
       return ''''${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject} ${data.supplementTeacher}' 보강 수업입니다.''';

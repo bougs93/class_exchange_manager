@@ -2,9 +2,38 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../mixins/scroll_management_mixin.dart';
 import 'substitution_plan_grid_helpers.dart';
+
+/// 엑셀 출력 테크 식별자 상수
+/// 
+/// 엑셀 파일의 테이블 테그를 찾아 데이터를 기록할 때 사용하는 컬럼 및 행 식별자입니다.
+class ExcelColumnIdentifiers {
+  // 결강 관련 컬럼 식별자
+  static const String absenceDate = 'date';           // 결강일
+  static const String absenceDay = 'day';             // 요일
+  static const String period = 'period';                     // 교시
+  static const String grade = 'grade';                       // 학년
+  static const String className = 'class';               // 반
+  static const String subject = 'subject';                   // 과목
+  static const String teacher = 'teacher';                   // 교사
+  
+  // 보강/수업변경 관련 컬럼 식별자
+  static const String supplementSubject = 'subject2';        // 보강/수업변경 과목
+  static const String supplementTeacher = 'teacher2';        // 보강/수업변경 성명
+  
+  // 수업 교체 관련 컬럼 식별자
+  static const String substitutionDate = 'date3';     // 교체일
+  static const String substitutionDay = 'day3';       // 교체 요일
+  static const String substitutionPeriod = 'period3'; // 교체 교시
+  static const String substitutionSubject = 'subject3'; // 교체 과목
+  static const String substitutionTeacher = 'teacher3'; // 교체 교사
+  
+  // 기타 컬럼 식별자
+  static const String remarks = 'remarks';                   // 비고
+}
 
 /// 파일 출력 위젯
 /// 
@@ -54,24 +83,24 @@ class FileExportTableConfig {
   /// 지정하지 않은 컬럼은 자동으로 텍스트 길이에 따라 계산됩니다.
   static const Map<String, double> customColumnWidths = {
     // 결강 관련 컬럼
-    'absenceDate': 80.0,    // 결강일
-    'absenceDay': 70.0,     // 요일
+    'absenceDate': 50.0,    // 결강일
+    'absenceDay': 30.0,     // 요일
     'period': 40.0,         // 교시
     'grade': 40.0,          // 학년
-    'className': 65.0,      // 반
-    'subject': 50.0,        // 과목
+    'className': 40.0,      // 반
+    'subject': 55.0,        // 과목
     'teacher': 55.0,        // 교사
     
     // 보강/수업변경 관련 컬럼
-    'supplementSubject': 110.0,   // 과목
-    'supplementTeacher': 110.0,   // 성명
+    'supplementSubject': 55.0,   // 과목
+    'supplementTeacher': 55.0,   // 성명
     
     // 수업 교체 관련 컬럼
-    'substitutionDate': 100.0,    // 교체일
-    'substitutionDay': 100.0,      // 요일
-    'substitutionPeriod': 110.0,   // 교시
-    'substitutionSubject': 110.0, // 과목
-    'substitutionTeacher': 110.0, // 교사
+    'substitutionDate': 50.0,    // 교체일
+    'substitutionDay': 30.0,      // 요일
+    'substitutionPeriod': 45.0,   // 교시
+    'substitutionSubject': 50.0, // 과목
+    'substitutionTeacher': 55.0, // 교사
     
     // 비고
     'remarks': 60.0,       // 비고
@@ -80,6 +109,9 @@ class FileExportTableConfig {
 
 class _FileExportWidgetState extends ConsumerState<FileExportWidget>
     with ScrollManagementMixin {
+  // 선택된 양식 파일 경로를 저장할 변수
+  String? _selectedTemplateFilePath;
+
   @override
   void initState() {
     super.initState();
@@ -105,6 +137,11 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget>
           
           // 안내 문구
           _buildInfoSection(),
+          
+          const SizedBox(height: 15),
+
+          // 양식파일 선택 섹션
+          _buildTemplateFileSelectionWidget(),
           
           const SizedBox(height: 15),
           
@@ -356,21 +393,21 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget>
     return [
       SubstitutionPlanData(
         exchangeId: 'example_1',
-        absenceDate: 'absenceDate',      // 결강일
-        absenceDay: 'absenceDay',         // 요일
-        period: 'period',             // 교시
-        grade: 'grade',              // 학년
-        className: 'className',           // 반
-        subject: 'subject',          // 과목
-        teacher: 'teacher',        // 교사
-        supplementSubject: 'supplementSubject',    // 보강 과목
-        supplementTeacher: 'supplementTeacher',   // 보강 교사
-        substitutionDate: 'substitutionDate',   // 교체일
-        substitutionDay: 'substitutionDay',    // 요일
-        substitutionPeriod: 'substitutionPeriod',  // 교시
-        substitutionSubject: 'substitutionSubject',  // 과목
-        substitutionTeacher: 'substitutionTeacher', // 교사
-        remarks: 'remarks',             // 비고
+        absenceDate: ExcelColumnIdentifiers.absenceDate,            // 결강일
+        absenceDay: ExcelColumnIdentifiers.absenceDay,              // 요일
+        period: ExcelColumnIdentifiers.period,                      // 교시
+        grade: ExcelColumnIdentifiers.grade,                        // 학년
+        className: ExcelColumnIdentifiers.className,                // 반
+        subject: ExcelColumnIdentifiers.subject,                    // 과목
+        teacher: ExcelColumnIdentifiers.teacher,                    // 교사
+        supplementSubject: ExcelColumnIdentifiers.supplementSubject,    // 보강 과목
+        supplementTeacher: ExcelColumnIdentifiers.supplementTeacher,    // 보강 교사
+        substitutionDate: ExcelColumnIdentifiers.substitutionDate,      // 교체일
+        substitutionDay: ExcelColumnIdentifiers.substitutionDay,        // 교체 요일
+        substitutionPeriod: ExcelColumnIdentifiers.substitutionPeriod,  // 교체 교시
+        substitutionSubject: ExcelColumnIdentifiers.substitutionSubject,  // 교체 과목
+        substitutionTeacher: ExcelColumnIdentifiers.substitutionTeacher,  // 교체 교사
+        remarks: ExcelColumnIdentifiers.remarks,                    // 비고
       ),
     ];
   }
@@ -467,6 +504,99 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget>
     );
   }
 
+  /// 양식파일 선택 위젯
+  Widget _buildTemplateFileSelectionWidget() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.green.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.green.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _selectedTemplateFilePath != null
+              ? Row(
+                  children: [
+                    Icon(
+                      Icons.check_circle,
+                      size: 20,
+                      color: Colors.green.shade600,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '선택된 파일:',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.green.shade600,
+                            ),
+                          ),
+                          Text(
+                            _getFileName(_selectedTemplateFilePath!),
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => _selectTemplateFile(),
+                      icon: const Icon(Icons.edit, size: 14),
+                      label: const Text(
+                        '다시 선택',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.green.shade600,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      ),
+                    ),
+                  ],
+                )
+              : ElevatedButton.icon(
+                  onPressed: () => _selectTemplateFile(),
+                  icon: const Icon(Icons.folder_open, size: 16),
+                  label: const Text(
+                    '양식 파일 선택',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green.shade600,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                ),
+        ],
+      ),
+    );
+  }
+
+  /// 양식 파일을 선택하는 메서드
+  Future<void> _selectTemplateFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['xlsx'],
+      dialogTitle: '양식 파일 선택',
+    );
+
+    if (result != null && result.files.isNotEmpty) {
+      _selectedTemplateFilePath = result.files.first.path;
+      setState(() {});
+    }
+  }
+
   /// 파일 내보내기 처리
   Future<void> _handleExport() async {
     // TODO: 실제 파일 내보내기 로직 구현
@@ -482,6 +612,12 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget>
         duration: Duration(seconds: 2),
       ),
     );
+  }
+
+  /// 파일 경로에서 파일명만 추출하는 유틸리티 메서드
+  String _getFileName(String? filePath) {
+    if (filePath == null) return '선택된 파일 없음';
+    return filePath.split('/').last;
   }
 }
 
