@@ -185,22 +185,7 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
     if (!mounted) return;
 
     try {
-      // 1) 템플릿 파일 경로 확인
-      const templatePath = 'lib/결보강계획서_양식.xlsx';
-      final templateFile = File(templatePath);
-      
-      if (!templateFile.existsSync()) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('템플릿 파일을 찾을 수 없습니다.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      // 2) 데이터 수집
+      // 1) 데이터 수집
       final planData = ref.read(substitutionPlanViewModelProvider).planData;
       if (planData.isEmpty) {
         if (!mounted) return;
@@ -213,18 +198,17 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
         return;
       }
 
-      // 3) 파일명 생성 (MM.dd 결보강계획서.xlsx)
+      // 2) 파일명 생성 (MM.dd 결보강계획서.xlsx)
       final now = DateTime.now();
       final fileName =
           '${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')} 결보강계획서.xlsx';
       final outputPath = '${Directory.current.path}/$fileName';
 
-      // 4) 중복 파일 체크
+      // 3) 중복 파일 체크
       final finalOutputPath = _getUniqueFilePath(outputPath);
 
-      // 5) 내보내기 실행
+      // 4) 내보내기 실행
       final success = await ExcelExportService.exportSubstitutionPlan(
-        templatePath: templatePath,
         planData: planData,
         outputPath: finalOutputPath,
         context: context,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:calendar_date_picker2/calendar_date_picker2.dart';
+import 'package:flutter/services.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../../providers/exchange_screen_provider.dart';
 import '../../../../utils/logger.dart';
@@ -105,38 +106,55 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
   }
 
   Widget _buildActionButtons(BuildContext context, WidgetRef ref, SubstitutionPlanViewModel viewModel) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          ElevatedButton.icon(
-            onPressed: () async {
-              await viewModel.loadPlanData();
-              final currentPlanData = ref.read(
-                substitutionPlanViewModelProvider.select((state) => state.planData)
-              );
-              SubstitutionPlanDebugger.printTable(currentPlanData);
-            },
-            icon: const Icon(Icons.refresh, size: 16),
-            label: const Text('새로고침'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue.shade600,
-              foregroundColor: Colors.white,
+    return Row(
+      children: [
+        // 스크롤 가능한 버튼 영역
+        Expanded(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    await viewModel.loadPlanData();
+                    final currentPlanData = ref.read(
+                      substitutionPlanViewModelProvider.select((state) => state.planData)
+                    );
+                    SubstitutionPlanDebugger.printTable(currentPlanData);
+                  },
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: const Text('새로고침'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue.shade600,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: SubstitutionPlanGridConfig.mediumSpacing),
+                ElevatedButton.icon(
+                  onPressed: () => _clearAllDates(context, viewModel),
+                  icon: const Icon(Icons.clear, size: 16),
+                  label: const Text('지우기'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange.shade600,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: SubstitutionPlanGridConfig.mediumSpacing),
+                // 테이블 복사 버튼 (지우기 버튼 오른쪽)
+                IconButton(
+                  onPressed: () => _copyTableToClipboard(context, ref),
+                  icon: const Icon(Icons.copy, size: 20),
+                  tooltip: '테이블 복사',
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.blue.shade50,
+                    foregroundColor: Colors.blue.shade700,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: SubstitutionPlanGridConfig.smallSpacing),
-          ElevatedButton.icon(
-            onPressed: () => _clearAllDates(context, viewModel),
-            icon: const Icon(Icons.clear, size: 16),
-            label: const Text('지우기'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange.shade600,
-              foregroundColor: Colors.white,
-            ),
-          ),
-          SizedBox(height: 20,),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -491,6 +509,104 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
         ],
       ),
     );
+  }
+
+  /// 테이블 데이터를 엑셀 형식으로 클립보드에 복사
+  /// 
+  /// 탭(\t)으로 구분하여 엑셀에서 붙여넣기 시 각 셀에 데이터가 자동으로 분리됩니다.
+  Future<void> _copyTableToClipboard(BuildContext context, WidgetRef ref) async {
+    try {
+      final planData = ref.read(
+        substitutionPlanViewModelProvider.select((state) => state.planData)
+      );
+
+      if (planData.isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('복사할 데이터가 없습니다.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+        return;
+      }
+
+      // 테이블 내용을 텍스트로 변환
+      final tableText = _generateTableText(planData);
+
+      // 클립보드에 복사
+      await Clipboard.setData(ClipboardData(text: tableText));
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${planData.length}개 행의 데이터가 클립보드에 복사되었습니다.'),
+            backgroundColor: Colors.green.shade600,
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('복사 중 오류가 발생했습니다: $e'),
+            backgroundColor: Colors.red.shade600,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  /// 테이블 내용을 탭 구분 텍스트로 변환
+  /// 
+  /// 엑셀에서 붙여넣기 시 각 셀에 자동으로 데이터가 분리됩니다.
+  String _generateTableText(List<SubstitutionPlanData> data) {
+    final buffer = StringBuffer();
+
+    // 헤더 행 (탭으로 구분)
+    const headers = [
+      '결강일',
+      '교시',
+      '학년',
+      '반',
+      '과목',
+      '교사',
+      '보강/수업변경 과목',
+      '보강/수업변경 성명',
+      '교체일',
+      '교체 교시',
+      '교체 과목',
+      '교체 교사',
+      '비고',
+    ];
+    buffer.writeln(headers.join('\t'));
+
+    // 데이터 행
+    for (final row in data) {
+      final cells = [
+        '${row.absenceDate}(${row.absenceDay})',  // 결강일(요일)
+        row.period,                 // 교시
+        row.grade,                  // 학년
+        row.className,              // 반
+        row.subject,                // 과목 (결강)
+        row.teacher,                // 교사 (결강)
+        row.supplementSubject,      // 보강/수업변경 과목
+        row.supplementTeacher,      // 보강/수업변경 성명
+        '${row.substitutionDate}(${row.substitutionDay})',  // 교체일(교체 요일)
+        row.substitutionPeriod,     // 교체 교시
+        row.substitutionSubject,    // 교체 과목
+        row.substitutionTeacher,    // 교체 교사
+        row.remarks,                // 비고
+      ];
+      buffer.writeln(cells.join('\t'));
+    }
+
+    return buffer.toString();
   }
 
 }

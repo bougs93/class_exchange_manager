@@ -35,8 +35,8 @@ class SubstitutionPlanGridConfig {
   /// 여백 및 스타일 상수
   static const EdgeInsets headerPadding = EdgeInsets.zero;
   static const EdgeInsets cellPadding = EdgeInsets.zero;
+  static const double mediumSpacing = 5.0;
   static const double smallSpacing = 2.0;
-  static const double mediumSpacing = 2.0;
   static const double headerFontSize = 12.0;
   static const double cellFontSize = 12.0;
 

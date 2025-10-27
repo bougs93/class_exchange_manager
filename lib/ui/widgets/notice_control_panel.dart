@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/notice_message.dart';
 import '../../providers/notice_message_provider.dart';
@@ -70,6 +71,17 @@ class NoticeControlPanel extends ConsumerWidget {
                       color: Colors.grey.shade700,
                     ),
                   ),
+                  const Spacer(),
+                  // 전체 복사 버튼 (오른쪽)
+                  IconButton(
+                    onPressed: () => _copyAllMessages(context, noticeState),
+                    icon: const Icon(Icons.copy, size: 20),
+                    tooltip: '전체 복사',
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.blue.shade50,
+                      foregroundColor: Colors.blue.shade700,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -98,6 +110,64 @@ class NoticeControlPanel extends ConsumerWidget {
       case NoticeMessageType.teacherNotice:
         noticeNotifier.setTeacherMessageOption(option);
         break;
+    }
+  }
+
+  /// 전체 메시지를 클립보드에 복사
+  Future<void> _copyAllMessages(BuildContext context, NoticeMessageState noticeState) async {
+    try {
+      // 메시지 타입에 따라 메시지 그룹 선택
+      final messageGroups = messageType == NoticeMessageType.classNotice
+          ? noticeState.classMessageGroups
+          : noticeState.teacherMessageGroups;
+
+      if (messageGroups.isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('복사할 메시지가 없습니다.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+        return;
+      }
+
+      // 모든 메시지를 하나의 문자열로 합치기
+      final buffer = StringBuffer();
+      for (int i = 0; i < messageGroups.length; i++) {
+        final group = messageGroups[i];
+        buffer.write('${group.groupIdentifier}: ');
+        buffer.write(group.combinedContent);
+        if (i < messageGroups.length - 1) {
+          buffer.write('\n\n');
+        }
+      }
+
+      // 클립보드에 복사
+      await Clipboard.setData(ClipboardData(text: buffer.toString()));
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${messageGroups.length}개의 메시지가 클립보드에 복사되었습니다.'),
+            backgroundColor: Colors.green.shade600,
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('복사 중 오류가 발생했습니다: $e'),
+            backgroundColor: Colors.red.shade600,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     }
   }
 }
