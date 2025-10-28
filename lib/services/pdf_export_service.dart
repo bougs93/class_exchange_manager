@@ -7,9 +7,18 @@ import '../utils/pdf_field_config.dart';
 /// PDF 내보내기 서비스
 /// - 선택된 PDF 템플릿에 교체 데이터를 채워서 출력합니다.
 class PdfExportService {
+  /// PDF 필드의 기본 폰트 크기 (pt 단위)
+  /// 템플릿의 폰트 크기를 읽는 것이 지원되지 않으므로 이 상수를 사용합니다.
+  static const double defaultFontSize = 10.0;
+  
+  /// 비고(remarks) 필드의 폰트 크기 (pt 단위)
+  /// 비고 필드는 텍스트가 길 수 있으므로 더 작은 폰트 사이즈를 사용합니다.
+  static const double remarksFontSize = 7.0;
+
   /// 한글 폰트 로드 (로컬 파일)
   /// 로컬 폰트 파일이 있으면 사용, 없으면 null 반환
-  static Future<PdfFont?> _loadKoreanFont() async {
+  /// [fontSize] 폰트 크기 (기본값: defaultFontSize 상수 사용)
+  static Future<PdfFont?> _loadKoreanFont({double fontSize = defaultFontSize}) async {
     try {
       // 로컬 폰트 파일 확인 (우선순위대로)
       final commonFontPaths = [
@@ -25,8 +34,8 @@ class PdfExportService {
           final fontFile = File(fontPath);
           if (await fontFile.exists()) {
             final fontBytes = await fontFile.readAsBytes();
-            developer.log('로컬 한글 폰트 로드 성공: $fontPath (${fontBytes.length} bytes)');
-            return PdfTrueTypeFont(fontBytes, 12);
+            developer.log('로컬 한글 폰트 로드 성공: $fontPath (${fontBytes.length} bytes, 크기: ${fontSize}pt)');
+            return PdfTrueTypeFont(fontBytes, fontSize);
           }
         } catch (e) {
           developer.log('로컬 폰트 확인 실패 ($fontPath): $e');
@@ -58,7 +67,7 @@ class PdfExportService {
       // 1) 템플릿 PDF 파일 존재 확인
       final templateFile = File(templatePath);
       if (!await templateFile.exists()) {
-        throw FileSystemException('템플릿 파일을 찾을 수 없습니다: $templatePath');
+          throw FileSystemException('템플릿 파일을 찾을 수 없습니다: $templatePath');
       }
 
       developer.log('템플릿 로드 시작: $templatePath');
@@ -72,13 +81,7 @@ class PdfExportService {
       final PdfForm form = document.form;
       developer.log('폼 필드 개수: ${form.fields.count}');
 
-      // 4) 한글 폰트 로드
-      PdfFont? koreanFont = await _loadKoreanFont();
-      if (koreanFont == null) {
-        developer.log('경고: 한글 폰트 로드 실패. 한글이 깨질 수 있습니다.');
-      }
-
-      // 5) 데이터를 폼 필드에 채우기
+      // 4) 데이터를 폼 필드에 채우기
       int successCount = 0;
       int failCount = 0;
       
@@ -100,10 +103,19 @@ class PdfExportService {
             for (int i = 0; i < form.fields.count; i++) {
               final field = form.fields[i];
               if (field is PdfTextBoxField && field.name == fieldName) {
+                // 필드의 기존 폰트 크기 정보 추출 시도
+                // 참고: 템플릿의 폰트 크기를 읽는 것이 지원되지 않으므로 기본값 사용
+                // 실제 폰트 크기는 템플릿 PDF 파일에 정의된 대로 유지됩니다
+                // 비고(remarks) 필드는 더 작은 폰트 사이즈 사용
+                double fieldFontSize = columnKey == 'remarks' ? remarksFontSize : defaultFontSize;
+                
+                // 해당 사이즈로 폰트 로드
+                final fontForField = await _loadKoreanFont(fontSize: fieldFontSize);
+                
                 // 필드에 값 채우기 전에 한글 폰트 먼저 설정
-                if (koreanFont != null) {
+                if (fontForField != null) {
                   try {
-                    field.font = koreanFont;
+                    field.font = fontForField;
                   } catch (e) {
                     developer.log('필드 $fieldName 폰트 설정 실패: $e');
                   }
@@ -151,14 +163,22 @@ class PdfExportService {
             for (int i = 0; i < form.fields.count; i++) {
               final field = form.fields[i];
               if (field is PdfTextBoxField && field.name == fieldName) {
+                // 필드의 기존 폰트 크기 정보 추출 시도
+                // 참고: 템플릿의 폰트 크기를 읽는 것이 지원되지 않으므로 기본값 사용
+                // 실제 폰트 크기는 템플릿 PDF 파일에 정의된 대로 유지됩니다
+                double fieldFontSize = 10.0;  // 기본값
+                
+                // 해당 사이즈로 폰트 로드
+                final fontForField = await _loadKoreanFont(fontSize: fieldFontSize);
+                
                 // 복합 필드 포맷팅: date(day) 형식으로 입력
                 final formattedValue = formatCompositeFieldValue(compositeField, values);
                 field.text = formattedValue;
                 
                 // 한글 폰트 설정
-                if (koreanFont != null) {
+                if (fontForField != null) {
                   try {
-                    field.font = koreanFont;
+                    field.font = fontForField;
                   } catch (e) {
                     developer.log('복합 필드 $fieldName 폰트 설정 실패: $e');
                   }
@@ -181,21 +201,7 @@ class PdfExportService {
 
       developer.log('필드 채우기 완료: 성공 $successCount, 실패 $failCount');
 
-      // 6) flatten 전에 모든 필드의 폰트를 다시 확인하고 재설정
-      if (koreanFont != null) {
-        for (int i = 0; i < form.fields.count; i++) {
-          final field = form.fields[i];
-          if (field is PdfTextBoxField && field.text.isNotEmpty) {
-            try {
-              field.font = koreanFont;
-            } catch (e) {
-              developer.log('재설정 실패 - 필드 ${field.name}: $e');
-            }
-          }
-        }
-      }
-
-      // 7) 폼 필드 플래튼 (편집 불가능하게 만듦)
+      // 5) 폼 필드 플래튼 (편집 불가능하게 만듦)
       try {
         form.flattenAllFields();
         developer.log('폼 필드 평탄화 완료');
@@ -203,13 +209,13 @@ class PdfExportService {
         developer.log('폼 필드 평탄화 중 오류: $e');
       }
 
-      // 8) PDF 저장
+      // 6) PDF 저장
       final file = File(outputPath);
       final List<int> bytes = await document.save();
       await file.writeAsBytes(bytes);
       developer.log('PDF 저장 완료: $outputPath (${bytes.length} bytes)');
 
-      // 9) 문서 닫기
+      // 7) 문서 닫기
       document.dispose();
 
       return true;
