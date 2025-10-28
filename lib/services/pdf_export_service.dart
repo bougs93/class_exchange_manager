@@ -22,28 +22,35 @@ class PdfExportService {
     try {
       // 로컬 폰트 파일 확인 (우선순위대로)
       final commonFontPaths = [
-        'C:\\Windows\\Fonts\\HamchoRomantic.ttf',  // 함초롱 바탕
-        'C:\\Windows\\Fonts\\hamchoromantic.ttf',  // 함초롱 바탕 (소문자)
+        'C:\\Windows\\Fonts\\Hamchoromantic.ttf',  // 함초롱바탕 (정확한 이름)
+        'C:\\Windows\\Fonts\\HCRBatang.ttf',       // 함초롱 바탕
+        'C:\\Windows\\Fonts\\hcrbatang.ttf',       // 함초롱 바탕 (소문자)
+        'C:\\Windows\\Fonts\\HCRBATANG.TTF',       // 함초롱 바탕 (대문자)
+        'C:\\Windows\\Fonts\\batang.ttc',          // 바탕 (TrueType Collection)
+        'C:\\Windows\\Fonts\\malgun.ttf',          // 맑은 고딕
+        'C:\\Windows\\Fonts\\gulim.ttc',          // 굴림
         'C:\\Windows\\Fonts\\NotoSansKR-Regular.ttf',
-        'C:\\Windows\\Fonts\\malgun.ttf',  // 맑은 고딕
-        'C:\\Program Files\\NotoFonts\\NotoSansKR-Regular.ttf',
       ];
+      
+      developer.log('한글 폰트 검색 시작 (폰트 크기: ${fontSize}pt)');
       
       for (String fontPath in commonFontPaths) {
         try {
           final fontFile = File(fontPath);
           if (await fontFile.exists()) {
             final fontBytes = await fontFile.readAsBytes();
-            developer.log('로컬 한글 폰트 로드 성공: $fontPath (${fontBytes.length} bytes, 크기: ${fontSize}pt)');
+            developer.log('✓ 한글 폰트 로드 성공: $fontPath (${fontBytes.length} bytes, 크기: ${fontSize}pt)');
             return PdfTrueTypeFont(fontBytes, fontSize);
+          } else {
+            developer.log('→ 폰트 파일 없음: $fontPath');
           }
         } catch (e) {
-          developer.log('로컬 폰트 확인 실패 ($fontPath): $e');
+          developer.log('✗ 폰트 확인 실패 ($fontPath): $e');
           continue;
         }
       }
       
-      developer.log('로컬 한글 폰트를 찾지 못했습니다.');
+      developer.log('✗ 한글 폰트를 찾지 못했습니다. (시도한 경로: ${commonFontPaths.length}개)');
       return null;
     } catch (e) {
       developer.log('한글 폰트 로드 중 오류: $e');
@@ -115,16 +122,19 @@ class PdfExportService {
                 // 필드에 값 채우기 전에 한글 폰트 먼저 설정
                 if (fontForField != null) {
                   try {
+                    // 폰트 설정 후 텍스트 설정
                     field.font = fontForField;
+                    field.text = value;
+                    developer.log('필드 채웠음 (한글폰트 적용): $fieldName = $value');
                   } catch (e) {
-                    developer.log('필드 $fieldName 폰트 설정 실패: $e');
+                    developer.log('폰트 설정 실패, 기본 폰트로 시도: $fieldName - $e');
+                    field.text = value; // 폰트 설정 실패해도 텍스트는 입력
                   }
+                } else {
+                  // 한글 폰트를 찾지 못한 경우
+                  developer.log('한글 폰트를 찾지 못함, 기본 폰트로 진행: $fieldName');
+                  field.text = value;
                 }
-                
-                // 필드에 값 채우기
-                field.text = value;
-                
-                developer.log('필드 채웠음: $fieldName = $value');
                 successCount++;
                 found = true;
                 break;
@@ -166,25 +176,30 @@ class PdfExportService {
                 // 필드의 기존 폰트 크기 정보 추출 시도
                 // 참고: 템플릿의 폰트 크기를 읽는 것이 지원되지 않으므로 기본값 사용
                 // 실제 폰트 크기는 템플릿 PDF 파일에 정의된 대로 유지됩니다
-                double fieldFontSize = 10.0;  // 기본값
+                double fieldFontSize = defaultFontSize;
                 
                 // 해당 사이즈로 폰트 로드
                 final fontForField = await _loadKoreanFont(fontSize: fieldFontSize);
                 
                 // 복합 필드 포맷팅: date(day) 형식으로 입력
                 final formattedValue = formatCompositeFieldValue(compositeField, values);
-                field.text = formattedValue;
                 
-                // 한글 폰트 설정
+                // 한글 폰트 먼저 설정 (텍스트 설정 전에)
                 if (fontForField != null) {
                   try {
+                    // 폰트 설정 후 텍스트 설정
                     field.font = fontForField;
+                    field.text = formattedValue;
+                    developer.log('복합 필드 채웠음 (한글폰트 적용): $fieldName = $formattedValue');
                   } catch (e) {
-                    developer.log('복합 필드 $fieldName 폰트 설정 실패: $e');
+                    developer.log('복합 필드 폰트 설정 실패, 기본 폰트로 시도: $fieldName - $e');
+                    field.text = formattedValue; // 폰트 설정 실패해도 텍스트는 입력
                   }
+                } else {
+                  // 한글 폰트를 찾지 못한 경우
+                  developer.log('한글 폰트를 찾지 못함, 기본 폰트로 진행: $fieldName');
+                  field.text = formattedValue;
                 }
-                
-                developer.log('복합 필드 채웠음: $fieldName = $formattedValue');
                 successCount++;
                 found = true;
                 break;
