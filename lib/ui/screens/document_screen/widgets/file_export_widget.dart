@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
+import '../../../../utils/pdf_field_config.dart';
 
 /// 파일 출력 위젯
 /// 
@@ -205,13 +206,20 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
       // 3) 중복 파일 체크
       // final finalOutputPath = _getUniqueFilePath(outputPath);
 
-      // 4) PDF 내보내기 실행
+      // 4) PDF 내보내기 실행 (필드명 유틸 사용 예시)
       // TODO: PDF 생성 서비스 구현 필요
       // final success = await PdfExportService.exportSubstitutionPlan(
       //   planData: planData,
       //   outputPath: finalOutputPath,
       //   context: context,
       // );
+
+      // 예: 1행의 'grade' 컬럼에 해당하는 PDF 필드명 계산 (경고 제거용 샘플)
+      // 실제 내보내기 구현 시 삭제/대체하세요.
+      if (planData.isNotEmpty) {
+        final sampleField = pdfCellFieldName(1, 'grade');
+        debugPrint('sample pdf field: $sampleField');
+      }
 
       if (!mounted) return;
 
