@@ -39,6 +39,28 @@ const List<String> kPdfTableColumns = [
   'remarks',
 ];
 
+/// PDF 템플릿 정보(간단한 이름과 에셋 경로)
+class PdfTemplateInfo {
+  final String name;      // UI에 표시할 이름
+  final String assetPath; // Flutter 에셋 경로
+
+  const PdfTemplateInfo({
+    required this.name,
+    required this.assetPath,
+  });
+}
+
+/// 선택 가능한 PDF 템플릿 목록
+/// 실제 파일이 에셋에 존재해야 합니다. (예: assets/templates/substitution_plan_template.pdf)
+const List<PdfTemplateInfo> kPdfTemplates = [
+  PdfTemplateInfo(
+    name: '기본 양식',
+    assetPath: 'assets/templates/substitution_plan_template.pdf',
+  ),
+  // 필요 시 다른 양식을 추가하세요.
+  // PdfTemplateInfo(name: '양식 A', assetPath: 'assets/templates/form_a.pdf'),
+];
+
 /// 복합 필드 베이스 이름 허용 목록
 /// 예: 'date(day)' → 1행은 'date(day).0'
 const List<String> kPdfCompositeFieldBases = [
@@ -68,6 +90,55 @@ String pdfCellFieldName(int row, String columnKey) {
   }
   return '$columnKey.$zeroBasedRow';
 }
+
+/// 복합 필드를 파싱하여 개별 필드들로 분해
+/// 예: 'date(day)' → ['date', 'day']
+/// 예: '3date(3day)' → ['3date', '3day']
+List<String> parseCompositeField(String compositeField) {
+  // 예: "date(day)" 형식
+  final regex = RegExp(r'^(\w+)\((\w+)\)$');
+  final match = regex.firstMatch(compositeField);
+  
+  if (match != null) {
+    return [match.group(1)!, match.group(2)!];
+  }
+  
+  // 파싱 실패 시 원본 반환
+  return [compositeField];
+}
+
+/// 복합 필드 값들을 필드 이름 형식에 맞춰 포맷팅
+/// 예: date(day) + ['10.27', '월'] → '10.27(월)'
+/// 예: 3date(3day) + ['2025-01-15', '수'] → '2025-01-15(수)'
+String formatCompositeFieldValue(String compositeField, List<String> values) {
+  if (values.isEmpty) return '';
+  if (values.length == 1) return values[0];
+  
+  // 복합 필드 이름에서 괄호 형식 추출
+  // 예: 'date(day)' → primary='date', secondary='day'
+  final regex = RegExp(r'^(\w+)\((\w+)\)$');
+  final match = regex.firstMatch(compositeField);
+  
+  if (match != null) {
+    // 값의 개수에 맞춰 포맷팅
+    if (values.length == 2) {
+      return '${values[0]}(${values[1]})';
+    } else if (values.length > 2) {
+      // 3개 이상이면 첫 번째(나머지) 형식
+      return '${values[0]}(${values.sublist(1).join(',')})';
+    }
+  }
+  
+  // 기본: 공백으로 구분
+  return values.join(' ');
+}
+
+/// 복합 필드 매핑: 복합 필드 → 개별 필드 리스트
+/// 예: 'date(day)' → ['date', 'day']
+final Map<String, List<String>> kPdfCompositeFieldMapping = {
+  for (String composite in kPdfCompositeFieldBases)
+    composite: parseCompositeField(composite)
+};
 
 /// (옵션) 헤더/메타 필드가 필요한 경우 여기에 정의하세요.
 /// 필요 없으면 비워두거나 이 섹션을 삭제해도 됩니다.
