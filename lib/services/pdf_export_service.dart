@@ -355,6 +355,9 @@ class PdfExportService {
     Map<String, String>? additionalFields,
   }) async {
     try {
+      // 폰트 캐시 (동일한 폰트를 반복 로드하지 않도록)
+      final Map<String, PdfFont> fontCache = {};
+      
       // 1) 템플릿 PDF 파일 로드
       // 에셋 경로인지 파일 시스템 경로인지 구분하여 처리
       List<int> templateBytes;
@@ -427,11 +430,23 @@ class PdfExportService {
                   ? (remarksFontSize ?? PdfExportService.remarksFontSize)
                   : (fontSize ?? PdfExportService.defaultFontSize);
                 
-                // 해당 사이즈로 폰트 로드
-                final fontForField = await _loadKoreanFont(
-                  fontSize: fieldFontSize,
-                  fontType: fontType,
-                );
+                // 폰트 캐시 키 생성 (폰트타입_폰트사이즈)
+                final fontCacheKey = '${fontType ?? "default"}_$fieldFontSize';
+                
+                // 캐시에서 폰트 가져오기 또는 새로 로드
+                PdfFont? fontForField = fontCache[fontCacheKey];
+                if (fontForField == null) {
+                  fontForField = await _loadKoreanFont(
+                    fontSize: fieldFontSize,
+                    fontType: fontType,
+                  );
+                  if (fontForField != null) {
+                    fontCache[fontCacheKey] = fontForField;
+                    developer.log('폰트 캐시에 저장: $fontCacheKey');
+                  }
+                } else {
+                  developer.log('폰트 캐시에서 재사용: $fontCacheKey');
+                }
                 
                 // 필드에 값 채우기 전에 한글 폰트 먼저 설정
                 if (fontForField != null) {
@@ -565,11 +580,23 @@ class PdfExportService {
               // 학교명 필드는 20pt, 나머지는 기본 폰트 크기 사용
               final fieldFontSize = fieldName == 'schoolName' ? 20.0 : (fontSize ?? defaultFontSize);
               
-              // 한글 폰트 설정
-              final koreanFont = await _loadKoreanFont(
-                fontSize: fieldFontSize,
-                fontType: fontType,
-              );
+              // 폰트 캐시 키 생성 (폰트타입_폰트사이즈)
+              final fontCacheKey = '${fontType ?? "default"}_$fieldFontSize';
+              
+              // 캐시에서 폰트 가져오기 또는 새로 로드
+              PdfFont? koreanFont = fontCache[fontCacheKey];
+              if (koreanFont == null) {
+                koreanFont = await _loadKoreanFont(
+                  fontSize: fieldFontSize,
+                  fontType: fontType,
+                );
+                if (koreanFont != null) {
+                  fontCache[fontCacheKey] = koreanFont;
+                  developer.log('폰트 캐시에 저장: $fontCacheKey');
+                }
+              } else {
+                developer.log('폰트 캐시에서 재사용: $fontCacheKey');
+              }
               
               if (koreanFont != null) {
                 targetField.font = koreanFont;

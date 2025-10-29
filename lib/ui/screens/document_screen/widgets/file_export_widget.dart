@@ -722,7 +722,7 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
     );
   }
 
-  /// PDF 미리보기 처리
+  /// 출력 미리 보기 처리
   Future<void> _handlePreview() async {
     if (!mounted) return;
 
@@ -769,7 +769,7 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
       if (!success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('PDF 미리보기 생성 실패'),
+            content: Text('출력 미리 보기 생성 실패'),
             backgroundColor: Colors.red,
           ),
         );
@@ -798,7 +798,7 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
 
 }
 
-/// PDF 미리보기 화면
+/// 출력 미리 보기 화면
 /// PDF 파일을 화면에 표시합니다.
 class PdfPreviewScreen extends StatefulWidget {
   final String pdfPath;
@@ -1182,7 +1182,7 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('PDF 미리보기'),
+        title: const Text('출력 미리 보기'),
         actions: [
           // 줌 조절 버튼들 (로딩 완료되고 오류가 없을 때만 표시)
           if (!_isLoading && !_hasError) ...[
@@ -1340,7 +1340,7 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                'PDF 미리보기 오류',
+                '출력 미리 보기 오류',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -1405,7 +1405,7 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                'PDF 미리보기 사용 불가',
+                '출력 미리 보기 사용 불가',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
