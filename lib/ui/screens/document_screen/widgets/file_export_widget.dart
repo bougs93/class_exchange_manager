@@ -71,11 +71,8 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           
-          // PDF 양식 파일 선택
+          // PDF 양식 파일 선택 (드롭다운 + 파일 선택 버튼 통합)
           _buildTemplateSelector(),
-
-          const SizedBox(height: 8),
-          _buildTemplateFilePicker(),
           
           const SizedBox(height: 15),
           
@@ -92,51 +89,89 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
     );
   }
 
-  /// PDF 양식 파일 선택 드롭다운
+  /// PDF 양식 파일 선택 드롭다운 및 파일 선택 버튼
   Widget _buildTemplateSelector() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 라벨
         Text(
-          'PDF양식 파일 선택',
+          '양식 PDF 선택',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
             color: Colors.grey.shade800,
           ),
         ),
-        const SizedBox(height: 2),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 5),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: DropdownButton<int>(
-            isExpanded: true,
-            value: _selectedTemplateIndex,
-            underline: const SizedBox.shrink(),
-            items: [
-              for (int i = 0; i < kPdfTemplates.length; i++)
-                DropdownMenuItem<int>(
-                  value: i,
-                  child: Text(kPdfTemplates[i].name),
+        const SizedBox(height: 8),
+        // 드롭다운과 버튼을 같은 row에 배치
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // 드롭다운
+            Expanded(
+              child: Container(
+                height: 37,  // 버튼 높이와 동일하게 설정
+                padding: const EdgeInsets.symmetric(horizontal: 5),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-            ],
-            onChanged: (int? newIndex) {
-              if (newIndex == null) return;
-              setState(() {
-                _selectedTemplateIndex = newIndex;
-              });
-            },
-          ),
+                alignment: Alignment.centerLeft,  // 내부 정렬
+                child: DropdownButton<int>(
+                  isExpanded: true,
+                  value: _getCurrentSelectedIndex(),
+                  underline: const SizedBox.shrink(),
+                  iconSize: 24,  // 드롭다운 아이콘 크기
+                  isDense: false,  // 컴팩트 모드 해제하여 높이 확보
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 13,
+                  ),
+                  items: _buildDropdownItems(),
+                  onChanged: (int? newIndex) {
+                    if (newIndex == null) return;
+                    setState(() {
+                      // 기본 템플릿 선택 (인덱스가 kPdfTemplates.length보다 작은 경우)
+                      if (newIndex < kPdfTemplates.length) {
+                        _selectedTemplateIndex = newIndex;
+                        _selectedTemplateFilePath = null;  // 사용자 파일 선택 초기화
+                      } else {
+                        // 사용자 선택 파일 선택 (인덱스가 kPdfTemplates.length와 같은 경우)
+                        // 이미 _selectedTemplateFilePath가 설정되어 있으므로 유지
+                        // _selectedTemplateIndex는 그대로 유지 (기본 양식 인덱스로 표시 용도)
+                      }
+                    });
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // 내 컴퓨터에서 PDF 선택 버튼
+            OutlinedButton.icon(
+              onPressed: _pickPdfTemplate,
+              icon: const Icon(Icons.folder_open, size: 18),
+              label: const Text(
+                '내 컴퓨터에서 PDF 선택',
+                style: TextStyle(fontSize: 13),
+              ),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                minimumSize: const Size(0, 45),  // 높이 고정
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 2),
-        Text(
-          kPdfTemplates[_selectedTemplateIndex].assetPath,
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-        ),
+        // 사용자가 직접 파일을 선택한 경우에만 파일 경로 표시
         if (_selectedTemplateFilePath != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            _selectedTemplateFilePath!,
+            style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
+          ),
           const SizedBox(height: 2),
           Text(
             '사용자 선택 파일이 우선 적용됩니다.',
@@ -147,39 +182,58 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
     );
   }
 
-  /// 로컬 PDF 양식 파일 선택 (file_picker)
-  Widget _buildTemplateFilePicker() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            OutlinedButton.icon(
-              onPressed: _pickPdfTemplate,
-              icon: const Icon(Icons.upload_file),
-              label: const Text('내 컴퓨터에서 PDF 선택'),
-            ),
-            const SizedBox(width: 12),
-            if (_selectedTemplateFilePath != null)
-              Expanded(
-                child: Text(
-                  _selectedTemplateFilePath!,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-                ),
-              ),
-          ],
-        ),
-        if (_selectedTemplateFilePath == null)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              '선택된 파일 없음 (미선택 시 내장 템플릿 사용)',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+
+  /// 드롭다운에 표시할 항목 목록 생성
+  /// 기본 템플릿들과 사용자 선택 파일(있는 경우)을 포함합니다.
+  List<DropdownMenuItem<int>> _buildDropdownItems() {
+    final items = <DropdownMenuItem<int>>[];
+    
+    // 기본 템플릿들 추가
+    for (int i = 0; i < kPdfTemplates.length; i++) {
+      items.add(
+        DropdownMenuItem<int>(
+          value: i,
+          child: Text(
+            kPdfTemplates[i].name,
+            style: const TextStyle(
+              color: Colors.black,
+              fontSize: 13,
             ),
           ),
-      ],
-    );
+        ),
+      );
+    }
+    
+    // 사용자가 파일을 선택한 경우 드롭다운에 추가
+    if (_selectedTemplateFilePath != null) {
+      // 파일명만 추출 (전체 경로에서 파일명만)
+      final fileName = _selectedTemplateFilePath!.split(Platform.pathSeparator).last;
+      items.add(
+        DropdownMenuItem<int>(
+          value: kPdfTemplates.length,  // 마지막 인덱스로 사용자 파일 표시
+          child: Text(
+            fileName,
+            style: const TextStyle(
+              color: Colors.black,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      );
+    }
+    
+    return items;
+  }
+  
+  /// 현재 드롭다운에서 선택되어야 할 인덱스 반환
+  /// 사용자 파일이 선택된 경우 kPdfTemplates.length를 반환하고,
+  /// 그렇지 않으면 _selectedTemplateIndex를 반환합니다.
+  int _getCurrentSelectedIndex() {
+    if (_selectedTemplateFilePath != null) {
+      return kPdfTemplates.length;  // 사용자 파일 선택된 경우
+    }
+    return _selectedTemplateIndex;  // 기본 템플릿 선택된 경우
   }
 
   Future<void> _pickPdfTemplate() async {
@@ -196,6 +250,8 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
     if (!mounted) return;
     setState(() {
       _selectedTemplateFilePath = path;
+      // 파일 선택 시 드롭다운에서 사용자 파일 항목이 선택되도록
+      // (인덱스는 _getCurrentSelectedIndex()에서 자동으로 처리됨)
     });
   }
 
@@ -257,10 +313,17 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
                     underline: const SizedBox.shrink(),
                     isExpanded: true,
                     isDense: true,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 13,
+                    ),
                     items: _fontList.map((font) {
                       return DropdownMenuItem(
                         value: font['file']!,
-                        child: Text(font['name']!),
+                        child: Text(
+                          font['name']!,
+                          style: const TextStyle(color: Colors.black),
+                        ),
                       );
                     }).toList(),
                     onChanged: (String? newFont) {
@@ -278,85 +341,115 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
           
           const SizedBox(height: 16),
           
-          // 일반 필드 폰트 사이즈
+          // 일반 필드 폰트 사이즈와 비고 필드 폰트 사이즈를 같은 행에 배치
           Row(
             children: [
+              // 일반 필드 폰트 사이즈
               Expanded(
-                child: Text(
-                  '일반 필드 폰트 크기',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade700,
-                  ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '일 반',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButton<double>(
+                        value: _fontSize,
+                        underline: const SizedBox.shrink(),
+                        isDense: true,
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontSize: 13,
+                        ),
+                        items: _fontSizeOptions.map((size) {
+                          return DropdownMenuItem(
+                            value: size,
+                            child: Text(
+                              '${size.toInt()}pt',
+                              style: const TextStyle(color: Colors.black),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (double? newSize) {
+                          if (newSize != null) {
+                            setState(() {
+                              _fontSize = newSize;
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 12),
+              // 구분선 추가
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                width: 1,
+                height: 25,
+                margin: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: DropdownButton<double>(
-                  value: _fontSize,
-                  underline: const SizedBox.shrink(),
-                  isDense: true,
-                  items: _fontSizeOptions.map((size) {
-                    return DropdownMenuItem(
-                      value: size,
-                      child: Text('${size.toInt()}pt'),
-                    );
-                  }).toList(),
-                  onChanged: (double? newSize) {
-                    if (newSize != null) {
-                      setState(() {
-                        _fontSize = newSize;
-                      });
-                    }
-                  },
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(0.5),
                 ),
               ),
-            ],
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // 비고 필드 폰트 사이즈
-          Row(
-            children: [
+              // 비고 필드 폰트 사이즈
               Expanded(
-                child: Text(
-                  '비고 필드 폰트 크기',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade700,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: DropdownButton<double>(
-                  value: _remarksFontSize,
-                  underline: const SizedBox.shrink(),
-                  isDense: true,
-                  items: _remarksFontSizeOptions.map((size) {
-                    return DropdownMenuItem(
-                      value: size,
-                      child: Text('${size.toInt()}pt'),
-                    );
-                  }).toList(),
-                  onChanged: (double? newSize) {
-                    if (newSize != null) {
-                      setState(() {
-                        _remarksFontSize = newSize;
-                      });
-                    }
-                  },
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '비 고',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButton<double>(
+                        value: _remarksFontSize,
+                        underline: const SizedBox.shrink(),
+                        isDense: true,
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontSize: 13,
+                        ),
+                        items: _remarksFontSizeOptions.map((size) {
+                          return DropdownMenuItem(
+                            value: size,
+                            child: Text(
+                              '${size.toInt()}pt',
+                              style: const TextStyle(color: Colors.black),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (double? newSize) {
+                          if (newSize != null) {
+                            setState(() {
+                              _remarksFontSize = newSize;
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
