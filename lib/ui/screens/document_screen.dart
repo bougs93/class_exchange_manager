@@ -4,7 +4,7 @@ import '../../models/document_type.dart';
 import 'document_screen/widgets/substitution_plan_grid.dart';
 import 'document_screen/widgets/class_notice_widget.dart';
 import 'document_screen/widgets/teacher_notice_widget.dart';
-import 'document_screen/widgets/file_export_widget.dart';
+import 'document_screen/widgets/file_export/file_export_widget.dart';
 
 /// 문서 출력 화면
 class DocumentScreen extends ConsumerStatefulWidget {
