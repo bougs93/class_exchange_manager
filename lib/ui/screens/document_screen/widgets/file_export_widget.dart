@@ -38,29 +38,18 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
   final List<double> _fontSizeOptions = [8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0];
   final List<double> _remarksFontSizeOptions = [6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0];
   
-  // 윈도우 기본 제공 한국어 폰트 목록
+  // Windows 시스템 폰트 목록 (정확한 파일명)
+  // 위치: C:\Windows\Fonts\
   final List<Map<String, String>> _fontList = [
-    // 한글 기본 폰트
-    {'file': 'Hamchoromantic.ttf', 'name': '함초롱바탕'},
-    {'file': 'Hamchoromantic.ttf', 'name': '함초롱바탕 (Bold)'},
-    {'file': 'HCRBatang.ttf', 'name': '함초롱 바탕'},
     {'file': 'malgun.ttf', 'name': '맑은 고딕'},
+    {'file': 'malgunbd.ttf', 'name': '맑은 고딕 Bold'},
     {'file': 'gulim.ttc', 'name': '굴림'},
-    {'file': 'dotum.ttc', 'name': '돋움'},
     {'file': 'batang.ttc', 'name': '바탕'},
+    {'file': 'dotum.ttc', 'name': '돋움'},
     {'file': 'gungsuh.ttc', 'name': '궁서'},
-    {'file': 'HYGothic-Regular.ttf', 'name': 'HY Gothic'},
-    {'file': 'HYMyeongjo-Regular.ttf', 'name': 'HY Myeongjo'},
-    {'file': 'NanumGothic.ttf', 'name': '나눔고딕'},
-    {'file': 'NanumMyeongjo.ttf', 'name': '나눔명조'},
-    {'file': 'NanumBarunGothic.ttf', 'name': '나눔바른고딕'},
-    
-    // Bold 버전
-    {'file': 'MalgunGothic.ttf', 'name': '맑은 고딕 Bold'},
-    {'file': 'gulim.ttf', 'name': '굴림 Bold'},
-    {'file': 'dotum.ttf', 'name': '돋움 Bold'},
-    {'file': 'batang.ttf', 'name': '바탕 Bold'},
-    {'file': 'HYGothic-Bold.ttf', 'name': 'HY Gothic Bold'},
+    {'file': 'hanbatang.ttf', 'name': '한바탕'},
+    {'file': 'handotum.ttf', 'name': '한돋움'},
+    {'file': 'hansantteutdotum-regular.ttf', 'name': '한산뜻돋움'},
   ];
 
   @override

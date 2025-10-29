@@ -53,12 +53,15 @@ class PdfExportService {
   /// 기본 폰트 목록 (오류 시 사용)
   static List<String> _getDefaultFonts() {
     return [
-      'Hamchoromantic.ttf',
-      'HamchoDotum.ttf',
-      'malgun.ttf',
-      'gulim.ttc',
-      'batang.ttc',
-      'NotoSansKR-Regular.ttf',
+      'malgun.ttf',      // 맑은 고딕 (권장)
+      'malgunbd.ttf',    // 맑은 고딕 Bold
+      'gulim.ttc',       // 굴림
+      'batang.ttc',      // 바탕
+      'dotum.ttc',       // 돋움
+      'gungsuh.ttc',     // 궁서
+      'hanbatang.ttf',   // 한바탕
+      'handotum.ttf',    // 한돋움
+      'hansantteutdotum-regular.ttf',  // 한산뜻돋움
     ];
   }
 
@@ -83,16 +86,6 @@ class PdfExportService {
         'batang',        // 바탕 - 정확한 파일명: batang.ttc, batangche.ttc (바탕체)
         'dotum',         // 돋움 - 정확한 파일명: dotum.ttc, dotumche.ttc (돋움체)
         'gungsuh',       // 궁서 - 정확한 파일명: gungsuh.ttc, gungsuhche.ttc (궁서체)
-        'hamchoromantic', // 함초롱바탕 - 정확한 파일명: Hamchoromantic.ttf
-        'hamchodotum',   // 함초롱돋움 - 정확한 파일명: HamchoDotum.ttf
-        'hcrbatang',     // 함초롱 바탕 - 정확한 파일명: HCRBatang.ttf (또는 hcrbatang.ttf)
-        'hcrdotum',      // 함초롱 돋움 - 정확한 파일명: HCRDotum.ttf
-        'nanumgothic',   // 나눔고딕 - 정확한 파일명: NanumGothic.ttf
-        'nanummyeongjo', // 나눔명조 - 정확한 파일명: NanumMyeongjo.ttf
-        'nanumbarun',    // 나눔바른고딕 - 정확한 파일명: NanumBarunGothic.ttf
-        'notosanskr',    // Noto Sans KR - 정확한 파일명: NotoSansKR-Regular.ttf
-        'hygothic',      // HY Gothic - 정확한 파일명: HYGothic-Regular.ttf
-        'hymyeongjo',    // HY Myeongjo - 정확한 파일명: HYMyeongjo-Regular.ttf
       ];
 
       // 실제 폰트 파일 목록 가져오기 (한 번만 호출하여 성능 최적화)
@@ -214,28 +207,9 @@ class PdfExportService {
   }) async {
     try {
       developer.log('한글 폰트 검색 시작 (폰트 크기: ${fontSize}pt, 폰트 종류: ${fontType ?? "자동"})');
+      developer.log('Windows 시스템 폰트 사용 (C:\\Windows\\Fonts\\)');
       
-      // 1. 에셋 폰트 시도 (우선 순위)
-      final assetFontPaths = [
-        'assets/fonts/NotoSansKR-Regular.ttf',
-        'assets/fonts/NanumGothic-Regular.ttf',
-        'lib/assets/fonts/NotoSansKR-Regular.ttf',
-        'lib/assets/fonts/NanumGothic-Regular.ttf',
-      ];
-      
-      for (String fontPath in assetFontPaths) {
-        try {
-          final fontBytes = await rootBundle.load(fontPath);
-          final buffer = fontBytes.buffer.asUint8List();
-          developer.log('✓ 에셋 한글 폰트 로드 성공: $fontPath (${buffer.length} bytes, 크기: ${fontSize}pt)');
-          return PdfTrueTypeFont(buffer, fontSize);
-        } catch (e) {
-          developer.log('→ 에셋 폰트 없음: $fontPath');
-          continue;
-        }
-      }
-      
-      // 2. 로컬 시스템 폰트 폴백
+      // Windows 시스템 폰트 사용
       List<String> commonFontPaths;
       
       if (fontType != null) {
@@ -297,76 +271,32 @@ class PdfExportService {
             developer.log('폰트 폴더 검색 실패: $e');
           }
         } else {
-          // 선택된 폰트 종류에 따라 우선순위 정하기
-          switch (fontType) {
-            case 'HamchoBatang':
-              commonFontPaths = [
-                'C:\\Windows\\Fonts\\Hamchoromantic.ttf',
-                'C:\\Windows\\Fonts\\HCRBatang.ttf',
-                'C:\\Windows\\Fonts\\hcrbatang.ttf',
-                'C:\\Windows\\Fonts\\HCRBATANG.TTF',
-              ];
-              break;
-            case 'HamchoDotum':
-              commonFontPaths = [
-                'C:\\Windows\\Fonts\\HamchoDotum.ttf',
-                'C:\\Windows\\Fonts\\hcrdotum.ttf',
-                'C:\\Windows\\Fonts\\HCRDotum.ttf',
-                'C:\\Windows\\Fonts\\HCRDOTUM.TTF',
-              ];
-              break;
-            case 'Malgun':
-              commonFontPaths = [
-                'C:\\Windows\\Fonts\\malgun.ttf',
-                'C:\\Windows\\Fonts\\malgun.ttc',
-                'C:\\Windows\\Fonts\\Malgun.ttf',
-              ];
-              break;
-            case 'Gulim':
-              commonFontPaths = [
-                'C:\\Windows\\Fonts\\gulim.ttc',
-                'C:\\Windows\\Fonts\\gulim.ttf',
-                'C:\\Windows\\Fonts\\Gulim.ttf',
-              ];
-              break;
-            case 'Batang':
-              commonFontPaths = [
-                'C:\\Windows\\Fonts\\batang.ttc',
-                'C:\\Windows\\Fonts\\batang.ttf',
-                'C:\\Windows\\Fonts\\Batang.ttf',
-              ];
-              break;
-            case 'NotoSansKR':
-              commonFontPaths = [
-                'C:\\Windows\\Fonts\\NotoSansKR-Regular.ttf',
-                'C:\\Program Files\\NotoFonts\\NotoSansKR-Regular.ttf',
-              ];
-              break;
-            case 'NanumGothic':
-              commonFontPaths = [
-                'C:\\Windows\\Fonts\\NanumGothic.ttf',
-                'C:\\Windows\\Fonts\\nanumgothic.ttf',
-              ];
-              break;
-            default:
-              commonFontPaths = [
-                'C:\\Windows\\Fonts\\Hamchoromantic.ttf',
-                'C:\\Windows\\Fonts\\malgun.ttf',
-                'C:\\Windows\\Fonts\\gulim.ttc',
-              ];
-          }
+          // 폰트 종류가 지정되었지만 정확한 파일명이 아닌 경우
+          // Windows 시스템 기본 폰트 검색
+          commonFontPaths = [
+            'C:\\Windows\\Fonts\\malgun.ttf',      // 맑은 고딕 (권장)
+            'C:\\Windows\\Fonts\\malgunbd.ttf',    // 맑은 고딕 Bold
+            'C:\\Windows\\Fonts\\gulim.ttc',       // 굴림
+            'C:\\Windows\\Fonts\\batang.ttc',      // 바탕
+            'C:\\Windows\\Fonts\\dotum.ttc',       // 돋움
+            'C:\\Windows\\Fonts\\gungsuh.ttc',     // 궁서
+            'C:\\Windows\\Fonts\\hanbatang.ttf',   // 한바탕
+            'C:\\Windows\\Fonts\\handotum.ttf',    // 한돋움
+            'C:\\Windows\\Fonts\\hansantteutdotum-regular.ttf',  // 한산뜻돋움
+          ];
         }
       } else {
         // 폰트 종류가 지정되지 않으면 모든 폰트 검색
         commonFontPaths = [
-          'C:\\Windows\\Fonts\\Hamchoromantic.ttf',
-          'C:\\Windows\\Fonts\\HCRBatang.ttf',
-          'C:\\Windows\\Fonts\\HamchoDotum.ttf',
-          'C:\\Windows\\Fonts\\malgun.ttf',
-          'C:\\Windows\\Fonts\\gulim.ttc',
-          'C:\\Windows\\Fonts\\batang.ttc',
-          'C:\\Windows\\Fonts\\NotoSansKR-Regular.ttf',
-          'C:\\Windows\\Fonts\\NanumGothic.ttf',
+          'C:\\Windows\\Fonts\\malgun.ttf',      // 맑은 고딕 (권장)
+          'C:\\Windows\\Fonts\\malgunbd.ttf',    // 맑은 고딕 Bold
+          'C:\\Windows\\Fonts\\gulim.ttc',       // 굴림
+          'C:\\Windows\\Fonts\\batang.ttc',      // 바탕
+          'C:\\Windows\\Fonts\\dotum.ttc',       // 돋움
+          'C:\\Windows\\Fonts\\gungsuh.ttc',     // 궁서
+          'C:\\Windows\\Fonts\\hanbatang.ttf',   // 한바탕
+          'C:\\Windows\\Fonts\\handotum.ttf',    // 한돋움
+          'C:\\Windows\\Fonts\\hansantteutdotum-regular.ttf',  // 한산뜻돋움
         ];
       }
       
@@ -409,7 +339,7 @@ class PdfExportService {
   /// [outputPath] 생성될 PDF 파일의 저장 경로
   /// [fontSize] 폰트 크기 (기본값: defaultFontSize)
   /// [remarksFontSize] 비고 필드 폰트 크기 (기본값: remarksFontSize)
-  /// [fontType] 폰트 종류 (HamchoBatang, HamchoDotum, Malgun, Gulim, Batang, NotoSansKR, NanumGothic)
+  /// [fontType] 폰트 종류 (Windows 시스템 폰트 파일명: malgun.ttf, malgunbd.ttf, gulim.ttc, batang.ttc, dotum.ttc, gungsuh.ttc)
   /// 
   /// Returns: 성공 시 true
   static Future<bool> exportSubstitutionPlan({
