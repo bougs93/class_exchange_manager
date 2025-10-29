@@ -4,7 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import '../providers/substitution_plan_viewmodel.dart';
 import '../utils/pdf_field_config.dart';
+import '../utils/substitution_plan_field_accessor.dart';
 import '../constants/korean_fonts.dart';
+import 'pdf_font_cache_manager.dart';
 
 /// PDF 내보내기 서비스
 /// - 선택된 PDF 템플릿에 교체 데이터를 채워서 출력합니다.
@@ -187,12 +189,12 @@ class PdfExportService {
     }
   }
 
-  /// 한글 폰트 로드
+  /// 한글 폰트 로드 (Public API)
   /// 1. 에셋 폰트 우선 사용 (배포된 앱에서 안정적)
   /// 2. 로컬 시스템 폰트 폴백 (개발/테스트용)
   /// [fontSize] 폰트 크기 (기본값: defaultFontSize 상수 사용)
   /// [fontType] 폰트 종류 (null이면 자동 선택)
-  static Future<PdfFont?> _loadKoreanFont({
+  static Future<PdfFont?> loadKoreanFont({
     double fontSize = defaultFontSize,
     String? fontType,
   }) async {
@@ -326,8 +328,8 @@ class PdfExportService {
     Map<String, String>? additionalFields,
   }) async {
     try {
-      // 폰트 캐시 (동일한 폰트를 반복 로드하지 않도록)
-      final Map<String, PdfFont> fontCache = {};
+      // 폰트 캐시 매니저 생성
+      final fontCacheManager = PdfFontCacheManager();
       
       // 1) 템플릿 PDF 파일 로드
       // 에셋 경로인지 파일 시스템 경로인지 구분하여 처리
@@ -397,27 +399,15 @@ class PdfExportService {
                 // 참고: 템플릿의 폰트 크기를 읽는 것이 지원되지 않으므로 기본값 사용
                 // 실제 폰트 크기는 템플릿 PDF 파일에 정의된 대로 유지됩니다
                 // 비고(remarks) 필드는 더 작은 폰트 사이즈 사용
-                double fieldFontSize = columnKey == 'remarks' 
+                double fieldFontSize = columnKey == 'remarks'
                   ? (remarksFontSize ?? PdfExportService.remarksFontSize)
                   : (fontSize ?? PdfExportService.defaultFontSize);
-                
-                // 폰트 캐시 키 생성 (폰트타입_폰트사이즈)
-                final fontCacheKey = '${fontType ?? "default"}_$fieldFontSize';
-                
-                // 캐시에서 폰트 가져오기 또는 새로 로드
-                PdfFont? fontForField = fontCache[fontCacheKey];
-                if (fontForField == null) {
-                  fontForField = await _loadKoreanFont(
-                    fontSize: fieldFontSize,
-                    fontType: fontType,
-                  );
-                  if (fontForField != null) {
-                    fontCache[fontCacheKey] = fontForField;
-                    developer.log('폰트 캐시에 저장: $fontCacheKey');
-                  }
-                } else {
-                  developer.log('폰트 캐시에서 재사용: $fontCacheKey');
-                }
+
+                // 폰트 캐시 매니저를 통해 폰트 가져오기 (캐싱 자동 처리)
+                PdfFont? fontForField = await fontCacheManager.getOrLoad(
+                  fontSize: fieldFontSize,
+                  fontType: fontType,
+                );
                 
                 // 필드에 값 채우기 전에 한글 폰트 먼저 설정
                 if (fontForField != null) {
@@ -477,9 +467,9 @@ class PdfExportService {
                 // 참고: 템플릿의 폰트 크기를 읽는 것이 지원되지 않으므로 기본값 사용
                 // 실제 폰트 크기는 템플릿 PDF 파일에 정의된 대로 유지됩니다
                 double fieldFontSize = fontSize ?? PdfExportService.defaultFontSize;
-                
-                // 해당 사이즈로 폰트 로드
-                final fontForField = await _loadKoreanFont(
+
+                // 폰트 캐시 매니저를 통해 폰트 가져오기 (캐싱 자동 처리)
+                final fontForField = await fontCacheManager.getOrLoad(
                   fontSize: fieldFontSize,
                   fontType: fontType,
                 );
@@ -550,25 +540,13 @@ class PdfExportService {
             if (targetField is PdfTextBoxField) {
               // 학교명 필드는 20pt, 나머지는 기본 폰트 크기 사용
               final fieldFontSize = fieldName == 'schoolName' ? 20.0 : (fontSize ?? defaultFontSize);
-              
-              // 폰트 캐시 키 생성 (폰트타입_폰트사이즈)
-              final fontCacheKey = '${fontType ?? "default"}_$fieldFontSize';
-              
-              // 캐시에서 폰트 가져오기 또는 새로 로드
-              PdfFont? koreanFont = fontCache[fontCacheKey];
-              if (koreanFont == null) {
-                koreanFont = await _loadKoreanFont(
-                  fontSize: fieldFontSize,
-                  fontType: fontType,
-                );
-                if (koreanFont != null) {
-                  fontCache[fontCacheKey] = koreanFont;
-                  developer.log('폰트 캐시에 저장: $fontCacheKey');
-                }
-              } else {
-                developer.log('폰트 캐시에서 재사용: $fontCacheKey');
-              }
-              
+
+              // 폰트 캐시 매니저를 통해 폰트 가져오기 (캐싱 자동 처리)
+              final koreanFont = await fontCacheManager.getOrLoad(
+                fontSize: fieldFontSize,
+                fontType: fontType,
+              );
+
               if (koreanFont != null) {
                 targetField.font = koreanFont;
               }
@@ -613,43 +591,13 @@ class PdfExportService {
 
   /// 컬럼 키에 해당하는 값을 데이터에서 가져오기
   /// [data] 교체 데이터
-  /// [columnKey] 컬럼 키 (kPdfTableColumns에 정의된 키)
+  /// [columnKey] 컬럼 키 (kPdfTableColumns에 정의된 키, 축약형)
   /// Returns: 필드 값 또는 null
+  ///
+  /// SubstitutionPlanFieldAccessor를 사용하여 축약형 키를 자동으로 처리합니다.
   static String? _getFieldValue(SubstitutionPlanData data, String columnKey) {
-    switch (columnKey) {
-      case 'date':
-        return data.absenceDate;
-      case 'day':
-        return data.absenceDay;
-      case 'period':
-        return data.period;
-      case 'grade':
-        return data.grade;
-      case 'class':
-        return data.className;
-      case 'subject':
-        return data.subject;
-      case 'teacher':
-        return data.teacher;
-      case '2subject':
-        return data.supplementSubject;
-      case '2teacher':
-        return data.supplementTeacher;
-      case '3date':
-        return data.substitutionDate;
-      case '3day':
-        return data.substitutionDay;
-      case '3period':
-        return data.substitutionPeriod;
-      case '3subject':
-        return data.substitutionSubject;
-      case '3teacher':
-        return data.substitutionTeacher;
-      case 'remarks':
-        return data.remarks;
-      default:
-        return null;
-    }
+    final value = SubstitutionPlanFieldAccessor.getValue(data, columnKey);
+    return value.isNotEmpty ? value : null;
   }
 
   /// 템플릿의 모든 폼 필드 정보 출력 (디버깅용)

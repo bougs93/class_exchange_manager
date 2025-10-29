@@ -104,10 +104,15 @@ class NoticeMessageGenerator {
 
     for (final data in groupDataList) {
       final category = _getExchangeCategory(data);
-      final strategy = MessageFormatStrategyFactory.getStrategy(category, messageOption);
+      final message = MessageFormatter.format(
+        data: data,
+        className: className,
+        category: category,
+        option: messageOption,
+      );
 
-      if (strategy != null) {
-        exchangeLines.add(strategy.format(data, className));
+      if (message != null) {
+        exchangeLines.add(message);
       }
     }
 

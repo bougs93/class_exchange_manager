@@ -63,63 +63,40 @@ class DataSorter {
   }
 }
 
-/// 메시지 포맷 전략 인터페이스
-abstract class MessageFormatStrategy {
-  String format(SubstitutionPlanData data, String className);
-}
+/// 메시지 포맷터 (간소화된 버전)
+///
+/// 기존의 4개 Strategy 클래스를 단일 static 메서드로 통합하여 간소화했습니다.
+class MessageFormatter {
+  /// 교체 메시지 포맷팅
+  ///
+  /// [data] 교체 데이터
+  /// [className] 학급명
+  /// [category] 교체 카테고리 (기본, 순환4+, 보강)
+  /// [option] 메시지 옵션 (옵션1, 옵션2)
+  ///
+  /// Returns: 포맷팅된 메시지 (보강일 경우 null)
+  static String? format({
+    required SubstitutionPlanData data,
+    required String className,
+    required ExchangeCategory category,
+    required MessageOption option,
+  }) {
+    // 보강은 별도 처리
+    if (category == ExchangeCategory.supplement) {
+      return null;
+    }
 
-/// 기본 교체 옵션1 전략 (화살표 형태 <->)
-class BasicExchangeOption1Strategy implements MessageFormatStrategy {
-  @override
-  String format(SubstitutionPlanData data, String className) {
-    return "'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' <-> '${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}'";
-  }
-}
-
-/// 순환교체 4단계 이상 옵션1 전략 (화살표 형태 ->)
-class CircularExchangeOption1Strategy implements MessageFormatStrategy {
-  @override
-  String format(SubstitutionPlanData data, String className) {
-    return "'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' -> '${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}'";
-  }
-}
-
-/// 기본 교체 옵션2 전략 (수업 형태)
-class BasicExchangeOption2Strategy implements MessageFormatStrategy {
-  @override
-  String format(SubstitutionPlanData data, String className) {
-    return "'${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업입니다.";
-  }
-}
-
-/// 순환교체 4단계 이상 옵션2 전략 (각 시간대별 수업)
-class CircularExchangeOption2Strategy implements MessageFormatStrategy {
-  @override
-  String format(SubstitutionPlanData data, String className) {
-    return "'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업입니다.";
-  }
-}
-
-/// 메시지 포맷 전략 팩토리
-class MessageFormatStrategyFactory {
-  /// 교체 카테고리와 메시지 옵션에 따라 적절한 전략 반환
-  static MessageFormatStrategy? getStrategy(
-    ExchangeCategory category,
-    MessageOption messageOption,
-  ) {
-    if (messageOption == MessageOption.option1) {
-      return switch (category) {
-        ExchangeCategory.basic => BasicExchangeOption1Strategy(),
-        ExchangeCategory.circularFourPlus => CircularExchangeOption1Strategy(),
-        ExchangeCategory.supplement => null, // 보강은 별도 처리
-      };
+    if (option == MessageOption.option1) {
+      // 옵션1: 화살표 형태
+      final arrow = category == ExchangeCategory.circularFourPlus ? '->' : '<->';
+      return "'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' $arrow '${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}'";
     } else {
-      // MessageOption.option2
-      return switch (category) {
-        ExchangeCategory.basic => BasicExchangeOption2Strategy(),
-        ExchangeCategory.circularFourPlus => CircularExchangeOption2Strategy(),
-        ExchangeCategory.supplement => null, // 보강은 별도 처리
-      };
+      // 옵션2: 수업 형태
+      if (category == ExchangeCategory.circularFourPlus) {
+        return "'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업입니다.";
+      } else {
+        return "'${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업입니다.";
+      }
     }
   }
 }
