@@ -51,11 +51,11 @@ class PdfTemplateInfo {
 }
 
 /// 선택 가능한 PDF 템플릿 목록
-/// 실제 파일이 에셋에 존재해야 합니다. (예: assets/templates/substitution_plan_template.pdf)
+/// 실제 파일이 에셋에 존재해야 합니다. (예: lib/assets/templates/substitution_plan_template.pdf)
 const List<PdfTemplateInfo> kPdfTemplates = [
   PdfTemplateInfo(
     name: '기본 양식',
-    assetPath: 'assets/templates/substitution_plan_template.pdf',
+    assetPath: 'lib/assets/templates/substitution_plan_template.pdf',
   ),
   // 필요 시 다른 양식을 추가하세요.
   // PdfTemplateInfo(name: '양식 A', assetPath: 'assets/templates/form_a.pdf'),

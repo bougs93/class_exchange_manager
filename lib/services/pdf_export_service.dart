@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:developer' as developer;
+import 'package:flutter/services.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import '../providers/substitution_plan_viewmodel.dart';
 import '../utils/pdf_field_config.dart';
@@ -15,31 +16,366 @@ class PdfExportService {
   /// 비고 필드는 텍스트가 길 수 있으므로 더 작은 폰트 사이즈를 사용합니다.
   static const double remarksFontSize = 7.0;
 
-  /// 한글 폰트 로드 (로컬 파일)
-  /// 로컬 폰트 파일이 있으면 사용, 없으면 null 반환
-  /// [fontSize] 폰트 크기 (기본값: defaultFontSize 상수 사용)
-  static Future<PdfFont?> _loadKoreanFont({double fontSize = defaultFontSize}) async {
+  /// 윈도우 Fonts 폴더에서 사용 가능한 모든 폰트 파일 목록 가져오기
+  /// Returns: 폰트 파일명 리스트 (확장자 포함)
+  static Future<List<String>> getAvailableFonts() async {
     try {
-      // 로컬 폰트 파일 확인 (우선순위대로)
-      final commonFontPaths = [
-        'C:\\Windows\\Fonts\\Hamchoromantic.ttf',  // 함초롱바탕 (정확한 이름)
-        'C:\\Windows\\Fonts\\HCRBatang.ttf',       // 함초롱 바탕
-        'C:\\Windows\\Fonts\\hcrbatang.ttf',       // 함초롱 바탕 (소문자)
-        'C:\\Windows\\Fonts\\HCRBATANG.TTF',       // 함초롱 바탕 (대문자)
-        'C:\\Windows\\Fonts\\batang.ttc',          // 바탕 (TrueType Collection)
-        'C:\\Windows\\Fonts\\malgun.ttf',          // 맑은 고딕
-        'C:\\Windows\\Fonts\\gulim.ttc',          // 굴림
-        'C:\\Windows\\Fonts\\NotoSansKR-Regular.ttf',
+      final fontsDir = Directory('C:\\Windows\\Fonts');
+      
+      if (!await fontsDir.exists()) {
+        developer.log('Windows Fonts 폴더를 찾을 수 없습니다.');
+        return _getDefaultFonts();
+      }
+      
+      final fontFiles = fontsDir.listSync()
+          .whereType<File>()
+          .map((entity) => entity.path.split(Platform.pathSeparator).last)
+          .where((filename) => filename.toLowerCase().endsWith('.ttf') || 
+                                filename.toLowerCase().endsWith('.ttc'))
+          .toList();
+      
+      developer.log('사용 가능한 폰트 파일: ${fontFiles.length}개');
+      
+      if (fontFiles.isEmpty) {
+        return _getDefaultFonts();
+      }
+      
+      // 파일명 순서로 정렬
+      fontFiles.sort();
+      
+      return fontFiles;
+    } catch (e) {
+      developer.log('폰트 목록 가져오기 오류: $e');
+      return _getDefaultFonts();
+    }
+  }
+  
+  /// 기본 폰트 목록 (오류 시 사용)
+  static List<String> _getDefaultFonts() {
+    return [
+      'Hamchoromantic.ttf',
+      'HamchoDotum.ttf',
+      'malgun.ttf',
+      'gulim.ttc',
+      'batang.ttc',
+      'NotoSansKR-Regular.ttf',
+    ];
+  }
+
+  /// Fallback 한글 폰트 찾기
+  /// 지정된 폰트를 찾지 못했을 때 실제 Windows Fonts 폴더에서 
+  /// 사용 가능한 한글 폰트를 자동으로 찾아서 반환합니다.
+  /// [fontSize] 폰트 크기
+  static Future<PdfFont?> _findFallbackKoreanFont(double fontSize) async {
+    try {
+      final fontsDir = Directory('C:\\Windows\\Fonts');
+      if (!await fontsDir.exists()) {
+        developer.log('Windows Fonts 폴더를 찾을 수 없습니다.');
+        return null;
+      }
+
+      // 한글 폰트로 알려진 일반적인 폰트 파일명 패턴들
+      // 우선순위 순으로 정렬 (자주 사용되는 폰트 먼저)
+      // 참고: Windows에서는 파일명이 대소문자를 구분하지 않지만, 실제 파일명은 다양할 수 있습니다.
+      final List<String> koreanFontPatterns = [
+        'malgun',        // 맑은 고딕 (가장 일반적) - 정확한 파일명: malgun.ttf
+        'gulim',         // 굴림 - 정확한 파일명: gulim.ttc (TrueType Collection)
+        'batang',        // 바탕 - 정확한 파일명: batang.ttc, batangche.ttc (바탕체)
+        'dotum',         // 돋움 - 정확한 파일명: dotum.ttc, dotumche.ttc (돋움체)
+        'gungsuh',       // 궁서 - 정확한 파일명: gungsuh.ttc, gungsuhche.ttc (궁서체)
+        'hamchoromantic', // 함초롱바탕 - 정확한 파일명: Hamchoromantic.ttf
+        'hamchodotum',   // 함초롱돋움 - 정확한 파일명: HamchoDotum.ttf
+        'hcrbatang',     // 함초롱 바탕 - 정확한 파일명: HCRBatang.ttf (또는 hcrbatang.ttf)
+        'hcrdotum',      // 함초롱 돋움 - 정확한 파일명: HCRDotum.ttf
+        'nanumgothic',   // 나눔고딕 - 정확한 파일명: NanumGothic.ttf
+        'nanummyeongjo', // 나눔명조 - 정확한 파일명: NanumMyeongjo.ttf
+        'nanumbarun',    // 나눔바른고딕 - 정확한 파일명: NanumBarunGothic.ttf
+        'notosanskr',    // Noto Sans KR - 정확한 파일명: NotoSansKR-Regular.ttf
+        'hygothic',      // HY Gothic - 정확한 파일명: HYGothic-Regular.ttf
+        'hymyeongjo',    // HY Myeongjo - 정확한 파일명: HYMyeongjo-Regular.ttf
+      ];
+
+      // 실제 폰트 파일 목록 가져오기 (한 번만 호출하여 성능 최적화)
+      final allFontFiles = fontsDir.listSync()
+          .whereType<File>()
+          .toList();
+
+      // 파일명을 소문자로 변환한 매핑 생성 (대소문자 무시 검색용)
+      final fontFileMap = <String, File>{};
+      for (File fontFile in allFontFiles) {
+        final fileName = fontFile.path.split(Platform.pathSeparator).last.toLowerCase();
+        if ((fileName.endsWith('.ttf') || fileName.endsWith('.ttc')) &&
+            !fontFileMap.containsKey(fileName)) {
+          fontFileMap[fileName] = fontFile;
+        }
+      }
+
+      developer.log('Fallback 검색: 총 ${fontFileMap.length}개의 폰트 파일 발견');
+      
+      // 디버깅: 한글 폰트로 추정되는 파일 목록 출력 (처음 20개만)
+      final koreanFontCandidates = fontFileMap.keys
+          .where((name) => koreanFontPatterns.any((pattern) => name.contains(pattern.toLowerCase())))
+          .take(20)
+          .toList();
+      if (koreanFontCandidates.isNotEmpty) {
+        developer.log('한글 폰트 후보 (처음 20개): ${koreanFontCandidates.join(", ")}');
+      }
+
+      // 우선순위에 따라 폰트 검색
+      // 정확한 파일명 매칭을 우선 시도하고, 실패하면 패턴 매칭 시도
+      for (String pattern in koreanFontPatterns) {
+        final patternLower = pattern.toLowerCase();
+        
+        // 1단계: 정확한 파일명 매칭 (예: malgun.ttf, gulim.ttc)
+        // 확장자 변형도 시도 (.ttf와 .ttc 모두)
+        final exactMatches = [
+          '$patternLower.ttf',
+          '$patternLower.ttc',
+        ];
+        
+        for (String exactMatch in exactMatches) {
+          if (fontFileMap.containsKey(exactMatch)) {
+            try {
+              final fontFile = fontFileMap[exactMatch]!;
+              final fontBytes = await fontFile.readAsBytes();
+              final actualFileName = fontFile.path.split(Platform.pathSeparator).last;
+              developer.log('✓ Fallback 폰트 발견 (정확한 매칭): $actualFileName (패턴: $pattern)');
+              return PdfTrueTypeFont(fontBytes, fontSize);
+            } catch (e) {
+              developer.log('✗ Fallback 폰트 로드 실패 ($exactMatch): $e');
+            }
+          }
+        }
+        
+        // 2단계: 파일명이 패턴으로 시작하는 경우 (예: malgunbd.ttf -> malgun으로 시작)
+        for (String fileName in fontFileMap.keys) {
+          if (fileName.startsWith(patternLower) && 
+              (fileName.endsWith('.ttf') || fileName.endsWith('.ttc'))) {
+            try {
+              final fontFile = fontFileMap[fileName]!;
+              final fontBytes = await fontFile.readAsBytes();
+              final actualFileName = fontFile.path.split(Platform.pathSeparator).last;
+              developer.log('✓ Fallback 폰트 발견 (시작 매칭): $actualFileName (패턴: $pattern)');
+              return PdfTrueTypeFont(fontBytes, fontSize);
+            } catch (e) {
+              developer.log('✗ Fallback 폰트 로드 실패 ($fileName): $e');
+              continue;
+            }
+          }
+        }
+        
+        // 3단계: 파일명에 패턴이 포함되어 있는지 확인 (가장 넓은 범위)
+        for (String fileName in fontFileMap.keys) {
+          if (fileName.contains(patternLower)) {
+            try {
+              final fontFile = fontFileMap[fileName]!;
+              final fontBytes = await fontFile.readAsBytes();
+              final actualFileName = fontFile.path.split(Platform.pathSeparator).last;
+              developer.log('✓ Fallback 폰트 발견 (포함 매칭): $actualFileName (패턴: $pattern)');
+              return PdfTrueTypeFont(fontBytes, fontSize);
+            } catch (e) {
+              developer.log('✗ Fallback 폰트 로드 실패 ($fileName): $e');
+              continue;
+            }
+          }
+        }
+      }
+
+      // 패턴 매칭으로 찾지 못한 경우, 첫 번째 사용 가능한 폰트 시도
+      developer.log('패턴 매칭 실패, 첫 번째 사용 가능한 폰트 시도 중...');
+      for (String fileName in fontFileMap.keys.take(10)) {
+        try {
+          final fontFile = fontFileMap[fileName]!;
+          final fontBytes = await fontFile.readAsBytes();
+          final actualFileName = fontFile.path.split(Platform.pathSeparator).last;
+          developer.log('✓ Fallback 폰트 발견 (임의): $actualFileName');
+          return PdfTrueTypeFont(fontBytes, fontSize);
+        } catch (e) {
+          continue;
+        }
+      }
+
+      developer.log('✗ Fallback 한글 폰트를 찾지 못했습니다.');
+      return null;
+    } catch (e) {
+      developer.log('Fallback 한글 폰트 검색 중 오류: $e');
+      return null;
+    }
+  }
+
+  /// 한글 폰트 로드
+  /// 1. 에셋 폰트 우선 사용 (배포된 앱에서 안정적)
+  /// 2. 로컬 시스템 폰트 폴백 (개발/테스트용)
+  /// [fontSize] 폰트 크기 (기본값: defaultFontSize 상수 사용)
+  /// [fontType] 폰트 종류 (null이면 자동 선택)
+  static Future<PdfFont?> _loadKoreanFont({
+    double fontSize = defaultFontSize,
+    String? fontType,
+  }) async {
+    try {
+      developer.log('한글 폰트 검색 시작 (폰트 크기: ${fontSize}pt, 폰트 종류: ${fontType ?? "자동"})');
+      
+      // 1. 에셋 폰트 시도 (우선 순위)
+      final assetFontPaths = [
+        'assets/fonts/NotoSansKR-Regular.ttf',
+        'assets/fonts/NanumGothic-Regular.ttf',
+        'lib/assets/fonts/NotoSansKR-Regular.ttf',
+        'lib/assets/fonts/NanumGothic-Regular.ttf',
       ];
       
-      developer.log('한글 폰트 검색 시작 (폰트 크기: ${fontSize}pt)');
+      for (String fontPath in assetFontPaths) {
+        try {
+          final fontBytes = await rootBundle.load(fontPath);
+          final buffer = fontBytes.buffer.asUint8List();
+          developer.log('✓ 에셋 한글 폰트 로드 성공: $fontPath (${buffer.length} bytes, 크기: ${fontSize}pt)');
+          return PdfTrueTypeFont(buffer, fontSize);
+        } catch (e) {
+          developer.log('→ 에셋 폰트 없음: $fontPath');
+          continue;
+        }
+      }
+      
+      // 2. 로컬 시스템 폰트 폴백
+      List<String> commonFontPaths;
+      
+      if (fontType != null) {
+        // 폰트 파일명이 직접 지정된 경우 (예: "malgun.ttf", "HCRBatang.ttf")
+        if (fontType.endsWith('.ttf') || fontType.endsWith('.ttc')) {
+          // 파일명의 다양한 변형 시도 (대소문자, 확장자 등)
+          final baseName = fontType.substring(0, fontType.lastIndexOf('.'));
+          final ext = fontType.substring(fontType.lastIndexOf('.'));
+          
+          commonFontPaths = [
+            // 원본 파일명 (정확한 대소문자)
+            'C:\\Windows\\Fonts\\$fontType',
+            // 소문자 변형
+            'C:\\Windows\\Fonts\\${baseName.toLowerCase()}$ext',
+            // 대문자 변형
+            'C:\\Windows\\Fonts\\${baseName.toUpperCase()}$ext',
+            // 첫 글자만 대문자
+            'C:\\Windows\\Fonts\\${baseName[0].toUpperCase()}${baseName.substring(1).toLowerCase()}$ext',
+          ];
+          
+          // 확장자 변형도 시도 (.ttf <-> .ttc)
+          if (ext == '.ttf') {
+            commonFontPaths.addAll([
+              'C:\\Windows\\Fonts\\$baseName.ttc',
+              'C:\\Windows\\Fonts\\${baseName.toLowerCase()}.ttc',
+              'C:\\Windows\\Fonts\\${baseName.toUpperCase()}.ttc',
+            ]);
+          } else if (ext == '.ttc') {
+            commonFontPaths.addAll([
+              'C:\\Windows\\Fonts\\$baseName.ttf',
+              'C:\\Windows\\Fonts\\${baseName.toLowerCase()}.ttf',
+              'C:\\Windows\\Fonts\\${baseName.toUpperCase()}.ttf',
+            ]);
+          }
+          
+          // 실제 Fonts 폴더에서 파일 검색 시도
+          try {
+            final fontsDir = Directory('C:\\Windows\\Fonts');
+            if (await fontsDir.exists()) {
+              final files = fontsDir.listSync()
+                  .whereType<File>()
+                  .map((entity) => entity.path)
+                  .where((path) {
+                    final fileName = path.split(Platform.pathSeparator).last.toLowerCase();
+                    final searchName = baseName.toLowerCase();
+                    return fileName.startsWith(searchName) && 
+                           (fileName.endsWith('.ttf') || fileName.endsWith('.ttc'));
+                  })
+                  .take(5) // 최대 5개만
+                  .toList();
+              
+              if (files.isNotEmpty) {
+                // 실제로 찾은 파일들을 맨 앞에 추가
+                commonFontPaths = [...files, ...commonFontPaths];
+                developer.log('실제 폰트 파일 발견: ${files.length}개');
+              }
+            }
+          } catch (e) {
+            developer.log('폰트 폴더 검색 실패: $e');
+          }
+        } else {
+          // 선택된 폰트 종류에 따라 우선순위 정하기
+          switch (fontType) {
+            case 'HamchoBatang':
+              commonFontPaths = [
+                'C:\\Windows\\Fonts\\Hamchoromantic.ttf',
+                'C:\\Windows\\Fonts\\HCRBatang.ttf',
+                'C:\\Windows\\Fonts\\hcrbatang.ttf',
+                'C:\\Windows\\Fonts\\HCRBATANG.TTF',
+              ];
+              break;
+            case 'HamchoDotum':
+              commonFontPaths = [
+                'C:\\Windows\\Fonts\\HamchoDotum.ttf',
+                'C:\\Windows\\Fonts\\hcrdotum.ttf',
+                'C:\\Windows\\Fonts\\HCRDotum.ttf',
+                'C:\\Windows\\Fonts\\HCRDOTUM.TTF',
+              ];
+              break;
+            case 'Malgun':
+              commonFontPaths = [
+                'C:\\Windows\\Fonts\\malgun.ttf',
+                'C:\\Windows\\Fonts\\malgun.ttc',
+                'C:\\Windows\\Fonts\\Malgun.ttf',
+              ];
+              break;
+            case 'Gulim':
+              commonFontPaths = [
+                'C:\\Windows\\Fonts\\gulim.ttc',
+                'C:\\Windows\\Fonts\\gulim.ttf',
+                'C:\\Windows\\Fonts\\Gulim.ttf',
+              ];
+              break;
+            case 'Batang':
+              commonFontPaths = [
+                'C:\\Windows\\Fonts\\batang.ttc',
+                'C:\\Windows\\Fonts\\batang.ttf',
+                'C:\\Windows\\Fonts\\Batang.ttf',
+              ];
+              break;
+            case 'NotoSansKR':
+              commonFontPaths = [
+                'C:\\Windows\\Fonts\\NotoSansKR-Regular.ttf',
+                'C:\\Program Files\\NotoFonts\\NotoSansKR-Regular.ttf',
+              ];
+              break;
+            case 'NanumGothic':
+              commonFontPaths = [
+                'C:\\Windows\\Fonts\\NanumGothic.ttf',
+                'C:\\Windows\\Fonts\\nanumgothic.ttf',
+              ];
+              break;
+            default:
+              commonFontPaths = [
+                'C:\\Windows\\Fonts\\Hamchoromantic.ttf',
+                'C:\\Windows\\Fonts\\malgun.ttf',
+                'C:\\Windows\\Fonts\\gulim.ttc',
+              ];
+          }
+        }
+      } else {
+        // 폰트 종류가 지정되지 않으면 모든 폰트 검색
+        commonFontPaths = [
+          'C:\\Windows\\Fonts\\Hamchoromantic.ttf',
+          'C:\\Windows\\Fonts\\HCRBatang.ttf',
+          'C:\\Windows\\Fonts\\HamchoDotum.ttf',
+          'C:\\Windows\\Fonts\\malgun.ttf',
+          'C:\\Windows\\Fonts\\gulim.ttc',
+          'C:\\Windows\\Fonts\\batang.ttc',
+          'C:\\Windows\\Fonts\\NotoSansKR-Regular.ttf',
+          'C:\\Windows\\Fonts\\NanumGothic.ttf',
+        ];
+      }
       
       for (String fontPath in commonFontPaths) {
         try {
           final fontFile = File(fontPath);
           if (await fontFile.exists()) {
             final fontBytes = await fontFile.readAsBytes();
-            developer.log('✓ 한글 폰트 로드 성공: $fontPath (${fontBytes.length} bytes, 크기: ${fontSize}pt)');
+            developer.log('✓ 로컬 한글 폰트 로드 성공: $fontPath (${fontBytes.length} bytes, 크기: ${fontSize}pt)');
             return PdfTrueTypeFont(fontBytes, fontSize);
           } else {
             developer.log('→ 폰트 파일 없음: $fontPath');
@@ -50,7 +386,15 @@ class PdfExportService {
         }
       }
       
-      developer.log('✗ 한글 폰트를 찾지 못했습니다. (시도한 경로: ${commonFontPaths.length}개)');
+      // 지정된 폰트를 찾지 못한 경우, 실제 존재하는 한글 폰트 자동 탐색
+      developer.log('지정된 폰트를 찾지 못했습니다. 사용 가능한 한글 폰트 자동 탐색 중...');
+      final fallbackFont = await _findFallbackKoreanFont(fontSize);
+      if (fallbackFont != null) {
+        developer.log('✓ Fallback 한글 폰트 로드 성공 (크기: ${fontSize}pt)');
+        return fallbackFont;
+      }
+      
+      developer.log('✗ 한글 폰트를 찾지 못했습니다. 한글 텍스트가 표시되지 않을 수 있습니다.');
       return null;
     } catch (e) {
       developer.log('한글 폰트 로드 중 오류: $e');
@@ -63,25 +407,50 @@ class PdfExportService {
   /// [planData] 교체 데이터 목록
   /// [templatePath] 사용자 선택 PDF 템플릿 경로(파일 시스템 경로 또는 에셋 경로)
   /// [outputPath] 생성될 PDF 파일의 저장 경로
+  /// [fontSize] 폰트 크기 (기본값: defaultFontSize)
+  /// [remarksFontSize] 비고 필드 폰트 크기 (기본값: remarksFontSize)
+  /// [fontType] 폰트 종류 (HamchoBatang, HamchoDotum, Malgun, Gulim, Batang, NotoSansKR, NanumGothic)
   /// 
   /// Returns: 성공 시 true
   static Future<bool> exportSubstitutionPlan({
     required List<SubstitutionPlanData> planData,
     required String templatePath,
     required String outputPath,
+    double? fontSize,
+    double? remarksFontSize,
+    String? fontType,
   }) async {
     try {
-      // 1) 템플릿 PDF 파일 존재 확인
-      final templateFile = File(templatePath);
-      if (!await templateFile.exists()) {
-          throw FileSystemException('템플릿 파일을 찾을 수 없습니다: $templatePath');
+      // 1) 템플릿 PDF 파일 로드
+      // 에셋 경로인지 파일 시스템 경로인지 구분하여 처리
+      List<int> templateBytes;
+      
+      // 에셋 경로 판단: 'assets/' 또는 'lib/assets/'로 시작하는 경우
+      if (templatePath.startsWith('assets/') || templatePath.startsWith('lib/assets/')) {
+        // 에셋 경로인 경우: rootBundle을 사용하여 로드
+        // 참고: Flutter에서 에셋 파일은 pubspec.yaml에 등록되어 있어야 합니다.
+        try {
+          developer.log('템플릿 에셋 로드 시작: $templatePath');
+          final assetData = await rootBundle.load(templatePath);
+          templateBytes = assetData.buffer.asUint8List();
+          developer.log('템플릿 에셋 로드 성공: ${templateBytes.length} bytes');
+        } catch (e) {
+          throw FileSystemException('에셋 템플릿 파일을 찾을 수 없습니다: $templatePath', '');
+        }
+      } else {
+        // 파일 시스템 경로인 경우: File을 사용하여 로드
+        final templateFile = File(templatePath);
+        if (!await templateFile.exists()) {
+          throw FileSystemException('템플릿 파일을 찾을 수 없습니다: $templatePath', '');
+        }
+        developer.log('템플릿 파일 로드 시작: $templatePath');
+        templateBytes = await templateFile.readAsBytes();
+        developer.log('템플릿 파일 로드 성공: ${templateBytes.length} bytes');
       }
-
-      developer.log('템플릿 로드 시작: $templatePath');
 
       // 2) 템플릿 PDF 로드
       final PdfDocument document = PdfDocument(
-        inputBytes: await templateFile.readAsBytes(),
+        inputBytes: templateBytes,
       );
 
       // 3) 폼 필드 접근
@@ -114,10 +483,15 @@ class PdfExportService {
                 // 참고: 템플릿의 폰트 크기를 읽는 것이 지원되지 않으므로 기본값 사용
                 // 실제 폰트 크기는 템플릿 PDF 파일에 정의된 대로 유지됩니다
                 // 비고(remarks) 필드는 더 작은 폰트 사이즈 사용
-                double fieldFontSize = columnKey == 'remarks' ? remarksFontSize : defaultFontSize;
+                double fieldFontSize = columnKey == 'remarks' 
+                  ? (remarksFontSize ?? PdfExportService.remarksFontSize)
+                  : (fontSize ?? PdfExportService.defaultFontSize);
                 
                 // 해당 사이즈로 폰트 로드
-                final fontForField = await _loadKoreanFont(fontSize: fieldFontSize);
+                final fontForField = await _loadKoreanFont(
+                  fontSize: fieldFontSize,
+                  fontType: fontType,
+                );
                 
                 // 필드에 값 채우기 전에 한글 폰트 먼저 설정
                 if (fontForField != null) {
@@ -176,10 +550,13 @@ class PdfExportService {
                 // 필드의 기존 폰트 크기 정보 추출 시도
                 // 참고: 템플릿의 폰트 크기를 읽는 것이 지원되지 않으므로 기본값 사용
                 // 실제 폰트 크기는 템플릿 PDF 파일에 정의된 대로 유지됩니다
-                double fieldFontSize = defaultFontSize;
+                double fieldFontSize = fontSize ?? PdfExportService.defaultFontSize;
                 
                 // 해당 사이즈로 폰트 로드
-                final fontForField = await _loadKoreanFont(fontSize: fieldFontSize);
+                final fontForField = await _loadKoreanFont(
+                  fontSize: fieldFontSize,
+                  fontType: fontType,
+                );
                 
                 // 복합 필드 포맷팅: date(day) 형식으로 입력
                 final formattedValue = formatCompositeFieldValue(compositeField, values);
@@ -285,13 +662,33 @@ class PdfExportService {
   /// 선택한 PDF 템플릿의 폼 필드 이름과 상세 정보를 확인할 때 사용합니다.
   static Future<Map<String, dynamic>> getTemplateFieldInfo(String templatePath) async {
     try {
-      final templateFile = File(templatePath);
-      if (!await templateFile.exists()) {
-        throw FileSystemException('템플릿 파일을 찾을 수 없습니다: $templatePath');
+      // 에셋 경로인지 파일 시스템 경로인지 구분하여 처리
+      List<int> templateBytes;
+      
+      // 에셋 경로 판단: 'assets/' 또는 'lib/assets/'로 시작하는 경우
+      if (templatePath.startsWith('assets/') || templatePath.startsWith('lib/assets/')) {
+        // 에셋 경로인 경우: rootBundle을 사용하여 로드
+        try {
+          developer.log('템플릿 에셋 로드 시작 (필드 정보 읽기): $templatePath');
+          final assetData = await rootBundle.load(templatePath);
+          templateBytes = assetData.buffer.asUint8List();
+          developer.log('템플릿 에셋 로드 성공 (필드 정보 읽기): ${templateBytes.length} bytes');
+        } catch (e) {
+          throw FileSystemException('에셋 템플릿 파일을 찾을 수 없습니다: $templatePath', '');
+        }
+      } else {
+        // 파일 시스템 경로인 경우: File을 사용하여 로드
+        final templateFile = File(templatePath);
+        if (!await templateFile.exists()) {
+          throw FileSystemException('템플릿 파일을 찾을 수 없습니다: $templatePath', '');
+        }
+        developer.log('템플릿 파일 로드 시작 (필드 정보 읽기): $templatePath');
+        templateBytes = await templateFile.readAsBytes();
+        developer.log('템플릿 파일 로드 성공 (필드 정보 읽기): ${templateBytes.length} bytes');
       }
 
       final PdfDocument document = PdfDocument(
-        inputBytes: await templateFile.readAsBytes(),
+        inputBytes: templateBytes,
       );
 
       final Map<String, dynamic> info = {
