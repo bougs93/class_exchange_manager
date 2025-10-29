@@ -340,6 +340,8 @@ class PdfExportService {
   /// [fontSize] 폰트 크기 (기본값: defaultFontSize)
   /// [remarksFontSize] 비고 필드 폰트 크기 (기본값: remarksFontSize)
   /// [fontType] 폰트 종류 (Windows 시스템 폰트 파일명: malgun.ttf, malgunbd.ttf, gulim.ttc, batang.ttc, dotum.ttc, gungsuh.ttc)
+  /// [includeRemarks] 비고 필드 출력 여부 (기본값: true)
+  /// [additionalFields] 추가 필드 데이터 (teacherName, absencePeriod, workStatus, reasonForAbsence, notes, schoolName)
   /// 
   /// Returns: 성공 시 true
   static Future<bool> exportSubstitutionPlan({
@@ -349,6 +351,8 @@ class PdfExportService {
     double? fontSize,
     double? remarksFontSize,
     String? fontType,
+    bool includeRemarks = true,
+    Map<String, String>? additionalFields,
   }) async {
     try {
       // 1) 템플릿 PDF 파일 로드
@@ -397,6 +401,12 @@ class PdfExportService {
         
         // 각 컬럼 키에 대해 필드 이름 생성 (예: date.0, date.1, ...)
         for (String columnKey in kPdfTableColumns) {
+          // 비고 필드 출력 여부 확인
+          if (columnKey == 'remarks' && !includeRemarks) {
+            // 비고 출력이 비활성화된 경우 건너뛰기
+            continue;
+          }
+          
           // 필드 이름 생성: {컬럼키}.{행인덱스}
           final String fieldName = '$columnKey.$rowIndex';
           
@@ -522,6 +532,62 @@ class PdfExportService {
       }
 
       developer.log('필드 채우기 완료: 성공 $successCount, 실패 $failCount');
+
+      // 4-1) 추가 필드 채우기
+      if (additionalFields != null && additionalFields.isNotEmpty) {
+        developer.log('추가 필드 채우기 시작: ${additionalFields.length}개');
+        
+        for (final entry in additionalFields.entries) {
+          final fieldName = entry.key;
+          final fieldValue = entry.value;
+          
+          // 빈 값은 건너뛰기
+          if (fieldValue.isEmpty) continue;
+          
+          try {
+            // 필드 찾기
+            PdfField? targetField;
+            for (int i = 0; i < form.fields.count; i++) {
+              final field = form.fields[i];
+              if (field.name == fieldName) {
+                targetField = field;
+                break;
+              }
+            }
+            
+            if (targetField == null) {
+              developer.log('추가 필드를 찾을 수 없음: $fieldName');
+              failCount++;
+              continue;
+            }
+            
+            if (targetField is PdfTextBoxField) {
+              // 학교명 필드는 20pt, 나머지는 기본 폰트 크기 사용
+              final fieldFontSize = fieldName == 'schoolName' ? 20.0 : (fontSize ?? defaultFontSize);
+              
+              // 한글 폰트 설정
+              final koreanFont = await _loadKoreanFont(
+                fontSize: fieldFontSize,
+                fontType: fontType,
+              );
+              
+              if (koreanFont != null) {
+                targetField.font = koreanFont;
+              }
+              
+              // 필드 값 설정
+              targetField.text = fieldValue;
+              developer.log('추가 필드 채웠음: $fieldName = $fieldValue (폰트 크기: ${fieldFontSize}pt)');
+              successCount++;
+            }
+          } catch (e) {
+            developer.log('추가 필드 채우기 실패 ($fieldName): $e');
+            failCount++;
+          }
+        }
+        
+        developer.log('추가 필드 채우기 완료');
+      }
 
       // 5) 폼 필드 플래튼 (편집 불가능하게 만듦)
       try {

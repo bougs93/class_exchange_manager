@@ -32,7 +32,10 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
   double _remarksFontSize = 7.0;
   
   // 폰트 종류 설정
-  String _selectedFont = 'malgun.ttf';
+  String _selectedFont = 'hanbatang.ttf';  // 기본값: 한바탕
+  
+  // 비고 필드 출력 여부
+  bool _includeRemarks = true;
   
   // 사용 가능한 폰트 사이즈 옵션
   final List<double> _fontSizeOptions = [8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0];
@@ -51,6 +54,34 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
     {'file': 'handotum.ttf', 'name': '한돋움'},
     {'file': 'hansantteutdotum-regular.ttf', 'name': '한산뜻돋움'},
   ];
+  
+  // PDF 추가 필드 데이터
+  final TextEditingController _teacherNameController = TextEditingController();
+  final TextEditingController _absencePeriodController = TextEditingController();
+  final TextEditingController _workStatusController = TextEditingController();
+  final TextEditingController _reasonForAbsenceController = TextEditingController();
+  final TextEditingController _notesController = TextEditingController(
+    text: '''< 유 의 사 항 >
+☆ 결강교사, 과목, 기간은 해당 교사의 내용으로 기록합니다.
+☆ 결강발생 시 결강 교사 본인이 교체한 후 사전에 결재를 득하여 제출합니다.(부득이한 경우 수업계 협조)
+☆ 근무상황은 연가, 병가, 출장, 조퇴 등을 기록합니다.
+☆ 결강사유는 결강내용을 기록하여 주시고 출장, 연수 등에는 장소도 함께 기록하여 주십시오.
+☆ 결강일 작성은 해당일 여러 과목 결강 발생 시 최초 윗줄만 기록하여 주십시오. 
+☆ 교체를 원칙으로 하나 수업교체가 어려운 경우는 동교과 보강 또는 수업변경으로 처리할 수 있습니다.
+☆ 원어민(영어, 중국어) 수업의 경우 겸임 날짜가 지정되어 있으므로 수업 교체시 유의해 주십시오.''',
+  );
+  final TextEditingController _schoolNameController = TextEditingController();
+  
+  @override
+  void dispose() {
+    _teacherNameController.dispose();
+    _absencePeriodController.dispose();
+    _workStatusController.dispose();
+    _reasonForAbsenceController.dispose();
+    _notesController.dispose();
+    _schoolNameController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,6 +98,11 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
           
           // 폰트 사이즈 설정
           _buildFontSizeSettings(),
+          
+          const SizedBox(height: 15),
+          
+          // 추가 필드 입력
+          _buildAdditionalFieldsSection(),
           
           const SizedBox(height: 15),
           
@@ -392,7 +428,7 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
                   borderRadius: BorderRadius.circular(0.5),
                 ),
               ),
-              // 비고 필드 폰트 사이즈
+              // 비고 필드 폰트 사이즈 + 출력 여부
               Expanded(
                 child: Row(
                   children: [
@@ -438,6 +474,31 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
                         },
                       ),
                     ),
+                    const SizedBox(width: 16),
+                    // 비고 출력 여부 체크박스
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: _includeRemarks,
+                          onChanged: (bool? value) {
+                            if (value != null) {
+                              setState(() {
+                                _includeRemarks = value;
+                              });
+                            }
+                          },
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        Text(
+                          '비고 출력',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -445,6 +506,193 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
           ),
         ],
       ),
+    );
+  }
+
+  /// 추가 필드 입력 섹션
+  Widget _buildAdditionalFieldsSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 섹션 제목
+          Row(
+            children: [
+              Icon(
+                Icons.edit_note,
+                size: 20,
+                color: Colors.grey.shade700,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '추가 필드 입력',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          
+          // 1. 결강교사
+          _buildTextField(
+            controller: _teacherNameController,
+            label: '결강교사',
+            hint: '결강한 교사 이름을 입력하세요',
+          ),
+          const SizedBox(height: 12),
+          
+          // 2. 결강기간
+          _buildTextField(
+            controller: _absencePeriodController,
+            label: '결강기간',
+            hint: '예: 2024.01.15 ~ 2024.01.19',
+          ),
+          const SizedBox(height: 12),
+          
+          // 3. 근무상황
+          _buildTextField(
+            controller: _workStatusController,
+            label: '근무상황',
+            hint: '예: 출장, 연가, 병가 등',
+          ),
+          const SizedBox(height: 12),
+          
+          // 4. 결강사유
+          _buildTextField(
+            controller: _reasonForAbsenceController,
+            label: '결강사유',
+            hint: '결강 사유를 입력하세요',
+          ),
+          const SizedBox(height: 12),
+          
+          // 6. 학교명
+          _buildTextField(
+            controller: _schoolNameController,
+            label: '학교명',
+            hint: '학교명을 입력하세요',
+          ),
+          const SizedBox(height: 12),
+          
+          // 5. 주의사항 (여러 줄)
+          _buildTextField(
+            controller: _notesController,
+            label: '주의사항',
+            hint: '주의사항을 입력하세요 (여러 줄 가능)',
+            maxLines: 4,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 텍스트 필드 생성 헬퍼 메서드 (레이블과 필드가 같은 row)
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    int maxLines = 1,
+  }) {
+    // 여러 줄 입력인 경우 세로로 배치
+    if (maxLines > 1) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          TextField(
+            controller: controller,
+            maxLines: maxLines,
+            style: const TextStyle(fontSize: 13),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade400,
+              ),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    
+    // 1줄 입력인 경우 가로로 배치 (레이블 + 텍스트 필드)
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: 100,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade700,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: TextField(
+            controller: controller,
+            maxLines: maxLines,
+            style: const TextStyle(fontSize: 13),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade400,
+              ),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),  // 상하 여백 조정 (10 → 8)
+              isDense: true,  // 컴팩트 모드 활성화
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -505,6 +753,15 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
         fontSize: _fontSize,
         remarksFontSize: _remarksFontSize,
         fontType: _selectedFont,
+        includeRemarks: _includeRemarks,  // 비고 출력 여부 전달
+        additionalFields: {
+          'teacherName': _teacherNameController.text,
+          'absencePeriod': _absencePeriodController.text,
+          'workStatus': _workStatusController.text,
+          'reasonForAbsence': _reasonForAbsenceController.text,
+          'notes': _notesController.text,
+          'schoolName': _schoolNameController.text,
+        },
       );
 
       if (!mounted) return;
