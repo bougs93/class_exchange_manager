@@ -3,6 +3,8 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:flutter/material.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../../utils/logger.dart';
+import '../../../../utils/data_grid_extensions.dart';
+import '../../../widgets/selectable_cell_builder.dart';
 
 /// SubstitutionPlanData Extension - 컬럼 값 접근
 extension SubstitutionPlanDataAccessor on SubstitutionPlanData {
@@ -140,25 +142,24 @@ class CellRendererFactory {
 class DateCellRenderer {
   static Widget build(DataGridCell cell, DataGridRow row, Function(String, String)? onDateCellTap) {
     // 교체일(substitutionDate) 컬럼인 경우 교사 이름 확인
+    final displayText = cell.value?.toString() ?? '';
     bool isSelectable = false;
-    String displayText = '';
 
     if (cell.columnName == 'substitutionDate') {
       // 교체일 컬럼의 경우: 교체 교사가 있으면 항상 선택 가능
-      final substitutionTeacherCell = row.getCells().firstWhere(
-        (c) => c.columnName == 'substitutionTeacher',
-        orElse: () => const DataGridCell<String>(columnName: 'substitutionTeacher', value: ''),
-      );
-      final substitutionTeacher = (substitutionTeacherCell.value?.toString() ?? '').trim();
+      final substitutionTeacher = row.extractCellValue('substitutionTeacher');
       isSelectable = substitutionTeacher.isNotEmpty;
-      displayText = cell.value?.toString() ?? '';
     } else {
       // 다른 날짜 컬럼(결강일 등)의 경우: 항상 선택 가능
       isSelectable = true;
-      displayText = cell.value?.toString() ?? '';
     }
 
-    return GestureDetector(
+    final isEmpty = displayText.isEmpty || displayText == '선택';
+
+    return SelectableCellBuilder.build(
+      isSelectable: isSelectable,
+      isEmpty: isEmpty,
+      displayText: displayText,
       onTap: () {
         AppLogger.exchangeDebug('셀 클릭 - 컬럼: ${cell.columnName}, 값: ${cell.value}, 선택가능: $isSelectable');
 
@@ -168,12 +169,8 @@ class DateCellRenderer {
         }
 
         if (onDateCellTap != null) {
-          // exchangeId를 row의 첫 번째 셀에서 추출
-          final exchangeIdCell = row.getCells().firstWhere(
-            (c) => c.columnName == '_exchangeId',
-            orElse: () => const DataGridCell<String>(columnName: '_exchangeId', value: ''),
-          );
-          final exchangeId = exchangeIdCell.value?.toString() ?? '';
+          // exchangeId를 Extension 메서드로 추출
+          final exchangeId = row.extractCellValue('_exchangeId');
 
           AppLogger.exchangeDebug('exchangeId: $exchangeId, 콜백 호출');
 
@@ -186,28 +183,6 @@ class DateCellRenderer {
           AppLogger.warning('onDateCellTap이 null입니다');
         }
       },
-      child: Container(
-        alignment: Alignment.center,
-        padding: SubstitutionPlanGridConfig.cellPadding,
-        decoration: BoxDecoration(
-          color: isSelectable && (displayText.isEmpty || displayText == '선택') ? Colors.blue.shade50 : Colors.transparent,
-          border: isSelectable && (displayText.isEmpty || displayText == '선택') ? Border.all(color: Colors.blue.shade200) : null,
-          borderRadius: isSelectable && (displayText.isEmpty || displayText == '선택') ? BorderRadius.circular(4) : null,
-        ),
-        child: Text(
-          displayText,
-          style: TextStyle(
-            fontSize: SubstitutionPlanGridConfig.cellFontSize,
-            height: 1.0,
-            color: isSelectable && (displayText.isEmpty || displayText == '선택') ? Colors.blue.shade700 : Colors.black87,
-            fontWeight: isSelectable && (displayText.isEmpty || displayText == '선택') ? FontWeight.w500 : FontWeight.normal,
-            decoration: TextDecoration.none,
-          ),
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
     );
   }
 }
@@ -218,53 +193,27 @@ class SupplementSubjectCellRenderer {
     final value = (cell.value?.toString() ?? '').trim();
     final isEmpty = value.isEmpty;
 
-    // exchangeId 추출
-    final exchangeIdCell = row.getCells().firstWhere(
-      (c) => c.columnName == '_exchangeId',
-      orElse: () => const DataGridCell<String>(columnName: '_exchangeId', value: ''),
-    );
-    final exchangeId = exchangeIdCell.value?.toString() ?? '';
-
-    // 보강 교사명(성명) 셀 찾기
-    final supplementTeacherCell = row.getCells().firstWhere(
-      (c) => c.columnName == 'supplementTeacher',
-      orElse: () => const DataGridCell<String>(columnName: 'supplementTeacher', value: ''),
-    );
-    final supplementTeacher = (supplementTeacherCell.value?.toString() ?? '').trim();
+    // exchangeId와 보강 교사명 추출 (Extension 메서드 사용)
+    final exchangeId = row.extractCellValue('_exchangeId');
+    final supplementTeacher = row.extractCellValue('supplementTeacher');
     final hasTeacher = supplementTeacher.isNotEmpty;
 
     // 보강 교사명이 있으면 항상 활성화 (과목이 있어도 재선택 가능)
     final isSelectable = hasTeacher;
 
-    return GestureDetector(
+    // 표시 텍스트 결정
+    final displayText = isEmpty ? (hasTeacher ? '과목선택' : '') : value;
+
+    return SelectableCellBuilder.build(
+      isSelectable: isSelectable,
+      isEmpty: isEmpty,
+      displayText: displayText,
       onTap: () async {
         if (exchangeId.isEmpty || !isSelectable) return;
         if (onSupplementSubjectTap != null) {
           onSupplementSubjectTap(exchangeId);
         }
       },
-      child: Container(
-        alignment: Alignment.center,
-        padding: SubstitutionPlanGridConfig.cellPadding,
-        decoration: BoxDecoration(
-          color: isSelectable && isEmpty ? Colors.blue.shade50 : Colors.transparent,
-          border: isSelectable && isEmpty ? Border.all(color: Colors.blue.shade200) : null,
-          borderRadius: isSelectable && isEmpty ? BorderRadius.circular(4) : null,
-        ),
-        child: Text(
-          isEmpty ? (hasTeacher ? '과목선택' : '') : value,
-          style: TextStyle(
-            fontSize: SubstitutionPlanGridConfig.cellFontSize,
-            height: 1.0,
-            color: isSelectable && isEmpty ? Colors.blue.shade700 : Colors.black87,
-            fontWeight: isSelectable && isEmpty ? FontWeight.w500 : FontWeight.normal,
-            decoration: TextDecoration.none,
-          ),
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
     );
   }
 }

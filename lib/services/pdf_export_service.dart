@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import '../providers/substitution_plan_viewmodel.dart';
 import '../utils/pdf_field_config.dart';
+import '../constants/korean_fonts.dart';
 
 /// PDF 내보내기 서비스
 /// - 선택된 PDF 템플릿에 교체 데이터를 채워서 출력합니다.
@@ -52,17 +53,7 @@ class PdfExportService {
   
   /// 기본 폰트 목록 (오류 시 사용)
   static List<String> _getDefaultFonts() {
-    return [
-      'malgun.ttf',      // 맑은 고딕 (권장)
-      'malgunbd.ttf',    // 맑은 고딕 Bold
-      'gulim.ttc',       // 굴림
-      'batang.ttc',      // 바탕
-      'dotum.ttc',       // 돋움
-      'gungsuh.ttc',     // 궁서
-      'hanbatang.ttf',   // 한바탕
-      'handotum.ttf',    // 한돋움
-      'hansantteutdotum-regular.ttf',  // 한산뜻돋움
-    ];
+    return KoreanFontConstants.fontFiles;
   }
 
   /// Fallback 한글 폰트 찾기
@@ -273,31 +264,11 @@ class PdfExportService {
         } else {
           // 폰트 종류가 지정되었지만 정확한 파일명이 아닌 경우
           // Windows 시스템 기본 폰트 검색
-          commonFontPaths = [
-            'C:\\Windows\\Fonts\\malgun.ttf',      // 맑은 고딕 (권장)
-            'C:\\Windows\\Fonts\\malgunbd.ttf',    // 맑은 고딕 Bold
-            'C:\\Windows\\Fonts\\gulim.ttc',       // 굴림
-            'C:\\Windows\\Fonts\\batang.ttc',      // 바탕
-            'C:\\Windows\\Fonts\\dotum.ttc',       // 돋움
-            'C:\\Windows\\Fonts\\gungsuh.ttc',     // 궁서
-            'C:\\Windows\\Fonts\\hanbatang.ttf',   // 한바탕
-            'C:\\Windows\\Fonts\\handotum.ttf',    // 한돋움
-            'C:\\Windows\\Fonts\\hansantteutdotum-regular.ttf',  // 한산뜻돋움
-          ];
+          commonFontPaths = KoreanFontConstants.getWindowsFontPaths();
         }
       } else {
         // 폰트 종류가 지정되지 않으면 모든 폰트 검색
-        commonFontPaths = [
-          'C:\\Windows\\Fonts\\malgun.ttf',      // 맑은 고딕 (권장)
-          'C:\\Windows\\Fonts\\malgunbd.ttf',    // 맑은 고딕 Bold
-          'C:\\Windows\\Fonts\\gulim.ttc',       // 굴림
-          'C:\\Windows\\Fonts\\batang.ttc',      // 바탕
-          'C:\\Windows\\Fonts\\dotum.ttc',       // 돋움
-          'C:\\Windows\\Fonts\\gungsuh.ttc',     // 궁서
-          'C:\\Windows\\Fonts\\hanbatang.ttf',   // 한바탕
-          'C:\\Windows\\Fonts\\handotum.ttf',    // 한돋움
-          'C:\\Windows\\Fonts\\hansantteutdotum-regular.ttf',  // 한산뜻돋움
-        ];
+        commonFontPaths = KoreanFontConstants.getWindowsFontPaths();
       }
       
       for (String fontPath in commonFontPaths) {

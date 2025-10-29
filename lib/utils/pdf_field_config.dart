@@ -91,18 +91,21 @@ String pdfCellFieldName(int row, String columnKey) {
   return '$columnKey.$zeroBasedRow';
 }
 
+/// 복합 필드 정규식 패턴 (재사용)
+/// 예: 'date(day)', '3date(3day)' 형식을 파싱
+const String _compositeFieldPattern = r'^(\w+)\((\w+)\)$';
+final RegExp _compositeFieldRegex = RegExp(_compositeFieldPattern);
+
 /// 복합 필드를 파싱하여 개별 필드들로 분해
 /// 예: 'date(day)' → ['date', 'day']
 /// 예: '3date(3day)' → ['3date', '3day']
 List<String> parseCompositeField(String compositeField) {
-  // 예: "date(day)" 형식
-  final regex = RegExp(r'^(\w+)\((\w+)\)$');
-  final match = regex.firstMatch(compositeField);
-  
+  final match = _compositeFieldRegex.firstMatch(compositeField);
+
   if (match != null) {
     return [match.group(1)!, match.group(2)!];
   }
-  
+
   // 파싱 실패 시 원본 반환
   return [compositeField];
 }
@@ -113,11 +116,10 @@ List<String> parseCompositeField(String compositeField) {
 String formatCompositeFieldValue(String compositeField, List<String> values) {
   if (values.isEmpty) return '';
   if (values.length == 1) return values[0];
-  
+
   // 복합 필드 이름에서 괄호 형식 추출
   // 예: 'date(day)' → primary='date', secondary='day'
-  final regex = RegExp(r'^(\w+)\((\w+)\)$');
-  final match = regex.firstMatch(compositeField);
+  final match = _compositeFieldRegex.firstMatch(compositeField);
   
   if (match != null) {
     // 값의 개수에 맞춰 포맷팅

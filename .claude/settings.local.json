@@ -21,7 +21,8 @@
       "Bash(git log:*)",
       "Bash(cat:*)",
       "Bash(xargs -I {} sh -c 'wc -l < \"\"\"\"{}\"\"\"\" | awk \"\"\"\"{if (\\$1 > 500) print \\$1, \\\"\"\"\"{}\\\"\"\"\"}\"\"\"\"')",
-      "Bash(flutter pub:*)"
+      "Bash(flutter pub:*)",
+      "Bash(cd:*)"
     ],
     "deny": [],
     "ask": []

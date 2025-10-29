@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:developer' as developer;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +12,7 @@ import 'package:printing/printing.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../../utils/pdf_field_config.dart';
 import '../../../../services/pdf_export_service.dart';
+import '../../../../constants/korean_fonts.dart';
 
 /// 파일 출력 위젯
 /// 
@@ -31,29 +33,15 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
   double _fontSize = 10.0;
   double _remarksFontSize = 7.0;
   
-  // 폰트 종류 설정
-  String _selectedFont = 'hanbatang.ttf';  // 기본값: 한바탕
-  
+  // 폰트 종류 설정 (KoreanFontConstants에서 기본값 가져오기)
+  String _selectedFont = KoreanFontConstants.defaultFont;
+
   // 비고 필드 출력 여부
   bool _includeRemarks = true;
-  
+
   // 사용 가능한 폰트 사이즈 옵션
   final List<double> _fontSizeOptions = [8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0];
   final List<double> _remarksFontSizeOptions = [6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0];
-  
-  // Windows 시스템 폰트 목록 (정확한 파일명)
-  // 위치: C:\Windows\Fonts\
-  final List<Map<String, String>> _fontList = [
-    {'file': 'malgun.ttf', 'name': '맑은 고딕'},
-    {'file': 'malgunbd.ttf', 'name': '맑은 고딕 Bold'},
-    {'file': 'gulim.ttc', 'name': '굴림'},
-    {'file': 'batang.ttc', 'name': '바탕'},
-    {'file': 'dotum.ttc', 'name': '돋움'},
-    {'file': 'gungsuh.ttc', 'name': '궁서'},
-    {'file': 'hanbatang.ttf', 'name': '한바탕'},
-    {'file': 'handotum.ttf', 'name': '한돋움'},
-    {'file': 'hansantteutdotum-regular.ttf', 'name': '한산뜻돋움'},
-  ];
   
   // PDF 추가 필드 데이터
   final TextEditingController _teacherNameController = TextEditingController();
@@ -342,7 +330,7 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
                       color: Colors.black,
                       fontSize: 13,
                     ),
-                    items: _fontList.map((font) {
+                    items: KoreanFontConstants.fontListWithNames.map((font) {
                       return DropdownMenuItem(
                         value: font['file']!,
                         child: Text(
@@ -1373,21 +1361,38 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
       // PDF 뷰어 컨트롤러 초기화 (아직 생성되지 않은 경우)
       _pdfViewerController ??= PdfViewerController();
       
-      return SfPdfViewer.file(
-        File(widget.pdfPath),
-        controller: _pdfViewerController,
-        canShowScrollHead: true,
-        canShowScrollStatus: true,
-        enableDoubleTapZooming: true,  // 더블 탭으로 줌 인/아웃 가능
-        enableTextSelection: false,    // 텍스트 선택 비활성화 (줌과의 충돌 방지)
-        onDocumentLoadFailed: (PdfDocumentLoadFailedDetails details) {
-          if (mounted && !_isDisposed) {
-            setState(() {
-              _hasError = true;
-              _errorMessage = 'PDF 로드 실패: ${details.error}';
-            });
+      // 마우스 휠로 확대/축소 가능하도록 Listener로 감싸기
+      return Listener(
+        onPointerSignal: (pointerSignal) {
+          if (pointerSignal is PointerScrollEvent) {
+            // Ctrl 키를 누르지 않아도 마우스 휠로 확대/축소
+            final delta = pointerSignal.scrollDelta.dy;
+            
+            if (delta > 0) {
+              // 마우스 휠 아래로 = 축소
+              _handleZoomOut();
+            } else if (delta < 0) {
+              // 마우스 휠 위로 = 확대
+              _handleZoomIn();
+            }
           }
         },
+        child: SfPdfViewer.file(
+          File(widget.pdfPath),
+          controller: _pdfViewerController,
+          canShowScrollHead: true,
+          canShowScrollStatus: true,
+          enableDoubleTapZooming: true,  // 더블 탭으로 줌 인/아웃 가능
+          enableTextSelection: false,    // 텍스트 선택 비활성화 (줌과의 충돌 방지)
+          onDocumentLoadFailed: (PdfDocumentLoadFailedDetails details) {
+            if (mounted && !_isDisposed) {
+              setState(() {
+                _hasError = true;
+                _errorMessage = 'PDF 로드 실패: ${details.error}';
+              });
+            }
+          },
+        ),
       );
     } catch (e) {
       // PDF 뷰어 초기화 실패 시 (예: Windows에서 플러그인 미등록)
