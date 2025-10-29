@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../widgets/input_decoration_helper.dart';
 
 /// PDF 추가 필드 입력 섹션
 ///
@@ -90,11 +91,11 @@ class PdfFieldInputsSection extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
-          // 6. 주의사항 (여러 줄)
+          // 6. 설명 (여러 줄)
           _buildTextField(
             controller: notesController,
-            label: '주의사항',
-            hint: '주의사항을 입력하세요 (여러 줄 가능)',
+            label: '설명',
+            hint: '설명를 입력하세요 (여러 줄 가능)',
             maxLines: 4,
           ),
         ],
@@ -127,25 +128,7 @@ class PdfFieldInputsSection extends StatelessWidget {
             controller: controller,
             maxLines: maxLines,
             style: const TextStyle(fontSize: 13),
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
-              filled: true,
-              fillColor: Colors.white,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
-              ),
-            ),
+            decoration: InputDecorationHelper.buildStandard(hintText: hint),
           ),
         ],
       );
@@ -172,25 +155,9 @@ class PdfFieldInputsSection extends StatelessWidget {
             controller: controller,
             maxLines: maxLines,
             style: const TextStyle(fontSize: 13),
-            decoration: InputDecoration(
+            decoration: InputDecorationHelper.buildStandard(
               hintText: hint,
-              hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
-              filled: true,
-              fillColor: Colors.white,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               isDense: true,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
-              ),
             ),
           ),
         ),

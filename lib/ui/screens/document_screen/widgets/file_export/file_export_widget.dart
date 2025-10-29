@@ -6,6 +6,7 @@ import '../../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../../../utils/pdf_field_config.dart';
 import '../../../../../services/pdf_export_service.dart';
 import '../../../../../constants/korean_fonts.dart';
+import '../../../../../constants/pdf_notes_template.dart';
 import 'pdf_settings_section.dart';
 import 'pdf_field_inputs_section.dart';
 import '../../pdf_preview_screen.dart';
@@ -43,14 +44,7 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
   final TextEditingController _reasonForAbsenceController = TextEditingController();
   final TextEditingController _schoolNameController = TextEditingController();
   final TextEditingController _notesController = TextEditingController(
-    text: '''< 유 의 사 항 >
-☆ 결강교사, 과목, 기간은 해당 교사의 내용으로 기록합니다.
-☆ 결강발생 시 결강 교사 본인이 교체한 후 사전에 결재를 득하여 제출합니다.(부득이한 경우 수업계 협조)
-☆ 근무상황은 연가, 병가, 출장, 조퇴 등을 기록합니다.
-☆ 결강사유는 결강내용을 기록하여 주시고 출장, 연수 등에는 장소도 함께 기록하여 주십시오.
-☆ 결강일 작성은 해당일 여러 과목 결강 발생 시 최초 윗줄만 기록하여 주십시오.
-☆ 교체를 원칙으로 하나 수업교체가 어려운 경우는 동교과 보강 또는 수업변경으로 처리할 수 있습니다.
-☆ 원어민(영어, 중국어) 수업의 경우 겸임 날짜가 지정되어 있으므로 수업 교체시 유의해 주십시오.''',
+    text: PdfNotesTemplate.defaultNotes,
   );
 
   @override
