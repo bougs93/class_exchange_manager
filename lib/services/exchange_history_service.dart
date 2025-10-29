@@ -29,6 +29,25 @@ class ExchangeHistoryService {
   
   // 최대 되돌리기 항목 수
   static const int maxUndoItems = 10;
+  
+  // 교체 리스트 변경 추적을 위한 버전 카운터
+  // 이 값이 변경되면 교체 리스트가 변경된 것으로 간주합니다.
+  int _exchangeListVersion = 0;
+  
+  // 버전 변경 콜백 (외부에서 설정하여 버전 변경 시 알림을 받을 수 있음)
+  void Function()? _onVersionChanged;
+  
+  /// 버전 변경 콜백 설정 (Provider에서 호출)
+  void setVersionChangedCallback(void Function()? callback) {
+    _onVersionChanged = callback;
+  }
+
+  /// 버전 변경 알림 (내부 메서드)
+  void _notifyVersionChanged() {
+    if (_onVersionChanged != null) {
+      _onVersionChanged!();
+    }
+  }
 
   /// 교체 실행 및 히스토리에 추가 (통합 메서드)
   /// 교체 버튼 클릭 시 호출
@@ -75,6 +94,10 @@ class ExchangeHistoryService {
     _exchangeList.add(item);
     _saveToLocalStorage(item);
 
+    // 🔥 교체 리스트 변경 추적: 버전 증가
+    _exchangeListVersion++;
+    _notifyVersionChanged();
+
     // 되돌리기 스택에 추가 (최근 10개만)
     _undoStack.add(item);
     if (_undoStack.length > maxUndoItems) {
@@ -91,6 +114,10 @@ class ExchangeHistoryService {
     
     // 로컬 저장소에서도 제거
     _removeFromLocalStorage(itemId);
+    
+    // 🔥 교체 리스트 변경 추적: 버전 증가
+    _exchangeListVersion++;
+    _notifyVersionChanged();
   }
 
   /// 교체 리스트 전체 조회
@@ -98,10 +125,20 @@ class ExchangeHistoryService {
     return List.from(_exchangeList);
   }
 
+  /// 교체 리스트 버전 조회 (변경 추적용)
+  /// 이 값이 변경되면 교체 리스트가 변경된 것으로 간주됩니다.
+  int getExchangeListVersion() {
+    return _exchangeListVersion;
+  }
+
   /// 교체 리스트 전체 삭제
   void clearExchangeList() {
     _exchangeList.clear();
     _clearLocalStorage();
+    
+    // 🔥 교체 리스트 변경 추적: 버전 증가
+    _exchangeListVersion++;
+    _notifyVersionChanged();
   }
 
   /// 되돌리기 스택 조회
@@ -124,6 +161,10 @@ class ExchangeHistoryService {
     if (index != -1) {
       _exchangeList[index] = revertedItem;
       _updateInLocalStorage(revertedItem);
+      
+      // 🔥 교체 리스트 변경 추적: 버전 증가 (되돌리기 상태 변경)
+      _exchangeListVersion++;
+      _notifyVersionChanged();
     }
     
     return item;

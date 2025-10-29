@@ -117,7 +117,25 @@ class SubstitutionPlanViewModelState {
 class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelState> {
   SubstitutionPlanViewModel(this._ref) : super(const SubstitutionPlanViewModelState()) {
     _parser = ExchangeNodeParser(_ref);
+    
+    // 초기 데이터 로드
     loadPlanData();
+    
+    // 🔥 교체 리스트 변경 감지 및 자동 새로고침
+    // exchangeListVersionProvider의 값이 변경되면 (즉, 교체 리스트가 변경되면)
+    // 자동으로 결보강계획서를 새로고침합니다.
+    _ref.listen(exchangeListVersionProvider, (previous, next) {
+      // 이전 버전이 null이 아니고 (초기화되지 않은 상태가 아니고)
+      // 버전이 실제로 변경되었을 때만 새로고침을 실행합니다.
+      if (previous != null && previous != next) {
+        AppLogger.exchangeDebug('[자동 새로고침] 교체 리스트 변경 감지 (버전: $previous → $next)');
+        
+        // 로딩 중이 아닐 때만 새로고침 (중복 호출 방지)
+        if (!state.isLoading) {
+          loadPlanData();
+        }
+      }
+    });
   }
 
   final Ref _ref;
