@@ -60,46 +60,55 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
 
   @override
   Widget build(BuildContext context) {
+    // SingleChildScrollView로 감싸서 작은 창에서 스크롤 가능하도록 함
     return Container(
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // PDF 설정 섹션 (템플릿, 폰트)
-          PdfSettingsSection(
-            selectedTemplateIndex: _selectedTemplateIndex,
-            selectedTemplateFilePath: _selectedTemplateFilePath,
-            fontSize: _fontSize,
-            remarksFontSize: _remarksFontSize,
-            selectedFont: _selectedFont,
-            includeRemarks: _includeRemarks,
-            fontSizeOptions: _fontSizeOptions,
-            remarksFontSizeOptions: _remarksFontSizeOptions,
-            onTemplateIndexChanged: (index) => setState(() => _selectedTemplateIndex = index),
-            onTemplateFilePathChanged: (path) => setState(() => _selectedTemplateFilePath = path),
-            onFontSizeChanged: (size) => setState(() => _fontSize = size),
-            onRemarksFontSizeChanged: (size) => setState(() => _remarksFontSize = size),
-            onFontChanged: (font) => setState(() => _selectedFont = font),
-            onIncludeRemarksChanged: (include) => setState(() => _includeRemarks = include),
-          ),
+      // SingleChildScrollView를 사용하여 내용이 화면 높이를 초과할 때 스크롤 가능하게 함
+      child: SingleChildScrollView(
+        // 스크롤 방향은 수직(기본값)
+        scrollDirection: Axis.vertical,
+        // 스크롤 동작 설정
+        physics: const AlwaysScrollableScrollPhysics(),
+        // 패딩으로 인한 스크롤 바운스 효과 활성화
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // PDF 설정 섹션 (템플릿, 폰트)
+            PdfSettingsSection(
+              selectedTemplateIndex: _selectedTemplateIndex,
+              selectedTemplateFilePath: _selectedTemplateFilePath,
+              fontSize: _fontSize,
+              remarksFontSize: _remarksFontSize,
+              selectedFont: _selectedFont,
+              includeRemarks: _includeRemarks,
+              fontSizeOptions: _fontSizeOptions,
+              remarksFontSizeOptions: _remarksFontSizeOptions,
+              onTemplateIndexChanged: (index) => setState(() => _selectedTemplateIndex = index),
+              onTemplateFilePathChanged: (path) => setState(() => _selectedTemplateFilePath = path),
+              onFontSizeChanged: (size) => setState(() => _fontSize = size),
+              onRemarksFontSizeChanged: (size) => setState(() => _remarksFontSize = size),
+              onFontChanged: (font) => setState(() => _selectedFont = font),
+              onIncludeRemarksChanged: (include) => setState(() => _includeRemarks = include),
+            ),
 
-          const SizedBox(height: 15),
+            const SizedBox(height: 15),
 
-          // PDF 추가 필드 입력 섹션
-          PdfFieldInputsSection(
-            teacherNameController: _teacherNameController,
-            absencePeriodController: _absencePeriodController,
-            workStatusController: _workStatusController,
-            reasonForAbsenceController: _reasonForAbsenceController,
-            notesController: _notesController,
-            schoolNameController: _schoolNameController,
-          ),
+            // PDF 추가 필드 입력 섹션
+            PdfFieldInputsSection(
+              teacherNameController: _teacherNameController,
+              absencePeriodController: _absencePeriodController,
+              workStatusController: _workStatusController,
+              reasonForAbsenceController: _reasonForAbsenceController,
+              notesController: _notesController,
+              schoolNameController: _schoolNameController,
+            ),
 
-          const SizedBox(height: 15),
+            const SizedBox(height: 15),
 
-          // 문서 출력 버튼
-          _buildDocumentOutputButton(),
-        ],
+            // 문서 출력 버튼
+            _buildDocumentOutputButton(),
+          ],
+        ),
       ),
     );
   }
