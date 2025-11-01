@@ -19,72 +19,36 @@ class TimetableStorageService {
   
   TimetableStorageService._internal();
   
-  /// 파일 내용 기반 해시값 계산 (public)
-  /// 
+  /// 파일 내용 기반 해시값 계산
+  ///
   /// 파일의 실제 내용을 읽어서 SHA256 해시를 계산합니다.
   /// 같은 내용의 파일은 항상 같은 해시값을 반환합니다.
-  /// 
+  ///
   /// 매개변수:
   /// - `filePath`: 엑셀 파일의 전체 경로
-  /// 
+  ///
   /// 반환값:
   /// - `Future<String?>`: 파일 내용의 SHA256 해시 (32자), 실패 시 null
   Future<String?> calculateContentHash(String filePath) async {
     try {
       final file = File(filePath);
-      
+
       if (!await file.exists()) {
         return null;
       }
-      
+
       // 파일 내용 읽기
       final bytes = await file.readAsBytes();
-      
+
       // SHA256 해시 계산
       final digest = sha256.convert(bytes);
       final hashString = digest.toString();
-      
+
       // 32자만 사용 (충돌 확률이 매우 낮음)
       return hashString.substring(0, 32);
     } catch (e) {
       AppLogger.error('파일 내용 해시 계산 실패: $e', e);
       return null;
-    }
-  }
-  
-  /// 파일 내용 기반 해시값 계산 (private - 내부 사용)
-  /// 
-  /// 파일의 실제 내용을 읽어서 SHA256 해시를 계산합니다.
-  /// 같은 내용의 파일은 항상 같은 해시값을 반환합니다.
-  /// 
-  /// 매개변수:
-  /// - `filePath`: 엑셀 파일의 전체 경로
-  /// 
-  /// 반환값:
-  /// - `Future<String>`: 파일 내용의 SHA256 해시 (32자)
-  /// 
-  /// 예외:
-  /// - 파일이 없거나 읽기 실패 시 예외를 throw합니다.
-  Future<String> _calculateContentHash(String filePath) async {
-    try {
-      final file = File(filePath);
-      
-      if (!await file.exists()) {
-        throw Exception('파일이 존재하지 않습니다: $filePath');
-      }
-      
-      // 파일 내용 읽기
-      final bytes = await file.readAsBytes();
-      
-      // SHA256 해시 계산
-      final digest = sha256.convert(bytes);
-      final hashString = digest.toString();
-      
-      // 32자만 사용 (충돌 확률이 매우 낮음)
-      return hashString.substring(0, 32);
-    } catch (e) {
-      AppLogger.error('파일 내용 해시 계산 실패: $e', e);
-      rethrow;
     }
   }
   
@@ -139,7 +103,11 @@ class TimetableStorageService {
   ) async {
     try {
       // 1. 파일 내용 기반 해시 계산 (32자)
-      final contentHash = await _calculateContentHash(filePath);
+      final contentHash = await calculateContentHash(filePath);
+      if (contentHash == null) {
+        AppLogger.error('파일 내용 해시 계산 실패: $filePath');
+        return false;
+      }
       
       // 2. 파일명 + 내용 해시로 최종 해시 생성
       final hash = _generateHash(filePath, contentHash);
@@ -155,34 +123,16 @@ class TimetableStorageService {
       } else {
         // 시간표 데이터를 JSON으로 변환
         final jsonData = timetableData.toJson();
-        
-        // 데이터 검증 로그 추가
-        AppLogger.info('시간표 데이터 저장 시작: $filename');
-        AppLogger.info('저장할 데이터: ${timetableData.teachers.length}명 교사, ${timetableData.timeSlots.length}개 TimeSlot');
-        
-        // 비어있지 않은 TimeSlot 개수 확인
-        final nonEmptySlots = timetableData.timeSlots.where((slot) => slot.isNotEmpty).length;
-        AppLogger.info('수업이 있는 TimeSlot: $nonEmptySlots개 / 전체 ${timetableData.timeSlots.length}개');
-        
-        // 교체불가 셀 개수 확인
-        final nonExchangeableSlots = timetableData.timeSlots.where((slot) => 
-          !slot.isExchangeable && slot.exchangeReason == '교체불가'
-        ).toList();
-        AppLogger.info('교체불가 셀 개수: ${nonExchangeableSlots.length}개');
-        if (nonExchangeableSlots.isNotEmpty) {
-          AppLogger.info('교체불가 셀 샘플 (최대 5개):');
-          for (var slot in nonExchangeableSlots.take(5)) {
-            AppLogger.info('  - teacher=${slot.teacher}, dayOfWeek=${slot.dayOfWeek}, period=${slot.period}, isExchangeable=${slot.isExchangeable}, exchangeReason=${slot.exchangeReason}');
-          }
-        }
-        
+
+        // 데이터 검증 로그 (간소화)
+        AppLogger.info('시간표 데이터 저장: $filename (${timetableData.teachers.length}명, ${timetableData.timeSlots.length}개 슬롯)');
+
         // JSON 파일로 저장 (새 파일만)
         final saveSuccess = await _storageService.saveJson(filename, jsonData);
         if (!saveSuccess) {
           AppLogger.error('시간표 데이터 저장 실패');
           return false;
         }
-        AppLogger.info('시간표 데이터 저장 완료: $filename');
       }
       
       // 4. 메타데이터 저장 (기존 파일 재사용이든 새 저장이든 항상 업데이트)
@@ -228,34 +178,10 @@ class TimetableStorageService {
       
       // TimetableData로 변환
       final timetableData = TimetableData.fromJson(jsonData);
-      
-      // 데이터 검증 로그 추가
-      AppLogger.info('시간표 데이터 로드 성공: $filename');
-      AppLogger.info('로드된 데이터: ${timetableData.teachers.length}명 교사, ${timetableData.timeSlots.length}개 TimeSlot');
-      
-      // 비어있지 않은 TimeSlot 개수 확인
-      final nonEmptySlots = timetableData.timeSlots.where((slot) => slot.isNotEmpty).length;
-      AppLogger.info('수업이 있는 TimeSlot: $nonEmptySlots개 / 전체 ${timetableData.timeSlots.length}개');
-      
-      // 교체불가 셀 개수 확인
-      final nonExchangeableSlots = timetableData.timeSlots.where((slot) => 
-        !slot.isExchangeable && slot.exchangeReason == '교체불가'
-      ).toList();
-      AppLogger.info('교체불가 셀 개수: ${nonExchangeableSlots.length}개');
-      if (nonExchangeableSlots.isNotEmpty) {
-        AppLogger.info('교체불가 셀 샘플 (최대 5개):');
-        for (var slot in nonExchangeableSlots.take(5)) {
-          AppLogger.info('  - teacher=${slot.teacher}, dayOfWeek=${slot.dayOfWeek}, period=${slot.period}, isExchangeable=${slot.isExchangeable}, exchangeReason=${slot.exchangeReason}');
-        }
-      }
-      
-      // 샘플 TimeSlot 확인 (최대 5개)
-      final sampleSlots = timetableData.timeSlots.where((slot) => slot.isNotEmpty).take(5).toList();
-      AppLogger.info('TimeSlot 샘플 (최대 5개):');
-      for (var slot in sampleSlots) {
-        AppLogger.info('  - teacher=${slot.teacher}, dayOfWeek=${slot.dayOfWeek}, period=${slot.period}, subject=${slot.subject}, className=${slot.className}, isExchangeable=${slot.isExchangeable}');
-      }
-      
+
+      // 데이터 검증 로그 (간소화)
+      AppLogger.info('시간표 데이터 로드 성공: $filename (${timetableData.teachers.length}명, ${timetableData.timeSlots.length}개 슬롯)');
+
       return timetableData;
     } catch (e) {
       AppLogger.error('시간표 데이터 로드 중 오류: $e', e);
@@ -344,7 +270,10 @@ class TimetableStorageService {
       }
       
       // 현재 파일의 내용 해시 계산
-      final currentContentHash = await _calculateContentHash(filePath);
+      final currentContentHash = await calculateContentHash(filePath);
+      if (currentContentHash == null) {
+        return false; // 해시 계산 실패 시 변경되지 않은 것으로 간주
+      }
       
       // 저장된 내용 해시와 비교
       final savedContentHash = metadata['contentHash'] as String?;

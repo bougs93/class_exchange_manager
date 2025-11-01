@@ -228,19 +228,21 @@ class StorageService {
   }
   
   /// 앱 데이터 디렉토리의 모든 JSON 파일 목록을 반환합니다.
-  /// 
+  ///
   /// 반환값:
   /// - `Future<List<String>>`: 파일명 목록
   Future<List<String>> listJsonFiles() async {
     try {
       final directory = await _getAppDataDirectory();
-      final files = directory.listSync();
-      
-      return files
-          .whereType<File>()
-          .where((file) => file.path.endsWith('.json'))
-          .map((file) => file.path.split(Platform.pathSeparator).last)
-          .toList();
+      final files = <String>[];
+
+      await for (var entity in directory.list()) {
+        if (entity is File && entity.path.endsWith('.json')) {
+          files.add(entity.path.split(Platform.pathSeparator).last);
+        }
+      }
+
+      return files;
     } catch (e) {
       AppLogger.error('JSON 파일 목록 조회 실패: $e', e);
       return [];

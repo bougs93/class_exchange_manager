@@ -68,7 +68,7 @@ class AppSettingsStorageService {
   }
   
   /// 언어 코드 가져오기
-  /// 
+  ///
   /// 반환값:
   /// - `Future<String>`: 언어 코드 (기본값: "ko")
   Future<String> getLanguageCode() async {
@@ -77,24 +77,12 @@ class AppSettingsStorageService {
       if (settings == null) {
         return 'ko'; // 기본값: 한국어
       }
-      
+
       return (settings['languageCode'] as String?) ?? 'ko';
     } catch (e) {
       AppLogger.error('언어 코드 가져오기 실패: $e', e);
       return 'ko'; // 기본값: 한국어
     }
-  }
-  
-  /// 기본 앱 설정 가져오기
-  /// 
-  /// 저장된 설정이 없을 때 사용할 기본값을 반환합니다.
-  /// 
-  /// 반환값:
-  /// - `Map<String, dynamic>`: 기본 설정 맵
-  Map<String, dynamic> getDefaultSettings() {
-    return {
-      'languageCode': 'ko', // 기본값: 한국어
-    };
   }
 }
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:url_launcher/url_launcher.dart';
+import '../../utils/url_launcher_helper.dart';
 
 /// 도움말 화면
 /// 
@@ -146,8 +146,10 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
   // Tab Contents
   // ============================================================================
 
-  /// "기본 사용법" 탭 컨텐츠
-  Widget _buildBasicUsageTab(ThemeData theme) {
+  /// 마크다운 탭 빌드 (공통 메서드)
+  ///
+  /// [markdownContent]: 표시할 마크다운 내용
+  Widget _buildMarkdownTab(ThemeData theme, String markdownContent) {
     if (_isLoading) {
       return const Center(
         child: Padding(
@@ -156,13 +158,12 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
         ),
       );
     }
-    
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 사용법 도움말 카드
           Card(
             elevation: 2,
             shape: RoundedRectangleBorder(
@@ -171,7 +172,7 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: MarkdownBody(
-                data: _processMarkdownWithYoutubeThumbnails(_basicUsageMarkdown),
+                data: _processMarkdownWithYoutubeThumbnails(markdownContent),
                 styleSheet: _buildMarkdownStyleSheet(theme),
                 imageBuilder: (uri, title, alt) {
                   // 유튜브 썸네일 이미지인 경우 특별 처리
@@ -186,7 +187,7 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
                 },
                 onTapLink: (text, href, title) {
                   if (href != null) {
-                    _launchURL(href);
+                    UrlLauncherHelper.launchURL(href, context: context);
                   }
                 },
               ),
@@ -197,54 +198,14 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
     );
   }
 
+  /// "기본 사용법" 탭 컨텐츠
+  Widget _buildBasicUsageTab(ThemeData theme) {
+    return _buildMarkdownTab(theme, _basicUsageMarkdown);
+  }
+
   /// "양식PDF 제작 방법" 탭 컨텐츠
   Widget _buildFormFileTab(ThemeData theme) {
-    if (_isLoading) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(20.0),
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-    
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: MarkdownBody(
-                data: _processMarkdownWithYoutubeThumbnails(_pdfFormGuideMarkdown),
-                styleSheet: _buildMarkdownStyleSheet(theme),
-                imageBuilder: (uri, title, alt) {
-                  // 유튜브 썸네일 이미지인 경우 특별 처리
-                  if (uri.toString().contains('img.youtube.com')) {
-                    final videoId = _extractVideoIdFromThumbnailUrl(uri.toString());
-                    if (videoId != null) {
-                      return _buildYouTubeThumbnail(videoId, alt ?? '');
-                    }
-                  }
-                  // 일반 이미지는 기본 처리
-                  return Image.network(uri.toString());
-                },
-                onTapLink: (text, href, title) {
-                  if (href != null) {
-                    _launchURL(href);
-                  }
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    return _buildMarkdownTab(theme, _pdfFormGuideMarkdown);
   }
 
   // ============================================================================
@@ -371,7 +332,7 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
     final videoUrl = 'https://www.youtube.com/watch?v=$videoId';
     
     return GestureDetector(
-      onTap: () => _launchURL(videoUrl),
+      onTap: () => UrlLauncherHelper.launchURL(videoUrl, context: context),
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
@@ -447,43 +408,6 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
   // ============================================================================
   // Utilities
   // ============================================================================
-
-  /// URL 실행 (유튜브 링크 포함)
-  /// 
-  /// 유튜브 링크의 경우 자동으로 유튜브 앱이나 브라우저에서 열립니다.
-  Future<void> _launchURL(String url) async {
-    try {
-      final uri = Uri.parse(url);
-      
-      // URL 실행 가능 여부 확인
-      if (await canLaunchUrl(uri)) {
-        // 외부 브라우저나 앱에서 실행
-        await launchUrl(
-          uri,
-          mode: LaunchMode.externalApplication,
-        );
-      } else {
-        debugPrint('URL 실행 불가: $url');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('링크를 열 수 없습니다: $url'),
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      debugPrint('URL 실행 오류: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('링크를 여는 중 오류가 발생했습니다: $e'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    }
-  }
+  // (URL 실행 유틸리티는 UrlLauncherHelper로 이동)
 }
 

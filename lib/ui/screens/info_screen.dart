@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../constants/app_info.dart';
+import '../../utils/url_launcher_helper.dart';
 
 /// 정보 화면
 /// 
@@ -508,7 +508,7 @@ class InfoScreen extends StatelessWidget {
               ),
               Expanded(
                 child: InkWell(
-                  onTap: () => _launchURL(url),
+                  onTap: () => UrlLauncherHelper.launchURL(url),
                   borderRadius: BorderRadius.circular(4),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
@@ -558,18 +558,5 @@ class InfoScreen extends StatelessWidget {
   // ============================================================================
   // Utilities
   // ============================================================================
-
-  /// URL 실행
-  Future<void> _launchURL(String url) async {
-    final uri = Uri.parse(url);
-    try {
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        debugPrint('URL 실행 불가: $url');
-      }
-    } catch (e) {
-      debugPrint('URL 실행 오류: $e');
-    }
-  }
+  // (URL 실행 유틸리티는 UrlLauncherHelper로 이동)
 }

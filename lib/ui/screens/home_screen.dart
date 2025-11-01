@@ -151,42 +151,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   /// 교체불가 셀 데이터 로드 및 적용
-  /// 
+  ///
   /// 프로그램 시작 시 저장된 교체불가 셀 데이터를 로드하여
   /// TimeSlot의 isExchangeable을 false로 설정합니다.
   Future<void> _applyNonExchangeableCells(TimetableData timetableData) async {
     try {
       final storageService = NonExchangeableDataStorageService();
       final cells = await storageService.loadNonExchangeableCells();
-      
+
       if (cells.isEmpty) {
-        AppLogger.info('교체불가 셀 데이터가 없습니다.');
         return;
       }
-      
-      AppLogger.info('교체불가 셀 데이터 적용 시작: ${cells.length}개');
-      
+
       // 로드된 교체불가 셀 데이터를 TimeSlot에 적용
-      int appliedCount = 0;
-      int createdCount = 0;
-      
       for (var cell in cells) {
         // 해당 TimeSlot 찾기
         try {
           final timeSlot = timetableData.timeSlots.firstWhere(
-            (slot) => 
+            (slot) =>
               slot.teacher == cell.teacher &&
               slot.dayOfWeek == cell.dayOfWeek &&
               slot.period == cell.period,
           );
-          
+
           // TimeSlot의 isExchangeable 설정
           timeSlot.isExchangeable = false;
           timeSlot.exchangeReason = '교체불가';
-          appliedCount++;
         } catch (e) {
           // 해당 TimeSlot이 없으면 빈 셀인 경우이므로 새로 생성
-          // 빈 셀도 교체불가로 설정 가능
           final newTimeSlot = TimeSlot(
             teacher: cell.teacher,
             dayOfWeek: cell.dayOfWeek,
@@ -196,18 +188,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             isExchangeable: false,
             exchangeReason: '교체불가',
           );
-          // timeSlots는 final이지만 List 자체는 수정 가능하므로 add 가능
           timetableData.timeSlots.add(newTimeSlot);
-          createdCount++;
-          AppLogger.exchangeDebug('교체불가 빈 셀 생성: teacher=${cell.teacher}, dayOfWeek=${cell.dayOfWeek}, period=${cell.period}');
         }
       }
-      
-      if (createdCount > 0) {
-        AppLogger.info('교체불가 빈 셀 생성 완료: $createdCount개');
-      }
-      
-      AppLogger.info('교체불가 셀 데이터 적용 완료: $appliedCount개 TimeSlot에 isExchangeable=false 설정');
+
+      AppLogger.info('교체불가 셀 ${cells.length}개 적용 완료');
     } catch (e) {
       AppLogger.error('교체불가 셀 데이터 적용 중 오류: $e', e);
     }
