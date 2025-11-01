@@ -5,6 +5,7 @@ import '../models/circular_exchange_path.dart';
 import '../models/chain_exchange_path.dart';
 import '../models/supplement_exchange_path.dart';
 import '../utils/logger.dart';
+import 'exchange_list_storage_service.dart';
 import 'dart:developer' as developer;
 
 /// 교체 히스토리를 관리하는 서비스 클래스
@@ -259,26 +260,75 @@ class ExchangeHistoryService {
     };
   }
 
-  // ========== 로컬 저장소 관련 메서드들 (현재는 메모리만 사용) ==========
+  // ========== 로컬 저장소 관련 메서드들 ==========
+  
+  // 교체 리스트 저장 서비스
+  final ExchangeListStorageService _storageService = ExchangeListStorageService();
 
-  void _saveToLocalStorage(ExchangeHistoryItem item) {
-    // 메모리만 사용 (로컬 저장소 기능 추후 구현 시 확장)
+  /// 교체 항목을 로컬 저장소에 저장
+  /// 
+  /// 교체 리스트 전체를 다시 저장합니다.
+  void _saveToLocalStorage(ExchangeHistoryItem item) async {
+    try {
+      // 전체 교체 리스트를 저장
+      await _storageService.saveExchangeList(_exchangeList);
+    } catch (e) {
+      AppLogger.error('교체 항목 저장 실패: $e', e);
+    }
   }
 
-  void _removeFromLocalStorage(String itemId) {
-    // 메모리만 사용 (로컬 저장소 기능 추후 구현 시 확장)
+  /// 교체 항목을 로컬 저장소에서 삭제
+  /// 
+  /// 교체 리스트 전체를 다시 저장합니다.
+  void _removeFromLocalStorage(String itemId) async {
+    try {
+      // 전체 교체 리스트를 저장
+      await _storageService.saveExchangeList(_exchangeList);
+    } catch (e) {
+      AppLogger.error('교체 항목 삭제 저장 실패: $e', e);
+    }
   }
 
-  void _updateInLocalStorage(ExchangeHistoryItem item) {
-    // 메모리만 사용 (로컬 저장소 기능 추후 구현 시 확장)
+  /// 교체 항목을 로컬 저장소에서 업데이트
+  /// 
+  /// 교체 리스트 전체를 다시 저장합니다.
+  void _updateInLocalStorage(ExchangeHistoryItem item) async {
+    try {
+      // 전체 교체 리스트를 저장
+      await _storageService.saveExchangeList(_exchangeList);
+    } catch (e) {
+      AppLogger.error('교체 항목 업데이트 저장 실패: $e', e);
+    }
   }
 
-  void _clearLocalStorage() {
-    // 메모리만 사용 (로컬 저장소 기능 추후 구현 시 확장)
+  /// 로컬 저장소에서 교체 리스트 전체 삭제
+  void _clearLocalStorage() async {
+    try {
+      await _storageService.clearExchangeList();
+    } catch (e) {
+      AppLogger.error('교체 리스트 삭제 실패: $e', e);
+    }
   }
 
+  /// 로컬 저장소에서 교체 리스트 로드
+  /// 
+  /// 프로그램 시작 시 호출되어 저장된 교체 리스트를 메모리로 로드합니다.
   Future<void> loadFromLocalStorage() async {
-    // 메모리만 사용 (로컬 저장소 기능 추후 구현 시 확장)
+    try {
+      final loadedList = await _storageService.loadExchangeList();
+      
+      // 메모리 교체 리스트를 로드된 데이터로 교체
+      _exchangeList.clear();
+      _exchangeList.addAll(loadedList);
+      
+      // 버전 증가 (UI 업데이트 트리거)
+      _exchangeListVersion++;
+      _notifyVersionChanged();
+      
+      AppLogger.info('교체 리스트 로드 완료: ${_exchangeList.length}개 항목');
+    } catch (e) {
+      AppLogger.error('교체 리스트 로드 실패: $e', e);
+    }
   }
 
   // ========== 디버그 콘솔 출력 메서드들 ==========

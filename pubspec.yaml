@@ -40,6 +40,10 @@ dependencies:
   path_provider: ^2.1.1
   # HTTP 요청 처리 (한글 폰트 다운로드용)
   http: ^1.1.0
+  
+  # 데이터 저장
+  shared_preferences: ^2.2.2
+  crypto: ^3.0.5
 
   # UI 컴포넌트
   flutter_layout_grid: ^2.0.6

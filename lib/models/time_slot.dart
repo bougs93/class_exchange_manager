@@ -145,6 +145,36 @@ class TimeSlot {
     isExchangeable = other.isExchangeable;
     exchangeReason = other.exchangeReason;
   }
+  
+  /// JSON 직렬화 (저장용)
+  /// 
+  /// TimeSlot을 Map 형태로 변환하여 JSON 파일에 저장할 수 있도록 합니다.
+  Map<String, dynamic> toJson() {
+    return {
+      'teacher': teacher,
+      'subject': subject,
+      'className': className,
+      'dayOfWeek': dayOfWeek,
+      'period': period,
+      'isExchangeable': isExchangeable,
+      'exchangeReason': exchangeReason,
+    };
+  }
+  
+  /// JSON 역직렬화 (로드용)
+  /// 
+  /// JSON 파일에서 읽어온 Map 데이터를 TimeSlot 객체로 변환합니다.
+  factory TimeSlot.fromJson(Map<String, dynamic> json) {
+    return TimeSlot(
+      teacher: json['teacher'] as String?,
+      subject: json['subject'] as String?,
+      className: json['className'] as String?,
+      dayOfWeek: json['dayOfWeek'] as int?,
+      period: json['period'] as int?,
+      isExchangeable: json['isExchangeable'] as bool? ?? true,
+      exchangeReason: json['exchangeReason'] as String?,
+    );
+  }
 }
 
 // ExchangeHistory 클래스는 더 이상 사용되지 않습니다.

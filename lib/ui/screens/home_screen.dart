@@ -10,6 +10,11 @@ import '../../providers/state_reset_provider.dart';
 import '../../models/exchange_mode.dart';
 import '../../ui/screens/exchange_screen/exchange_screen_state_proxy.dart';
 import '../../ui/screens/exchange_screen/managers/exchange_operation_manager.dart';
+import '../../services/timetable_storage_service.dart';
+import '../../services/exchange_history_service.dart';
+import '../../utils/simplified_timetable_theme.dart';
+import '../../utils/logger.dart';
+import 'dart:io';
 
 /// 메인 홈 화면 - Drawer 메뉴가 있는 Scaffold
 class HomeScreen extends ConsumerStatefulWidget {
@@ -63,6 +68,67 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         }
       },
     );
+    
+    // 프로그램 시작 시 저장된 데이터 자동 로드
+    _loadSavedData();
+  }
+  
+  /// 저장된 데이터 자동 로드
+  /// 
+  /// 프로그램 시작 시 다음 데이터를 자동으로 로드합니다:
+  /// - 시간표 데이터
+  /// - 교체 리스트
+  /// - 시간표 테마 설정
+  /// (PDF 출력 설정은 FileExportWidget에서 로드)
+  Future<void> _loadSavedData() async {
+    try {
+      AppLogger.info('프로그램 시작: 저장된 데이터 로드 중...');
+      
+      // 1. 시간표 테마 설정 로드
+      await SimplifiedTimetableTheme.loadThemeSettings();
+      
+      // 2. 교체 리스트 로드
+      final exchangeHistoryService = ExchangeHistoryService();
+      await exchangeHistoryService.loadFromLocalStorage();
+      
+      // 3. 시간표 데이터 로드
+      final timetableStorage = TimetableStorageService();
+      final timetableData = await timetableStorage.loadTimetableData();
+      
+      if (timetableData != null) {
+        // 시간표 데이터가 있으면 자동으로 로드
+        if (mounted) {
+          final globalNotifier = ref.read(exchangeScreenProvider.notifier);
+          globalNotifier.setTimetableData(timetableData);
+          
+          // 저장된 파일 경로 가져오기
+          final savedFilePath = await timetableStorage.getSavedFilePath();
+          if (savedFilePath != null) {
+            final file = File(savedFilePath);
+            if (await file.exists()) {
+              // 파일이 존재하면 선택 상태로 설정
+              _stateProxy?.setSelectedFile(file);
+            }
+          }
+          
+          // 시간표 그리드 데이터 생성
+          if (_operationManager != null) {
+            final onCreateSyncfusionGridData = _operationManager!.onCreateSyncfusionGridData;
+            onCreateSyncfusionGridData();
+          }
+          
+          setState(() {});
+        }
+        
+        AppLogger.info('시간표 데이터 자동 로드 완료');
+      } else {
+        AppLogger.info('저장된 시간표 데이터가 없습니다.');
+      }
+      
+      AppLogger.info('저장된 데이터 로드 완료');
+    } catch (e) {
+      AppLogger.error('저장된 데이터 로드 중 오류: $e', e);
+    }
   }
 
   // 엑셀 파일 선택 메서드
@@ -98,13 +164,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
 
 
-  // 메뉴 항목들 정의
+  // 메뉴 항목들 정의 (홈 제외: 교체 관리, 결보강계획서/안내, 개인 시간표, 설정)
   List<Map<String, dynamic>> _menuItems() => [
-    {
-      'title': '홈',
-      'icon': Icons.home,
-      'screen': HomeContentScreen(),
-    },
     {
       'title': '교체 관리',
       'icon': Icons.swap_horiz,
@@ -120,7 +181,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       'icon': Icons.person,
       'screen': PersonalScheduleScreen(),
     },
-
     {
       'title': '설정',
       'icon': Icons.settings,
@@ -168,6 +228,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
             
+            // 홈 메뉴 (최상단에 배치)
+            ListTile(
+              leading: Icon(
+                Icons.home,
+                color: selectedIndex == 0 ? Colors.blue : Colors.grey[600],
+              ),
+              title: Text(
+                '홈',
+                style: TextStyle(
+                  color: selectedIndex == 0 ? Colors.blue : Colors.black,
+                  fontWeight: selectedIndex == 0 ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+              selected: selectedIndex == 0,
+              onTap: () {
+                ref.read(navigationProvider.notifier).state = 0;
+                Navigator.pop(context); // Drawer 닫기
+              },
+            ),
+            
+            const Divider(height: 1),
+            
             // 엑셀 파일 선택 메뉴 (간단한 ListTile 형태)
             Consumer(
               builder: (context, ref, child) {
@@ -188,13 +270,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       color: Colors.blue.shade700,
                     ),
                   ),
-                  subtitle: selectedFile != null 
-                    ? Text(
-                        selectedFile.path.split('\\').last,
-                        style: const TextStyle(fontSize: 11),
-                        overflow: TextOverflow.ellipsis,
-                      )
-                    : const Text('시간표 파일(.xlsx, .xls)'),
                   onTap: screenState.isLoading ? null : _selectExcelFile,
                   enabled: !screenState.isLoading,
                   trailing: screenState.isLoading 
@@ -255,31 +330,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             
             const Divider(height: 1),
             
-            // 메뉴 항목들
+            // 나머지 메뉴 항목들 (홈 제외: 교체 관리, 결보강계획서/안내, 개인 시간표, 설정)
             ...List.generate(_menuItems().length, (index) {
               final item = _menuItems()[index];
+              final menuIndex = index + 1; // 홈이 인덱스 0이므로 +1
               return ListTile(
                 leading: Icon(
                   item['icon'] as IconData,
-                  color: selectedIndex == index ? Colors.blue : Colors.grey[600],
+                  color: selectedIndex == menuIndex ? Colors.blue : Colors.grey[600],
                 ),
                 title: Text(
                   item['title'] as String,
                   style: TextStyle(
-                    color: selectedIndex == index ? Colors.blue : Colors.black,
-                    fontWeight: selectedIndex == index ? FontWeight.bold : FontWeight.normal,
+                    color: selectedIndex == menuIndex ? Colors.blue : Colors.black,
+                    fontWeight: selectedIndex == menuIndex ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
-                selected: selectedIndex == index,
+                selected: selectedIndex == menuIndex,
                 onTap: () {
-                  ref.read(navigationProvider.notifier).state = index;
+                  ref.read(navigationProvider.notifier).state = menuIndex;
                   Navigator.pop(context); // Drawer 닫기
                 },
               );
             }),
             
             // 구분선
-            const Divider(),
+            const Divider(height: 1),
             // 도움말 메뉴
             ListTile(
               leading: const Icon(Icons.help_outline),
@@ -302,7 +378,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       body: IndexedStack(
         index: selectedIndex,
-        children: _menuItems().map((item) => item['screen'] as Widget).toList(),
+        children: [
+          // 홈 화면 (인덱스 0)
+          HomeContentScreen(),
+          // 나머지 메뉴 화면들 (인덱스 1부터)
+          ..._menuItems().map((item) => item['screen'] as Widget),
+        ],
       ),
     );
   }

@@ -236,4 +236,51 @@ class SupplementExchangePath implements ExchangePath {
   String toString() {
     return 'SupplementExchangePath(${_sourceNode.displayText} → ${_targetNode.displayText})';
   }
+  
+  /// JSON 직렬화 (저장용)
+  /// 
+  /// ExchangePath를 JSON으로 저장할 때 타입 정보와 함께 저장합니다.
+  @override
+  Map<String, dynamic> toJson() {
+    return {
+      'type': 'supplement',
+      'id': id,
+      'sourceNode': _sourceNode.toJson(),
+      'targetNode': _targetNode.toJson(),
+      'description': description,
+      'priority': priority,
+      'isSelected': _isSelected,
+    };
+  }
+  
+  /// JSON 역직렬화 (로드용)
+  /// 
+  /// JSON에서 SupplementExchangePath를 복원합니다.
+  /// ExchangeOption은 재생성할 수 없으므로, 기본 옵션을 생성합니다.
+  factory SupplementExchangePath.fromJson(Map<String, dynamic> json) {
+    final sourceNode = ExchangeNode.fromJson(json['sourceNode'] as Map<String, dynamic>);
+    final targetNode = ExchangeNode.fromJson(json['targetNode'] as Map<String, dynamic>);
+    
+    // ExchangeOption 재생성 (기본값 사용)
+    final option = ExchangeOption(
+      teacherName: targetNode.teacherName,
+      timeSlot: TimeSlot(
+        teacher: targetNode.teacherName,
+        dayOfWeek: DayUtils.getDayNumber(targetNode.day),
+        period: targetNode.period,
+        className: targetNode.className,
+        subject: targetNode.subjectName,
+      ),
+      type: ExchangeType.sameClass,
+      priority: json['priority'] as int? ?? 1,
+      reason: json['description'] as String? ?? '보강교체',
+    );
+    
+    return SupplementExchangePath(
+      sourceNode: sourceNode,
+      targetNode: targetNode,
+      option: option,
+      customId: json['id'] as String?,
+    )..setSelected(json['isSelected'] as bool? ?? false);
+  }
 }

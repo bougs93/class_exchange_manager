@@ -1,4 +1,8 @@
 import 'exchange_path.dart';
+import 'one_to_one_exchange_path.dart';
+import 'circular_exchange_path.dart';
+import 'chain_exchange_path.dart';
+import 'supplement_exchange_path.dart';
 
 /// 교체 히스토리 항목을 나타내는 클래스
 /// 교체 실행의 모든 정보를 담는 데이터 모델
@@ -213,5 +217,82 @@ class ExchangeHistoryItem {
   @override
   String toString() {
     return 'ExchangeHistoryItem(id: $id, timestamp: $timestamp, type: $typeDisplayName, description: $description, isReverted: $isReverted)';
+  }
+  
+  /// JSON 직렬화 (저장용)
+  /// 
+  /// ExchangeHistoryItem을 Map 형태로 변환하여 JSON 파일에 저장할 수 있도록 합니다.
+  /// ExchangePath는 타입별로 적절히 직렬화됩니다.
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'timestamp': timestamp.toIso8601String(),
+      'type': type.name, // enum을 문자열로 저장
+      'description': description,
+      'metadata': metadata,
+      'notes': notes,
+      'tags': tags,
+      'isReverted': isReverted,
+      'originalPath': originalPath.toJson(), // ExchangePath는 타입 정보를 포함한 JSON으로 저장
+    };
+  }
+  
+  /// JSON 역직렬화 (로드용)
+  /// 
+  /// JSON 파일에서 읽어온 Map 데이터를 ExchangeHistoryItem 객체로 변환합니다.
+  /// ExchangePath는 타입에 따라 적절한 서브클래스로 복원됩니다.
+  factory ExchangeHistoryItem.fromJson(Map<String, dynamic> json) {
+    final pathJson = json['originalPath'] as Map<String, dynamic>;
+    final pathType = pathJson['type'] as String;
+    
+    // ExchangePath 타입에 따라 적절한 서브클래스로 복원
+    final ExchangePath path;
+    switch (pathType) {
+      case 'oneToOne':
+        path = OneToOneExchangePath.fromJson(pathJson);
+        break;
+      case 'circular':
+        path = CircularExchangePath.fromJson(pathJson);
+        break;
+      case 'chain':
+        path = ChainExchangePath.fromJson(pathJson);
+        break;
+      case 'supplement':
+        path = SupplementExchangePath.fromJson(pathJson);
+        break;
+      default:
+        throw FormatException('알 수 없는 ExchangePath 타입: $pathType');
+    }
+    
+    // ExchangePathType enum 변환
+    final ExchangePathType type;
+    switch (json['type'] as String) {
+      case 'oneToOne':
+        type = ExchangePathType.oneToOne;
+        break;
+      case 'circular':
+        type = ExchangePathType.circular;
+        break;
+      case 'chain':
+        type = ExchangePathType.chain;
+        break;
+      case 'supplement':
+        type = ExchangePathType.supplement;
+        break;
+      default:
+        type = ExchangePathType.oneToOne;
+    }
+    
+    return ExchangeHistoryItem(
+      id: json['id'] as String,
+      timestamp: DateTime.parse(json['timestamp'] as String),
+      originalPath: path,
+      description: json['description'] as String,
+      type: type,
+      metadata: Map<String, dynamic>.from(json['metadata'] as Map),
+      notes: json['notes'] as String?,
+      tags: List<String>.from(json['tags'] as List),
+      isReverted: json['isReverted'] as bool? ?? false,
+    );
   }
 }

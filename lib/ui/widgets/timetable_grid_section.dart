@@ -544,6 +544,52 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       builder: (context, ref, child) {
         final zoomFactor = ref.watch(zoomProvider.select((s) => s.zoomFactor));
 
+        // 🔒 열 개수와 행 셀 개수 일치 여부 검증
+        final scaledColumns = GridScalingHelper.scaleColumns(widget.columns, zoomFactor);
+        
+        // 🔥 중요: 컬럼이 비어있거나 잘못된 경우 오류 로그
+        if (widget.columns.isEmpty) {
+          AppLogger.error(
+            'SfDataGrid 컬럼이 비어있습니다. Provider 상태를 확인하세요.',
+          );
+          // 컬럼이 비어있으면 빈 위젯 반환 (앱 크래시 방지)
+          return const Center(
+            child: Text(
+              '시간표 그리드 데이터를 불러오는 중입니다...',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.orange),
+            ),
+          );
+        }
+        
+        if (widget.dataSource != null && widget.dataSource!.rows.isNotEmpty) {
+          final firstRowCells = widget.dataSource!.rows.first.getCells();
+          final expectedCellCount = scaledColumns.length;
+          final actualCellCount = firstRowCells.length;
+          
+          if (expectedCellCount != actualCellCount) {
+            AppLogger.error(
+              'SfDataGrid 열/셀 개수 불일치: columns=$expectedCellCount, cells=$actualCellCount (원본 컬럼: ${widget.columns.length}개)',
+            );
+            
+            // 🔥 중요: 컬럼이 1개만 있는 경우는 초기화 문제로 간주
+            if (widget.columns.length == 1) {
+              AppLogger.error(
+                '컬럼이 1개만 있습니다. Provider 상태가 초기화되지 않았거나 모드 전환 중 오류가 발생했습니다.',
+              );
+            }
+            
+            // 오류 발생 시 빈 위젯 반환 (앱 크래시 방지)
+            return const Center(
+              child: Text(
+                '데이터 그리드 구조 오류가 발생했습니다.\n앱을 재시작해주세요.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.red),
+              ),
+            );
+          }
+        }
+
         Widget dataGridContainer = wrapWithDragScroll(
           RepaintBoundary(
             child: Container(
@@ -589,7 +635,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
                     key: _dataGridKey,
                     controller: _dataGridController,  // 🆕 DataGridController 연결
                     source: widget.dataSource!,
-                    columns: GridScalingHelper.scaleColumns(widget.columns, zoomFactor),
+                    columns: scaledColumns, // 검증된 스케일된 열 사용
                     stackedHeaderRows: GridScalingHelper.scaleStackedHeaders(widget.stackedHeaders, zoomFactor),
                     gridLinesVisibility: GridLinesVisibility.both,
                     headerGridLinesVisibility: GridLinesVisibility.both,

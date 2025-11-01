@@ -26,6 +26,12 @@ abstract class ExchangePath {
   
   /// 경로의 우선순위 (낮을수록 높은 우선순위)
   int get priority;
+  
+  /// JSON 직렬화 (저장용)
+  /// 
+  /// ExchangePath를 JSON 형태로 변환합니다.
+  /// 각 서브클래스에서 타입 정보와 함께 구현됩니다.
+  Map<String, dynamic> toJson();
 }
 
 /// 교체 경로의 타입

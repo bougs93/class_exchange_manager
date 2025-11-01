@@ -72,5 +72,32 @@ class ExchangeNode {
   String toString() {
     return 'ExchangeNode(teacher: $teacherName, day: $day, date: $date, period: $period, class: $className, subject: $subjectName)';
   }
-
+  
+  /// JSON 직렬화 (저장용)
+  /// 
+  /// ExchangeNode를 Map 형태로 변환하여 JSON 파일에 저장할 수 있도록 합니다.
+  Map<String, dynamic> toJson() {
+    return {
+      'teacherName': teacherName,
+      'day': day,
+      'date': date,
+      'period': period,
+      'className': className,
+      'subjectName': subjectName,
+    };
+  }
+  
+  /// JSON 역직렬화 (로드용)
+  /// 
+  /// JSON 파일에서 읽어온 Map 데이터를 ExchangeNode 객체로 변환합니다.
+  factory ExchangeNode.fromJson(Map<String, dynamic> json) {
+    return ExchangeNode(
+      teacherName: json['teacherName'] as String,
+      day: json['day'] as String,
+      date: json['date'] as String?,
+      period: json['period'] as int,
+      className: json['className'] as String,
+      subjectName: json['subjectName'] as String? ?? '과목명 없음',
+    );
+  }
 }

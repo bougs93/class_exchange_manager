@@ -6,10 +6,12 @@ import 'package:file_picker/file_picker.dart';
 import 'package:excel/excel.dart' hide Border;
 import '../../../../services/excel_service.dart';
 import '../../../../services/exchange_history_service.dart';
+import '../../../../services/timetable_storage_service.dart';
 import '../../../../utils/logger.dart';
 import '../../../../utils/non_exchangeable_manager.dart';
 import '../../../../models/exchange_mode.dart';
 import '../../../../providers/exchange_screen_provider.dart';
+import '../../../../ui/dialogs/exchange_data_reset_dialog.dart';
 import '../exchange_screen_state_proxy.dart';
 
 /// 파일 선택, 로딩, 교체 모드 전환 등 핵심 비즈니스 로직을 관리하는 Manager
@@ -28,6 +30,9 @@ class ExchangeOperationManager {
   
   // 교체불가 관리자 인스턴스
   final NonExchangeableManager _nonExchangeableManager = NonExchangeableManager();
+  
+  // 시간표 저장 서비스 인스턴스
+  final TimetableStorageService _timetableStorageService = TimetableStorageService();
 
   ExchangeOperationManager({
     required this.context,
@@ -134,8 +139,64 @@ class ExchangeOperationManager {
     TimetableData? timetableData = ExcelService.parseTimetableData(excel);
 
     if (timetableData != null) {
-      // 새로운 시간표 데이터 파싱 시 히스토리와 교체리스트 초기화
-      _clearHistoryAndExchangeList();
+      // 파일 변경 감지 및 초기화 확인
+      final selectedFile = stateProxy.selectedFile;
+      if (selectedFile != null) {
+        final filePath = selectedFile.path;
+        final fileName = filePath.split(Platform.pathSeparator).last;
+        
+        // 파일 수정 시간 비교 (async 작업)
+        final isModified = await _timetableStorageService.isFileModified(filePath);
+        
+        if (isModified) {
+          // 파일이 변경되었으면 초기화 확인 다이얼로그 표시
+          // async gap 이후 BuildContext 사용 시 안전성을 위해 mounted 체크와 try-catch로 보호
+          bool? shouldReset;
+          
+          // 위젯이 여전히 마운트되어 있는지 확인
+          if (!context.mounted) {
+            // 위젯이 dispose된 경우 처리 중단
+            stateProxy.setErrorMessage('파일 로드 중 위젯이 닫혔습니다.');
+            return;
+          }
+          
+          try {
+            // async gap 이후 context 사용 - mounted 체크로 안전성 확보
+            shouldReset = await ExchangeDataResetDialog.show(
+              context,
+              message: '엑셀 파일이 변경되었습니다. 저장된 시간표 데이터와 교체 리스트를 초기화하시겠습니까?',
+            );
+          } catch (e) {
+            // 위젯이 dispose되었거나 context가 유효하지 않은 경우 처리 중단
+            stateProxy.setErrorMessage('파일 로드 중 오류가 발생했습니다: $e');
+            return;
+          }
+          
+          if (shouldReset == true) {
+            // 사용자가 초기화를 확인한 경우
+            _clearHistoryAndExchangeList();
+          } else if (shouldReset == false) {
+            // 사용자가 취소한 경우 파싱 중단
+            stateProxy.setErrorMessage('파일 로드를 취소했습니다.');
+            return;
+          }
+        }
+        
+        // 시간표 데이터 저장
+        await _timetableStorageService.saveTimetableData(
+          timetableData,
+          filePath,
+          fileName,
+        );
+      } else {
+        // Web 플랫폼의 경우 파일 경로가 없으므로 메타데이터 저장 건너뛰기
+        // 필요시 Web에서도 저장할 수 있도록 확장 가능
+      }
+      
+      // 새로운 파일이거나 파일이 변경된 경우에만 초기화
+      // (파일이 변경되지 않았고 사용자가 초기화하지 않기로 한 경우는 초기화하지 않음)
+      // 첫 로드인 경우(isModified가 false이고 메타데이터가 없는 경우)에는 초기화하지 않음
+      // 이 부분은 파일이 변경되지 않은 경우 초기화를 하지 않도록 함
       
       // 교체불가 관리자에 새로운 TimeSlot 데이터 설정
       _nonExchangeableManager.setTimeSlots(timetableData.timeSlots);

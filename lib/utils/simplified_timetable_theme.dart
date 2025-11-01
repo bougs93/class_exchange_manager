@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'cell_style_config.dart';
 import 'constants.dart';
+import '../services/timetable_theme_storage_service.dart';
+import 'logger.dart';
 
 /// 단순화된 시간표 테마 클래스
 /// 기존의 TimetableTheme와 SelectedPeriodTheme를 통합
@@ -12,6 +14,33 @@ class SimplifiedTimetableTheme {
   /// 폰트 사이즈 배율 설정 (줌 인/아웃 시 호출)
   static void setFontScaleFactor(double factor) {
     _fontScaleFactor = factor;
+    // 테마 설정 저장
+    _saveThemeSettings();
+  }
+  
+  /// 테마 설정 저장 서비스
+  static final TimetableThemeStorageService _themeStorage = TimetableThemeStorageService();
+  
+  /// 테마 설정 저장
+  static Future<void> _saveThemeSettings() async {
+    try {
+      await _themeStorage.saveThemeSettings(fontScaleFactor: _fontScaleFactor);
+    } catch (e) {
+      AppLogger.error('테마 설정 저장 실패: $e', e);
+    }
+  }
+  
+  /// 테마 설정 로드
+  /// 
+  /// 프로그램 시작 시 호출되어 저장된 테마 설정을 로드합니다.
+  static Future<void> loadThemeSettings() async {
+    try {
+      final fontScaleFactor = await _themeStorage.getFontScaleFactor();
+      _fontScaleFactor = fontScaleFactor;
+      AppLogger.info('테마 설정 로드 완료: fontScaleFactor=$fontScaleFactor');
+    } catch (e) {
+      AppLogger.error('테마 설정 로드 실패: $e', e);
+    }
   }
   
   /// 현재 폰트 사이즈 배율 반환

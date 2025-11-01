@@ -63,4 +63,26 @@ class ChainStep {
   String toString() {
     return 'ChainStep($stepNumber: $description)';
   }
+  
+  /// JSON 직렬화 (저장용)
+  Map<String, dynamic> toJson() {
+    return {
+      'stepNumber': stepNumber,
+      'stepType': stepType,
+      'fromNode': fromNode.toJson(),
+      'toNode': toNode.toJson(),
+      'description': description,
+    };
+  }
+  
+  /// JSON 역직렬화 (로드용)
+  factory ChainStep.fromJson(Map<String, dynamic> json) {
+    return ChainStep(
+      stepNumber: json['stepNumber'] as int,
+      stepType: json['stepType'] as String,
+      fromNode: ExchangeNode.fromJson(json['fromNode'] as Map<String, dynamic>),
+      toNode: ExchangeNode.fromJson(json['toNode'] as Map<String, dynamic>),
+      description: json['description'] as String,
+    );
+  }
 }

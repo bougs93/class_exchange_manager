@@ -55,6 +55,57 @@ class TimetableData {
   /// 파싱 성공률 계산
   double get successRate => totalParsedCells > 0 ? successCount / totalParsedCells : 0.0;
   
+  /// JSON 직렬화 (저장용)
+  /// 
+  /// TimetableData를 Map 형태로 변환하여 JSON 파일에 저장할 수 있도록 합니다.
+  Map<String, dynamic> toJson() {
+    return {
+      'teachers': teachers.map((teacher) => teacher.toJson()).toList(),
+      'timeSlots': timeSlots.map((slot) => slot.toJson()).toList(),
+      'config': {
+        'dayHeaderRow': config.dayHeaderRow,
+        'periodHeaderRow': config.periodHeaderRow,
+        'teacherColumn': config.teacherColumn,
+        'dataStartRow': config.dataStartRow,
+      },
+      'totalParsedCells': totalParsedCells,
+      'successCount': successCount,
+      'errorCount': errorCount,
+    };
+  }
+  
+  /// JSON 역직렬화 (로드용)
+  /// 
+  /// JSON 파일에서 읽어온 Map 데이터를 TimetableData 객체로 변환합니다.
+  factory TimetableData.fromJson(Map<String, dynamic> json) {
+    final teachersJson = json['teachers'] as List<dynamic>;
+    final teachers = teachersJson
+        .map((teacherJson) => Teacher.fromJson(teacherJson as Map<String, dynamic>))
+        .toList();
+    
+    final timeSlotsJson = json['timeSlots'] as List<dynamic>;
+    final timeSlots = timeSlotsJson
+        .map((slotJson) => TimeSlot.fromJson(slotJson as Map<String, dynamic>))
+        .toList();
+    
+    final configJson = json['config'] as Map<String, dynamic>;
+    final config = ExcelParsingConfig(
+      dayHeaderRow: configJson['dayHeaderRow'] as int? ?? 2,
+      periodHeaderRow: configJson['periodHeaderRow'] as int? ?? 3,
+      teacherColumn: configJson['teacherColumn'] as int? ?? 1,
+      dataStartRow: configJson['dataStartRow'] as int? ?? 4,
+    );
+    
+    return TimetableData(
+      teachers: teachers,
+      timeSlots: timeSlots,
+      config: config,
+      totalParsedCells: json['totalParsedCells'] as int? ?? 0,
+      successCount: json['successCount'] as int? ?? 0,
+      errorCount: json['errorCount'] as int? ?? 0,
+    );
+  }
+  
 }
 
 /// 엑셀 파일을 읽고 처리하는 서비스 클래스

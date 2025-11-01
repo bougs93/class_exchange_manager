@@ -148,4 +148,37 @@ class CircularExchangePath implements ExchangePath {
   String toString() {
     return 'CircularExchangePath(steps: $steps, description: $_description)';
   }
+  
+  /// JSON 직렬화 (저장용)
+  /// 
+  /// ExchangePath를 JSON으로 저장할 때 타입 정보와 함께 저장합니다.
+  @override
+  Map<String, dynamic> toJson() {
+    return {
+      'type': 'circular',
+      'id': id,
+      'nodes': _nodes.map((node) => node.toJson()).toList(),
+      'steps': steps,
+      'description': _description,
+      'priority': priority,
+      'isSelected': _isSelected,
+    };
+  }
+  
+  /// JSON 역직렬화 (로드용)
+  /// 
+  /// JSON에서 CircularExchangePath를 복원합니다.
+  factory CircularExchangePath.fromJson(Map<String, dynamic> json) {
+    final nodesJson = json['nodes'] as List<dynamic>;
+    final nodes = nodesJson
+        .map((nodeJson) => ExchangeNode.fromJson(nodeJson as Map<String, dynamic>))
+        .toList();
+    
+    return CircularExchangePath(
+      nodes: nodes,
+      steps: json['steps'] as int,
+      description: json['description'] as String,
+      customId: json['id'] as String?,
+    )..setSelected(json['isSelected'] as bool? ?? false);
+  }
 }

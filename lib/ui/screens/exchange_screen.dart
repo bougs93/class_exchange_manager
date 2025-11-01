@@ -745,12 +745,17 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     final notifier = ref.read(exchangeScreenProvider.notifier);
     final currentState = ref.read(exchangeScreenProvider);
     
+    // 🔥 중요: 컬럼이 비어있거나 길이가 0인 경우 강제 업데이트 (초기 상태 보정)
+    final bool needsForceUpdate = currentState.columns.isEmpty && result.columns.isNotEmpty;
+    
     // 현재 상태와 비교하여 실제로 변경이 필요한 경우에만 업데이트
-    if (_shouldUpdateColumns(currentState.columns, result.columns)) {
+    if (needsForceUpdate || _shouldUpdateColumns(currentState.columns, result.columns)) {
+      AppLogger.exchangeDebug('🔄 [그리드 생성] 컬럼 업데이트: ${currentState.columns.length}개 → ${result.columns.length}개');
       notifier.setColumns(result.columns);
     }
     
-    if (_shouldUpdateStackedHeaders(currentState.stackedHeaders, result.stackedHeaders)) {
+    if (needsForceUpdate || _shouldUpdateStackedHeaders(currentState.stackedHeaders, result.stackedHeaders)) {
+      AppLogger.exchangeDebug('🔄 [그리드 생성] 스택 헤더 업데이트: ${currentState.stackedHeaders.length}개 → ${result.stackedHeaders.length}개');
       notifier.setStackedHeaders(result.stackedHeaders);
     }
     
@@ -1351,17 +1356,23 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     final notifier = ref.read(exchangeScreenProvider.notifier);
     final currentState = ref.read(exchangeScreenProvider);
     
+    // 🔥 중요: 컬럼이 비어있거나 길이가 0인 경우 강제 업데이트 (초기 상태 보정)
+    final bool needsForceUpdate = currentState.columns.isEmpty && result.columns.isNotEmpty;
+    
     // 구조적 변경(컬럼 수, 헤더 수)이 있는 경우에만 업데이트하여 ValueKey 변경 방지
-    bool needsStructuralUpdate = _shouldUpdateColumns(currentState.columns, result.columns) ||
+    bool needsStructuralUpdate = needsForceUpdate ||
+                                _shouldUpdateColumns(currentState.columns, result.columns) ||
                                 _shouldUpdateStackedHeaders(currentState.stackedHeaders, result.stackedHeaders);
     
     if (needsStructuralUpdate) {
       // 구조적 변경이 필요한 경우에만 columns/stackedHeaders 업데이트
-      if (_shouldUpdateColumns(currentState.columns, result.columns)) {
+      if (needsForceUpdate || _shouldUpdateColumns(currentState.columns, result.columns)) {
+        AppLogger.exchangeDebug('🔄 [헤더 테마] 컬럼 업데이트: ${currentState.columns.length}개 → ${result.columns.length}개');
         notifier.setColumns(result.columns);
       }
       
-      if (_shouldUpdateStackedHeaders(currentState.stackedHeaders, result.stackedHeaders)) {
+      if (needsForceUpdate || _shouldUpdateStackedHeaders(currentState.stackedHeaders, result.stackedHeaders)) {
+        AppLogger.exchangeDebug('🔄 [헤더 테마] 스택 헤더 업데이트: ${currentState.stackedHeaders.length}개 → ${result.stackedHeaders.length}개');
         notifier.setStackedHeaders(result.stackedHeaders);
       }
       
@@ -1378,12 +1389,22 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
   /// 컬럼 업데이트가 필요한지 확인 (최적화됨 - 구조적 변경만 감지)
   bool _shouldUpdateColumns(List<GridColumn> currentColumns, List<GridColumn> newColumns) {
+    // 🔥 중요: 빈 리스트인 경우 무조건 업데이트 (초기 상태 또는 리셋된 상태)
+    if (currentColumns.isEmpty && newColumns.isNotEmpty) {
+      AppLogger.exchangeDebug('🔄 [컬럼 업데이트] 빈 컬럼 리스트 감지 - 강제 업데이트 (${newColumns.length}개)');
+      return true;
+    }
+    
     // 길이가 다르면 구조적 변경
-    if (currentColumns.length != newColumns.length) return true;
+    if (currentColumns.length != newColumns.length) {
+      AppLogger.exchangeDebug('🔄 [컬럼 업데이트] 컬럼 개수 불일치 - ${currentColumns.length}개 → ${newColumns.length}개');
+      return true;
+    }
     
     // 컬럼명이나 기본 구조가 변경된 경우만 업데이트 (스타일 변경은 제외)
     for (int i = 0; i < currentColumns.length; i++) {
       if (currentColumns[i].columnName != newColumns[i].columnName) {
+        AppLogger.exchangeDebug('🔄 [컬럼 업데이트] 컬럼명 변경 감지: ${currentColumns[i].columnName} → ${newColumns[i].columnName}');
         return true; // 컬럼명 변경은 구조적 변경
       }
       // width 변경은 스타일 변경이므로 제외하여 불필요한 ValueKey 변경 방지
@@ -1393,8 +1414,17 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   
   /// 스택 헤더 업데이트가 필요한지 확인 (최적화됨 - 구조적 변경만 감지)
   bool _shouldUpdateStackedHeaders(List<StackedHeaderRow> currentHeaders, List<StackedHeaderRow> newHeaders) {
+    // 🔥 중요: 빈 리스트인 경우 무조건 업데이트 (초기 상태 또는 리셋된 상태)
+    if (currentHeaders.isEmpty && newHeaders.isNotEmpty) {
+      AppLogger.exchangeDebug('🔄 [스택 헤더 업데이트] 빈 헤더 리스트 감지 - 강제 업데이트 (${newHeaders.length}개)');
+      return true;
+    }
+    
     // 길이가 다르면 구조적 변경
-    if (currentHeaders.length != newHeaders.length) return true;
+    if (currentHeaders.length != newHeaders.length) {
+      AppLogger.exchangeDebug('🔄 [스택 헤더 업데이트] 헤더 개수 불일치 - ${currentHeaders.length}개 → ${newHeaders.length}개');
+      return true;
+    }
     
     // 헤더 구조가 변경된 경우만 업데이트 (스타일 변경은 제외)
     for (int i = 0; i < currentHeaders.length; i++) {

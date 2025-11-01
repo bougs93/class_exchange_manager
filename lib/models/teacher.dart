@@ -46,5 +46,29 @@ class Teacher {
   int get hashCode {
     return id.hashCode ^ name.hashCode ^ subject.hashCode ^ remarks.hashCode;
   }
+  
+  /// JSON 직렬화 (저장용)
+  /// 
+  /// Teacher를 Map 형태로 변환하여 JSON 파일에 저장할 수 있도록 합니다.
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'subject': subject,
+      'remarks': remarks,
+    };
+  }
+  
+  /// JSON 역직렬화 (로드용)
+  /// 
+  /// JSON 파일에서 읽어온 Map 데이터를 Teacher 객체로 변환합니다.
+  factory Teacher.fromJson(Map<String, dynamic> json) {
+    return Teacher(
+      id: json['id'] as int?,
+      name: json['name'] as String,
+      subject: json['subject'] as String,
+      remarks: json['remarks'] as String?,
+    );
+  }
 }
 

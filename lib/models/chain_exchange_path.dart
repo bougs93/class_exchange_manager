@@ -183,4 +183,49 @@ class ChainExchangePath implements ExchangePath {
   String toString() {
     return 'ChainExchangePath(depth: $chainDepth, A: ${nodeA.displayText}, B: ${nodeB.displayText})';
   }
+  
+  /// JSON 직렬화 (저장용)
+  /// 
+  /// ExchangePath를 JSON으로 저장할 때 타입 정보와 함께 저장합니다.
+  @override
+  Map<String, dynamic> toJson() {
+    return {
+      'type': 'chain',
+      'id': id,
+      'nodeA': nodeA.toJson(),
+      'nodeB': nodeB.toJson(),
+      'node1': node1.toJson(),
+      'node2': node2.toJson(),
+      'chainDepth': chainDepth,
+      'steps': steps.map((step) => step.toJson()).toList(),
+      'description': description,
+      'priority': priority,
+      'isSelected': _isSelected,
+    };
+  }
+  
+  /// JSON 역직렬화 (로드용)
+  /// 
+  /// JSON에서 ChainExchangePath를 복원합니다.
+  factory ChainExchangePath.fromJson(Map<String, dynamic> json) {
+    final nodeA = ExchangeNode.fromJson(json['nodeA'] as Map<String, dynamic>);
+    final nodeB = ExchangeNode.fromJson(json['nodeB'] as Map<String, dynamic>);
+    final node1 = ExchangeNode.fromJson(json['node1'] as Map<String, dynamic>);
+    final node2 = ExchangeNode.fromJson(json['node2'] as Map<String, dynamic>);
+    
+    final stepsJson = json['steps'] as List<dynamic>;
+    final steps = stepsJson
+        .map((stepJson) => ChainStep.fromJson(stepJson as Map<String, dynamic>))
+        .toList();
+    
+    return ChainExchangePath(
+      nodeA: nodeA,
+      nodeB: nodeB,
+      node1: node1,
+      node2: node2,
+      chainDepth: json['chainDepth'] as int? ?? 2,
+      steps: steps,
+      customId: json['id'] as String?,
+    )..setSelected(json['isSelected'] as bool? ?? false);
+  }
 }

@@ -5,8 +5,10 @@ import 'package:path_provider/path_provider.dart';
 import '../../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../../../utils/pdf_field_config.dart';
 import '../../../../../services/pdf_export_service.dart';
+import '../../../../../services/pdf_export_settings_storage_service.dart';
 import '../../../../../constants/korean_fonts.dart';
 import '../../../../../constants/pdf_notes_template.dart';
+import '../../../../../utils/logger.dart';
 import 'pdf_settings_section.dart';
 import 'pdf_field_inputs_section.dart';
 import '../../pdf_preview_screen.dart';
@@ -36,6 +38,46 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
   // 폰트 사이즈 옵션
   final List<double> _fontSizeOptions = [8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0];
   final List<double> _remarksFontSizeOptions = [6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0];
+  
+  // PDF 출력 설정 저장 서비스
+  final PdfExportSettingsStorageService _pdfSettingsStorage = PdfExportSettingsStorageService();
+  
+  @override
+  void initState() {
+    super.initState();
+    // 저장된 PDF 출력 설정 로드
+    _loadSavedSettings();
+  }
+  
+  /// 저장된 PDF 출력 설정 로드
+  Future<void> _loadSavedSettings() async {
+    try {
+      final settings = await _pdfSettingsStorage.loadPdfExportSettings();
+      if (settings != null) {
+        setState(() {
+          _fontSize = (settings['fontSize'] as num?)?.toDouble() ?? 10.0;
+          _remarksFontSize = (settings['remarksFontSize'] as num?)?.toDouble() ?? 7.0;
+          _selectedFont = settings['selectedFont'] as String? ?? KoreanFontConstants.defaultFont;
+          _includeRemarks = settings['includeRemarks'] as bool? ?? true;
+          
+          // 추가 필드 로드
+          final additionalFields = settings['additionalFields'] as Map<String, dynamic>?;
+          if (additionalFields != null) {
+            _teacherNameController.text = additionalFields['teacherName'] as String? ?? '';
+            _absencePeriodController.text = additionalFields['absencePeriod'] as String? ?? '';
+            _workStatusController.text = additionalFields['workStatus'] as String? ?? '';
+            _reasonForAbsenceController.text = additionalFields['reasonForAbsence'] as String? ?? '';
+            _schoolNameController.text = additionalFields['schoolName'] as String? ?? '';
+            _notesController.text = additionalFields['notes'] as String? ?? PdfNotesTemplate.defaultNotes;
+          }
+        });
+      }
+    } catch (e) {
+      // 로드 실패 시 기본값 유지
+      // AppLogger를 사용하여 프로덕션 환경에서 안전한 로깅 수행
+      AppLogger.warning('PDF 설정 로드 실패: $e');
+    }
+  }
 
   // PDF 추가 필드 컨트롤러
   final TextEditingController _teacherNameController = TextEditingController();
@@ -178,7 +220,27 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
         return;
       }
 
-      // 4. 미리보기 화면으로 이동
+      // 4. PDF 출력 설정 저장 (문서 출력 버튼 클릭 시)
+      final saveSuccess = await _pdfSettingsStorage.savePdfExportSettings(
+        fontSize: _fontSize,
+        remarksFontSize: _remarksFontSize,
+        selectedFont: _selectedFont,
+        includeRemarks: _includeRemarks,
+        additionalFields: {
+          'teacherName': _teacherNameController.text,
+          'absencePeriod': _absencePeriodController.text,
+          'workStatus': _workStatusController.text,
+          'reasonForAbsence': _reasonForAbsenceController.text,
+          'schoolName': _schoolNameController.text,
+          'notes': _notesController.text,
+        },
+      );
+      
+      if (!saveSuccess && mounted) {
+        _showSnackBar('PDF 설정 저장에 실패했습니다.', Colors.orange);
+      }
+      
+      // 5. 미리보기 화면으로 이동
       if (mounted) {
         Navigator.of(context).push(
           MaterialPageRoute(
