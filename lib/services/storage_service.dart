@@ -17,12 +17,54 @@ class StorageService {
   
   /// 앱 데이터 디렉토리 경로를 반환합니다.
   /// 
-  /// Windows: %APPDATA%\com.example.class_exchange_manager
-  /// 기타 플랫폼: 플랫폼별 앱 데이터 디렉토리
+  /// getApplicationSupportDirectory()는 크로스 플랫폼 함수로,
+  /// 각 플랫폼에 맞는 적절한 디렉토리를 자동으로 반환합니다.
+  /// 별도의 플랫폼별 설정 없이 공통 코드로 사용 가능합니다.
+  /// 
+  /// 폴더명 결정 방법:
+  /// path_provider는 각 플랫폼의 앱 식별자(패키지명/번들 ID)를 자동으로 읽어서
+  /// 폴더명으로 사용합니다. 각 플랫폼별 설정 파일에서 확인/변경 가능합니다.
+  /// 
+  /// 플랫폼별 실제 경로 및 설정 파일 위치:
+  /// - Windows: %APPDATA%\com.example.class_exchange_manager
+  ///   (예: C:\Users\사용자명\AppData\Roaming\com.example.class_exchange_manager\)
+  ///   설정: path_provider_windows가 실행 파일의 메타데이터에서 자동으로 읽어옴
+  ///   또는 windows/CMakeLists.txt의 project() 이름 사용
+  /// 
+  /// - Android: /data/data/com.example.class_exchange_manager/app_flutter/
+  ///   (앱 전용 내부 저장소, 루팅하지 않은 경우 다른 앱에서 접근 불가)
+  ///   설정 파일: android/app/build.gradle.kts
+  ///   - namespace = "com.example.class_exchange_manager"
+  ///   - applicationId = "com.example.class_exchange_manager"
+  /// 
+  /// - iOS: ~/Library/Application Support/com.example.classExchangeManager/
+  ///   (앱 샌드박스 내부, 백업 정책에 따라 iCloud 백업 대상에서 제외 가능)
+  ///   설정 파일: ios/Runner.xcodeproj/project.pbxproj
+  ///   - PRODUCT_BUNDLE_IDENTIFIER = com.example.classExchangeManager
+  ///   (주의: iOS는 대소문자를 구분합니다 - classExchangeManager)
+  /// 
+  /// - macOS: ~/Library/Application Support/com.example.classExchangeManager/
+  ///   설정 파일: macos/Runner/Configs/AppInfo.xcconfig
+  ///   - PRODUCT_BUNDLE_IDENTIFIER = com.example.classExchangeManager
+  /// 
+  /// - Linux: ~/.local/share/com.example.class_exchange_manager/
+  ///   설정 파일: linux/CMakeLists.txt
+  ///   - APPLICATION_ID = "com.example.class_exchange_manager"
+  /// 
+  /// 폴더명을 변경하려면:
+  /// 1. 해당 플랫폼의 설정 파일에서 앱 식별자 변경
+  /// 2. 앱 재빌드 필요
+  /// 3. 기존 저장된 데이터는 이전 폴더에 남아있으므로 필요시 마이그레이션 필요
+  /// 
+  /// 참고: getApplicationDocumentsDirectory() 대신 getApplicationSupportDirectory()를 사용하는 이유:
+  /// - 설정 데이터 저장에 더 적합합니다
+  /// - 사용자 문서 폴더와 분리되어 관리가 용이합니다
+  /// - 시스템 백업 정책에 따라 백업 대상에서 제외될 수 있습니다
+  /// - 각 플랫폼의 권장 사항에 부합합니다
   Future<Directory> _getAppDataDirectory() async {
     try {
-      // 앱 문서 디렉토리 가져오기
-      final directory = await getApplicationDocumentsDirectory();
+      // 앱 지원 디렉토리 가져오기 (설정 데이터 저장에 더 적합)
+      final directory = await getApplicationSupportDirectory();
       return directory;
     } catch (e) {
       AppLogger.error('앱 데이터 디렉토리 가져오기 실패: $e', e);
