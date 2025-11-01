@@ -516,88 +516,70 @@ class HomeContentScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final screenState = ref.watch(exchangeScreenProvider);
     final selectedFile = screenState.selectedFile;
-    
+
     return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            theme.primaryColor.withValues(alpha: 0.05),
-            Colors.white,
-          ],
-        ),
-      ),
+      color: Colors.grey.shade50,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 환영 메시지 카드
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: theme.primaryColor.withValues(alpha: 0.2),
+                  width: 1,
+                ),
               ),
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      theme.primaryColor,
-                      theme.primaryColor.withValues(alpha: 0.8),
-                    ],
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: theme.primaryColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.school,
+                      color: theme.primaryColor,
+                      size: 32,
+                    ),
                   ),
-                ),
-                padding: const EdgeInsets.all(10),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.school,
-                        color: Colors.white,
-                        size: 32,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            '수업 교체 관리자',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '수업 교체 관리자',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey.shade800,
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            selectedFile != null 
-                              ? '현재 시간표: ${selectedFile.path.split(Platform.pathSeparator).last}'
-                              : '시간표 파일을 선택해주세요',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.white.withValues(alpha: 0.9),
-                            ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          selectedFile != null
+                            ? '현재 시간표: ${selectedFile.path.split(Platform.pathSeparator).last}'
+                            : '시간표 파일을 선택해주세요',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade600,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 24),
-            
+
             // 메뉴 그리드
             _buildMenuGrid(context, ref, theme),
           ],
@@ -612,13 +594,13 @@ class HomeContentScreen extends ConsumerWidget {
       {
         'title': '시간표 선택',
         'icon': Icons.upload_file,
-        'color': Colors.blue,
+        'color': theme.primaryColor,
         'onTap': () => _selectExcelFile(context, ref),
       },
       {
         'title': '교체 관리',
         'icon': Icons.swap_horiz,
-        'color': Colors.green,
+        'color': theme.primaryColor,
         'onTap': () {
           ref.read(navigationProvider.notifier).state = 1;
         },
@@ -626,7 +608,7 @@ class HomeContentScreen extends ConsumerWidget {
       {
         'title': '결보강계획서',
         'icon': Icons.print,
-        'color': Colors.orange,
+        'color': theme.primaryColor,
         'onTap': () {
           ref.read(navigationProvider.notifier).state = 2;
         },
@@ -634,7 +616,7 @@ class HomeContentScreen extends ConsumerWidget {
       {
         'title': '개인 시간표',
         'icon': Icons.person,
-        'color': Colors.purple,
+        'color': theme.primaryColor,
         'onTap': () {
           ref.read(navigationProvider.notifier).state = 3;
         },
@@ -642,7 +624,7 @@ class HomeContentScreen extends ConsumerWidget {
       {
         'title': '설정',
         'icon': Icons.settings,
-        'color': Colors.grey,
+        'color': Colors.grey.shade600,
         'onTap': () {
           ref.read(navigationProvider.notifier).state = 4;
         },
@@ -650,7 +632,7 @@ class HomeContentScreen extends ConsumerWidget {
       {
         'title': '도움말',
         'icon': Icons.help_outline,
-        'color': Colors.teal,
+        'color': Colors.grey.shade600,
         'onTap': () {
           Navigator.push(
             context,
@@ -663,7 +645,7 @@ class HomeContentScreen extends ConsumerWidget {
       {
         'title': '정보',
         'icon': Icons.info_outline,
-        'color': Colors.indigo,
+        'color': Colors.grey.shade600,
         'onTap': () {
           Navigator.push(
             context,
@@ -679,8 +661,8 @@ class HomeContentScreen extends ConsumerWidget {
     // GridView는 화면 크기에 따라 셀 크기를 조정하므로,
     // 카드 크기를 정확히 고정하려면 Wrap이 더 적합합니다
     return Wrap(
-      spacing: 4, // 가로 간격
-      runSpacing: 4, // 세로 간격
+      spacing: 12, // 가로 간격
+      runSpacing: 12, // 세로 간격
       alignment: WrapAlignment.start,
       crossAxisAlignment: WrapCrossAlignment.start,
       children: menuItems.map((item) {
@@ -697,7 +679,7 @@ class HomeContentScreen extends ConsumerWidget {
   }
 
   /// 메뉴 카드 생성
-  /// 
+  ///
   /// 카드 크기를 고정하기 위해 SizedBox로 감싸서 고정 크기를 지정합니다.
   /// 화면 크기와 관계없이 항상 동일한 크기를 유지합니다.
   Widget _buildMenuCard({
@@ -708,85 +690,70 @@ class HomeContentScreen extends ConsumerWidget {
     required Color color,
     required VoidCallback onTap,
   }) {
-    // 카드 크기를 내용물에 맞게 최소화
-    // 내용물 계산:
-    // - 아이콘 컨테이너: 40px (아이콘) + 24px (패딩) = 64px
-    // - 간격: 8px
-    // - 텍스트: 약 28px (폰트 14px, 2줄 기준)
-    // - 카드 패딩: 24px (상하 12px * 2)
-    // - 총 높이: 약 124px
-    // - 가로 크기: 아이콘 64px + 카드 패딩 24px = 88px (최소), 하지만 그리드 일관성을 위해 120px
-    const double cardWidth = 120.0;   // 최소 가로 크기 (내용물에 맞게 축소)
-    const double cardHeight = 124.0;  // 최소 세로 크기 (내용물에 맞게 계산)
-    
-    // 내용물에 맞게 최소 크기로 고정
+    const double cardWidth = 120.0;
+    const double cardHeight = 124.0;
+
     return ConstrainedBox(
-      constraints: BoxConstraints(
-        minWidth: cardWidth,   // 최소 가로 크기
-        maxWidth: cardWidth,   // 최대 가로 크기 (고정)
-        minHeight: cardHeight, // 최소 세로 크기
-        maxHeight: cardHeight, // 최대 세로 크기 (고정)
+      constraints: const BoxConstraints(
+        minWidth: cardWidth,
+        maxWidth: cardWidth,
+        minHeight: cardHeight,
+        maxHeight: cardHeight,
       ),
       child: SizedBox(
         width: cardWidth,
         height: cardHeight,
-        child: Card(
-          elevation: 3,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+        child: Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
             child: Container(
-              padding: const EdgeInsets.all(12), // 안여백을 20에서 12로 줄임
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    color.withValues(alpha: 0.1),
-                    color.withValues(alpha: 0.05),
-                  ],
+                border: Border.all(
+                  color: Colors.grey.shade200,
+                  width: 1,
                 ),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.start, // 상단 정렬로 변경하여 여백을 하단으로 이동
-                mainAxisSize: MainAxisSize.min, // 최소 크기만 사용하여 크기 고정
-                crossAxisAlignment: CrossAxisAlignment.center, // 가로 중앙 정렬
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(12), // 아이콘 컨테이너 안여백을 16에서 12로 줄임
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
+                      color: color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
                       icon,
-                      size: 40,
+                      size: 36,
                       color: color,
                     ),
                   ),
-                  const SizedBox(height: 8), // 아이콘과 텍스트 사이 간격을 12에서 8로 줄임
+                  const SizedBox(height: 10),
                   Text(
                     title,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: Colors.grey.shade800,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
-      ), // SizedBox 닫기
-    ); // ConstrainedBox 닫기
+    );
   }
 
   /// 엑셀 파일 선택 메서드
