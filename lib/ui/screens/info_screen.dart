@@ -149,17 +149,6 @@ class InfoScreen extends StatelessWidget {
             ),
             _buildSectionSpacer(),
             
-            // 사용법 도움말 (불릿 리스트 형태)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionHeader(theme, Icons.help_outline, '사용법 도움말'),
-                const SizedBox(height: 6),
-                _buildSectionContentAsList(AppInfo.help.trim()),
-              ],
-            ),
-            _buildSectionSpacer(),
-            
             // 프로그램 실행 제한 (불릿 리스트 형태)
             _buildUsageRestrictionSubSectionWithList(theme),
             _buildSectionSpacer(),
