@@ -343,8 +343,8 @@ class ChainExchangeService extends BaseExchangeService {
     bool sameClass = node1.className == node2.className;
 
     // 교체 불가 충돌 검증 추가
-    bool teacher1CanMoveToNode2 = !_isNonExchangeableClash(node1.teacherName, node2.day, node2.period);
-    bool teacher2CanMoveToNode1 = !_isNonExchangeableClash(node2.teacherName, node1.day, node1.period);
+    bool teacher1CanMoveToNode2 = !_nonExchangeableManager.isNonExchangeableTimeSlot(node1.teacherName, node2.day, node2.period);
+    bool teacher2CanMoveToNode1 = !_nonExchangeableManager.isNonExchangeableTimeSlot(node2.teacherName, node1.day, node1.period);
 
     return teacher1EmptyAtNode2Time && 
            teacher2EmptyAtNode1Time && 
@@ -386,20 +386,14 @@ class ChainExchangeService extends BaseExchangeService {
     bool sameClass = nodeA.className == nodeB.className;
 
     // 교체 불가 충돌 검증 추가
-    bool teacherACanMoveToB = !_isNonExchangeableClash(nodeA.teacherName, nodeB.day, nodeB.period);
-    bool teacherBCanMoveToA = !_isNonExchangeableClash(nodeB.teacherName, nodeA.day, nodeA.period);
+    bool teacherACanMoveToB = !_nonExchangeableManager.isNonExchangeableTimeSlot(nodeA.teacherName, nodeB.day, nodeB.period);
+    bool teacherBCanMoveToA = !_nonExchangeableManager.isNonExchangeableTimeSlot(nodeB.teacherName, nodeA.day, nodeA.period);
 
     return teacherAEmptyAtBTime && 
            teacherBEmptyAtATime && 
            sameClass && 
            teacherACanMoveToB && 
            teacherBCanMoveToA;
-  }
-
-  /// 교체 불가 충돌 검증
-  /// 교사가 특정 시간대로 이동할 때 교체 불가 셀이 있는지 확인
-  bool _isNonExchangeableClash(String teacherName, String day, int period) {
-    return _nonExchangeableManager.isNonExchangeableTimeSlot(teacherName, day, period);
   }
 
   /// 모든 선택 상태 초기화

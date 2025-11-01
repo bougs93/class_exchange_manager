@@ -284,8 +284,8 @@ class ExchangeService extends BaseExchangeService {
       }
       
       // 2. 교체할 소스 TimeSlot 찾기 (원본 수업이 있는 셀)
-      TimeSlot? slot1s = _findTimeSlot(timeSlots, teacher1, day1, period1); // 문유란의 월6교시 (원본)
-      TimeSlot? slot2s = _findTimeSlot(timeSlots, teacher2, day2, period2); // 정영훈의 화3교시 (원본)
+      TimeSlot? slot1s = findTimeSlot(teacher1, day1, period1, timeSlots); // 문유란의 월6교시 (원본)
+      TimeSlot? slot2s = findTimeSlot(teacher2, day2, period2, timeSlots); // 정영훈의 화3교시 (원본)
       
       if (slot1s == null || slot2s == null) {
         AppLogger.exchangeDebug('교체할 소스 TimeSlot을 찾을 수 없습니다');
@@ -293,8 +293,8 @@ class ExchangeService extends BaseExchangeService {
       }
 
       // 3. 교체 대상 TimeSlot 찾기 (서로 다른 교사의 목적지 시간대)
-      TimeSlot? slot2t = _findTimeSlot(timeSlots, teacher2, day1, period1); // 정영훈의 월6교시 (목적지)
-      TimeSlot? slot1t = _findTimeSlot(timeSlots, teacher1, day2, period2); // 문유란의 화3교시 (목적지)
+      TimeSlot? slot2t = findTimeSlot(teacher2, day1, period1, timeSlots); // 정영훈의 월6교시 (목적지)
+      TimeSlot? slot1t = findTimeSlot(teacher1, day2, period2, timeSlots); // 문유란의 화3교시 (목적지)
             
       if (slot1t == null || slot2t == null) {
         AppLogger.exchangeDebug('교체할 대상 TimeSlot을 찾을 수 없습니다');
@@ -372,7 +372,7 @@ class ExchangeService extends BaseExchangeService {
       }
       
       // 2. 보강할 소스 TimeSlot 찾기 (원본 수업이 있는 셀)
-      TimeSlot? sourceSlot = _findTimeSlot(timeSlots, sourceTeacher, sourceDay, sourcePeriod);
+      TimeSlot? sourceSlot = findTimeSlot(sourceTeacher, sourceDay, sourcePeriod, timeSlots);
       
       if (sourceSlot == null) {
         AppLogger.exchangeDebug('보강할 소스 TimeSlot을 찾을 수 없습니다');
@@ -380,7 +380,7 @@ class ExchangeService extends BaseExchangeService {
       }
 
       // 3. 보강 대상 TimeSlot 찾기 (빈 셀)
-      TimeSlot? targetSlot = _findTimeSlot(timeSlots, targetTeacher, targetDay, targetPeriod);
+      TimeSlot? targetSlot = findTimeSlot(targetTeacher, targetDay, targetPeriod, timeSlots);
             
       if (targetSlot == null) {
         AppLogger.exchangeDebug('보강할 대상 TimeSlot을 찾을 수 없습니다');
@@ -429,15 +429,15 @@ class ExchangeService extends BaseExchangeService {
     int targetPeriod,
   ) {
     // 1. 보강할 소스 TimeSlot 존재 확인
-    TimeSlot? sourceSlot = _findTimeSlot(timeSlots, sourceTeacher, sourceDay, sourcePeriod);
-    
+    TimeSlot? sourceSlot = findTimeSlot(sourceTeacher, sourceDay, sourcePeriod, timeSlots);
+
     if (sourceSlot == null) {
       AppLogger.exchangeDebug('보강 실패: $sourceTeacher의 $sourceDay$sourcePeriod교시 TimeSlot을 찾을 수 없습니다');
       return false;
     }
-    
+
     // 2. 보강 대상 TimeSlot 존재 확인
-    TimeSlot? targetSlot = _findTimeSlot(timeSlots, targetTeacher, targetDay, targetPeriod);
+    TimeSlot? targetSlot = findTimeSlot(targetTeacher, targetDay, targetPeriod, timeSlots);
     
     if (targetSlot == null) {
       AppLogger.exchangeDebug('보강 실패: $targetTeacher의 $targetDay$targetPeriod교시 TimeSlot을 찾을 수 없습니다');
@@ -486,7 +486,7 @@ class ExchangeService extends BaseExchangeService {
       AppLogger.exchangeInfo('보강교체 되돌리기: $targetTeacher($targetDay$targetPeriod교시)');
       
       // 보강된 TimeSlot 찾기
-      TimeSlot? targetSlot = _findTimeSlot(timeSlots, targetTeacher, targetDay, targetPeriod);
+      TimeSlot? targetSlot = findTimeSlot(targetTeacher, targetDay, targetPeriod, timeSlots);
       
       if (targetSlot == null) {
         AppLogger.exchangeDebug('보강교체 되돌리기 실패: TimeSlot을 찾을 수 없습니다');
@@ -530,8 +530,8 @@ class ExchangeService extends BaseExchangeService {
     int period2,
   ) {
     // 1. 교체할 TimeSlot 존재 확인
-    TimeSlot? slot1 = _findTimeSlot(timeSlots, teacher1, day1, period1);
-    TimeSlot? slot2 = _findTimeSlot(timeSlots, teacher2, day2, period2);
+    TimeSlot? slot1 = findTimeSlot(teacher1, day1, period1, timeSlots);
+    TimeSlot? slot2 = findTimeSlot(teacher2, day2, period2, timeSlots);
     
     if (slot1 == null) {
       AppLogger.exchangeDebug('교체 실패: $teacher1의 $day1$period1교시 TimeSlot을 찾을 수 없습니다');
@@ -623,16 +623,16 @@ class ExchangeService extends BaseExchangeService {
       for (int i = 0; i < nodes.length - 1; i++) {
         final currentNode = nodes[i];
         final nextNode = nodes[i + 1];
-        
+
         // 현재 노드의 원본 TimeSlot 찾기
-        final currentSlot = _findTimeSlot(timeSlots, currentNode.teacherName, currentNode.day, currentNode.period);
+        final currentSlot = findTimeSlot(currentNode.teacherName, currentNode.day, currentNode.period, timeSlots);
         if (currentSlot == null) {
           AppLogger.exchangeDebug('순환 교체 실패: ${currentNode.teacherName}의 ${currentNode.day}${currentNode.period}교시 TimeSlot을 찾을 수 없습니다');
           return false;
         }
-        
+
         // 현재 노드가 이동할 목적지 TimeSlot 찾기 (다음 노드의 위치에 있는 현재 노드의 TimeSlot)
-        final targetSlot = _findTimeSlot(timeSlots, currentNode.teacherName, nextNode.day, nextNode.period);
+        final targetSlot = findTimeSlot(currentNode.teacherName, nextNode.day, nextNode.period, timeSlots);
         if (targetSlot == null) {
           AppLogger.exchangeDebug('순환 교체 실패: ${currentNode.teacherName}의 ${nextNode.day}${nextNode.period}교시 TimeSlot을 찾을 수 없습니다');
           return false;
@@ -662,7 +662,7 @@ class ExchangeService extends BaseExchangeService {
     try {
       // 모든 노드의 TimeSlot 존재 확인만 수행
       for (final node in nodes) {
-        final slot = _findTimeSlot(timeSlots, node.teacherName, node.day, node.period);
+        final slot = findTimeSlot(node.teacherName, node.day, node.period, timeSlots);
         if (slot == null) {
           AppLogger.exchangeDebug('순환 교체 검증 실패: ${node.teacherName}의 ${node.day}${node.period}교시 TimeSlot을 찾을 수 없습니다');
           return false;
@@ -678,16 +678,6 @@ class ExchangeService extends BaseExchangeService {
     }
   }
   
-  /// 특정 교사, 요일, 교시의 TimeSlot 찾기
-  /// BaseExchangeService의 공통 메서드 사용
-  TimeSlot? _findTimeSlot(
-    List<TimeSlot> timeSlots,
-    String teacher,
-    String day,
-    int period,
-  ) {
-    return findTimeSlot(teacher, day, period, timeSlots);
-  }
   
   /// 교체 가능한 교사 정보 가져오기
   List<Map<String, dynamic>> getCurrentExchangeableTeachers(

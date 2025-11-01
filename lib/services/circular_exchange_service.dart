@@ -135,12 +135,12 @@ class CircularExchangeService extends BaseExchangeService {
         bool selectedTeacherHasEmptyTime = isTeacherEmptyAtTime(
           selectedTeacher!, selectedDay!, selectedPeriod!, timeSlots);
         bool otherTeacherHasEmptyTime = isTeacherEmptyAtTime(
-          teacher.name, _getDayString(teacherSlot.dayOfWeek ?? 0), teacherSlot.period ?? 0, timeSlots);
+          teacher.name, DayUtils.getDayName(teacherSlot.dayOfWeek ?? 0), teacherSlot.period ?? 0, timeSlots);
         
         if (selectedTeacherHasEmptyTime && otherTeacherHasEmptyTime) {
           exchangeableTeachers.add({
             'teacherName': teacher.name,
-            'day': _getDayString(teacherSlot.dayOfWeek ?? 0),
+            'day': DayUtils.getDayName(teacherSlot.dayOfWeek ?? 0),
             'period': teacherSlot.period ?? 0,
             'className': selectedClassName,
             'subject': teacherSlot.subject ?? '과목 없음',
@@ -148,13 +148,8 @@ class CircularExchangeService extends BaseExchangeService {
         }
       }
     }
-    
+
     return exchangeableTeachers;
-  }
-  
-  /// 요일 숫자를 문자열로 변환하는 헬퍼 메서드
-  String _getDayString(int dayNumber) {
-    return DayUtils.getDayName(dayNumber);
   }
 
   // ==================== 그래프 구성 메서드들 START ====================
@@ -439,7 +434,7 @@ class CircularExchangeService extends BaseExchangeService {
     
     // 각 슬롯을 ExchangeNode로 변환하고 한 방향 교체 가능성 확인
     for (TimeSlot slot in sameClassSlots) {
-      String dayString = _getDayString(slot.dayOfWeek ?? 0);
+      String dayString = DayUtils.getDayName(slot.dayOfWeek ?? 0);
       
       if (dayString != '알 수 없음') {
         ExchangeNode node = ExchangeNode(
@@ -505,7 +500,7 @@ class CircularExchangeService extends BaseExchangeService {
     bool sameClass = from.className == to.className;
     
     // 교체 불가 충돌 검증 추가: from 교사가 to 교사 시간에 교체 불가 셀이 있는지
-    bool noExchangeableConflict = !_isNonExchangeableClash(from.teacherName, to.day, to.period);
+    bool noExchangeableConflict = !_nonExchangeableManager.isNonExchangeableTimeSlot(from.teacherName, to.day, to.period);
     
     return fromEmptyAtToTime && sameClass && noExchangeableConflict;
   }
@@ -540,12 +535,6 @@ class CircularExchangeService extends BaseExchangeService {
     
     String subject = slot?.isNotEmpty == true ? (slot?.subject ?? '과목없음') : '과목없음';
     return '${node.teacherName}(${node.day}${node.period}교시, ${node.className}, $subject)';
-  }
-
-  /// 교체 불가 충돌 검증
-  /// 교사가 특정 시간대로 이동할 때 교체 불가 셀이 있는지 확인
-  bool _isNonExchangeableClash(String teacherName, String day, int period) {
-    return _nonExchangeableManager.isNonExchangeableTimeSlot(teacherName, day, period);
   }
 
   /// 순환교체 경로의 교체 과정을 시뮬레이션하여 검증
