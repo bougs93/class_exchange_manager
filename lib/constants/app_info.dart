@@ -22,9 +22,11 @@ class AppInfo {
 ''';
   
   // 프로그램 실행 가능 종료 날짜 (YYYY-MM-DD 형식)
-  // null로 설정하면 날짜 제한 없음
-  // 예시: '2025-12-31'
-  static const String? expiryDate = '2026-02-29'; // '2025-12-31' 형식으로 설정
+  // null로 설정하려면 아래 값을 null로 변경하세요 (날짜 제한 없음)
+  // 예시: null 또는 '2026-12-31'
+  // (향후 null로 변경 가능하도록 nullable 타입 유지)
+  // ignore: unnecessary_nullable_for_final_variable_declarations
+  static const String? expiryDate = '2026-12-31'; // 날짜 제한 없이 사용하려면 null로 변경
   
   // 프로그램 실행 제한 정보
   static String get usageRestriction {
