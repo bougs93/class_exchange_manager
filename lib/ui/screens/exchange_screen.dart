@@ -425,15 +425,18 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       
       // TimeSlot 찾기
       TimeSlot? foundSlot;
+      bool slotFound = false;
       try {
         foundSlot = _timetableData!.timeSlots.firstWhere(
           (slot) => slot.teacher == teacherName && 
                     slot.dayOfWeek == dayNumber && 
                     slot.period == period,
         );
-        AppLogger.exchangeDebug('🔄 [교체관리] TimeSlot 찾음: teacher=${foundSlot.teacher}, subject=${foundSlot.subject}, className=${foundSlot.className}, isNotEmpty=${foundSlot.isNotEmpty}');
+        slotFound = true;
+        AppLogger.exchangeDebug('🔄 [교체관리] TimeSlot 찾음: teacher=${foundSlot.teacher}, subject=${foundSlot.subject}, className=${foundSlot.className}');
       } catch (e) {
         AppLogger.exchangeDebug('🔄 [교체관리] TimeSlot을 찾지 못했습니다: $e');
+        slotFound = false;
         
         // 디버깅: 비슷한 TimeSlot 확인 (teacher만 맞는 경우)
         final similarByTeacher = _timetableData!.timeSlots.where((slot) => slot.teacher == teacherName).take(5).toList();
@@ -450,6 +453,26 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
         }
         
         foundSlot = TimeSlot(); // 빈 TimeSlot 반환
+      }
+      
+      // 🔥 수업있음 판단 과정 상세 로그 (TimeSlot.isEmpty/isNotEmpty getter 사용 - 중복 계산 제거)
+      try {
+        AppLogger.exchangeDebug('📊 [교체관리] 수업있음 판단 시작: $teacherName $day$period교시');
+        AppLogger.exchangeDebug('  - TimeSlot 찾기: ${slotFound ? "성공" : "실패"}');
+        
+        // TimeSlot의 isEmpty/isNotEmpty getter 직접 사용 (중복 계산 제거)
+        final subject = foundSlot.subject;
+        final className = foundSlot.className;
+        final isEmpty = foundSlot.isEmpty; // TimeSlot.isEmpty getter 사용
+        final isNotEmpty = foundSlot.isNotEmpty; // TimeSlot.isNotEmpty getter 사용
+        
+        AppLogger.exchangeDebug('  - subject 값: ${subject ?? "null"}');
+        AppLogger.exchangeDebug('  - className 값: ${className ?? "null"}');
+        AppLogger.exchangeDebug('  - isEmpty 판단: $isEmpty (TimeSlot.isEmpty 사용)');
+        AppLogger.exchangeDebug('  - isNotEmpty 판단: $isNotEmpty (TimeSlot.isNotEmpty 사용)');
+        AppLogger.exchangeDebug('  ✅ 최종 판단: 수업있음=$isNotEmpty');
+      } catch (logError) {
+        AppLogger.exchangeDebug('  ⚠️ 상세 로그 출력 중 오류: $logError');
       }
       
       bool hasClass = foundSlot.isNotEmpty;

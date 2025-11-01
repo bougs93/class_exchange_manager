@@ -208,10 +208,17 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
   /// 
   /// Returns: `bool` - 수업이 있으면 true, 없으면 false
   bool _isCellNotEmpty(String teacherName, String day, int period) {
-    if (timetableData == null) return false;
+    if (timetableData == null) {
+      AppLogger.exchangeDebug('🔄 [교체관리] 셀 확인: timetableData가 null입니다 - $teacherName $day$period교시');
+      return false;
+    }
     
     try {
       final dayNumber = DayUtils.getDayNumber(day);
+      
+      // 🔥 수업있음 판단 과정 상세 로그 (TimeSlot.isEmpty/isNotEmpty getter 사용 - 중복 계산 제거)
+      AppLogger.exchangeDebug('📊 [교체관리] 수업있음 판단 시작: $teacherName $day$period교시');
+      
       final timeSlot = timetableData!.timeSlots.firstWhere(
         (slot) => slot.teacher == teacherName && 
                   slot.dayOfWeek == dayNumber && 
@@ -219,12 +226,31 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
         orElse: () => TimeSlot(), // 빈 TimeSlot 반환
       );
       
+      final slotFound = timeSlot.teacher == teacherName && 
+                       timeSlot.dayOfWeek == dayNumber && 
+                       timeSlot.period == period;
+      
+      AppLogger.exchangeDebug('  - TimeSlot 찾기: ${slotFound ? "성공" : "실패 (빈 TimeSlot 반환)"}');
+      
+      // TimeSlot의 isEmpty/isNotEmpty getter 직접 사용 (중복 계산 제거)
+      final subject = timeSlot.subject;
+      final className = timeSlot.className;
+      final isEmpty = timeSlot.isEmpty; // TimeSlot.isEmpty getter 사용
+      final isNotEmpty = timeSlot.isNotEmpty; // TimeSlot.isNotEmpty getter 사용
+      
+      AppLogger.exchangeDebug('  - subject 값: ${subject ?? "null"}');
+      AppLogger.exchangeDebug('  - className 값: ${className ?? "null"}');
+      AppLogger.exchangeDebug('  - isEmpty 판단: $isEmpty (TimeSlot.isEmpty 사용)');
+      AppLogger.exchangeDebug('  - isNotEmpty 판단: $isNotEmpty (TimeSlot.isNotEmpty 사용)');
+      AppLogger.exchangeDebug('  ✅ 최종 판단: 수업있음=$isNotEmpty');
+      
       bool hasClass = timeSlot.isNotEmpty;
-      AppLogger.exchangeDebug('셀 확인: $teacherName $day$period교시, 수업있음=$hasClass');
+      AppLogger.exchangeDebug('🔄 [교체관리] 셀 확인: $teacherName $day$period교시, 수업있음=$hasClass (최종 결과)');
       
       return hasClass;
     } catch (e) {
-      AppLogger.exchangeDebug('셀 확인 중 오류: $e');
+      AppLogger.exchangeDebug('🔄 [교체관리] 셀 확인 중 오류: $e');
+      AppLogger.error('셀 확인 중 예외 발생: $e', e);
       return false;
     }
   }
