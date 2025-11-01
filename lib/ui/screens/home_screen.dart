@@ -246,7 +246,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
 
 
-  // 메뉴 항목들 정의 (홈 제외: 교체 관리, 결보강계획서/안내, 개인 시간표, 설정)
+  // 메뉴 항목들 정의 (홈 제외: 교체 관리, 결보강계획서, 개인 시간표, 설정)
   List<Map<String, dynamic>> _menuItems() => [
     {
       'title': '교체 관리',
@@ -254,7 +254,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       'screen': ExchangeScreen(),
     },
     {
-      'title': '결보강계획서/안내',
+      'title': '결보강계획서',
       'icon': Icons.print,
       'screen': DocumentScreen(),
     },
@@ -412,7 +412,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             
             const Divider(height: 1),
             
-            // 나머지 메뉴 항목들 (홈 제외: 교체 관리, 결보강계획서/안내, 개인 시간표, 설정)
+            // 나머지 메뉴 항목들 (홈 제외: 교체 관리, 결보강계획서, 개인 시간표, 설정)
             ...List.generate(_menuItems().length, (index) {
               final item = _menuItems()[index];
               final menuIndex = index + 1; // 홈이 인덱스 0이므로 +1
@@ -482,38 +482,317 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 }
 
 // 홈 콘텐츠 화면
-class HomeContentScreen extends StatelessWidget {
+class HomeContentScreen extends ConsumerWidget {
   const HomeContentScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.home,
-            size: 64,
-            color: Colors.blue,
-          ),
-          SizedBox(height: 16),
-          Text(
-            '홈 화면',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final screenState = ref.watch(exchangeScreenProvider);
+    final selectedFile = screenState.selectedFile;
+    
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            theme.primaryColor.withValues(alpha: 0.05),
+            Colors.white,
+          ],
+        ),
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 환영 메시지 카드
+            Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      theme.primaryColor,
+                      theme.primaryColor.withValues(alpha: 0.8),
+                    ],
+                  ),
+                ),
+                padding: const EdgeInsets.all(10),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.school,
+                        color: Colors.white,
+                        size: 32,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '수업 교체 관리자',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            selectedFile != null 
+                              ? '현재 시간표: ${selectedFile.path.split(Platform.pathSeparator).last}'
+                              : '시간표 파일을 선택해주세요',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.white.withValues(alpha: 0.9),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            '시간표를 보여주는 메인 화면입니다.',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey,
-            ),
-          ),
-        ],
+            const SizedBox(height: 24),
+            
+            // 메뉴 그리드
+            _buildMenuGrid(context, ref, theme),
+          ],
+        ),
       ),
     );
+  }
+
+  /// 메뉴 그리드 생성
+  Widget _buildMenuGrid(BuildContext context, WidgetRef ref, ThemeData theme) {
+    final menuItems = [
+      {
+        'title': '시간표 선택',
+        'icon': Icons.upload_file,
+        'color': Colors.blue,
+        'onTap': () => _selectExcelFile(context, ref),
+      },
+      {
+        'title': '교체 관리',
+        'icon': Icons.swap_horiz,
+        'color': Colors.green,
+        'onTap': () {
+          ref.read(navigationProvider.notifier).state = 1;
+        },
+      },
+      {
+        'title': '결보강계획서',
+        'icon': Icons.print,
+        'color': Colors.orange,
+        'onTap': () {
+          ref.read(navigationProvider.notifier).state = 2;
+        },
+      },
+      {
+        'title': '개인 시간표',
+        'icon': Icons.person,
+        'color': Colors.purple,
+        'onTap': () {
+          ref.read(navigationProvider.notifier).state = 3;
+        },
+      },
+      {
+        'title': '설정',
+        'icon': Icons.settings,
+        'color': Colors.grey,
+        'onTap': () {
+          ref.read(navigationProvider.notifier).state = 4;
+        },
+      },
+      {
+        'title': '도움말',
+        'icon': Icons.help_outline,
+        'color': Colors.teal,
+        'onTap': () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const HelpScreen(),
+            ),
+          );
+        },
+      },
+      {
+        'title': '정보',
+        'icon': Icons.info_outline,
+        'color': Colors.indigo,
+        'onTap': () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const InfoScreen(),
+            ),
+          );
+        },
+      },
+    ];
+
+    // 카드 크기를 완전히 고정하기 위해 Wrap 사용
+    // GridView는 화면 크기에 따라 셀 크기를 조정하므로,
+    // 카드 크기를 정확히 고정하려면 Wrap이 더 적합합니다
+    return Wrap(
+      spacing: 4, // 가로 간격
+      runSpacing: 4, // 세로 간격
+      alignment: WrapAlignment.start,
+      crossAxisAlignment: WrapCrossAlignment.start,
+      children: menuItems.map((item) {
+        return _buildMenuCard(
+          context: context,
+          theme: theme,
+          title: item['title'] as String,
+          icon: item['icon'] as IconData,
+          color: item['color'] as Color,
+          onTap: item['onTap'] as VoidCallback,
+        );
+      }).toList(),
+    );
+  }
+
+  /// 메뉴 카드 생성
+  /// 
+  /// 카드 크기를 고정하기 위해 SizedBox로 감싸서 고정 크기를 지정합니다.
+  /// 화면 크기와 관계없이 항상 동일한 크기를 유지합니다.
+  Widget _buildMenuCard({
+    required BuildContext context,
+    required ThemeData theme,
+    required String title,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    // 카드 크기를 내용물에 맞게 최소화
+    // 내용물 계산:
+    // - 아이콘 컨테이너: 40px (아이콘) + 24px (패딩) = 64px
+    // - 간격: 8px
+    // - 텍스트: 약 28px (폰트 14px, 2줄 기준)
+    // - 카드 패딩: 24px (상하 12px * 2)
+    // - 총 높이: 약 124px
+    // - 가로 크기: 아이콘 64px + 카드 패딩 24px = 88px (최소), 하지만 그리드 일관성을 위해 120px
+    const double cardWidth = 120.0;   // 최소 가로 크기 (내용물에 맞게 축소)
+    const double cardHeight = 124.0;  // 최소 세로 크기 (내용물에 맞게 계산)
+    
+    // 내용물에 맞게 최소 크기로 고정
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        minWidth: cardWidth,   // 최소 가로 크기
+        maxWidth: cardWidth,   // 최대 가로 크기 (고정)
+        minHeight: cardHeight, // 최소 세로 크기
+        maxHeight: cardHeight, // 최대 세로 크기 (고정)
+      ),
+      child: SizedBox(
+        width: cardWidth,
+        height: cardHeight,
+        child: Card(
+          elevation: 3,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.all(12), // 안여백을 20에서 12로 줄임
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    color.withValues(alpha: 0.1),
+                    color.withValues(alpha: 0.05),
+                  ],
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.start, // 상단 정렬로 변경하여 여백을 하단으로 이동
+                mainAxisSize: MainAxisSize.min, // 최소 크기만 사용하여 크기 고정
+                crossAxisAlignment: CrossAxisAlignment.center, // 가로 중앙 정렬
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12), // 아이콘 컨테이너 안여백을 16에서 12로 줄임
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      icon,
+                      size: 40,
+                      color: color,
+                    ),
+                  ),
+                  const SizedBox(height: 8), // 아이콘과 텍스트 사이 간격을 12에서 8로 줄임
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade800,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      ), // SizedBox 닫기
+    ); // ConstrainedBox 닫기
+  }
+
+  /// 엑셀 파일 선택 메서드
+  Future<void> _selectExcelFile(BuildContext context, WidgetRef ref) async {
+    // ExchangeOperationManager를 사용하여 파일 선택
+    // HomeScreen에서 사용하는 것과 동일한 방식
+    final stateProxy = ExchangeScreenStateProxy(ref);
+    final operationManager = ExchangeOperationManager(
+      context: context,
+      ref: ref,
+      stateProxy: stateProxy,
+      onCreateSyncfusionGridData: () {},
+      onClearAllExchangeStates: () {
+        ref.read(stateResetProvider.notifier).resetAllStates(
+          reason: '파일 선택 후 전체 상태 초기화',
+        );
+      },
+      onRefreshHeaderTheme: () {},
+    );
+    
+    final fileSelected = await operationManager.selectExcelFile();
+    
+    if (fileSelected) {
+      final globalNotifier = ref.read(exchangeScreenProvider.notifier);
+      globalNotifier.setCurrentMode(ExchangeMode.view);
+      
+      ref.read(stateResetProvider.notifier).resetAllStates(
+        reason: '파일 선택 후 전체 상태 초기화',
+      );
+      
+      // 파일 선택 후 교체 관리 화면으로 이동
+      ref.read(navigationProvider.notifier).state = 1;
+    }
   }
 }

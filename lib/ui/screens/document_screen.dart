@@ -102,7 +102,7 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('결보강계획서/안내'),
+        title: const Text('결보강계획서'),
         backgroundColor: Colors.blue.shade50,
         elevation: 0,
       ),
