@@ -4,10 +4,16 @@ import '../services/exchange_service.dart';
 import '../services/exchange_history_service.dart';
 import '../services/circular_exchange_service.dart';
 import '../services/chain_exchange_service.dart';
+import '../services/timetable_storage_service.dart';
 
 /// ExcelService Provider
 final excelServiceProvider = Provider<ExcelService>((ref) {
   return ExcelService();
+});
+
+/// TimetableStorageService Provider
+final timetableStorageServiceProvider = Provider<TimetableStorageService>((ref) {
+  return TimetableStorageService();
 });
 
 /// ExchangeService Provider (1:1 교체)

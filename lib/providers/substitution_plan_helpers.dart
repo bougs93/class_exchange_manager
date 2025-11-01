@@ -13,6 +13,9 @@ class ExchangeNodeParser {
   ExchangeNodeParser(this._ref);
 
   /// 저장된 날짜 정보 복원 (캐싱 포함)
+  /// 
+  /// Provider에서 직접 가져오되, 캐시를 통해 성능 최적화합니다.
+  /// 저장된 날짜가 없으면 '선택'을 반환합니다.
   String getSavedDate(String exchangeId, String columnName) {
     final key = '${exchangeId}_$columnName';
 
@@ -21,7 +24,7 @@ class ExchangeNodeParser {
       return _savedDateCache[key]!;
     }
 
-    // Provider에서 가져오기
+    // Provider에서 가져오기 (항상 최신 데이터)
     final date = _ref.read(substitutionPlanProvider.notifier).getSavedDate(exchangeId, columnName);
     final result = date.isNotEmpty ? date : '선택';
 

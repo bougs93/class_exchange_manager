@@ -5,6 +5,7 @@ import 'package:syncfusion_flutter_pdf/pdf.dart';
 import '../providers/substitution_plan_viewmodel.dart';
 import '../utils/pdf_field_config.dart';
 import '../utils/substitution_plan_field_accessor.dart';
+import '../utils/date_format_utils.dart';
 import '../constants/korean_fonts.dart';
 import 'pdf_font_cache_manager.dart';
 
@@ -597,7 +598,15 @@ class PdfExportService {
   /// SubstitutionPlanFieldAccessor를 사용하여 축약형 키를 자동으로 처리합니다.
   static String? _getFieldValue(SubstitutionPlanData data, String columnKey) {
     final value = SubstitutionPlanFieldAccessor.getValue(data, columnKey);
-    return value.isNotEmpty ? value : null;
+    if (value.isEmpty) return null;
+    
+    // 날짜 필드인 경우 월.일 형식으로 변환
+    // PDF 템플릿의 축약형 키: 'date' (결강일), '3date' (교체일)
+    if (columnKey == 'date' || columnKey == '3date') {
+      return DateFormatUtils.toMonthDay(value);
+    }
+    
+    return value;
   }
 
   /// 템플릿의 모든 폼 필드 정보 출력 (디버깅용)

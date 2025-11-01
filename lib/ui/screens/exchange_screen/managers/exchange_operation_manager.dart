@@ -11,6 +11,7 @@ import '../../../../utils/logger.dart';
 import '../../../../utils/non_exchangeable_manager.dart';
 import '../../../../models/exchange_mode.dart';
 import '../../../../providers/exchange_screen_provider.dart';
+import '../../../../providers/services_provider.dart';
 import '../../../../ui/dialogs/exchange_data_reset_dialog.dart';
 import '../exchange_screen_state_proxy.dart';
 
@@ -25,14 +26,10 @@ class ExchangeOperationManager {
   final VoidCallback onClearAllExchangeStates;
   final VoidCallback onRefreshHeaderTheme;
 
-  // 히스토리 서비스 인스턴스
-  final ExchangeHistoryService _historyService = ExchangeHistoryService();
-  
-  // 교체불가 관리자 인스턴스
-  final NonExchangeableManager _nonExchangeableManager = NonExchangeableManager();
-  
-  // 시간표 저장 서비스 인스턴스
-  final TimetableStorageService _timetableStorageService = TimetableStorageService();
+  // 서비스들 (Provider에서 가져옴 - 지연 초기화)
+  late final ExchangeHistoryService _historyService;
+  late final NonExchangeableManager _nonExchangeableManager;
+  late final TimetableStorageService _timetableStorageService;
 
   ExchangeOperationManager({
     required this.context,
@@ -41,7 +38,12 @@ class ExchangeOperationManager {
     required this.onCreateSyncfusionGridData,
     required this.onClearAllExchangeStates,
     required this.onRefreshHeaderTheme,
-  });
+  }) {
+    // Provider에서 서비스 가져오기
+    _historyService = ref.read(exchangeHistoryServiceProvider);
+    _timetableStorageService = ref.read(timetableStorageServiceProvider);
+    _nonExchangeableManager = NonExchangeableManager();
+  }
 
   // ===== 파일 관리 =====
 

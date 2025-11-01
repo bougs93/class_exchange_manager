@@ -7,11 +7,11 @@ import 'settings_screen.dart';
 import '../../providers/navigation_provider.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../providers/state_reset_provider.dart';
+import '../../providers/services_provider.dart';
+import '../../providers/substitution_plan_provider.dart';
 import '../../models/exchange_mode.dart';
 import '../../ui/screens/exchange_screen/exchange_screen_state_proxy.dart';
 import '../../ui/screens/exchange_screen/managers/exchange_operation_manager.dart';
-import '../../services/timetable_storage_service.dart';
-import '../../services/exchange_history_service.dart';
 import '../../utils/simplified_timetable_theme.dart';
 import '../../utils/logger.dart';
 import '../../ui/widgets/timetable_grid/exchange_executor.dart';
@@ -63,6 +63,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// - 시간표 데이터
   /// - 교체 리스트
   /// - 시간표 테마 설정
+  /// - 결보강 계획서 날짜 정보 (absenceDate, substitutionDate, 보강 과목)
   /// (PDF 출력 설정은 FileExportWidget에서 로드)
   Future<void> _loadSavedData() async {
     try {
@@ -71,12 +72,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       // 1. 시간표 테마 설정 로드
       await SimplifiedTimetableTheme.loadThemeSettings();
 
-      // 2. 교체 리스트 로드
-      final exchangeHistoryService = ExchangeHistoryService();
+      // 2. 교체 리스트 로드 (Provider 사용)
+      final exchangeHistoryService = ref.read(exchangeHistoryServiceProvider);
       await exchangeHistoryService.loadFromLocalStorage();
 
-      // 3. 시간표 데이터 로드
-      final timetableStorage = TimetableStorageService();
+      // 3. 시간표 데이터 로드 (Provider 사용)
+      final timetableStorage = ref.read(timetableStorageServiceProvider);
       final timetableData = await timetableStorage.loadTimetableData();
 
       if (timetableData == null || !mounted) {
@@ -104,6 +105,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ExchangeExecutor.restoreExchangedCells(ref);
         final dataSource = ref.read(exchangeScreenProvider).dataSource;
         dataSource?.notifyDataChanged();
+      }
+
+      // 4. 결보강 계획서 날짜 정보 로드
+      try {
+        final substitutionPlanNotifier = ref.read(substitutionPlanProvider.notifier);
+        await substitutionPlanNotifier.loadFromStorage();
+      } catch (e) {
+        AppLogger.error('결보강 계획서 날짜 정보 로드 중 오류: $e', e);
       }
 
       setState(() {});

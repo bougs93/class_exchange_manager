@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/document_type.dart';
+import '../../utils/logger.dart';
 import 'document_screen/widgets/substitution_plan_grid.dart';
 import 'document_screen/widgets/class_notice_widget.dart';
 import 'document_screen/widgets/teacher_notice_widget.dart';
@@ -17,6 +18,8 @@ class DocumentScreen extends ConsumerStatefulWidget {
 class _DocumentScreenState extends ConsumerState<DocumentScreen>
     with TickerProviderStateMixin {
   TabController? _tabController;
+  // 파일 출력 탭 업데이트용 GlobalKey
+  final GlobalKey<FileExportWidgetState> _fileExportWidgetKey = GlobalKey<FileExportWidgetState>();
 
   @override
   void initState() {
@@ -36,10 +39,44 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen>
       animationDuration: Duration.zero,
     );
     
-    // 탭 변경 시 색상 업데이트를 위한 리스너 추가
+    // 탭 변경 시 색상 업데이트 및 파일 출력 탭 업데이트
     _tabController!.addListener(() {
       if (mounted) {
         setState(() {});
+        
+        // 파일 출력 탭으로 전환된 경우 결강기간 업데이트
+        final currentIndex = _tabController!.index;
+        final fileExportIndex = DocumentType.fileExport.index;
+        AppLogger.exchangeDebug('탭 변경 감지: 인덱스 $currentIndex (파일 출력: $fileExportIndex)');
+        
+        if (currentIndex == fileExportIndex) {
+          AppLogger.info('📄 파일 출력 탭 진입: 결강기간 업데이트 요청');
+          
+          // 위젯이 생성될 때까지 대기 (다음 프레임에 실행)
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              final widgetState = _fileExportWidgetKey.currentState;
+              if (widgetState != null) {
+                widgetState.updateAbsencePeriod();
+                AppLogger.exchangeDebug('결강기간 업데이트 메서드 호출 완료');
+              } else {
+                AppLogger.warning('⚠️ FileExportWidgetState가 아직 생성되지 않았습니다. (GlobalKey가 null) - 재시도 예정');
+                // 위젯이 생성될 때까지 추가 대기 (100ms 후 재시도)
+                Future.delayed(const Duration(milliseconds: 100), () {
+                  if (mounted) {
+                    final widgetState = _fileExportWidgetKey.currentState;
+                    if (widgetState != null) {
+                      widgetState.updateAbsencePeriod();
+                      AppLogger.exchangeDebug('결강기간 업데이트 메서드 호출 완료 (재시도 성공)');
+                    } else {
+                      AppLogger.warning('⚠️ FileExportWidgetState를 찾을 수 없습니다. (재시도 실패)');
+                    }
+                  }
+                });
+              }
+            }
+          });
+        }
       }
     });
   }
@@ -129,7 +166,7 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen>
       case DocumentType.teacherNotice:
         return const TeacherNoticeWidget();
       case DocumentType.fileExport:
-        return const FileExportWidget();
+        return FileExportWidget(key: _fileExportWidgetKey);
     }
   }
 

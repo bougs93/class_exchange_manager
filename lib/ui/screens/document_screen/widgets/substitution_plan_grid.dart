@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../../providers/exchange_screen_provider.dart';
 import '../../../../utils/logger.dart';
+import '../../../../utils/date_format_utils.dart';
 import '../../../mixins/scroll_management_mixin.dart';
 import 'substitution_plan_grid_helpers.dart';
 
@@ -453,7 +454,8 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
           return;
         }
 
-        final formattedDate = '${selectedDate.month}.${selectedDate.day}';
+        // 년.월.일 형식으로 저장 (내부 저장용)
+        final formattedDate = DateFormatUtils.toYearMonthDay(selectedDate);
         AppLogger.exchangeInfo('날짜 업데이트: $formattedDate');
         viewModel.updateDate(exchangeId, columnName, formattedDate);
       } else {
@@ -589,7 +591,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
     // 데이터 행
     for (final row in data) {
       final cells = [
-        '${row.absenceDate}(${row.absenceDay})',  // 결강일(요일)
+        '${DateFormatUtils.toMonthDay(row.absenceDate)}(${row.absenceDay})',  // 결강일(요일) - 월.일 형식
         row.period,                 // 교시
         row.grade,                  // 학년
         row.className,              // 반
@@ -597,7 +599,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
         row.teacher,                // 교사 (결강)
         row.supplementSubject,      // 보강/수업변경 과목
         row.supplementTeacher,      // 보강/수업변경 성명
-        '${row.substitutionDate}(${row.substitutionDay})',  // 교체일(교체 요일)
+        '${DateFormatUtils.toMonthDay(row.substitutionDate)}(${row.substitutionDay})',  // 교체일(교체 요일) - 월.일 형식
         row.substitutionPeriod,     // 교체 교시
         row.substitutionSubject,    // 교체 과목
         row.substitutionTeacher,    // 교체 교사

@@ -3,6 +3,7 @@ import 'package:excel/excel.dart';
 import 'package:flutter/material.dart';
 import '../providers/substitution_plan_viewmodel.dart';
 import '../utils/logger.dart';
+import '../utils/date_format_utils.dart';
 
 /// 엑셀 내보내기 서비스
 /// 
@@ -65,7 +66,7 @@ class ExcelExportService {
     rowIndex += 2;
 
     // 2) 정보 입력 섹션
-    rowIndex = _setInfoSection(sheet, rowIndex);
+    rowIndex = _setInfoSection(sheet, rowIndex, planData);
     rowIndex += 1;
 
     // 3) 테이블 헤더
@@ -100,7 +101,7 @@ class ExcelExportService {
   /// 정보 입력 섹션 설정
   /// 
   /// 결강교사, 결강기간, 근무상황, 결강사유, 질보강 조치 사항
-  static int _setInfoSection(Sheet sheet, int startRowIndex) {
+  static int _setInfoSection(Sheet sheet, int startRowIndex, List<SubstitutionPlanData> planData) {
     int rowIndex = startRowIndex;
     const infoLabels = [
       '1. 결강교사 :',
@@ -119,6 +120,20 @@ class ExcelExportService {
       cell.cellStyle = CellStyle(
         fontSize: 11,
         bold: true,
+      );
+    }
+
+    // 🔥 결강기간 자동 계산 및 입력 (옆 셀에 입력)
+    final absenceDates = planData.map((data) => data.absenceDate).toList();
+    final absencePeriod = DateFormatUtils.calculateAbsencePeriod(absenceDates);
+    if (absencePeriod.isNotEmpty) {
+      final periodCell = sheet.cell(CellIndex.indexByColumnRow(
+        columnIndex: 1,
+        rowIndex: startRowIndex + 1, // "2. 결강기간 :" 행
+      ));
+      periodCell.value = TextCellValue(absencePeriod);
+      periodCell.cellStyle = CellStyle(
+        fontSize: 11,
       );
     }
 
@@ -211,7 +226,7 @@ class ExcelExportService {
       final rowIndex = startRowIndex + i;
 
       final rowData = [
-        data.absenceDate,            // 결강일
+        DateFormatUtils.toMonthDay(data.absenceDate),            // 결강일 (월.일 형식으로 변환)
         data.period,                 // 교시
         data.grade,                  // 학년
         data.className,              // 반
@@ -220,7 +235,7 @@ class ExcelExportService {
         '',                          // 명
         data.supplementSubject,      // 과목 (보강)
         data.supplementTeacher,      // 성명 (보강)
-        data.substitutionDate,       // 교체일
+        DateFormatUtils.toMonthDay(data.substitutionDate),       // 교체일 (월.일 형식으로 변환)
         data.substitutionPeriod,     // 교치
         data.substitutionSubject,    // 과목 (교체)
         data.substitutionTeacher,    // 성명 (교체)

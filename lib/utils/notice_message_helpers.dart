@@ -1,5 +1,6 @@
 import '../models/notice_message.dart';
 import '../providers/substitution_plan_viewmodel.dart';
+import '../utils/date_format_utils.dart';
 
 /// 교체 그룹 ID 파싱 헬퍼 클래스
 class GroupIdParser {
@@ -46,12 +47,22 @@ class DataSorter {
   ) {
     final sorted = List<SubstitutionPlanData>.from(dataList);
     sorted.sort((a, b) {
-      // 결강일 기준으로 정렬
-      final aDate = a.absenceDate;
-      final bDate = b.absenceDate;
+      // 결강일 기준으로 정렬 (년.월.일 형식 기준으로 DateTime 파싱)
+      final aDate = DateFormatUtils.parseYearMonthDay(a.absenceDate);
+      final bDate = DateFormatUtils.parseYearMonthDay(b.absenceDate);
 
-      if (aDate != bDate) {
-        return aDate.compareTo(bDate);
+      if (aDate != null && bDate != null) {
+        final dateCompare = aDate.compareTo(bDate);
+        if (dateCompare != 0) {
+          return dateCompare;
+        }
+      } else if (aDate != null) {
+        return -1; // aDate가 있으면 앞으로
+      } else if (bDate != null) {
+        return 1; // bDate가 있으면 뒤로
+      } else {
+        // 둘 다 null이면 문자열 비교로 대체 (기존 호환성)
+        return a.absenceDate.compareTo(b.absenceDate);
       }
 
       // 같은 날이면 교시 순으로
@@ -87,15 +98,19 @@ class MessageFormatter {
     }
 
     if (option == MessageOption.option1) {
-      // 옵션1: 화살표 형태
+      // 옵션1: 화살표 형태 (날짜는 월.일 형식으로 표시)
       final arrow = category == ExchangeCategory.circularFourPlus ? '->' : '<->';
-      return "'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' $arrow '${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}'";
+      final absenceDateDisplay = DateFormatUtils.toMonthDay(data.absenceDate);
+      final substitutionDateDisplay = DateFormatUtils.toMonthDay(data.substitutionDate);
+      return "'$absenceDateDisplay ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' $arrow '$substitutionDateDisplay ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}'";
     } else {
-      // 옵션2: 수업 형태
+      // 옵션2: 수업 형태 (날짜는 월.일 형식으로 표시)
+      final absenceDateDisplay = DateFormatUtils.toMonthDay(data.absenceDate);
+      final substitutionDateDisplay = DateFormatUtils.toMonthDay(data.substitutionDate);
       if (category == ExchangeCategory.circularFourPlus) {
-        return "'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업입니다.";
+        return "'$absenceDateDisplay ${data.absenceDay} ${data.period}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업입니다.";
       } else {
-        return "'${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업입니다.";
+        return "'$substitutionDateDisplay ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업입니다.";
       }
     }
   }

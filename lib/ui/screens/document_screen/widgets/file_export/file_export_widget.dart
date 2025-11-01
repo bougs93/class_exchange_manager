@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../../../utils/pdf_field_config.dart';
+import '../../../../../utils/date_format_utils.dart';
 import '../../../../../services/pdf_export_service.dart';
 import '../../../../../services/pdf_export_settings_storage_service.dart';
 import '../../../../../constants/korean_fonts.dart';
@@ -21,10 +22,11 @@ class FileExportWidget extends ConsumerStatefulWidget {
   const FileExportWidget({super.key});
 
   @override
-  ConsumerState<FileExportWidget> createState() => _FileExportWidgetState();
+  ConsumerState<FileExportWidget> createState() => FileExportWidgetState();
 }
 
-class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
+/// FileExportWidget의 State 클래스 (외부에서 접근 가능하도록 public)
+class FileExportWidgetState extends ConsumerState<FileExportWidget> {
   // PDF 템플릿 설정
   int _selectedTemplateIndex = 0;
   String? _selectedTemplateFilePath;
@@ -42,11 +44,99 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
   // PDF 출력 설정 저장 서비스
   final PdfExportSettingsStorageService _pdfSettingsStorage = PdfExportSettingsStorageService();
   
+  // 결강기간 수동 수정 여부 (사용자가 직접 수정한 경우 자동 업데이트 비활성화)
+  bool _isAbsencePeriodManuallyEdited = false;
+  // 자동 업데이트 중 플래그 (리스너가 업데이트를 감지하지 않도록)
+  bool _isUpdatingAbsencePeriod = false;
+  
   @override
   void initState() {
     super.initState();
-    // 저장된 PDF 출력 설정 로드
-    _loadSavedSettings();
+    AppLogger.info('📄 [결강기간] FileExportWidget 초기화');
+    
+    // 결강기간 필드 변경 감지 (사용자가 직접 수정한 경우 플래그 설정)
+    _absencePeriodController.addListener(_onAbsencePeriodChanged);
+    
+    // 저장된 PDF 출력 설정 로드 후 결강기간 자동 업데이트
+    _loadSavedSettings().then((_) {
+      // 설정 로드 완료 후 결강기간 자동 업데이트 (위젯이 생성된 후 실행)
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          AppLogger.info('📄 [결강기간] 초기 진입 시 결강기간 업데이트 (설정 로드 후)');
+          updateAbsencePeriod();
+        }
+      });
+    });
+  }
+
+  /// 결강기간 필드 변경 리스너
+  void _onAbsencePeriodChanged() {
+    // 자동 업데이트 중이면 무시
+    if (_isUpdatingAbsencePeriod) {
+      return;
+    }
+    
+    if (!_isAbsencePeriodManuallyEdited) {
+      // 초기 로드가 아닌 경우에만 플래그 설정
+      final calculatedPeriod = DateFormatUtils.calculateAbsencePeriod(
+        ref.read(substitutionPlanViewModelProvider).planData
+            .map((data) => data.absenceDate).toList()
+      );
+      // 계산된 값과 다르면 사용자가 수정한 것으로 간주
+      // 단, 빈 값인 경우는 제외 (저장된 설정 로드 중일 수 있음)
+      if (_absencePeriodController.text.isNotEmpty && 
+          _absencePeriodController.text != calculatedPeriod) {
+        _isAbsencePeriodManuallyEdited = true;
+        AppLogger.exchangeDebug('결강기간 수동 수정 감지: ${_absencePeriodController.text}');
+      }
+    }
+  }
+
+  /// 결강기간 자동 계산 및 업데이트 (외부에서 호출 가능한 public 메서드)
+  /// 탭 진입 시 DocumentScreen에서 호출됩니다.
+  void updateAbsencePeriod() {
+    AppLogger.info('📅 [결강기간] updateAbsencePeriod() 호출됨');
+    final planData = ref.read(substitutionPlanViewModelProvider).planData;
+    AppLogger.exchangeDebug('결강기간 계산 대상: ${planData.length}개 항목');
+    _updateAbsencePeriod(planData);
+  }
+
+  /// 결강기간 자동 계산 및 업데이트 (내부 메서드)
+  void _updateAbsencePeriod(List<SubstitutionPlanData> planData) {
+    AppLogger.exchangeDebug('결강기간 업데이트 시작 - 수동 수정 여부: $_isAbsencePeriodManuallyEdited');
+    
+    // 사용자가 직접 수정한 경우 자동 업데이트하지 않음
+    if (_isAbsencePeriodManuallyEdited) {
+      AppLogger.exchangeDebug('결강기간 자동 업데이트 건너뜀: 사용자가 수동 수정함');
+      return;
+    }
+    
+    final absenceDates = planData.map((data) => data.absenceDate).toList();
+    AppLogger.exchangeDebug('결강일 목록: ${absenceDates.join(", ")}');
+    
+    final absencePeriod = DateFormatUtils.calculateAbsencePeriod(absenceDates);
+    AppLogger.exchangeDebug('계산된 결강기간: "$absencePeriod" (현재 값: "${_absencePeriodController.text}")');
+    
+    // Controller 값이 다를 때만 업데이트 (무한 루프 방지)
+    if (_absencePeriodController.text != absencePeriod) {
+      // 자동 업데이트 플래그 설정 (리스너가 무시하도록)
+      _isUpdatingAbsencePeriod = true;
+      
+      _absencePeriodController.text = absencePeriod;
+      AppLogger.info('✅ [결강기간] 자동 업데이트 완료: "$absencePeriod"');
+      
+      // UI 업데이트를 위해 setState 호출
+      if (mounted) {
+        setState(() {});
+      }
+      
+      // 플래그 해제 (다음 프레임에 해제하여 리스너가 정상 작동하도록)
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _isUpdatingAbsencePeriod = false;
+      });
+    } else {
+      AppLogger.exchangeDebug('결강기간 업데이트 건너뜀: 값이 동일함');
+    }
   }
   
   /// 저장된 PDF 출력 설정 로드
@@ -60,11 +150,12 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
           _selectedFont = settings['selectedFont'] as String? ?? KoreanFontConstants.defaultFont;
           _includeRemarks = settings['includeRemarks'] as bool? ?? true;
           
-          // 추가 필드 로드
+          // 추가 필드 로드 (결강기간 제외 - 자동 계산값으로 덮어씀)
           final additionalFields = settings['additionalFields'] as Map<String, dynamic>?;
           if (additionalFields != null) {
             _teacherNameController.text = additionalFields['teacherName'] as String? ?? '';
-            _absencePeriodController.text = additionalFields['absencePeriod'] as String? ?? '';
+            // 결강기간은 자동 계산으로 덮어씌우므로 저장된 값은 무시
+            // _absencePeriodController.text = additionalFields['absencePeriod'] as String? ?? '';
             _workStatusController.text = additionalFields['workStatus'] as String? ?? '';
             _reasonForAbsenceController.text = additionalFields['reasonForAbsence'] as String? ?? '';
             _schoolNameController.text = additionalFields['schoolName'] as String? ?? '';
@@ -102,6 +193,9 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
 
   @override
   Widget build(BuildContext context) {
+    // build는 DocumentScreen의 TabController 리스너에서 호출되는 updateAbsencePeriod()로 처리
+    // 여기서는 UI만 렌더링
+
     // SingleChildScrollView로 감싸서 작은 창에서 스크롤 가능하도록 함
     return Container(
       padding: const EdgeInsets.all(16),
@@ -115,6 +209,11 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 문서 출력 버튼 (상단으로 이동)
+            _buildDocumentOutputButton(),
+
+            const SizedBox(height: 15),
+
             // PDF 설정 섹션 (템플릿, 폰트)
             PdfSettingsSection(
               selectedTemplateIndex: _selectedTemplateIndex,
@@ -144,11 +243,6 @@ class _FileExportWidgetState extends ConsumerState<FileExportWidget> {
               notesController: _notesController,
               schoolNameController: _schoolNameController,
             ),
-
-            const SizedBox(height: 15),
-
-            // 문서 출력 버튼
-            _buildDocumentOutputButton(),
           ],
         ),
       ),

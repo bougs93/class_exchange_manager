@@ -136,6 +136,26 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
         }
       }
     });
+    
+    // 🔥 Provider 상태 변경 감지 및 자동 복원
+    // substitutionPlanProvider의 상태가 변경되면 (저장된 날짜/과목이 로드되면)
+    // 자동으로 보강계획서 데이터를 다시 로드하여 복원된 날짜/과목을 반영합니다.
+    _ref.listen(substitutionPlanProvider, (previous, next) {
+      // Provider에 저장된 데이터가 로드되었는지 확인
+      final hasSavedData = next.savedDates.isNotEmpty || next.savedSupplementSubjects.isNotEmpty;
+      final previousHasSavedData = previous?.savedDates.isNotEmpty == true || previous?.savedSupplementSubjects.isNotEmpty == true;
+      
+      // 이전에는 데이터가 없었고, 현재는 데이터가 있는 경우 (프로그램 시작 후 데이터 로드 완료)
+      if (!previousHasSavedData && hasSavedData) {
+        AppLogger.info('🔄 [보강계획서] Provider에 저장된 데이터 로드 완료 감지 - 자동 복원 실행');
+        
+        // 로딩 중이 아닐 때만 새로고침 (중복 호출 방지)
+        if (!state.isLoading && state.planData.isNotEmpty) {
+          // 저장된 날짜/과목 정보 반영을 위해 다시 로드
+          loadPlanData();
+        }
+      }
+    });
   }
 
   final Ref _ref;
@@ -193,14 +213,36 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
         }
       }
 
-      // 저장된 보강 과목 복원 적용
+      // 🔥 저장된 날짜 및 보강 과목 복원 적용
+      // Provider에서 직접 가져와서 복원 (캐시를 거치지 않고 최신 데이터 사용)
+      final substitutionPlanNotifier = _ref.read(substitutionPlanProvider.notifier);
+      
       final restored = newPlanData.map((d) {
-        final saved = _ref.read(substitutionPlanProvider.notifier).getSupplementSubject(d.exchangeId);
-        return saved.isNotEmpty ? d.copyWith(supplementSubject: saved) : d;
+        // 저장된 날짜 복원
+        final savedAbsenceDate = substitutionPlanNotifier.getSavedDate(d.exchangeId, 'absenceDate');
+        final savedSubstitutionDate = substitutionPlanNotifier.getSavedDate(d.exchangeId, 'substitutionDate');
+        
+        // 저장된 보강 과목 복원
+        final savedSupplementSubject = substitutionPlanNotifier.getSupplementSubject(d.exchangeId);
+        
+        // 복원된 값이 있으면 업데이트, 없으면 기존 값 유지
+        return d.copyWith(
+          absenceDate: savedAbsenceDate.isNotEmpty ? savedAbsenceDate : d.absenceDate,
+          substitutionDate: savedSubstitutionDate.isNotEmpty ? savedSubstitutionDate : d.substitutionDate,
+          supplementSubject: savedSupplementSubject.isNotEmpty ? savedSupplementSubject : d.supplementSubject,
+        );
       }).toList();
 
       state = state.copyWith(planData: restored, isLoading: false);
-      AppLogger.exchangeDebug('최종 planData 개수: ${newPlanData.length}');
+      
+      // 복원된 데이터 로그 출력
+      final restoredDatesCount = restored.where((d) => 
+        (d.absenceDate.isNotEmpty && d.absenceDate != '선택') || 
+        (d.substitutionDate.isNotEmpty && d.substitutionDate != '선택')
+      ).length;
+      final restoredSubjectsCount = restored.where((d) => d.supplementSubject.isNotEmpty).length;
+      
+      AppLogger.info('✅ [보강계획서] 데이터 복원 완료: 전체 ${restored.length}개 항목, 날짜 복원 $restoredDatesCount개, 보강 과목 복원 $restoredSubjectsCount개');
     } catch (e) {
       state = state.copyWith(
         isLoading: false,

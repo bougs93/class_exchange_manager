@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../../utils/logger.dart';
 import '../../../../utils/data_grid_extensions.dart';
+import '../../../../utils/date_format_utils.dart';
 import '../../../widgets/selectable_cell_builder.dart';
 
 /// SubstitutionPlanData Extension - 컬럼 값 접근
@@ -141,8 +142,9 @@ class CellRendererFactory {
 /// 날짜 셀 렌더러
 class DateCellRenderer {
   static Widget build(DataGridCell cell, DataGridRow row, Function(String, String)? onDateCellTap) {
-    // 교체일(substitutionDate) 컬럼인 경우 교사 이름 확인
-    final displayText = cell.value?.toString() ?? '';
+    // 날짜 값을 월.일 형식으로 변환하여 표시
+    final rawDate = cell.value?.toString() ?? '';
+    final displayText = DateFormatUtils.toMonthDay(rawDate);
     bool isSelectable = false;
 
     if (cell.columnName == 'substitutionDate') {
