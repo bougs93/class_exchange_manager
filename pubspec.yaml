@@ -50,6 +50,9 @@ dependencies:
   table_calendar: ^3.0.9
   syncfusion_flutter_datagrid: ^31.1.23
   calendar_date_picker2: ^2.0.1
+  
+  # URL 실행
+  url_launcher: ^6.2.5
 
   # 문서 생성
   pdf: ^3.10.7
