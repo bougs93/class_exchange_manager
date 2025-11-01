@@ -32,20 +32,37 @@ class NonExchangeableManager {
       return false;
     }
     
-    // 해당 TimeSlot 찾기
-    try {
-      final timeSlot = _timeSlots.firstWhere(
-        (slot) => slot.teacher == teacherName &&
-                  DayUtils.getDayName(slot.dayOfWeek ?? 0) == day &&
-                  slot.period == period,
-      );
-      
-      // 실제로 교체불가로 설정된 셀만 빨간색 배경으로 표시
-      // 빈 셀도 교체불가로 설정될 수 있으므로 isEmpty 체크 제거
-      return !timeSlot.isExchangeable && timeSlot.exchangeReason == '교체불가';
-    } catch (e) {
+    // 공통 헬퍼 메서드 사용 (중복 로직 제거)
+    final timeSlot = _findTimeSlot(teacherName, day, period);
+    
+    if (timeSlot == null) {
       // TimeSlot이 존재하지 않는 경우 (완전히 빈 셀)는 기본 색상으로 표시
       return false;
+    }
+    
+    // 실제로 교체불가로 설정된 셀만 빨간색 배경으로 표시
+    // 빈 셀도 교체불가로 설정될 수 있으므로 isEmpty 체크 제거
+    return !timeSlot.isExchangeable && timeSlot.exchangeReason == '교체불가';
+  }
+  
+  /// TimeSlot 찾기 헬퍼 메서드 (중복 로직 제거)
+  /// 
+  /// [teacherName] 교사명
+  /// [day] 요일 문자열 (월, 화, 수, 목, 금)
+  /// [period] 교시
+  /// 
+  /// 반환값: 찾은 TimeSlot 또는 null
+  TimeSlot? _findTimeSlot(String teacherName, String day, int period) {
+    final dayNumber = DayUtils.getDayNumber(day);
+    
+    try {
+      return _timeSlots.firstWhere(
+        (slot) => slot.teacher == teacherName &&
+                  slot.dayOfWeek == dayNumber &&
+                  slot.period == period,
+      );
+    } catch (e) {
+      return null;
     }
   }
 
@@ -102,13 +119,10 @@ class NonExchangeableManager {
 
   /// 특정 셀을 교체불가로 설정 또는 해제 (토글 방식, 빈 셀 포함)
   void setCellAsNonExchangeable(String teacherName, String day, int period) {
-    // 해당 TimeSlot 찾기
-    try {
-      final existingTimeSlot = _timeSlots.firstWhere(
-        (slot) => slot.teacher == teacherName &&
-                  DayUtils.getDayName(slot.dayOfWeek ?? 0) == day &&
-                  slot.period == period,
-      );
+    // 공통 헬퍼 메서드 사용 (중복 로직 제거)
+    final existingTimeSlot = _findTimeSlot(teacherName, day, period);
+    
+    if (existingTimeSlot != null) {
       
       // 기존 TimeSlot이 있는 경우 토글 방식으로 처리
       if (!existingTimeSlot.isExchangeable && existingTimeSlot.exchangeReason == '교체불가') {
@@ -122,7 +136,7 @@ class NonExchangeableManager {
         existingTimeSlot.exchangeReason = '교체불가';
         AppLogger.exchangeDebug('교체불가 설정: $teacherName $day $period교시 (${existingTimeSlot.subject ?? "빈 셀"})');
       }
-    } catch (e) {
+    } else {
       // 빈 셀인 경우 새로운 TimeSlot 생성 (교체불가로 설정)
       final dayOfWeek = DayUtils.getDayNumber(day);
       final newTimeSlot = TimeSlot(

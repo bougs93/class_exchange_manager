@@ -103,8 +103,9 @@ class ExchangeService extends BaseExchangeService {
     if (selectedTeacher == null) return [];
     
     // 성능 최적화: 빈 셀과 교체불가능한 셀을 사전 필터링
+    // canExchange는 이미 isNotEmpty를 포함하므로 중복 체크 제거
     List<TimeSlot> validTimeSlots = timeSlots.where((slot) => 
-      slot.isNotEmpty && slot.canExchange
+      slot.canExchange
     ).toList();
     
     AppLogger.exchangeDebug('1:1교체 최적화: 전체 ${timeSlots.length}개 → 유효한 ${validTimeSlots.length}개 TimeSlot');
@@ -167,26 +168,27 @@ class ExchangeService extends BaseExchangeService {
       if (teacher.name == selectedTeacher) continue; // 자기 자신 제외
       
       // 해당 교사가 해당 시간에 같은 반을 가르치는지 확인
+      // canExchange는 이미 isNotEmpty를 포함하므로 중복 체크 제거
       bool hasSameClass = timeSlots.any((slot) => 
         slot.teacher == teacher.name &&
         slot.dayOfWeek == DayUtils.getDayNumber(day) &&
         slot.period == period &&
         slot.className == selectedClassName &&
-        slot.isNotEmpty &&
-        slot.canExchange // 교체 가능한 셀만 고려
+        slot.canExchange // 교체 가능한 셀만 고려 (isNotEmpty 포함)
       );
       
       if (hasSameClass) {
         // 해당 교사의 과목 정보도 함께 가져오기
-        TimeSlot? teacherSlot;
-        try {
-          teacherSlot = timeSlots.firstWhere(
-            (slot) => slot.teacher == teacher.name &&
-                      slot.dayOfWeek == DayUtils.getDayNumber(day) &&
-                      slot.period == period &&
-                      slot.className == selectedClassName,
-          );
-        } catch (e) {
+        // BaseExchangeService의 공통 메서드 사용 (중복 로직 제거)
+        TimeSlot? teacherSlot = findTimeSlot(
+          teacher.name,
+          day,
+          period,
+          timeSlots,
+        );
+        
+        // className이 일치하는지 추가 확인
+        if (teacherSlot != null && teacherSlot.className != selectedClassName) {
           teacherSlot = null;
         }
         
@@ -677,23 +679,14 @@ class ExchangeService extends BaseExchangeService {
   }
   
   /// 특정 교사, 요일, 교시의 TimeSlot 찾기
+  /// BaseExchangeService의 공통 메서드 사용
   TimeSlot? _findTimeSlot(
     List<TimeSlot> timeSlots,
     String teacher,
     String day,
     int period,
   ) {
-    int dayNumber = DayUtils.getDayNumber(day);
-    
-    for (TimeSlot slot in timeSlots) {
-      if (slot.teacher == teacher &&
-          slot.dayOfWeek == dayNumber &&
-          slot.period == period) {
-        return slot;
-      }
-    }
-    
-    return null;
+    return findTimeSlot(teacher, day, period, timeSlots);
   }
   
   /// 교체 가능한 교사 정보 가져오기
@@ -836,15 +829,16 @@ class ExchangeService extends BaseExchangeService {
         
         if (hasSameClass) {
           // 해당 교사의 과목 정보도 함께 출력
-          TimeSlot? teacherSlot;
-          try {
-            teacherSlot = timeSlots.firstWhere(
-              (slot) => slot.teacher == teacher.name &&
-                        slot.dayOfWeek == DayUtils.getDayNumber(day) &&
-                        slot.period == period &&
-                        slot.className == selectedClassName,
-            );
-          } catch (e) {
+          // BaseExchangeService의 공통 메서드 사용 (중복 로직 제거)
+          TimeSlot? teacherSlot = findTimeSlot(
+            teacher.name,
+            day,
+            period,
+            timeSlots,
+          );
+          
+          // className이 일치하는지 추가 확인
+          if (teacherSlot != null && teacherSlot.className != selectedClassName) {
             teacherSlot = null;
           }
           

@@ -219,12 +219,13 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
       // 🔥 수업있음 판단 과정 상세 로그 (TimeSlot.isEmpty/isNotEmpty getter 사용 - 중복 계산 제거)
       AppLogger.exchangeDebug('📊 [교체관리] 수업있음 판단 시작: $teacherName $day$period교시');
       
-      final timeSlot = timetableData!.timeSlots.firstWhere(
-        (slot) => slot.teacher == teacherName && 
-                  slot.dayOfWeek == dayNumber && 
-                  slot.period == period,
-        orElse: () => TimeSlot(), // 빈 TimeSlot 반환
-      );
+      // BaseExchangeService의 공통 메서드 사용 (중복 로직 제거)
+      final timeSlot = exchangeService.findTimeSlot(
+        teacherName,
+        day,
+        period,
+        timetableData!.timeSlots,
+      ) ?? TimeSlot(); // 없으면 빈 TimeSlot 반환
       
       final slotFound = timeSlot.teacher == teacherName && 
                        timeSlot.dayOfWeek == dayNumber && 
@@ -235,15 +236,15 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
       // TimeSlot의 isEmpty/isNotEmpty getter 직접 사용 (중복 계산 제거)
       final subject = timeSlot.subject;
       final className = timeSlot.className;
-      final isEmpty = timeSlot.isEmpty; // TimeSlot.isEmpty getter 사용
       final isNotEmpty = timeSlot.isNotEmpty; // TimeSlot.isNotEmpty getter 사용
       
       AppLogger.exchangeDebug('  - subject 값: ${subject ?? "null"}');
       AppLogger.exchangeDebug('  - className 값: ${className ?? "null"}');
-      AppLogger.exchangeDebug('  - isEmpty 판단: $isEmpty (TimeSlot.isEmpty 사용)');
+      AppLogger.exchangeDebug('  - isEmpty 판단: ${!isNotEmpty} (TimeSlot.isEmpty 사용)');
       AppLogger.exchangeDebug('  - isNotEmpty 판단: $isNotEmpty (TimeSlot.isNotEmpty 사용)');
       AppLogger.exchangeDebug('  ✅ 최종 판단: 수업있음=$isNotEmpty');
       
+      // TimeSlot의 isNotEmpty getter 직접 사용 (중복 제거)
       bool hasClass = timeSlot.isNotEmpty;
       AppLogger.exchangeDebug('🔄 [교체관리] 셀 확인: $teacherName $day$period교시, 수업있음=$hasClass (최종 결과)');
       

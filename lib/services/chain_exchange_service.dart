@@ -118,8 +118,9 @@ class ChainExchangeService extends BaseExchangeService {
     }
 
     // 성능 최적화: 빈 셀과 교체불가능한 셀을 사전 필터링
+    // canExchange는 이미 isNotEmpty를 포함하므로 중복 체크 제거
     List<TimeSlot> validTimeSlots = timeSlots.where((slot) => 
-      slot.isNotEmpty && slot.canExchange
+      slot.canExchange
     ).toList();
     
     AppLogger.exchangeDebug('연쇄교체 최적화: 전체 ${timeSlots.length}개 → 유효한 ${validTimeSlots.length}개 TimeSlot');
@@ -226,10 +227,10 @@ class ChainExchangeService extends BaseExchangeService {
     int nodeADayNumber = DayUtils.getDayNumber(nodeA.day);
 
     // 같은 학급을 가르치는 모든 시간표 슬롯 찾기
+    // canExchange는 이미 isNotEmpty를 포함하므로 중복 체크 제거
     List<TimeSlot> sameClassSlots = timeSlots.where((slot) =>
       slot.className == nodeA.className &&
-      slot.isNotEmpty &&
-      slot.canExchange &&
+      slot.canExchange && // isNotEmpty 포함
       slot.teacher != nodeA.teacherName
     ).toList();
 
@@ -250,6 +251,8 @@ class ChainExchangeService extends BaseExchangeService {
   }
 
   /// 같은 학급 슬롯이 유효한지 검증
+  /// 
+  /// 공통 메서드 사용으로 중복 로직 제거
   bool _isValidSameClassSlot(
     TimeSlot slot,
     ExchangeNode nodeA,
@@ -258,12 +261,13 @@ class ChainExchangeService extends BaseExchangeService {
   ) {
     String slotTeacher = slot.teacher ?? '';
 
+    // BaseExchangeService의 공통 메서드 사용 (중복 로직 제거)
     // 해당 교사가 A 시간에 비어있는지 확인
-    return !timeSlots.any((s) =>
-      s.teacher == slotTeacher &&
-      s.dayOfWeek == nodeADayNumber &&
-      s.period == nodeA.period &&
-      s.isNotEmpty
+    return isTeacherEmptyAtTime(
+      slotTeacher,
+      nodeA.day,
+      nodeA.period,
+      timeSlots,
     );
   }
 
@@ -283,17 +287,19 @@ class ChainExchangeService extends BaseExchangeService {
   /// A 교사가 B 시간에 수업이 있으면 그 수업을 반환
   /// 없으면 null 반환 (직접 교체 가능)
   ExchangeNode? _findBlockingSlot(String teacherA, ExchangeNode nodeB, List<TimeSlot> timeSlots) {
-    int nodeBDayNumber = DayUtils.getDayNumber(nodeB.day);
-
-    TimeSlot? blockingSlot = timeSlots.cast<TimeSlot?>().firstWhere(
-      (slot) => slot != null &&
-                slot.teacher == teacherA &&
-                slot.dayOfWeek == nodeBDayNumber &&
-                slot.period == nodeB.period &&
-                slot.isNotEmpty &&
-                slot.canExchange, // 교체 가능한 셀만 고려
-      orElse: () => null,
+    // BaseExchangeService의 공통 메서드 사용 (중복 로직 제거)
+    TimeSlot? blockingSlot = findTimeSlot(
+      teacherA,
+      nodeB.day,
+      nodeB.period,
+      timeSlots,
     );
+    
+    // 교체 가능한 셀만 고려
+    // canExchange는 이미 isNotEmpty를 포함하므로 중복 체크 제거
+    if (blockingSlot != null && !blockingSlot.canExchange) {
+      blockingSlot = null;
+    }
 
     if (blockingSlot == null) {
       return null;

@@ -83,49 +83,68 @@ abstract class BaseExchangeService {
       return null;
     }
 
-    TimeSlot? selectedSlot = timeSlots.cast<TimeSlot?>().firstWhere(
-      (slot) => slot != null &&
-                slot.teacher == _selectedTeacher &&
-                slot.dayOfWeek == DayUtils.getDayNumber(_selectedDay!) &&
-                slot.period == _selectedPeriod &&
-                slot.isNotEmpty,
-      orElse: () => null,
+    // 공통 메서드 사용 (중복 로직 제거)
+    TimeSlot? selectedSlot = findTimeSlot(
+      _selectedTeacher!,
+      _selectedDay!,
+      _selectedPeriod!,
+      timeSlots,
+      requireNotEmpty: true,
     );
 
     return selectedSlot?.className;
   }
 
   /// 특정 교사가 특정 시간에 비어있는지 확인
+  /// 
+  /// 공통 메서드 사용으로 중복 로직 제거
   bool isTeacherEmptyAtTime(
     String teacherName,
     String day,
     int period,
     List<TimeSlot> timeSlots,
   ) {
-    return !timeSlots.any((slot) =>
-      slot.teacher == teacherName &&
-      slot.dayOfWeek == DayUtils.getDayNumber(day) &&
-      slot.period == period &&
-      slot.isNotEmpty
+    // 공통 메서드를 사용하여 TimeSlot 찾기 (중복 로직 제거)
+    final timeSlot = findTimeSlot(
+      teacherName,
+      day,
+      period,
+      timeSlots,
+      requireNotEmpty: true,
     );
+    
+    // 찾은 TimeSlot이 없거나 비어있으면 빈 시간
+    return timeSlot == null || timeSlot.isEmpty;
   }
 
   /// 특정 시간의 TimeSlot 가져오기 (공통 헬퍼)
-  TimeSlot? _getTimeSlot(
+  /// 
+  /// [teacherName] 교사명
+  /// [day] 요일 문자열 (월, 화, 수, 목, 금)
+  /// [period] 교시
+  /// [timeSlots] 전체 TimeSlot 리스트
+  /// [requireNotEmpty] true이면 isNotEmpty인 슬롯만 반환, false이면 모든 슬롯 반환
+  /// 
+  /// 반환값: 찾은 TimeSlot 또는 null
+  TimeSlot? findTimeSlot(
     String teacherName,
     String day,
     int period,
-    List<TimeSlot> timeSlots,
-  ) {
+    List<TimeSlot> timeSlots, {
+    bool requireNotEmpty = false,
+  }) {
     final dayNumber = DayUtils.getDayNumber(day);
-    return timeSlots.cast<TimeSlot?>().firstWhere(
-      (slot) => slot != null &&
-                slot.teacher == teacherName &&
-                slot.dayOfWeek == dayNumber &&
-                slot.period == period &&
-                slot.isNotEmpty,
-      orElse: () => null,
-    );
+    
+    try {
+      return timeSlots.firstWhere(
+        (slot) => slot.teacher == teacherName &&
+                  slot.dayOfWeek == dayNumber &&
+                  slot.period == period &&
+                  (!requireNotEmpty || slot.isNotEmpty),
+      );
+    } catch (e) {
+      return null;
+    }
   }
 
   /// 특정 시간의 과목 정보 가져오기
@@ -135,7 +154,7 @@ abstract class BaseExchangeService {
     int period,
     List<TimeSlot> timeSlots,
   ) {
-    return _getTimeSlot(teacherName, day, period, timeSlots)?.subject ?? '과목명 없음';
+    return findTimeSlot(teacherName, day, period, timeSlots, requireNotEmpty: true)?.subject ?? '과목명 없음';
   }
 
   /// 특정 시간의 학급 정보 가져오기
@@ -145,6 +164,6 @@ abstract class BaseExchangeService {
     int period,
     List<TimeSlot> timeSlots,
   ) {
-    return _getTimeSlot(teacherName, day, period, timeSlots)?.className ?? '';
+    return findTimeSlot(teacherName, day, period, timeSlots, requireNotEmpty: true)?.className ?? '';
   }
 }

@@ -13,6 +13,7 @@ import '../../../models/one_to_one_exchange_path.dart';
 import '../../../models/chain_exchange_path.dart';
 import '../../../utils/logger.dart';
 import '../../../utils/timetable_data_source.dart';
+import '../../../utils/day_utils.dart';
 import 'helpers/grid_helper.dart';
 import 'helpers/cell_tap_helper.dart';
 
@@ -151,18 +152,22 @@ class ExchangeScreenViewModel {
   }
 
   /// 교사명, 요일, 교시로 TimeSlot 찾기
+  /// 
+  /// DayUtils를 사용하여 중복 로직 제거
   TimeSlot? findTimeSlot(
     String teacherName,
     String day,
     int period,
     TimetableData timetableData,
   ) {
+    // DayUtils를 사용하여 중복 로직 제거 (BaseExchangeService.findTimeSlot과 동일한 패턴)
+    final dayNumber = DayUtils.getDayNumber(day);
+    
     try {
       return timetableData.timeSlots.firstWhere(
         (slot) =>
             slot.teacher == teacherName &&
-            slot.dayOfWeek != null &&
-            _getDayName(slot.dayOfWeek!) == day &&
+            slot.dayOfWeek == dayNumber &&
             slot.period == period,
       );
     } catch (e) {
@@ -170,23 +175,6 @@ class ExchangeScreenViewModel {
     }
   }
 
-  /// 요일 숫자를 문자열로 변환
-  String _getDayName(int dayOfWeek) {
-    switch (dayOfWeek) {
-      case 1:
-        return '월';
-      case 2:
-        return '화';
-      case 3:
-        return '수';
-      case 4:
-        return '목';
-      case 5:
-        return '금';
-      default:
-        return '';
-    }
-  }
 
   // ==================== Grid Helper 위임 ====================
 

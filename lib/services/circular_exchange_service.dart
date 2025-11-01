@@ -178,8 +178,9 @@ class CircularExchangeService extends BaseExchangeService {
     List<CircularExchangePath> allPaths = [];
     
     // 성능 최적화: 빈 셀과 교체불가능한 셀을 사전 필터링
+    // canExchange는 이미 isNotEmpty를 포함하므로 중복 체크 제거
     List<TimeSlot> validTimeSlots = timeSlots.where((slot) => 
-      slot.isNotEmpty && slot.canExchange
+      slot.canExchange
     ).toList();
     
     AppLogger.exchangeDebug('순환교체 최적화: 전체 ${timeSlots.length}개 → 유효한 ${validTimeSlots.length}개 TimeSlot');
@@ -524,16 +525,16 @@ class CircularExchangeService extends BaseExchangeService {
 
   /// 노드에 과목 정보를 포함한 문자열 생성
   String _getNodeWithSubject(ExchangeNode node, List<TimeSlot> timeSlots) {
-    // 해당 노드의 TimeSlot 찾기
-    TimeSlot? slot;
-    try {
-      slot = timeSlots.firstWhere(
-        (s) => s.teacher == node.teacherName &&
-               s.dayOfWeek == DayUtils.getDayNumber(node.day) &&
-               s.period == node.period &&
-               s.className == node.className,
-      );
-    } catch (e) {
+    // BaseExchangeService의 공통 메서드 사용 (중복 로직 제거)
+    TimeSlot? slot = findTimeSlot(
+      node.teacherName,
+      node.day,
+      node.period,
+      timeSlots,
+    );
+    
+    // className이 일치하는지 추가 확인
+    if (slot != null && slot.className != node.className) {
       slot = null;
     }
     
