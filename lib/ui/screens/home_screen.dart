@@ -5,6 +5,7 @@ import 'personal_schedule_screen.dart';
 import 'document_screen.dart';
 import 'settings_screen.dart';
 import 'info_screen.dart';
+import 'help_screen.dart';
 import '../../providers/navigation_provider.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../providers/state_reset_provider.dart';
@@ -298,7 +299,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   SizedBox(height: 8),
                   Text(
-                    '교사용 수업\n교체 메니저',
+                    '수업교체 관리자\nClass Exchange Manager',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 18,
@@ -443,7 +444,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               title: const Text('도움말'),
               onTap: () {
                 Navigator.pop(context);
-                // 도움말 화면으로 이동 (나중에 구현)
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const HelpScreen(),
+                  ),
+                );
               },
             ),
             ListTile(

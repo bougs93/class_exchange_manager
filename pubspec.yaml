@@ -54,6 +54,9 @@ dependencies:
   # URL 실행
   url_launcher: ^6.2.5
 
+  # 마크다운 렌더링
+  flutter_markdown: ^0.6.18
+
   # 문서 생성
   pdf: ^3.10.7
   syncfusion_flutter_pdf: ^31.1.23
@@ -101,6 +104,8 @@ flutter:
     - lib/assets/templates/substitution_plan_template.pdf
     # 폰트 파일 (있는 경우)
     - lib/assets/fonts/
+    # 도움말 마크다운 파일
+    - lib/assets/docs/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
