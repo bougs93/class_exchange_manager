@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:crypto/crypto.dart';
-import 'dart:convert';
 import 'storage_service.dart';
 import 'excel_service.dart';
 import '../utils/logger.dart';
@@ -8,7 +7,8 @@ import '../utils/logger.dart';
 /// 시간표 데이터 저장 서비스
 /// 
 /// 시간표 데이터를 JSON 파일로 저장하고 로드합니다.
-/// 파일명은 해시값(파일 경로 일부 + SHA256 해시) 기반으로 생성됩니다.
+/// 파일명은 해시값(파일명 + 파일 내용의 SHA256 해시 32자) 기반으로 생성됩니다.
+/// 같은 내용의 파일은 중복 저장을 방지하고 기존 데이터를 재사용합니다.
 class TimetableStorageService {
   final StorageService _storageService = StorageService();
   
@@ -19,36 +19,100 @@ class TimetableStorageService {
   
   TimetableStorageService._internal();
   
-  /// 파일 경로에서 해시값 생성
+  /// 파일 내용 기반 해시값 계산 (public)
   /// 
-  /// 해시값은 파일 경로 일부 + 전체 경로의 SHA256 해시로 구성됩니다.
-  /// 예: 파일명 "시간표2025.xlsx" 경로 일부 + 해시값 일부
+  /// 파일의 실제 내용을 읽어서 SHA256 해시를 계산합니다.
+  /// 같은 내용의 파일은 항상 같은 해시값을 반환합니다.
   /// 
   /// 매개변수:
   /// - `filePath`: 엑셀 파일의 전체 경로
   /// 
   /// 반환값:
-  /// - `String`: 생성된 해시값 (예: "시간표2025_abc123def456")
-  String _generateHash(String filePath) {
+  /// - `Future<String?>`: 파일 내용의 SHA256 해시 (32자), 실패 시 null
+  Future<String?> calculateContentHash(String filePath) async {
     try {
-      // 파일 경로 일부 추출 (파일명에서 확장자 제거)
+      final file = File(filePath);
+      
+      if (!await file.exists()) {
+        return null;
+      }
+      
+      // 파일 내용 읽기
+      final bytes = await file.readAsBytes();
+      
+      // SHA256 해시 계산
+      final digest = sha256.convert(bytes);
+      final hashString = digest.toString();
+      
+      // 32자만 사용 (충돌 확률이 매우 낮음)
+      return hashString.substring(0, 32);
+    } catch (e) {
+      AppLogger.error('파일 내용 해시 계산 실패: $e', e);
+      return null;
+    }
+  }
+  
+  /// 파일 내용 기반 해시값 계산 (private - 내부 사용)
+  /// 
+  /// 파일의 실제 내용을 읽어서 SHA256 해시를 계산합니다.
+  /// 같은 내용의 파일은 항상 같은 해시값을 반환합니다.
+  /// 
+  /// 매개변수:
+  /// - `filePath`: 엑셀 파일의 전체 경로
+  /// 
+  /// 반환값:
+  /// - `Future<String>`: 파일 내용의 SHA256 해시 (32자)
+  /// 
+  /// 예외:
+  /// - 파일이 없거나 읽기 실패 시 예외를 throw합니다.
+  Future<String> _calculateContentHash(String filePath) async {
+    try {
+      final file = File(filePath);
+      
+      if (!await file.exists()) {
+        throw Exception('파일이 존재하지 않습니다: $filePath');
+      }
+      
+      // 파일 내용 읽기
+      final bytes = await file.readAsBytes();
+      
+      // SHA256 해시 계산
+      final digest = sha256.convert(bytes);
+      final hashString = digest.toString();
+      
+      // 32자만 사용 (충돌 확률이 매우 낮음)
+      return hashString.substring(0, 32);
+    } catch (e) {
+      AppLogger.error('파일 내용 해시 계산 실패: $e', e);
+      rethrow;
+    }
+  }
+  
+  /// 파일명 기반 해시값 생성
+  /// 
+  /// 파일명에서 안전한 문자열을 추출하여 해시와 함께 사용합니다.
+  /// 
+  /// 매개변수:
+  /// - `filePath`: 엑셀 파일의 전체 경로
+  /// - `contentHash`: 파일 내용 기반 해시 (32자)
+  /// 
+  /// 반환값:
+  /// - `String`: 생성된 해시값 (예: "시간표2025_a1b2c3d4e5f6789012345678901234")
+  String _generateHash(String filePath, String contentHash) {
+    try {
+      // 파일명 추출 (확장자 제거)
       final file = File(filePath);
       final fileName = file.path.split(Platform.pathSeparator).last;
       final fileNameWithoutExt = fileName.replaceAll(RegExp(r'\.(xlsx|xls)$'), '');
       
-      // 파일 경로의 SHA256 해시 생성
-      final bytes = utf8.encode(filePath);
-      final digest = sha256.convert(bytes);
-      final hashString = digest.toString().substring(0, 12); // 처음 12자만 사용
-      
-      // 파일명(안전한 문자만) + 해시값 조합
-      // 파일명에서 특수문자 제거하고 안전한 문자만 사용
+      // 파일명에서 안전한 문자만 사용
       final safeFileName = fileNameWithoutExt
           .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_')
           .replaceAll(RegExp(r'\s+'), '_')
           .substring(0, fileNameWithoutExt.length > 20 ? 20 : fileNameWithoutExt.length);
       
-      return '${safeFileName}_$hashString';
+      // 파일명 + 내용 해시 조합
+      return '${safeFileName}_$contentHash';
     } catch (e) {
       AppLogger.error('해시 생성 실패: $e', e);
       // 실패 시 타임스탬프 기반 해시 사용
@@ -57,6 +121,9 @@ class TimetableStorageService {
   }
   
   /// 시간표 데이터 저장
+  /// 
+  /// 파일 내용 기반 해시를 사용하여 저장합니다.
+  /// 같은 내용의 파일이 이미 저장되어 있으면 기존 파일을 재사용하고 중복 저장을 방지합니다.
   /// 
   /// 매개변수:
   /// - `timetableData`: 저장할 시간표 데이터
@@ -71,45 +138,57 @@ class TimetableStorageService {
     String fileName,
   ) async {
     try {
-      // 해시 기반 파일명 생성
-      final hash = _generateHash(filePath);
+      // 1. 파일 내용 기반 해시 계산 (32자)
+      final contentHash = await _calculateContentHash(filePath);
+      
+      // 2. 파일명 + 내용 해시로 최종 해시 생성
+      final hash = _generateHash(filePath, contentHash);
       final filename = 'timetable_data_$hash.json';
       
-      // 시간표 데이터를 JSON으로 변환
-      final jsonData = timetableData.toJson();
+      // 3. 중복 저장 방지: 같은 내용의 파일이 이미 있는지 확인
+      final existingData = await _storageService.loadJson(filename);
+      bool isReusingExisting = existingData != null;
       
-      // 데이터 검증 로그 추가
-      AppLogger.info('시간표 데이터 저장 시작: $filename');
-      AppLogger.info('저장할 데이터: ${timetableData.teachers.length}명 교사, ${timetableData.timeSlots.length}개 TimeSlot');
-      
-      // 비어있지 않은 TimeSlot 개수 확인
-      final nonEmptySlots = timetableData.timeSlots.where((slot) => slot.isNotEmpty).length;
-      AppLogger.info('수업이 있는 TimeSlot: $nonEmptySlots개 / 전체 ${timetableData.timeSlots.length}개');
-      
-      // 교체불가 셀 개수 확인
-      final nonExchangeableSlots = timetableData.timeSlots.where((slot) => 
-        !slot.isExchangeable && slot.exchangeReason == '교체불가'
-      ).toList();
-      AppLogger.info('교체불가 셀 개수: ${nonExchangeableSlots.length}개');
-      if (nonExchangeableSlots.isNotEmpty) {
-        AppLogger.info('교체불가 셀 샘플 (최대 5개):');
-        for (var slot in nonExchangeableSlots.take(5)) {
-          AppLogger.info('  - teacher=${slot.teacher}, dayOfWeek=${slot.dayOfWeek}, period=${slot.period}, isExchangeable=${slot.isExchangeable}, exchangeReason=${slot.exchangeReason}');
-        }
-      }
-      
-      // JSON 파일로 저장
-      final success = await _storageService.saveJson(filename, jsonData);
-      
-      if (success) {
-        // 메타데이터도 별도로 저장 (파일 경로, 파일명, 수정 시간)
-        await _saveFileMetadata(filePath, fileName, hash);
-        AppLogger.info('시간표 데이터 저장 성공: $filename');
+      if (isReusingExisting) {
+        AppLogger.info('같은 내용의 파일이 이미 저장되어 있습니다. 기존 데이터 재사용: $filename');
+        // 기존 데이터가 있으면 JSON 저장을 건너뛰고 메타데이터만 업데이트
       } else {
-        AppLogger.error('시간표 데이터 저장 실패');
+        // 시간표 데이터를 JSON으로 변환
+        final jsonData = timetableData.toJson();
+        
+        // 데이터 검증 로그 추가
+        AppLogger.info('시간표 데이터 저장 시작: $filename');
+        AppLogger.info('저장할 데이터: ${timetableData.teachers.length}명 교사, ${timetableData.timeSlots.length}개 TimeSlot');
+        
+        // 비어있지 않은 TimeSlot 개수 확인
+        final nonEmptySlots = timetableData.timeSlots.where((slot) => slot.isNotEmpty).length;
+        AppLogger.info('수업이 있는 TimeSlot: $nonEmptySlots개 / 전체 ${timetableData.timeSlots.length}개');
+        
+        // 교체불가 셀 개수 확인
+        final nonExchangeableSlots = timetableData.timeSlots.where((slot) => 
+          !slot.isExchangeable && slot.exchangeReason == '교체불가'
+        ).toList();
+        AppLogger.info('교체불가 셀 개수: ${nonExchangeableSlots.length}개');
+        if (nonExchangeableSlots.isNotEmpty) {
+          AppLogger.info('교체불가 셀 샘플 (최대 5개):');
+          for (var slot in nonExchangeableSlots.take(5)) {
+            AppLogger.info('  - teacher=${slot.teacher}, dayOfWeek=${slot.dayOfWeek}, period=${slot.period}, isExchangeable=${slot.isExchangeable}, exchangeReason=${slot.exchangeReason}');
+          }
+        }
+        
+        // JSON 파일로 저장 (새 파일만)
+        final saveSuccess = await _storageService.saveJson(filename, jsonData);
+        if (!saveSuccess) {
+          AppLogger.error('시간표 데이터 저장 실패');
+          return false;
+        }
+        AppLogger.info('시간표 데이터 저장 완료: $filename');
       }
       
-      return success;
+      // 4. 메타데이터 저장 (기존 파일 재사용이든 새 저장이든 항상 업데이트)
+      await _saveFileMetadata(filePath, fileName, hash, contentHash);
+      
+      return true;
     } catch (e) {
       AppLogger.error('시간표 데이터 저장 중 오류: $e', e);
       return false;
@@ -186,8 +265,19 @@ class TimetableStorageService {
   
   /// 파일 메타데이터 저장
   /// 
-  /// 엑셀 파일 경로, 파일명, 수정 시간, 해시값을 저장합니다.
-  Future<void> _saveFileMetadata(String filePath, String fileName, String hash) async {
+  /// 엑셀 파일 경로, 파일명, 수정 시간, 해시값, 내용 해시를 저장합니다.
+  /// 
+  /// 매개변수:
+  /// - `filePath`: 원본 엑셀 파일 경로
+  /// - `fileName`: 원본 엑셀 파일명
+  /// - `hash`: 파일명 + 내용 해시 조합
+  /// - `contentHash`: 파일 내용 기반 해시 (32자)
+  Future<void> _saveFileMetadata(
+    String filePath,
+    String fileName,
+    String hash,
+    String contentHash,
+  ) async {
     try {
       final file = File(filePath);
       final lastModified = await file.lastModified();
@@ -196,11 +286,12 @@ class TimetableStorageService {
         'filePath': filePath,
         'fileName': fileName,
         'lastModified': lastModified.toIso8601String(),
-        'hash': hash,
+        'hash': hash,              // 파일명 + 내용 해시 (파일명 생성용)
+        'contentHash': contentHash, // 내용 해시만 (무결성 검증용)
       };
       
       await _storageService.saveJson('timetable_file_metadata.json', metadata);
-      AppLogger.info('파일 메타데이터 저장 성공');
+      AppLogger.info('파일 메타데이터 저장 성공 (내용 해시: ${contentHash.substring(0, 8)}...)');
     } catch (e) {
       AppLogger.error('파일 메타데이터 저장 실패: $e', e);
     }
@@ -229,13 +320,16 @@ class TimetableStorageService {
     return await _loadFileMetadata();
   }
   
-  /// 엑셀 파일의 수정 시간과 저장된 수정 시간 비교
+  /// 엑셀 파일이 변경되었는지 확인 (내용 기반 해시 사용)
+  /// 
+  /// 파일 내용 기반 해시를 사용하여 파일이 변경되었는지 확인합니다.
+  /// 경로와 관계없이 같은 내용이면 변경되지 않은 것으로 간주합니다.
   /// 
   /// 매개변수:
   /// - `filePath`: 비교할 엑셀 파일 경로
   /// 
   /// 반환값:
-  /// - `Future<bool>`: 수정 시간이 다르면 true (파일이 변경됨), 같거나 메타데이터가 없으면 false
+  /// - `Future<bool>`: 내용이 다르면 true (파일이 변경됨), 같거나 메타데이터가 없으면 false
   Future<bool> isFileModified(String filePath) async {
     try {
       final metadata = await _loadFileMetadata();
@@ -244,30 +338,41 @@ class TimetableStorageService {
         return false;
       }
       
-      final savedFilePath = metadata['filePath'] as String?;
-      if (savedFilePath != filePath) {
-        // 파일 경로가 다르면 다른 파일로 간주
-        return true;
-      }
-      
       final file = File(filePath);
       if (!await file.exists()) {
         return false;
       }
       
-      final currentLastModified = await file.lastModified();
-      final savedLastModifiedStr = metadata['lastModified'] as String?;
+      // 현재 파일의 내용 해시 계산
+      final currentContentHash = await _calculateContentHash(filePath);
       
-      if (savedLastModifiedStr == null) {
-        return false;
+      // 저장된 내용 해시와 비교
+      final savedContentHash = metadata['contentHash'] as String?;
+      
+      if (savedContentHash == null) {
+        // 기존 메타데이터에 내용 해시가 없으면 (구버전)
+        // 수정 시간으로 대체 비교
+        final currentLastModified = await file.lastModified();
+        final savedLastModifiedStr = metadata['lastModified'] as String?;
+        
+        if (savedLastModifiedStr == null) {
+          return false;
+        }
+        
+        final savedLastModified = DateTime.parse(savedLastModifiedStr);
+        return currentLastModified != savedLastModified;
       }
       
-      final savedLastModified = DateTime.parse(savedLastModifiedStr);
+      // 내용 해시 비교 (같으면 false, 다르면 true)
+      final isModified = currentContentHash != savedContentHash;
       
-      // 수정 시간이 다르면 true 반환
-      return currentLastModified != savedLastModified;
+      if (isModified) {
+        AppLogger.info('파일 내용이 변경되었습니다. (기존 해시: ${savedContentHash.substring(0, 8)}..., 현재 해시: ${currentContentHash.substring(0, 8)}...)');
+      }
+      
+      return isModified;
     } catch (e) {
-      AppLogger.error('파일 수정 시간 비교 실패: $e', e);
+      AppLogger.error('파일 변경 확인 실패: $e', e);
       return false;
     }
   }
@@ -296,6 +401,40 @@ class TimetableStorageService {
       return metadata?['filePath'] as String?;
     } catch (e) {
       AppLogger.error('저장된 파일 경로 가져오기 실패: $e', e);
+      return null;
+    }
+  }
+  
+  /// 저장된 내용 해시와 현재 파일의 내용 해시 비교
+  /// 
+  /// 현재 파일의 내용 해시와 저장된 내용 해시를 비교하여
+  /// 동일한 내용의 파일인지 확인합니다.
+  /// 
+  /// 매개변수:
+  /// - `filePath`: 비교할 엑셀 파일 경로
+  /// 
+  /// 반환값:
+  /// - `Future<bool?>`: 동일하면 true, 다르면 false, 비교 불가능하면 null
+  Future<bool?> isSameContent(String filePath) async {
+    try {
+      final metadata = await _loadFileMetadata();
+      if (metadata == null) {
+        return null; // 메타데이터가 없으면 비교 불가능
+      }
+      
+      final savedContentHash = metadata['contentHash'] as String?;
+      if (savedContentHash == null) {
+        return null; // 내용 해시가 없으면 비교 불가능 (구버전 데이터)
+      }
+      
+      final currentContentHash = await calculateContentHash(filePath);
+      if (currentContentHash == null) {
+        return null; // 현재 파일의 해시를 계산할 수 없음
+      }
+      
+      return currentContentHash == savedContentHash;
+    } catch (e) {
+      AppLogger.error('내용 해시 비교 실패: $e', e);
       return null;
     }
   }

@@ -13,6 +13,7 @@ import '../../../../models/exchange_mode.dart';
 import '../../../../providers/exchange_screen_provider.dart';
 import '../../../../providers/services_provider.dart';
 import '../../../../ui/dialogs/exchange_data_reset_dialog.dart';
+import '../../../../ui/dialogs/same_content_file_dialog.dart';
 import '../exchange_screen_state_proxy.dart';
 
 /// 파일 선택, 로딩, 교체 모드 전환 등 핵심 비즈니스 로직을 관리하는 Manager
@@ -147,13 +148,12 @@ class ExchangeOperationManager {
         final filePath = selectedFile.path;
         final fileName = filePath.split(Platform.pathSeparator).last;
         
-        // 파일 수정 시간 비교 (async 작업)
-        final isModified = await _timetableStorageService.isFileModified(filePath);
+        // 1. 동일한 내용의 파일인지 확인 (내용 해시 비교)
+        final isSameContent = await _timetableStorageService.isSameContent(filePath);
         
-        if (isModified) {
-          // 파일이 변경되었으면 초기화 확인 다이얼로그 표시
+        if (isSameContent == true) {
+          // 동일한 내용의 파일이면 확인 다이얼로그 표시
           // async gap 이후 BuildContext 사용 시 안전성을 위해 mounted 체크와 try-catch로 보호
-          bool? shouldReset;
           
           // 위젯이 여전히 마운트되어 있는지 확인
           if (!context.mounted) {
@@ -164,23 +164,55 @@ class ExchangeOperationManager {
           
           try {
             // async gap 이후 context 사용 - mounted 체크로 안전성 확보
-            shouldReset = await ExchangeDataResetDialog.show(
-              context,
-              message: '엑셀 파일이 변경되었습니다. 저장된 시간표 데이터와 교체 리스트를 초기화하시겠습니까?',
-            );
+            // 다이얼로그 반환값: true = YES (초기화), false = NO (보존), null = 기본값 NO
+            final shouldReset = await SameContentFileDialog.show(context) ?? false; // 기본값 NO (보존)
+            
+            if (shouldReset == true) {
+              // 사용자가 YES를 선택한 경우 (기존 작업 정보 초기화)
+              _clearHistoryAndExchangeList();
+            }
+            // NO를 선택한 경우(shouldReset == false)는 기존 작업 정보 보존
           } catch (e) {
             // 위젯이 dispose되었거나 context가 유효하지 않은 경우 처리 중단
             stateProxy.setErrorMessage('파일 로드 중 오류가 발생했습니다: $e');
             return;
           }
+        } else {
+          // 2. 파일 내용이 다른 경우 변경 확인
+          final isModified = await _timetableStorageService.isFileModified(filePath);
           
-          if (shouldReset == true) {
-            // 사용자가 초기화를 확인한 경우
-            _clearHistoryAndExchangeList();
-          } else if (shouldReset == false) {
-            // 사용자가 취소한 경우 파싱 중단
-            stateProxy.setErrorMessage('파일 로드를 취소했습니다.');
-            return;
+          if (isModified) {
+            // 파일이 변경되었으면 초기화 확인 다이얼로그 표시
+            // async gap 이후 BuildContext 사용 시 안전성을 위해 mounted 체크와 try-catch로 보호
+            bool? shouldReset;
+            
+            // 위젯이 여전히 마운트되어 있는지 확인
+            if (!context.mounted) {
+              // 위젯이 dispose된 경우 처리 중단
+              stateProxy.setErrorMessage('파일 로드 중 위젯이 닫혔습니다.');
+              return;
+            }
+            
+            try {
+              // async gap 이후 context 사용 - mounted 체크로 안전성 확보
+              shouldReset = await ExchangeDataResetDialog.show(
+                context,
+                message: '엑셀 파일이 변경되었습니다. 저장된 시간표 데이터와 교체 리스트를 초기화하시겠습니까?',
+              );
+            } catch (e) {
+              // 위젯이 dispose되었거나 context가 유효하지 않은 경우 처리 중단
+              stateProxy.setErrorMessage('파일 로드 중 오류가 발생했습니다: $e');
+              return;
+            }
+            
+            if (shouldReset == true) {
+              // 사용자가 초기화를 확인한 경우
+              _clearHistoryAndExchangeList();
+            } else if (shouldReset == false) {
+              // 사용자가 취소한 경우 파싱 중단
+              stateProxy.setErrorMessage('파일 로드를 취소했습니다.');
+              return;
+            }
           }
         }
         
