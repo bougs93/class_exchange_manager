@@ -133,6 +133,24 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
   }
 
   void setTimetableData(TimetableData? data) {
+    // 데이터 검증 로그 추가
+    if (data != null) {
+      AppLogger.exchangeDebug('📊 [ExchangeScreenProvider] timetableData 설정: ${data.teachers.length}명 교사, ${data.timeSlots.length}개 TimeSlot');
+      
+      // 비어있지 않은 TimeSlot 개수 확인
+      final nonEmptySlots = data.timeSlots.where((slot) => slot.isNotEmpty).length;
+      AppLogger.exchangeDebug('📊 [ExchangeScreenProvider] 수업이 있는 TimeSlot: $nonEmptySlots개 / 전체 ${data.timeSlots.length}개');
+      
+      // 샘플 TimeSlot 확인 (최대 5개)
+      final sampleSlots = data.timeSlots.where((slot) => slot.isNotEmpty).take(5).toList();
+      AppLogger.exchangeDebug('📊 [ExchangeScreenProvider] TimeSlot 샘플 (최대 5개):');
+      for (var slot in sampleSlots) {
+        AppLogger.exchangeDebug('  - teacher=${slot.teacher}, dayOfWeek=${slot.dayOfWeek}, period=${slot.period}, subject=${slot.subject}, className=${slot.className}');
+      }
+    } else {
+      AppLogger.exchangeDebug('📊 [ExchangeScreenProvider] timetableData를 null로 설정');
+    }
+    
     state = state.copyWith(
       timetableData: () => data,
       // 파일 로드 시 fileLoadId 증가 (SfDataGrid 재생성용)

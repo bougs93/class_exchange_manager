@@ -403,23 +403,62 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   /// 
   /// Returns: `bool` - 수업이 있으면 true, 없으면 false
   bool _isCellNotEmpty(String teacherName, String day, int period) {
-    if (_timetableData == null) return false;
+    if (_timetableData == null) {
+      AppLogger.exchangeDebug('🔄 [교체관리] 셀 확인: timetableData가 null입니다 - $teacherName $day$period교시');
+      return false;
+    }
     
     try {
       final dayNumber = DayUtils.getDayNumber(day);
-      final timeSlot = _timetableData!.timeSlots.firstWhere(
-        (slot) => slot.teacher == teacherName && 
-                  slot.dayOfWeek == dayNumber && 
-                  slot.period == period,
-        orElse: () => TimeSlot(), // 빈 TimeSlot 반환
-      );
       
-      bool hasClass = timeSlot.isNotEmpty;
-      AppLogger.exchangeDebug('셀 확인: $teacherName $day$period교시, 수업있음=$hasClass');
+      // 디버깅: 전체 timeSlots 개수 확인
+      final totalSlots = _timetableData!.timeSlots.length;
+      AppLogger.exchangeDebug('🔄 [교체관리] 셀 확인 시작: $teacherName $day$period교시 (요일번호=$dayNumber, 전체TimeSlot=$totalSlots개)');
+      
+      // 디버깅: 해당 교사의 TimeSlot 확인
+      final teacherSlots = _timetableData!.timeSlots.where((slot) => slot.teacher == teacherName).toList();
+      AppLogger.exchangeDebug('🔄 [교체관리] 해당 교사의 TimeSlot: ${teacherSlots.length}개');
+      
+      // 디버깅: 해당 요일의 TimeSlot 확인
+      final daySlots = _timetableData!.timeSlots.where((slot) => slot.dayOfWeek == dayNumber).toList();
+      AppLogger.exchangeDebug('🔄 [교체관리] 해당 요일의 TimeSlot: ${daySlots.length}개');
+      
+      // TimeSlot 찾기
+      TimeSlot? foundSlot;
+      try {
+        foundSlot = _timetableData!.timeSlots.firstWhere(
+          (slot) => slot.teacher == teacherName && 
+                    slot.dayOfWeek == dayNumber && 
+                    slot.period == period,
+        );
+        AppLogger.exchangeDebug('🔄 [교체관리] TimeSlot 찾음: teacher=${foundSlot.teacher}, subject=${foundSlot.subject}, className=${foundSlot.className}, isNotEmpty=${foundSlot.isNotEmpty}');
+      } catch (e) {
+        AppLogger.exchangeDebug('🔄 [교체관리] TimeSlot을 찾지 못했습니다: $e');
+        
+        // 디버깅: 비슷한 TimeSlot 확인 (teacher만 맞는 경우)
+        final similarByTeacher = _timetableData!.timeSlots.where((slot) => slot.teacher == teacherName).take(5).toList();
+        AppLogger.exchangeDebug('🔄 [교체관리] 같은 교사의 TimeSlot 샘플 (최대 5개):');
+        for (var slot in similarByTeacher) {
+          AppLogger.exchangeDebug('  - teacher=${slot.teacher}, dayOfWeek=${slot.dayOfWeek}, period=${slot.period}, subject=${slot.subject}, className=${slot.className}');
+        }
+        
+        // 디버깅: 같은 요일과 교시의 TimeSlot 확인
+        final similarByDayPeriod = _timetableData!.timeSlots.where((slot) => slot.dayOfWeek == dayNumber && slot.period == period).take(5).toList();
+        AppLogger.exchangeDebug('🔄 [교체관리] 같은 요일/교시의 TimeSlot 샘플 (최대 5개):');
+        for (var slot in similarByDayPeriod) {
+          AppLogger.exchangeDebug('  - teacher=${slot.teacher}, dayOfWeek=${slot.dayOfWeek}, period=${slot.period}, subject=${slot.subject}, className=${slot.className}');
+        }
+        
+        foundSlot = TimeSlot(); // 빈 TimeSlot 반환
+      }
+      
+      bool hasClass = foundSlot.isNotEmpty;
+      AppLogger.exchangeDebug('🔄 [교체관리] 셀 확인: $teacherName $day$period교시, 수업있음=$hasClass (최종 결과)');
       
       return hasClass;
     } catch (e) {
-      AppLogger.exchangeDebug('셀 확인 중 오류: $e');
+      AppLogger.exchangeDebug('🔄 [교체관리] 셀 확인 중 오류: $e');
+      AppLogger.error('셀 확인 중 예외 발생: $e', e);
       return false;
     }
   }

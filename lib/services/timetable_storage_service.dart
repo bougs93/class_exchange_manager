@@ -78,6 +78,14 @@ class TimetableStorageService {
       // 시간표 데이터를 JSON으로 변환
       final jsonData = timetableData.toJson();
       
+      // 데이터 검증 로그 추가
+      AppLogger.info('시간표 데이터 저장 시작: $filename');
+      AppLogger.info('저장할 데이터: ${timetableData.teachers.length}명 교사, ${timetableData.timeSlots.length}개 TimeSlot');
+      
+      // 비어있지 않은 TimeSlot 개수 확인
+      final nonEmptySlots = timetableData.timeSlots.where((slot) => slot.isNotEmpty).length;
+      AppLogger.info('수업이 있는 TimeSlot: $nonEmptySlots개 / 전체 ${timetableData.timeSlots.length}개');
+      
       // JSON 파일로 저장
       final success = await _storageService.saveJson(filename, jsonData);
       
@@ -130,7 +138,21 @@ class TimetableStorageService {
       // TimetableData로 변환
       final timetableData = TimetableData.fromJson(jsonData);
       
+      // 데이터 검증 로그 추가
       AppLogger.info('시간표 데이터 로드 성공: $filename');
+      AppLogger.info('로드된 데이터: ${timetableData.teachers.length}명 교사, ${timetableData.timeSlots.length}개 TimeSlot');
+      
+      // 비어있지 않은 TimeSlot 개수 확인
+      final nonEmptySlots = timetableData.timeSlots.where((slot) => slot.isNotEmpty).length;
+      AppLogger.info('수업이 있는 TimeSlot: $nonEmptySlots개 / 전체 ${timetableData.timeSlots.length}개');
+      
+      // 샘플 TimeSlot 확인 (최대 5개)
+      final sampleSlots = timetableData.timeSlots.where((slot) => slot.isNotEmpty).take(5).toList();
+      AppLogger.info('TimeSlot 샘플 (최대 5개):');
+      for (var slot in sampleSlots) {
+        AppLogger.info('  - teacher=${slot.teacher}, dayOfWeek=${slot.dayOfWeek}, period=${slot.period}, subject=${slot.subject}, className=${slot.className}');
+      }
+      
       return timetableData;
     } catch (e) {
       AppLogger.error('시간표 데이터 로드 중 오류: $e', e);
