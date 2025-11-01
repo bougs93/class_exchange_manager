@@ -1314,7 +1314,22 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   /// 테마 기반 헤더 업데이트 (선택된 교시 헤더를 연한 파란색으로 표시)
   void _updateHeaderTheme() {
     final screenState = ref.read(exchangeScreenProvider);
-    if (screenState.timetableData == null) return;
+    
+    // 🔥 중요: timetableData가 없으면 헤더 업데이트 중단
+    // 모드 전환 중 timetableData가 로드되지 않은 경우를 방지
+    if (screenState.timetableData == null) {
+      AppLogger.exchangeDebug('🔄 [헤더 테마] timetableData가 null이어서 헤더 업데이트 건너뜀');
+      return;
+    }
+
+    // 🔥 중요: 기존 컬럼이 있고 timetableData가 있으면, 구조적 변경 없이 스타일만 업데이트
+    // 모드 전환 시 컬럼을 재생성하지 않고 기존 컬럼 유지
+    if (screenState.columns.isNotEmpty && screenState.timetableData != null) {
+      // 기존 컬럼이 있으면 DataSource만 업데이트 (스타일 변경만 반영)
+      AppLogger.exchangeDebug('🔄 [헤더 테마] 기존 컬럼 유지 - 스타일만 업데이트');
+      screenState.dataSource?.notifyDataChanged();
+      return;
+    }
 
     // 선택된 요일과 교시 결정 (단순화된 로직)
     final selectionInfo = _getSelectedPeriodInfo();
@@ -1331,15 +1346,16 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     FixedHeaderStyleManager.clearCacheForPeriodHeaderColorChange();
 
     // ExchangeService를 사용하여 교체 가능한 교사 정보 수집
+    final timetableData = screenState.timetableData!;
     List<Map<String, dynamic>> exchangeableTeachers = exchangeService.getCurrentExchangeableTeachers(
-      _timetableData!.timeSlots,
-      _timetableData!.teachers,
+      timetableData.timeSlots,
+      timetableData.teachers,
     );
 
     // 선택된 교시 정보를 전달하여 헤더만 업데이트
     final result = SyncfusionTimetableHelper.convertToSyncfusionData(
-      _timetableData!.timeSlots,
-      _timetableData!.teachers,
+      timetableData.timeSlots,
+      timetableData.teachers,
       selectedDay: selectedDay,      // 테마에서 사용할 선택 정보
       selectedPeriod: selectedPeriod,
       targetDay: _dataSource?.targetDay,      // 타겟 셀 요일 (보기 모드용)

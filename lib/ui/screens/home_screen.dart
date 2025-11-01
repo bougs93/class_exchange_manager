@@ -14,6 +14,7 @@ import '../../services/timetable_storage_service.dart';
 import '../../services/exchange_history_service.dart';
 import '../../utils/simplified_timetable_theme.dart';
 import '../../utils/logger.dart';
+import '../../ui/widgets/timetable_grid/exchange_executor.dart';
 import 'dart:io';
 
 /// 메인 홈 화면 - Drawer 메뉴가 있는 Scaffold
@@ -115,6 +116,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           if (_operationManager != null) {
             final onCreateSyncfusionGridData = _operationManager!.onCreateSyncfusionGridData;
             onCreateSyncfusionGridData();
+          }
+          
+          // 3-1. 교체된 셀 테마 복원 (시간표 데이터 로드 및 그리드 생성 후)
+          // ExchangeExecutor의 정적 메서드를 사용하여 교체된 셀 테마 복원
+          if (exchangeHistoryService.getExchangeList().isNotEmpty) {
+            ExchangeExecutor.restoreExchangedCells(ref);
+            AppLogger.info('교체된 셀 테마 복원 완료');
+            
+            // 교체된 셀 테마 복원 후 UI 업데이트
+            final dataSource = ref.read(exchangeScreenProvider).dataSource;
+            if (dataSource != null) {
+              dataSource.notifyDataChanged();
+            }
           }
           
           setState(() {});

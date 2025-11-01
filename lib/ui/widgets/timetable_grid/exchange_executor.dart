@@ -440,6 +440,125 @@ class ExchangeExecutor {
     AppLogger.exchangeDebug('✅ [ExchangeExecutor] 교체된 셀 상태 업데이트 완료');
   }
 
+  /// 교체된 셀 상태 복원 (프로그램 시작 시 호출)
+  /// 
+  /// 저장된 교체 리스트에서 교체된 셀 정보를 추출하여 CellSelectionProvider에 복원합니다.
+  static void restoreExchangedCells(WidgetRef ref) {
+    try {
+      final historyService = ref.read(exchangeHistoryServiceProvider);
+      final exchangeList = historyService.getExchangeList();
+      
+      if (exchangeList.isEmpty) {
+        AppLogger.info('복원할 교체 리스트가 없습니다.');
+        return;
+      }
+      
+      AppLogger.info('교체된 셀 테마 복원 시작: ${exchangeList.length}개 교체 항목');
+      
+      // 교체된 셀 정보 추출
+      final exchangedCells = <String>[];
+      final destinationCells = <String>[];
+      
+      for (final item in exchangeList) {
+        final path = item.originalPath;
+        
+        // 소스 셀 추출
+        final sourceCells = _getCellKeysFromPathStatic(path);
+        exchangedCells.addAll(sourceCells);
+        
+        // 목적지 셀 추출
+        final destCells = _getDestinationCellsFromPathStatic(path);
+        destinationCells.addAll(destCells);
+      }
+      
+      AppLogger.info('교체된 셀 정보 추출 완료: 소스 ${exchangedCells.length}개, 목적지 ${destinationCells.length}개');
+      
+      // CellSelectionProvider에 복원
+      final cellNotifier = ref.read(cellSelectionProvider.notifier);
+      cellNotifier.updateExchangedCells(exchangedCells);
+      cellNotifier.updateExchangedDestinationCells(destinationCells);
+      
+      AppLogger.info('✅ 교체된 셀 테마 복원 완료');
+    } catch (e) {
+      AppLogger.error('교체된 셀 테마 복원 중 오류: $e', e);
+    }
+  }
+
+  /// 정적 메서드: 교체 경로에서 소스 셀 키 목록 추출 (복원용)
+  static List<String> _getCellKeysFromPathStatic(ExchangePath path) {
+    if (path is OneToOneExchangePath) {
+      return [
+        '${path.sourceNode.teacherName}_${path.sourceNode.day}_${path.sourceNode.period}',
+        '${path.targetNode.teacherName}_${path.targetNode.day}_${path.targetNode.period}',
+      ];
+    } else if (path is CircularExchangePath) {
+      // 순환 교체: 마지막 노드를 제외한 모든 노드가 소스 셀
+      return path.nodes.take(path.nodes.length - 1).map((node) => '${node.teacherName}_${node.day}_${node.period}').toList();
+    } else if (path is ChainExchangePath) {
+      return [
+        '${path.nodeA.teacherName}_${path.nodeA.day}_${path.nodeA.period}',
+        '${path.nodeB.teacherName}_${path.nodeB.day}_${path.nodeB.period}',
+        '${path.node1.teacherName}_${path.node1.day}_${path.node1.period}',
+        '${path.node2.teacherName}_${path.node2.day}_${path.node2.period}',
+      ];
+    } else if (path is SupplementExchangePath) {
+      // 보강교체: 소스 셀만 교체된 소스 셀로 표시
+      return [
+        '${path.sourceTeacher}_${path.sourceDay}_${path.sourcePeriod}',
+      ];
+    }
+    return [];
+  }
+
+  /// 정적 메서드: 교체 경로에서 목적지 셀 키 목록 추출 (복원용)
+  static List<String> _getDestinationCellsFromPathStatic(ExchangePath path) {
+    final cellKeys = <String>[];
+    
+    // 1:1 교체 경로의 목적지 셀 추출
+    if (path is OneToOneExchangePath) {
+      cellKeys.addAll([
+        '${path.targetNode.teacherName}_${path.sourceNode.day}_${path.sourceNode.period}',
+        '${path.sourceNode.teacherName}_${path.targetNode.day}_${path.targetNode.period}',
+      ]);
+
+      // 순환교체 경로의 목적지 셀 추출 (각 노드가 다음 노드의 위치로 이동)
+    } else if (path is CircularExchangePath) {
+      final destinationKeys = <String>[];
+      
+      for (int i = 0; i < path.nodes.length - 1; i++) {
+        final currentNode = path.nodes[i];
+        final nextNode = path.nodes[i + 1];
+        // 현재 노드가 다음 노드의 위치로 이동
+        final destinationKey = '${currentNode.teacherName}_${nextNode.day}_${nextNode.period}';
+        destinationKeys.add(destinationKey);
+      }
+      
+      cellKeys.addAll(destinationKeys);
+
+      // 연쇄교체 경로의 목적지 셀 추출
+      // 연쇄교체는 2단계로 이루어지므로 각 단계별 목적지 셀을 모두 추출
+    } else if (path is ChainExchangePath) {
+      // 1단계 교체 후 목적지 셀들
+      // node1 교사가 node2 위치로 이동
+      cellKeys.add('${path.node1.teacherName}_${path.node2.day}_${path.node2.period}');
+      // node2 교사가 node1 위치로 이동
+      cellKeys.add('${path.node2.teacherName}_${path.node1.day}_${path.node1.period}');
+
+      // 2단계 교체 후 목적지 셀들
+      // nodeA 교사가 nodeB 위치로 이동
+      cellKeys.add('${path.nodeA.teacherName}_${path.nodeB.day}_${path.nodeB.period}');
+      // nodeB 교사가 nodeA 위치로 이동
+      cellKeys.add('${path.nodeB.teacherName}_${path.nodeA.day}_${path.nodeA.period}');
+
+      // 보강교체 경로의 목적지 셀 추출
+      // 타겟 교사의 위치가 목적지 셀
+    } else if (path is SupplementExchangePath) {
+      cellKeys.add('${path.targetTeacher}_${path.targetDay}_${path.targetPeriod}');
+    }
+
+    return cellKeys;
+  }
+
   /// 교체된 소스 셀 목록 추출 (교체 전 원본 위치의 셀들)
   List<String> _extractExchangedCells() {
     final historyService = ref.read(exchangeHistoryServiceProvider);
