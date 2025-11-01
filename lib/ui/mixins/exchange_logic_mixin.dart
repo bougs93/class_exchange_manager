@@ -3,6 +3,7 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../services/exchange_service.dart';
 import '../../services/circular_exchange_service.dart';
 import '../../services/chain_exchange_service.dart';
+import '../../services/base_exchange_service.dart';
 import '../../services/excel_service.dart';
 import '../../models/circular_exchange_path.dart';
 import '../../models/chain_exchange_path.dart';
@@ -121,82 +122,55 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
     processChainCellSelection();
   }
   
-  /// 셀 선택 후 처리 로직 (1:1 교체)
-  void processCellSelection() {
-    // 데이터 소스에 선택 상태만 업데이트 (재렌더링 방지)
-    dataSource?.updateSelection(
-      exchangeService.selectedTeacher, 
-      exchangeService.selectedDay, 
-      exchangeService.selectedPeriod
-    );
-    
-    // 빈 셀인 경우 경로 탐색하지 않음
-    if (_isSelectedCellEmpty()) {
-      AppLogger.exchangeDebug('1:1교체: 빈 셀 선택 - 경로 탐색 건너뜀');
-      onEmptyCellSelected();
-      return;
-    }
-
-    // 교체 가능한 시간 탐색 및 표시 (비동기 방식)
-    updateExchangeableTimesWithProgress().then((_) {
-      // 경로 탐색 완료 후 테마 기반 헤더 업데이트
-      updateHeaderTheme();
-    });
-  }
-
-  /// 순환교체 셀 선택 후 처리 로직
-  Future<void> processCircularCellSelection() async {
-    AppLogger.exchangeDebug('순환교체: 셀 선택 후 처리 시작');
+  /// 셀 선택 후 공통 처리 로직
+  Future<void> _processCommonCellSelection(String modeName) async {
+    final service = _getCurrentService();
 
     // 데이터 소스에 선택 상태 업데이트
     dataSource?.updateSelection(
-      circularExchangeService.selectedTeacher,
-      circularExchangeService.selectedDay,
-      circularExchangeService.selectedPeriod
+      service.selectedTeacher,
+      service.selectedDay,
+      service.selectedPeriod
     );
-
-    // 테마 기반 헤더 업데이트
-    updateHeaderTheme();
 
     // 빈 셀인 경우 경로 탐색하지 않음
     if (_isSelectedCellEmpty()) {
-      AppLogger.exchangeDebug('순환교체: 빈 셀 선택 - 경로 탐색 건너뜀');
-      onEmptyCellSelected();
+      AppLogger.exchangeDebug('$modeName: 빈 셀 선택 - 경로 탐색 건너뜀');
+      if (isChainExchangeModeEnabled) {
+        onEmptyChainCellSelected();
+      } else {
+        onEmptyCellSelected();
+      }
       return;
     }
 
-    // 순환 교체 경로 찾기 시작 (구현 클래스에서 처리)
-    if (timetableData != null) {
-      await findCircularPathsWithProgress();
+    // 1:1 교체는 동기 방식, 나머지는 비동기
+    if (isExchangeModeEnabled) {
+      updateExchangeableTimesWithProgress().then((_) {
+        updateHeaderTheme();
+      });
+    } else {
+      updateHeaderTheme();
+      if (timetableData != null) {
+        if (isCircularExchangeModeEnabled) {
+          await findCircularPathsWithProgress();
+        } else if (isChainExchangeModeEnabled) {
+          await findChainPathsWithProgress();
+        }
+      }
     }
   }
+
+  /// 셀 선택 후 처리 로직 (1:1 교체)
+  void processCellSelection() => _processCommonCellSelection('1:1교체');
+
+  /// 순환교체 셀 선택 후 처리 로직
+  Future<void> processCircularCellSelection() async =>
+      await _processCommonCellSelection('순환교체');
 
   /// 연쇄교체 셀 선택 후 처리 로직
-  Future<void> processChainCellSelection() async {
-    AppLogger.exchangeDebug('연쇄교체: 셀 선택 후 처리 시작');
-
-    // 데이터 소스에 선택 상태 업데이트 (1:1/순환 교체와 동일한 방법)
-    dataSource?.updateSelection(
-      chainExchangeService.selectedTeacher,
-      chainExchangeService.selectedDay,
-      chainExchangeService.selectedPeriod
-    );
-
-    // 테마 기반 헤더 업데이트
-    updateHeaderTheme();
-
-    // 빈 셀인 경우 경로 탐색하지 않음
-    if (_isSelectedCellEmpty()) {
-      AppLogger.exchangeDebug('연쇄교체: 빈 셀 선택 - 경로 탐색 건너뜀');
-      onEmptyChainCellSelected();
-      return;
-    }
-
-    // 연쇄 교체 경로 찾기 시작 (구현 클래스에서 처리)
-    if (timetableData != null) {
-      await findChainPathsWithProgress();
-    }
-  }
+  Future<void> processChainCellSelection() async =>
+      await _processCommonCellSelection('연쇄교체');
   
   /// 셀이 비어있지 않은지 확인 (과목이나 학급이 있는지 검사)
   /// 
@@ -227,32 +201,29 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
     }
   }
 
+  /// 현재 활성 모드에 맞는 서비스 반환
+  BaseExchangeService _getCurrentService() {
+    if (isChainExchangeModeEnabled) return chainExchangeService;
+    if (isCircularExchangeModeEnabled) return circularExchangeService;
+    return exchangeService;
+  }
+
   /// 선택된 셀이 빈 셀인지 확인 (모든 교체 모드용)
   bool _isSelectedCellEmpty() {
-    // 현재 교체 모드에 따라 적절한 서비스 선택
-    String? teacher;
-    String? day;
-    int? period;
-    
-    if (isChainExchangeModeEnabled) {
-      teacher = chainExchangeService.selectedTeacher;
-      day = chainExchangeService.selectedDay;
-      period = chainExchangeService.selectedPeriod;
-    } else if (isCircularExchangeModeEnabled) {
-      teacher = circularExchangeService.selectedTeacher;
-      day = circularExchangeService.selectedDay;
-      period = circularExchangeService.selectedPeriod;
-    } else {
-      teacher = exchangeService.selectedTeacher;
-      day = exchangeService.selectedDay;
-      period = exchangeService.selectedPeriod;
-    }
-    
-    if (teacher == null || day == null || period == null || timetableData == null) {
+    final service = _getCurrentService();
+
+    if (service.selectedTeacher == null ||
+        service.selectedDay == null ||
+        service.selectedPeriod == null ||
+        timetableData == null) {
       return true;
     }
 
-    return !_isCellNotEmpty(teacher, day, period);
+    return !_isCellNotEmpty(
+      service.selectedTeacher!,
+      service.selectedDay!,
+      service.selectedPeriod!
+    );
   }
 
   /// 교체 가능한 시간 업데이트 (비동기 방식)

@@ -28,7 +28,7 @@ class ChainExchangeService extends BaseExchangeService {
   // ==================== 상수 정의 ====================
 
   /// 연쇄교체 경로 디버그 콘솔 출력 여부
-  static const bool enablePathDebugLogging = true;
+  static const bool enablePathDebugLogging = false;
 
   // ==================== 인스턴스 변수 ====================
 

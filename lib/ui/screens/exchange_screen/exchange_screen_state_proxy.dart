@@ -9,7 +9,6 @@ import '../../../utils/exchange_path_utils.dart';
 import '../../../models/exchange_mode.dart';
 import '../../../providers/exchange_screen_provider.dart';
 import '../../../services/excel_service.dart';
-import '../../../utils/logger.dart';
 
 /// ExchangeScreen의 모든 Provider 상태 접근을 중앙 집중화하는 Proxy 클래스
 ///
@@ -22,8 +21,6 @@ class ExchangeScreenStateProxy {
 
   // Private helpers
   ExchangeScreenNotifier get _notifier => ref.read(exchangeScreenProvider.notifier);
-  // 🔥 중요: ref.read 대신 ref.watch를 사용하면 재시작 후에도 최신 상태를 가져올 수 있음
-  // 하지만 getter에서는 watch를 사용할 수 없으므로, 호출 시점에 직접 읽도록 변경
   ExchangeScreenState _getState() => ref.read(exchangeScreenProvider);
 
   // ===== ExchangeLogicMixin 관련 상태 =====
@@ -52,23 +49,11 @@ class ExchangeScreenStateProxy {
 
   // ===== ExchangeFileHandler 관련 상태 =====
 
-  // 🔥 중요: 재시작 후 timetableData가 비어있을 수 있는 문제 해결
-  // 매번 최신 상태를 읽도록 수정 (ref.read는 항상 최신 상태를 반환)
-  TimetableData? get timetableData {
-    final state = _getState();
-    final data = state.timetableData;
-    // 디버깅: 빈 timeSlots 확인
-    if (data != null && data.timeSlots.isEmpty) {
-      AppLogger.exchangeDebug('⚠️ [ExchangeScreenStateProxy] timetableData.timeSlots가 비어있습니다! teachers=${data.teachers.length}');
-    }
-    return data;
-  }
+  TimetableData? get timetableData => _getState().timetableData;
   void setTimetableData(TimetableData? value) => _notifier.setTimetableData(value);
 
   File? get selectedFile => _getState().selectedFile;
   void setSelectedFile(File? value) => _notifier.setSelectedFile(value);
-
-  int get fileLoadId => _getState().fileLoadId;
 
   bool get isLoading => _getState().isLoading;
   void setLoading(bool value) => _notifier.setLoading(value);
