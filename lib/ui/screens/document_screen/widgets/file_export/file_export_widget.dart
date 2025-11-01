@@ -145,21 +145,53 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
       final settings = await _pdfSettingsStorage.loadPdfExportSettings();
       if (settings != null) {
         setState(() {
-          _fontSize = (settings['fontSize'] as num?)?.toDouble() ?? 10.0;
-          _remarksFontSize = (settings['remarksFontSize'] as num?)?.toDouble() ?? 7.0;
-          _selectedFont = settings['selectedFont'] as String? ?? KoreanFontConstants.defaultFont;
+            _fontSize = (settings['fontSize'] as num?)?.toDouble() ?? 10.0;
+            _remarksFontSize = (settings['remarksFontSize'] as num?)?.toDouble() ?? 7.0;
+            
+            // 폰트 값 유효성 검사: 드롭다운 아이템에 있는 값인지 확인
+            final savedFont = settings['selectedFont'] as String?;
+            final availableFonts = KoreanFontConstants.fontListWithNames
+                .map((font) => font['file']!)
+                .toList();
+            // 저장된 폰트가 유효한 목록에 있는지 확인하고, 없으면 기본 폰트 사용
+            _selectedFont = (savedFont != null && availableFonts.contains(savedFont))
+                ? savedFont
+                : KoreanFontConstants.defaultFont;
           _includeRemarks = settings['includeRemarks'] as bool? ?? true;
           
           // 추가 필드 로드 (결강기간 제외 - 자동 계산값으로 덮어씀)
           final additionalFields = settings['additionalFields'] as Map<String, dynamic>?;
           if (additionalFields != null) {
-            _teacherNameController.text = additionalFields['teacherName'] as String? ?? '';
+            // 결강교사: 저장된 값이 있으면 사용, 없으면 기본값 사용
+            final savedTeacherName = additionalFields['teacherName'] as String? ?? '';
+            final defaultTeacherName = (settings['defaultTeacherName'] as String?)?.trim() ?? '';
+            _teacherNameController.text = savedTeacherName.isNotEmpty 
+                ? savedTeacherName 
+                : defaultTeacherName;
+            
             // 결강기간은 자동 계산으로 덮어씌우므로 저장된 값은 무시
             // _absencePeriodController.text = additionalFields['absencePeriod'] as String? ?? '';
             _workStatusController.text = additionalFields['workStatus'] as String? ?? '';
             _reasonForAbsenceController.text = additionalFields['reasonForAbsence'] as String? ?? '';
-            _schoolNameController.text = additionalFields['schoolName'] as String? ?? '';
+            
+            // 학교명: 저장된 값이 있으면 사용, 없으면 기본값 사용
+            final savedSchoolName = additionalFields['schoolName'] as String? ?? '';
+            final defaultSchoolName = (settings['defaultSchoolName'] as String?)?.trim() ?? '';
+            _schoolNameController.text = savedSchoolName.isNotEmpty 
+                ? savedSchoolName 
+                : defaultSchoolName;
+            
             _notesController.text = additionalFields['notes'] as String? ?? PdfNotesTemplate.defaultNotes;
+          } else {
+            // additionalFields가 없을 때는 기본값만 로드
+            final defaultTeacherName = (settings['defaultTeacherName'] as String?)?.trim() ?? '';
+            final defaultSchoolName = (settings['defaultSchoolName'] as String?)?.trim() ?? '';
+            if (defaultTeacherName.isNotEmpty) {
+              _teacherNameController.text = defaultTeacherName;
+            }
+            if (defaultSchoolName.isNotEmpty) {
+              _schoolNameController.text = defaultSchoolName;
+            }
           }
         });
       }

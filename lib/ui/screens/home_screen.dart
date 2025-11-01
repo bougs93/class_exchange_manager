@@ -15,6 +15,8 @@ import '../../ui/screens/exchange_screen/managers/exchange_operation_manager.dar
 import '../../utils/simplified_timetable_theme.dart';
 import '../../utils/logger.dart';
 import '../../ui/widgets/timetable_grid/exchange_executor.dart';
+import '../../services/app_settings_storage_service.dart';
+import '../../services/pdf_export_settings_storage_service.dart';
 import 'dart:io';
 
 /// 메인 홈 화면 - Drawer 메뉴가 있는 Scaffold
@@ -113,6 +115,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         await substitutionPlanNotifier.loadFromStorage();
       } catch (e) {
         AppLogger.error('결보강 계획서 날짜 정보 로드 중 오류: $e', e);
+      }
+
+      // 5. 앱 설정 로드 (언어 설정)
+      try {
+        final appSettings = AppSettingsStorageService();
+        await appSettings.getLanguageCode(); // 설정 캐시를 위해 미리 로드
+        AppLogger.info('앱 설정 로드 완료');
+      } catch (e) {
+        AppLogger.error('앱 설정 로드 중 오류: $e', e);
+      }
+
+      // 6. 기본 교사명과 학교명 로드 (설정 화면 표시용)
+      try {
+        final pdfSettings = PdfExportSettingsStorageService();
+        await pdfSettings.loadDefaultTeacherAndSchoolName(); // 설정 캐시를 위해 미리 로드
+        AppLogger.info('기본 교사명과 학교명 로드 완료');
+      } catch (e) {
+        AppLogger.error('기본 교사명과 학교명 로드 중 오류: $e', e);
       }
 
       setState(() {});

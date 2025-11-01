@@ -246,6 +246,47 @@ class StorageService {
       return [];
     }
   }
+  
+  /// 모든 JSON 파일 삭제
+  /// 
+  /// 앱 데이터 디렉토리에 있는 모든 JSON 파일을 삭제합니다.
+  /// 
+  /// 반환값:
+  /// - `Future<Map<String, bool>>`: 삭제 결과 맵 (키: 파일명, 값: 삭제 성공 여부)
+  Future<Map<String, bool>> deleteAllJsonFiles() async {
+    final results = <String, bool>{};
+    
+    try {
+      // 모든 JSON 파일 목록 가져오기
+      final jsonFiles = await listJsonFiles();
+      
+      AppLogger.info('JSON 파일 삭제 시작: ${jsonFiles.length}개 파일');
+      
+      // 각 파일 삭제
+      for (String filename in jsonFiles) {
+        try {
+          final success = await deleteFile(filename);
+          results[filename] = success;
+          
+          if (success) {
+            AppLogger.info('JSON 파일 삭제 성공: $filename');
+          } else {
+            AppLogger.warning('JSON 파일 삭제 실패: $filename');
+          }
+        } catch (e) {
+          AppLogger.error('JSON 파일 삭제 중 오류 ($filename): $e', e);
+          results[filename] = false;
+        }
+      }
+      
+      AppLogger.info('모든 JSON 파일 삭제 완료: 성공 ${results.values.where((v) => v).length}개 / 전체 ${results.length}개');
+      
+      return results;
+    } catch (e) {
+      AppLogger.error('모든 JSON 파일 삭제 중 오류: $e', e);
+      return results;
+    }
+  }
 }
 
 
