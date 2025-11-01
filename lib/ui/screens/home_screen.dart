@@ -238,10 +238,51 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  // 엑셀 파일 선택 해제 메서드
-  void _clearSelectedFile() {
-    _operationManager?.clearSelectedFile();
-    if (mounted) setState(() {});
+  // 엑셀 파일 선택 해제 메서드 (확인 다이얼로그 포함)
+  Future<void> _clearSelectedFile() async {
+    // 확인 다이얼로그 표시
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.orange.shade700,
+                size: 28,
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text('파일 선택 해제'),
+              ),
+            ],
+          ),
+          content: const Text(
+            '선택된 시간표 파일을 해제하시겠습니까?\n해제하면 현재 로드된 시간표 정보가 삭제됩니다.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              child: const Text('해제'),
+            ),
+          ],
+        );
+      },
+    );
+
+    // 확인 버튼을 눌렀을 때만 파일 해제
+    if (confirm == true && mounted) {
+      _operationManager?.clearSelectedFile();
+      if (mounted) setState(() {});
+    }
   }
 
 
