@@ -106,14 +106,21 @@ class NonExchangeableManager {
         slot.isExchangeable = true;
         slot.exchangeReason = null;
       }
-      AppLogger.exchangeDebug('교사 "$teacherName"의 모든 시간을 교체 가능으로 설정');
+      AppLogger.exchangeDebug('교사 "$teacherName"의 모든 시간을 교체 가능으로 설정 (${teacherSlots.length}개 TimeSlot)');
     } else {
       // 일부 또는 전체가 교체가능 -> 모두 교체불가로
+      int modifiedCount = 0;
       for (var slot in teacherSlots) {
         slot.isExchangeable = false;
         slot.exchangeReason = '교체불가';
+        modifiedCount++;
+        
+        // 검증 로그 (처음 3개만)
+        if (modifiedCount <= 3) {
+          AppLogger.exchangeDebug('  ✓ TimeSlot 설정: teacher=${slot.teacher}, dayOfWeek=${slot.dayOfWeek}, period=${slot.period}, isExchangeable=${slot.isExchangeable}, exchangeReason=${slot.exchangeReason}');
+        }
       }
-      AppLogger.exchangeDebug('교사 "$teacherName"의 모든 시간을 교체 불가능으로 설정');
+      AppLogger.exchangeDebug('교사 "$teacherName"의 모든 시간을 교체 불가능으로 설정 ($modifiedCount개 TimeSlot, isExchangeable=false 확인됨)');
     }
   }
 

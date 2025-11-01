@@ -86,6 +86,18 @@ class TimetableStorageService {
       final nonEmptySlots = timetableData.timeSlots.where((slot) => slot.isNotEmpty).length;
       AppLogger.info('수업이 있는 TimeSlot: $nonEmptySlots개 / 전체 ${timetableData.timeSlots.length}개');
       
+      // 교체불가 셀 개수 확인
+      final nonExchangeableSlots = timetableData.timeSlots.where((slot) => 
+        !slot.isExchangeable && slot.exchangeReason == '교체불가'
+      ).toList();
+      AppLogger.info('교체불가 셀 개수: ${nonExchangeableSlots.length}개');
+      if (nonExchangeableSlots.isNotEmpty) {
+        AppLogger.info('교체불가 셀 샘플 (최대 5개):');
+        for (var slot in nonExchangeableSlots.take(5)) {
+          AppLogger.info('  - teacher=${slot.teacher}, dayOfWeek=${slot.dayOfWeek}, period=${slot.period}, isExchangeable=${slot.isExchangeable}, exchangeReason=${slot.exchangeReason}');
+        }
+      }
+      
       // JSON 파일로 저장
       final success = await _storageService.saveJson(filename, jsonData);
       
@@ -146,11 +158,23 @@ class TimetableStorageService {
       final nonEmptySlots = timetableData.timeSlots.where((slot) => slot.isNotEmpty).length;
       AppLogger.info('수업이 있는 TimeSlot: $nonEmptySlots개 / 전체 ${timetableData.timeSlots.length}개');
       
+      // 교체불가 셀 개수 확인
+      final nonExchangeableSlots = timetableData.timeSlots.where((slot) => 
+        !slot.isExchangeable && slot.exchangeReason == '교체불가'
+      ).toList();
+      AppLogger.info('교체불가 셀 개수: ${nonExchangeableSlots.length}개');
+      if (nonExchangeableSlots.isNotEmpty) {
+        AppLogger.info('교체불가 셀 샘플 (최대 5개):');
+        for (var slot in nonExchangeableSlots.take(5)) {
+          AppLogger.info('  - teacher=${slot.teacher}, dayOfWeek=${slot.dayOfWeek}, period=${slot.period}, isExchangeable=${slot.isExchangeable}, exchangeReason=${slot.exchangeReason}');
+        }
+      }
+      
       // 샘플 TimeSlot 확인 (최대 5개)
       final sampleSlots = timetableData.timeSlots.where((slot) => slot.isNotEmpty).take(5).toList();
       AppLogger.info('TimeSlot 샘플 (최대 5개):');
       for (var slot in sampleSlots) {
-        AppLogger.info('  - teacher=${slot.teacher}, dayOfWeek=${slot.dayOfWeek}, period=${slot.period}, subject=${slot.subject}, className=${slot.className}');
+        AppLogger.info('  - teacher=${slot.teacher}, dayOfWeek=${slot.dayOfWeek}, period=${slot.period}, subject=${slot.subject}, className=${slot.className}, isExchangeable=${slot.isExchangeable}');
       }
       
       return timetableData;
@@ -193,6 +217,16 @@ class TimetableStorageService {
       AppLogger.error('파일 메타데이터 로드 실패: $e', e);
       return null;
     }
+  }
+  
+  /// 파일 메타데이터 가져오기 (public)
+  /// 
+  /// 다른 서비스에서 해시값을 가져올 때 사용합니다.
+  /// 
+  /// 반환값:
+  /// - `Future<Map<String, dynamic>?>`: 메타데이터 (없으면 null)
+  Future<Map<String, dynamic>?> getFileMetadata() async {
+    return await _loadFileMetadata();
   }
   
   /// 엑셀 파일의 수정 시간과 저장된 수정 시간 비교

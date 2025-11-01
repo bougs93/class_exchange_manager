@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'storage_service.dart';
 import '../utils/logger.dart';
 
@@ -18,16 +19,23 @@ class TimetableThemeStorageService {
   /// 
   /// 매개변수:
   /// - `fontScaleFactor`: 폰트 사이즈 배율
+  /// - `nonExchangeableColor`: 교체불가 셀 색상 (ARGB 값, int로 저장)
   /// 
   /// 반환값:
   /// - `Future<bool>`: 저장 성공 여부
   Future<bool> saveThemeSettings({
     required double fontScaleFactor,
+    int? nonExchangeableColor,
   }) async {
     try {
-      final settings = {
+      final settings = <String, dynamic>{
         'fontScaleFactor': fontScaleFactor,
       };
+      
+      // 교체불가 색상이 제공된 경우에만 저장
+      if (nonExchangeableColor != null) {
+        settings['nonExchangeableColor'] = nonExchangeableColor;
+      }
       
       final success = await _storageService.saveJson('timetable_theme.json', settings);
       
@@ -83,6 +91,29 @@ class TimetableThemeStorageService {
     } catch (e) {
       AppLogger.error('폰트 사이즈 배율 가져오기 실패: $e', e);
       return 1.0; // 기본값
+    }
+  }
+  
+  /// 교체불가 셀 색상 가져오기
+  /// 
+  /// 반환값:
+  /// - `Future<Color?>`: 교체불가 셀 색상 (없으면 null, 기본값 사용)
+  Future<Color?> getNonExchangeableColor() async {
+    try {
+      final settings = await loadThemeSettings();
+      if (settings == null) {
+        return null;
+      }
+      
+      final colorValue = settings['nonExchangeableColor'] as int?;
+      if (colorValue == null) {
+        return null;
+      }
+      
+      return Color(colorValue);
+    } catch (e) {
+      AppLogger.error('교체불가 셀 색상 가져오기 실패: $e', e);
+      return null;
     }
   }
 }

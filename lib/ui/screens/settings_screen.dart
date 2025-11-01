@@ -193,6 +193,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           '다음 데이터가 삭제됩니다:\n'
           '• 시간표 데이터\n'
           '• 교체 리스트\n'
+          '• 교체불가 셀 데이터\n'
           '• 결보강 계획서 데이터\n'
           '• PDF 출력 설정\n'
           '• 시간표 테마 설정\n'
@@ -374,34 +375,60 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         else
           Column(
             children: [
-              // 교사명 입력 필드
-              TextField(
-                controller: _teacherNameController,
-                decoration: const InputDecoration(
-                  labelText: '교사명',
-                  hintText: '교사명을 입력하세요',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.person),
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                ),
-                textInputAction: TextInputAction.next,
+              // 교사명 입력 필드 (레이블과 입력 필드를 한 행에)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Text(
+                    '교사명 :',
+                    style: TextStyle(
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _teacherNameController,
+                      decoration: const InputDecoration(
+                        hintText: '교사명을 입력하세요',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.person),
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      ),
+                      textInputAction: TextInputAction.next,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               
-              // 학교명 입력 필드
-              TextField(
-                controller: _schoolNameController,
-                decoration: const InputDecoration(
-                  labelText: '학교명',
-                  hintText: '학교명을 입력하세요',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.school),
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                ),
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _saveTeacherAndSchoolName(),
+              // 학교명 입력 필드 (레이블과 입력 필드를 한 행에)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Text(
+                    '학교명 :',
+                    style: TextStyle(
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _schoolNameController,
+                      decoration: const InputDecoration(
+                        hintText: '학교명을 입력하세요',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.school),
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      ),
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => _saveTeacherAndSchoolName(),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               
@@ -448,7 +475,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         const SizedBox(height: 8),
         const Text(
           '모든 저장된 데이터를 삭제합니다.\n'
-          '시간표, 교체 리스트, 결보강 계획서, 설정 등 모든 JSON 파일이 삭제됩니다.',
+          '시간표, 교체 리스트, 교체불가 셀 데이터, 결보강 계획서, 설정 등 모든 데이터 파일이 삭제됩니다.',
           style: TextStyle(
             fontSize: 14,
             color: Colors.grey,

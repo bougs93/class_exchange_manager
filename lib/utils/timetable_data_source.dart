@@ -9,9 +9,12 @@ import '../models/chain_exchange_path.dart';
 import '../models/supplement_exchange_path.dart';
 import '../ui/widgets/simplified_timetable_cell.dart';
 import '../providers/cell_selection_provider.dart';
+import '../services/non_exchangeable_data_storage_service.dart';
 import 'exchange_algorithm.dart';
 import 'day_utils.dart';
 import 'non_exchangeable_manager.dart';
+import 'simplified_timetable_theme.dart';
+import 'logger.dart';
 
 /// 셀 상태 정보를 담는 클래스
 class CellStateInfo {
@@ -510,13 +513,37 @@ class TimetableDataSource extends DataGridSource {
   /// 특정 교사의 모든 TimeSlot을 교체가능/교체불가로 토글
   void toggleTeacherAllTimes(String teacherName) {
     _nonExchangeableManager.toggleTeacherAllTimes(teacherName);
+    
+    // 교체불가 셀 데이터 저장 (별도 파일로 저장)
+    _saveNonExchangeableCells();
+    
     _clearCacheAndNotify();
   }
 
   /// 특정 셀을 교체불가로 설정 또는 해제 (토글 방식, 빈 셀 포함)
   void setCellAsNonExchangeable(String teacherName, String day, int period) {
     _nonExchangeableManager.setCellAsNonExchangeable(teacherName, day, period);
+    
+    // 교체불가 셀 테마 색상 저장 (현재 색상 유지하면서 저장)
+    // 클릭 시마다 현재 색상 설정을 저장하여 일관성 유지
+    SimplifiedTimetableTheme.setNonExchangeableColor(SimplifiedTimetableTheme.nonExchangeableColor);
+    
+    // 교체불가 셀 데이터 저장 (별도 파일로 저장)
+    _saveNonExchangeableCells();
+    
     _clearCacheAndNotify();
+  }
+  
+  /// 교체불가 셀 데이터 저장 (별도 파일로 저장)
+  Future<void> _saveNonExchangeableCells() async {
+    try {
+      // 싱글톤 인스턴스 가져오기
+      final storageService = NonExchangeableDataStorageService();
+      final cells = storageService.extractNonExchangeableCellsFromTimeSlots(_timeSlots);
+      await storageService.saveNonExchangeableCells(cells);
+    } catch (e) {
+      AppLogger.error('교체불가 셀 데이터 저장 중 오류: $e', e);
+    }
   }
 
   /// 모든 교체불가 설정 초기화

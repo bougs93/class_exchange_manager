@@ -11,9 +11,23 @@ class SimplifiedTimetableTheme {
   /// 동적 폰트 사이즈 배율 (확대/축소용)
   static double _fontScaleFactor = 1.0;
   
+  /// 교체불가 셀 색상 (저장/로드 가능)
+  /// 기본값: 연한 빨간색 (0xFFFFCDD2)
+  static Color _nonExchangeableColor = const Color(0xFFFFCDD2);
+  
   /// 폰트 사이즈 배율 설정 (줌 인/아웃 시 호출)
   static void setFontScaleFactor(double factor) {
     _fontScaleFactor = factor;
+    // 테마 설정 저장
+    _saveThemeSettings();
+  }
+  
+  /// 교체불가 셀 색상 설정
+  /// 
+  /// 매개변수:
+  /// - `color`: 설정할 색상
+  static void setNonExchangeableColor(Color color) {
+    _nonExchangeableColor = color;
     // 테마 설정 저장
     _saveThemeSettings();
   }
@@ -24,7 +38,10 @@ class SimplifiedTimetableTheme {
   /// 테마 설정 저장
   static Future<void> _saveThemeSettings() async {
     try {
-      await _themeStorage.saveThemeSettings(fontScaleFactor: _fontScaleFactor);
+      await _themeStorage.saveThemeSettings(
+        fontScaleFactor: _fontScaleFactor,
+        nonExchangeableColor: _nonExchangeableColor.toARGB32(), // ARGB 값으로 저장
+      );
     } catch (e) {
       AppLogger.error('테마 설정 저장 실패: $e', e);
     }
@@ -35,8 +52,20 @@ class SimplifiedTimetableTheme {
   /// 프로그램 시작 시 호출되어 저장된 테마 설정을 로드합니다.
   static Future<void> loadThemeSettings() async {
     try {
+      // 폰트 사이즈 배율 로드
       final fontScaleFactor = await _themeStorage.getFontScaleFactor();
       _fontScaleFactor = fontScaleFactor;
+      
+      // 교체불가 셀 색상 로드
+      final loadedColor = await _themeStorage.getNonExchangeableColor();
+      if (loadedColor != null) {
+        _nonExchangeableColor = loadedColor;
+        AppLogger.info('교체불가 셀 색상 로드 완료: ${_nonExchangeableColor.toARGB32().toRadixString(16)}');
+      } else {
+        // 저장된 색상이 없으면 기본값 유지
+        AppLogger.info('교체불가 셀 색상: 기본값 사용');
+      }
+      
       AppLogger.info('테마 설정 로드 완료: fontScaleFactor=$fontScaleFactor');
     } catch (e) {
       AppLogger.error('테마 설정 로드 실패: $e', e);
@@ -45,6 +74,9 @@ class SimplifiedTimetableTheme {
   
   /// 현재 폰트 사이즈 배율 반환
   static double get fontScaleFactor => _fontScaleFactor;
+  
+  /// 현재 교체불가 셀 색상 반환
+  static Color get nonExchangeableColor => _nonExchangeableColor;
   
   // 색상 정의 (public으로 변경하여 다른 테마에서 참조 가능)
   static const Color defaultColor = Colors.white;
@@ -108,8 +140,8 @@ class SimplifiedTimetableTheme {
   static const Color overlayColorSelected = Color(0xFFD32F2F); // 진한 빨간색
   static const Color overlayColorExchangeable = Color.fromARGB(255, 250, 160, 169); // 연한 빨간색 (Colors.red.shade200의 실제 색상값)
   
-  // 교체불가 셀 색상
-  static const Color nonExchangeableColor = Color(0xFFFFCDD2); // 연한 빨간색 배경
+  // 교체불가 셀 색상은 getter를 통해 접근: SimplifiedTimetableTheme.nonExchangeableColor
+  // 기본값: 연한 빨간색 (0xFFFFCDD2)
   
   // ==================== 교체된 셀 선택 시 헤더 색상 제어 메서드 ====================
   
@@ -194,9 +226,9 @@ class SimplifiedTimetableTheme {
       return exchangedDestinationCellBackgroundColor;
     }
     
-    // 교체불가 셀인 경우 빨간색 배경
+    // 교체불가 셀인 경우 빨간색 배경 (저장된 색상 또는 기본값)
     if (isNonExchangeable) {
-      return nonExchangeableColor;
+      return _nonExchangeableColor;
     }
     
     // 다른 상태들 (타겟 셀이 아닌 경우에만 적용)

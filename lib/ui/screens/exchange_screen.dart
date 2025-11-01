@@ -332,12 +332,23 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
 
   /// 셀을 교체불가로 설정 또는 해제 (ViewModel 사용)
+  /// 
+  /// 교체불가 셀 클릭 시:
+  /// 1. TimeSlot의 isExchangeable과 exchangeReason 변경 (메모리)
+  /// 2. 교체불가 테마 색상 저장 (SimplifiedTimetableTheme)
+  /// 3. 교체불가 셀 데이터 별도 파일로 저장 (NonExchangeableDataStorageService)
+  /// 
+  /// 프로그램 시작 시 저장된 교체불가 데이터가 자동으로 로드되어
+  /// TimeSlot의 isExchangeable = false로 설정되고 테마 색상이 적용됩니다.
   void _setCellAsNonExchangeable(DataGridCellTapDetails details) {
     final viewModel = ref.read(exchangeScreenViewModelProvider);
     viewModel.setCellAsNonExchangeable(details, _timetableData, _dataSource);
 
     // DataGrid 강제 업데이트 (캐시 무효화 및 재렌더링)
     _dataSource?.notifyDataChanged();
+    
+    // 교체불가 테마 색상과 데이터는 TimetableDataSource.setCellAsNonExchangeable()에서
+    // 자동으로 저장됩니다 (SimplifiedTimetableTheme + NonExchangeableDataStorageService).
   }
 
   /// 셀에서 교사명 추출 (ViewModel 위임)
