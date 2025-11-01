@@ -218,6 +218,12 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
       
       // 🔥 수업있음 판단 과정 상세 로그 (TimeSlot.isEmpty/isNotEmpty getter 사용 - 중복 계산 제거)
       AppLogger.exchangeDebug('📊 [교체관리] 수업있음 판단 시작: $teacherName $day$period교시');
+      AppLogger.exchangeDebug('  - 검색할 교사명: "$teacherName" (문자열 길이: ${teacherName.length}, 바이트: ${teacherName.codeUnits})');
+      AppLogger.exchangeDebug('  - 전체 TimeSlot 개수: ${timetableData!.timeSlots.length}');
+      
+      // 🔍 디버깅: timetableData.timeSlots에서 해당 교사명이 있는지 확인
+      final matchingTeacherCount = timetableData!.timeSlots.where((slot) => slot.teacher == teacherName).length;
+      AppLogger.exchangeDebug('  - 같은 교사명을 가진 TimeSlot 개수: $matchingTeacherCount');
       
       // BaseExchangeService의 공통 메서드 사용 (중복 로직 제거)
       final timeSlot = exchangeService.findTimeSlot(

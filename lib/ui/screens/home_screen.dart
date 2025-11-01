@@ -45,12 +45,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         onCreateSyncfusionGridData: () {
           // 파일이 선택되고 파싱이 완료된 후 시간표 그리드 생성
           if (mounted) {
-            // 글로벌 Provider에 시간표 데이터 저장하여 다른 화면과 공유
+            // 🔥 중요: Provider에서 직접 읽어서 사용 (최신 상태 보장)
             final globalNotifier = ref.read(exchangeScreenProvider.notifier);
-            final timetableData = _stateProxy!.timetableData;
+            final timetableData = ref.read(exchangeScreenProvider).timetableData;
             
-            if (timetableData != null) {
-              globalNotifier.setTimetableData(timetableData);
+            // Provider에 데이터가 없으면 StateProxy에서 다시 확인
+            if (timetableData == null || timetableData.timeSlots.isEmpty) {
+              final proxyData = _stateProxy!.timetableData;
+              if (proxyData != null && proxyData.timeSlots.isNotEmpty) {
+                AppLogger.info('🔄 [HomeScreen] onCreateSyncfusionGridData: Provider는 비어있지만 Proxy에 데이터 있음. 다시 설정합니다.');
+                globalNotifier.setTimetableData(proxyData);
+              }
             }
             
             setState(() {});
@@ -99,8 +104,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (timetableData != null) {
         // 시간표 데이터가 있으면 자동으로 로드
         if (mounted) {
+          // 🔥 중요: 데이터 검증 로그 추가
+          AppLogger.info('🔄 [HomeScreen] timetableData 로드 완료: ${timetableData.teachers.length}명 교사, ${timetableData.timeSlots.length}개 TimeSlot');
+          
           final globalNotifier = ref.read(exchangeScreenProvider.notifier);
           globalNotifier.setTimetableData(timetableData);
+          
+          // 🔥 중요: Provider 설정 후 즉시 확인
+          final verifyState = ref.read(exchangeScreenProvider);
+          AppLogger.info('🔄 [HomeScreen] Provider 설정 확인: teachers=${verifyState.timetableData?.teachers.length ?? 0}명, timeSlots=${verifyState.timetableData?.timeSlots.length ?? 0}개');
           
           // 저장된 파일 경로 가져오기
           final savedFilePath = await timetableStorage.getSavedFilePath();
@@ -112,10 +124,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             }
           }
           
+          // 🔥 중요: onCreateSyncfusionGridData 콜백에서 직접 timetableData를 사용하도록 수정 필요
+          // 하지만 현재 구조상 콜백이 timetableData를 받지 않으므로, 
+          // Provider가 업데이트되었는지 확인 후 호출
           // 시간표 그리드 데이터 생성
           if (_operationManager != null) {
-            final onCreateSyncfusionGridData = _operationManager!.onCreateSyncfusionGridData;
-            onCreateSyncfusionGridData();
+            // Provider 업데이트 후 약간의 지연을 주어 상태 반영 보장
+            await Future.delayed(const Duration(milliseconds: 50));
+            
+            final verifyState2 = ref.read(exchangeScreenProvider);
+            if (verifyState2.timetableData != null && verifyState2.timetableData!.timeSlots.isNotEmpty) {
+              final onCreateSyncfusionGridData = _operationManager!.onCreateSyncfusionGridData;
+              onCreateSyncfusionGridData();
+            } else {
+              AppLogger.error('⚠️ [HomeScreen] Provider에 timetableData가 설정되지 않았습니다!');
+            }
           }
           
           // 3-1. 교체된 셀 테마 복원 (시간표 데이터 로드 및 그리드 생성 후)

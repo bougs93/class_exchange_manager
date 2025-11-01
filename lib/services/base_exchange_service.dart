@@ -2,6 +2,7 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../utils/timetable_data_source.dart';
 import '../models/time_slot.dart';
 import '../utils/day_utils.dart';
+import '../utils/logger.dart';
 
 /// 교체 서비스의 공통 베이스 클래스
 ///
@@ -135,14 +136,53 @@ abstract class BaseExchangeService {
   }) {
     final dayNumber = DayUtils.getDayNumber(day);
     
+    // 🔍 디버깅: 검색 조건 로그
+    AppLogger.exchangeDebug('🔍 [findTimeSlot] 검색 시작: teacher="$teacherName" (길이: ${teacherName.length}), day=$day (dayNumber=$dayNumber), period=$period');
+    AppLogger.exchangeDebug('🔍 [findTimeSlot] timeSlots 개수: ${timeSlots.length}');
+    
+    // 🔍 디버깅: 해당 교사명을 가진 TimeSlot 샘플 확인
+    final matchingTeacherSlots = timeSlots.where((slot) => slot.teacher != null && slot.teacher == teacherName).take(3).toList();
+    if (matchingTeacherSlots.isNotEmpty) {
+      AppLogger.exchangeDebug('🔍 [findTimeSlot] 같은 교사명 TimeSlot 샘플 (최대 3개):');
+      for (var slot in matchingTeacherSlots) {
+        AppLogger.exchangeDebug('  - teacher="${slot.teacher}" (길이: ${slot.teacher?.length ?? 0}), dayOfWeek=${slot.dayOfWeek}, period=${slot.period}');
+      }
+    } else {
+      AppLogger.exchangeDebug('🔍 [findTimeSlot] ⚠️ 같은 교사명을 가진 TimeSlot이 없습니다!');
+      // 🔍 디버깅: 유사한 교사명 확인
+      final similarSlots = timeSlots.where((slot) => 
+        slot.teacher != null && 
+        (slot.teacher!.contains(teacherName) || teacherName.contains(slot.teacher!))
+      ).take(3).toList();
+      if (similarSlots.isNotEmpty) {
+        AppLogger.exchangeDebug('🔍 [findTimeSlot] 유사한 교사명 TimeSlot 샘플 (최대 3개):');
+        for (var slot in similarSlots) {
+          AppLogger.exchangeDebug('  - teacher="${slot.teacher}" (길이: ${slot.teacher?.length ?? 0}), dayOfWeek=${slot.dayOfWeek}, period=${slot.period}');
+        }
+      }
+    }
+    
     try {
-      return timeSlots.firstWhere(
+      final found = timeSlots.firstWhere(
         (slot) => slot.teacher == teacherName &&
                   slot.dayOfWeek == dayNumber &&
                   slot.period == period &&
                   (!requireNotEmpty || slot.isNotEmpty),
       );
+      AppLogger.exchangeDebug('✅ [findTimeSlot] TimeSlot 찾음: teacher="${found.teacher}", dayOfWeek=${found.dayOfWeek}, period=${found.period}');
+      return found;
     } catch (e) {
+      AppLogger.exchangeDebug('❌ [findTimeSlot] TimeSlot을 찾지 못했습니다: $e');
+      // 🔍 디버깅: 해당 요일/교시의 TimeSlot 확인
+      final matchingDayPeriod = timeSlots.where((slot) => 
+        slot.dayOfWeek == dayNumber && slot.period == period
+      ).take(3).toList();
+      if (matchingDayPeriod.isNotEmpty) {
+        AppLogger.exchangeDebug('🔍 [findTimeSlot] 같은 요일/교시 TimeSlot 샘플 (최대 3개):');
+        for (var slot in matchingDayPeriod) {
+          AppLogger.exchangeDebug('  - teacher="${slot.teacher}" (길이: ${slot.teacher?.length ?? 0}), dayOfWeek=${slot.dayOfWeek}, period=${slot.period}');
+        }
+      }
       return null;
     }
   }
