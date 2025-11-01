@@ -6,10 +6,8 @@ import '../../services/chain_exchange_service.dart';
 import '../../services/excel_service.dart';
 import '../../models/circular_exchange_path.dart';
 import '../../models/chain_exchange_path.dart';
-import '../../models/time_slot.dart';
 import '../../utils/timetable_data_source.dart';
 import '../../utils/exchange_algorithm.dart';
-import '../../utils/day_utils.dart';
 import '../../utils/logger.dart';
 
 /// 교체 로직을 담당하는 Mixin
@@ -209,54 +207,21 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
   /// Returns: `bool` - 수업이 있으면 true, 없으면 false
   bool _isCellNotEmpty(String teacherName, String day, int period) {
     if (timetableData == null) {
-      AppLogger.exchangeDebug('🔄 [교체관리] 셀 확인: timetableData가 null입니다 - $teacherName $day$period교시');
       return false;
     }
-    
+
     try {
-      final dayNumber = DayUtils.getDayNumber(day);
-      
-      // 🔥 수업있음 판단 과정 상세 로그 (TimeSlot.isEmpty/isNotEmpty getter 사용 - 중복 계산 제거)
-      AppLogger.exchangeDebug('📊 [교체관리] 수업있음 판단 시작: $teacherName $day$period교시');
-      AppLogger.exchangeDebug('  - 검색할 교사명: "$teacherName" (문자열 길이: ${teacherName.length}, 바이트: ${teacherName.codeUnits})');
-      AppLogger.exchangeDebug('  - 전체 TimeSlot 개수: ${timetableData!.timeSlots.length}');
-      
-      // 🔍 디버깅: timetableData.timeSlots에서 해당 교사명이 있는지 확인
-      final matchingTeacherCount = timetableData!.timeSlots.where((slot) => slot.teacher == teacherName).length;
-      AppLogger.exchangeDebug('  - 같은 교사명을 가진 TimeSlot 개수: $matchingTeacherCount');
-      
-      // BaseExchangeService의 공통 메서드 사용 (중복 로직 제거)
+      // BaseExchangeService의 공통 메서드 사용
       final timeSlot = exchangeService.findTimeSlot(
         teacherName,
         day,
         period,
         timetableData!.timeSlots,
-      ) ?? TimeSlot(); // 없으면 빈 TimeSlot 반환
-      
-      final slotFound = timeSlot.teacher == teacherName && 
-                       timeSlot.dayOfWeek == dayNumber && 
-                       timeSlot.period == period;
-      
-      AppLogger.exchangeDebug('  - TimeSlot 찾기: ${slotFound ? "성공" : "실패 (빈 TimeSlot 반환)"}');
-      
-      // TimeSlot의 isEmpty/isNotEmpty getter 직접 사용 (중복 계산 제거)
-      final subject = timeSlot.subject;
-      final className = timeSlot.className;
-      final isNotEmpty = timeSlot.isNotEmpty; // TimeSlot.isNotEmpty getter 사용
-      
-      AppLogger.exchangeDebug('  - subject 값: ${subject ?? "null"}');
-      AppLogger.exchangeDebug('  - className 값: ${className ?? "null"}');
-      AppLogger.exchangeDebug('  - isEmpty 판단: ${!isNotEmpty} (TimeSlot.isEmpty 사용)');
-      AppLogger.exchangeDebug('  - isNotEmpty 판단: $isNotEmpty (TimeSlot.isNotEmpty 사용)');
-      AppLogger.exchangeDebug('  ✅ 최종 판단: 수업있음=$isNotEmpty');
-      
-      // TimeSlot의 isNotEmpty getter 직접 사용 (중복 제거)
-      bool hasClass = timeSlot.isNotEmpty;
-      AppLogger.exchangeDebug('🔄 [교체관리] 셀 확인: $teacherName $day$period교시, 수업있음=$hasClass (최종 결과)');
-      
-      return hasClass;
+      );
+
+      // TimeSlot이 존재하고 비어있지 않으면 true
+      return timeSlot?.isNotEmpty ?? false;
     } catch (e) {
-      AppLogger.exchangeDebug('🔄 [교체관리] 셀 확인 중 오류: $e');
       AppLogger.error('셀 확인 중 예외 발생: $e', e);
       return false;
     }
@@ -371,11 +336,6 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
     }
   }
 
-  /// 교체 가능한 시간 업데이트 (하위 호환성을 위한 동기 래퍼)
-  @Deprecated('Use updateExchangeableTimesWithProgress() instead')
-  void updateExchangeableTimes() {
-    updateExchangeableTimesWithProgress();
-  }
   
   /// 경로 선택 처리 (토글 기능 제거)
   void selectPath(CircularExchangePath path) {

@@ -506,13 +506,6 @@ class ExchangeService extends BaseExchangeService {
     }
   }
 
-  /// 교체를 되돌리기 (Deprecated)
-  /// ExchangeHistoryService.undoLastExchange()를 사용하세요.
-  @Deprecated('ExchangeHistoryService.undoLastExchange()를 사용하세요.')
-  bool undoExchange(List<TimeSlot> timeSlots) {
-    AppLogger.exchangeDebug('undoExchange는 더 이상 사용되지 않습니다. ExchangeHistoryService를 사용하세요.');
-    return false;
-  }
   
   /// 1:1 교체 가능성 검증
   /// 
