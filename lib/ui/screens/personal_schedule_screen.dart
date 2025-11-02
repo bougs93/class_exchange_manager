@@ -470,7 +470,7 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
 
     if (enabled) {
       // 교체 뷰 활성화: 필터링된 교체 리스트 사용
-      await _enablePersonalExchangeView(weekDates, timetableData);
+      await _enablePersonalExchangeView(weekDates, timetableData, context);
     } else {
       // 교체 뷰 비활성화: 원본 데이터로 복원
       await _disablePersonalExchangeView(timetableData);
@@ -481,6 +481,7 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
   Future<void> _enablePersonalExchangeView(
     List<DateTime> weekDates,
     TimetableData timetableData,
+    BuildContext context,
   ) async {
     try {
       final historyService = ref.read(exchangeHistoryServiceProvider);
@@ -496,6 +497,39 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
         substitutionPlanState: substitutionPlanState,
         historyService: historyService,
       );
+
+      // 날짜가 없는 교체 항목 확인
+      final exchangesWithoutDate = <ExchangeHistoryItem>[];
+      for (final exchange in filteredExchanges) {
+        final exchangeId = exchange.id;
+        final absenceDateStr = substitutionPlanState.savedDates['${exchangeId}_absenceDate'] ?? '';
+        final substitutionDateStr = substitutionPlanState.savedDates['${exchangeId}_substitutionDate'] ?? '';
+        
+        // 날짜가 하나도 지정되지 않은 경우
+        if (absenceDateStr.isEmpty && substitutionDateStr.isEmpty) {
+          exchangesWithoutDate.add(exchange);
+        }
+      }
+
+      // 날짜가 없는 교체가 있는 경우 경고 메시지 표시
+      if (exchangesWithoutDate.isNotEmpty) {
+        final count = exchangesWithoutDate.length;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '경고: 날짜가 지정되지 않은 교체 항목 ${count}개가 포함되어 있습니다. 결보강 계획서에서 날짜를 지정해주세요.',
+              style: const TextStyle(fontSize: 14),
+            ),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: '확인',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
+          ),
+        );
+      }
 
       // 필터링된 교체 리스트로 교체 뷰 활성화
       await PersonalExchangeViewManager.enableExchangeView(

@@ -140,7 +140,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
                 ElevatedButton.icon(
                   onPressed: () => _clearAllDates(context, viewModel),
                   icon: const Icon(Icons.clear, size: 16),
-                  label: const Text('보강계획 초기화'),
+                  label: const Text('날짜과목 초기화'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.orange.shade600,
                     foregroundColor: Colors.white,
@@ -552,7 +552,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
   Future<void> _clearAllDates(BuildContext context, SubstitutionPlanViewModel viewModel) async {
     final confirmed = await DialogHelper.showConfirmDialog(
       context,
-      title: '보강계획 초기화',
+      title: '날짜과목 초기화',
       message: '입력한 모든 날짜 정보와 과목 선택을 초기화하겠습니까?\n이 작업은 되돌릴 수 없습니다.',
       confirmText: '초기화',
       isDangerous: true,
