@@ -215,7 +215,7 @@ class ExchangeOperationManager {
     }
   }
 
-  /// 히스토리와 교체리스트 초기화 (파일 선택 해제 또는 새로 읽기 시 호출)
+  /// 히스토리와 교체목록록 초기화 (파일 선택 해제 또는 새로 읽기 시 호출)
   void _clearHistoryAndExchangeList() {
     try {
       // 교체 리스트 전체 삭제
@@ -227,7 +227,7 @@ class ExchangeOperationManager {
       // 모든 교체불가 설정 초기화 (timeslot.isExchangeable = true로 복원)
       _nonExchangeableManager.resetAllNonExchangeableSettings();
       
-      AppLogger.exchangeInfo('히스토리, 교체리스트, 교체불가 설정이 모두 초기화되었습니다.');
+      AppLogger.exchangeInfo('히스토리, 교체목록, 교체불가 설정이 모두 초기화되었습니다.');
     } catch (e) {
       AppLogger.error('상태 초기화 중 오류 발생: $e');
     }
@@ -235,7 +235,7 @@ class ExchangeOperationManager {
 
   /// 엑셀 파일 선택 해제 (모든 상태 초기화)
   void clearSelectedFile() {
-    // 히스토리와 교체리스트 초기화
+    // 히스토리와 교체목록 초기화
     _clearHistoryAndExchangeList();
     
     // 파일 관련 상태 초기화

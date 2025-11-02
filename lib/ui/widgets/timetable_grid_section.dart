@@ -334,14 +334,14 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
                   
                   const SizedBox(width: 8),
                   
-                  // 결보강 삭제 버튼
+                  // 결보강 초기화 버튼
                   ElevatedButton.icon(
                     onPressed: () => _showDeleteExchangeListDialog(context, ref),
                     icon: const Icon(Icons.delete_outline, size: 16),
-                    label: const Text('결보강 삭제'),
+                    label: const Text('결보강 초기화'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red.shade600,
-                      foregroundColor: Colors.white,
+                      backgroundColor: Colors.red.shade100,
+                      foregroundColor: Colors.red.shade700,
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
                   ),
@@ -442,14 +442,14 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
 
               const SizedBox(width: 8),
 
-              // 결보강 삭제 버튼
+              // 결보강 초기화 버튼
               ElevatedButton.icon(
                 onPressed: () => _showDeleteExchangeListDialog(context, ref),
                 icon: const Icon(Icons.delete_outline, size: 16),
-                label: const Text('결보강 삭제'),
+                label: const Text('결보강 초기화'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red.shade600,
-                  foregroundColor: Colors.white,
+                  backgroundColor: Colors.red.shade100,
+                  foregroundColor: Colors.red.shade700,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
               ),
@@ -1397,8 +1397,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('교체리스트 삭제'),
-        content: const Text('교체리스트 삭제하겠습니까?'),
+        title: const Text('결보강 전체 초기화'),
+        content: const Text('결보강을 전체 초기화하겠습니까?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -1409,7 +1409,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
               Navigator.pop(context);
               _deleteExchangeList(context, ref);
             },
-            child: Text('삭제', style: TextStyle(color: Colors.red.shade600)),
+            child: Text('초기화', style: TextStyle(color: Colors.red.shade600)),
           ),
         ],
       ),
@@ -1420,22 +1420,32 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
   /// 
   /// ExchangeHistoryService를 통해 전체 교체 리스트를 삭제하고,
   /// UI 상태를 초기화합니다.
+  /// 
+  /// 주의: 교체 뷰 상태는 유지됩니다 (비활성화하지 않음).
   void _deleteExchangeList(BuildContext context, WidgetRef ref) {
     try {
-      // 교체 리스트 전체 삭제
+      // 1. 교체 리스트 전체 삭제
       final historyService = ref.read(exchangeHistoryServiceProvider);
       historyService.clearExchangeList();
 
-      // UI 상태 초기화
+      // 2. 교체된 셀 상태 업데이트 (빈 리스트로 갱신하여 교체된 셀 스타일 제거)
+      // ExchangeExecutor의 updateExchangedCells() 재사용 (코드 중복 방지)
+      // 교체 리스트가 비어있으므로 모든 교체된 셀 스타일이 제거됨
+      _exchangeExecutor.updateExchangedCells();
+
+      // 3. UI 상태 초기화 (선택된 경로, 캐시, 화살표 등)
       ref.read(stateResetProvider.notifier).resetExchangeStates(
-        reason: '교체리스트 전체 삭제',
+        reason: '결보강 전체 삭제',
       );
 
-      // 성공 메시지 표시
+      // 4. DataGrid UI 업데이트 (스크롤 위치 보존)
+      widget.dataSource?.notifyDataChanged();
+
+      // 5. 성공 메시지 표시
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('교체리스트가 삭제되었습니다.'),
+            content: Text('결보강 전체가 초기화되었습니다.'),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
           ),

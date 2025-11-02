@@ -421,6 +421,9 @@ class ExchangeExecutor {
   }
 
   /// 교체된 셀 상태 업데이트 (공통 메서드)
+  /// 
+  /// 내부에서만 사용되는 private 메서드입니다.
+  /// 외부에서 호출하려면 `updateExchangedCells()` public 메서드를 사용하세요.
   void _updateExchangedCells() {
     final cellNotifier = ref.read(cellSelectionProvider.notifier);
     
@@ -440,40 +443,48 @@ class ExchangeExecutor {
     AppLogger.exchangeDebug('✅ [ExchangeExecutor] 교체된 셀 상태 업데이트 완료');
   }
 
+  /// 교체된 셀 상태 업데이트 (외부 호출용 public 메서드)
+  /// 
+  /// 현재 교체 리스트를 읽어서 교체된 셀의 시각적 스타일을 업데이트합니다.
+  /// 교체 리스트 전체 삭제 등에서 사용할 수 있습니다.
+  void updateExchangedCells() {
+    _updateExchangedCells();
+  }
+
   /// 교체된 셀 상태 복원 (프로그램 시작 시 호출)
   /// 
   /// 저장된 교체 리스트에서 교체된 셀 정보를 추출하여 CellSelectionProvider에 복원합니다.
+  /// 교체 리스트가 비어있으면 모든 교체된 셀 스타일을 제거합니다.
   static void restoreExchangedCells(WidgetRef ref) {
     try {
       final historyService = ref.read(exchangeHistoryServiceProvider);
       final exchangeList = historyService.getExchangeList();
       
-      if (exchangeList.isEmpty) {
-        AppLogger.info('복원할 교체 리스트가 없습니다.');
-        return;
-      }
-      
-      AppLogger.info('교체된 셀 테마 복원 시작: ${exchangeList.length}개 교체 항목');
-      
-      // 교체된 셀 정보 추출
+      // 교체된 셀 정보 추출 (빈 리스트도 처리)
       final exchangedCells = <String>[];
       final destinationCells = <String>[];
       
-      for (final item in exchangeList) {
-        final path = item.originalPath;
+      if (exchangeList.isEmpty) {
+        AppLogger.info('교체 리스트가 비어있어 모든 교체된 셀 스타일을 제거합니다.');
+      } else {
+        AppLogger.info('교체된 셀 테마 복원 시작: ${exchangeList.length}개 교체 항목');
         
-        // 소스 셀 추출
-        final sourceCells = _getCellKeysFromPathStatic(path);
-        exchangedCells.addAll(sourceCells);
+        for (final item in exchangeList) {
+          final path = item.originalPath;
+          
+          // 소스 셀 추출
+          final sourceCells = _getCellKeysFromPathStatic(path);
+          exchangedCells.addAll(sourceCells);
+          
+          // 목적지 셀 추출
+          final destCells = _getDestinationCellsFromPathStatic(path);
+          destinationCells.addAll(destCells);
+        }
         
-        // 목적지 셀 추출
-        final destCells = _getDestinationCellsFromPathStatic(path);
-        destinationCells.addAll(destCells);
+        AppLogger.info('교체된 셀 정보 추출 완료: 소스 ${exchangedCells.length}개, 목적지 ${destinationCells.length}개');
       }
       
-      AppLogger.info('교체된 셀 정보 추출 완료: 소스 ${exchangedCells.length}개, 목적지 ${destinationCells.length}개');
-      
-      // CellSelectionProvider에 복원
+      // CellSelectionProvider에 복원/업데이트 (빈 리스트도 업데이트하여 스타일 제거)
       final cellNotifier = ref.read(cellSelectionProvider.notifier);
       cellNotifier.updateExchangedCells(exchangedCells);
       cellNotifier.updateExchangedDestinationCells(destinationCells);

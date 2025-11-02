@@ -7,6 +7,7 @@ import '../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../../providers/exchange_screen_provider.dart';
 import '../../../../providers/services_provider.dart';
 import '../../../../providers/state_reset_provider.dart';
+import '../../../../ui/widgets/timetable_grid/exchange_executor.dart';
 import '../../../../utils/logger.dart';
 import '../../../../utils/date_format_utils.dart';
 import '../../../mixins/scroll_management_mixin.dart';
@@ -144,14 +145,14 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
                   ),
                 ),
                 const SizedBox(width: SubstitutionPlanGridConfig.mediumSpacing),
-                // 교체리스트 삭제 버튼 (테이블 윗 부분)
+                // 결보강 초기화 버튼 (테이블 윗 부분)
                 ElevatedButton.icon(
                   onPressed: () => _showDeleteConfirmDialog(context, ref),
                   icon: const Icon(Icons.delete_outline, size: 16),
-                  label: const Text('결보강 삭제'),
+                  label: const Text('결보강 초기화'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red.shade600,
-                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.red.shade100,
+                    foregroundColor: Colors.red.shade700,
                   ),
                 ),
                 const SizedBox(width: SubstitutionPlanGridConfig.mediumSpacing),
@@ -180,8 +181,8 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('교체리스트 삭제'),
-        content: const Text('교체리스트 삭제하겠습니까?'),
+        title: const Text('결보강 전체 초기화'),
+        content: const Text('결보강을 전체 초기화하겠습니까?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -192,7 +193,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
               Navigator.pop(context);
               _deleteExchangeList(context, ref);
             },
-            child: Text('삭제', style: TextStyle(color: Colors.red.shade600)),
+            child: Text('초기화', style: TextStyle(color: Colors.red.shade600)),
           ),
         ],
       ),
@@ -203,26 +204,33 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
   /// 
   /// ExchangeHistoryService를 통해 전체 교체 리스트를 삭제하고,
   /// UI 상태를 초기화합니다.
+  /// 
+  /// 주의: 교체 뷰 상태는 유지됩니다 (비활성화하지 않음).
   void _deleteExchangeList(BuildContext context, WidgetRef ref) {
     try {
-      // 교체 리스트 전체 삭제
+      // 1. 교체 리스트 전체 삭제
       final historyService = ref.read(exchangeHistoryServiceProvider);
       historyService.clearExchangeList();
 
-      // UI 상태 초기화
+      // 2. 교체된 셀 상태 업데이트 (빈 리스트로 갱신하여 교체된 셀 스타일 제거)
+      // ExchangeExecutor의 static 메서드를 사용하여 코드 중복 방지
+      // 교체 리스트가 비어있으므로 모든 교체된 셀 스타일이 제거됨
+      ExchangeExecutor.restoreExchangedCells(ref);
+
+      // 3. UI 상태 초기화 (선택된 경로, 캐시, 화살표 등)
       ref.read(stateResetProvider.notifier).resetExchangeStates(
-        reason: '교체리스트 전체 삭제',
+        reason: '교체목록 전체 삭제',
       );
 
-      // 보강계획서 데이터 자동 새로고침 (교체 리스트가 삭제되었으므로 빈 리스트로 업데이트됨)
+      // 4. 보강계획서 데이터 자동 새로고침 (교체 리스트가 삭제되었으므로 빈 리스트로 업데이트됨)
       final viewModel = ref.read(substitutionPlanViewModelProvider.notifier);
       viewModel.loadPlanData();
 
-      // 성공 메시지 표시
+      // 5. 성공 메시지 표시
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('교체리스트가 삭제되었습니다.'),
+            content: Text('교체목록이 초기화되었습니다.'),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
           ),
