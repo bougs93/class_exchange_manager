@@ -35,6 +35,7 @@ import 'handlers/path_selection_handler_mixin.dart';
 import 'handlers/filter_search_handler.dart';
 import 'builders/sidebar_builder.dart';
 import '../../providers/state_reset_provider.dart';
+import '../../providers/zoom_provider.dart';
 import 'helpers/circular_path_finder.dart';
 import 'helpers/chain_path_finder.dart';
 import '../widgets/timetable_grid/exchange_executor.dart';
@@ -675,6 +676,22 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   Widget build(BuildContext context) {
     // Provider에서 상태 읽기
     final screenState = ref.watch(exchangeScreenProvider);
+    
+    // 줌 팩터 변경 감지하여 헤더 재생성
+    ref.listen<double>(
+      zoomProvider.select((s) => s.zoomFactor),
+      (previous, next) {
+        if (previous != next && screenState.timetableData != null) {
+          AppLogger.exchangeDebug('🔄 [줌 팩터 변경] $previous → $next - 헤더 재생성');
+          // 다음 프레임에서 헤더 재생성 (줌 팩터 변경으로 인한 폰트 크기 반영)
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _updateHeaderTheme(forceUpdate: true);
+            }
+          });
+        }
+      },
+    );
     
     // 교체불가 편집 모드 상태가 변경될 때마다 TimetableDataSource에 전달
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1385,7 +1402,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   }
 
   /// 테마 기반 헤더 업데이트 (선택된 교시 헤더를 연한 파란색으로 표시)
-  void _updateHeaderTheme() {
+  /// 
+  /// [forceUpdate]: true인 경우 줌 팩터 변경 등으로 인해 헤더를 강제로 재생성합니다.
+  void _updateHeaderTheme({bool forceUpdate = false}) {
     final screenState = ref.read(exchangeScreenProvider);
     
     // 🔥 중요: timetableData가 없으면 헤더 업데이트 중단
@@ -1397,7 +1416,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
     // 🔥 중요: 기존 컬럼이 있고 timetableData가 있으면, 구조적 변경 없이 스타일만 업데이트
     // 모드 전환 시 컬럼을 재생성하지 않고 기존 컬럼 유지
-    if (screenState.columns.isNotEmpty && screenState.timetableData != null) {
+    // 단, forceUpdate가 true인 경우 (줌 팩터 변경 등) 헤더를 재생성해야 함
+    if (!forceUpdate && screenState.columns.isNotEmpty && screenState.timetableData != null) {
       // 기존 컬럼이 있으면 DataSource만 업데이트 (스타일 변경만 반영)
       AppLogger.exchangeDebug('🔄 [헤더 테마] 기존 컬럼 유지 - 스타일만 업데이트');
       screenState.dataSource?.notifyDataChanged();
@@ -1453,19 +1473,20 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
                                 _shouldUpdateColumns(currentState.columns, result.columns) ||
                                 _shouldUpdateStackedHeaders(currentState.stackedHeaders, result.stackedHeaders);
     
-    if (needsStructuralUpdate) {
+    // forceUpdate가 true인 경우 무조건 헤더 재생성 (줌 팩터 변경 등)
+    if (forceUpdate || needsStructuralUpdate) {
       // 구조적 변경이 필요한 경우에만 columns/stackedHeaders 업데이트
-      if (needsForceUpdate || _shouldUpdateColumns(currentState.columns, result.columns)) {
-        AppLogger.exchangeDebug('🔄 [헤더 테마] 컬럼 업데이트: ${currentState.columns.length}개 → ${result.columns.length}개');
+      if (forceUpdate || needsForceUpdate || _shouldUpdateColumns(currentState.columns, result.columns)) {
+        AppLogger.exchangeDebug('🔄 [헤더 테마] 컬럼 업데이트: ${currentState.columns.length}개 → ${result.columns.length}개${forceUpdate ? " (강제 재생성)" : ""}');
         notifier.setColumns(result.columns);
       }
       
-      if (needsForceUpdate || _shouldUpdateStackedHeaders(currentState.stackedHeaders, result.stackedHeaders)) {
-        AppLogger.exchangeDebug('🔄 [헤더 테마] 스택 헤더 업데이트: ${currentState.stackedHeaders.length}개 → ${result.stackedHeaders.length}개');
+      if (forceUpdate || needsForceUpdate || _shouldUpdateStackedHeaders(currentState.stackedHeaders, result.stackedHeaders)) {
+        AppLogger.exchangeDebug('🔄 [헤더 테마] 스택 헤더 업데이트: ${currentState.stackedHeaders.length}개 → ${result.stackedHeaders.length}개${forceUpdate ? " (강제 재생성)" : ""}');
         notifier.setStackedHeaders(result.stackedHeaders);
       }
       
-      AppLogger.exchangeDebug('🔄 [헤더 테마] 구조적 변경으로 인한 columns/stackedHeaders 업데이트');
+      AppLogger.exchangeDebug('🔄 [헤더 테마] 구조적 변경으로 인한 columns/stackedHeaders 업데이트${forceUpdate ? " (줌 팩터 변경)" : ""}');
     } else {
       // 구조적 변경이 없는 경우 DataSource만 업데이트하여 스타일 변경 반영
       AppLogger.exchangeDebug('🔄 [헤더 테마] 스타일 변경만 반영 - columns/stackedHeaders 재생성 없음');

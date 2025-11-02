@@ -16,6 +16,7 @@ class PersonalTimetableHelper {
   /// - `List<TimeSlot>` timeSlots: 전체 시간표 슬롯 리스트
   /// - `String` teacherName: 개인 시간표를 표시할 교사명
   /// - `List<DateTime>` weekDates: 현재 주의 날짜 리스트 [월, 화, 수, 목, 금]
+  /// - `double` zoomFactor: 현재 줌 팩터 (기본값: 1.0)
   /// 
   /// 반환값:
   /// - `List<DataGridRow>`: 교시별 행 데이터
@@ -28,8 +29,9 @@ class PersonalTimetableHelper {
   }) convertToPersonalTimetableData(
     List<TimeSlot> timeSlots,
     String teacherName,
-    List<DateTime> weekDates,
-  ) {
+    List<DateTime> weekDates, {
+    double zoomFactor = 1.0,
+  }) {
     // 1. 해당 교사의 TimeSlot만 필터링
     final teacherTimeSlots = timeSlots
         .where((slot) => slot.teacher == teacherName)
@@ -101,7 +103,7 @@ class PersonalTimetableHelper {
           child: Text(
             '교시',
             style: TextStyle(
-              fontSize: AppConstants.headerFontSize * SimplifiedTimetableTheme.fontScaleFactor,
+              fontSize: AppConstants.headerFontSize * zoomFactor,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -135,7 +137,7 @@ class PersonalTimetableHelper {
             child: Text(
               day,
               style: TextStyle(
-                fontSize: AppConstants.headerFontSize * SimplifiedTimetableTheme.fontScaleFactor,
+                fontSize: AppConstants.headerFontSize * zoomFactor,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -168,7 +170,7 @@ class PersonalTimetableHelper {
           child: Text(
             '날짜',
             style: TextStyle(
-              fontSize: AppConstants.headerFontSize * SimplifiedTimetableTheme.fontScaleFactor,
+              fontSize: AppConstants.headerFontSize * zoomFactor,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -205,8 +207,8 @@ class PersonalTimetableHelper {
             child: Text(
               WeekDateCalculator.formatDateShort(date),
               style: TextStyle(
-                // 날짜 글자 사이즈 30% 줄이기 (70%로 적용)
-                fontSize: AppConstants.headerFontSize * SimplifiedTimetableTheme.fontScaleFactor * 0.7,
+                // 날짜 글자 사이즈 30% 줄이기 (70%로 적용) + 줌 팩터 적용
+                fontSize: AppConstants.headerFontSize * 0.7 * zoomFactor,
                 fontWeight: FontWeight.w500,
               ),
             ),

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../ui/widgets/timetable_grid/timetable_grid_constants.dart';
 import '../utils/simplified_timetable_theme.dart';
+import '../utils/fixed_header_style_manager.dart';
 import '../utils/logger.dart';
 
 /// 줌 상태를 관리하는 클래스
@@ -178,8 +179,13 @@ class ZoomNotifier extends StateNotifier<ZoomState> {
   /// 폰트 스케일 팩터 업데이트
   ///
   /// SimplifiedTimetableTheme에 현재 줌 팩터를 적용합니다.
+  /// 헤더 캐시도 무효화하여 새로운 폰트 크기가 반영되도록 합니다.
   void _updateFontScaleFactor() {
     SimplifiedTimetableTheme.setFontScaleFactor(state.zoomFactor);
+    
+    // 헤더 캐시 무효화 (줌 팩터 변경 시 헤더 폰트 크기도 업데이트되도록)
+    FixedHeaderStyleManager.clearCache();
+    
     if (kDebugMode) {
       AppLogger.exchangeDebug('폰트 스케일 팩터 업데이트: ${state.zoomFactor}');
     }

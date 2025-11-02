@@ -240,8 +240,9 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
         ? timetableData.timeSlots
         : List<TimeSlot>.from(_originalTimeSlots!);
 
-    // 개인 시간표 데이터 생성
+    // 개인 시간표 데이터 생성 (줌 팩터는 Consumer 내부에서 동적으로 처리)
     final weekDates = scheduleState.weekDates;
+    // 주의: 헤더 폰트 사이즈는 Consumer 내부에서 줌 팩터를 반영하여 재생성됨
     final result = PersonalTimetableHelper.convertToPersonalTimetableData(
       timeSlotsToUse,
       teacherName,
@@ -326,9 +327,24 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
               builder: (context, ref, child) {
                 final zoomFactor = ref.watch(zoomProvider.select((s) => s.zoomFactor));
                 
+                // 줌 팩터에 따라 헤더 재생성 (폰트 사이즈 반영)
+                final resultWithZoom = PersonalTimetableHelper.convertToPersonalTimetableData(
+                  timeSlotsToUse,
+                  teacherName,
+                  weekDates,
+                  zoomFactor: zoomFactor,
+                );
+                
                 // 줌 팩터에 따라 컬럼과 헤더 스케일링
-                final scaledColumns = GridScalingHelper.scaleColumns(result.columns, zoomFactor);
-                final scaledStackedHeaders = GridScalingHelper.scaleStackedHeaders(result.stackedHeaders, zoomFactor);
+                final scaledColumns = GridScalingHelper.scaleColumns(resultWithZoom.columns, zoomFactor);
+                final scaledStackedHeaders = GridScalingHelper.scaleStackedHeaders(resultWithZoom.stackedHeaders, zoomFactor);
+                
+                // DataSource 업데이트 (줌 팩터에 따라 행 데이터도 업데이트)
+                _dataSource?.updateRows(
+                  resultWithZoom.rows,
+                  teacherName: teacherName,
+                  filteredExchanges: filteredExchanges,
+                );
                 
                 return Theme(
                   data: Theme.of(context).copyWith(
