@@ -61,7 +61,8 @@ mixin FilterSearchHandler<T extends StatefulWidget> on State<T> {
       setSelectedStep(null); // 1:1 교체는 모든 경로 표시
       filterStateManager.setStepFilter(null);
     } else if (isCircularExchangeModeEnabled) {
-      setSelectedStep(availableSteps.isNotEmpty ? availableSteps.first : null);
+      // 순환교체: 가장 높은 단계를 기본 선택으로 설정
+      setSelectedStep(availableSteps.isNotEmpty ? availableSteps.last : null);
       filterStateManager.setStepFilter(selectedStep);
     } else if (isChainExchangeModeEnabled) {
       // 연쇄교체: 단계 필터 항상 null (필터 동작 불필요)
@@ -85,8 +86,8 @@ mixin FilterSearchHandler<T extends StatefulWidget> on State<T> {
     final newAvailableSteps = steps.toList()..sort();
     setAvailableSteps(newAvailableSteps);
 
-    // 첫 번째 단계를 기본 선택으로 설정
-    setSelectedStep(newAvailableSteps.isNotEmpty ? newAvailableSteps.first : null);
+    // 순환교체: 가장 높은 단계를 기본 선택으로 설정
+    setSelectedStep(newAvailableSteps.isNotEmpty ? newAvailableSteps.last : null);
 
     AppLogger.exchangeDebug('사용 가능한 단계들: $newAvailableSteps, 선택된 단계: $selectedStep');
   }
