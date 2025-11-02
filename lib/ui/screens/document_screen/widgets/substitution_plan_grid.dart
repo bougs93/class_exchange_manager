@@ -5,6 +5,8 @@ import 'package:calendar_date_picker2/calendar_date_picker2.dart';
 import 'package:flutter/services.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../../providers/exchange_screen_provider.dart';
+import '../../../../providers/services_provider.dart';
+import '../../../../providers/state_reset_provider.dart';
 import '../../../../utils/logger.dart';
 import '../../../../utils/date_format_utils.dart';
 import '../../../mixins/scroll_management_mixin.dart';
@@ -115,7 +117,8 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                ElevatedButton.icon(
+                // 새로고침 버튼 (아이콘만)
+                IconButton(
                   onPressed: () async {
                     await viewModel.loadPlanData();
                     final currentPlanData = ref.read(
@@ -123,32 +126,43 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
                     );
                     SubstitutionPlanDebugger.printTable(currentPlanData);
                   },
-                  icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text('새로고침'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade600,
-                    foregroundColor: Colors.white,
+                  icon: const Icon(Icons.refresh, size: 20),
+                  tooltip: '새로고침',
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.blue.shade50,
+                    foregroundColor: Colors.blue.shade700,
                   ),
                 ),
                 const SizedBox(width: SubstitutionPlanGridConfig.mediumSpacing),
                 ElevatedButton.icon(
                   onPressed: () => _clearAllDates(context, viewModel),
                   icon: const Icon(Icons.clear, size: 16),
-                  label: const Text('지우기'),
+                  label: const Text('날짜, 과목 초기화'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.orange.shade600,
                     foregroundColor: Colors.white,
                   ),
                 ),
                 const SizedBox(width: SubstitutionPlanGridConfig.mediumSpacing),
-                // 테이블 복사 버튼 (지우기 버튼 오른쪽)
-                IconButton(
+                // 교체리스트 삭제 버튼 (테이블 윗 부분)
+                ElevatedButton.icon(
+                  onPressed: () => _showDeleteConfirmDialog(context, ref),
+                  icon: const Icon(Icons.delete_outline, size: 16),
+                  label: const Text('결보강 삭제'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade600,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: SubstitutionPlanGridConfig.mediumSpacing),
+                // 엑셀서식 복사 버튼
+                ElevatedButton.icon(
                   onPressed: () => _copyTableToClipboard(context, ref),
-                  icon: const Icon(Icons.copy, size: 20),
-                  tooltip: '테이블 복사',
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.blue.shade50,
-                    foregroundColor: Colors.blue.shade700,
+                  icon: const Icon(Icons.copy, size: 16),
+                  label: const Text('엑셀서식 복사'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue.shade600,
+                    foregroundColor: Colors.white,
                   ),
                 ),
               ],
@@ -157,6 +171,75 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
         ),
       ],
     );
+  }
+
+  /// 삭제 확인 다이얼로그 표시
+  /// 
+  /// 사용자에게 삭제 확인을 받고, 확인 시 교체 리스트를 삭제합니다.
+  void _showDeleteConfirmDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('교체리스트 삭제'),
+        content: const Text('교체리스트 삭제하겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('취소', style: TextStyle(color: Colors.grey.shade600)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteExchangeList(context, ref);
+            },
+            child: Text('삭제', style: TextStyle(color: Colors.red.shade600)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 교체 리스트 삭제 실행
+  /// 
+  /// ExchangeHistoryService를 통해 전체 교체 리스트를 삭제하고,
+  /// UI 상태를 초기화합니다.
+  void _deleteExchangeList(BuildContext context, WidgetRef ref) {
+    try {
+      // 교체 리스트 전체 삭제
+      final historyService = ref.read(exchangeHistoryServiceProvider);
+      historyService.clearExchangeList();
+
+      // UI 상태 초기화
+      ref.read(stateResetProvider.notifier).resetExchangeStates(
+        reason: '교체리스트 전체 삭제',
+      );
+
+      // 보강계획서 데이터 자동 새로고침 (교체 리스트가 삭제되었으므로 빈 리스트로 업데이트됨)
+      final viewModel = ref.read(substitutionPlanViewModelProvider.notifier);
+      viewModel.loadPlanData();
+
+      // 성공 메시지 표시
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('교체리스트가 삭제되었습니다.'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      // 오류 메시지 표시
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('삭제 중 오류가 발생했습니다: $e'),
+            backgroundColor: Colors.red.shade600,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildDataGrid(

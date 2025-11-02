@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../../../models/exchange_path.dart';
 import '../../../../models/exchange_mode.dart';
@@ -9,7 +10,7 @@ import '../../../widgets/exchange_control_panel.dart';
 import '../../../widgets/timetable_grid_section.dart';
 
 /// 시간표 탭 컨텐츠 위젯
-class TimetableTabContent extends StatelessWidget {
+class TimetableTabContent extends ConsumerWidget {
   final ExchangeScreenState state;
   final TimetableData? timetableData;
   final TimetableDataSource? dataSource;
@@ -44,7 +45,7 @@ class TimetableTabContent extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       children: [
         // 교체 제어 패널
@@ -86,4 +87,5 @@ class TimetableTabContent extends StatelessWidget {
       ],
     );
   }
+
 }
