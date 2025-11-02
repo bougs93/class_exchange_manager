@@ -10,6 +10,7 @@ import '../models/supplement_exchange_path.dart';
 import '../ui/widgets/simplified_timetable_cell.dart';
 import '../providers/cell_selection_provider.dart';
 import '../services/non_exchangeable_data_storage_service.dart';
+import '../services/pdf_export_settings_storage_service.dart';
 import 'exchange_algorithm.dart';
 import 'day_utils.dart';
 import 'non_exchangeable_manager.dart';
@@ -32,6 +33,7 @@ class CellStateInfo {
   final bool isExchangedSourceCell; // 교체된 소스 셀인지 여부
   final bool isExchangedDestinationCell; // 교체된 목적지 셀인지 여부
   final bool isTeacherNameSelected; // 교사 이름 선택 상태 (새로 추가)
+  final bool isHighlightedTeacher; // 하이라이트된 교사 행인지 여부 (새로 추가)
 
   CellStateInfo({
     required this.isSelected,
@@ -48,6 +50,7 @@ class CellStateInfo {
     required this.isExchangedSourceCell,
     required this.isExchangedDestinationCell,
     required this.isTeacherNameSelected, // 새로 추가
+    required this.isHighlightedTeacher, // 새로 추가
   });
 
   factory CellStateInfo.empty() {
@@ -66,6 +69,7 @@ class CellStateInfo {
       isExchangedSourceCell: false,
       isExchangedDestinationCell: false,
       isTeacherNameSelected: false, // 새로 추가
+      isHighlightedTeacher: false, // 새로 추가
     );
   }
 }
@@ -93,12 +97,18 @@ class TimetableDataSource extends DataGridSource {
   
   // 로컬 캐시 관리 (위젯 빌드 중 안전하게 사용)
   final Map<String, bool> _localCache = {};
+  
+  // 하이라이트할 교사명 캐시 (성능 최적화)
+  String? _highlightedTeacherName;
+  bool _highlightedTeacherNameLoaded = false;
 
   /// 공통 데이터 초기화 메서드
   void _initializeData(List<TimeSlot> timeSlots, List<Teacher> teachers) {
     _timeSlots = timeSlots;
     _teachers = teachers;
     _nonExchangeableManager.setTimeSlots(timeSlots);
+    // 하이라이트할 교사명 미리 로드
+    _loadHighlightedTeacherName();
     _buildDataGridRows();
   }
 
@@ -238,6 +248,7 @@ class TimetableDataSource extends DataGridSource {
           isExchangedSourceCell: cellState.isExchangedSourceCell,
           isExchangedDestinationCell: cellState.isExchangedDestinationCell,
           isTeacherNameSelected: cellState.isTeacherNameSelected, // 새로 추가
+          isHighlightedTeacher: cellState.isHighlightedTeacher, // 새로 추가
         );
       }).toList(),
     );
@@ -279,6 +290,9 @@ class TimetableDataSource extends DataGridSource {
       (teacher) => teacher['teacherName'] == teacherName
     );
     
+    // 하이라이트된 교사 행인지 확인
+    bool isHighlighted = _isHighlightedTeacher(teacherName);
+    
     return CellStateInfo(
       isSelected: isTeacherSelected, // 교사 이름 선택은 isSelected에 포함하지 않음
       isExchangeableTeacher: isTeacherExchangeable,
@@ -294,6 +308,7 @@ class TimetableDataSource extends DataGridSource {
       circularPathStep: null,
       chainPathStep: null,
       isTeacherNameSelected: isTeacherNameSelected, // 새로 추가
+      isHighlightedTeacher: isHighlighted, // 새로 추가
     );
   }
 
@@ -349,7 +364,65 @@ class TimetableDataSource extends DataGridSource {
       circularPathStep: _getCircularPathStep(teacherName, day, period),
       chainPathStep: _getChainPathStep(teacherName, day, period),
       isTeacherNameSelected: false, // 데이터 셀은 교사 이름 선택 상태 적용 안함
+      isHighlightedTeacher: _isHighlightedTeacher(teacherName), // 새로 추가
     );
+  }
+  
+  /// 하이라이트된 교사인지 확인
+  /// 
+  /// 설정에서 저장한 defaultTeacherName과 현재 교사명을 비교합니다.
+  /// 결과는 캐시하여 성능을 최적화합니다.
+  bool _isHighlightedTeacher(String teacherName) {
+    // 교사명 비교 (빈 문자열이면 하이라이트 안함)
+    if (_highlightedTeacherName == null || _highlightedTeacherName!.isEmpty) {
+      return false;
+    }
+    
+    return _highlightedTeacherName == teacherName;
+  }
+  
+  /// 하이라이트할 교사명 로드
+  /// 
+  /// 설정에서 defaultTeacherName을 로드합니다.
+  /// 비동기로 로드하며, 완료되면 캐시를 갱신하고 UI를 업데이트합니다.
+  void _loadHighlightedTeacherName() {
+    if (_highlightedTeacherNameLoaded) {
+      return; // 이미 로드 완료
+    }
+    
+    try {
+      final pdfSettings = PdfExportSettingsStorageService();
+      // 비동기 로드
+      pdfSettings.loadDefaultTeacherAndSchoolName().then((defaults) {
+        final newTeacherName = defaults['defaultTeacherName'] ?? '';
+        if (_highlightedTeacherName != newTeacherName) {
+          _highlightedTeacherName = newTeacherName.isEmpty ? null : newTeacherName;
+          _highlightedTeacherNameLoaded = true;
+          // UI 업데이트 (캐시 초기화)
+          _clearCacheAndNotify();
+        } else {
+          _highlightedTeacherNameLoaded = true;
+        }
+      }).catchError((e) {
+        AppLogger.error('하이라이트 교사명 로드 중 오류: $e', e);
+        _highlightedTeacherName = null;
+        _highlightedTeacherNameLoaded = true;
+      });
+    } catch (e) {
+      AppLogger.error('하이라이트 교사명 로드 중 오류: $e', e);
+      _highlightedTeacherName = null;
+      _highlightedTeacherNameLoaded = true;
+    }
+  }
+  
+  /// 하이라이트 교사명 캐시 초기화
+  /// 
+  /// 설정에서 교사명이 변경되었을 때 호출하여 캐시를 갱신합니다.
+  void refreshHighlightedTeacherName() {
+    _highlightedTeacherNameLoaded = false;
+    _highlightedTeacherName = null;
+    _loadHighlightedTeacherName();
+    // _loadHighlightedTeacherName() 내부에서 _clearCacheAndNotify()를 호출하므로 중복 호출 불필요
   }
 
   /// 캐시에서 값을 가져오거나 계산하여 캐시에 저장

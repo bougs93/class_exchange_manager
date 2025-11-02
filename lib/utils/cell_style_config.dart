@@ -17,6 +17,7 @@ class CellStyleConfig {
   final bool isExchangedSourceCell; // 교체된 소스 셀인지 여부
   final bool isExchangedDestinationCell; // 교체된 목적지 셀인지 여부
   final bool isTeacherNameSelected; // 교사 이름 선택 상태 (새로 추가)
+  final bool isHighlightedTeacher; // 하이라이트된 교사 행인지 여부
   final String? headerPosition; // 헤더 위치 정보 (예: "수1", "월3")
 
   const CellStyleConfig({
@@ -37,6 +38,7 @@ class CellStyleConfig {
     this.isExchangedSourceCell = false, // 교체된 소스 셀 기본값은 false
     this.isExchangedDestinationCell = false, // 교체된 목적지 셀 기본값은 false
     this.isTeacherNameSelected = false, // 교사 이름 선택 상태 기본값은 false
+    this.isHighlightedTeacher = false, // 하이라이트된 교사 행 기본값은 false
     this.headerPosition, // 헤더 위치 정보
   });
 }

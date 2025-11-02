@@ -4,6 +4,7 @@ import '../../services/app_settings_storage_service.dart';
 import '../../services/pdf_export_settings_storage_service.dart';
 import '../../services/storage_service.dart';
 import '../../utils/logger.dart';
+import '../../utils/simplified_timetable_theme.dart';
 
 /// 설정 화면
 /// 
@@ -30,12 +31,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final TextEditingController _schoolNameController = TextEditingController();
   bool _isLoadingNames = true;
   bool _isSavingNames = false;
+  
+  // 하이라이트 색상 관련
+  Color _highlightedTeacherColor = const Color(0xFFF5F5F5); // 기본값: 연한 회색
+  bool _isLoadingHighlightColor = true;
+  bool _isSavingHighlightColor = false;
 
   @override
   void initState() {
     super.initState();
     _loadSettings();
     _loadTeacherAndSchoolName();
+    _loadHighlightColor();
   }
   
   @override
@@ -79,6 +86,64 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       setState(() {
         _isLoadingNames = false;
       });
+    }
+  }
+  
+  /// 하이라이트 색상 로드
+  Future<void> _loadHighlightColor() async {
+    try {
+      final colorValue = await PdfExportSettingsStorageService().getHighlightedTeacherColor();
+      
+      setState(() {
+        if (colorValue != null) {
+          _highlightedTeacherColor = Color(colorValue);
+        } else {
+          // 기본값 사용
+          _highlightedTeacherColor = const Color(0xFFF5F5F5);
+        }
+        _isLoadingHighlightColor = false;
+      });
+    } catch (e) {
+      AppLogger.error('하이라이트 색상 로드 중 오류: $e', e);
+      setState(() {
+        _isLoadingHighlightColor = false;
+      });
+    }
+  }
+  
+  /// 하이라이트 색상 저장
+  Future<void> _saveHighlightColor(Color color) async {
+    setState(() {
+      _isSavingHighlightColor = true;
+    });
+    
+    try {
+      await SimplifiedTimetableTheme.setHighlightedTeacherColor(color);
+      
+      // 테마 설정 다시 로드하여 즉시 반영
+      await SimplifiedTimetableTheme.loadThemeSettings();
+      
+      if (mounted) {
+        setState(() {
+          _highlightedTeacherColor = color;
+          _isSavingHighlightColor = false;
+        });
+      }
+    } catch (e) {
+      AppLogger.error('하이라이트 색상 저장 중 오류: $e', e);
+      if (mounted) {
+        setState(() {
+          _isSavingHighlightColor = false;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('색상 저장에 실패했습니다: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
   
@@ -311,6 +376,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _buildTeacherAndSchoolNameSection(),
           const SizedBox(height: 32),
           
+          // 하이라이트 색상 설정 섹션
+          _buildHighlightColorSection(),
+          const SizedBox(height: 32),
+          
           // 데이터 초기화 섹션
           _buildDataResetSection(),
         ],
@@ -457,6 +526,124 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ],
           ),
       ],
+    );
+  }
+  
+  /// 하이라이트 색상 설정 섹션
+  Widget _buildHighlightColorSection() {
+    if (_isLoadingHighlightColor) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    
+    // 색상 선택 영역을 하나의 컨테이너로 묶음 (제목과 설명 포함)
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 제목
+          const Text(
+            '교사 행 하이라이트',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          // 설명
+          const Text(
+            '교체관리에서 교사명의 행이 하이라이트됩니다.',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 16),
+          
+          // 현재 선택된 색상 표시
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: _highlightedTeacherColor,
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: _highlightedTeacherColor,
+                    border: Border.all(color: Colors.black26, width: 2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '현재 색상: RGB(${(_highlightedTeacherColor.r * 255.0).round()}, ${(_highlightedTeacherColor.g * 255.0).round()}, ${(_highlightedTeacherColor.b * 255.0).round()})',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          
+          // 색상 옵션들 (한 줄로 배치)
+          Row(
+            children: [
+              _buildColorOption(const Color(0xFFE3F2FD)),
+              const SizedBox(width: 12),
+              _buildColorOption(const Color(0xFFE8F5E9)),
+              const SizedBox(width: 12),
+              _buildColorOption(const Color(0xFFFFF9C4)),
+              const SizedBox(width: 12),
+              _buildColorOption(const Color(0xFFF3E5F5)),
+              const SizedBox(width: 12),
+              _buildColorOption(const Color(0xFFE1F5FE)),
+              const SizedBox(width: 12),
+              _buildColorOption(const Color(0xFFFFE0B2)), // 연한 오렌지색
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  /// 색상 옵션 버튼 위젯
+  Widget _buildColorOption(Color color) {
+    final isSelected = _highlightedTeacherColor.toARGB32() == color.toARGB32();
+    
+    return InkWell(
+      onTap: _isSavingHighlightColor ? null : () => _saveHighlightColor(color),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          color: color,
+          border: Border.all(
+            color: isSelected ? Colors.blue : Colors.grey.shade300,
+            width: isSelected ? 3 : 1,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
     );
   }
   

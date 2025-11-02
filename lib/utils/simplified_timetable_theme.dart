@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'cell_style_config.dart';
 import 'constants.dart';
 import '../services/timetable_theme_storage_service.dart';
+import '../services/pdf_export_settings_storage_service.dart';
 import 'logger.dart';
 
 /// 단순화된 시간표 테마 클래스
@@ -14,6 +15,10 @@ class SimplifiedTimetableTheme {
   /// 교체불가 셀 색상 (저장/로드 가능)
   /// 기본값: 연한 빨간색 (0xFFFFCDD2)
   static Color _nonExchangeableColor = const Color(0xFFFFCDD2);
+  
+  /// 하이라이트된 교사 행 색상 (저장/로드 가능)
+  /// 기본값: 연한 회색 (0xFFF5F5F5)
+  static Color _highlightedTeacherColor = const Color(0xFFF5F5F5);
   
   /// 폰트 사이즈 배율 설정 (줌 인/아웃 시 호출)
   static void setFontScaleFactor(double factor) {
@@ -66,9 +71,32 @@ class SimplifiedTimetableTheme {
         AppLogger.info('교체불가 셀 색상: 기본값 사용');
       }
       
+      // 하이라이트된 교사 행 색상 로드
+      await loadHighlightedTeacherColor();
+      
       AppLogger.info('테마 설정 로드 완료: fontScaleFactor=$fontScaleFactor');
     } catch (e) {
       AppLogger.error('테마 설정 로드 실패: $e', e);
+    }
+  }
+  
+  /// 하이라이트된 교사 행 색상 로드
+  /// 
+  /// 설정에서 저장된 하이라이트 색상을 로드합니다.
+  static Future<void> loadHighlightedTeacherColor() async {
+    try {
+      final pdfSettings = PdfExportSettingsStorageService();
+      final colorValue = await pdfSettings.getHighlightedTeacherColor();
+      
+      if (colorValue != null) {
+        _highlightedTeacherColor = Color(colorValue);
+        AppLogger.info('하이라이트 교사 행 색상 로드 완료: ${_highlightedTeacherColor.toARGB32().toRadixString(16)}');
+      } else {
+        // 저장된 색상이 없으면 기본값 유지
+        AppLogger.info('하이라이트 교사 행 색상: 기본값 사용');
+      }
+    } catch (e) {
+      AppLogger.error('하이라이트 교사 행 색상 로드 실패: $e', e);
     }
   }
   
@@ -77,6 +105,20 @@ class SimplifiedTimetableTheme {
   
   /// 현재 교체불가 셀 색상 반환
   static Color get nonExchangeableColor => _nonExchangeableColor;
+  
+  /// 현재 하이라이트된 교사 행 색상 반환
+  static Color get highlightedTeacherColor => _highlightedTeacherColor;
+  
+  /// 하이라이트된 교사 행 색상 설정
+  /// 
+  /// 매개변수:
+  /// - `color`: 설정할 색상
+  static Future<void> setHighlightedTeacherColor(Color color) async {
+    _highlightedTeacherColor = color;
+    // PDF 설정에 저장
+    final pdfSettings = PdfExportSettingsStorageService();
+    await pdfSettings.saveHighlightedTeacherColor(color.toARGB32());
+  }
   
   // 색상 정의 (public으로 변경하여 다른 테마에서 참조 가능)
   static const Color defaultColor = Colors.white;
@@ -169,6 +211,7 @@ class SimplifiedTimetableTheme {
         isExchangedDestinationCell: config.isExchangedDestinationCell,
         isHeader: config.isHeader,
         isTeacherNameSelected: config.isTeacherNameSelected, // 새로 추가
+        isHighlightedTeacher: config.isHighlightedTeacher, // 새로 추가
       ),
       textStyle: _getTextStyle(
         isSelected: config.isSelected,
@@ -215,6 +258,7 @@ class SimplifiedTimetableTheme {
     required bool isExchangedDestinationCell, // 교체된 목적지 셀인지 여부 추가
     required bool isHeader, // 헤더인지 여부 추가
     required bool isTeacherNameSelected, // 교사 이름 선택 상태 (새로 추가)
+    required bool isHighlightedTeacher, // 하이라이트된 교사 행인지 여부 (새로 추가)
   }) {
     // 교사 이름 선택 상태인 경우 노란색 배경 (최우선순위)
     if (isTeacherNameSelected) {
@@ -244,6 +288,9 @@ class SimplifiedTimetableTheme {
     } else if (isExchangeable && !isHeader) {
       // 헤더가 아닌 경우에만 교체 가능한 셀 회색 배경 적용
       return exchangeableColorLight;
+    } else if (isHighlightedTeacher) {
+      // 하이라이트된 교사 행 (낮은 우선순위 - 다른 상태보다 나중에 적용)
+      return _highlightedTeacherColor;
     } else {
       return isTeacherColumn ? teacherHeaderColor : defaultColor;
     }
