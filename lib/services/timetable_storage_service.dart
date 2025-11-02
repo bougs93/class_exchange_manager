@@ -4,8 +4,14 @@ import 'storage_service.dart';
 import 'excel_service.dart';
 import '../utils/logger.dart';
 
+/// 시간표 저장 서비스 설정값
+class TimetableStorageConfig {
+  static const int hashLength = 32; // SHA256 해시 길이
+  static const int maxFileNameLength = 20; // 파일명 최대 길이
+}
+
 /// 시간표 데이터 저장 서비스
-/// 
+///
 /// 시간표 데이터를 JSON 파일로 저장하고 로드합니다.
 /// 파일명은 해시값(파일명 + 파일 내용의 SHA256 해시 32자) 기반으로 생성됩니다.
 /// 같은 내용의 파일은 중복 저장을 방지하고 기존 데이터를 재사용합니다.
@@ -45,7 +51,7 @@ class TimetableStorageService {
       final hashString = digest.toString();
 
       // 32자만 사용 (충돌 확률이 매우 낮음)
-      return hashString.substring(0, 32);
+      return hashString.substring(0, TimetableStorageConfig.hashLength);
     } catch (e) {
       AppLogger.error('파일 내용 해시 계산 실패: $e', e);
       return null;
@@ -73,7 +79,9 @@ class TimetableStorageService {
       final safeFileName = fileNameWithoutExt
           .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_')
           .replaceAll(RegExp(r'\s+'), '_')
-          .substring(0, fileNameWithoutExt.length > 20 ? 20 : fileNameWithoutExt.length);
+          .substring(0, fileNameWithoutExt.length > TimetableStorageConfig.maxFileNameLength
+              ? TimetableStorageConfig.maxFileNameLength
+              : fileNameWithoutExt.length);
       
       // 파일명 + 내용 해시 조합
       return '${safeFileName}_$contentHash';

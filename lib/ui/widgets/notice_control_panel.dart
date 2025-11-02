@@ -4,8 +4,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/notice_message.dart';
 import '../../providers/notice_message_provider.dart';
 
+/// 안내 메시지 제어 패널 설정값
+class NoticeControlPanelConfig {
+  static const double cardPadding = 1.0;
+  static const double contentPadding = 5.0;
+  static const double iconSize = 20.0;
+  static const double switchScale = 0.7;
+  static const double horizontalSpacing = 12.0;
+  static const double fontSize = 14.0;
+}
+
 /// 안내 메시지 제어 패널 위젯
-/// 
+///
 /// 새로고침 버튼과 "수업으로 안내" 스위치를 포함하는 공통 위젯입니다.
 /// 학급안내와 교사안내에서 재사용됩니다.
 class NoticeControlPanel extends ConsumerWidget {
@@ -29,29 +39,29 @@ class NoticeControlPanel extends ConsumerWidget {
     return Card(
       elevation: 1,
       child: Padding(
-        padding: const EdgeInsets.all(1),
+        padding: const EdgeInsets.all(NoticeControlPanelConfig.cardPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.all(5),
+              padding: const EdgeInsets.all(NoticeControlPanelConfig.contentPadding),
               child: Row(
                 children: [
                   // 새로고침 버튼 (아이콘만)
                   IconButton(
                     onPressed: () => noticeNotifier.refreshAllMessages(),
-                    icon: const Icon(Icons.refresh, size: 20),
+                    icon: const Icon(Icons.refresh, size: NoticeControlPanelConfig.iconSize),
                     tooltip: '새로고침',
                     style: IconButton.styleFrom(
                       backgroundColor: (refreshButtonColor ?? Colors.blue.shade600).withValues(alpha: 0.1),
                       foregroundColor: refreshButtonColor ?? Colors.blue.shade700,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  
+                  const SizedBox(width: NoticeControlPanelConfig.horizontalSpacing),
+
                   // 스위치 옵션
                   Transform.scale(
-                    scale: 0.7,
+                    scale: NoticeControlPanelConfig.switchScale,
                     child: Switch(
                       value: _getCurrentMessageOption(noticeState) == MessageOption.option2,
                       onChanged: (value) {
@@ -67,7 +77,7 @@ class NoticeControlPanel extends ConsumerWidget {
                   Text(
                     '수업으로 안내',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: NoticeControlPanelConfig.fontSize,
                       color: Colors.grey.shade700,
                     ),
                   ),
@@ -75,7 +85,7 @@ class NoticeControlPanel extends ConsumerWidget {
                   // 전체 복사 버튼 (오른쪽)
                   IconButton(
                     onPressed: () => _copyAllMessages(context, noticeState),
-                    icon: const Icon(Icons.copy, size: 20),
+                    icon: const Icon(Icons.copy, size: NoticeControlPanelConfig.iconSize),
                     tooltip: '전체 복사',
                     style: IconButton.styleFrom(
                       backgroundColor: Colors.blue.shade50,

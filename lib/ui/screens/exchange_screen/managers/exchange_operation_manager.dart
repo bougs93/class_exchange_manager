@@ -15,6 +15,14 @@ import '../../../../providers/services_provider.dart';
 import '../../../../ui/dialogs/exchange_data_reset_dialog.dart';
 import '../exchange_screen_state_proxy.dart';
 
+/// 교체 모드별 단계 설정
+class ExchangeModeSteps {
+  static const List<int> oneToOne = [2]; // 1:1 교체는 2단계만
+  static const List<int> circular = [2, 3, 4, 5]; // 순환교체는 2~5단계
+  static const List<int> chain = []; // 연쇄교체는 단계 필터 불필요
+  static const List<int> supplement = [2]; // 보강교체는 2단계
+}
+
 /// 파일 선택, 로딩, 교체 모드 전환 등 핵심 비즈니스 로직을 관리하는 Manager
 ///
 /// ExchangeFileHandler와 ExchangeModeHandler Mixin을 대체합니다.
@@ -257,26 +265,51 @@ class ExchangeOperationManager {
 
   // ===== 교체 모드 관리 =====
 
+  /// 다른 모드 비활성화 (템플릿 메서드 패턴 - 공통 로직)
+  void _disableOtherModes({
+    bool keepExchange = false,
+    bool keepCircular = false,
+    bool keepChain = false,
+    bool keepSupplement = false,
+  }) {
+    if (!keepExchange) stateProxy.setExchangeModeEnabled(false);
+    if (!keepCircular) stateProxy.setCircularExchangeModeEnabled(false);
+    if (!keepChain) stateProxy.setChainExchangeModeEnabled(false);
+    if (!keepSupplement) stateProxy.setSupplementExchangeModeEnabled(false);
+  }
+
+  /// 모드 활성화 공통 로직 (템플릿 메서드 패턴)
+  void _activateMode(List<int> steps) {
+    onClearAllExchangeStates();
+    stateProxy.setAvailableSteps(steps);
+    stateProxy.setSelectedStep(null);
+    stateProxy.setSelectedDay(null);
+  }
+
+  /// 모드 비활성화 공통 로직 (템플릿 메서드 패턴)
+  void _deactivateMode() {
+    stateProxy.setAvailableSteps([]);
+    stateProxy.setSelectedStep(null);
+    stateProxy.setSelectedDay(null);
+  }
+
+  /// 스낵바 피드백 표시 (템플릿 메서드 패턴)
+  void _showFeedback(String message, {Color? backgroundColor}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: backgroundColor ?? Colors.green,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
   /// 1:1 교체 모드 토글
-  ///
-  /// **처리 순서**:
-  /// 1. 다른 모드 비활성화 (순환/연쇄)
-  /// 2. 교체불가 편집 모드 비활성화
-  /// 3. 1:1 교체 모드 활성화/비활성화
-  /// 4. 활성화 시: Level 2 초기화 + 단계 설정 (2단계만)
-  /// 5. 헤더 테마 업데이트
-  /// 6. 사용자 피드백 (SnackBar)
   void toggleExchangeMode() {
-    bool wasEnabled = stateProxy.isExchangeModeEnabled;
-    bool hasOtherModesActive =
-        stateProxy.isCircularExchangeModeEnabled ||
-        stateProxy.isChainExchangeModeEnabled;
+    final wasEnabled = stateProxy.isExchangeModeEnabled;
 
     // 1. 다른 모드 비활성화
-    if (hasOtherModesActive) {
-      stateProxy.setCircularExchangeModeEnabled(false);
-      stateProxy.setChainExchangeModeEnabled(false);
-    }
+    _disableOtherModes(keepExchange: true);
 
     // 2. 교체불가 편집 모드 비활성화
     if (stateProxy.isNonExchangeableEditMode) {
@@ -286,17 +319,11 @@ class ExchangeOperationManager {
     // 3. 1:1 교체 모드 토글
     stateProxy.setExchangeModeEnabled(!wasEnabled);
 
+    // 4. 활성화/비활성화 처리
     if (stateProxy.isExchangeModeEnabled) {
-      // 4. 활성화: Level 2 초기화 + 단계 설정
-      onClearAllExchangeStates();
-      stateProxy.setAvailableSteps([2]); // 1:1 교체는 2단계만 가능
-      stateProxy.setSelectedStep(null);
-      stateProxy.setSelectedDay(null);
+      _activateMode(ExchangeModeSteps.oneToOne);
     } else {
-      // 비활성화: 단계 설정만 초기화
-      stateProxy.setAvailableSteps([]);
-      stateProxy.setSelectedStep(null);
-      stateProxy.setSelectedDay(null);
+      _deactivateMode();
     }
 
     // 5. 헤더 테마 업데이트
@@ -304,39 +331,20 @@ class ExchangeOperationManager {
 
     // 6. 사용자 피드백
     if (stateProxy.isExchangeModeEnabled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('1:1교체 모드가 활성화되었습니다. 두 교사의 시간을 서로 교체할 수 있습니다.'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 3),
-        ),
-      );
+      _showFeedback('1:1교체 모드가 활성화되었습니다. 두 교사의 시간을 서로 교체할 수 있습니다.');
     }
   }
 
   /// 순환교체 모드 토글
-  ///
-  /// **처리 순서**:
-  /// 1. 다른 모드 비활성화 (1:1/연쇄)
-  /// 2. 교체불가 편집 모드 비활성화
-  /// 3. 순환교체 모드 활성화/비활성화
-  /// 4. 활성화 시: Level 2 초기화 + 단계 설정 (2~5단계)
-  /// 5. 헤더 테마 업데이트
-  /// 6. 사용자 피드백 (SnackBar)
   void toggleCircularExchangeMode() {
     AppLogger.exchangeDebug(
       '순환교체 모드 토글 시작 - 현재 상태: ${stateProxy.isCircularExchangeModeEnabled}',
     );
 
-    bool wasEnabled = stateProxy.isCircularExchangeModeEnabled;
-    bool hasOtherModesActive =
-        stateProxy.isExchangeModeEnabled || stateProxy.isChainExchangeModeEnabled;
+    final wasEnabled = stateProxy.isCircularExchangeModeEnabled;
 
     // 1. 다른 모드 비활성화
-    if (hasOtherModesActive) {
-      stateProxy.setExchangeModeEnabled(false);
-      stateProxy.setChainExchangeModeEnabled(false);
-    }
+    _disableOtherModes(keepCircular: true);
 
     // 2. 교체불가 편집 모드 비활성화
     if (stateProxy.isNonExchangeableEditMode) {
@@ -346,17 +354,11 @@ class ExchangeOperationManager {
     // 3. 순환교체 모드 토글
     stateProxy.setCircularExchangeModeEnabled(!wasEnabled);
 
+    // 4. 활성화/비활성화 처리
     if (stateProxy.isCircularExchangeModeEnabled) {
-      // 4. 활성화: Level 2 초기화 + 단계 설정
-      onClearAllExchangeStates();
-      stateProxy.setAvailableSteps([2, 3, 4, 5]); // 순환: 2~5단계
-      stateProxy.setSelectedStep(null);
-      stateProxy.setSelectedDay(null);
+      _activateMode(ExchangeModeSteps.circular);
     } else {
-      // 비활성화: 단계 설정만 초기화
-      stateProxy.setAvailableSteps([]);
-      stateProxy.setSelectedStep(null);
-      stateProxy.setSelectedDay(null);
+      _deactivateMode();
     }
 
     // 5. 헤더 테마 업데이트
@@ -364,40 +366,20 @@ class ExchangeOperationManager {
 
     // 6. 사용자 피드백
     if (stateProxy.isCircularExchangeModeEnabled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('순환교체 모드가 활성화되었습니다. 여러 교사의 시간을 순환 교체할 수 있습니다.'),
-          backgroundColor: Colors.blue,
-          duration: Duration(seconds: 3),
-        ),
-      );
+      _showFeedback('순환교체 모드가 활성화되었습니다. 여러 교사의 시간을 순환 교체할 수 있습니다.', backgroundColor: Colors.blue);
     }
   }
 
   /// 연쇄교체 모드 토글
-  ///
-  /// **처리 순서**:
-  /// 1. 다른 모드 비활성화 (1:1/순환)
-  /// 2. 교체불가 편집 모드 비활성화
-  /// 3. 연쇄교체 모드 활성화/비활성화
-  /// 4. 활성화 시: Level 2 초기화 + 단계 설정 (2~5단계)
-  /// 5. 헤더 테마 업데이트
-  /// 6. 사용자 피드백 (SnackBar)
   void toggleChainExchangeMode() {
     AppLogger.exchangeDebug(
       '연쇄교체 모드 토글 시작 - 현재 상태: ${stateProxy.isChainExchangeModeEnabled}',
     );
 
-    bool wasEnabled = stateProxy.isChainExchangeModeEnabled;
-    bool hasOtherModesActive =
-        stateProxy.isExchangeModeEnabled ||
-        stateProxy.isCircularExchangeModeEnabled;
+    final wasEnabled = stateProxy.isChainExchangeModeEnabled;
 
     // 1. 다른 모드 비활성화
-    if (hasOtherModesActive) {
-      stateProxy.setExchangeModeEnabled(false);
-      stateProxy.setCircularExchangeModeEnabled(false);
-    }
+    _disableOtherModes(keepChain: true);
 
     // 2. 교체불가 편집 모드 비활성화
     if (stateProxy.isNonExchangeableEditMode) {
@@ -407,58 +389,23 @@ class ExchangeOperationManager {
     // 3. 연쇄교체 모드 토글
     stateProxy.setChainExchangeModeEnabled(!wasEnabled);
 
+    // 4. 활성화/비활성화 처리
     if (stateProxy.isChainExchangeModeEnabled) {
-      // 4. 활성화: Level 2 초기화 + 단계 필터 강제 비활성화
-      onClearAllExchangeStates();
-      stateProxy.setAvailableSteps([]); // 연쇄교체: 단계 필터 불필요
-      stateProxy.setSelectedStep(null); // 단계 필터 강제 초기화
-      stateProxy.setSelectedDay(null);
+      _activateMode(ExchangeModeSteps.chain);
     } else {
-      // 비활성화: 단계 설정만 초기화
-      stateProxy.setAvailableSteps([]);
-      stateProxy.setSelectedStep(null);
-      stateProxy.setSelectedDay(null);
+      _deactivateMode();
     }
 
     // 5. 헤더 테마 업데이트
     onRefreshHeaderTheme();
-
-    // 6. 사용자 피드백 - 연쇄교체 모드 활성화 스낵바 제거
-    // if (stateProxy.isChainExchangeModeEnabled) {
-    //   ScaffoldMessenger.of(context).showSnackBar(
-    //     const SnackBar(
-    //       content: Text('연쇄교체 모드가 활성화되었습니다. 연쇄적으로 교체 경로를 찾을 수 있습니다.'),
-    //       backgroundColor: Colors.orange,
-    //       duration: Duration(seconds: 3),
-    //     ),
-    //   );
-    // }
   }
 
   /// 보강교체 모드 강제 활성화 (TabBar에서 호출)
-  ///
-  /// **처리 순서**:
-  /// 1. 다른 모드 비활성화 (1:1/순환/연쇄)
-  /// 2. 교체불가 편집 모드 비활성화
-  /// 3. 보강교체 모드 강제 활성화
-  /// 4. Level 2 초기화 + 단계 설정 (2단계)
-  /// 5. 교사 이름 선택 기능 활성화
-  /// 6. 헤더 테마 업데이트
-  /// 7. 사용자 피드백 (SnackBar)
   void activateSupplementExchangeMode() {
     AppLogger.exchangeDebug('보강교체 모드 강제 활성화 시작');
 
-    bool hasOtherModesActive =
-        stateProxy.isExchangeModeEnabled ||
-        stateProxy.isCircularExchangeModeEnabled ||
-        stateProxy.isChainExchangeModeEnabled;
-
     // 1. 다른 모드 비활성화
-    if (hasOtherModesActive) {
-      stateProxy.setExchangeModeEnabled(false);
-      stateProxy.setCircularExchangeModeEnabled(false);
-      stateProxy.setChainExchangeModeEnabled(false);
-    }
+    _disableOtherModes();
 
     // 2. 교체불가 편집 모드 비활성화
     if (stateProxy.isNonExchangeableEditMode) {
@@ -468,52 +415,29 @@ class ExchangeOperationManager {
     // 3. 보강교체 모드 강제 활성화
     stateProxy.setSupplementExchangeModeEnabled(true);
 
-        // 4. Level 2 초기화 + 단계 설정
-        onClearAllExchangeStates();
-        stateProxy.setAvailableSteps([2]); // 보강교체는 2단계 (보강할 셀 선택 → 보강받을 셀 선택)
-        stateProxy.setSelectedStep(null);
-        stateProxy.setSelectedDay(null);
+    // 4. 활성화 처리
+    _activateMode(ExchangeModeSteps.supplement);
 
-        // 5. 교사 이름 선택 기능 활성화
-        ref.read(exchangeScreenProvider.notifier).enableTeacherNameSelection();
-        AppLogger.exchangeDebug('[보강 모드] 교사 이름 선택 기능 활성화');
-        
-        // 6. 로딩 상태 설정 (일관된 사용자 경험을 위해)
-        ref.read(exchangeScreenProvider.notifier).setPathsLoading(false);
-        ref.read(exchangeScreenProvider.notifier).setLoadingProgress(1.0);
-        // 사이드바는 셀 선택 시에만 표시되도록 제거
-        // ref.read(exchangeScreenProvider.notifier).setSidebarVisible(true);
+    // 5. 교사 이름 선택 기능 활성화
+    ref.read(exchangeScreenProvider.notifier).enableTeacherNameSelection();
+    AppLogger.exchangeDebug('[보강 모드] 교사 이름 선택 기능 활성화');
 
-    // 6. 헤더 테마 업데이트
+    // 6. 로딩 상태 설정
+    ref.read(exchangeScreenProvider.notifier).setPathsLoading(false);
+    ref.read(exchangeScreenProvider.notifier).setLoadingProgress(1.0);
+
+    // 7. 헤더 테마 업데이트
     onRefreshHeaderTheme();
-
   }
 
   /// 보강교체 모드 토글
-  ///
-  /// **처리 순서**:
-  /// 1. 다른 모드 비활성화 (1:1/순환/연쇄)
-  /// 2. 교체불가 편집 모드 비활성화
-  /// 3. 보강교체 모드 활성화/비활성화
-  /// 4. 활성화 시: Level 2 초기화 + 단계 설정 (2단계)
-  /// 5. 교사 이름 선택 기능 활성화/비활성화
-  /// 6. 헤더 테마 업데이트
-  /// 7. 사용자 피드백 (SnackBar)
   void toggleSupplementExchangeMode() {
     AppLogger.exchangeDebug('보강교체 모드 토글 시작 - 현재 상태: ${stateProxy.isSupplementExchangeModeEnabled}');
 
-    bool wasEnabled = stateProxy.isSupplementExchangeModeEnabled;
-    bool hasOtherModesActive =
-        stateProxy.isExchangeModeEnabled ||
-        stateProxy.isCircularExchangeModeEnabled ||
-        stateProxy.isChainExchangeModeEnabled;
+    final wasEnabled = stateProxy.isSupplementExchangeModeEnabled;
 
     // 1. 다른 모드 비활성화
-    if (hasOtherModesActive) {
-      stateProxy.setExchangeModeEnabled(false);
-      stateProxy.setCircularExchangeModeEnabled(false);
-      stateProxy.setChainExchangeModeEnabled(false);
-    }
+    _disableOtherModes(keepSupplement: true);
 
     // 2. 교체불가 편집 모드 비활성화
     if (stateProxy.isNonExchangeableEditMode) {
@@ -523,49 +447,35 @@ class ExchangeOperationManager {
     // 3. 보강교체 모드 토글
     stateProxy.setSupplementExchangeModeEnabled(!wasEnabled);
 
-        if (stateProxy.isSupplementExchangeModeEnabled) {
-          // 4. 활성화: Level 2 초기화 + 단계 설정
-          onClearAllExchangeStates();
-          stateProxy.setAvailableSteps([2]); // 보강교체는 2단계 (보강할 셀 선택 → 보강받을 셀 선택)
-          stateProxy.setSelectedStep(null);
-          stateProxy.setSelectedDay(null);
+    // 4. 활성화/비활성화 처리
+    if (stateProxy.isSupplementExchangeModeEnabled) {
+      _activateMode(ExchangeModeSteps.supplement);
 
-          // 5. 교사 이름 선택 기능 활성화
-          ref.read(exchangeScreenProvider.notifier).enableTeacherNameSelection();
-          AppLogger.exchangeDebug('[보강 모드] 교사 이름 선택 기능 활성화');
-          
-          // 6. 로딩 상태 설정 (일관된 사용자 경험을 위해)
-          ref.read(exchangeScreenProvider.notifier).setPathsLoading(false);
-          ref.read(exchangeScreenProvider.notifier).setLoadingProgress(1.0);
-          // 사이드바는 셀 선택 시에만 표시되도록 제거
-          // ref.read(exchangeScreenProvider.notifier).setSidebarVisible(true);
-        } else {
-          // 비활성화: 단계 설정만 초기화
-          stateProxy.setAvailableSteps([]);
-          stateProxy.setSelectedStep(null);
-          stateProxy.setSelectedDay(null);
+      // 교사 이름 선택 기능 활성화
+      ref.read(exchangeScreenProvider.notifier).enableTeacherNameSelection();
+      AppLogger.exchangeDebug('[보강 모드] 교사 이름 선택 기능 활성화');
 
-          // 교사 이름 선택 기능 비활성화
-          ref.read(exchangeScreenProvider.notifier).disableTeacherNameSelection();
-          AppLogger.exchangeDebug('[보강 모드] 교사 이름 선택 기능 비활성화');
-          
-          // 로딩 상태 해제
-          ref.read(exchangeScreenProvider.notifier).setPathsLoading(false);
-          ref.read(exchangeScreenProvider.notifier).setLoadingProgress(0.0);
-        }
+      // 로딩 상태 설정
+      ref.read(exchangeScreenProvider.notifier).setPathsLoading(false);
+      ref.read(exchangeScreenProvider.notifier).setLoadingProgress(1.0);
+    } else {
+      _deactivateMode();
 
-    // 6. 헤더 테마 업데이트
+      // 교사 이름 선택 기능 비활성화
+      ref.read(exchangeScreenProvider.notifier).disableTeacherNameSelection();
+      AppLogger.exchangeDebug('[보강 모드] 교사 이름 선택 기능 비활성화');
+
+      // 로딩 상태 해제
+      ref.read(exchangeScreenProvider.notifier).setPathsLoading(false);
+      ref.read(exchangeScreenProvider.notifier).setLoadingProgress(0.0);
+    }
+
+    // 5. 헤더 테마 업데이트
     onRefreshHeaderTheme();
 
-    // 7. 사용자 피드백
+    // 6. 사용자 피드백
     if (stateProxy.isSupplementExchangeModeEnabled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('보강교체 모드가 활성화되었습니다. 교사가 부재 시 다른 교사가 대신 수업할 수 있습니다.'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 3),
-        ),
-      );
+      _showFeedback('보강교체 모드가 활성화되었습니다. 교사가 부재 시 다른 교사가 대신 수업할 수 있습니다.', backgroundColor: Colors.orange);
     }
   }
 }
