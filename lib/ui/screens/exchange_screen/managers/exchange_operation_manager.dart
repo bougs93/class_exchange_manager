@@ -9,6 +9,7 @@ import '../../../../services/exchange_history_service.dart';
 import '../../../../services/timetable_storage_service.dart';
 import '../../../../utils/logger.dart';
 import '../../../../utils/non_exchangeable_manager.dart';
+import '../../../../utils/snackbar_helper.dart';
 import '../../../../models/exchange_mode.dart';
 import '../../../../providers/exchange_screen_provider.dart';
 import '../../../../providers/services_provider.dart';
@@ -297,13 +298,13 @@ class ExchangeOperationManager {
 
   /// 스낵바 피드백 표시 (템플릿 메서드 패턴)
   void _showFeedback(String message, {Color? backgroundColor}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: backgroundColor ?? Colors.green,
-        duration: const Duration(seconds: 3),
-      ),
-    );
+    if (backgroundColor == Colors.blue) {
+      SnackBarHelper.showInfo(context, message, backgroundColor: backgroundColor);
+    } else if (backgroundColor == Colors.orange) {
+      SnackBarHelper.showWarning(context, message);
+    } else {
+      SnackBarHelper.showSuccess(context, message);
+    }
   }
 
   /// 1:1 교체 모드 토글

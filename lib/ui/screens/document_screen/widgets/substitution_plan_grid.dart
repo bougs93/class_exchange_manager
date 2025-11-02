@@ -10,6 +10,8 @@ import '../../../../providers/state_reset_provider.dart';
 import '../../../../ui/widgets/timetable_grid/exchange_executor.dart';
 import '../../../../utils/logger.dart';
 import '../../../../utils/date_format_utils.dart';
+import '../../../../utils/snackbar_helper.dart';
+import '../../../../utils/dialog_helper.dart';
 import '../../../mixins/scroll_management_mixin.dart';
 import 'substitution_plan_grid_helpers.dart';
 
@@ -177,27 +179,18 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
   /// 삭제 확인 다이얼로그 표시
   ///
   /// 사용자에게 삭제 확인을 받고, 확인 시 교체 리스트를 삭제합니다.
-  void _showDeleteConfirmDialog(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('결보강 전체 초기화'),
-        content: const Text('결보강을 전체 초기화하겠습니까?\n이 작업은 되돌릴 수 없습니다.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('취소', style: TextStyle(color: Colors.grey.shade600)),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteExchangeList(context, ref);
-            },
-            child: Text('초기화', style: TextStyle(color: Colors.red.shade600)),
-          ),
-        ],
-      ),
+  Future<void> _showDeleteConfirmDialog(BuildContext context, WidgetRef ref) async {
+    final confirmed = await DialogHelper.showConfirmDialog(
+      context,
+      title: '결보강 전체 초기화',
+      message: '결보강을 전체 초기화하겠습니까?\n이 작업은 되돌릴 수 없습니다.',
+      confirmText: '초기화',
+      isDangerous: true,
     );
+
+    if (confirmed == true && context.mounted) {
+      _deleteExchangeList(context, ref);
+    }
   }
 
   /// 교체 리스트 삭제 실행
@@ -225,10 +218,10 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
       viewModel.loadPlanData();
 
       // 5. 성공 메시지 표시
-      _showSuccessMessage(context, '교체목록이 초기화되었습니다.');
+      SnackBarHelper.showSuccess(context, '교체목록이 초기화되었습니다.');
     } catch (e) {
       // 오류 메시지 표시
-      _showErrorMessage(context, '초기화 중 오류가 발생했습니다: $e');
+      SnackBarHelper.showError(context, '초기화 중 오류가 발생했습니다: $e');
     }
   }
 
@@ -556,32 +549,27 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
     return dateWeekday == targetWeekdayNumber;
   }
 
-  void _clearAllDates(BuildContext context, SubstitutionPlanViewModel viewModel) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('보강계획 초기화'),
-        content: const Text('입력한 모든 날짜 정보와 과목 선택을 초기화하겠습니까?\n이 작업은 되돌릴 수 없습니다.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('취소', style: TextStyle(color: Colors.grey.shade600)),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              try {
-                viewModel.clearAllDates();
-                _showSuccessMessage(context, '모든 날짜 정보와 과목 선택이 초기화되었습니다.');
-              } catch (e) {
-                _showErrorMessage(context, '초기화 중 오류가 발생했습니다: $e');
-              }
-            },
-            child: Text('초기화', style: TextStyle(color: Colors.red.shade600)),
-          ),
-        ],
-      ),
+  Future<void> _clearAllDates(BuildContext context, SubstitutionPlanViewModel viewModel) async {
+    final confirmed = await DialogHelper.showConfirmDialog(
+      context,
+      title: '보강계획 초기화',
+      message: '입력한 모든 날짜 정보와 과목 선택을 초기화하겠습니까?\n이 작업은 되돌릴 수 없습니다.',
+      confirmText: '초기화',
+      isDangerous: true,
     );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        viewModel.clearAllDates();
+        if (context.mounted) {
+          SnackBarHelper.showSuccess(context, '모든 날짜 정보와 과목 선택이 초기화되었습니다.');
+        }
+      } catch (e) {
+        if (context.mounted) {
+          SnackBarHelper.showError(context, '초기화 중 오류가 발생했습니다: $e');
+        }
+      }
+    }
   }
 
   /// 테이블 데이터를 엑셀 형식으로 클립보드에 복사
@@ -681,31 +669,4 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
 
     return buffer.toString();
   }
-
-  /// 성공 메시지 표시 (헬퍼 함수)
-  void _showSuccessMessage(BuildContext context, String message) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
-  }
-
-  /// 에러 메시지 표시 (헬퍼 함수)
-  void _showErrorMessage(BuildContext context, String message) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.red.shade600,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
-  }
-
 }
