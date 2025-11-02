@@ -147,80 +147,82 @@ class ExchangeOperationManager {
   }
 
   Future<void> parseTimetableData(Excel excel) async {
-    TimetableData? timetableData = ExcelService.parseTimetableData(excel);
+    final timetableData = ExcelService.parseTimetableData(excel);
 
-    if (timetableData != null) {
-      // 파일 변경 감지 및 초기화 확인
-      final selectedFile = stateProxy.selectedFile;
-      if (selectedFile != null) {
-        final filePath = selectedFile.path;
-        final fileName = filePath.split(Platform.pathSeparator).last;
-        
-        // 파일 내용이 변경되었는지 확인
-        final isModified = await _timetableStorageService.isFileModified(filePath);
-        
-        if (isModified) {
-            // 파일이 변경되었으면 초기화 확인 다이얼로그 표시
-            // async gap 이후 BuildContext 사용 시 안전성을 위해 mounted 체크와 try-catch로 보호
-            bool? shouldReset;
-            
-            // 위젯이 여전히 마운트되어 있는지 확인
-            if (!context.mounted) {
-              // 위젯이 dispose된 경우 처리 중단
-              stateProxy.setErrorMessage('파일 로드 중 위젯이 닫혔습니다.');
-              return;
-            }
-            
-            try {
-              // async gap 이후 context 사용 - mounted 체크로 안전성 확보
-              shouldReset = await ExchangeDataResetDialog.show(
-                context,
-                message: '엑셀 파일이 변경되었습니다. 저장된 시간표 데이터와 교체 리스트를 초기화하시겠습니까?',
-              );
-            } catch (e) {
-              // 위젯이 dispose되었거나 context가 유효하지 않은 경우 처리 중단
-              stateProxy.setErrorMessage('파일 로드 중 오류가 발생했습니다: $e');
-              return;
-            }
-            
-            if (shouldReset == true) {
-              // 사용자가 초기화를 확인한 경우
-              _clearHistoryAndExchangeList();
-            } else if (shouldReset == false) {
-              // 사용자가 취소한 경우 파싱 중단 (메시지 없이 조용히 취소)
-              return;
-            }
-          }
-        
-        // 시간표 데이터 저장
-        await _timetableStorageService.saveTimetableData(
-          timetableData,
-          filePath,
-          fileName,
-        );
-      } else {
-        // Web 플랫폼의 경우 파일 경로가 없으므로 메타데이터 저장 건너뛰기
-        // 필요시 Web에서도 저장할 수 있도록 확장 가능
-      }
-      
-      // 새로운 파일이거나 파일이 변경된 경우에만 초기화
-      // (파일이 변경되지 않았고 사용자가 초기화하지 않기로 한 경우는 초기화하지 않음)
-      // 첫 로드인 경우(isModified가 false이고 메타데이터가 없는 경우)에는 초기화하지 않음
-      // 이 부분은 파일이 변경되지 않은 경우 초기화를 하지 않도록 함
-      
-      // 교체불가 관리자에 새로운 TimeSlot 데이터 설정
-      _nonExchangeableManager.setTimeSlots(timetableData.timeSlots);
-      
-      stateProxy.setTimetableData(timetableData);
-      onCreateSyncfusionGridData();
-      
-      // 파일 선택 후 보기 모드로 전환
-      stateProxy.setCurrentMode(ExchangeMode.view);
-      
-      AppLogger.exchangeInfo('파일이 선택되고 보기 모드로 전환되었습니다.');
-    } else {
+    if (timetableData == null) {
       stateProxy.setErrorMessage('시간표 데이터를 파싱할 수 없습니다.');
+      return;
     }
+
+    // 파일 변경 감지 및 사용자 확인
+    final shouldContinue = await _handleFileModification();
+    if (!shouldContinue) return;
+
+    // 데이터 저장 및 적용
+    await _saveAndApplyTimetableData(timetableData);
+  }
+
+  /// 파일 변경 감지 및 사용자 확인 처리
+  ///
+  /// 반환값: 계속 진행 여부 (true: 계속, false: 중단)
+  Future<bool> _handleFileModification() async {
+    final selectedFile = stateProxy.selectedFile;
+    if (selectedFile == null) return true; // Web 플랫폼
+
+    final filePath = selectedFile.path;
+    final isModified = await _timetableStorageService.isFileModified(filePath);
+
+    if (!isModified) return true; // 변경되지 않음
+
+    // 파일이 변경되었으면 초기화 확인 다이얼로그 표시
+    if (!context.mounted) {
+      stateProxy.setErrorMessage('파일 로드 중 위젯이 닫혔습니다.');
+      return false;
+    }
+
+    bool? shouldReset;
+    try {
+      shouldReset = await ExchangeDataResetDialog.show(
+        context,
+        message: '엑셀 파일이 변경되었습니다. 저장된 시간표 데이터와 교체 리스트를 초기화하시겠습니까?',
+      );
+    } catch (e) {
+      stateProxy.setErrorMessage('파일 로드 중 오류가 발생했습니다: $e');
+      return false;
+    }
+
+    if (shouldReset == true) {
+      _clearHistoryAndExchangeList();
+      return true;
+    }
+
+    return false; // 사용자가 취소
+  }
+
+  /// 시간표 데이터 저장 및 적용
+  Future<void> _saveAndApplyTimetableData(TimetableData timetableData) async {
+    // 데이터 저장 (Native 플랫폼만)
+    final selectedFile = stateProxy.selectedFile;
+    if (selectedFile != null) {
+      final filePath = selectedFile.path;
+      final fileName = filePath.split(Platform.pathSeparator).last;
+
+      await _timetableStorageService.saveTimetableData(
+        timetableData,
+        filePath,
+        fileName,
+      );
+    }
+
+    // 교체불가 관리자에 데이터 설정
+    _nonExchangeableManager.setTimeSlots(timetableData.timeSlots);
+
+    // UI 업데이트
+    stateProxy.setTimetableData(timetableData);
+    onCreateSyncfusionGridData();
+    stateProxy.setCurrentMode(ExchangeMode.view);
+
+    AppLogger.exchangeInfo('파일이 선택되고 보기 모드로 전환되었습니다.');
   }
 
   /// 히스토리와 교체목록록 초기화 (파일 선택 해제 또는 새로 읽기 시 호출)

@@ -102,26 +102,16 @@ class NoticeControlPanel extends ConsumerWidget {
   }
 
   /// 현재 메시지 옵션 가져오기
-  MessageOption _getCurrentMessageOption(NoticeMessageState noticeState) {
-    switch (messageType) {
-      case NoticeMessageType.classNotice:
-        return noticeState.classMessageOption;
-      case NoticeMessageType.teacherNotice:
-        return noticeState.teacherMessageOption;
-    }
-  }
+  MessageOption _getCurrentMessageOption(NoticeMessageState noticeState) =>
+      messageType == NoticeMessageType.classNotice
+          ? noticeState.classMessageOption
+          : noticeState.teacherMessageOption;
 
   /// 메시지 옵션 설정하기
-  void _setMessageOption(NoticeMessageNotifier noticeNotifier, MessageOption option) {
-    switch (messageType) {
-      case NoticeMessageType.classNotice:
-        noticeNotifier.setClassMessageOption(option);
-        break;
-      case NoticeMessageType.teacherNotice:
-        noticeNotifier.setTeacherMessageOption(option);
-        break;
-    }
-  }
+  void _setMessageOption(NoticeMessageNotifier noticeNotifier, MessageOption option) =>
+      messageType == NoticeMessageType.classNotice
+          ? noticeNotifier.setClassMessageOption(option)
+          : noticeNotifier.setTeacherMessageOption(option);
 
   /// 전체 메시지를 클립보드에 복사
   Future<void> _copyAllMessages(BuildContext context, NoticeMessageState noticeState) async {

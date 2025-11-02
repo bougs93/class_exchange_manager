@@ -138,7 +138,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
                 ElevatedButton.icon(
                   onPressed: () => _clearAllDates(context, viewModel),
                   icon: const Icon(Icons.clear, size: 16),
-                  label: const Text('날짜, 과목 초기화'),
+                  label: const Text('보강계획 초기화'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.orange.shade600,
                     foregroundColor: Colors.white,
@@ -175,14 +175,14 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
   }
 
   /// 삭제 확인 다이얼로그 표시
-  /// 
+  ///
   /// 사용자에게 삭제 확인을 받고, 확인 시 교체 리스트를 삭제합니다.
   void _showDeleteConfirmDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('결보강 전체 초기화'),
-        content: const Text('결보강을 전체 초기화하겠습니까?'),
+        content: const Text('결보강을 전체 초기화하겠습니까?\n이 작업은 되돌릴 수 없습니다.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -201,10 +201,10 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
   }
 
   /// 교체 리스트 삭제 실행
-  /// 
+  ///
   /// ExchangeHistoryService를 통해 전체 교체 리스트를 삭제하고,
   /// UI 상태를 초기화합니다.
-  /// 
+  ///
   /// 주의: 교체 뷰 상태는 유지됩니다 (비활성화하지 않음).
   void _deleteExchangeList(BuildContext context, WidgetRef ref) {
     try {
@@ -213,40 +213,22 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
       historyService.clearExchangeList();
 
       // 2. 교체된 셀 상태 업데이트 (빈 리스트로 갱신하여 교체된 셀 스타일 제거)
-      // ExchangeExecutor의 static 메서드를 사용하여 코드 중복 방지
-      // 교체 리스트가 비어있으므로 모든 교체된 셀 스타일이 제거됨
       ExchangeExecutor.restoreExchangedCells(ref);
 
       // 3. UI 상태 초기화 (선택된 경로, 캐시, 화살표 등)
       ref.read(stateResetProvider.notifier).resetExchangeStates(
-        reason: '교체목록 전체 삭제',
+        reason: '교체목록 전체 초기화',
       );
 
-      // 4. 보강계획서 데이터 자동 새로고침 (교체 리스트가 삭제되었으므로 빈 리스트로 업데이트됨)
+      // 4. 보강계획서 데이터 자동 새로고침
       final viewModel = ref.read(substitutionPlanViewModelProvider.notifier);
       viewModel.loadPlanData();
 
       // 5. 성공 메시지 표시
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('교체목록이 초기화되었습니다.'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
+      _showSuccessMessage(context, '교체목록이 초기화되었습니다.');
     } catch (e) {
       // 오류 메시지 표시
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('삭제 중 오류가 발생했습니다: $e'),
-            backgroundColor: Colors.red.shade600,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
+      _showErrorMessage(context, '초기화 중 오류가 발생했습니다: $e');
     }
   }
 
@@ -578,8 +560,8 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('지우기'),
-        content: const Text('입력한 모든 날짜 정보와 과목 선택을 지우시겠습니까?\n이 작업은 되돌릴 수 없습니다.'),
+        title: const Text('보강계획 초기화'),
+        content: const Text('입력한 모든 날짜 정보와 과목 선택을 초기화하겠습니까?\n이 작업은 되돌릴 수 없습니다.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -588,16 +570,14 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              viewModel.clearAllDates();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('모든 날짜 정보와 과목 선택이 지워졌습니다.'),
-                  backgroundColor: Colors.green,
-                  duration: Duration(seconds: 2),
-                ),
-              );
+              try {
+                viewModel.clearAllDates();
+                _showSuccessMessage(context, '모든 날짜 정보와 과목 선택이 초기화되었습니다.');
+              } catch (e) {
+                _showErrorMessage(context, '초기화 중 오류가 발생했습니다: $e');
+              }
             },
-            child: Text('지우기', style: TextStyle(color: Colors.red.shade600)),
+            child: Text('초기화', style: TextStyle(color: Colors.red.shade600)),
           ),
         ],
       ),
@@ -700,6 +680,32 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
     }
 
     return buffer.toString();
+  }
+
+  /// 성공 메시지 표시 (헬퍼 함수)
+  void _showSuccessMessage(BuildContext context, String message) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  /// 에러 메시지 표시 (헬퍼 함수)
+  void _showErrorMessage(BuildContext context, String message) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.red.shade600,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
 }
