@@ -5,6 +5,7 @@ import '../../services/pdf_export_settings_storage_service.dart';
 import '../../services/storage_service.dart';
 import '../../utils/logger.dart';
 import '../../utils/simplified_timetable_theme.dart';
+import '../../providers/exchange_screen_provider.dart';
 
 /// 설정 화면
 /// 
@@ -33,7 +34,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _isSavingNames = false;
   
   // 하이라이트 색상 관련
-  Color _highlightedTeacherColor = const Color(0xFFF5F5F5); // 기본값: 연한 회색
+  Color _highlightedTeacherColor = const Color(0xFFF3E5F5); // 기본값: 연한 보라색
   bool _isLoadingHighlightColor = true;
   bool _isSavingHighlightColor = false;
 
@@ -99,7 +100,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _highlightedTeacherColor = Color(colorValue);
         } else {
           // 기본값 사용
-          _highlightedTeacherColor = const Color(0xFFF5F5F5);
+          _highlightedTeacherColor = const Color(0xFFF3E5F5);
         }
         _isLoadingHighlightColor = false;
       });
@@ -163,6 +164,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       
       if (mounted) {
         if (success) {
+          // 교체관리 화면의 테마 업데이트 (교사 행 하이라이트 적용)
+          try {
+            final dataSource = ref.read(exchangeScreenProvider).dataSource;
+            dataSource?.refreshHighlightedTeacherName();
+          } catch (e) {
+            // DataSource가 아직 생성되지 않았을 수 있음 (정상적인 경우)
+            AppLogger.debug('교체관리 화면 DataSource가 아직 없습니다: $e');
+          }
+          
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('교사명과 학교명이 저장되었습니다.'),

@@ -17,8 +17,8 @@ class SimplifiedTimetableTheme {
   static Color _nonExchangeableColor = const Color(0xFFFFCDD2);
   
   /// 하이라이트된 교사 행 색상 (저장/로드 가능)
-  /// 기본값: 연한 회색 (0xFFF5F5F5)
-  static Color _highlightedTeacherColor = const Color(0xFFF5F5F5);
+  /// 기본값: 연한 보라색 (0xFFF3E5F5)
+  static Color _highlightedTeacherColor = const Color(0xFFF3E5F5);
   
   /// 폰트 사이즈 배율 설정 (줌 인/아웃 시 호출)
   static void setFontScaleFactor(double factor) {
