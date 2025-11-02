@@ -51,14 +51,14 @@ class WeekDateCalculator {
     ];
   }
 
-  /// 날짜를 "월/일" 형식으로 포맷
+  /// 날짜를 "월.일" 형식으로 포맷
   /// 
   /// 매개변수:
   /// - [date]: 포맷할 날짜
   /// 
-  /// 반환값: "11/03" 형식의 문자열
+  /// 반환값: "11.03" 형식의 문자열
   static String formatDateShort(DateTime date) {
-    return '${date.month}/${date.day.toString().padLeft(2, '0')}';
+    return '${date.month}.${date.day.toString().padLeft(2, '0')}';
   }
 
   /// 요일명과 날짜를 결합한 문자열 생성
@@ -67,7 +67,7 @@ class WeekDateCalculator {
   /// - [dayName]: 요일명 ('월', '화', '수', '목', '금')
   /// - [date]: 날짜
   /// 
-  /// 반환값: "월 (11/03)" 형식의 문자열
+  /// 반환값: "월 (11.03)" 형식의 문자열
   static String formatDayWithDate(String dayName, DateTime date) {
     return '$dayName (${formatDateShort(date)})';
   }

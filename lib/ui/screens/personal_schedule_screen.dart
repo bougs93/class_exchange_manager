@@ -5,17 +5,19 @@ import '../../services/pdf_export_settings_storage_service.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../providers/personal_schedule_provider.dart';
 import '../../utils/personal_timetable_helper.dart';
-import '../../utils/simplified_timetable_theme.dart';
-import '../../utils/cell_style_config.dart';
 import '../../utils/week_date_calculator.dart';
 import '../../utils/logger.dart';
 import '../../models/time_slot.dart';
 import '../../ui/widgets/timetable_grid/grid_header_widgets.dart';
+import '../../ui/widgets/simplified_timetable_cell.dart';
 import '../../providers/substitution_plan_provider.dart';
 import '../../providers/services_provider.dart';
 import '../../services/excel_service.dart';
 import '../../utils/personal_exchange_filter.dart';
 import '../../utils/personal_exchange_view_manager.dart';
+import '../../providers/zoom_provider.dart';
+import '../../ui/widgets/timetable_grid/grid_scaling_helper.dart';
+import '../../ui/widgets/timetable_grid/timetable_grid_constants.dart';
 
 /// 개인 시간표 화면
 /// 
@@ -296,17 +298,42 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
           // 주 이동 및 교체 뷰 스위치 컨트롤 패널
           _buildControlPanel(scheduleState, weekDates),
           
-          // 시간표 그리드
+          // 시간표 그리드 (줌 팩터 적용)
           Expanded(
-            child: SfDataGrid(
-              source: _dataSource!,
-              columns: result.columns,
-              stackedHeaderRows: result.stackedHeaders,
-              gridLinesVisibility: GridLinesVisibility.both,
-              headerGridLinesVisibility: GridLinesVisibility.both,
-              allowSorting: false,
-              allowTriStateSorting: false,
-              columnWidthMode: ColumnWidthMode.fill,
+            child: Consumer(
+              builder: (context, ref, child) {
+                final zoomFactor = ref.watch(zoomProvider.select((s) => s.zoomFactor));
+                
+                // 줌 팩터에 따라 컬럼과 헤더 스케일링
+                final scaledColumns = GridScalingHelper.scaleColumns(result.columns, zoomFactor);
+                final scaledStackedHeaders = GridScalingHelper.scaleStackedHeaders(result.stackedHeaders, zoomFactor);
+                
+                return Theme(
+                  data: Theme.of(context).copyWith(
+                    textTheme: Theme.of(context).textTheme.copyWith(
+                      bodyMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                      bodySmall: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                      titleMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                      labelMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                      labelLarge: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                      labelSmall: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                    ),
+                  ),
+                  child: SfDataGrid(
+                    source: _dataSource!,
+                    columns: scaledColumns,
+                    stackedHeaderRows: scaledStackedHeaders,
+                    gridLinesVisibility: GridLinesVisibility.both,
+                    headerGridLinesVisibility: GridLinesVisibility.both,
+                    allowSorting: false,
+                    allowTriStateSorting: false,
+                    columnWidthMode: ColumnWidthMode.fill,
+                    // 개인 시간표 테이블 크기 20% 증가 적용 (세로 높이)
+                    headerRowHeight: GridScalingHelper.scaleHeaderHeight(zoomFactor) * 1.2,
+                    rowHeight: GridScalingHelper.scaleRowHeight(zoomFactor) * 1.2,
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -355,6 +382,26 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
               ref.read(personalScheduleProvider.notifier).moveToNextWeek();
             },
             tooltip: '다음 주',
+          ),
+          
+          const SizedBox(width: 16),
+          
+          // 확대/축소 컨트롤
+          Consumer(
+            builder: (context, ref, child) {
+              final zoomState = ref.watch(zoomProvider);
+              final zoomNotifier = ref.read(zoomProvider.notifier);
+              
+              return ZoomControlWidget(
+                zoomPercentage: zoomState.zoomPercentage,
+                zoomFactor: zoomState.zoomFactor,
+                minZoom: zoomState.minZoom,
+                maxZoom: zoomState.maxZoom,
+                onZoomIn: zoomNotifier.zoomIn,
+                onZoomOut: zoomNotifier.zoomOut,
+                onResetZoom: zoomNotifier.resetZoom,
+              );
+            },
           ),
           
           const SizedBox(width: 16),
@@ -480,35 +527,15 @@ class PersonalTimetableDataSource extends DataGridSource {
 
         // 교시 헤더 열인 경우
         if (isPeriodColumn) {
-          return Container(
-            padding: const EdgeInsets.all(8.0),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: SimplifiedTimetableTheme.teacherHeaderColor,
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Text(
-              dataGridCell.value.toString(),
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          );
-        }
-
-        // 시간표 셀인 경우
-        final timeSlot = dataGridCell.value as TimeSlot?;
-        final content = timeSlot?.displayText ?? '';
-
-        // 셀 스타일 결정 (개인 시간표는 교체 관련 상태가 없으므로 기본값 사용)
-        final style = SimplifiedTimetableTheme.getCellStyleFromConfig(
-          CellStyleConfig(
-            isTeacherColumn: false,
+          // 교체 관리 화면과 동일한 SimplifiedTimetableCell 사용
+          return SimplifiedTimetableCell(
+            content: dataGridCell.value.toString(),
+            isTeacherColumn: true, // 교시 헤더는 교사명 열과 동일한 스타일 적용
             isSelected: false,
             isExchangeable: false,
             isLastColumnOfDay: false,
             isFirstColumnOfDay: false,
-            isHeader: false,
+            isHeader: true, // 헤더로 표시
             isInCircularPath: false,
             circularPathStep: null,
             isInSelectedPath: false,
@@ -520,23 +547,34 @@ class PersonalTimetableDataSource extends DataGridSource {
             isExchangedDestinationCell: false,
             isTeacherNameSelected: false,
             isHighlightedTeacher: false,
-          ),
-        );
+          );
+        }
 
-        return Container(
-          padding: const EdgeInsets.all(4.0),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: style.backgroundColor,
-            border: style.border,
-          ),
-          child: Text(
-            content,
-            style: style.textStyle,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
+        // 시간표 셀인 경우
+        final timeSlot = dataGridCell.value as TimeSlot?;
+        final content = timeSlot?.displayText ?? '';
+
+        // 교체 관리 화면과 동일한 SimplifiedTimetableCell 사용
+        // 개인 시간표는 교체 관련 상태가 없으므로 기본값 사용
+        return SimplifiedTimetableCell(
+          content: content,
+          isTeacherColumn: false,
+          isSelected: false,
+          isExchangeable: false,
+          isLastColumnOfDay: false,
+          isFirstColumnOfDay: false,
+          isHeader: false,
+          isInCircularPath: false,
+          circularPathStep: null,
+          isInSelectedPath: false,
+          isInChainPath: false,
+          chainPathStep: null,
+          isTargetCell: false,
+          isNonExchangeable: false,
+          isExchangedSourceCell: false,
+          isExchangedDestinationCell: false,
+          isTeacherNameSelected: false,
+          isHighlightedTeacher: false,
         );
       }).toList(),
     );
