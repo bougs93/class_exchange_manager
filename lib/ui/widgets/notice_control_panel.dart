@@ -43,7 +43,7 @@ class NoticeControlPanel extends ConsumerWidget {
                     icon: const Icon(Icons.refresh, size: 20),
                     tooltip: '새로고침',
                     style: IconButton.styleFrom(
-                      backgroundColor: (refreshButtonColor ?? Colors.blue.shade600).withOpacity(0.1),
+                      backgroundColor: (refreshButtonColor ?? Colors.blue.shade600).withValues(alpha: 0.1),
                       foregroundColor: refreshButtonColor ?? Colors.blue.shade700,
                     ),
                   ),
