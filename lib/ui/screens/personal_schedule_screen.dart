@@ -24,6 +24,7 @@ import '../../utils/personal_exchange_view_manager.dart';
 import '../../providers/zoom_provider.dart';
 import '../../ui/widgets/timetable_grid/grid_scaling_helper.dart';
 import '../../ui/widgets/timetable_grid/timetable_grid_constants.dart';
+import '../../utils/simplified_timetable_theme.dart';
 
 /// 개인 시간표 화면
 /// 
@@ -349,119 +350,190 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
           ],
         ),
       ),
-      body: Column(
-        children: [
-          // 줌 컨트롤 및 교체 뷰 스위치 컨트롤 패널
-          _buildControlPanel(scheduleState, weekDates),
-          
-          // 시간표 그리드 (줌 팩터 적용)
-          Expanded(
-            child: Consumer(
-              builder: (context, ref, child) {
-                final zoomFactor = ref.watch(zoomProvider.select((s) => s.zoomFactor));
+      body: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Card(
+          elevation: 2,
+          child: Padding(
+            padding: const EdgeInsets.all(4.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 헤더 (줌 컨트롤 및 교체 뷰 스위치)
+                _buildControlPanel(scheduleState, weekDates),
                 
-                // 줌 팩터에 따라 헤더 재생성 (폰트 사이즈 반영)
-                final resultWithZoom = PersonalTimetableHelper.convertToPersonalTimetableData(
-                  timeSlotsToUse,
-                  teacherName,
-                  weekDates,
-                  zoomFactor: zoomFactor,
-                );
+                const SizedBox(height: 2),
                 
-                // 줌 팩터에 따라 컬럼과 헤더 스케일링
-                final scaledColumns = GridScalingHelper.scaleColumns(resultWithZoom.columns, zoomFactor);
-                final scaledStackedHeaders = GridScalingHelper.scaleStackedHeaders(resultWithZoom.stackedHeaders, zoomFactor);
-                
-                // DataSource 업데이트 (줌 팩터에 따라 행 데이터도 업데이트)
-                _dataSource?.updateRows(
-                  resultWithZoom.rows,
-                  teacherName: teacherName,
-                  filteredExchanges: filteredExchanges,
-                );
-                
-                // 테이블 주변 여백 추가를 위해 Padding으로 감싸기
-                return Padding(
-                  padding: const EdgeInsets.all(16.0), // 상하좌우 16px 여백 추가
-                  child: Theme(
-                    data: Theme.of(context).copyWith(
-                      textTheme: Theme.of(context).textTheme.copyWith(
-                        bodyMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                        bodySmall: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                        titleMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                        labelMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                        labelLarge: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                        labelSmall: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                      ),
-                    ),
-                    child: SfDataGrid(
-                      source: _dataSource!,
-                      columns: scaledColumns,
-                      stackedHeaderRows: scaledStackedHeaders,
-                      gridLinesVisibility: GridLinesVisibility.both,
-                      headerGridLinesVisibility: GridLinesVisibility.both,
-                      allowSorting: false,
-                      allowTriStateSorting: false,
-                      columnWidthMode: ColumnWidthMode.fill,
-                      // 개인 시간표 테이블 크기 20% 증가 적용 (세로 높이)
-                      headerRowHeight: GridScalingHelper.scaleHeaderHeight(zoomFactor) * 1.2,
-                      rowHeight: GridScalingHelper.scaleRowHeight(zoomFactor) * 1.2,
-                    ),
+                // 시간표 그리드 (줌 팩터 적용)
+                Expanded(
+                  child: Consumer(
+                    builder: (context, ref, child) {
+                      final zoomFactor = ref.watch(zoomProvider.select((s) => s.zoomFactor));
+                      
+                      // 줌 팩터에 따라 헤더 재생성 (폰트 사이즈 반영)
+                      final resultWithZoom = PersonalTimetableHelper.convertToPersonalTimetableData(
+                        timeSlotsToUse,
+                        teacherName,
+                        weekDates,
+                        zoomFactor: zoomFactor,
+                      );
+                      
+                      // 줌 팩터에 따라 컬럼과 헤더 스케일링
+                      final scaledColumns = GridScalingHelper.scaleColumns(resultWithZoom.columns, zoomFactor);
+                      final scaledStackedHeaders = GridScalingHelper.scaleStackedHeaders(resultWithZoom.stackedHeaders, zoomFactor);
+                      
+                      // DataSource 업데이트 (줌 팩터에 따라 행 데이터도 업데이트)
+                      _dataSource?.updateRows(
+                        resultWithZoom.rows,
+                        teacherName: teacherName,
+                        filteredExchanges: filteredExchanges,
+                      );
+                      
+                      return Theme(
+                        data: Theme.of(context).copyWith(
+                          textTheme: Theme.of(context).textTheme.copyWith(
+                            bodyMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                            bodySmall: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                            titleMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                            labelMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                            labelLarge: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                            labelSmall: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                          ),
+                        ),
+                        child: SfDataGrid(
+                          source: _dataSource!,
+                          columns: scaledColumns,
+                          stackedHeaderRows: scaledStackedHeaders,
+                          gridLinesVisibility: GridLinesVisibility.both,
+                          headerGridLinesVisibility: GridLinesVisibility.both,
+                          allowSorting: false,
+                          allowTriStateSorting: false,
+                          columnWidthMode: ColumnWidthMode.fill,
+                          // 개인 시간표 테이블 크기 20% 증가 적용 (세로 높이)
+                          headerRowHeight: GridScalingHelper.scaleHeaderHeight(zoomFactor) * 1.2,
+                          rowHeight: GridScalingHelper.scaleRowHeight(zoomFactor) * 1.2,
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
+                ),
+                
+                const SizedBox(height: 8),
+                
+                // 범례 표시 (비워진 수업, 채워진 수업)
+                _buildLegend(),
+              ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 범례 위젯 생성 (비워진 수업, 채워진 수업)
+  /// 교체 관리 페이지와 동일한 방식으로 좌측 정렬
+  Widget _buildLegend() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // 비워진 수업 범례
+          _buildLegendItem(
+            backgroundColor: SimplifiedTimetableTheme.defaultColor,
+            borderColor: SimplifiedTimetableTheme.exchangedSourceCellBorderColor,
+            borderWidth: SimplifiedTimetableTheme.exchangedSourceCellBorderWidth,
+            label: '비워진 수업',
+          ),
+          const SizedBox(width: 8),
+          
+          // 채워진 수업 범례
+          _buildLegendItem(
+            backgroundColor: SimplifiedTimetableTheme.exchangedDestinationCellBackgroundColor,
+            borderColor: Colors.transparent,
+            borderWidth: 0,
+            label: '채워진 수업',
           ),
         ],
       ),
     );
   }
 
+  /// 개별 범례 아이템 생성
+  Widget _buildLegendItem({
+    required Color backgroundColor,
+    required Color borderColor,
+    required double borderWidth,
+    required String label,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            border: borderWidth > 0 
+                ? Border.all(color: borderColor, width: borderWidth)
+                : null,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: Colors.grey,
+          ),
+        ),
+      ],
+    );
+  }
+
   /// 컨트롤 패널 위젯 (줌 컨트롤 + 교체 뷰 스위치)
   /// 
+  /// 교체 관리 페이지와 동일한 헤더 스타일로 표시
   /// 레이아웃 순서: 줌 컨트롤 → 교체 뷰 스위치
   /// 기간선택은 AppBar로 이동됨
   Widget _buildControlPanel(PersonalScheduleState scheduleState, List<DateTime> weekDates) {
-    return Container(
-      padding: const EdgeInsets.all(8.0),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        border: Border(
-          bottom: BorderSide(color: Colors.grey.shade300),
+    return Row(
+      children: [
+        const SizedBox(width: 8),
+        
+        // 확대/축소 컨트롤
+        Consumer(
+          builder: (context, ref, child) {
+            final zoomState = ref.watch(zoomProvider);
+            final zoomNotifier = ref.read(zoomProvider.notifier);
+            
+            return ZoomControlWidget(
+              zoomPercentage: zoomState.zoomPercentage,
+              zoomFactor: zoomState.zoomFactor,
+              minZoom: zoomState.minZoom,
+              maxZoom: zoomState.maxZoom,
+              onZoomIn: zoomNotifier.zoomIn,
+              onZoomOut: zoomNotifier.zoomOut,
+              onResetZoom: zoomNotifier.resetZoom,
+            );
+          },
         ),
-      ),
-      child: Row(
-        children: [
-          // 확대/축소 컨트롤
-          Consumer(
-            builder: (context, ref, child) {
-              final zoomState = ref.watch(zoomProvider);
-              final zoomNotifier = ref.read(zoomProvider.notifier);
-              
-              return ZoomControlWidget(
-                zoomPercentage: zoomState.zoomPercentage,
-                zoomFactor: zoomState.zoomFactor,
-                minZoom: zoomState.minZoom,
-                maxZoom: zoomState.maxZoom,
-                onZoomIn: zoomNotifier.zoomIn,
-                onZoomOut: zoomNotifier.zoomOut,
-                onResetZoom: zoomNotifier.resetZoom,
-              );
-            },
-          ),
-          
-          const SizedBox(width: 16),
-          
-          // 교체 뷰 스위치
-          ExchangeViewCheckbox(
-            isEnabled: _isExchangeViewEnabled,
-            onChanged: (enabled) {
-              if (enabled != null) {
-                _handleExchangeViewToggle(enabled, scheduleState.weekDates);
-              }
-            },
-          ),
-        ],
-      ),
+        
+        const SizedBox(width: 8),
+        
+        // 교체 뷰 스위치
+        ExchangeViewCheckbox(
+          isEnabled: _isExchangeViewEnabled,
+          onChanged: (enabled) {
+            if (enabled != null) {
+              _handleExchangeViewToggle(enabled, scheduleState.weekDates);
+            }
+          },
+        ),
+      ],
     );
   }
 
