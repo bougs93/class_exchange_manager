@@ -2,6 +2,7 @@ import '../models/notice_message.dart';
 import '../providers/substitution_plan_viewmodel.dart';
 import '../utils/logger.dart';
 import 'notice_message_helpers.dart';
+import 'date_format_utils.dart';
 
 /// 안내 메시지 생성기
 ///
@@ -244,28 +245,34 @@ ${classLines.join('\n')}''',
 
       switch (category) {
         case ExchangeCategory.basic:
-          // 기본 교체 유형: <-> 형식
+          // 기본 교체 유형: <-> 형식 (날짜는 월.일 형식으로 변환)
+          final absenceDateDisplay1 = DateFormatUtils.toMonthDay(data.absenceDate);
+          final substitutionDateDisplay1 = DateFormatUtils.toMonthDay(data.substitutionDate);
           exchangeLines.add(
-            "'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' <-> '${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업 교체되었습니다."
+            "'$absenceDateDisplay1 ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' <-> '$substitutionDateDisplay1 ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업 교체되었습니다."
           );
           break;
         case ExchangeCategory.circularFourPlus:
-          // 순환교체 4단계 이상: -> 형식, 각 교사가 자신의 수업에 관련된 교체만 표시
+          // 순환교체 4단계 이상: -> 형식, 각 교사가 자신의 수업에 관련된 교체만 표시 (날짜는 월.일 형식으로 변환)
           if (teacherName == data.teacher) {
+            final absenceDateDisplay2 = DateFormatUtils.toMonthDay(data.absenceDate);
+            final substitutionDateDisplay2 = DateFormatUtils.toMonthDay(data.substitutionDate);
             exchangeLines.add(
-              "'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' -> '${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 이동 되었습니다."
+              "'$absenceDateDisplay2 ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' -> '$substitutionDateDisplay2 ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 이동 되었습니다."
             );
           }
           break;
         case ExchangeCategory.supplement:
-          // 보강 교체
+          // 보강 교체 (날짜는 월.일 형식으로 변환)
           if (teacherName == data.teacher) {
+            final absenceDateDisplay3 = DateFormatUtils.toMonthDay(data.absenceDate);
             exchangeLines.add(
-              "'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject}' 결강(보강) 되었습니다."
+              "'$absenceDateDisplay3 ${data.absenceDay} ${data.period}교시 $className ${data.subject}' 결강(보강) 되었습니다."
             );
           } else if (teacherName == data.supplementTeacher) {
+            final absenceDateDisplay4 = DateFormatUtils.toMonthDay(data.absenceDate);
             exchangeLines.add(
-              "'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject}' 보강 수업입니다."
+              "'$absenceDateDisplay4 ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject}' 보강 수업입니다."
             );
           }
           break;
@@ -288,40 +295,48 @@ ${classLines.join('\n')}''',
 
       switch (category) {
         case ExchangeCategory.basic:
-          // 기본 교체 유형: 각 교사가 자신의 결강과 수업을 명확히 구분하여 표시
+          // 기본 교체 유형: 각 교사가 자신의 결강과 수업을 명확히 구분하여 표시 (날짜는 월.일 형식으로 변환)
           if (teacherName == data.teacher) {
+            final absenceDateDisplay1 = DateFormatUtils.toMonthDay(data.absenceDate);
+            final substitutionDateDisplay1 = DateFormatUtils.toMonthDay(data.substitutionDate);
             classLines.add(
-              "'${data.absenceDate} ${data.absenceDay} ${data.period}교시 ${data.subject} $className' 결강입니다."
+              "'$absenceDateDisplay1 ${data.absenceDay} ${data.period}교시 ${data.subject} $className' 결강입니다."
             );
             classLines.add(
-              "'${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.substitutionSubject} $className' 수업입니다."
+              "'$substitutionDateDisplay1 ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.substitutionSubject} $className' 수업입니다."
             );
           } else if (teacherName == data.substitutionTeacher) {
+            final absenceDateDisplay2 = DateFormatUtils.toMonthDay(data.absenceDate);
+            final substitutionDateDisplay2 = DateFormatUtils.toMonthDay(data.substitutionDate);
             classLines.add(
-              "'${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.substitutionSubject} $className' 결강입니다."
+              "'$substitutionDateDisplay2 ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.substitutionSubject} $className' 결강입니다."
             );
             classLines.add(
-              "'${data.absenceDate} ${data.absenceDay} ${data.period}교시 ${data.subject} $className' 수업입니다."
+              "'$absenceDateDisplay2 ${data.absenceDay} ${data.period}교시 ${data.subject} $className' 수업입니다."
             );
           }
           break;
         case ExchangeCategory.circularFourPlus:
-          // 순환교체 4단계 이상: 각 교사가 자신이 직접 이동하는 수업만 표시
+          // 순환교체 4단계 이상: 각 교사가 자신이 직접 이동하는 수업만 표시 (날짜는 월.일 형식으로 변환)
           if (teacherName == data.teacher) {
+            final absenceDateDisplay3 = DateFormatUtils.toMonthDay(data.absenceDate);
+            final substitutionDateDisplay3 = DateFormatUtils.toMonthDay(data.substitutionDate);
             classLines.add(
-              "'${data.absenceDate} ${data.absenceDay} ${data.period}교시' -> '${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.substitutionSubject} $className' 이동 되었습니다."
+              "'$absenceDateDisplay3 ${data.absenceDay} ${data.period}교시' -> '$substitutionDateDisplay3 ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.substitutionSubject} $className' 이동 되었습니다."
             );
           }
           break;
         case ExchangeCategory.supplement:
-          // 보강 교체
+          // 보강 교체 (날짜는 월.일 형식으로 변환)
           if (teacherName == data.teacher) {
+            final absenceDateDisplay4 = DateFormatUtils.toMonthDay(data.absenceDate);
             classLines.add(
-              "'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject}' 결강(보강) 되었습니다."
+              "'$absenceDateDisplay4 ${data.absenceDay} ${data.period}교시 $className ${data.subject}' 결강(보강) 되었습니다."
             );
           } else if (teacherName == data.supplementTeacher) {
+            final absenceDateDisplay5 = DateFormatUtils.toMonthDay(data.absenceDate);
             classLines.add(
-              "'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject}' 보강 수업입니다."
+              "'$absenceDateDisplay5 ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject}' 보강 수업입니다."
             );
           }
           break;
@@ -468,26 +483,30 @@ ${classLines.join('\n')}''',
   ) {
     final className = '${data.grade}-${data.className}';
 
+    // 날짜는 월.일 형식으로 변환
+    final absenceDateDisplay = DateFormatUtils.toMonthDay(data.absenceDate);
+    final substitutionDateDisplay = DateFormatUtils.toMonthDay(data.substitutionDate);
+    
     if (messageOption == MessageOption.option1) {
-      // 옵션1: 교체 형태 - 교체 유형에 따라 화살표 형식 구분
+      // 옵션1: 교체 형태 - 교체 유형에 따라 화살표 형식 구분 (따옴표 제거)
       final category = _getExchangeCategory(data);
       final arrowFormat = category == ExchangeCategory.circularFourPlus ? '->' : '<->';
 
       if (isFirstMessage) {
         return '''$className 수업변경 안내
-'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' $arrowFormat '${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' ''';
+$absenceDateDisplay ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher} $arrowFormat $substitutionDateDisplay ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}''';
       } else {
-        return ''''${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' $arrowFormat '${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' ''';
+        return '''$absenceDateDisplay ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher} $arrowFormat $substitutionDateDisplay ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}''';
       }
     } else {
-      // 옵션2: 분리된 형태
+      // 옵션2: 분리된 형태 (따옴표 및 " 수업입니다." 문구 제거)
       if (isFirstMessage) {
         return '''$className 수업변경 안내
-'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업입니다.
-'${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.subject} ${data.teacher}' 수업입니다.''';
+$absenceDateDisplay ${data.absenceDay} ${data.period}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}
+$substitutionDateDisplay ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.subject} ${data.teacher}''';
       } else {
-        return ''''${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업입니다.
-'${data.substitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.subject} ${data.teacher}' 수업입니다.''';
+        return '''$absenceDateDisplay ${data.absenceDay} ${data.period}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}
+$substitutionDateDisplay ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.subject} ${data.teacher}''';
       }
     }
   }
@@ -495,12 +514,14 @@ ${classLines.join('\n')}''',
   /// 학급 보강 메시지 생성
   static String _generateClassSupplementMessage(SubstitutionPlanData data, bool isFirstMessage) {
     final className = '${data.grade}-${data.className}';
+    // 날짜는 월.일 형식으로 변환
+    final absenceDateDisplay = DateFormatUtils.toMonthDay(data.absenceDate);
 
     if (isFirstMessage) {
       return '''$className 수업변경 안내
-'${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject} ${data.supplementTeacher}' 보강 수업입니다.''';
+'$absenceDateDisplay ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject} ${data.supplementTeacher}' 보강 수업입니다.''';
     } else {
-      return ''''${data.absenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject} ${data.supplementTeacher}' 보강 수업입니다.''';
+      return ''''$absenceDateDisplay ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject} ${data.supplementTeacher}' 보강 수업입니다.''';
     }
   }
 }
