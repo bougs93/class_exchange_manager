@@ -379,29 +379,33 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
                   filteredExchanges: filteredExchanges,
                 );
                 
-                return Theme(
-                  data: Theme.of(context).copyWith(
-                    textTheme: Theme.of(context).textTheme.copyWith(
-                      bodyMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                      bodySmall: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                      titleMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                      labelMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                      labelLarge: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                      labelSmall: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                // 테이블 주변 여백 추가를 위해 Padding으로 감싸기
+                return Padding(
+                  padding: const EdgeInsets.all(16.0), // 상하좌우 16px 여백 추가
+                  child: Theme(
+                    data: Theme.of(context).copyWith(
+                      textTheme: Theme.of(context).textTheme.copyWith(
+                        bodyMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                        bodySmall: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                        titleMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                        labelMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                        labelLarge: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                        labelSmall: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                      ),
                     ),
-                  ),
-            child: SfDataGrid(
-              source: _dataSource!,
-                    columns: scaledColumns,
-                    stackedHeaderRows: scaledStackedHeaders,
-              gridLinesVisibility: GridLinesVisibility.both,
-              headerGridLinesVisibility: GridLinesVisibility.both,
-              allowSorting: false,
-              allowTriStateSorting: false,
-              columnWidthMode: ColumnWidthMode.fill,
-                    // 개인 시간표 테이블 크기 20% 증가 적용 (세로 높이)
-                    headerRowHeight: GridScalingHelper.scaleHeaderHeight(zoomFactor) * 1.2,
-                    rowHeight: GridScalingHelper.scaleRowHeight(zoomFactor) * 1.2,
+                    child: SfDataGrid(
+                      source: _dataSource!,
+                      columns: scaledColumns,
+                      stackedHeaderRows: scaledStackedHeaders,
+                      gridLinesVisibility: GridLinesVisibility.both,
+                      headerGridLinesVisibility: GridLinesVisibility.both,
+                      allowSorting: false,
+                      allowTriStateSorting: false,
+                      columnWidthMode: ColumnWidthMode.fill,
+                      // 개인 시간표 테이블 크기 20% 증가 적용 (세로 높이)
+                      headerRowHeight: GridScalingHelper.scaleHeaderHeight(zoomFactor) * 1.2,
+                      rowHeight: GridScalingHelper.scaleRowHeight(zoomFactor) * 1.2,
+                    ),
                   ),
                 );
               },
