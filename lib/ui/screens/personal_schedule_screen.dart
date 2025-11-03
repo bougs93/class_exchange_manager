@@ -278,7 +278,7 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
       appBar: AppBar(
         title: Row(
           children: [
-            // 교사 선택 버튼 (아이콘 + 텍스트)
+            // 교사 선택 버튼 (아이콘 + 교사명, 검색 기능 유지)
             InkWell(
               onTap: _showTeacherSelectionDialog,
               borderRadius: BorderRadius.circular(8),
@@ -292,9 +292,9 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
                       size: 20,
                     ),
                     const SizedBox(width: 4),
-                    const Text(
-                      '교사 선택',
-                      style: TextStyle(
+                    Text(
+                      teacherName,
+                      style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
@@ -304,13 +304,46 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
               ),
             ),
             const SizedBox(width: 12),
-            // 현재 교사명
-            Expanded(
-              child: Text(
-                '$teacherName 선생님 시간표',
-                style: const TextStyle(
-                  fontSize: 18,
-                ),
+            // 기간선택 (이전에 "선생님 시간표" 위치였던 부분)
+            SizedBox(
+              width: 200, // 고정폭 설정 (날짜 범위 텍스트가 잘리지 않도록 넓게 설정)
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 이전 주 버튼
+                  IconButton(
+                    icon: const Icon(Icons.chevron_left),
+                    onPressed: () {
+                      ref.read(personalScheduleProvider.notifier).moveToPreviousWeek();
+                    },
+                    tooltip: '이전 주',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                  const SizedBox(width: 4),
+                  // 현재 주 정보 (왼쪽 정렬)
+                  Expanded(
+                    child: Text(
+                      WeekDateCalculator.formatWeekRange(scheduleState.currentWeekMonday),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.visible, // 텍스트가 잘리지 않도록 설정
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // 다음 주 버튼
+                  IconButton(
+                    icon: const Icon(Icons.chevron_right),
+                    onPressed: () {
+                      ref.read(personalScheduleProvider.notifier).moveToNextWeek();
+                    },
+                    tooltip: '다음 주',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
               ),
             ),
           ],
@@ -318,7 +351,7 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
       ),
       body: Column(
         children: [
-          // 주 이동 및 교체 뷰 스위치 컨트롤 패널
+          // 줌 컨트롤 및 교체 뷰 스위치 컨트롤 패널
           _buildControlPanel(scheduleState, weekDates),
           
           // 시간표 그리드 (줌 팩터 적용)
@@ -379,7 +412,10 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
     );
   }
 
-  /// 컨트롤 패널 위젯 (주 이동 버튼 + 교체 뷰 스위치)
+  /// 컨트롤 패널 위젯 (줌 컨트롤 + 교체 뷰 스위치)
+  /// 
+  /// 레이아웃 순서: 줌 컨트롤 → 교체 뷰 스위치
+  /// 기간선택은 AppBar로 이동됨
   Widget _buildControlPanel(PersonalScheduleState scheduleState, List<DateTime> weekDates) {
     return Container(
       padding: const EdgeInsets.all(8.0),
@@ -391,39 +427,6 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
       ),
       child: Row(
         children: [
-          // 이전 주 버튼
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            onPressed: () {
-              ref.read(personalScheduleProvider.notifier).moveToPreviousWeek();
-            },
-            tooltip: '이전 주',
-          ),
-          
-          // 현재 주 정보
-          Expanded(
-            child: Center(
-              child: Text(
-                WeekDateCalculator.formatWeekRange(scheduleState.currentWeekMonday),
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ),
-          
-          // 다음 주 버튼
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            onPressed: () {
-              ref.read(personalScheduleProvider.notifier).moveToNextWeek();
-            },
-            tooltip: '다음 주',
-          ),
-          
-          const SizedBox(width: 16),
-          
           // 확대/축소 컨트롤
           Consumer(
             builder: (context, ref, child) {
