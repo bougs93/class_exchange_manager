@@ -139,7 +139,7 @@ class PersonalTimetableHelper {
               style: TextStyle(
                 fontSize: AppConstants.headerFontSize * zoomFactor,
                 fontWeight: FontWeight.bold,
-              ),
+                ),
             ),
           ),
         );
