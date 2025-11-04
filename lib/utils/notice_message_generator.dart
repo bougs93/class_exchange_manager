@@ -294,18 +294,13 @@ ${classLines.join('\n')}''',
     final List<SubstitutionPlanData> nonChainData = [];
 
     for (final data in sortedDataList) {
-      // 디버그: 데이터 정보 출력
-      AppLogger.exchangeDebug('[메시지생성] 교사: $teacherName, groupId: ${data.groupId}, remarks: ${data.remarks}');
-      
       // 연쇄교체인지 확인 (groupId 또는 remarks로 확인)
       final isChainExchange = (data.groupId != null && GroupIdParser.isChain(data.groupId!)) ||
                               data.remarks.contains('연쇄교체');
       
       if (isChainExchange) {
-        AppLogger.exchangeDebug('[메시지생성] 연쇄교체로 분류: ${data.groupId}');
         chainGroups.putIfAbsent(data.groupId, () => []).add(data);
       } else {
-        AppLogger.exchangeDebug('[메시지생성] 일반 데이터로 분류');
         nonChainData.add(data);
       }
     }
@@ -402,19 +397,8 @@ ${classLines.join('\n')}''',
       }
     }
 
-    // 디버그: 연쇄교체 데이터 확인
-    if (intermediateData != null) {
-      AppLogger.exchangeDebug('[연쇄교체 중간] teacher: ${intermediateData.teacher}, subject: ${intermediateData.subject}, substitutionTeacher: ${intermediateData.substitutionTeacher}, substitutionSubject: ${intermediateData.substitutionSubject}');
-    }
-    if (finalData != null) {
-      AppLogger.exchangeDebug('[연쇄교체 최종] teacher: ${finalData.teacher}, subject: ${finalData.subject}, substitutionTeacher: ${finalData.substitutionTeacher}, substitutionSubject: ${finalData.substitutionSubject}');
-    }
-    
-    AppLogger.exchangeDebug('[연쇄교체] teacherName: $teacherName, intermediateData: ${intermediateData != null}, finalData: ${finalData != null}');
-
     // 데이터가 하나도 없으면 빈 리스트 반환
     if (intermediateData == null && finalData == null) {
-      AppLogger.exchangeDebug('[연쇄교체] 데이터 없음 - 빈 리스트 반환');
       return classLines;
     }
 
@@ -448,41 +432,32 @@ ${classLines.join('\n')}''',
       );
     }
 
-    // 중간 단계의 교체 교사 처리 (최남현)
+    // 중간 단계의 교체 교사 처리
     if (intermediateData != null && teacherName == intermediateData.substitutionTeacher) {
-      AppLogger.exchangeDebug('[최남현 처리] teacherName: $teacherName == intermediateData.substitutionTeacher: ${intermediateData.substitutionTeacher}');
       final absenceDateDisplay = DateFormatUtils.toMonthDay(intermediateData.absenceDate);
       final substitutionDateDisplay = DateFormatUtils.toMonthDay(intermediateData.substitutionDate);
       final className = '${intermediateData.grade}-${intermediateData.className}';
-      
-      final msg1 = "'$substitutionDateDisplay ${intermediateData.substitutionDay} ${intermediateData.substitutionPeriod}교시 ${intermediateData.substitutionSubject} $className' 결강입니다.";
-      final msg2 = "'$absenceDateDisplay ${intermediateData.absenceDay} ${intermediateData.period}교시 ${intermediateData.substitutionSubject} $className' 수업입니다.";
-      
-      AppLogger.exchangeDebug('[최남현 메시지1] $msg1');
-      AppLogger.exchangeDebug('[최남현 메시지2] $msg2');
-      
-      classLines.add(msg1);
-      classLines.add(msg2);
+      classLines.add(
+        "'$substitutionDateDisplay ${intermediateData.substitutionDay} ${intermediateData.substitutionPeriod}교시 ${intermediateData.substitutionSubject} $className' 결강입니다."
+      );
+      classLines.add(
+        "'$absenceDateDisplay ${intermediateData.absenceDay} ${intermediateData.period}교시 ${intermediateData.substitutionSubject} $className' 수업입니다."
+      );
     }
 
-    // 최종 단계의 교체 교사 처리 (이련)
-    // 이련 선생님: 11.04 화 3교시(substitutionDate) 결강, 11.20 목 5교시(absenceDate) 수업
+    // 최종 단계의 교체 교사 처리
     if (finalData != null && teacherName == finalData.substitutionTeacher) {
-      AppLogger.exchangeDebug('[이련 처리] teacherName: $teacherName == finalData.substitutionTeacher: ${finalData.substitutionTeacher}');
       final absenceDateDisplay = DateFormatUtils.toMonthDay(finalData.absenceDate);
       final substitutionDateDisplay = DateFormatUtils.toMonthDay(finalData.substitutionDate);
       final className = '${finalData.grade}-${finalData.className}';
-      
-      final msg1 = "'$substitutionDateDisplay ${finalData.substitutionDay} ${finalData.substitutionPeriod}교시 ${finalData.substitutionSubject} $className' 결강입니다.";
-      final msg2 = "'$absenceDateDisplay ${finalData.absenceDay} ${finalData.period}교시 ${finalData.substitutionSubject} $className' 수업입니다.";
-      
-      AppLogger.exchangeDebug('[이련 메시지1] $msg1');
-      AppLogger.exchangeDebug('[이련 메시지2] $msg2');
-      
-      // 결강: substitutionDate (이련의 원래 위치)
-      classLines.add(msg1);
-      // 수업: absenceDate (정원길의 원래 위치로 이동)
-      classLines.add(msg2);
+      // 결강: substitutionDate (교체 교사의 원래 위치)
+      classLines.add(
+        "'$substitutionDateDisplay ${finalData.substitutionDay} ${finalData.substitutionPeriod}교시 ${finalData.substitutionSubject} $className' 결강입니다."
+      );
+      // 수업: absenceDate (원래 교사의 위치로 이동)
+      classLines.add(
+        "'$absenceDateDisplay ${finalData.absenceDay} ${finalData.period}교시 ${finalData.substitutionSubject} $className' 수업입니다."
+      );
     }
 
     return classLines;
