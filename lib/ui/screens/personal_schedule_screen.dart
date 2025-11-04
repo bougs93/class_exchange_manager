@@ -11,11 +11,6 @@ import '../../models/time_slot.dart';
 import '../../ui/widgets/timetable_grid/grid_header_widgets.dart';
 import '../../ui/widgets/simplified_timetable_cell.dart';
 import '../../models/exchange_history_item.dart';
-import '../../models/exchange_path.dart';
-import '../../models/one_to_one_exchange_path.dart';
-import '../../models/circular_exchange_path.dart';
-import '../../models/chain_exchange_path.dart';
-import '../../models/supplement_exchange_path.dart';
 import '../../providers/substitution_plan_provider.dart';
 import '../../providers/services_provider.dart';
 import '../../services/excel_service.dart';
@@ -250,28 +245,14 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
       weekDates,
     );
 
-    // 교체 리스트 정보 가져오기 (셀 테마 적용용)
-    final historyService = ref.read(exchangeHistoryServiceProvider);
-    final substitutionPlanState = ref.read(substitutionPlanProvider);
-    final filteredExchanges = PersonalExchangeFilter.filterExchangesForPersonalSchedule(
-      teacherName: teacherName,
-      weekDates: weekDates,
-      substitutionPlanState: substitutionPlanState,
-      historyService: historyService,
-    );
-
     // DataSource 생성 또는 업데이트
     if (_dataSource == null || _dataSource!._rows.length != result.rows.length) {
       _dataSource = PersonalTimetableDataSource(
         rows: result.rows,
-        teacherName: teacherName,
-        filteredExchanges: filteredExchanges,
       );
     } else {
       _dataSource!.updateRows(
         result.rows,
-        teacherName: teacherName,
-        filteredExchanges: filteredExchanges,
       );
     }
 
@@ -385,8 +366,6 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
                       // DataSource 업데이트 (줌 팩터에 따라 행 데이터도 업데이트)
                       _dataSource?.updateRows(
                         resultWithZoom.rows,
-                        teacherName: teacherName,
-                        filteredExchanges: filteredExchanges,
                       );
                       
                       return Theme(
@@ -657,24 +636,12 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
 class PersonalTimetableDataSource extends DataGridSource {
   PersonalTimetableDataSource({
     required List<DataGridRow> rows,
-    required String teacherName,
-    required List<ExchangeHistoryItem> filteredExchanges,
-  })  : _rows = rows,
-        _teacherName = teacherName,
-        _filteredExchanges = filteredExchanges;
+  })  : _rows = rows;
 
   List<DataGridRow> _rows;
-  String _teacherName;
-  List<ExchangeHistoryItem> _filteredExchanges;
 
-  void updateRows(
-    List<DataGridRow> newRows, {
-    required String teacherName,
-    required List<ExchangeHistoryItem> filteredExchanges,
-  }) {
+  void updateRows(List<DataGridRow> newRows) {
     _rows = newRows;
-    _teacherName = teacherName;
-    _filteredExchanges = filteredExchanges;
     notifyListeners();
   }
 
@@ -690,193 +657,32 @@ class PersonalTimetableDataSource extends DataGridSource {
 
         // 교시 헤더 열인 경우
         if (isPeriodColumn) {
-          // 교체 관리 화면과 동일한 SimplifiedTimetableCell 사용
           return SimplifiedTimetableCell(
             content: dataGridCell.value.toString(),
-            isTeacherColumn: true, // 교시 헤더는 교사명 열과 동일한 스타일 적용
+            isTeacherColumn: true,
             isSelected: false,
             isExchangeable: false,
             isLastColumnOfDay: false,
             isFirstColumnOfDay: false,
-            isHeader: true, // 헤더로 표시
-            isInCircularPath: false,
-            circularPathStep: null,
-            isInSelectedPath: false,
-            isInChainPath: false,
-            chainPathStep: null,
-            isTargetCell: false,
-            isNonExchangeable: false,
-            isExchangedSourceCell: false,
-            isExchangedDestinationCell: false,
-            isTeacherNameSelected: false,
-            isHighlightedTeacher: false,
+            isHeader: true,
           );
         }
 
-        // 시간표 셀인 경우
+        // 시간표 셀
         final timeSlot = dataGridCell.value as TimeSlot?;
         final content = timeSlot?.displayText ?? '';
 
-        // 교체 정보 확인 (교체 리스트에서 셀 상태 확인)
-        final columnName = dataGridCell.columnName;
-        final cellState = _getCellStateFromExchangeList(columnName);
-
-        // 교체 관리 화면과 동일한 SimplifiedTimetableCell 사용
-        // 교체 리스트 정보를 기반으로 셀 테마 적용
         return SimplifiedTimetableCell(
           content: content,
-            isTeacherColumn: false,
-            isSelected: false,
-            isExchangeable: false,
-            isLastColumnOfDay: false,
-            isFirstColumnOfDay: false,
-            isHeader: false,
-            isInCircularPath: false,
-            circularPathStep: null,
-            isInSelectedPath: false,
-            isInChainPath: false,
-            chainPathStep: null,
-            isTargetCell: false,
-            isNonExchangeable: false,
-          isExchangedSourceCell: cellState.isExchangedSourceCell,
-          isExchangedDestinationCell: cellState.isExchangedDestinationCell,
-            isTeacherNameSelected: false,
-            isHighlightedTeacher: false,
+          isTeacherColumn: false,
+          isSelected: false,
+          isExchangeable: false,
+          isLastColumnOfDay: false,
+          isFirstColumnOfDay: false,
+          isHeader: false,
         );
       }).toList(),
     );
-  }
-
-  /// 교체 리스트에서 셀 상태 확인
-  /// 
-  /// columnName에서 요일과 교시를 추출하여 교체 정보를 확인합니다.
-  /// 반환값: 교체된 소스 셀과 목적지 셀 여부
-  ({bool isExchangedSourceCell, bool isExchangedDestinationCell}) _getCellStateFromExchangeList(String columnName) {
-    // columnName 형식: '${day}_$period' (예: '월_1', '화_2')
-    final parts = columnName.split('_');
-    if (parts.length != 2) {
-      return (isExchangedSourceCell: false, isExchangedDestinationCell: false);
-    }
-
-    final day = parts[0];
-    final period = int.tryParse(parts[1]) ?? 0;
-
-    // 교체 리스트에서 해당 셀이 교체된 소스 셀인지 목적지 셀인지 확인
-    bool isSourceCell = false;
-    bool isDestinationCell = false;
-
-    for (final exchange in _filteredExchanges) {
-      final path = exchange.originalPath;
-      
-      // 소스 셀 확인 (교체 전 원본 위치)
-      if (_isSourceCell(path, _teacherName, day, period)) {
-        isSourceCell = true;
-      }
-      
-      // 목적지 셀 확인 (교체 후 새 교사가 배정된 위치)
-      if (_isDestinationCell(path, _teacherName, day, period)) {
-        isDestinationCell = true;
-      }
-      
-      // 둘 다 확인되면 더 이상 확인 불필요
-      if (isSourceCell && isDestinationCell) break;
-    }
-
-    return (
-      isExchangedSourceCell: isSourceCell,
-      isExchangedDestinationCell: isDestinationCell,
-    );
-  }
-
-  /// 교체 경로에서 소스 셀인지 확인 (교체 전 원본 위치)
-  bool _isSourceCell(ExchangePath path, String teacherName, String day, int period) {
-    try {
-      if (path is OneToOneExchangePath) {
-        // 1:1 교체: sourceNode와 targetNode 모두 소스 셀
-        return (path.sourceNode.teacherName == teacherName && 
-                path.sourceNode.day == day && 
-                path.sourceNode.period == period) ||
-               (path.targetNode.teacherName == teacherName && 
-                path.targetNode.day == day && 
-                path.targetNode.period == period);
-      } else if (path is CircularExchangePath) {
-        // 순환 교체: 마지막 노드를 제외한 모든 노드가 소스 셀
-        return path.nodes.take(path.nodes.length - 1).any((node) =>
-          node.teacherName == teacherName && 
-          node.day == day && 
-          node.period == period
-        );
-      } else if (path is ChainExchangePath) {
-        // 연쇄 교체: 모든 노드가 소스 셀
-        return [path.nodeA, path.nodeB, path.node1, path.node2].any((node) =>
-          node.teacherName == teacherName && 
-          node.day == day && 
-          node.period == period
-        );
-      } else if (path is SupplementExchangePath) {
-        // 보강 교체: 소스 셀만 교체된 소스 셀로 표시
-        return path.sourceNode.teacherName == teacherName && 
-               path.sourceNode.day == day && 
-               path.sourceNode.period == period;
-      }
-    } catch (e) {
-      AppLogger.error('소스 셀 확인 중 오류: $e', e);
-    }
-    return false;
-  }
-
-  /// 교체 경로에서 목적지 셀인지 확인 (교체 후 새 교사가 배정된 위치)
-  bool _isDestinationCell(ExchangePath path, String teacherName, String day, int period) {
-    try {
-      if (path is OneToOneExchangePath) {
-        // 1:1 교체: 각 노드가 상대 노드의 위치로 이동
-        return (path.targetNode.teacherName == teacherName && 
-                path.sourceNode.day == day && 
-                path.sourceNode.period == period) ||
-               (path.sourceNode.teacherName == teacherName && 
-                path.targetNode.day == day && 
-                path.targetNode.period == period);
-      } else if (path is CircularExchangePath) {
-        // 순환 교체: 각 노드가 다음 노드의 위치로 이동
-        for (int i = 0; i < path.nodes.length - 1; i++) {
-          final currentNode = path.nodes[i];
-          final nextNode = path.nodes[i + 1];
-          if (currentNode.teacherName == teacherName && 
-              nextNode.day == day && 
-              nextNode.period == period) {
-            return true;
-          }
-        }
-      } else if (path is ChainExchangePath) {
-        // 연쇄 교체: 각 단계별 목적지 셀 확인
-        // 1단계: node1이 node2 위치로, node2가 node1 위치로
-        if ((path.node1.teacherName == teacherName && 
-             path.node2.day == day && 
-             path.node2.period == period) ||
-            (path.node2.teacherName == teacherName && 
-             path.node1.day == day && 
-             path.node1.period == period)) {
-          return true;
-        }
-        // 2단계: nodeA가 nodeB 위치로, nodeB가 nodeA 위치로
-        if ((path.nodeA.teacherName == teacherName && 
-             path.nodeB.day == day && 
-             path.nodeB.period == period) ||
-            (path.nodeB.teacherName == teacherName && 
-             path.nodeA.day == day && 
-             path.nodeA.period == period)) {
-          return true;
-        }
-      } else if (path is SupplementExchangePath) {
-        // 보강 교체: 타겟 노드의 위치가 목적지 셀
-        return path.targetNode.teacherName == teacherName && 
-               path.targetNode.day == day && 
-               path.targetNode.period == period;
-      }
-    } catch (e) {
-      AppLogger.error('목적지 셀 확인 중 오류: $e', e);
-    }
-    return false;
   }
 }
 
