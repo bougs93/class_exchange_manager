@@ -11,8 +11,14 @@ import '../../models/time_slot.dart';
 import '../../ui/widgets/timetable_grid/grid_header_widgets.dart';
 import '../../ui/widgets/simplified_timetable_cell.dart';
 import '../../models/exchange_history_item.dart';
+import '../../models/one_to_one_exchange_path.dart';
+import '../../models/circular_exchange_path.dart';
+import '../../models/chain_exchange_path.dart';
+import '../../models/supplement_exchange_path.dart';
 import '../../providers/substitution_plan_provider.dart';
+import '../../providers/substitution_plan_viewmodel.dart';
 import '../../providers/services_provider.dart';
+import '../../utils/notice_message_helpers.dart';
 import '../../services/excel_service.dart';
 import '../../utils/personal_exchange_filter.dart';
 import '../../utils/personal_exchange_view_manager.dart';
@@ -258,6 +264,14 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
 
     return Scaffold(
       appBar: AppBar(
+        actions: [
+          // 디버그 버튼
+          IconButton(
+            icon: const Icon(Icons.bug_report),
+            onPressed: () => _showDebugInfo(scheduleState, timetableData, teacherName),
+            tooltip: '디버그 정보',
+          ),
+        ],
         title: Row(
           children: [
             // 교사 선택 버튼 (아이콘 + 교사명, 검색 기능 유지)
@@ -327,6 +341,22 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
                   ),
                 ],
               ),
+            ),
+            const SizedBox(width: 8),
+            // 현재 주차로 이동 버튼
+            IconButton(
+              icon: const Icon(Icons.today),
+              onPressed: _isCurrentWeek(scheduleState.currentWeekMonday)
+                  ? null
+                  : () {
+                      ref.read(personalScheduleProvider.notifier).moveToThisWeek();
+                    },
+              tooltip: '현재 주차로 이동',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              color: _isCurrentWeek(scheduleState.currentWeekMonday)
+                  ? Colors.grey
+                  : null,
             ),
           ],
         ),
@@ -471,6 +501,183 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
         ),
       ],
     );
+  }
+
+  /// 현재 주차인지 확인
+  /// 
+  /// 현재 표시 중인 주가 오늘 날짜가 속한 주인지 확인합니다.
+  bool _isCurrentWeek(DateTime currentWeekMonday) {
+    final thisWeekMonday = WeekDateCalculator.getThisWeekMonday();
+    // 날짜만 비교 (시간 제외)
+    return currentWeekMonday.year == thisWeekMonday.year &&
+           currentWeekMonday.month == thisWeekMonday.month &&
+           currentWeekMonday.day == thisWeekMonday.day;
+  }
+
+  /// 디버그 정보 출력
+  /// 
+  /// 교체 리스트를 콘솔에 출력합니다.
+  void _showDebugInfo(
+    PersonalScheduleState scheduleState,
+    TimetableData? timetableData,
+    String? teacherName,
+  ) {
+    // 교체 리스트 정보 가져오기 및 콘솔 출력
+    if (teacherName != null && timetableData != null) {
+      try {
+        final historyService = ref.read(exchangeHistoryServiceProvider);
+        
+        // _exchangeList 핵심 정보만 간단히 출력
+        final exchangeList = historyService.getExchangeList();
+        AppLogger.info('=== _exchangeList (${exchangeList.length}개) ===');
+        
+        for (int i = 0; i < exchangeList.length; i++) {
+          final exchange = exchangeList[i];
+          final path = exchange.originalPath;
+          
+          // 핵심 정보만 출력
+          String exchangeInfo = '';
+          
+          if (path is OneToOneExchangePath) {
+            exchangeInfo = '${path.sourceNode.teacherName}(${path.sourceNode.day}${path.sourceNode.period}교시, ${path.sourceNode.className}) ↔ ${path.targetNode.teacherName}(${path.targetNode.day}${path.targetNode.period}교시, ${path.targetNode.className})';
+          } else if (path is CircularExchangePath) {
+            final nodeNames = path.nodes.map((n) => '${n.teacherName}(${n.day}${n.period}교시)').join(' → ');
+            exchangeInfo = '$nodeNames → ${path.nodes.first.teacherName} (${path.nodes.length}명)';
+          } else if (path is ChainExchangePath) {
+            exchangeInfo = '[1단계] ${path.node1.teacherName}(${path.node1.day}${path.node1.period}교시) ↔ ${path.node2.teacherName}(${path.node2.day}${path.node2.period}교시) | [2단계] ${path.nodeA.teacherName}(${path.nodeA.day}${path.nodeA.period}교시) ↔ ${path.nodeB.teacherName}(${path.nodeB.day}${path.nodeB.period}교시)';
+          } else if (path is SupplementExchangePath) {
+            exchangeInfo = '${path.sourceNode.teacherName}(${path.sourceNode.day}${path.sourceNode.period}교시, ${path.sourceNode.className}) → ${path.targetNode.teacherName}(${path.targetNode.day}${path.targetNode.period}교시) [보강]';
+          }
+          
+          AppLogger.info('[${i + 1}] ${exchange.typeDisplayName} | $exchangeInfo | ${exchange.formattedTimestamp}${exchange.isReverted ? " [되돌림]" : ""}');
+        }
+        AppLogger.info('=== 출력 완료 ===\n');
+        
+        // 교사별 날짜별 결강/수업 정보 출력
+        _printTeacherScheduleInfo();
+      } catch (e) {
+        AppLogger.error('교체 리스트 로드 중 오류: $e', e);
+      }
+    } else {
+      AppLogger.info('교체 리스트: 교사명 또는 시간표 데이터가 없어서 로드할 수 없습니다.');
+    }
+  }
+
+  /// 교사별 날짜별 결강/수업 정보 출력
+  /// 
+  /// 교사안내 > 수업으로 안내 알고리즘을 기반으로 출력합니다.
+  void _printTeacherScheduleInfo() {
+    try {
+      final viewModel = ref.read(substitutionPlanViewModelProvider);
+      final planData = viewModel.planData;
+      
+      if (planData.isEmpty) {
+        AppLogger.info('교체 계획 데이터가 없습니다.');
+        return;
+      }
+      
+      AppLogger.info('=== 교사별 날짜별 결강/수업 정보 ===');
+      
+      // 교사별로 그룹화 (원래 교사, 교체 교사, 보강 교사 모두 포함)
+      final Map<String, List<SubstitutionPlanData>> teacherGroups = {};
+      
+      for (final data in planData) {
+        // 원래 교사 추가
+        if (data.teacher.isNotEmpty) {
+          teacherGroups.putIfAbsent(data.teacher, () => []).add(data);
+        }
+        
+        // 교체 교사 추가 (수업교체인 경우)
+        if (data.substitutionTeacher.isNotEmpty) {
+          teacherGroups.putIfAbsent(data.substitutionTeacher, () => []).add(data);
+        }
+        
+        // 보강 교사 추가 (보강인 경우)
+        if (data.supplementTeacher.isNotEmpty) {
+          teacherGroups.putIfAbsent(data.supplementTeacher, () => []).add(data);
+        }
+      }
+      
+      // 각 교사별로 처리
+      for (final entry in teacherGroups.entries) {
+        final teacherName = entry.key;
+        final teacherDataList = entry.value;
+        
+        // 날짜순으로 정렬
+        final sortedDataList = DataSorter.sortByDateAndPeriod(teacherDataList);
+        
+        AppLogger.info('\n[교사명: $teacherName]');
+        
+        // 교체 카테고리별로 처리
+        for (final data in sortedDataList) {
+          final category = _getExchangeCategory(data);
+          final className = '${data.grade}-${data.className}';
+          
+          // 날짜 형식 변환 (YYYY.MM.DD -> YYYY-MM-DD)
+          final absenceDateFormatted = _formatDateForDebug(data.absenceDate);
+          final substitutionDateFormatted = _formatDateForDebug(data.substitutionDate);
+          
+          switch (category) {
+            case ExchangeCategory.basic:
+              // 기본 교체 유형: 각 교사가 자신의 결강과 수업을 명확히 구분하여 표시
+              if (teacherName == data.teacher) {
+                AppLogger.info(' - 결강: $absenceDateFormatted ${data.absenceDay} ${data.period}교시  ${data.subject} $className $teacherName');
+                AppLogger.info(' - 수업: $substitutionDateFormatted ${data.substitutionDay} ${data.substitutionPeriod}교시  ${data.substitutionSubject} $className $teacherName');
+              } else if (teacherName == data.substitutionTeacher) {
+                AppLogger.info(' - 결강: $substitutionDateFormatted ${data.substitutionDay} ${data.substitutionPeriod}교시  ${data.substitutionSubject} $className $teacherName');
+                AppLogger.info(' - 수업: $absenceDateFormatted ${data.absenceDay} ${data.period}교시  ${data.subject} $className $teacherName');
+              }
+              break;
+              
+            case ExchangeCategory.circularFourPlus:
+              // 순환교체 4단계 이상: 각 교사가 자신이 직접 이동하는 수업만 표시
+              if (teacherName == data.teacher) {
+                AppLogger.info(' - 이동: $absenceDateFormatted ${data.absenceDay} ${data.period}교시 -> $substitutionDateFormatted ${data.substitutionDay} ${data.substitutionPeriod}교시  ${data.substitutionSubject} $className');
+              }
+              break;
+              
+            case ExchangeCategory.supplement:
+              // 보강 교체
+              if (teacherName == data.teacher) {
+                AppLogger.info(' - 결강(보강): $absenceDateFormatted ${data.absenceDay} ${data.period}교시  ${data.subject} $className $teacherName');
+              } else if (teacherName == data.supplementTeacher) {
+                AppLogger.info(' - 보강 수업: $absenceDateFormatted ${data.absenceDay} ${data.period}교시  ${data.supplementSubject} $className $teacherName');
+              }
+              break;
+          }
+        }
+      }
+      
+      AppLogger.info('\n=== 교사별 날짜별 정보 출력 완료 ===\n');
+    } catch (e) {
+      AppLogger.error('교사별 날짜별 정보 출력 중 오류: $e', e);
+    }
+  }
+
+  /// 교체 카테고리 결정 (NoticeMessageGenerator의 로직 참고)
+  ExchangeCategory _getExchangeCategory(SubstitutionPlanData data) {
+    // 보강 교체 확인
+    if (data.supplementTeacher.isNotEmpty) {
+      return ExchangeCategory.supplement;
+    }
+    
+    // 순환교체 4단계 이상 확인
+    if (GroupIdParser.isCircular4Plus(data.groupId)) {
+      return ExchangeCategory.circularFourPlus;
+    }
+    
+    // 기본 교체 유형 (1:1교체, 순환교체 3단계, 연쇄교체)
+    return ExchangeCategory.basic;
+  }
+
+  /// 날짜 형식 변환 (YYYY.MM.DD -> YYYY-MM-DD)
+  String _formatDateForDebug(String dateString) {
+    if (dateString.isEmpty || dateString == '선택') {
+      return dateString;
+    }
+    
+    // YYYY.MM.DD 형식을 YYYY-MM-DD로 변환
+    return dateString.replaceAll('.', '-');
   }
 
   /// 컨트롤 패널 위젯 (줌 컨트롤 + 교체 뷰 스위치)
