@@ -253,12 +253,12 @@ ${classLines.join('\n')}''',
           );
           break;
         case ExchangeCategory.circularFourPlus:
-          // 순환교체 4단계 이상: -> 형식, 각 교사가 자신의 수업에 관련된 교체만 표시 (날짜는 월.일 형식으로 변환)
+          // 순환교체 4단계 이상: -> 형식, 각 교사가 자신의 과목을 들고 이동 (날짜는 월.일 형식으로 변환)
           if (teacherName == data.teacher) {
             final absenceDateDisplay2 = DateFormatUtils.toMonthDay(data.absenceDate);
             final substitutionDateDisplay2 = DateFormatUtils.toMonthDay(data.substitutionDate);
             exchangeLines.add(
-              "'$absenceDateDisplay2 ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' -> '$substitutionDateDisplay2 ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 이동 되었습니다."
+              "'$absenceDateDisplay2 ${data.absenceDay} ${data.period}교시' -> '$substitutionDateDisplay2 ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.subject} $className' 이동 되었습니다."
             );
           }
           break;
@@ -341,12 +341,12 @@ ${classLines.join('\n')}''',
           }
           break;
         case ExchangeCategory.circularFourPlus:
-          // 순환교체 4단계 이상: 각 교사가 자신이 직접 이동하는 수업만 표시 (날짜는 월.일 형식으로 변환)
+          // 순환교체 4단계 이상: 각 교사가 자신의 과목을 들고 이동 (날짜는 월.일 형식으로 변환)
           if (teacherName == data.teacher) {
             final absenceDateDisplay3 = DateFormatUtils.toMonthDay(data.absenceDate);
             final substitutionDateDisplay3 = DateFormatUtils.toMonthDay(data.substitutionDate);
             classLines.add(
-              "'$absenceDateDisplay3 ${data.absenceDay} ${data.period}교시' -> '$substitutionDateDisplay3 ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.substitutionSubject} $className' 이동 되었습니다."
+              "'$absenceDateDisplay3 ${data.absenceDay} ${data.period}교시' -> '$substitutionDateDisplay3 ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.subject} $className' 이동 되었습니다."
             );
           }
           break;

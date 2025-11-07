@@ -608,8 +608,30 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
         
         AppLogger.info('\n[교사명: $teacherName]');
         
-        // 교체 카테고리별로 처리
+        // 연쇄교체 그룹별로 처리하기 위해 그룹화
+        final Map<String?, List<SubstitutionPlanData>> chainGroups = {};
+        final List<SubstitutionPlanData> nonChainData = [];
+        
         for (final data in sortedDataList) {
+          // 연쇄교체인지 확인 (groupId 또는 remarks로 확인)
+          final isChainExchange = (data.groupId != null && GroupIdParser.isChain(data.groupId!)) ||
+                                  data.remarks.contains('연쇄교체');
+          
+          if (isChainExchange) {
+            chainGroups.putIfAbsent(data.groupId, () => []).add(data);
+          } else {
+            nonChainData.add(data);
+          }
+        }
+        
+        // 연쇄교체 그룹별로 최종 결과 계산하여 출력
+        for (final groupEntry in chainGroups.entries) {
+          final groupDataList = groupEntry.value;
+          _printChainExchangeInfo(groupDataList, teacherName);
+        }
+        
+        // 일반 교체 메시지 출력
+        for (final data in nonChainData) {
           final category = _getExchangeCategory(data);
           final className = '${data.grade}-${data.className}';
           
@@ -678,6 +700,86 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
     
     // YYYY.MM.DD 형식을 YYYY-MM-DD로 변환
     return dateString.replaceAll('.', '-');
+  }
+
+  /// 연쇄교체 정보 출력 (교사안내 메시지 로직 기반)
+  /// 
+  /// 연쇄교체의 최종 결과를 계산하여 출력합니다.
+  /// _generateChainExchangeOption2Lines 로직을 그대로 따라갑니다.
+  void _printChainExchangeInfo(List<SubstitutionPlanData> groupDataList, String teacherName) {
+    // 중간 단계와 최종 단계 구분
+    SubstitutionPlanData? intermediateData; // 연쇄교체(중간)
+    SubstitutionPlanData? finalData; // 연쇄교체(최종)
+    
+    for (final data in groupDataList) {
+      if (data.remarks == '연쇄교체(중간)') {
+        intermediateData = data;
+      } else if (data.remarks == '연쇄교체(최종)') {
+        finalData = data;
+      }
+    }
+    
+    // 데이터가 하나도 없으면 반환
+    if (intermediateData == null && finalData == null) {
+      return;
+    }
+    
+    // 날짜 형식 변환
+    String formatDate(String dateString) => _formatDateForDebug(dateString);
+    
+    // 출력할 메시지들을 리스트로 수집 (날짜순 정렬을 위해)
+    final List<String> outputLines = [];
+    
+    // 중간 단계의 원래 교사 처리 (예: 정원길)
+    if (intermediateData != null && teacherName == intermediateData.teacher) {
+      // 중간 단계에서 원래 교사는 원래 수업이 교체 위치로 이동한 수업만 표시
+      final substitutionDateFormatted = formatDate(intermediateData.substitutionDate);
+      final className = '${intermediateData.grade}-${intermediateData.className}';
+      outputLines.add(' - 수업: $substitutionDateFormatted ${intermediateData.substitutionDay} ${intermediateData.substitutionPeriod}교시  ${intermediateData.subject} $className $teacherName');
+    }
+    
+    // 최종 단계의 원래 교사 처리 (예: 최남현)
+    if (finalData != null && teacherName == finalData.teacher) {
+      final absenceDateFormatted = formatDate(finalData.absenceDate);
+      final substitutionDateFormatted = formatDate(finalData.substitutionDate);
+      final className = '${finalData.grade}-${finalData.className}';
+      outputLines.add(' - 결강: $absenceDateFormatted ${finalData.absenceDay} ${finalData.period}교시  ${finalData.subject} $className $teacherName');
+      // 최종 결과: 교체 후 수업 위치에 원래 과목이 이동
+      outputLines.add(' - 수업: $substitutionDateFormatted ${finalData.substitutionDay} ${finalData.substitutionPeriod}교시  ${finalData.subject} $className $teacherName');
+    }
+    
+    // 중간 단계의 교체 교사 처리
+    if (intermediateData != null && teacherName == intermediateData.substitutionTeacher) {
+      final absenceDateFormatted = formatDate(intermediateData.absenceDate);
+      final substitutionDateFormatted = formatDate(intermediateData.substitutionDate);
+      final className = '${intermediateData.grade}-${intermediateData.className}';
+      outputLines.add(' - 결강: $substitutionDateFormatted ${intermediateData.substitutionDay} ${intermediateData.substitutionPeriod}교시  ${intermediateData.substitutionSubject} $className $teacherName');
+      outputLines.add(' - 수업: $absenceDateFormatted ${intermediateData.absenceDay} ${intermediateData.period}교시  ${intermediateData.substitutionSubject} $className $teacherName');
+    }
+    
+    // 최종 단계의 교체 교사 처리 (예: 이련 또는 정원길이 최종 단계에서 교체 교사인 경우)
+    if (finalData != null && teacherName == finalData.substitutionTeacher) {
+      final absenceDateFormatted = formatDate(finalData.absenceDate);
+      final substitutionDateFormatted = formatDate(finalData.substitutionDate);
+      final className = '${finalData.grade}-${finalData.className}';
+      // 결강: substitutionDate (교체 교사의 원래 위치)
+      outputLines.add(' - 결강: $substitutionDateFormatted ${finalData.substitutionDay} ${finalData.substitutionPeriod}교시  ${finalData.substitutionSubject} $className $teacherName');
+      // 수업: absenceDate (원래 교사의 위치로 이동)
+      outputLines.add(' - 수업: $absenceDateFormatted ${finalData.absenceDay} ${finalData.period}교시  ${finalData.substitutionSubject} $className $teacherName');
+    }
+    
+    // 날짜순으로 정렬하여 출력
+    outputLines.sort((a, b) {
+      // 날짜 부분 추출 (예: "2025-11-11" 또는 "2025-11-04")
+      final dateA = a.split(' ')[2]; // "2025-11-11"
+      final dateB = b.split(' ')[2]; // "2025-11-04"
+      return dateA.compareTo(dateB);
+    });
+    
+    // 정렬된 메시지 출력
+    for (final line in outputLines) {
+      AppLogger.info(line);
+    }
   }
 
   /// 컨트롤 패널 위젯 (줌 컨트롤 + 교체 뷰 스위치)
@@ -881,12 +983,12 @@ class PersonalTimetableDataSource extends DataGridSource {
 
         return SimplifiedTimetableCell(
           content: content,
-          isTeacherColumn: false,
-          isSelected: false,
-          isExchangeable: false,
-          isLastColumnOfDay: false,
-          isFirstColumnOfDay: false,
-          isHeader: false,
+            isTeacherColumn: false,
+            isSelected: false,
+            isExchangeable: false,
+            isLastColumnOfDay: false,
+            isFirstColumnOfDay: false,
+            isHeader: false,
         );
       }).toList(),
     );

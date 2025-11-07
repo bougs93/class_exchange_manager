@@ -335,7 +335,7 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
     }
 
     // 4단계 이상
-    return index == totalNodes - 2 ? '순환대체${index + 1}*' : '순환대체${index + 1}';
+    return index == totalNodes - 2 ? '순환교체${index + 1}*' : '순환교체${index + 1}';
   }
 
   /// 연쇄 교체 처리
