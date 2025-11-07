@@ -11,14 +11,13 @@ import '../../models/time_slot.dart';
 import '../../ui/widgets/timetable_grid/grid_header_widgets.dart';
 import '../../ui/widgets/simplified_timetable_cell.dart';
 import '../../models/exchange_history_item.dart';
+import '../../models/exchange_node.dart';
 import '../../models/one_to_one_exchange_path.dart';
 import '../../models/circular_exchange_path.dart';
 import '../../models/chain_exchange_path.dart';
 import '../../models/supplement_exchange_path.dart';
 import '../../providers/substitution_plan_provider.dart';
-import '../../providers/substitution_plan_viewmodel.dart';
 import '../../providers/services_provider.dart';
-import '../../utils/notice_message_helpers.dart';
 import '../../services/excel_service.dart';
 import '../../utils/personal_exchange_filter.dart';
 import '../../utils/personal_exchange_view_manager.dart';
@@ -565,220 +564,298 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
 
   /// 교사별 날짜별 결강/수업 정보 출력
   /// 
-  /// 교사안내 > 수업으로 안내 알고리즘을 기반으로 출력합니다.
+  /// 교체리스트에서 직접 데이터를 가져와 메시지를 생성합니다.
   void _printTeacherScheduleInfo() {
     try {
-      final viewModel = ref.read(substitutionPlanViewModelProvider);
-      final planData = viewModel.planData;
+      // 날짜 포맷 함수: YYYY.MM.DD -> YYYY-MM-DD 변환하지 않고 그대로 사용
+      String formatDate(String? dateStr) {
+        if (dateStr == null || dateStr.isEmpty) return '';
+        // YYYY.MM.DD 형식을 그대로 유지
+        return dateStr;
+      }
       
-      if (planData.isEmpty) {
-        AppLogger.info('교체 계획 데이터가 없습니다.');
+      // 요일을 날짜로 변환하는 함수 (YYYY.MM.DD 형식)
+      String dayToDate(String day) {
+        final scheduleState = ref.read(personalScheduleProvider);
+        final weekDates = scheduleState.weekDates;
+        
+        // 요일 인덱스 매핑
+        final dayIndex = {
+          '월': 0, '화': 1, '수': 2, '목': 3, '금': 4,
+        };
+        
+        final index = dayIndex[day];
+        if (index != null && index < weekDates.length) {
+          final date = weekDates[index];
+          return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
+        }
+        return '';
+      }
+      
+      final historyService = ref.read(exchangeHistoryServiceProvider);
+      final exchangeList = historyService.getExchangeList();
+      final substitutionPlanState = ref.read(substitutionPlanProvider);
+      
+      if (exchangeList.isEmpty) {
+        AppLogger.info('교체 리스트가 없습니다.');
         return;
       }
       
-      AppLogger.info('=== 교사별 날짜별 결강/수업 정보 ===');
+      AppLogger.info('\n=== 교사별 안내 메시지 (교체리스트 기준) ===\n');
       
-      // 교사별로 그룹화 (원래 교사, 교체 교사, 보강 교사 모두 포함)
-      final Map<String, List<SubstitutionPlanData>> teacherGroups = {};
+      // 교사별로 그룹화
+      final Map<String, List<String>> teacherMessages = {};
       
-      for (final data in planData) {
-        // 원래 교사 추가
-        if (data.teacher.isNotEmpty) {
-          teacherGroups.putIfAbsent(data.teacher, () => []).add(data);
+      // 저장된 날짜 가져오는 헬퍼 함수 (교사명, 요일, 교시, 과목으로 찾기)
+      String getSavedDateByNode(String teacherName, String day, int period, String subject, String dateType) {
+        // 저장된 키 형식: ${teacherName}_${day}${period}_${subject}_${dateType}
+        // 예: 문유란_월5_국어_absenceDate
+        final key = '${teacherName}_$day${period}_${subject}_$dateType';
+        AppLogger.debug('[디버그] 찾는 키: $key');
+        final rawDate = substitutionPlanState.savedDates[key];
+        AppLogger.debug('[디버그] 찾은 날짜: $rawDate');
+        final savedDate = formatDate(rawDate);
+        if (savedDate.isNotEmpty) {
+          return savedDate;
         }
-        
-        // 교체 교사 추가 (수업교체인 경우)
-        if (data.substitutionTeacher.isNotEmpty) {
-          teacherGroups.putIfAbsent(data.substitutionTeacher, () => []).add(data);
-        }
-        
-        // 보강 교사 추가 (보강인 경우)
-        if (data.supplementTeacher.isNotEmpty) {
-          teacherGroups.putIfAbsent(data.supplementTeacher, () => []).add(data);
-        }
+        // 저장된 날짜가 없으면 현재 주의 요일에서 찾기
+        final fallbackDate = dayToDate(day);
+        AppLogger.debug('[디버그] fallback 날짜: $fallbackDate');
+        return fallbackDate;
       }
       
-      // 각 교사별로 처리
-      for (final entry in teacherGroups.entries) {
-        final teacherName = entry.key;
-        final teacherDataList = entry.value;
+      for (final exchange in exchangeList) {
+        final path = exchange.originalPath;
         
-        // 날짜순으로 정렬
-        final sortedDataList = DataSorter.sortByDateAndPeriod(teacherDataList);
-        
-        AppLogger.info('\n[교사명: $teacherName]');
-        
-        // 연쇄교체 그룹별로 처리하기 위해 그룹화
-        final Map<String?, List<SubstitutionPlanData>> chainGroups = {};
-        final List<SubstitutionPlanData> nonChainData = [];
-        
-        for (final data in sortedDataList) {
-          // 연쇄교체인지 확인 (groupId 또는 remarks로 확인)
-          final isChainExchange = (data.groupId != null && GroupIdParser.isChain(data.groupId!)) ||
-                                  data.remarks.contains('연쇄교체');
+        if (path is OneToOneExchangePath) {
+          // 1:1 교체
+          final sourceNode = path.sourceNode;
+          final targetNode = path.targetNode;
           
-          if (isChainExchange) {
-            chainGroups.putIfAbsent(data.groupId, () => []).add(data);
+          // 원래 교사(sourceNode)의 날짜 정보
+          final sourceAbsenceDate = getSavedDateByNode(
+            sourceNode.teacherName, sourceNode.day, sourceNode.period, 
+            sourceNode.subjectName, 'absenceDate'
+          );
+          final sourceSubstitutionDate = getSavedDateByNode(
+            sourceNode.teacherName, sourceNode.day, sourceNode.period, 
+            sourceNode.subjectName, 'substitutionDate'
+          );
+          
+          // 원래 교사(sourceNode) 메시지
+          teacherMessages.putIfAbsent(sourceNode.teacherName, () => []);
+          teacherMessages[sourceNode.teacherName]!.add(
+            "'${sourceAbsenceDate.isNotEmpty ? '$sourceAbsenceDate ' : ''}${sourceNode.day} ${sourceNode.period}교시 ${sourceNode.subjectName} ${sourceNode.className}' 결강입니다."
+          );
+          teacherMessages[sourceNode.teacherName]!.add(
+            "'${sourceSubstitutionDate.isNotEmpty ? '$sourceSubstitutionDate ' : ''}${targetNode.day} ${targetNode.period}교시 ${sourceNode.subjectName} ${targetNode.className}' 수업입니다."
+          );
+          
+          // 교체 교사(targetNode) 메시지
+          // targetNode의 결강일은 sourceNode의 substitutionDate와 같음
+          // targetNode의 수업일은 sourceNode의 absenceDate와 같음
+          teacherMessages.putIfAbsent(targetNode.teacherName, () => []);
+          teacherMessages[targetNode.teacherName]!.add(
+            "'${sourceSubstitutionDate.isNotEmpty ? '$sourceSubstitutionDate ' : ''}${targetNode.day} ${targetNode.period}교시 ${targetNode.subjectName} ${targetNode.className}' 결강입니다."
+          );
+          teacherMessages[targetNode.teacherName]!.add(
+            "'${sourceAbsenceDate.isNotEmpty ? '$sourceAbsenceDate ' : ''}${sourceNode.day} ${sourceNode.period}교시 ${targetNode.subjectName} ${sourceNode.className}' 수업입니다."
+          );
+        } else if (path is CircularExchangePath) {
+          // 순환교체
+          final nodes = path.nodes;
+          final stepCount = nodes.length;
+          
+          // 결보강계획서에서 각 노드의 날짜 찾기
+          String getNodeDate(ExchangeNode node, String dateType) {
+            // 저장된 키 형식: ${teacherName}_${day}${period}_${subject}_${stepInfo}_${dateType}
+            // 예: 정수정_월6_국어_순환1_absenceDate
+            for (final key in substitutionPlanState.savedDates.keys) {
+              if (key.startsWith('${node.teacherName}_${node.day}${node.period}_${node.subjectName}_') &&
+                  key.endsWith(dateType)) {
+                return formatDate(substitutionPlanState.savedDates[key]);
+              }
+            }
+            // 저장된 날짜가 없으면 현재 주의 요일에서 찾기
+            final nodeDate = formatDate(node.date);
+            if (nodeDate.isNotEmpty) {
+              return nodeDate;
+            }
+            return dayToDate(node.day);
+          }
+          
+          if (stepCount >= 4) {
+            // 4단계 이상: 각 교사가 자신의 과목을 들고 이동
+            for (int i = 0; i < nodes.length - 1; i++) {
+              final sourceNode = nodes[i];
+              final targetNode = nodes[i + 1];
+              
+              final sourceDate = getNodeDate(sourceNode, 'absenceDate');
+              final targetDate = getNodeDate(sourceNode, 'substitutionDate');
+              
+              teacherMessages.putIfAbsent(sourceNode.teacherName, () => []);
+              teacherMessages[sourceNode.teacherName]!.add(
+                "'${sourceDate.isNotEmpty ? '$sourceDate ' : ''}${sourceNode.day} ${sourceNode.period}교시 ${sourceNode.subjectName} ${sourceNode.className}' 결강입니다."
+              );
+              teacherMessages[sourceNode.teacherName]!.add(
+                "'${targetDate.isNotEmpty ? '$targetDate ' : ''}${targetNode.day} ${targetNode.period}교시 ${sourceNode.subjectName} ${sourceNode.className}' 수업입니다."
+              );
+            }
           } else {
-            nonChainData.add(data);
-          }
-        }
-        
-        // 연쇄교체 그룹별로 최종 결과 계산하여 출력
-        for (final groupEntry in chainGroups.entries) {
-          final groupDataList = groupEntry.value;
-          _printChainExchangeInfo(groupDataList, teacherName);
-        }
-        
-        // 일반 교체 메시지 출력
-        for (final data in nonChainData) {
-          final category = _getExchangeCategory(data);
-          final className = '${data.grade}-${data.className}';
-          
-          // 날짜 형식 변환 (YYYY.MM.DD -> YYYY-MM-DD)
-          final absenceDateFormatted = _formatDateForDebug(data.absenceDate);
-          final substitutionDateFormatted = _formatDateForDebug(data.substitutionDate);
-          
-          switch (category) {
-            case ExchangeCategory.basic:
-              // 기본 교체 유형: 각 교사가 자신의 결강과 수업을 명확히 구분하여 표시
-              if (teacherName == data.teacher) {
-                AppLogger.info(' - 결강: $absenceDateFormatted ${data.absenceDay} ${data.period}교시  ${data.subject} $className $teacherName');
-                AppLogger.info(' - 수업: $substitutionDateFormatted ${data.substitutionDay} ${data.substitutionPeriod}교시  ${data.substitutionSubject} $className $teacherName');
-              } else if (teacherName == data.substitutionTeacher) {
-                AppLogger.info(' - 결강: $substitutionDateFormatted ${data.substitutionDay} ${data.substitutionPeriod}교시  ${data.substitutionSubject} $className $teacherName');
-                AppLogger.info(' - 수업: $absenceDateFormatted ${data.absenceDay} ${data.period}교시  ${data.subject} $className $teacherName');
-              }
-              break;
+            // 3단계 이하: 기본 교체 방식
+            for (int i = 0; i < nodes.length - 1; i++) {
+              final sourceNode = nodes[i];
+              final targetNode = nodes[i + 1];
               
-            case ExchangeCategory.circularFourPlus:
-              // 순환교체 4단계 이상: 각 교사가 자신이 직접 이동하는 수업만 표시
-              if (teacherName == data.teacher) {
-                AppLogger.info(' - 이동: $absenceDateFormatted ${data.absenceDay} ${data.period}교시 -> $substitutionDateFormatted ${data.substitutionDay} ${data.substitutionPeriod}교시  ${data.substitutionSubject} $className');
-              }
-              break;
+              final sourceDate = getNodeDate(sourceNode, 'absenceDate');
+              final targetDate = getNodeDate(sourceNode, 'substitutionDate');
               
-            case ExchangeCategory.supplement:
-              // 보강 교체
-              if (teacherName == data.teacher) {
-                AppLogger.info(' - 결강(보강): $absenceDateFormatted ${data.absenceDay} ${data.period}교시  ${data.subject} $className $teacherName');
-              } else if (teacherName == data.supplementTeacher) {
-                AppLogger.info(' - 보강 수업: $absenceDateFormatted ${data.absenceDay} ${data.period}교시  ${data.supplementSubject} $className $teacherName');
-              }
-              break;
+              teacherMessages.putIfAbsent(sourceNode.teacherName, () => []);
+              teacherMessages[sourceNode.teacherName]!.add(
+                "'${sourceDate.isNotEmpty ? '$sourceDate ' : ''}${sourceNode.day} ${sourceNode.period}교시 ${sourceNode.subjectName} ${sourceNode.className}' 결강입니다."
+              );
+              teacherMessages[sourceNode.teacherName]!.add(
+                "'${targetDate.isNotEmpty ? '$targetDate ' : ''}${targetNode.day} ${targetNode.period}교시 ${targetNode.subjectName} ${targetNode.className}' 수업입니다."
+              );
+            }
           }
+        } else if (path is ChainExchangePath) {
+          // 연쇄교체
+          final node1 = path.node1;
+          final node2 = path.node2;
+          final nodeA = path.nodeA;
+          final nodeB = path.nodeB;
+          
+          // 연쇄교체 날짜 가져오는 헬퍼 함수
+          String getChainDate(String teacherName, String day, int period, String dateType, String stepInfo) {
+            for (final key in substitutionPlanState.savedDates.keys) {
+              if (key.contains(teacherName) && 
+                  key.contains('$day$period') &&
+                  key.contains(stepInfo) &&
+                  key.endsWith(dateType)) {
+                return formatDate(substitutionPlanState.savedDates[key]);
+              }
+            }
+            // 저장된 날짜가 없으면 현재 주의 요일에서 찾기
+            return dayToDate(day);
+          }
+          
+          // 중간 단계 날짜
+          final date2Sub = getChainDate(nodeA.teacherName, nodeA.day, nodeA.period, 'substitutionDate', '연쇄중간');
+          
+          // 최종 단계 날짜  
+          final dateAAbs = getChainDate(nodeA.teacherName, nodeA.day, nodeA.period, 'absenceDate', '연쇄최종');
+          final dateBSub = getChainDate(nodeA.teacherName, nodeA.day, nodeA.period, 'substitutionDate', '연쇄최종');
+          
+          // 중간 단계 교사 (node2.teacherName)
+          teacherMessages.putIfAbsent(node2.teacherName, () => []);
+          teacherMessages[node2.teacherName]!.add(
+            "'${date2Sub.isNotEmpty ? '$date2Sub ' : ''}${node2.day} ${node2.period}교시 ${node2.subjectName} ${node2.className}' 수업입니다."
+          );
+          
+          // 최종 단계 원래 교사 (nodeA.teacherName)
+          teacherMessages.putIfAbsent(nodeA.teacherName, () => []);
+          teacherMessages[nodeA.teacherName]!.add(
+            "'${dateAAbs.isNotEmpty ? '$dateAAbs ' : ''}${nodeA.day} ${nodeA.period}교시 ${nodeA.subjectName} ${nodeA.className}' 결강입니다."
+          );
+          teacherMessages[nodeA.teacherName]!.add(
+            "'${dateBSub.isNotEmpty ? '$dateBSub ' : ''}${nodeB.day} ${nodeB.period}교시 ${nodeA.subjectName} ${nodeA.className}' 수업입니다."
+          );
+          
+          // 중간 단계 교체 교사 (node1.teacherName)
+          teacherMessages.putIfAbsent(node1.teacherName, () => []);
+          teacherMessages[node1.teacherName]!.add(
+            "'${dateAAbs.isNotEmpty ? '$dateAAbs ' : ''}${node2.day} ${node2.period}교시 ${node2.subjectName} ${node2.className}' 결강입니다."
+          );
+          teacherMessages[node1.teacherName]!.add(
+            "'${date2Sub.isNotEmpty ? '$date2Sub ' : ''}${node1.day} ${node1.period}교시 ${node2.subjectName} ${node2.className}' 수업입니다."
+          );
+          
+          // 최종 단계 교체 교사 (nodeB.teacherName)
+          teacherMessages.putIfAbsent(nodeB.teacherName, () => []);
+          teacherMessages[nodeB.teacherName]!.add(
+            "'${dateBSub.isNotEmpty ? '$dateBSub ' : ''}${nodeB.day} ${nodeB.period}교시 ${nodeB.subjectName} ${nodeB.className}' 결강입니다."
+          );
+          teacherMessages[nodeB.teacherName]!.add(
+            "'${dateAAbs.isNotEmpty ? '$dateAAbs ' : ''}${nodeA.day} ${nodeA.period}교시 ${nodeB.subjectName} ${nodeB.className}' 수업입니다."
+          );
+        } else if (path is SupplementExchangePath) {
+          // 보강교체
+          final sourceNode = path.sourceNode;
+          final targetNode = path.targetNode;
+          
+          // 저장된 날짜 찾기 (키 형식: ${teacherName}_${day}${period}_${subject}_보강_${dateType})
+          String getSupplementDate() {
+            for (final key in substitutionPlanState.savedDates.keys) {
+              if (key.startsWith('${sourceNode.teacherName}_${sourceNode.day}${sourceNode.period}_${sourceNode.subjectName}_보강_') &&
+                  key.endsWith('absenceDate')) {
+                return formatDate(substitutionPlanState.savedDates[key]);
+              }
+            }
+            // 저장된 날짜가 없으면 현재 주의 요일에서 찾기
+            return dayToDate(sourceNode.day);
+          }
+          
+          // 저장된 보강 과목 찾기 (키 형식: ${teacherName}_${day}${period}_${subject}_보강)
+          String getSupplementSubject() {
+            final searchKey = '${sourceNode.teacherName}_${sourceNode.day}${sourceNode.period}_${sourceNode.subjectName}_보강';
+            AppLogger.debug('[디버그] 보강 과목 찾는 키: $searchKey');
+            
+            // savedSupplementSubjects의 모든 키 확인
+            AppLogger.debug('[디버그] savedSupplementSubjects 키 목록:');
+            for (final key in substitutionPlanState.savedSupplementSubjects.keys) {
+              AppLogger.debug('[디버그]   - $key = ${substitutionPlanState.savedSupplementSubjects[key]}');
+            }
+            
+            final savedSubject = substitutionPlanState.savedSupplementSubjects[searchKey];
+            if (savedSubject != null && savedSubject.isNotEmpty) {
+              AppLogger.debug('[디버그] 찾은 보강 과목: $savedSubject');
+              return savedSubject;
+            }
+            
+            // 저장된 보강 과목이 없으면 targetNode의 과목 사용
+            final fallbackSubject = targetNode.subjectName.isNotEmpty ? targetNode.subjectName : sourceNode.subjectName;
+            AppLogger.debug('[디버그] 저장된 보강 과목 없음, fallback 과목: $fallbackSubject');
+            return fallbackSubject;
+          }
+          
+          final sourceDate = getSupplementDate();
+          final supplementSubject = getSupplementSubject();
+          
+          // 원래 교사
+          teacherMessages.putIfAbsent(sourceNode.teacherName, () => []);
+          teacherMessages[sourceNode.teacherName]!.add(
+            "'${sourceDate.isNotEmpty ? '$sourceDate ' : ''}${sourceNode.day} ${sourceNode.period}교시 ${sourceNode.className} ${sourceNode.subjectName}' 결강입니다."
+          );
+          
+          // 보강 교사
+          teacherMessages.putIfAbsent(targetNode.teacherName, () => []);
+          teacherMessages[targetNode.teacherName]!.add(
+            "'${sourceDate.isNotEmpty ? '$sourceDate ' : ''}${sourceNode.day} ${sourceNode.period}교시 ${sourceNode.className} $supplementSubject' 보강입니다."
+          );
         }
       }
       
-      AppLogger.info('\n=== 교사별 날짜별 정보 출력 완료 ===\n');
-    } catch (e) {
-      AppLogger.error('교사별 날짜별 정보 출력 중 오류: $e', e);
-    }
-  }
-
-  /// 교체 카테고리 결정 (NoticeMessageGenerator의 로직 참고)
-  ExchangeCategory _getExchangeCategory(SubstitutionPlanData data) {
-    // 보강 교체 확인
-    if (data.supplementTeacher.isNotEmpty) {
-      return ExchangeCategory.supplement;
-    }
-    
-    // 순환교체 4단계 이상 확인
-    if (GroupIdParser.isCircular4Plus(data.groupId)) {
-      return ExchangeCategory.circularFourPlus;
-    }
-    
-    // 기본 교체 유형 (1:1교체, 순환교체 3단계, 연쇄교체)
-    return ExchangeCategory.basic;
-  }
-
-  /// 날짜 형식 변환 (YYYY.MM.DD -> YYYY-MM-DD)
-  String _formatDateForDebug(String dateString) {
-    if (dateString.isEmpty || dateString == '선택') {
-      return dateString;
-    }
-    
-    // YYYY.MM.DD 형식을 YYYY-MM-DD로 변환
-    return dateString.replaceAll('.', '-');
-  }
-
-  /// 연쇄교체 정보 출력 (교사안내 메시지 로직 기반)
-  /// 
-  /// 연쇄교체의 최종 결과를 계산하여 출력합니다.
-  /// _generateChainExchangeOption2Lines 로직을 그대로 따라갑니다.
-  void _printChainExchangeInfo(List<SubstitutionPlanData> groupDataList, String teacherName) {
-    // 중간 단계와 최종 단계 구분
-    SubstitutionPlanData? intermediateData; // 연쇄교체(중간)
-    SubstitutionPlanData? finalData; // 연쇄교체(최종)
-    
-    for (final data in groupDataList) {
-      if (data.remarks == '연쇄교체(중간)') {
-        intermediateData = data;
-      } else if (data.remarks == '연쇄교체(최종)') {
-        finalData = data;
+      // 교사별로 메시지 출력
+      final teacherNames = teacherMessages.keys.toList()..sort();
+      for (int i = 0; i < teacherNames.length; i++) {
+        final teacherName = teacherNames[i];
+        final messages = teacherMessages[teacherName]!;
+        
+        AppLogger.info('$teacherName: \'$teacherName\' 선생님');
+        for (final message in messages) {
+          AppLogger.info(message);
+        }
+        
+        // 교사 사이에 빈 줄 추가
+        if (i < teacherNames.length - 1) {
+          AppLogger.info('');
+        }
       }
-    }
-    
-    // 데이터가 하나도 없으면 반환
-    if (intermediateData == null && finalData == null) {
-      return;
-    }
-    
-    // 날짜 형식 변환
-    String formatDate(String dateString) => _formatDateForDebug(dateString);
-    
-    // 출력할 메시지들을 리스트로 수집 (날짜순 정렬을 위해)
-    final List<String> outputLines = [];
-    
-    // 중간 단계의 원래 교사 처리 (예: 정원길)
-    if (intermediateData != null && teacherName == intermediateData.teacher) {
-      // 중간 단계에서 원래 교사는 원래 수업이 교체 위치로 이동한 수업만 표시
-      final substitutionDateFormatted = formatDate(intermediateData.substitutionDate);
-      final className = '${intermediateData.grade}-${intermediateData.className}';
-      outputLines.add(' - 수업: $substitutionDateFormatted ${intermediateData.substitutionDay} ${intermediateData.substitutionPeriod}교시  ${intermediateData.subject} $className $teacherName');
-    }
-    
-    // 최종 단계의 원래 교사 처리 (예: 최남현)
-    if (finalData != null && teacherName == finalData.teacher) {
-      final absenceDateFormatted = formatDate(finalData.absenceDate);
-      final substitutionDateFormatted = formatDate(finalData.substitutionDate);
-      final className = '${finalData.grade}-${finalData.className}';
-      outputLines.add(' - 결강: $absenceDateFormatted ${finalData.absenceDay} ${finalData.period}교시  ${finalData.subject} $className $teacherName');
-      // 최종 결과: 교체 후 수업 위치에 원래 과목이 이동
-      outputLines.add(' - 수업: $substitutionDateFormatted ${finalData.substitutionDay} ${finalData.substitutionPeriod}교시  ${finalData.subject} $className $teacherName');
-    }
-    
-    // 중간 단계의 교체 교사 처리
-    if (intermediateData != null && teacherName == intermediateData.substitutionTeacher) {
-      final absenceDateFormatted = formatDate(intermediateData.absenceDate);
-      final substitutionDateFormatted = formatDate(intermediateData.substitutionDate);
-      final className = '${intermediateData.grade}-${intermediateData.className}';
-      outputLines.add(' - 결강: $substitutionDateFormatted ${intermediateData.substitutionDay} ${intermediateData.substitutionPeriod}교시  ${intermediateData.substitutionSubject} $className $teacherName');
-      outputLines.add(' - 수업: $absenceDateFormatted ${intermediateData.absenceDay} ${intermediateData.period}교시  ${intermediateData.substitutionSubject} $className $teacherName');
-    }
-    
-    // 최종 단계의 교체 교사 처리 (예: 이련 또는 정원길이 최종 단계에서 교체 교사인 경우)
-    if (finalData != null && teacherName == finalData.substitutionTeacher) {
-      final absenceDateFormatted = formatDate(finalData.absenceDate);
-      final substitutionDateFormatted = formatDate(finalData.substitutionDate);
-      final className = '${finalData.grade}-${finalData.className}';
-      // 결강: substitutionDate (교체 교사의 원래 위치)
-      outputLines.add(' - 결강: $substitutionDateFormatted ${finalData.substitutionDay} ${finalData.substitutionPeriod}교시  ${finalData.substitutionSubject} $className $teacherName');
-      // 수업: absenceDate (원래 교사의 위치로 이동)
-      outputLines.add(' - 수업: $absenceDateFormatted ${finalData.absenceDay} ${finalData.period}교시  ${finalData.substitutionSubject} $className $teacherName');
-    }
-    
-    // 날짜순으로 정렬하여 출력
-    outputLines.sort((a, b) {
-      // 날짜 부분 추출 (예: "2025-11-11" 또는 "2025-11-04")
-      final dateA = a.split(' ')[2]; // "2025-11-11"
-      final dateB = b.split(' ')[2]; // "2025-11-04"
-      return dateA.compareTo(dateB);
-    });
-    
-    // 정렬된 메시지 출력
-    for (final line in outputLines) {
-      AppLogger.info(line);
+      
+      AppLogger.info('\n=== 교사별 안내 메시지 출력 완료 ===\n');
+    } catch (e) {
+      AppLogger.error('교사별 안내 메시지 출력 중 오류: $e', e);
     }
   }
 
