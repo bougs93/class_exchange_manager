@@ -602,7 +602,7 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
       }
       
       AppLogger.info('\n=== 교사별 안내 메시지 (교체리스트 기준) ===\n');
-      
+        
       // 교사별로 그룹화
       final Map<String, List<String>> teacherMessages = {};
       
@@ -611,17 +611,13 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
         // 저장된 키 형식: ${teacherName}_${day}${period}_${subject}_${dateType}
         // 예: 문유란_월5_국어_absenceDate
         final key = '${teacherName}_$day${period}_${subject}_$dateType';
-        AppLogger.debug('[디버그] 찾는 키: $key');
         final rawDate = substitutionPlanState.savedDates[key];
-        AppLogger.debug('[디버그] 찾은 날짜: $rawDate');
         final savedDate = formatDate(rawDate);
         if (savedDate.isNotEmpty) {
           return savedDate;
         }
         // 저장된 날짜가 없으면 현재 주의 요일에서 찾기
-        final fallbackDate = dayToDate(day);
-        AppLogger.debug('[디버그] fallback 날짜: $fallbackDate');
-        return fallbackDate;
+        return dayToDate(day);
       }
       
       for (final exchange in exchangeList) {
@@ -700,7 +696,7 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
               teacherMessages[sourceNode.teacherName]!.add(
                 "'${targetDate.isNotEmpty ? '$targetDate ' : ''}${targetNode.day} ${targetNode.period}교시 ${sourceNode.subjectName} ${sourceNode.className}' 수업입니다."
               );
-            }
+              }
           } else {
             // 3단계 이하: 기본 교체 방식
             for (int i = 0; i < nodes.length - 1; i++) {
@@ -717,7 +713,7 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
               teacherMessages[sourceNode.teacherName]!.add(
                 "'${targetDate.isNotEmpty ? '$targetDate ' : ''}${targetNode.day} ${targetNode.period}교시 ${targetNode.subjectName} ${targetNode.className}' 수업입니다."
               );
-            }
+  }
           }
         } else if (path is ChainExchangePath) {
           // 연쇄교체
@@ -799,24 +795,14 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
           // 저장된 보강 과목 찾기 (키 형식: ${teacherName}_${day}${period}_${subject}_보강)
           String getSupplementSubject() {
             final searchKey = '${sourceNode.teacherName}_${sourceNode.day}${sourceNode.period}_${sourceNode.subjectName}_보강';
-            AppLogger.debug('[디버그] 보강 과목 찾는 키: $searchKey');
-            
-            // savedSupplementSubjects의 모든 키 확인
-            AppLogger.debug('[디버그] savedSupplementSubjects 키 목록:');
-            for (final key in substitutionPlanState.savedSupplementSubjects.keys) {
-              AppLogger.debug('[디버그]   - $key = ${substitutionPlanState.savedSupplementSubjects[key]}');
-            }
             
             final savedSubject = substitutionPlanState.savedSupplementSubjects[searchKey];
             if (savedSubject != null && savedSubject.isNotEmpty) {
-              AppLogger.debug('[디버그] 찾은 보강 과목: $savedSubject');
               return savedSubject;
             }
             
             // 저장된 보강 과목이 없으면 targetNode의 과목 사용
-            final fallbackSubject = targetNode.subjectName.isNotEmpty ? targetNode.subjectName : sourceNode.subjectName;
-            AppLogger.debug('[디버그] 저장된 보강 과목 없음, fallback 과목: $fallbackSubject');
-            return fallbackSubject;
+            return targetNode.subjectName.isNotEmpty ? targetNode.subjectName : sourceNode.subjectName;
           }
           
           final sourceDate = getSupplementDate();
@@ -834,8 +820,8 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
             "'${sourceDate.isNotEmpty ? '$sourceDate ' : ''}${sourceNode.day} ${sourceNode.period}교시 ${sourceNode.className} $supplementSubject' 보강입니다."
           );
         }
-      }
-      
+    }
+    
       // 교사별로 메시지 출력
       final teacherNames = teacherMessages.keys.toList()..sort();
       for (int i = 0; i < teacherNames.length; i++) {
