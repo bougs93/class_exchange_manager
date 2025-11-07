@@ -52,6 +52,9 @@ class SubstitutionPlanData {
   /// 포맷팅된 교체일 (월.일 형식)
   String get formattedSubstitutionDate => DateFormatUtils.toMonthDay(substitutionDate);
 
+  /// 학급명 (학년-반)
+  String get fullClassName => '$grade-$className';
+
   SubstitutionPlanData copyWith({
     String? exchangeId,
     String? absenceDate,
