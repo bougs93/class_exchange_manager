@@ -41,6 +41,7 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
   bool _isExchangeViewEnabled = false;
   List<TimeSlot>? _originalTimeSlots; // 원본 데이터 백업용
   DateTime? _lastCheckTime; // 마지막 확인 시간 (중복 호출 방지)
+  bool _isCheckingTeacherName = false; // 교사명 확인 중 플래그 (중복 실행 방지)
 
   @override
   void initState() {
@@ -48,60 +49,57 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
     _checkAndLoadTeacherName(isInitialLoad: true);
   }
 
+  /// 시간표 데이터 초기화 헬퍼 메서드
+  void _clearTimetableData() {
+    setState(() {
+      _dataSource = null;
+      _originalTimeSlots = null;
+      _isExchangeViewEnabled = false;
+    });
+  }
+
   /// 설정에서 교사명 확인 및 로드
-  /// 
+  ///
   /// 설정 화면에서 저장한 교사명을 확인하고, 없으면 시간표 데이터를 지웁니다.
-  /// 
+  ///
   /// 매개변수:
   /// - `isInitialLoad`: 초기 로드인지 여부 (로딩 상태 관리용)
   Future<void> _checkAndLoadTeacherName({required bool isInitialLoad}) async {
+    // 중복 실행 방지
+    if (_isCheckingTeacherName) return;
+
+    _isCheckingTeacherName = true;
+
     try {
-      // 중복 호출 방지: 마지막 확인 시간 업데이트
-      if (!isInitialLoad) {
-        _lastCheckTime = DateTime.now();
-      }
-      
       final pdfSettings = PdfExportSettingsStorageService();
       final defaults = await pdfSettings.loadDefaultTeacherAndSchoolName();
       final teacherName = defaults['defaultTeacherName'] ?? '';
-      
+
       if (isInitialLoad) {
         setState(() {
           _isLoadingTeacherName = false;
         });
       }
-      
+
       final currentTeacherName = ref.read(personalScheduleProvider).teacherName;
-      
-      // 교사명이 없거나 변경된 경우
+
+      // 교사명이 설정에 없는 경우
       if (teacherName.isEmpty) {
-        // 교사명이 없으면 시간표 데이터 지우기
-        if (currentTeacherName != null && currentTeacherName.isNotEmpty) {
-          ref.read(personalScheduleProvider.notifier).setTeacherName('');
-          setState(() {
-            _dataSource = null;
-            _originalTimeSlots = null;
-            _isExchangeViewEnabled = false;
-          });
-        }
-      } else {
-        // 교사명이 있는 경우
-        // 현재 교사명이 없거나 변경된 경우 업데이트
-        if (currentTeacherName == null || 
-            currentTeacherName.isEmpty || 
-            teacherName != currentTeacherName) {
-          ref.read(personalScheduleProvider.notifier).setTeacherName(teacherName);
-          // 교사명이 변경된 경우에만 시간표 데이터 초기화
-          if (currentTeacherName != null && 
-              currentTeacherName.isNotEmpty && 
-              teacherName != currentTeacherName) {
-            setState(() {
-              _dataSource = null;
-              _originalTimeSlots = null;
-              _isExchangeViewEnabled = false;
-            });
-          }
-        }
+        _handleEmptyTeacherName(currentTeacherName);
+        return;
+      }
+
+      // 교사명이 변경되지 않은 경우
+      if (teacherName == currentTeacherName) {
+        return;
+      }
+
+      // 교사명 업데이트
+      ref.read(personalScheduleProvider.notifier).setTeacherName(teacherName);
+
+      // 기존 교사명이 있었다면 시간표 초기화 (새 교사로 변경됨)
+      if (currentTeacherName != null && currentTeacherName.isNotEmpty) {
+        _clearTimetableData();
       }
     } catch (e) {
       AppLogger.error('교사명 확인 중 오류: $e', e);
@@ -110,7 +108,24 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
           _isLoadingTeacherName = false;
         });
       }
+    } finally {
+      _isCheckingTeacherName = false;
+      // 마지막 확인 시간 업데이트 (성공/실패 관계없이)
+      if (!isInitialLoad) {
+        _lastCheckTime = DateTime.now();
+      }
     }
+  }
+
+  /// 교사명이 비어있을 때 처리
+  void _handleEmptyTeacherName(String? currentTeacherName) {
+    if (currentTeacherName == null || currentTeacherName.isEmpty) {
+      return; // 이미 비어있으면 아무것도 하지 않음
+    }
+
+    // 교사명 제거 및 시간표 초기화
+    ref.read(personalScheduleProvider.notifier).setTeacherName('');
+    _clearTimetableData();
   }
 
   /// 교사 선택 팝업 표시
