@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/exchange_path.dart';
 import '../utils/logger.dart';
+import '../utils/date_format_utils.dart';
 import 'services_provider.dart';
 import 'substitution_plan_provider.dart';
 import 'substitution_plan_helpers.dart';
@@ -44,6 +45,12 @@ class SubstitutionPlanData {
     required this.remarks,
     this.groupId,
   });
+
+  /// 포맷팅된 결강일 (월.일 형식)
+  String get formattedAbsenceDate => DateFormatUtils.toMonthDay(absenceDate);
+
+  /// 포맷팅된 교체일 (월.일 형식)
+  String get formattedSubstitutionDate => DateFormatUtils.toMonthDay(substitutionDate);
 
   SubstitutionPlanData copyWith({
     String? exchangeId,

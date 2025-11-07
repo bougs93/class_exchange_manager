@@ -1,6 +1,6 @@
 import '../models/notice_message.dart';
 import '../providers/substitution_plan_viewmodel.dart';
-import '../utils/date_format_utils.dart';
+import 'date_format_utils.dart';
 
 /// 교체 그룹 ID 파싱 헬퍼 클래스
 class GroupIdParser {
@@ -100,18 +100,15 @@ class MessageFormatter {
     if (option == MessageOption.option1) {
       // 옵션1: 화살표 형태 (날짜는 월.일 형식으로 표시)
       final arrow = category == ExchangeCategory.circularFourPlus ? '->' : '<->';
-      final absenceDateDisplay = DateFormatUtils.toMonthDay(data.absenceDate);
-      final substitutionDateDisplay = DateFormatUtils.toMonthDay(data.substitutionDate);
-      return "'$absenceDateDisplay ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' $arrow '$substitutionDateDisplay ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}'";
+      return "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' $arrow '${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}'";
     } else {
       // 옵션2: 수업 형태 (날짜는 월.일 형식으로 표시)
-      final substitutionDateDisplay = DateFormatUtils.toMonthDay(data.substitutionDate);
       if (category == ExchangeCategory.circularFourPlus) {
         // 순환교체 4단계: 각 교사가 자신의 과목을 들고 교체일 자리로 이동
         // 교체일(substitutionDate) 자리에 원래 교사(teacher)의 과목(subject)이 옴
-        return "'$substitutionDateDisplay ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.subject} ${data.teacher}' 수업입니다.";
+        return "'${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.subject} ${data.teacher}' 수업입니다.";
       } else {
-        return "'$substitutionDateDisplay ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업입니다.";
+        return "'${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업입니다.";
       }
     }
   }
