@@ -66,9 +66,16 @@ class PersonalTimetableHelper {
       cells.add(DataGridCell(columnName: 'period', value: '$period교시'));
 
       // 각 요일별 셀 생성
-      for (final day in days) {
+      for (int dayIndex = 0; dayIndex < days.length; dayIndex++) {
+        final day = days[dayIndex];
         final slot = groupedData[day]?[period];
-        final columnName = '${day}_$period';
+        
+        // 날짜 문자열 생성 (YYYY.MM.DD 형식)
+        final date = weekDates[dayIndex];
+        final dateStr = '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
+        
+        // columnName에 날짜 포함: "월_5_2025.11.10"
+        final columnName = '${day}_${period}_$dateStr';
         cells.add(DataGridCell(columnName: columnName, value: slot));
       }
 
@@ -110,9 +117,14 @@ class PersonalTimetableHelper {
         ),
       ),
       // 요일별 열 생성 (20% 증가 적용)
-      ...days.map((day) {
+      ...days.asMap().entries.map((entry) {
+        final dayIndex = entry.key;
+        final day = entry.value;
+        final date = weekDates[dayIndex];
+        final dateStr = '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
+        
         return GridColumn(
-          columnName: day,
+          columnName: '${day}_$dateStr', // 날짜 포함: "월_2025.11.10"
           width: AppConstants.periodColumnWidth * personalTimetableSizeMultiplier, // 20% 증가
           label: Container(
             padding: EdgeInsets.zero, // 교체 관리 화면과 동일한 padding (없음)
@@ -181,9 +193,10 @@ class PersonalTimetableHelper {
         final index = entry.key;
         final day = entry.value;
         final date = weekDates[index];
+        final dateStr = '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
 
         return StackedHeaderCell(
-          columnNames: [day],
+          columnNames: ['${day}_$dateStr'], // 날짜 포함: "월_2025.11.10"
           child: Container(
             padding: EdgeInsets.zero, // 교체 관리 화면과 동일한 padding (없음)
             alignment: Alignment.center,

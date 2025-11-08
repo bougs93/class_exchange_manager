@@ -16,7 +16,7 @@ import '../../providers/substitution_plan_provider.dart';
 import '../../models/exchange_history_item.dart';
 import '../../services/excel_service.dart';
 import '../../utils/personal_exchange_filter.dart';
-import '../../utils/personal_exchange_view_manager.dart';
+import '../../utils/personal_exchange_info_extractor.dart';
 import '../../providers/zoom_provider.dart';
 import '../../ui/widgets/timetable_grid/grid_scaling_helper.dart';
 import '../../ui/widgets/timetable_grid/timetable_grid_constants.dart';
@@ -312,14 +312,47 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
       weekDates,
     );
 
+    // 교체 정보 추출
+    final exchangeList = ref.read(exchangeHistoryServiceProvider).getExchangeList();
+    final substitutionPlanState = ref.read(substitutionPlanProvider);
+    final exchangeInfoList = PersonalExchangeInfoExtractor.extractExchangeInfo(
+      exchangeList: exchangeList,
+      teacherName: teacherName,
+      weekDates: weekDates,
+      substitutionPlanState: substitutionPlanState,
+      scheduleState: scheduleState,
+    );
+
+    // 교체 정보 추출 결과 디버그 로그
+    AppLogger.info('\n=== [개인시간표] 교체 정보 추출 결과 ===');
+    AppLogger.info('교사명: $teacherName');
+    AppLogger.info('현재 주: ${weekDates.map((d) => "${d.month}.${d.day}").join(", ")}');
+    AppLogger.info('추출된 교체 정보: ${exchangeInfoList.length}개');
+    
+    if (exchangeInfoList.isNotEmpty) {
+      for (int i = 0; i < exchangeInfoList.length; i++) {
+        final info = exchangeInfoList[i];
+        final absenceOrClass = info.isAbsence ? '결강' : '수업';
+        AppLogger.info('  [$i] $absenceOrClass - ${info.date} ${info.day} ${info.period}교시 ${info.subject ?? ''} ${info.className ?? ''}');
+      }
+    } else {
+      AppLogger.info('  (교체 정보 없음)');
+    }
+    AppLogger.info('교체 뷰 상태: ${_isExchangeViewEnabled ? "활성화" : "비활성화"}');
+    AppLogger.info('=== 교체 정보 추출 완료 ===\n');
+
     // DataSource 생성 또는 업데이트
     if (_dataSource == null || _dataSource!._rows.length != result.rows.length) {
       _dataSource = PersonalTimetableDataSource(
         rows: result.rows,
+        exchangeInfoList: exchangeInfoList,
+        isExchangeViewEnabled: _isExchangeViewEnabled,
       );
     } else {
       _dataSource!.updateRows(
         result.rows,
+        exchangeInfoList: exchangeInfoList,
+        isExchangeViewEnabled: _isExchangeViewEnabled,
       );
     }
 
@@ -702,16 +735,15 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
         );
       }
 
-      // 필터링된 교체 리스트로 교체 뷰 활성화
-      await PersonalExchangeViewManager.enableExchangeView(
-        filteredExchanges: filteredExchanges,
-        timeSlots: timetableData.timeSlots,
-        teachers: timetableData.teachers,
-        dataSource: _dataSource!,
-      );
-
-      // UI 업데이트를 위해 상태 갱신
-      setState(() {});
+      // 교체 뷰 활성화 플래그 설정
+      // (실제 셀 변경은 DataSource의 buildRow에서 처리)
+      AppLogger.info('\n=== [개인시간표] 교체 뷰 활성화 ===');
+      AppLogger.info('필터링된 교체: ${filteredExchanges.length}개');
+      setState(() {
+        _isExchangeViewEnabled = true;
+      });
+      AppLogger.info('상태: 활성화 완료');
+      AppLogger.info('=== 교체 뷰 활성화 완료 ===\n');
     } catch (e) {
       AppLogger.error('개인 시간표 교체 뷰 활성화 중 오류: $e', e);
     }
@@ -720,23 +752,14 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
   /// 개인 시간표 교체 뷰 비활성화
   Future<void> _disablePersonalExchangeView(TimetableData timetableData) async {
     try {
-      // 원본 데이터로 복원
-      await PersonalExchangeViewManager.disableExchangeView(
-        originalTimetableData: TimetableData(
-          timeSlots: List<TimeSlot>.from(_originalTimeSlots!),
-          teachers: timetableData.teachers,
-          config: timetableData.config,
-          totalParsedCells: timetableData.totalParsedCells,
-          successCount: timetableData.successCount,
-          errorCount: timetableData.errorCount,
-        ),
-        timeSlots: timetableData.timeSlots,
-        teachers: timetableData.teachers,
-        dataSource: _dataSource!,
-      );
-
-      // UI 업데이트를 위해 상태 갱신
-      setState(() {});
+      // 교체 뷰 비활성화 플래그 설정
+      // (실제 셀 변경은 DataSource의 buildRow에서 처리)
+      AppLogger.info('\n=== [개인시간표] 교체 뷰 비활성화 ===');
+      setState(() {
+        _isExchangeViewEnabled = false;
+      });
+      AppLogger.info('상태: 비활성화 완료');
+      AppLogger.info('=== 교체 뷰 비활성화 완료 ===\n');
     } catch (e) {
       AppLogger.error('개인 시간표 교체 뷰 비활성화 중 오류: $e', e);
     }
@@ -749,12 +772,28 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
 class PersonalTimetableDataSource extends DataGridSource {
   PersonalTimetableDataSource({
     required List<DataGridRow> rows,
-  })  : _rows = rows;
+    List<ExchangeCellInfo>? exchangeInfoList,
+    bool isExchangeViewEnabled = false,
+  })  : _rows = rows,
+        _exchangeInfoList = exchangeInfoList ?? [],
+        _isExchangeViewEnabled = isExchangeViewEnabled;
 
   List<DataGridRow> _rows;
+  List<ExchangeCellInfo> _exchangeInfoList;
+  bool _isExchangeViewEnabled;
 
-  void updateRows(List<DataGridRow> newRows) {
+  void updateRows(
+    List<DataGridRow> newRows, {
+    List<ExchangeCellInfo>? exchangeInfoList,
+    bool? isExchangeViewEnabled,
+  }) {
     _rows = newRows;
+    if (exchangeInfoList != null) {
+      _exchangeInfoList = exchangeInfoList;
+    }
+    if (isExchangeViewEnabled != null) {
+      _isExchangeViewEnabled = isExchangeViewEnabled;
+    }
     notifyListeners();
   }
 
@@ -783,16 +822,90 @@ class PersonalTimetableDataSource extends DataGridSource {
 
         // 시간표 셀
         final timeSlot = dataGridCell.value as TimeSlot?;
-        final content = timeSlot?.displayText ?? '';
+        final columnName = dataGridCell.columnName;
 
-        return SimplifiedTimetableCell(
-          content: content,
+        // columnName 파싱: "월_5_2025.11.10" 형식
+        final columnNameParts = columnName.split('_');
+        if (columnNameParts.length < 3) {
+          // 형식이 맞지 않으면 기본 처리 (교시 헤더 열인 경우)
+          if (columnName == 'period') {
+            // 교시 헤더는 이미 위에서 처리됨
+          } else {
+            // 날짜가 없는 구형식인 경우
+            AppLogger.info('[셀 파싱] 날짜 없는 형식: $columnName');
+          }
+          final content = timeSlot?.displayText ?? '';
+          return SimplifiedTimetableCell(
+            content: content,
             isTeacherColumn: false,
             isSelected: false,
             isExchangeable: false,
             isLastColumnOfDay: false,
             isFirstColumnOfDay: false,
             isHeader: false,
+          );
+        }
+
+        final day = columnNameParts[0];
+        final period = int.tryParse(columnNameParts[1]) ?? 0;
+        // 날짜 부분: "월_5_2025.11.10" 형식에서 세 번째 요소가 날짜 (YYYY.MM.DD)
+        final date = columnNameParts.length >= 3 ? columnNameParts[2] : '';
+
+        // 교체 정보와 매칭하여 테마 결정
+        bool isExchangedSourceCell = false;
+        bool isExchangedDestinationCell = false;
+        String content = timeSlot?.displayText ?? '';
+
+        // 교체 정보 리스트에서 매칭되는 항목 찾기
+        bool matched = false;
+        for (final exchangeInfo in _exchangeInfoList) {
+          if (exchangeInfo.day == day &&
+              exchangeInfo.period == period &&
+              exchangeInfo.date == date) {
+            matched = true;
+            if (exchangeInfo.isAbsence) {
+              // 결강 셀
+              isExchangedSourceCell = true;
+              AppLogger.info('[셀 테마] 결강 셀 발견 - $date $day $period교시 (원본: "$content")');
+              // 교체 뷰 활성화 시 내용 삭제
+              if (_isExchangeViewEnabled) {
+                content = '';
+                AppLogger.info('[셀 테마] 교체 뷰 활성화 - 내용 삭제됨');
+              }
+            } else {
+              // 수업 셀
+              isExchangedDestinationCell = true;
+              final newContent = '${exchangeInfo.subject ?? ''} ${exchangeInfo.className ?? ''}'.trim();
+              AppLogger.info('[셀 테마] 수업 셀 발견 - $date $day $period교시 (원본: "$content")');
+              // 교체 뷰 활성화 시 수업 내용 표시
+              if (_isExchangeViewEnabled) {
+                content = newContent;
+                AppLogger.info('[셀 테마] 교체 뷰 활성화 - 내용 변경: "$newContent"');
+              }
+            }
+            break; // 첫 번째 매칭 항목만 사용
+          }
+        }
+        
+        // 매칭 실패 시 디버그 로그 (첫 번째 셀에 대해서만)
+        if (!matched && _exchangeInfoList.isNotEmpty && columnName.contains('월') && period == 1) {
+          AppLogger.info('[셀 매칭] 실패 - columnName: $columnName, 파싱: day=$day, period=$period, date=$date');
+          AppLogger.info('[셀 매칭] 교체 정보 리스트:');
+          for (final info in _exchangeInfoList) {
+            AppLogger.info('  - day=${info.day}, period=${info.period}, date=${info.date}');
+          }
+        }
+
+        return SimplifiedTimetableCell(
+          content: content,
+          isTeacherColumn: false,
+          isSelected: false,
+          isExchangeable: false,
+          isExchangedSourceCell: isExchangedSourceCell,
+          isExchangedDestinationCell: isExchangedDestinationCell,
+          isLastColumnOfDay: false,
+          isFirstColumnOfDay: false,
+          isHeader: false,
         );
       }).toList(),
     );
