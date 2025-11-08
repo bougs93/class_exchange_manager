@@ -8,6 +8,7 @@ import '../../utils/personal_timetable_helper.dart';
 import '../../utils/week_date_calculator.dart';
 import '../../utils/logger.dart';
 import '../../utils/personal_schedule_debug_helper.dart';
+import '../../utils/day_utils.dart';
 import '../../models/time_slot.dart';
 import '../../ui/widgets/timetable_grid/grid_header_widgets.dart';
 import '../../providers/services_provider.dart';
@@ -19,6 +20,7 @@ import '../../providers/zoom_provider.dart';
 import '../../ui/widgets/timetable_grid/grid_scaling_helper.dart';
 import '../../ui/widgets/timetable_grid/timetable_grid_constants.dart';
 import '../../utils/simplified_timetable_theme.dart';
+import '../../config/debug_config.dart';
 import 'personal_schedule_screen/personal_timetable_datasource.dart';
 import 'personal_schedule_screen/teacher_selection_dialog.dart';
 import 'personal_schedule_screen/personal_schedule_constants.dart';
@@ -340,60 +342,52 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
       scheduleState: scheduleState,
     );
 
-    // 교체 정보 추출 결과 디버그 로그
-    AppLogger.info('\n=== [개인시간표] 교체 정보 추출 결과 ===');
-    AppLogger.info('교사명: $teacherName');
-    // 현재 주 표시: "11.10(월), 11.11(화), ..." 형식
-    final weekDisplay = weekDates.map((d) {
-      final dayOfWeek = d.weekday; // 1=월요일, 7=일요일
-      final dayName = ['월', '화', '수', '목', '금', '토', '일'][dayOfWeek - 1];
-      return '${d.month}.${d.day}($dayName)';
-    }).join(', ');
-    AppLogger.info('현재 주: $weekDisplay');
-    AppLogger.info('추출된 교체 정보: ${exchangeInfoList.length}개');
+    // 교체 정보 추출 결과 디버그 로그 (조건부)
+    if (DebugConfig.enableExchangeInfoDebugLogs) {
+      AppLogger.info('\n=== [개인시간표] 교체 정보 추출 결과 ===');
+      AppLogger.info('교사명: $teacherName');
 
-    if (exchangeInfoList.isNotEmpty) {
-      // 현재 주의 날짜 문자열 리스트 생성 (YYYY.MM.DD 형식)
-      final weekDateStrings = weekDates.map((d) => 
-        '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}'
-      ).toList();
-      
-      // 시간표에 실제로 존재하는 셀 정보 수집 (columnName 기준)
-      final existingCells = <String>{};
-      for (final row in result.rows) {
-        for (final cell in row.getCells()) {
-          final columnName = cell.columnName;
-          if (columnName != 'period' && columnName.contains('_')) {
-            existingCells.add(columnName);
+      // 현재 주 표시: "11.10(월), 11.11(화), ..." 형식
+      final weekDisplay = weekDates.map((d) {
+        final dayOfWeek = d.weekday; // 1=월요일, 7=일요일
+        final dayName = DayUtils.getDayName(dayOfWeek); // DayUtils 사용
+        return '${d.month}.${d.day}($dayName)';
+      }).join(', ');
+      AppLogger.info('현재 주: $weekDisplay');
+      AppLogger.info('추출된 교체 정보: ${exchangeInfoList.length}개');
+
+      if (exchangeInfoList.isNotEmpty) {
+        // 현재 주의 날짜 문자열 리스트 생성 (YYYY.MM.DD 형식)
+        final weekDateStrings = weekDates.map((d) =>
+          '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}'
+        ).toList();
+
+        // 시간표에 실제로 존재하는 셀 정보 수집 (columnName 기준)
+        final existingCells = <String>{};
+        for (final row in result.rows) {
+          for (final cell in row.getCells()) {
+            final columnName = cell.columnName;
+            if (columnName != 'period' && columnName.contains('_')) {
+              existingCells.add(columnName);
+            }
           }
         }
-      }
 
-      for (int i = 0; i < exchangeInfoList.length; i++) {
-        final info = exchangeInfoList[i];
-        final absenceOrClass = info.isAbsence ? '결강' : '수업';
-        
-        // 적용 여부 확인
-        final isInCurrentWeek = weekDateStrings.contains(info.date);
-        final expectedColumnName = '${info.day}_${info.period}_${info.date}';
-        final hasCell = existingCells.contains(expectedColumnName);
-        
-        String applyStatus = '';
-        if (isInCurrentWeek && hasCell) {
-          applyStatus = ' [적용됨]';
-        } else if (!isInCurrentWeek) {
-          applyStatus = ' [다른 주]';
-        } else if (!hasCell) {
-          applyStatus = ' [셀 없음]';
+        for (int i = 0; i < exchangeInfoList.length; i++) {
+          final info = exchangeInfoList[i];
+          final absenceOrClass = info.isAbsence ? '결강' : '수업';
+
+          // 적용 여부 확인
+          final applyStatus = _getExchangeApplyStatus(info, weekDateStrings, existingCells);
+
+          AppLogger.info('  [$i] $absenceOrClass - ${info.date} ${info.day} ${info.period}교시 ${info.subject ?? ''} ${info.className ?? ''}$applyStatus');
         }
-        
-        AppLogger.info('  [$i] $absenceOrClass - ${info.date} ${info.day} ${info.period}교시 ${info.subject ?? ''} ${info.className ?? ''}$applyStatus');
+      } else {
+        AppLogger.info('  (교체 정보 없음)');
       }
-    } else {
-      AppLogger.info('  (교체 정보 없음)');
+      AppLogger.info('교체 뷰 상태: ${_isExchangeViewEnabled ? "활성화" : "비활성화"}');
+      AppLogger.info('=== 교체 정보 추출 완료 ===\n');
     }
-    AppLogger.info('교체 뷰 상태: ${_isExchangeViewEnabled ? "활성화" : "비활성화"}');
-    AppLogger.info('=== 교체 정보 추출 완료 ===\n');
 
     // DataSource 생성 또는 업데이트
     if (_dataSource == null || _dataSource!.rows.length != result.rows.length) {
@@ -834,5 +828,28 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
     } catch (e) {
       AppLogger.error('개인 시간표 교체 뷰 비활성화 중 오류: $e', e);
     }
+  }
+
+  /// 교체 정보 적용 여부 확인 (디버그용)
+  ///
+  /// 매개변수:
+  /// - [info]: 교체 정보
+  /// - [weekDateStrings]: 현재 주의 날짜 문자열 리스트 (YYYY.MM.DD)
+  /// - [existingCells]: 시간표에 실제로 존재하는 셀 정보
+  ///
+  /// 반환값: 적용 상태 문자열 (' [적용됨]', ' [다른 주]', ' [셀 없음]', '')
+  static String _getExchangeApplyStatus(
+    ExchangeCellInfo info,
+    List<String> weekDateStrings,
+    Set<String> existingCells,
+  ) {
+    final isInCurrentWeek = weekDateStrings.contains(info.date);
+    final expectedColumnName = '${info.day}_${info.period}_${info.date}';
+    final hasCell = existingCells.contains(expectedColumnName);
+
+    if (isInCurrentWeek && hasCell) return ' [적용됨]';
+    if (!isInCurrentWeek) return ' [다른 주]';
+    if (!hasCell) return ' [셀 없음]';
+    return '';
   }
 }

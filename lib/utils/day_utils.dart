@@ -42,42 +42,20 @@ class DayUtils {
   }
   
   /// 요일 정렬을 위한 비교 함수
-  /// 
+  ///
   /// 매개변수:
   /// - [a]: 첫 번째 요일명
   /// - [b]: 두 번째 요일명
-  /// 
+  ///
   /// 반환값:
   /// - int: 정렬 순서 (-1: a가 앞, 0: 같음, 1: b가 앞)
   static int compareDays(String a, String b) {
     int indexA = dayNames.indexOf(a);
     int indexB = dayNames.indexOf(b);
-    
+
     if (indexA == -1) indexA = 999;
     if (indexB == -1) indexB = 999;
-    
+
     return indexA.compareTo(indexB);
-  }
-  
-  /// 요일명이 유효한지 확인
-  /// 
-  /// 매개변수:
-  /// - [day]: 확인할 요일명
-  /// 
-  /// 반환값:
-  /// - bool: 유효한 요일명이면 true, 아니면 false
-  static bool isValidDay(String day) {
-    return dayNames.contains(day);
-  }
-  
-  /// 요일 번호가 유효한지 확인
-  /// 
-  /// 매개변수:
-  /// - [dayOfWeek]: 확인할 요일 번호
-  /// 
-  /// 반환값:
-  /// - bool: 유효한 요일 번호이면 true, 아니면 false
-  static bool isValidDayNumber(int dayOfWeek) {
-    return dayOfWeek >= 1 && dayOfWeek <= 5;
   }
 }
