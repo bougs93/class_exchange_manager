@@ -15,7 +15,6 @@ import '../../providers/services_provider.dart';
 import '../../providers/substitution_plan_provider.dart';
 import '../../models/exchange_history_item.dart';
 import '../../services/excel_service.dart';
-import '../../utils/personal_exchange_filter.dart';
 import '../../utils/personal_exchange_info_extractor.dart';
 import '../../providers/zoom_provider.dart';
 import '../../ui/widgets/timetable_grid/grid_scaling_helper.dart';
@@ -163,8 +162,19 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
       ),
     );
 
-    // 교사 선택 시 Provider 업데이트
+    // 교사 선택 시 Provider 업데이트 및 설정 파일에 저장
     if (selectedTeacherName != null && selectedTeacherName.isNotEmpty) {
+      // 설정 파일에 저장
+      final pdfSettings = PdfExportSettingsStorageService();
+      final defaults = await pdfSettings.loadDefaultTeacherAndSchoolName();
+      final currentSchoolName = defaults['defaultSchoolName'] ?? '';
+      
+      await pdfSettings.saveDefaultTeacherAndSchoolName(
+        teacherName: selectedTeacherName,
+        schoolName: currentSchoolName,
+      );
+      
+      // Provider 업데이트
       ref.read(personalScheduleProvider.notifier).setTeacherName(selectedTeacherName);
       
       // 교체 뷰가 활성화되어 있으면 비활성화 (새 교사 선택 시 원본 데이터로 초기화)
@@ -695,16 +705,29 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
       final teacherName = ref.read(personalScheduleProvider).teacherName;
       if (teacherName == null) return;
       
-      final filteredExchanges = PersonalExchangeFilter.filterExchangesForPersonalSchedule(
+      // PersonalExchangeInfoExtractor를 사용하여 날짜가 있는 교체만 확인
+      final exchangeList = historyService.getExchangeList();
+      final scheduleState = ref.read(personalScheduleProvider);
+      final exchangeInfoList = PersonalExchangeInfoExtractor.extractExchangeInfo(
+        exchangeList: exchangeList,
         teacherName: teacherName,
         weekDates: weekDates,
         substitutionPlanState: substitutionPlanState,
-        historyService: historyService,
+        scheduleState: scheduleState,
       );
 
-      // 날짜가 없는 교체 항목 확인
+      // 원본 교체 리스트에서 날짜가 없는 항목 확인 (교사와 관련된 교체만)
+      final allExchanges = historyService.getExchangeList();
       final exchangesWithoutDate = <ExchangeHistoryItem>[];
-      for (final exchange in filteredExchanges) {
+      for (final exchange in allExchanges) {
+        final path = exchange.originalPath;
+        final nodes = path.nodes;
+        
+        // 해당 교사와 관련된 교체인지 확인
+        bool isRelated = nodes.any((node) => node.teacherName == teacherName);
+        if (!isRelated) continue;
+        
+        // 날짜 확인 (exchangeId 기반)
         final exchangeId = exchange.id;
         final absenceDateStr = substitutionPlanState.savedDates['${exchangeId}_absenceDate'] ?? '';
         final substitutionDateStr = substitutionPlanState.savedDates['${exchangeId}_substitutionDate'] ?? '';
@@ -715,30 +738,34 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
         }
       }
 
-      // 날짜가 없는 교체가 있는 경우 경고 메시지 표시
-      if (exchangesWithoutDate.isNotEmpty) {
+      // 날짜가 없는 교체가 있고, 실제로 표시될 교체 정보가 있는 경우에만 경고 표시
+      // (날짜가 없으면 PersonalExchangeInfoExtractor에서 필터링되어 표시되지 않음)
+      if (exchangesWithoutDate.isNotEmpty && exchangeInfoList.isEmpty) {
         final count = exchangesWithoutDate.length;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '경고: 날짜가 지정되지 않은 교체 항목 $count개가 포함되어 있습니다. 결보강 계획서에서 날짜를 지정해주세요.',
-              style: const TextStyle(fontSize: 14),
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '경고: 날짜가 지정되지 않은 교체 항목 $count개가 있어 표시되지 않습니다. 결보강 계획서에서 날짜를 지정해주세요.',
+                style: const TextStyle(fontSize: 14),
+              ),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 4),
+              action: SnackBarAction(
+                label: '확인',
+                textColor: Colors.white,
+                onPressed: () {},
+              ),
             ),
-            backgroundColor: Colors.orange,
-            duration: const Duration(seconds: 4),
-            action: SnackBarAction(
-              label: '확인',
-              textColor: Colors.white,
-              onPressed: () {},
-            ),
-          ),
-        );
+          );
+        }
       }
 
       // 교체 뷰 활성화 플래그 설정
       // (실제 셀 변경은 DataSource의 buildRow에서 처리)
       AppLogger.info('\n=== [개인시간표] 교체 뷰 활성화 ===');
-      AppLogger.info('필터링된 교체: ${filteredExchanges.length}개');
+      AppLogger.info('표시될 교체 정보: ${exchangeInfoList.length}개');
+      AppLogger.info('날짜 없는 교체: ${exchangesWithoutDate.length}개');
       setState(() {
         _isExchangeViewEnabled = true;
       });
