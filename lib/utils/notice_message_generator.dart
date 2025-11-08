@@ -261,7 +261,7 @@ ${classLines.join('\n')}''',
           // 보강 교체 (날짜는 월.일 형식으로 변환)
           if (teacherName == data.teacher) {
             exchangeLines.add(
-              "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject}' 결강(보강) 되었습니다."
+              "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject}' 결강 되었습니다."
             );
           } else if (teacherName == data.supplementTeacher) {
             exchangeLines.add(
@@ -385,7 +385,7 @@ ${classLines.join('\n')}''',
 
     if (teacherName == data.teacher) {
       lines.add(
-        "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.subject}' 결강(보강) 되었습니다."
+        "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.subject}' 결강 되었습니다."
       );
     } else if (teacherName == data.supplementTeacher) {
       lines.add(
@@ -643,9 +643,9 @@ ${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPer
   static String _generateClassSupplementMessage(SubstitutionPlanData data, bool isFirstMessage) {
     if (isFirstMessage) {
       return '''${data.fullClassName} 수업변경 안내
-'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.supplementSubject} ${data.supplementTeacher}' 보강 수업입니다.''';
+'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.supplementSubject} ${data.supplementTeacher}' 수업입니다.''';
     } else {
-      return ''''${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.supplementSubject} ${data.supplementTeacher}' 보강 수업입니다.''';
+      return ''''${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.supplementSubject} ${data.supplementTeacher}' 수업입니다.''';
     }
   }
 }
