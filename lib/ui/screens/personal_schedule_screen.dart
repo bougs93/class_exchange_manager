@@ -10,7 +10,6 @@ import '../../utils/logger.dart';
 import '../../utils/personal_schedule_debug_helper.dart';
 import '../../models/time_slot.dart';
 import '../../ui/widgets/timetable_grid/grid_header_widgets.dart';
-import '../../ui/widgets/simplified_timetable_cell.dart';
 import '../../providers/services_provider.dart';
 import '../../providers/substitution_plan_provider.dart';
 import '../../models/exchange_history_item.dart';
@@ -20,6 +19,10 @@ import '../../providers/zoom_provider.dart';
 import '../../ui/widgets/timetable_grid/grid_scaling_helper.dart';
 import '../../ui/widgets/timetable_grid/timetable_grid_constants.dart';
 import '../../utils/simplified_timetable_theme.dart';
+import '../../config/debug_config.dart';
+import 'personal_schedule_screen/personal_timetable_datasource.dart';
+import 'personal_schedule_screen/teacher_selection_dialog.dart';
+import 'personal_schedule_screen/personal_schedule_constants.dart';
 
 /// 개인 시간표 화면
 /// 
@@ -156,7 +159,7 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
     // 다이얼로그 표시
     final selectedTeacherName = await showDialog<String>(
       context: context,
-      builder: (context) => _TeacherSelectionDialog(
+      builder: (context) => TeacherSelectionDialog(
         teacherNames: teacherNames,
         currentTeacherName: currentTeacherName,
       ),
@@ -200,9 +203,10 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
     final timetableData = ref.watch(exchangeScreenProvider).timetableData;
     final teacherName = scheduleState.teacherName;
 
-    // 화면이 표시될 때마다 교사명 확인 (중복 호출 방지: 0.3초 이내 재호출 방지)
+    // 화면이 표시될 때마다 교사명 확인 (중복 호출 방지)
     final now = DateTime.now();
-    if (_lastCheckTime == null || now.difference(_lastCheckTime!).inMilliseconds > 300) {
+    if (_lastCheckTime == null ||
+        now.difference(_lastCheckTime!).inMilliseconds > PersonalScheduleConstants.teacherNameCheckThrottleMs) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _checkAndLoadTeacherName(isInitialLoad: false);
@@ -333,26 +337,28 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
       scheduleState: scheduleState,
     );
 
-    // 교체 정보 추출 결과 디버그 로그
-    AppLogger.info('\n=== [개인시간표] 교체 정보 추출 결과 ===');
-    AppLogger.info('교사명: $teacherName');
-    AppLogger.info('현재 주: ${weekDates.map((d) => "${d.month}.${d.day}").join(", ")}');
-    AppLogger.info('추출된 교체 정보: ${exchangeInfoList.length}개');
-    
-    if (exchangeInfoList.isNotEmpty) {
-      for (int i = 0; i < exchangeInfoList.length; i++) {
-        final info = exchangeInfoList[i];
-        final absenceOrClass = info.isAbsence ? '결강' : '수업';
-        AppLogger.info('  [$i] $absenceOrClass - ${info.date} ${info.day} ${info.period}교시 ${info.subject ?? ''} ${info.className ?? ''}');
+    // 교체 정보 추출 결과 디버그 로그 (조건부)
+    if (DebugConfig.enableExchangeInfoDebugLogs) {
+      AppLogger.info('\n=== [개인시간표] 교체 정보 추출 결과 ===');
+      AppLogger.info('교사명: $teacherName');
+      AppLogger.info('현재 주: ${weekDates.map((d) => "${d.month}.${d.day}").join(", ")}');
+      AppLogger.info('추출된 교체 정보: ${exchangeInfoList.length}개');
+
+      if (exchangeInfoList.isNotEmpty) {
+        for (int i = 0; i < exchangeInfoList.length; i++) {
+          final info = exchangeInfoList[i];
+          final absenceOrClass = info.isAbsence ? '결강' : '수업';
+          AppLogger.info('  [$i] $absenceOrClass - ${info.date} ${info.day} ${info.period}교시 ${info.subject ?? ''} ${info.className ?? ''}');
+        }
+      } else {
+        AppLogger.info('  (교체 정보 없음)');
       }
-    } else {
-      AppLogger.info('  (교체 정보 없음)');
+      AppLogger.info('교체 뷰 상태: ${_isExchangeViewEnabled ? "활성화" : "비활성화"}');
+      AppLogger.info('=== 교체 정보 추출 완료 ===\n');
     }
-    AppLogger.info('교체 뷰 상태: ${_isExchangeViewEnabled ? "활성화" : "비활성화"}');
-    AppLogger.info('=== 교체 정보 추출 완료 ===\n');
 
     // DataSource 생성 또는 업데이트
-    if (_dataSource == null || _dataSource!._rows.length != result.rows.length) {
+    if (_dataSource == null || _dataSource!.rows.length != result.rows.length) {
       _dataSource = PersonalTimetableDataSource(
         rows: result.rows,
         exchangeInfoList: exchangeInfoList,
@@ -790,309 +796,5 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
     } catch (e) {
       AppLogger.error('개인 시간표 교체 뷰 비활성화 중 오류: $e', e);
     }
-  }
-}
-
-/// 개인 시간표용 DataSource
-/// 
-/// 교시가 행이고 요일이 열인 구조를 위한 DataSource
-class PersonalTimetableDataSource extends DataGridSource {
-  PersonalTimetableDataSource({
-    required List<DataGridRow> rows,
-    List<ExchangeCellInfo>? exchangeInfoList,
-    bool isExchangeViewEnabled = false,
-  })  : _rows = rows,
-        _exchangeInfoList = exchangeInfoList ?? [],
-        _isExchangeViewEnabled = isExchangeViewEnabled;
-
-  List<DataGridRow> _rows;
-  List<ExchangeCellInfo> _exchangeInfoList;
-  bool _isExchangeViewEnabled;
-
-  void updateRows(
-    List<DataGridRow> newRows, {
-    List<ExchangeCellInfo>? exchangeInfoList,
-    bool? isExchangeViewEnabled,
-  }) {
-    _rows = newRows;
-    if (exchangeInfoList != null) {
-      _exchangeInfoList = exchangeInfoList;
-    }
-    if (isExchangeViewEnabled != null) {
-      _isExchangeViewEnabled = isExchangeViewEnabled;
-    }
-    notifyListeners();
-  }
-
-  @override
-  List<DataGridRow> get rows => _rows;
-
-  @override
-  DataGridRowAdapter? buildRow(DataGridRow row) {
-    return DataGridRowAdapter(
-      cells: row.getCells().asMap().entries.map<Widget>((entry) {
-        final dataGridCell = entry.value;
-        final isPeriodColumn = dataGridCell.columnName == 'period';
-
-        // 교시 헤더 열인 경우
-        if (isPeriodColumn) {
-          return SimplifiedTimetableCell(
-            content: dataGridCell.value.toString(),
-            isTeacherColumn: true,
-            isSelected: false,
-            isExchangeable: false,
-            isLastColumnOfDay: false,
-            isFirstColumnOfDay: false,
-            isHeader: true,
-          );
-        }
-
-        // 시간표 셀
-        final timeSlot = dataGridCell.value as TimeSlot?;
-        final columnName = dataGridCell.columnName;
-
-        // columnName 파싱: "월_5_2025.11.10" 형식
-        final columnNameParts = columnName.split('_');
-        if (columnNameParts.length < 3) {
-          // 형식이 맞지 않으면 기본 처리 (교시 헤더 열인 경우)
-          if (columnName == 'period') {
-            // 교시 헤더는 이미 위에서 처리됨
-          } else {
-            // 날짜가 없는 구형식인 경우
-            AppLogger.info('[셀 파싱] 날짜 없는 형식: $columnName');
-          }
-          final content = timeSlot?.displayText ?? '';
-          return SimplifiedTimetableCell(
-            content: content,
-            isTeacherColumn: false,
-            isSelected: false,
-            isExchangeable: false,
-            isLastColumnOfDay: false,
-            isFirstColumnOfDay: false,
-            isHeader: false,
-          );
-        }
-
-        final day = columnNameParts[0];
-        final period = int.tryParse(columnNameParts[1]) ?? 0;
-        // 날짜 부분: "월_5_2025.11.10" 형식에서 세 번째 요소가 날짜 (YYYY.MM.DD)
-        final date = columnNameParts.length >= 3 ? columnNameParts[2] : '';
-
-        // 교체 정보와 매칭하여 테마 결정
-        bool isExchangedSourceCell = false;
-        bool isExchangedDestinationCell = false;
-        String content = timeSlot?.displayText ?? '';
-
-        // 교체 정보 리스트에서 매칭되는 항목 찾기
-        bool matched = false;
-        for (final exchangeInfo in _exchangeInfoList) {
-          if (exchangeInfo.day == day &&
-              exchangeInfo.period == period &&
-              exchangeInfo.date == date) {
-            matched = true;
-            if (exchangeInfo.isAbsence) {
-              // 결강 셀
-              isExchangedSourceCell = true;
-              AppLogger.info('[셀 테마] 결강 셀 발견 - $date $day $period교시 (원본: "$content")');
-              // 교체 뷰 활성화 시 내용 삭제
-              if (_isExchangeViewEnabled) {
-                content = '';
-                AppLogger.info('[셀 테마] 교체 뷰 활성화 - 내용 삭제됨');
-              }
-            } else {
-              // 수업 셀
-              isExchangedDestinationCell = true;
-              final newContent = '${exchangeInfo.subject ?? ''} ${exchangeInfo.className ?? ''}'.trim();
-              AppLogger.info('[셀 테마] 수업 셀 발견 - $date $day $period교시 (원본: "$content")');
-              // 교체 뷰 활성화 시 수업 내용 표시
-              if (_isExchangeViewEnabled) {
-                content = newContent;
-                AppLogger.info('[셀 테마] 교체 뷰 활성화 - 내용 변경: "$newContent"');
-              }
-            }
-            break; // 첫 번째 매칭 항목만 사용
-          }
-        }
-        
-        // 매칭 실패 시 디버그 로그 (첫 번째 셀에 대해서만)
-        if (!matched && _exchangeInfoList.isNotEmpty && columnName.contains('월') && period == 1) {
-          AppLogger.info('[셀 매칭] 실패 - columnName: $columnName, 파싱: day=$day, period=$period, date=$date');
-          AppLogger.info('[셀 매칭] 교체 정보 리스트:');
-          for (final info in _exchangeInfoList) {
-            AppLogger.info('  - day=${info.day}, period=${info.period}, date=${info.date}');
-          }
-        }
-
-        return SimplifiedTimetableCell(
-          content: content,
-          isTeacherColumn: false,
-          isSelected: false,
-          isExchangeable: false,
-          isExchangedSourceCell: isExchangedSourceCell,
-          isExchangedDestinationCell: isExchangedDestinationCell,
-          isLastColumnOfDay: false,
-          isFirstColumnOfDay: false,
-          isHeader: false,
-        );
-      }).toList(),
-    );
-  }
-}
-
-/// 교사 선택 다이얼로그 위젯
-/// 
-/// 전체 교사 목록을 리스트 형태로 표시하고 선택할 수 있는 다이얼로그입니다.
-class _TeacherSelectionDialog extends StatefulWidget {
-  /// 선택 가능한 교사명 목록
-  final List<String> teacherNames;
-  
-  /// 현재 선택된 교사명 (없으면 null)
-  final String? currentTeacherName;
-
-  const _TeacherSelectionDialog({
-    required this.teacherNames,
-    this.currentTeacherName,
-  });
-
-  @override
-  State<_TeacherSelectionDialog> createState() => _TeacherSelectionDialogState();
-}
-
-class _TeacherSelectionDialogState extends State<_TeacherSelectionDialog> {
-  /// 검색어 필터링용
-  String _searchQuery = '';
-
-  /// 검색어로 필터링된 교사명 목록
-  List<String> get _filteredTeacherNames {
-    if (_searchQuery.isEmpty) {
-      return widget.teacherNames;
-    }
-    
-    // 검색어가 포함된 교사명만 필터링 (대소문자 구분 없음)
-    return widget.teacherNames
-        .where((name) => name.toLowerCase().contains(_searchQuery.toLowerCase()))
-        .toList();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      child: Container(
-        width: 400,
-        height: 600,
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            // 헤더
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    '교사 선택',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.of(context).pop(),
-                  tooltip: '닫기',
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // 검색 필드
-            TextField(
-              decoration: InputDecoration(
-                hintText: '교사명 검색...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                filled: true,
-                fillColor: Colors.grey.shade100,
-              ),
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
-              },
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // 교사 목록
-            Expanded(
-              child: _filteredTeacherNames.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.search_off,
-                            size: 48,
-                            color: Colors.grey.shade400,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            _searchQuery.isEmpty
-                                ? '교사 목록이 비어있습니다'
-                                : '검색 결과가 없습니다',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: _filteredTeacherNames.length,
-                      itemBuilder: (context, index) {
-                        final teacherName = _filteredTeacherNames[index];
-                        final isSelected = teacherName == widget.currentTeacherName;
-                        
-                        return ListTile(
-                          // 현재 선택된 교사는 체크 아이콘 표시
-                          leading: isSelected
-                              ? Icon(
-                                  Icons.check_circle,
-                                  color: Theme.of(context).primaryColor,
-                                )
-                              : const Icon(Icons.person_outline),
-                          title: Text(teacherName),
-                          // 현재 선택된 교사는 배경색 변경
-                          tileColor: isSelected
-                              ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
-                              : null,
-                          onTap: () {
-                            // 선택한 교사명 반환하고 다이얼로그 닫기
-                            Navigator.of(context).pop(teacherName);
-                          },
-                        );
-                      },
-                    ),
-            ),
-            
-            // 하단 정보
-            if (widget.teacherNames.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 8.0),
-                child: Text(
-                  '총 ${widget.teacherNames.length}명의 교사',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
   }
 }

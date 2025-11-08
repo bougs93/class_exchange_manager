@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/exchange_node.dart';
 import '../models/one_to_one_exchange_path.dart';
 import '../models/circular_exchange_path.dart';
 import '../models/chain_exchange_path.dart';
@@ -9,6 +8,7 @@ import '../providers/substitution_plan_provider.dart';
 import '../providers/services_provider.dart';
 import '../services/excel_service.dart';
 import 'logger.dart';
+import 'exchange_date_helper.dart';
 
 /// 개인 시간표 디버그 헬퍼
 ///
@@ -151,13 +151,25 @@ class PersonalScheduleDebugHelper {
     final targetNode = path.targetNode;
 
     // 원래 교사(sourceNode)의 날짜 정보
-    final sourceAbsenceDate = _getSavedDateByNode(
-      sourceNode.teacherName, sourceNode.day, sourceNode.period,
-      sourceNode.subjectName, 'absenceDate', scheduleState, substitutionPlanState
+    final sourceAbsenceDate = ExchangeDateHelper.getSavedDateByNode(
+      teacherName: sourceNode.teacherName,
+      day: sourceNode.day,
+      period: sourceNode.period,
+      subject: sourceNode.subjectName,
+      dateType: 'absenceDate',
+      substitutionPlanState: substitutionPlanState,
+      scheduleState: scheduleState,
+      useFallback: true, // 디버그용이므로 fallback 사용
     );
-    final sourceSubstitutionDate = _getSavedDateByNode(
-      sourceNode.teacherName, sourceNode.day, sourceNode.period,
-      sourceNode.subjectName, 'substitutionDate', scheduleState, substitutionPlanState
+    final sourceSubstitutionDate = ExchangeDateHelper.getSavedDateByNode(
+      teacherName: sourceNode.teacherName,
+      day: sourceNode.day,
+      period: sourceNode.period,
+      subject: sourceNode.subjectName,
+      dateType: 'substitutionDate',
+      substitutionPlanState: substitutionPlanState,
+      scheduleState: scheduleState,
+      useFallback: true, // 디버그용이므로 fallback 사용
     );
 
     // 원래 교사(sourceNode) 메시지
@@ -195,8 +207,20 @@ class PersonalScheduleDebugHelper {
         final sourceNode = nodes[i];
         final targetNode = nodes[i + 1];
 
-        final sourceDate = _getNodeDate(sourceNode, 'absenceDate', substitutionPlanState, scheduleState);
-        final targetDate = _getNodeDate(sourceNode, 'substitutionDate', substitutionPlanState, scheduleState);
+        final sourceDate = ExchangeDateHelper.getNodeDate(
+          node: sourceNode,
+          dateType: 'absenceDate',
+          substitutionPlanState: substitutionPlanState,
+          scheduleState: scheduleState,
+          useFallback: true, // 디버그용이므로 fallback 사용
+        );
+        final targetDate = ExchangeDateHelper.getNodeDate(
+          node: sourceNode,
+          dateType: 'substitutionDate',
+          substitutionPlanState: substitutionPlanState,
+          scheduleState: scheduleState,
+          useFallback: true, // 디버그용이므로 fallback 사용
+        );
 
         teacherMessages.putIfAbsent(sourceNode.teacherName, () => []);
         teacherMessages[sourceNode.teacherName]!.add(
@@ -212,8 +236,20 @@ class PersonalScheduleDebugHelper {
         final sourceNode = nodes[i];
         final targetNode = nodes[i + 1];
 
-        final sourceDate = _getNodeDate(sourceNode, 'absenceDate', substitutionPlanState, scheduleState);
-        final targetDate = _getNodeDate(sourceNode, 'substitutionDate', substitutionPlanState, scheduleState);
+        final sourceDate = ExchangeDateHelper.getNodeDate(
+          node: sourceNode,
+          dateType: 'absenceDate',
+          substitutionPlanState: substitutionPlanState,
+          scheduleState: scheduleState,
+          useFallback: true, // 디버그용이므로 fallback 사용
+        );
+        final targetDate = ExchangeDateHelper.getNodeDate(
+          node: sourceNode,
+          dateType: 'substitutionDate',
+          substitutionPlanState: substitutionPlanState,
+          scheduleState: scheduleState,
+          useFallback: true, // 디버그용이므로 fallback 사용
+        );
 
         teacherMessages.putIfAbsent(sourceNode.teacherName, () => []);
         teacherMessages[sourceNode.teacherName]!.add(
@@ -239,11 +275,38 @@ class PersonalScheduleDebugHelper {
     final nodeB = path.nodeB;
 
     // 중간 단계 날짜
-    final date2Sub = _getChainDate(nodeA.teacherName, nodeA.day, nodeA.period, 'substitutionDate', '연쇄중간', substitutionPlanState, scheduleState);
+    final date2Sub = ExchangeDateHelper.getChainDate(
+      teacherName: nodeA.teacherName,
+      day: nodeA.day,
+      period: nodeA.period,
+      dateType: 'substitutionDate',
+      stepInfo: '연쇄중간',
+      substitutionPlanState: substitutionPlanState,
+      scheduleState: scheduleState,
+      useFallback: true, // 디버그용이므로 fallback 사용
+    );
 
     // 최종 단계 날짜
-    final dateAAbs = _getChainDate(nodeA.teacherName, nodeA.day, nodeA.period, 'absenceDate', '연쇄최종', substitutionPlanState, scheduleState);
-    final dateBSub = _getChainDate(nodeA.teacherName, nodeA.day, nodeA.period, 'substitutionDate', '연쇄최종', substitutionPlanState, scheduleState);
+    final dateAAbs = ExchangeDateHelper.getChainDate(
+      teacherName: nodeA.teacherName,
+      day: nodeA.day,
+      period: nodeA.period,
+      dateType: 'absenceDate',
+      stepInfo: '연쇄최종',
+      substitutionPlanState: substitutionPlanState,
+      scheduleState: scheduleState,
+      useFallback: true, // 디버그용이므로 fallback 사용
+    );
+    final dateBSub = ExchangeDateHelper.getChainDate(
+      teacherName: nodeA.teacherName,
+      day: nodeA.day,
+      period: nodeA.period,
+      dateType: 'substitutionDate',
+      stepInfo: '연쇄최종',
+      substitutionPlanState: substitutionPlanState,
+      scheduleState: scheduleState,
+      useFallback: true, // 디버그용이므로 fallback 사용
+    );
 
     // 중간 단계 교사 (node2.teacherName)
     teacherMessages.putIfAbsent(node2.teacherName, () => []);
@@ -289,8 +352,17 @@ class PersonalScheduleDebugHelper {
     final sourceNode = path.sourceNode;
     final targetNode = path.targetNode;
 
-    final sourceDate = _getSupplementDate(sourceNode, substitutionPlanState, scheduleState);
-    final supplementSubject = _getSupplementSubject(sourceNode, targetNode, substitutionPlanState);
+    final sourceDate = ExchangeDateHelper.getSupplementDate(
+      sourceNode: sourceNode,
+      substitutionPlanState: substitutionPlanState,
+      scheduleState: scheduleState,
+      useFallback: true, // 디버그용이므로 fallback 사용
+    );
+    final supplementSubject = ExchangeDateHelper.getSupplementSubject(
+      sourceNode: sourceNode,
+      targetNode: targetNode,
+      substitutionPlanState: substitutionPlanState,
+    );
 
     // 원래 교사
     teacherMessages.putIfAbsent(sourceNode.teacherName, () => []);
@@ -303,119 +375,5 @@ class PersonalScheduleDebugHelper {
     teacherMessages[targetNode.teacherName]!.add(
       "'${sourceDate.isNotEmpty ? '$sourceDate ' : ''}${sourceNode.day} ${sourceNode.period}교시 ${sourceNode.className} $supplementSubject' 보강입니다."
     );
-  }
-
-  /// 날짜 포맷 함수: YYYY.MM.DD 형식 유지
-  static String _formatDate(String? dateStr) {
-    if (dateStr == null || dateStr.isEmpty) return '';
-    return dateStr;
-  }
-
-  /// 요일을 날짜로 변환하는 함수 (YYYY.MM.DD 형식)
-  static String _dayToDate(String day, PersonalScheduleState scheduleState) {
-    final weekDates = scheduleState.weekDates;
-
-    // 요일 인덱스 매핑
-    final dayIndex = {
-      '월': 0, '화': 1, '수': 2, '목': 3, '금': 4,
-    };
-
-    final index = dayIndex[day];
-    if (index != null && index < weekDates.length) {
-      final date = weekDates[index];
-      return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
-    }
-    return '';
-  }
-
-  /// 저장된 날짜 가져오는 헬퍼 함수 (교사명, 요일, 교시, 과목으로 찾기)
-  static String _getSavedDateByNode(
-    String teacherName,
-    String day,
-    int period,
-    String subject,
-    String dateType,
-    PersonalScheduleState scheduleState,
-    SubstitutionPlanState substitutionPlanState,
-  ) {
-    final key = '${teacherName}_$day${period}_${subject}_$dateType';
-    final rawDate = substitutionPlanState.savedDates[key];
-    final savedDate = _formatDate(rawDate);
-    if (savedDate.isNotEmpty) {
-      return savedDate;
-    }
-    return _dayToDate(day, scheduleState);
-  }
-
-  /// 노드 날짜 가져오기
-  static String _getNodeDate(
-    ExchangeNode node,
-    String dateType,
-    SubstitutionPlanState substitutionPlanState,
-    PersonalScheduleState scheduleState,
-  ) {
-    for (final key in substitutionPlanState.savedDates.keys) {
-      if (key.startsWith('${node.teacherName}_${node.day}${node.period}_${node.subjectName}_') &&
-          key.endsWith(dateType)) {
-        return _formatDate(substitutionPlanState.savedDates[key]);
-      }
-    }
-    final nodeDate = _formatDate(node.date);
-    if (nodeDate.isNotEmpty) {
-      return nodeDate;
-    }
-    return _dayToDate(node.day, scheduleState);
-  }
-
-  /// 연쇄교체 날짜 가져오기
-  static String _getChainDate(
-    String teacherName,
-    String day,
-    int period,
-    String dateType,
-    String stepInfo,
-    SubstitutionPlanState substitutionPlanState,
-    PersonalScheduleState scheduleState,
-  ) {
-    for (final key in substitutionPlanState.savedDates.keys) {
-      if (key.contains(teacherName) &&
-          key.contains('$day$period') &&
-          key.contains(stepInfo) &&
-          key.endsWith(dateType)) {
-        return _formatDate(substitutionPlanState.savedDates[key]);
-      }
-    }
-    return _dayToDate(day, scheduleState);
-  }
-
-  /// 보강 날짜 가져오기
-  static String _getSupplementDate(
-    ExchangeNode sourceNode,
-    SubstitutionPlanState substitutionPlanState,
-    PersonalScheduleState scheduleState,
-  ) {
-    for (final key in substitutionPlanState.savedDates.keys) {
-      if (key.startsWith('${sourceNode.teacherName}_${sourceNode.day}${sourceNode.period}_${sourceNode.subjectName}_보강_') &&
-          key.endsWith('absenceDate')) {
-        return _formatDate(substitutionPlanState.savedDates[key]);
-      }
-    }
-    return _dayToDate(sourceNode.day, scheduleState);
-  }
-
-  /// 저장된 보강 과목 가져오기
-  static String _getSupplementSubject(
-    ExchangeNode sourceNode,
-    ExchangeNode targetNode,
-    SubstitutionPlanState substitutionPlanState,
-  ) {
-    final searchKey = '${sourceNode.teacherName}_${sourceNode.day}${sourceNode.period}_${sourceNode.subjectName}_보강';
-
-    final savedSubject = substitutionPlanState.savedSupplementSubjects[searchKey];
-    if (savedSubject != null && savedSubject.isNotEmpty) {
-      return savedSubject;
-    }
-
-    return targetNode.subjectName.isNotEmpty ? targetNode.subjectName : sourceNode.subjectName;
   }
 }
