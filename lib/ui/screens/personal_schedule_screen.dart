@@ -19,7 +19,6 @@ import '../../providers/zoom_provider.dart';
 import '../../ui/widgets/timetable_grid/grid_scaling_helper.dart';
 import '../../ui/widgets/timetable_grid/timetable_grid_constants.dart';
 import '../../utils/simplified_timetable_theme.dart';
-import '../../config/debug_config.dart';
 import 'personal_schedule_screen/personal_timetable_datasource.dart';
 import 'personal_schedule_screen/teacher_selection_dialog.dart';
 import 'personal_schedule_screen/personal_schedule_constants.dart';
@@ -317,8 +316,12 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
         ? timetableData.timeSlots
         : List<TimeSlot>.from(_originalTimeSlots!);
 
-    // 개인 시간표 데이터 생성 (줌 팩터는 Consumer 내부에서 동적으로 처리)
-    final weekDates = scheduleState.weekDates;
+    // 전체 시간표 데이터에서 실제 존재하는 요일만 포함한 날짜 리스트 계산
+    // 전체 시간표 데이터를 사용하여 실제 존재하는 요일 확인
+    final weekDates = WeekDateCalculator.getWeekDatesWithAvailableDays(
+      scheduleState.currentWeekMonday,
+      timetableData.timeSlots,
+    );
     // 주의: 헤더 폰트 사이즈는 Consumer 내부에서 줌 팩터를 반영하여 재생성됨
     final result = PersonalTimetableHelper.convertToPersonalTimetableData(
       timeSlotsToUse,
@@ -337,25 +340,60 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
       scheduleState: scheduleState,
     );
 
-    // 교체 정보 추출 결과 디버그 로그 (조건부)
-    if (DebugConfig.enableExchangeInfoDebugLogs) {
-      AppLogger.info('\n=== [개인시간표] 교체 정보 추출 결과 ===');
-      AppLogger.info('교사명: $teacherName');
-      AppLogger.info('현재 주: ${weekDates.map((d) => "${d.month}.${d.day}").join(", ")}');
-      AppLogger.info('추출된 교체 정보: ${exchangeInfoList.length}개');
+    // 교체 정보 추출 결과 디버그 로그
+    AppLogger.info('\n=== [개인시간표] 교체 정보 추출 결과 ===');
+    AppLogger.info('교사명: $teacherName');
+    // 현재 주 표시: "11.10(월), 11.11(화), ..." 형식
+    final weekDisplay = weekDates.map((d) {
+      final dayOfWeek = d.weekday; // 1=월요일, 7=일요일
+      final dayName = ['월', '화', '수', '목', '금', '토', '일'][dayOfWeek - 1];
+      return '${d.month}.${d.day}($dayName)';
+    }).join(', ');
+    AppLogger.info('현재 주: $weekDisplay');
+    AppLogger.info('추출된 교체 정보: ${exchangeInfoList.length}개');
 
-      if (exchangeInfoList.isNotEmpty) {
-        for (int i = 0; i < exchangeInfoList.length; i++) {
-          final info = exchangeInfoList[i];
-          final absenceOrClass = info.isAbsence ? '결강' : '수업';
-          AppLogger.info('  [$i] $absenceOrClass - ${info.date} ${info.day} ${info.period}교시 ${info.subject ?? ''} ${info.className ?? ''}');
+    if (exchangeInfoList.isNotEmpty) {
+      // 현재 주의 날짜 문자열 리스트 생성 (YYYY.MM.DD 형식)
+      final weekDateStrings = weekDates.map((d) => 
+        '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}'
+      ).toList();
+      
+      // 시간표에 실제로 존재하는 셀 정보 수집 (columnName 기준)
+      final existingCells = <String>{};
+      for (final row in result.rows) {
+        for (final cell in row.getCells()) {
+          final columnName = cell.columnName;
+          if (columnName != 'period' && columnName.contains('_')) {
+            existingCells.add(columnName);
+          }
         }
-      } else {
-        AppLogger.info('  (교체 정보 없음)');
       }
-      AppLogger.info('교체 뷰 상태: ${_isExchangeViewEnabled ? "활성화" : "비활성화"}');
-      AppLogger.info('=== 교체 정보 추출 완료 ===\n');
+
+      for (int i = 0; i < exchangeInfoList.length; i++) {
+        final info = exchangeInfoList[i];
+        final absenceOrClass = info.isAbsence ? '결강' : '수업';
+        
+        // 적용 여부 확인
+        final isInCurrentWeek = weekDateStrings.contains(info.date);
+        final expectedColumnName = '${info.day}_${info.period}_${info.date}';
+        final hasCell = existingCells.contains(expectedColumnName);
+        
+        String applyStatus = '';
+        if (isInCurrentWeek && hasCell) {
+          applyStatus = ' [적용됨]';
+        } else if (!isInCurrentWeek) {
+          applyStatus = ' [다른 주]';
+        } else if (!hasCell) {
+          applyStatus = ' [셀 없음]';
+        }
+        
+        AppLogger.info('  [$i] $absenceOrClass - ${info.date} ${info.day} ${info.period}교시 ${info.subject ?? ''} ${info.className ?? ''}$applyStatus');
+      }
+    } else {
+      AppLogger.info('  (교체 정보 없음)');
     }
+    AppLogger.info('교체 뷰 상태: ${_isExchangeViewEnabled ? "활성화" : "비활성화"}');
+    AppLogger.info('=== 교체 정보 추출 완료 ===\n');
 
     // DataSource 생성 또는 업데이트
     if (_dataSource == null || _dataSource!.rows.length != result.rows.length) {

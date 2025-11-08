@@ -1,18 +1,19 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/personal_schedule_provider.dart';
+import '../providers/substitution_plan_provider.dart';
+import '../providers/services_provider.dart';
 import '../models/one_to_one_exchange_path.dart';
 import '../models/circular_exchange_path.dart';
 import '../models/chain_exchange_path.dart';
 import '../models/supplement_exchange_path.dart';
-import '../providers/personal_schedule_provider.dart';
-import '../providers/substitution_plan_provider.dart';
-import '../providers/services_provider.dart';
 import '../services/excel_service.dart';
 import 'logger.dart';
-import 'exchange_date_helper.dart';
+import 'personal_exchange_info_extractor.dart';
 
 /// 개인 시간표 디버그 헬퍼
 ///
 /// 디버그 정보 출력 및 교사별 안내 메시지 생성 기능을 제공합니다.
+/// PersonalExchangeInfoExtractor를 사용하여 교체 정보를 추출하고 메시지를 생성합니다.
 class PersonalScheduleDebugHelper {
   /// 디버그 정보 출력
   ///
@@ -66,7 +67,7 @@ class PersonalScheduleDebugHelper {
 
   /// 교사별 날짜별 결강/수업 정보 출력
   ///
-  /// 교체리스트에서 직접 데이터를 가져와 메시지를 생성합니다.
+  /// PersonalExchangeInfoExtractor를 사용하여 교체 정보를 추출하고 메시지를 생성합니다.
   static void printTeacherScheduleInfo(WidgetRef ref, PersonalScheduleState scheduleState) {
     try {
       final historyService = ref.read(exchangeHistoryServiceProvider);
@@ -74,56 +75,53 @@ class PersonalScheduleDebugHelper {
       final substitutionPlanState = ref.read(substitutionPlanProvider);
 
       if (exchangeList.isEmpty) {
-        AppLogger.info('교체 리스트가 없습니다.');
         return;
       }
 
-      AppLogger.info('\n=== 교사별 안내 메시지 (교체리스트 기준) ===\n');
+      AppLogger.info('\n=== 교사별 안내 메시지 (교체리스트 기준) ===');
+
+      // PersonalExchangeInfoExtractor를 사용하여 모든 교사의 교체 정보 추출
+      final allTeachers = <String>{};
+      for (final exchange in exchangeList) {
+        final path = exchange.originalPath;
+        for (final node in path.nodes) {
+          allTeachers.add(node.teacherName);
+        }
+      }
 
       // 교사별로 그룹화
       final Map<String, List<String>> teacherMessages = {};
 
-      for (final exchange in exchangeList) {
-        final path = exchange.originalPath;
+      // 각 교사별로 교체 정보 추출
+      for (final teacherName in allTeachers) {
+        final exchangeInfoList = PersonalExchangeInfoExtractor.extractExchangeInfo(
+          exchangeList: exchangeList,
+          teacherName: teacherName,
+          weekDates: scheduleState.weekDates,
+          substitutionPlanState: substitutionPlanState,
+          scheduleState: scheduleState,
+        );
 
-        if (path is OneToOneExchangePath) {
-          _handleOneToOneDebugMessage(
-            path,
-            teacherMessages,
-            scheduleState,
-            substitutionPlanState,
-          );
-        } else if (path is CircularExchangePath) {
-          _handleCircularDebugMessage(
-            path,
-            teacherMessages,
-            scheduleState,
-            substitutionPlanState,
-          );
-        } else if (path is ChainExchangePath) {
-          _handleChainDebugMessage(
-            path,
-            teacherMessages,
-            scheduleState,
-            substitutionPlanState,
-          );
-        } else if (path is SupplementExchangePath) {
-          _handleSupplementDebugMessage(
-            path,
-            teacherMessages,
-            scheduleState,
-            substitutionPlanState,
-          );
+        // ExchangeCellInfo를 메시지 형식으로 변환
+        teacherMessages.putIfAbsent(teacherName, () => []);
+        for (final info in exchangeInfoList) {
+          final absenceOrClass = info.isAbsence ? '결강입니다.' : '수업입니다.';
+          final dateStr = info.date.isNotEmpty ? '${info.date} ' : '';
+          final subjectStr = info.subject ?? '';
+          final classStr = info.className ?? '';
+          final content = '$dateStr${info.day} ${info.period}교시 $subjectStr $classStr'.trim();
+          teacherMessages[teacherName]!.add("'$content' $absenceOrClass");
         }
       }
 
-      // 교사별로 메시지 출력
+      // 교사별로 메시지 출력 (간단한 형식)
       final teacherNames = teacherMessages.keys.toList()..sort();
       for (int i = 0; i < teacherNames.length; i++) {
         final teacherName = teacherNames[i];
         final messages = teacherMessages[teacherName]!;
 
-        AppLogger.info('$teacherName: \'$teacherName\' 선생님');
+        // "선생님" 제거, 간단하게 출력
+        AppLogger.info('$teacherName:');
         for (final message in messages) {
           AppLogger.info(message);
         }
@@ -134,246 +132,10 @@ class PersonalScheduleDebugHelper {
         }
       }
 
-      AppLogger.info('\n=== 교사별 안내 메시지 출력 완료 ===\n');
+      AppLogger.info('\n=== 교체 정보 추출 완료 ===\n');
     } catch (e) {
       AppLogger.error('교사별 안내 메시지 출력 중 오류: $e', e);
     }
   }
-
-  /// 1:1 교체 디버그 메시지 처리
-  static void _handleOneToOneDebugMessage(
-    OneToOneExchangePath path,
-    Map<String, List<String>> teacherMessages,
-    PersonalScheduleState scheduleState,
-    SubstitutionPlanState substitutionPlanState,
-  ) {
-    final sourceNode = path.sourceNode;
-    final targetNode = path.targetNode;
-
-    // 원래 교사(sourceNode)의 날짜 정보
-    final sourceAbsenceDate = ExchangeDateHelper.getSavedDateByNode(
-      teacherName: sourceNode.teacherName,
-      day: sourceNode.day,
-      period: sourceNode.period,
-      subject: sourceNode.subjectName,
-      dateType: 'absenceDate',
-      substitutionPlanState: substitutionPlanState,
-      scheduleState: scheduleState,
-      useFallback: true, // 디버그용이므로 fallback 사용
-    );
-    final sourceSubstitutionDate = ExchangeDateHelper.getSavedDateByNode(
-      teacherName: sourceNode.teacherName,
-      day: sourceNode.day,
-      period: sourceNode.period,
-      subject: sourceNode.subjectName,
-      dateType: 'substitutionDate',
-      substitutionPlanState: substitutionPlanState,
-      scheduleState: scheduleState,
-      useFallback: true, // 디버그용이므로 fallback 사용
-    );
-
-    // 원래 교사(sourceNode) 메시지
-    teacherMessages.putIfAbsent(sourceNode.teacherName, () => []);
-    teacherMessages[sourceNode.teacherName]!.add(
-      "'${sourceAbsenceDate.isNotEmpty ? '$sourceAbsenceDate ' : ''}${sourceNode.day} ${sourceNode.period}교시 ${sourceNode.subjectName} ${sourceNode.className}' 결강입니다."
-    );
-    teacherMessages[sourceNode.teacherName]!.add(
-      "'${sourceSubstitutionDate.isNotEmpty ? '$sourceSubstitutionDate ' : ''}${targetNode.day} ${targetNode.period}교시 ${sourceNode.subjectName} ${targetNode.className}' 수업입니다."
-    );
-
-    // 교체 교사(targetNode) 메시지
-    teacherMessages.putIfAbsent(targetNode.teacherName, () => []);
-    teacherMessages[targetNode.teacherName]!.add(
-      "'${sourceSubstitutionDate.isNotEmpty ? '$sourceSubstitutionDate ' : ''}${targetNode.day} ${targetNode.period}교시 ${targetNode.subjectName} ${targetNode.className}' 결강입니다."
-    );
-    teacherMessages[targetNode.teacherName]!.add(
-      "'${sourceAbsenceDate.isNotEmpty ? '$sourceAbsenceDate ' : ''}${sourceNode.day} ${sourceNode.period}교시 ${targetNode.subjectName} ${sourceNode.className}' 수업입니다."
-    );
-  }
-
-  /// 순환교체 디버그 메시지 처리
-  static void _handleCircularDebugMessage(
-    CircularExchangePath path,
-    Map<String, List<String>> teacherMessages,
-    PersonalScheduleState scheduleState,
-    SubstitutionPlanState substitutionPlanState,
-  ) {
-    final nodes = path.nodes;
-    final stepCount = nodes.length;
-
-    if (stepCount >= 4) {
-      // 4단계 이상: 각 교사가 자신의 과목을 들고 이동
-      for (int i = 0; i < nodes.length - 1; i++) {
-        final sourceNode = nodes[i];
-        final targetNode = nodes[i + 1];
-
-        final sourceDate = ExchangeDateHelper.getNodeDate(
-          node: sourceNode,
-          dateType: 'absenceDate',
-          substitutionPlanState: substitutionPlanState,
-          scheduleState: scheduleState,
-          useFallback: true, // 디버그용이므로 fallback 사용
-        );
-        final targetDate = ExchangeDateHelper.getNodeDate(
-          node: sourceNode,
-          dateType: 'substitutionDate',
-          substitutionPlanState: substitutionPlanState,
-          scheduleState: scheduleState,
-          useFallback: true, // 디버그용이므로 fallback 사용
-        );
-
-        teacherMessages.putIfAbsent(sourceNode.teacherName, () => []);
-        teacherMessages[sourceNode.teacherName]!.add(
-          "'${sourceDate.isNotEmpty ? '$sourceDate ' : ''}${sourceNode.day} ${sourceNode.period}교시 ${sourceNode.subjectName} ${sourceNode.className}' 결강입니다."
-        );
-        teacherMessages[sourceNode.teacherName]!.add(
-          "'${targetDate.isNotEmpty ? '$targetDate ' : ''}${targetNode.day} ${targetNode.period}교시 ${sourceNode.subjectName} ${sourceNode.className}' 수업입니다."
-        );
-      }
-    } else {
-      // 3단계 이하: 기본 교체 방식
-      for (int i = 0; i < nodes.length - 1; i++) {
-        final sourceNode = nodes[i];
-        final targetNode = nodes[i + 1];
-
-        final sourceDate = ExchangeDateHelper.getNodeDate(
-          node: sourceNode,
-          dateType: 'absenceDate',
-          substitutionPlanState: substitutionPlanState,
-          scheduleState: scheduleState,
-          useFallback: true, // 디버그용이므로 fallback 사용
-        );
-        final targetDate = ExchangeDateHelper.getNodeDate(
-          node: sourceNode,
-          dateType: 'substitutionDate',
-          substitutionPlanState: substitutionPlanState,
-          scheduleState: scheduleState,
-          useFallback: true, // 디버그용이므로 fallback 사용
-        );
-
-        teacherMessages.putIfAbsent(sourceNode.teacherName, () => []);
-        teacherMessages[sourceNode.teacherName]!.add(
-          "'${sourceDate.isNotEmpty ? '$sourceDate ' : ''}${sourceNode.day} ${sourceNode.period}교시 ${sourceNode.subjectName} ${sourceNode.className}' 결강입니다."
-        );
-        teacherMessages[sourceNode.teacherName]!.add(
-          "'${targetDate.isNotEmpty ? '$targetDate ' : ''}${targetNode.day} ${targetNode.period}교시 ${targetNode.subjectName} ${targetNode.className}' 수업입니다."
-        );
-      }
-    }
-  }
-
-  /// 연쇄교체 디버그 메시지 처리
-  static void _handleChainDebugMessage(
-    ChainExchangePath path,
-    Map<String, List<String>> teacherMessages,
-    PersonalScheduleState scheduleState,
-    SubstitutionPlanState substitutionPlanState,
-  ) {
-    final node1 = path.node1;
-    final node2 = path.node2;
-    final nodeA = path.nodeA;
-    final nodeB = path.nodeB;
-
-    // 중간 단계 날짜
-    final date2Sub = ExchangeDateHelper.getChainDate(
-      teacherName: nodeA.teacherName,
-      day: nodeA.day,
-      period: nodeA.period,
-      dateType: 'substitutionDate',
-      stepInfo: '연쇄중간',
-      substitutionPlanState: substitutionPlanState,
-      scheduleState: scheduleState,
-      useFallback: true, // 디버그용이므로 fallback 사용
-    );
-
-    // 최종 단계 날짜
-    final dateAAbs = ExchangeDateHelper.getChainDate(
-      teacherName: nodeA.teacherName,
-      day: nodeA.day,
-      period: nodeA.period,
-      dateType: 'absenceDate',
-      stepInfo: '연쇄최종',
-      substitutionPlanState: substitutionPlanState,
-      scheduleState: scheduleState,
-      useFallback: true, // 디버그용이므로 fallback 사용
-    );
-    final dateBSub = ExchangeDateHelper.getChainDate(
-      teacherName: nodeA.teacherName,
-      day: nodeA.day,
-      period: nodeA.period,
-      dateType: 'substitutionDate',
-      stepInfo: '연쇄최종',
-      substitutionPlanState: substitutionPlanState,
-      scheduleState: scheduleState,
-      useFallback: true, // 디버그용이므로 fallback 사용
-    );
-
-    // 중간 단계 교사 (node2.teacherName)
-    teacherMessages.putIfAbsent(node2.teacherName, () => []);
-    teacherMessages[node2.teacherName]!.add(
-      "'${date2Sub.isNotEmpty ? '$date2Sub ' : ''}${node2.day} ${node2.period}교시 ${node2.subjectName} ${node2.className}' 수업입니다."
-    );
-
-    // 최종 단계 원래 교사 (nodeA.teacherName)
-    teacherMessages.putIfAbsent(nodeA.teacherName, () => []);
-    teacherMessages[nodeA.teacherName]!.add(
-      "'${dateAAbs.isNotEmpty ? '$dateAAbs ' : ''}${nodeA.day} ${nodeA.period}교시 ${nodeA.subjectName} ${nodeA.className}' 결강입니다."
-    );
-    teacherMessages[nodeA.teacherName]!.add(
-      "'${dateBSub.isNotEmpty ? '$dateBSub ' : ''}${nodeB.day} ${nodeB.period}교시 ${nodeA.subjectName} ${nodeA.className}' 수업입니다."
-    );
-
-    // 중간 단계 교체 교사 (node1.teacherName)
-    teacherMessages.putIfAbsent(node1.teacherName, () => []);
-    teacherMessages[node1.teacherName]!.add(
-      "'${dateAAbs.isNotEmpty ? '$dateAAbs ' : ''}${node2.day} ${node2.period}교시 ${node2.subjectName} ${node2.className}' 결강입니다."
-    );
-    teacherMessages[node1.teacherName]!.add(
-      "'${date2Sub.isNotEmpty ? '$date2Sub ' : ''}${node1.day} ${node1.period}교시 ${node2.subjectName} ${node2.className}' 수업입니다."
-    );
-
-    // 최종 단계 교체 교사 (nodeB.teacherName)
-    teacherMessages.putIfAbsent(nodeB.teacherName, () => []);
-    teacherMessages[nodeB.teacherName]!.add(
-      "'${dateBSub.isNotEmpty ? '$dateBSub ' : ''}${nodeB.day} ${nodeB.period}교시 ${nodeB.subjectName} ${nodeB.className}' 결강입니다."
-    );
-    teacherMessages[nodeB.teacherName]!.add(
-      "'${dateAAbs.isNotEmpty ? '$dateAAbs ' : ''}${nodeA.day} ${nodeA.period}교시 ${nodeB.subjectName} ${nodeB.className}' 수업입니다."
-    );
-  }
-
-  /// 보강교체 디버그 메시지 처리
-  static void _handleSupplementDebugMessage(
-    SupplementExchangePath path,
-    Map<String, List<String>> teacherMessages,
-    PersonalScheduleState scheduleState,
-    SubstitutionPlanState substitutionPlanState,
-  ) {
-    final sourceNode = path.sourceNode;
-    final targetNode = path.targetNode;
-
-    final sourceDate = ExchangeDateHelper.getSupplementDate(
-      sourceNode: sourceNode,
-      substitutionPlanState: substitutionPlanState,
-      scheduleState: scheduleState,
-      useFallback: true, // 디버그용이므로 fallback 사용
-    );
-    final supplementSubject = ExchangeDateHelper.getSupplementSubject(
-      sourceNode: sourceNode,
-      targetNode: targetNode,
-      substitutionPlanState: substitutionPlanState,
-    );
-
-    // 원래 교사
-    teacherMessages.putIfAbsent(sourceNode.teacherName, () => []);
-    teacherMessages[sourceNode.teacherName]!.add(
-      "'${sourceDate.isNotEmpty ? '$sourceDate ' : ''}${sourceNode.day} ${sourceNode.period}교시 ${sourceNode.className} ${sourceNode.subjectName}' 결강입니다."
-    );
-
-    // 보강 교사
-    teacherMessages.putIfAbsent(targetNode.teacherName, () => []);
-    teacherMessages[targetNode.teacherName]!.add(
-      "'${sourceDate.isNotEmpty ? '$sourceDate ' : ''}${sourceNode.day} ${sourceNode.period}교시 ${sourceNode.className} $supplementSubject' 보강입니다."
-    );
-  }
 }
+

@@ -1,3 +1,5 @@
+import '../models/time_slot.dart';
+
 /// 주 날짜 계산 유틸리티
 /// 
 /// 개인 시간표에서 주 단위로 날짜를 계산하는 기능을 제공합니다.
@@ -49,6 +51,44 @@ class WeekDateCalculator {
       weekMonday.add(const Duration(days: 3)), // 목요일
       weekMonday.add(const Duration(days: 4)), // 금요일
     ];
+  }
+
+  /// 전체 시간표 데이터를 기반으로 실제 존재하는 요일만 포함한 날짜 리스트 계산
+  /// 
+  /// 매개변수:
+  /// - [weekMonday]: 주의 월요일 날짜
+  /// - [allTimeSlots]: 전체 시간표 데이터 (TimeSlot 리스트)
+  /// 
+  /// 반환값: 실제 존재하는 요일의 날짜 리스트 (요일 순서대로 정렬)
+  static List<DateTime> getWeekDatesWithAvailableDays(
+    DateTime weekMonday,
+    List<TimeSlot> allTimeSlots,
+  ) {
+    // 전체 시간표에서 실제로 존재하는 요일 추출 (dayOfWeek: 1=월, 2=화, ..., 7=일)
+    final availableDayOfWeeks = <int>{};
+    for (final slot in allTimeSlots) {
+      // TimeSlot 객체의 dayOfWeek 속성 확인
+      if (slot.dayOfWeek != null) {
+        availableDayOfWeeks.add(slot.dayOfWeek!);
+      }
+    }
+
+    // 요일이 없으면 기본값(월~금) 반환
+    if (availableDayOfWeeks.isEmpty) {
+      return getWeekDates(weekMonday);
+    }
+
+    // 존재하는 요일만 날짜 리스트로 변환 (요일 순서대로 정렬)
+    final weekDates = <DateTime>[];
+    for (int dayOfWeek = 1; dayOfWeek <= 7; dayOfWeek++) {
+      if (availableDayOfWeeks.contains(dayOfWeek)) {
+        // dayOfWeek가 1(월)이면 0일 추가, 2(화)면 1일 추가, ..., 7(일)이면 6일 추가
+        final daysToAdd = dayOfWeek - 1;
+        weekDates.add(weekMonday.add(Duration(days: daysToAdd)));
+      }
+    }
+
+    return weekDates;
   }
 
   /// 날짜를 "월.일" 형식으로 포맷

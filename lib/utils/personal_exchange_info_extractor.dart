@@ -5,7 +5,6 @@ import '../models/chain_exchange_path.dart';
 import '../models/supplement_exchange_path.dart';
 import '../providers/personal_schedule_provider.dart';
 import '../providers/substitution_plan_provider.dart';
-import '../utils/logger.dart';
 import '../utils/exchange_date_helper.dart';
 
 /// 교체 정보를 셀 테마에 적용하기 위한 데이터 구조
@@ -73,88 +72,56 @@ class PersonalExchangeInfoExtractor {
   }) {
     final List<ExchangeCellInfo> exchangeInfoList = [];
 
-    AppLogger.info('\n=== [교체정보추출] 시작 ===');
-    AppLogger.info('대상 교사: $teacherName');
-    AppLogger.info('전체 교체 개수: ${exchangeList.length}');
-
-    for (int i = 0; i < exchangeList.length; i++) {
-      final exchange = exchangeList[i];
+    // 상세 로그 제거 - 간단하게 처리
+    for (final exchange in exchangeList) {
       final path = exchange.originalPath;
 
-      AppLogger.info('\n[교체 ${i + 1}/${exchangeList.length}] 타입: ${exchange.typeDisplayName}');
-
       if (path is OneToOneExchangePath) {
-        final extracted = _extractOneToOneInfo(
-          path,
-          teacherName,
-          weekDates,
-          substitutionPlanState,
-          scheduleState,
+        exchangeInfoList.addAll(
+          _extractOneToOneInfo(
+            path,
+            teacherName,
+            weekDates,
+            substitutionPlanState,
+            scheduleState,
+          ),
         );
-        AppLogger.info('  → 1:1 교체: ${path.sourceNode.teacherName} ↔ ${path.targetNode.teacherName}');
-        AppLogger.info('  → 추출된 정보: ${extracted.length}개');
-        exchangeInfoList.addAll(extracted);
       } else if (path is CircularExchangePath) {
-        final extracted = _extractCircularInfo(
-          path,
-          teacherName,
-          weekDates,
-          substitutionPlanState,
-          scheduleState,
+        exchangeInfoList.addAll(
+          _extractCircularInfo(
+            path,
+            teacherName,
+            weekDates,
+            substitutionPlanState,
+            scheduleState,
+          ),
         );
-        final nodeNames = path.nodes.map((n) => n.teacherName).join(' → ');
-        AppLogger.info('  → 순환교체: $nodeNames');
-        AppLogger.info('  → 추출된 정보: ${extracted.length}개');
-        exchangeInfoList.addAll(extracted);
       } else if (path is ChainExchangePath) {
-        final extracted = _extractChainInfo(
-          path,
-          teacherName,
-          weekDates,
-          substitutionPlanState,
-          scheduleState,
+        exchangeInfoList.addAll(
+          _extractChainInfo(
+            path,
+            teacherName,
+            weekDates,
+            substitutionPlanState,
+            scheduleState,
+          ),
         );
-        AppLogger.info('  → 연쇄교체: ${path.nodeA.teacherName} → ${path.nodeB.teacherName}');
-        AppLogger.info('  → 추출된 정보: ${extracted.length}개');
-        exchangeInfoList.addAll(extracted);
       } else if (path is SupplementExchangePath) {
-        final extracted = _extractSupplementInfo(
-          path,
-          teacherName,
-          weekDates,
-          substitutionPlanState,
-          scheduleState,
+        exchangeInfoList.addAll(
+          _extractSupplementInfo(
+            path,
+            teacherName,
+            weekDates,
+            substitutionPlanState,
+            scheduleState,
+          ),
         );
-        AppLogger.info('  → 보강교체: ${path.sourceNode.teacherName} → ${path.targetNode.teacherName}');
-        AppLogger.info('  → 추출된 정보: ${extracted.length}개');
-        exchangeInfoList.addAll(extracted);
       }
     }
 
-    // 날짜가 저장되지 않은 교체 정보 필터링 (날짜가 빈 문자열인 항목 제거)
-    final filteredByDate = exchangeInfoList.where((info) => info.date.isNotEmpty).toList();
-    AppLogger.info('\n[필터링] 날짜 없는 항목 제거: ${exchangeInfoList.length} → ${filteredByDate.length}');
-
-    // 현재 주에 해당하는 교체 정보만 필터링
-    // 주의: 저장된 날짜가 현재 주가 아닌 경우에도 포함 (다음 주 교체도 표시)
-    final weekDateStrings = weekDates.map((date) => 
-      '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}'
-    ).toSet();
-
-    // 현재 주에 포함되는 교체 정보만 필터링
-    // (저장된 날짜가 현재 주가 아니면 제외)
-    final result = filteredByDate.where((info) => weekDateStrings.contains(info.date)).toList();
-    AppLogger.info('[필터링] 현재 주 필터링: ${filteredByDate.length} → ${result.length}');
-    
-    // 필터링된 항목이 없는 경우, 저장된 날짜 정보 출력
-    if (result.isEmpty && filteredByDate.isNotEmpty) {
-      AppLogger.info('[필터링] 현재 주에 해당하지 않는 교체 정보:');
-      for (final info in filteredByDate) {
-        AppLogger.info('  - ${info.date} ${info.day} ${info.period}교시 (현재 주: ${weekDateStrings.join(", ")})');
-      }
-    }
-    
-    AppLogger.info('=== [교체정보추출] 완료 ===\n');
+    // 날짜가 저장되지 않은 교체 정보 필터링만 수행
+    // 현재 주 필터링 제거 (방안1: 저장된 날짜가 있으면 모두 반환)
+    final result = exchangeInfoList.where((info) => info.date.isNotEmpty).toList();
 
     return result;
   }

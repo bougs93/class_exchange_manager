@@ -28,14 +28,15 @@ class DayUtils {
   /// 요일 번호를 요일명으로 변환
   /// 
   /// 매개변수:
-  /// - [dayOfWeek]: 요일 번호 (1=월, 2=화, 3=수, 4=목, 5=금)
+  /// - [dayOfWeek]: 요일 번호 (1=월, 2=화, 3=수, 4=목, 5=금, 6=토, 7=일)
   /// 
   /// 반환값:
-  /// - String: 요일명 ('월', '화', '수', '목', '금')
+  /// - String: 요일명 ('월', '화', '수', '목', '금', '토', '일')
   /// - 기본값: '월' (월요일)
   static String getDayName(int dayOfWeek) {
-    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-      return dayNames[dayOfWeek - 1];
+    const allDayNames = ['월', '화', '수', '목', '금', '토', '일'];
+    if (dayOfWeek >= 1 && dayOfWeek <= 7) {
+      return allDayNames[dayOfWeek - 1];
     }
     return '월'; // 기본값
   }

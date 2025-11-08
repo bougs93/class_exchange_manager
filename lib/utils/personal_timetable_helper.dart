@@ -54,8 +54,16 @@ class PersonalTimetableHelper {
     // 3. 교시 목록 정렬
     final sortedPeriods = allPeriods.toList()..sort();
 
-    // 4. 요일 목록 (월~금 순서)
-    final days = DayUtils.dayNames;
+    // 4. weekDates를 기반으로 동적으로 요일 목록 생성
+    // weekDates는 이미 실제 존재하는 요일만 포함하도록 필터링됨
+    final days = <String>[];
+    final dayNames = ['월', '화', '수', '목', '금', '토', '일'];
+    for (final date in weekDates) {
+      final dayOfWeek = date.weekday; // 1=월요일, 7=일요일
+      if (dayOfWeek >= 1 && dayOfWeek <= 7) {
+        days.add(dayNames[dayOfWeek - 1]);
+      }
+    }
 
     // 5. 행 데이터 생성 (각 교시가 하나의 행)
     final List<DataGridRow> rows = [];
