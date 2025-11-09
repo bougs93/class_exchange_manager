@@ -8,6 +8,8 @@ import 'info_screen.dart';
 import 'help_screen.dart';
 import 'home_content_screen.dart';
 import '../../providers/navigation_provider.dart';
+import '../widgets/common_app_bar.dart';
+import '../widgets/unified_navigation_bar.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../providers/state_reset_provider.dart';
 import '../../providers/services_provider.dart';
@@ -302,8 +304,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final selectedIndex = ref.watch(navigationProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Class Exchange Manager'),
+      // 공통 AppBar 사용 (메뉴 아이콘 포함)
+      appBar: CommonAppBar(
+        title: 'Class Exchange Manager',
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
       ),
@@ -495,13 +498,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ],
         ),
       ),
-      body: IndexedStack(
-        index: selectedIndex,
+      body: Column(
         children: [
-          // 홈 화면 (인덱스 0)
-          HomeContentScreen(),
-          // 나머지 메뉴 화면들 (인덱스 1부터)
-          ..._menuItems().map((item) => item['screen'] as Widget),
+          // 통합 네비게이션 바 (모든 화면에서 표시)
+          const UnifiedNavigationBar(),
+          
+          // 본문 내용
+          Expanded(
+            child: IndexedStack(
+              index: selectedIndex,
+              children: [
+                // 홈 화면 (인덱스 0)
+                HomeContentScreen(),
+                // 나머지 메뉴 화면들 (인덱스 1부터)
+                ..._menuItems().map((item) => item['screen'] as Widget),
+              ],
+            ),
+          ),
         ],
       ),
     );

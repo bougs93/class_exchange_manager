@@ -41,7 +41,6 @@ import 'helpers/chain_path_finder.dart';
 import '../widgets/timetable_grid/exchange_executor.dart';
 
 // 새로 분리된 위젯, ViewModel, Managers
-import 'exchange_screen/widgets/exchange_app_bar.dart';
 import 'exchange_screen/widgets/timetable_tab_content.dart';
 import 'exchange_screen/exchange_screen_viewmodel.dart';
 import 'exchange_screen/exchange_screen_state_proxy.dart';
@@ -717,11 +716,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     final isPathsLoading = screenState.isPathsLoading;
 
     return Scaffold(
-      appBar: ExchangeAppBar(
-        state: screenState,
-        onToggleSidebar: _toggleSidebar,
-        onUpdateHeaderTheme: _updateHeaderTheme,
-      ),
+      // ExchangeAppBar 제거 - HomeScreen의 공통 AppBar 사용
       body: Row(
         children: [
           // 시간표 영역

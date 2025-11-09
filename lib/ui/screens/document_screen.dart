@@ -101,11 +101,7 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('결보강계획서'),
-        backgroundColor: Colors.blue.shade50,
-        elevation: 0,
-      ),
+      // AppBar 제거 - HomeScreen의 공통 AppBar 사용
       body: Column(
         children: [
           // 교체 제어 패널과 동일한 스타일의 탭바
