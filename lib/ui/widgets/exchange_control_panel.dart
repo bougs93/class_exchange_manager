@@ -96,7 +96,7 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel>
             else 
               _buildFileSelectedUI(),
             
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             
             // 교체 모드 TabBar
             _buildModeTabBar(),
@@ -142,7 +142,7 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel>
   Widget _buildSelectedFileInfo() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: Colors.green.shade50,
         borderRadius: BorderRadius.circular(8),
