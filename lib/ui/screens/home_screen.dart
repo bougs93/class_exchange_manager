@@ -340,26 +340,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
             
-            // 홈 메뉴 (최상단에 배치)
-            ListTile(
-              leading: Icon(
-                Icons.home,
-                color: selectedIndex == 0 ? Colors.blue : Colors.grey[600],
-              ),
-              title: Text(
-                '홈',
-                style: TextStyle(
-                  color: selectedIndex == 0 ? Colors.blue : Colors.black,
-                  fontWeight: selectedIndex == 0 ? FontWeight.bold : FontWeight.normal,
-                ),
-              ),
-              selected: selectedIndex == 0,
-              onTap: () {
-                ref.read(navigationProvider.notifier).state = 0;
-                Navigator.pop(context); // Drawer 닫기
-              },
-            ),
-            
             const Divider(height: 1),
             
             // 엑셀 파일 선택 메뉴 (간단한 ListTile 형태)
@@ -440,33 +420,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               },
             ),
             
-            const Divider(height: 1),
-            
-            // 나머지 메뉴 항목들 (홈 제외: 교체 관리, 결보강계획서, 개인 시간표, 설정)
-            ...List.generate(_menuItems().length, (index) {
-              final item = _menuItems()[index];
-              final menuIndex = index + 1; // 홈이 인덱스 0이므로 +1
-              return ListTile(
-                leading: Icon(
-                  item['icon'] as IconData,
-                  color: selectedIndex == menuIndex ? Colors.blue : Colors.grey[600],
-                ),
-                title: Text(
-                  item['title'] as String,
-                  style: TextStyle(
-                    color: selectedIndex == menuIndex ? Colors.blue : Colors.black,
-                    fontWeight: selectedIndex == menuIndex ? FontWeight.bold : FontWeight.normal,
-                  ),
-                ),
-                selected: selectedIndex == menuIndex,
-                onTap: () {
-                  ref.read(navigationProvider.notifier).state = menuIndex;
-                  Navigator.pop(context); // Drawer 닫기
-                },
-              );
-            }),
-            
-            // 구분선
+            // 구분선 (통합 네비게이션 바와 중복되는 메뉴 항목 제거)
             const Divider(height: 1),
             // 도움말 메뉴
             ListTile(

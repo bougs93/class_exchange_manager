@@ -372,9 +372,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('설정'),
-      ),
+      // AppBar 제거 - HomeScreen의 공통 AppBar 사용
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
