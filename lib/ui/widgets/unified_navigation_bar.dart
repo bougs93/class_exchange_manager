@@ -32,8 +32,8 @@ class UnifiedNavigationBar extends ConsumerWidget {
       {
         'index': 2,
         'icon': Icons.print,
-        'label': '결보강계획서',
-        'tooltip': '결보강계획서',
+        'label': '결보강 문서',
+        'tooltip': '결보강 문서',
       },
       {
         'index': 3,

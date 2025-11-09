@@ -5,6 +5,7 @@ import '../../providers/navigation_provider.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../providers/state_reset_provider.dart';
 import '../../models/exchange_mode.dart';
+import '../../constants/app_info.dart';
 import 'exchange_screen/exchange_screen_state_proxy.dart';
 import 'exchange_screen/managers/exchange_operation_manager.dart';
 import 'help_screen.dart';
@@ -14,7 +15,7 @@ import 'info_screen.dart';
 ///
 /// 메인 홈 화면의 내용을 표시합니다.
 /// - 환영 메시지 카드
-/// - 메뉴 그리드 (시간표 선택, 교체 관리, 결보강계획서, 개인 시간표, 설정, 도움말, 정보)
+/// - 메뉴 그리드 (시간표 선택, 교체 관리, 결보강 문서, 개인 시간표, 설정, 도움말, 정보)
 class HomeContentScreen extends ConsumerWidget {
   const HomeContentScreen({super.key});
 
@@ -85,12 +86,139 @@ class HomeContentScreen extends ConsumerWidget {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            
+            // 사용 기간 정보 카드
+            _buildUsagePeriodCard(theme),
+            
             const SizedBox(height: 24),
 
             // 메뉴 그리드
             _buildMenuGrid(context, ref, theme),
           ],
         ),
+      ),
+    );
+  }
+
+  /// 사용 기간 정보 카드 생성
+  Widget _buildUsagePeriodCard(ThemeData theme) {
+    final expiryDate = AppInfo.expiryDate;
+    final daysUntilExpiry = AppInfo.getDaysUntilExpiry();
+    final isExpired = AppInfo.isExpired();
+    
+    // 사용 가능 기간 문자열 생성
+    String availablePeriodText;
+    if (expiryDate == null) {
+      availablePeriodText = '제한 없음';
+    } else {
+      try {
+        final expiry = DateTime.parse(expiryDate);
+        availablePeriodText = '${expiry.year}년 ${expiry.month}월 ${expiry.day}일까지';
+      } catch (e) {
+        availablePeriodText = expiryDate;
+      }
+    }
+    
+    // 남은 사용 기간 문자열 생성
+    String remainingPeriodText;
+    Color remainingPeriodColor;
+    if (expiryDate == null) {
+      remainingPeriodText = '제한 없음';
+      remainingPeriodColor = Colors.green.shade700;
+    } else if (isExpired) {
+      remainingPeriodText = '만료됨';
+      remainingPeriodColor = Colors.red.shade700;
+    } else if (daysUntilExpiry != null) {
+      if (daysUntilExpiry == 0) {
+        remainingPeriodText = '오늘까지';
+        remainingPeriodColor = Colors.orange.shade700;
+      } else if (daysUntilExpiry <= 30) {
+        remainingPeriodText = '$daysUntilExpiry일 남음';
+        remainingPeriodColor = Colors.orange.shade700;
+      } else {
+        remainingPeriodText = '$daysUntilExpiry일 남음';
+        remainingPeriodColor = Colors.green.shade700;
+      }
+    } else {
+      remainingPeriodText = '계산 불가';
+      remainingPeriodColor = Colors.grey.shade700;
+    }
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.grey.shade300,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: theme.primaryColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              Icons.calendar_today,
+              color: theme.primaryColor,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      '사용 가능 기간: ',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      availablePeriodText,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade800,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Text(
+                      '남은 사용 기간: ',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      remainingPeriodText,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: remainingPeriodColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -113,7 +241,7 @@ class HomeContentScreen extends ConsumerWidget {
         },
       },
       {
-        'title': '결보강계획서',
+        'title': '결보강 문서',
         'icon': Icons.print,
         'color': theme.primaryColor,
         'onTap': () {

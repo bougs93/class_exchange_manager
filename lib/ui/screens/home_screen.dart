@@ -275,7 +275,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
 
 
-  // 메뉴 항목들 정의 (홈 제외: 교체 관리, 결보강계획서, 개인 시간표, 설정)
+  // 메뉴 항목들 정의 (홈 제외: 교체 관리, 결보강 문서, 개인 시간표, 설정)
   List<Map<String, dynamic>> _menuItems() => [
     {
       'title': '교체 관리',
@@ -283,7 +283,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       'screen': ExchangeScreen(),
     },
     {
-      'title': '결보강계획서',
+      'title': '결보강 문서',
       'icon': Icons.print,
       'screen': DocumentScreen(),
     },
