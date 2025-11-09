@@ -315,7 +315,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
                     TeacherCountWidget(
                       teacherCount: widget.timetableData!.teachers.length,
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
                   ],
                   
                   // 교체 뷰 체크박스
@@ -433,7 +433,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
                 TeacherCountWidget(
                   teacherCount: widget.timetableData!.teachers.length,
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 10),
               ],
 
               // 교체 뷰 체크박스

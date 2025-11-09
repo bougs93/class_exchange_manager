@@ -47,14 +47,26 @@ class NoticeControlPanel extends ConsumerWidget {
               padding: const EdgeInsets.all(NoticeControlPanelConfig.contentPadding),
               child: Row(
                 children: [
-                  // 새로고침 버튼 (아이콘만)
-                  IconButton(
-                    onPressed: () => noticeNotifier.refreshAllMessages(),
-                    icon: const Icon(Icons.refresh, size: NoticeControlPanelConfig.iconSize),
-                    tooltip: '새로고침',
-                    style: IconButton.styleFrom(
-                      backgroundColor: (refreshButtonColor ?? Colors.blue.shade600).withValues(alpha: 0.1),
-                      foregroundColor: refreshButtonColor ?? Colors.blue.shade700,
+                  // 새로고침 버튼 (원형 - 결보강 계획서 스타일)
+                  Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    child: ElevatedButton(
+                      onPressed: () => noticeNotifier.refreshAllMessages(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: (refreshButtonColor ?? Colors.blue.shade600).withValues(alpha: 0.1),
+                        foregroundColor: refreshButtonColor ?? Colors.blue.shade700,
+                        padding: const EdgeInsets.all(8),
+                        minimumSize: const Size(40, 40),
+                        maximumSize: const Size(40, 40),
+                        shape: CircleBorder(
+                          side: BorderSide(
+                            color: refreshButtonColor ?? Colors.blue,
+                            width: 1,
+                          ),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Icon(Icons.refresh, size: 16),
                     ),
                   ),
                   const SizedBox(width: NoticeControlPanelConfig.horizontalSpacing),

@@ -109,32 +109,62 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen>
             elevation: 2,
             margin: EdgeInsets.zero,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 0.0),
+              padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 8.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  TabBar(
-                    controller: _tabController,
-                    indicator: BoxDecoration(
-                      color: _currentTabColor,
-                      borderRadius: BorderRadius.circular(8),
+                  Align(
+                    alignment: Alignment.centerLeft, // 왼쪽 정렬 명시
+                    child: Container(
+                      height: 50, // 전체 높이 제한
+                      padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0), // 패딩 최소화
+                      child: TabBar(
+                        controller: _tabController,
+                        isScrollable: true, // 스크롤 가능 (TabAlignment.start 사용을 위해 필요)
+                        tabs: DocumentType.values.map((type) {
+                          return SizedBox(
+                            width: 82, // 모든 탭 버튼의 폭을 70px로 고정
+                            child: Tab(
+                              height: 46, // 탭 높이를 46으로 설정 (오버플로우 방지)
+                              icon: SizedBox(
+                                width: 18, // 아이콘 너비 고정
+                                height: 18, // 아이콘 높이 고정
+                                child: Icon(
+                                  type.icon,
+                                  size: 18, // 아이콘 크기를 18로 고정 (모든 아이콘 동일)
+                                ),
+                              ),
+                              text: type.displayName,
+                              iconMargin: const EdgeInsets.only(bottom: 2), // 아이콘과 텍스트 간격 조정
+                            ),
+                          );
+                        }).toList(),
+                        labelColor: Colors.white,
+                        unselectedLabelColor: Colors.grey.shade600,
+                        indicator: BoxDecoration(
+                          color: _currentTabColor,
+                          borderRadius: BorderRadius.circular(6), // 모서리 둥글기
+                        ),
+                        indicatorSize: TabBarIndicatorSize.tab,
+                        labelStyle: const TextStyle(
+                          fontSize: 12, // 폰트 크기를 12px로 설정
+                          fontWeight: FontWeight.w600,
+                        ),
+                        unselectedLabelStyle: const TextStyle(
+                          fontSize: 12, // 폰트 크기를 12px로 설정
+                        ),
+                        tabAlignment: TabAlignment.start, // 왼쪽 정렬
+                        dividerColor: Colors.transparent,
+                        dividerHeight: 0,
+                        // 성능 최적화
+                        overlayColor: WidgetStateProperty.all(Colors.transparent),
+                        splashFactory: NoSplash.splashFactory,
+                        mouseCursor: SystemMouseCursors.click,
+                        enableFeedback: false,
+                        // 탭 간격 최소화
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      ),
                     ),
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    indicatorPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    labelColor: Colors.white,
-                    unselectedLabelColor: Colors.grey.shade600,
-                    labelStyle: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    unselectedLabelStyle: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.normal,
-                    ),
-                    tabs: DocumentType.values.map((type) => Tab(
-                      text: type.displayName,
-                      icon: Icon(type.icon, size: 18),
-                    )).toList(),
                   ),
                 ],
               ),

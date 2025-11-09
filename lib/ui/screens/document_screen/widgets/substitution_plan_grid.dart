@@ -120,52 +120,86 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                // 새로고침 버튼 (아이콘만)
-                IconButton(
-                  onPressed: () async {
-                    await viewModel.loadPlanData();
-                    final currentPlanData = ref.read(
-                      substitutionPlanViewModelProvider.select((state) => state.planData)
-                    );
-                    SubstitutionPlanDebugger.printTable(currentPlanData);
-                  },
-                  icon: const Icon(Icons.refresh, size: 20),
-                  tooltip: '새로고침',
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.blue.shade50,
-                    foregroundColor: Colors.blue.shade700,
+                // 새로고침 버튼 (원형 - 교체관리 스타일)
+                Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      await viewModel.loadPlanData();
+                      final currentPlanData = ref.read(
+                        substitutionPlanViewModelProvider.select((state) => state.planData)
+                      );
+                      SubstitutionPlanDebugger.printTable(currentPlanData);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue.shade100,
+                      foregroundColor: Colors.blue.shade700,
+                      padding: const EdgeInsets.all(8),
+                      minimumSize: const Size(40, 40),
+                      maximumSize: const Size(40, 40),
+                      shape: const CircleBorder(
+                        side: BorderSide(color: Colors.blue, width: 1),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Icon(Icons.refresh, size: 16),
                   ),
                 ),
-                const SizedBox(width: SubstitutionPlanGridConfig.mediumSpacing),
-                ElevatedButton.icon(
-                  onPressed: () => _clearAllDates(context, viewModel),
-                  icon: const Icon(Icons.clear, size: 16),
-                  label: const Text('날짜과목 초기화'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange.shade600,
-                    foregroundColor: Colors.white,
+                // 날짜과목 초기화 버튼 (교체관리 스타일)
+                Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  child: ElevatedButton.icon(
+                    onPressed: () => _clearAllDates(context, viewModel),
+                    icon: const Icon(Icons.clear, size: 16),
+                    label: const Text('날짜과목 초기화'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange.shade100,
+                      foregroundColor: Colors.orange.shade700,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      minimumSize: const Size(60, 40),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(5),
+                        side: BorderSide(color: Colors.orange.shade300),
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(width: SubstitutionPlanGridConfig.mediumSpacing),
-                // 결보강 초기화 버튼 (테이블 윗 부분)
-                ElevatedButton.icon(
-                  onPressed: () => _showDeleteConfirmDialog(context, ref),
-                  icon: const Icon(Icons.delete_outline, size: 16),
-                  label: const Text('결보강 초기화'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red.shade100,
-                    foregroundColor: Colors.red.shade700,
+                // 결보강 초기화 버튼 (교체관리 스타일)
+                Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  child: ElevatedButton.icon(
+                    onPressed: () => _showDeleteConfirmDialog(context, ref),
+                    icon: const Icon(Icons.delete_outline, size: 16),
+                    label: const Text('결보강 초기화'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade100,
+                      foregroundColor: Colors.red.shade700,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      minimumSize: const Size(60, 40),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(5),
+                        side: BorderSide(color: Colors.red.shade300),
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(width: SubstitutionPlanGridConfig.mediumSpacing),
-                // 엑셀서식 복사 버튼
-                ElevatedButton.icon(
-                  onPressed: () => _copyTableToClipboard(context, ref),
-                  icon: const Icon(Icons.copy, size: 16),
-                  label: const Text('엑셀서식 복사'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade600,
-                    foregroundColor: Colors.white,
+                // 엑셀서식 복사 버튼 (교체관리 스타일)
+                Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  child: ElevatedButton.icon(
+                    onPressed: () => _copyTableToClipboard(context, ref),
+                    icon: const Icon(Icons.copy, size: 16),
+                    label: const Text('엑셀서식 복사'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue.shade100,
+                      foregroundColor: Colors.blue.shade700,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      minimumSize: const Size(60, 40),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(5),
+                        side: BorderSide(color: Colors.blue.shade300),
+                      ),
+                    ),
                   ),
                 ),
               ],

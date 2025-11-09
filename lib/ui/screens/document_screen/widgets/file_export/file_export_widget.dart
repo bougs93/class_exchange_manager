@@ -139,6 +139,11 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
     }
   }
   
+  /// PDF 템플릿 파일 경로 저장 (즉시 저장)
+  Future<void> _saveTemplateFilePath(String? filePath) async {
+    await _pdfSettingsStorage.saveTemplateFilePath(filePath);
+  }
+
   /// 저장된 PDF 출력 설정 로드
   Future<void> _loadSavedSettings() async {
     try {
@@ -158,6 +163,21 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
                 ? savedFont
                 : KoreanFontConstants.defaultFont;
           _includeRemarks = settings['includeRemarks'] as bool? ?? true;
+          
+          // 저장된 PDF 템플릿 파일 경로 로드 (파일 존재 여부 확인)
+          final savedTemplatePath = settings['selectedTemplateFilePath'] as String?;
+          if (savedTemplatePath != null && savedTemplatePath.isNotEmpty) {
+            // 파일이 존재하는지 확인
+            final file = File(savedTemplatePath);
+            if (file.existsSync()) {
+              _selectedTemplateFilePath = savedTemplatePath;
+              AppLogger.info('저장된 PDF 템플릿 파일 경로 로드: $savedTemplatePath');
+            } else {
+              AppLogger.warning('저장된 PDF 템플릿 파일이 존재하지 않습니다: $savedTemplatePath');
+              // 파일이 없으면 경로 초기화
+              _selectedTemplateFilePath = null;
+            }
+          }
           
           // 추가 필드 로드 (결강기간 제외 - 자동 계산값으로 덮어씀)
           final additionalFields = settings['additionalFields'] as Map<String, dynamic>?;
@@ -256,8 +276,21 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
               includeRemarks: _includeRemarks,
               fontSizeOptions: _fontSizeOptions,
               remarksFontSizeOptions: _remarksFontSizeOptions,
-              onTemplateIndexChanged: (index) => setState(() => _selectedTemplateIndex = index),
-              onTemplateFilePathChanged: (path) => setState(() => _selectedTemplateFilePath = path),
+              onTemplateIndexChanged: (index) {
+                setState(() {
+                  _selectedTemplateIndex = index;
+                  _selectedTemplateFilePath = null;
+                });
+                // 드롭다운에서 기본 템플릿 선택 시 저장된 경로 제거
+                _saveTemplateFilePath(null);
+              },
+              onTemplateFilePathChanged: (path) {
+                setState(() => _selectedTemplateFilePath = path);
+                // PDF 파일 선택 시 즉시 저장
+                if (path != null) {
+                  _saveTemplateFilePath(path);
+                }
+              },
               onFontSizeChanged: (size) => setState(() => _fontSize = size),
               onRemarksFontSizeChanged: (size) => setState(() => _remarksFontSize = size),
               onFontChanged: (font) => setState(() => _selectedFont = font),
@@ -360,6 +393,7 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
           'schoolName': _schoolNameController.text,
           'notes': _notesController.text,
         },
+        selectedTemplateFilePath: _selectedTemplateFilePath, // PDF 템플릿 파일 경로 저장
       );
       
       if (!saveSuccess && mounted) {

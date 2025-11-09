@@ -191,7 +191,7 @@ class CellThemeLegend extends StatelessWidget {
   }
 }
 
-/// 교체 뷰 스위치 위젯 (컴팩트 버전 - 아이콘 버튼)
+/// 교체 적용 스위치 위젯
 class ExchangeViewCheckbox extends StatelessWidget {
   final bool isEnabled;
   final ValueChanged<bool?> onChanged;
@@ -205,29 +205,20 @@ class ExchangeViewCheckbox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: isEnabled ? '교체 뷰 끄기' : '교체 뷰 켜기',
+      message: isEnabled ? '교체 적용 끄기' : '교체 적용 켜기',
       child: Container(
-        decoration: BoxDecoration(
-          color: isEnabled ? Colors.blue.shade50 : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: isEnabled ? Colors.blue.shade300 : Colors.grey.shade300,
-            width: 1,
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: Transform.scale(
+          scale: 0.65, // 스위치 크기를 더 줄임 (0.8 → 0.65)
+          child: Switch(
+            value: isEnabled,
+            onChanged: onChanged,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            activeThumbColor: Colors.blue.shade600,
+            activeTrackColor: Colors.blue.shade200,
+            inactiveThumbColor: Colors.grey.shade400,
+            inactiveTrackColor: Colors.grey.shade300,
           ),
-        ),
-        child: IconButton(
-          onPressed: () => onChanged(!isEnabled),
-          icon: Icon(
-            Icons.swap_horiz,
-            size: 18,
-            color: isEnabled ? Colors.blue.shade700 : Colors.grey.shade600,
-          ),
-          padding: const EdgeInsets.all(6),
-          constraints: const BoxConstraints(
-            minWidth: 32,
-            minHeight: 32,
-          ),
-          tooltip: isEnabled ? '교체 뷰 끄기' : '교체 뷰 켜기',
         ),
       ),
     );

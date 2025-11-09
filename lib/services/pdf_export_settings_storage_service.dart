@@ -22,6 +22,7 @@ class PdfExportSettingsStorageService {
   /// - `selectedFont`: 선택된 폰트
   /// - `includeRemarks`: 비고 포함 여부
   /// - `additionalFields`: 추가 필드 맵 (키: 필드명, 값: 입력값)
+  /// - `selectedTemplateFilePath`: 선택된 PDF 템플릿 파일 경로 (선택사항)
   /// 
   /// 반환값:
   /// - `Future<bool>`: 저장 성공 여부
@@ -31,6 +32,7 @@ class PdfExportSettingsStorageService {
     required String selectedFont,
     required bool includeRemarks,
     required Map<String, String> additionalFields,
+    String? selectedTemplateFilePath,
   }) async {
     try {
       final settings = {
@@ -40,6 +42,11 @@ class PdfExportSettingsStorageService {
         'includeRemarks': includeRemarks,
         'additionalFields': additionalFields,
       };
+      
+      // PDF 템플릿 파일 경로가 있으면 저장
+      if (selectedTemplateFilePath != null && selectedTemplateFilePath.isNotEmpty) {
+        settings['selectedTemplateFilePath'] = selectedTemplateFilePath;
+      }
       
       final success = await _storageService.saveJson('pdf_export_settings.json', settings);
       
@@ -325,6 +332,54 @@ class PdfExportSettingsStorageService {
     } catch (e) {
       AppLogger.error('하이라이트 교사 행 색상 로드 중 오류: $e', e);
       return null;
+    }
+  }
+
+  /// PDF 템플릿 파일 경로만 저장
+  /// 
+  /// PDF 템플릿 파일 경로를 즉시 저장합니다.
+  /// 
+  /// 매개변수:
+  /// - `filePath`: PDF 템플릿 파일 경로 (null이면 저장된 경로 제거)
+  /// 
+  /// 반환값:
+  /// - `Future<bool>`: 저장 성공 여부
+  Future<bool> saveTemplateFilePath(String? filePath) async {
+    try {
+      // 현재 설정 로드
+      final settings = await loadPdfExportSettings();
+      Map<String, dynamic> updatedSettings;
+      
+      if (settings == null) {
+        // 설정 파일이 없으면 기본 설정 사용
+        updatedSettings = getDefaultSettings();
+      } else {
+        updatedSettings = Map<String, dynamic>.from(settings);
+      }
+      
+      // PDF 템플릿 파일 경로 업데이트
+      if (filePath != null && filePath.isNotEmpty) {
+        updatedSettings['selectedTemplateFilePath'] = filePath;
+        AppLogger.info('PDF 템플릿 파일 경로 저장: $filePath');
+      } else {
+        // null이면 저장된 경로 제거
+        updatedSettings.remove('selectedTemplateFilePath');
+        AppLogger.info('PDF 템플릿 파일 경로 제거');
+      }
+      
+      // 저장
+      final success = await _storageService.saveJson('pdf_export_settings.json', updatedSettings);
+      
+      if (success) {
+        AppLogger.info('PDF 템플릿 파일 경로 저장 성공');
+      } else {
+        AppLogger.error('PDF 템플릿 파일 경로 저장 실패');
+      }
+      
+      return success;
+    } catch (e) {
+      AppLogger.error('PDF 템플릿 파일 경로 저장 중 오류: $e', e);
+      return false;
     }
   }
 }
