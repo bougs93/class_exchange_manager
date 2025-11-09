@@ -171,50 +171,69 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel>
     );
   }
 
-  /// 교체 모드 TabBar 구성
+  /// 교체 모드 TabBar 구성 (컴팩트 버전)
+  /// 
+  /// 아이콘과 텍스트를 모두 표시하되, 패딩과 크기를 최소화하여
+  /// 공간을 효율적으로 사용합니다.
   Widget _buildModeTabBar() {
     final visibleModes = _getVisibleModes();
     
     // TabController가 초기화되지 않은 경우 빈 컨테이너 반환
     if (_tabController == null) {
-      return Container(height: 48); // TabBar와 동일한 높이
+      return Container(height: 50); // 높이를 50으로 설정 (오버플로우 방지)
     }
     
-    return Padding(
-      padding: const EdgeInsets.only(left: 0.0), // 왼쪽 여백 더 최소화
+    return Container(
+      height: 50, // 전체 높이 제한 (2px 오버플로우 방지를 위해 48에서 50으로 증가)
+      padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0), // 패딩 최소화
       child: TabBar(
         controller: _tabController!,
         isScrollable: true,
         onTap: (index) {
           widget.onModeChanged(visibleModes[index]);
         },
-        tabs: visibleModes.map((mode) => SizedBox(
-          width: 50, // 고정 폭 설정
-          child: Tab(
-            icon: Icon(mode.icon, size: 20),
-            text: mode.displayName,
-          ),
-        )).toList(),
+        tabs: visibleModes.map((mode) {
+          return SizedBox(
+            width: 55, // 모든 탭 버튼의 폭을 90px로 고정
+            child: Tab(
+              height: 46, // 탭 높이를 46으로 설정 (오버플로우 방지)
+              icon: SizedBox(
+                width: 18, // 아이콘 너비 고정
+                height: 18, // 아이콘 높이 고정
+                child: Icon(
+                  mode.icon,
+                  size: 18, // 아이콘 크기를 18로 고정 (모든 아이콘 동일)
+                ),
+              ),
+              text: mode.displayName,
+              iconMargin: const EdgeInsets.only(bottom: 2), // 아이콘과 텍스트 간격 조정
+            ),
+          );
+        }).toList(),
         labelColor: Colors.white,
         unselectedLabelColor: Colors.grey.shade600,
         indicator: BoxDecoration(
           color: widget.currentMode.color,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(6), // 모서리 둥글기 감소
         ),
         indicatorSize: TabBarIndicatorSize.tab,
-        // indicatorPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2), // horizontal 패딩 줄임
-        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-        unselectedLabelStyle: const TextStyle(fontSize: 12),
-        tabAlignment: TabAlignment.start, // 탭들을 왼쪽 정렬
-        dividerColor: Colors.transparent, // 탭 아래 경계선 제거
-        dividerHeight: 0, // 탭 아래 경계선 높이 0으로 설정
-        // 최대 성능 최적화
-        overlayColor: WidgetStateProperty.all(Colors.transparent), // 오버레이 색상 투명화
-        splashFactory: NoSplash.splashFactory, // 스플래시 효과 제거
-        mouseCursor: SystemMouseCursors.click, // 마우스 커서만 유지
-        enableFeedback: false, // 햅틱 피드백 제거
-        // physics 제거: 가로폭이 좁을 때 스크롤 가능하도록 함
-        
+        labelStyle: const TextStyle(
+          fontSize: 12, // 폰트 크기를 12px로 설정
+          fontWeight: FontWeight.w600,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontSize: 12, // 폰트 크기를 12px로 설정
+        ),
+        tabAlignment: TabAlignment.start,
+        dividerColor: Colors.transparent,
+        dividerHeight: 0,
+        // 성능 최적화
+        overlayColor: WidgetStateProperty.all(Colors.transparent),
+        splashFactory: NoSplash.splashFactory,
+        mouseCursor: SystemMouseCursors.click,
+        enableFeedback: false,
+        // 탭 간격 최소화
+        labelPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), // vertical 패딩을 4에서 3으로 조정
       ),
     );
   }
