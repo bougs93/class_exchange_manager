@@ -78,7 +78,7 @@ class ZoomControlWidget extends StatelessWidget {
   }
 }
 
-/// 교사 수 표시 위젯
+/// 교사 수 표시 위젯 (텍스트만)
 class TeacherCountWidget extends StatelessWidget {
   final int teacherCount;
 
@@ -89,20 +89,12 @@ class TeacherCountWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.green.shade50,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.green.shade200),
-      ),
-      child: Text(
-        '교사 $teacherCount명',
-        style: TextStyle(
-          fontSize: 12,
-          color: Colors.green.shade700,
-          fontWeight: FontWeight.w500,
-        ),
+    return Text(
+      '교사 $teacherCount명',
+      style: TextStyle(
+        fontSize: 12,
+        color: Colors.grey.shade700,
+        fontWeight: FontWeight.w500,
       ),
     );
   }
@@ -199,7 +191,7 @@ class CellThemeLegend extends StatelessWidget {
   }
 }
 
-/// 교체 뷰 스위치 위젯
+/// 교체 뷰 스위치 위젯 (컴팩트 버전 - 아이콘 버튼)
 class ExchangeViewCheckbox extends StatelessWidget {
   final bool isEnabled;
   final ValueChanged<bool?> onChanged;
@@ -212,32 +204,31 @@ class ExchangeViewCheckbox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Transform.scale(
-            scale: 0.8,
-            child: Switch(
-              value: isEnabled,
-              onChanged: onChanged,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              activeThumbColor: Colors.blue.shade600,
-              activeTrackColor: Colors.blue.shade200,
-              inactiveThumbColor: Colors.grey.shade400,
-              inactiveTrackColor: Colors.grey.shade300,
-            ),
+    return Tooltip(
+      message: isEnabled ? '교체 뷰 끄기' : '교체 뷰 켜기',
+      child: Container(
+        decoration: BoxDecoration(
+          color: isEnabled ? Colors.blue.shade50 : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isEnabled ? Colors.blue.shade300 : Colors.grey.shade300,
+            width: 1,
           ),
-          Text(
-            '교체 뷰',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: isEnabled ? Colors.blue.shade700 : Colors.grey.shade700,
-            ),
+        ),
+        child: IconButton(
+          onPressed: () => onChanged(!isEnabled),
+          icon: Icon(
+            Icons.swap_horiz,
+            size: 18,
+            color: isEnabled ? Colors.blue.shade700 : Colors.grey.shade600,
           ),
-        ],
+          padding: const EdgeInsets.all(6),
+          constraints: const BoxConstraints(
+            minWidth: 32,
+            minHeight: 32,
+          ),
+          tooltip: isEnabled ? '교체 뷰 끄기' : '교체 뷰 켜기',
+        ),
       ),
     );
   }

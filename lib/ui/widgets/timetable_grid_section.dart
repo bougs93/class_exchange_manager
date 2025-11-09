@@ -334,21 +334,29 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
                   
                   const SizedBox(width: 8),
                   
-                  // 결보강 초기화 버튼
-                  ElevatedButton.icon(
-                    onPressed: () => _showDeleteExchangeListDialog(context, ref),
-                    icon: const Icon(Icons.delete_outline, size: 16),
-                    label: const Text('결보강 초기화'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red.shade100,
-                      foregroundColor: Colors.red.shade700,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  // 초기화 버튼
+                  Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    child: ElevatedButton.icon(
+                      onPressed: () => _showDeleteExchangeListDialog(context, ref),
+                      icon: const Icon(Icons.delete_outline, size: 16),
+                      label: const Text('초기화'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade100,
+                        foregroundColor: Colors.red.shade700,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        minimumSize: const Size(60, 40),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(5),
+                          side: BorderSide(color: Colors.red.shade300),
+                        ),
+                      ),
                     ),
                   ),
                   
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   
-                  // 교체 버튼들
+                  // 교체 버튼들 (되돌리기/다시실행/교체)
                   Consumer(
                     builder: (context, ref, child) {
                       final cellState = ref.watch(cellSelectionProvider);
@@ -386,6 +394,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
                       );
                     },
                   ),
+                  
+                  const Spacer(),
                 ],
               ),
               
@@ -442,21 +452,29 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
 
               const SizedBox(width: 8),
 
-              // 결보강 초기화 버튼
-              ElevatedButton.icon(
-                onPressed: () => _showDeleteExchangeListDialog(context, ref),
-                icon: const Icon(Icons.delete_outline, size: 16),
-                label: const Text('결보강 초기화'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red.shade100,
-                  foregroundColor: Colors.red.shade700,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              // 초기화 버튼
+              Container(
+                margin: const EdgeInsets.only(right: 8),
+                child: ElevatedButton.icon(
+                  onPressed: () => _showDeleteExchangeListDialog(context, ref),
+                  icon: const Icon(Icons.delete_outline, size: 16),
+                  label: const Text('초기화'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade100,
+                    foregroundColor: Colors.red.shade700,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    minimumSize: const Size(60, 40),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(5),
+                      side: BorderSide(color: Colors.red.shade300),
+                    ),
+                  ),
                 ),
               ),
 
-              const Spacer(),
+              const SizedBox(width: 8),
 
-              // 교체 버튼들
+              // 교체 버튼들 (되돌리기/다시실행/교체)
               Consumer(
                 builder: (context, ref, child) {
                   final cellState = ref.watch(cellSelectionProvider);
@@ -494,6 +512,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
                   );
                 },
               ),
+
+              const Spacer(),
             ],
           );
         }

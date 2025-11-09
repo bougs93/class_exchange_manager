@@ -144,15 +144,15 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel>
       width: double.infinity,
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: Colors.green.shade50,
+        color: Colors.blue.shade50,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.green.shade200),
+        border: Border.all(color: Colors.blue.shade200),
       ),
       child: Row(
         children: [
           Icon(
             Icons.description,
-            color: Colors.green.shade600,
+            color: Colors.blue.shade600,
             size: 20,
           ),
           const SizedBox(width: 8),
@@ -162,7 +162,7 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel>
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
-                color: Colors.green.shade700,
+                color: Colors.blue.shade700,
               ),
             ),
           ),
