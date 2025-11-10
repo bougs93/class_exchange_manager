@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -16,6 +17,9 @@ class ExpiryCheckWrapper extends StatefulWidget {
 }
 
 class _ExpiryCheckWrapperState extends State<ExpiryCheckWrapper> {
+  // 주기적 만료일 체크를 위한 타이머
+  Timer? _periodicCheckTimer;
+  
   @override
   void initState() {
     super.initState();
@@ -23,18 +27,80 @@ class _ExpiryCheckWrapperState extends State<ExpiryCheckWrapper> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAndHandleExpiry();
     });
+    
+    // 주기적 만료일 체크 시작 (5분마다)
+    // 프로그램 시작 후 날짜를 정상으로 복구한 경우를 감지하기 위함
+    _startPeriodicExpiryCheck();
+  }
+  
+  @override
+  void dispose() {
+    // 타이머 정리
+    _periodicCheckTimer?.cancel();
+    super.dispose();
+  }
+  
+  /// 주기적 만료일 체크 시작
+  ///
+  /// 프로그램 실행 중에도 주기적으로 만료일을 체크하여,
+  /// 프로그램 시작 후 날짜를 정상으로 복구한 경우를 감지합니다.
+  void _startPeriodicExpiryCheck() {
+    // 만료일이 설정되지 않은 경우 체크하지 않음
+    if (AppInfo.expiryDate == null) {
+      return;
+    }
+    
+    // 5분마다 만료일 체크
+    _periodicCheckTimer = Timer.periodic(
+      const Duration(minutes: 5),
+      (_) {
+        // 만료일 체크
+        // 프로그램 시작 후 날짜를 정상으로 복구한 경우를 감지하기 위함
+        if (AppInfo.isExpired()) {
+          // 만료된 경우 경고 다이얼로그 표시
+          if (mounted) {
+            _showExpiryDialog();
+          }
+        }
+      },
+    );
   }
 
   /// 만료일 체크 및 처리
   ///
   /// 만료된 경우 경고 다이얼로그를 표시하고 프로그램을 종료합니다.
-  void _checkAndHandleExpiry() {
-    // 만료일이 설정되지 않은 경우 체크하지 않음
-    if (AppInfo.expiryDate == null) {
+  /// 시스템 날짜 조작 공격도 함께 검증합니다.
+  Future<void> _checkAndHandleExpiry() async {
+    // 1. 시간 역행 검증 (시스템 날짜 조작 방어)
+    // 프로그램 시작 전에 날짜를 과거로 변경한 경우 감지
+    final isTimeReversed = await AppInfo.isTimeReversed();
+    if (isTimeReversed) {
+      _showTimeManipulationDialog(
+        '시스템 날짜가 조작된 것으로 감지되었습니다.\n'
+        '프로그램을 정상적으로 사용하려면 시스템 날짜를 올바르게 설정해주세요.',
+      );
       return;
     }
 
-    // 만료 여부 확인
+    // 2. 시간 비정상 점프 검증
+    // 마지막 실행 시간과 현재 시간의 차이가 비정상적으로 큰 경우 감지
+    final isTimeJumped = await AppInfo.isTimeAbnormallyJumped();
+    if (isTimeJumped) {
+      _showTimeManipulationDialog(
+        '시스템 날짜가 비정상적으로 변경된 것으로 감지되었습니다.\n'
+        '프로그램을 정상적으로 사용하려면 시스템 날짜를 올바르게 설정해주세요.',
+      );
+      return;
+    }
+
+    // 3. 만료일이 설정되지 않은 경우 체크하지 않음
+    if (AppInfo.expiryDate == null) {
+      // 만료일 체크가 없어도 마지막 실행 시간은 저장
+      await AppInfo.saveLastExecutionTime();
+      return;
+    }
+
+    // 4. 만료 여부 확인
     if (AppInfo.isExpired()) {
       // 만료된 경우 경고 다이얼로그 표시
       _showExpiryDialog();
@@ -44,7 +110,96 @@ class _ExpiryCheckWrapperState extends State<ExpiryCheckWrapper> {
       if (daysUntilExpiry != null && daysUntilExpiry <= 30) {
         debugPrint('⚠️ 경고: 프로그램 사용 기간이 $daysUntilExpiry일 남았습니다.');
       }
+      
+      // 정상 실행 시 마지막 실행 시간 저장
+      await AppInfo.saveLastExecutionTime();
     }
+  }
+
+  /// 시간 조작 경고 다이얼로그 표시
+  ///
+  /// 시스템 날짜 조작이 감지된 경우 경고 메시지를 표시하고 프로그램을 종료합니다.
+  void _showTimeManipulationDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // 외부 터치로 닫기 불가능
+      builder: (BuildContext dialogContext) {
+        return PopScope(
+          // 뒤로 가기 버튼으로도 닫기 불가능
+          canPop: false,
+          child: AlertDialog(
+            title: Row(
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.orange,
+                  size: 28,
+                ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    '시스템 날짜 오류',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    message,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    '보안상의 이유로 프로그램을 종료합니다.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              // 확인 버튼만 제공 (종료 외 선택지 없음)
+              TextButton(
+                onPressed: () {
+                  // 다이얼로그 닫기
+                  Navigator.of(dialogContext).pop();
+                  // 프로그램 종료
+                  _exitApp();
+                },
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.orange,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                ),
+                child: const Text(
+                  '확인',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   /// 만료 경고 다이얼로그 표시

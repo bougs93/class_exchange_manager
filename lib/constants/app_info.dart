@@ -1,7 +1,11 @@
+import '../services/storage_service.dart';
+
 /// 앱 정보 상수
 /// 
 /// 프로그램 정보를 중앙에서 관리합니다.
 class AppInfo {
+  // StorageService 인스턴스 (마지막 실행 시간 저장용)
+  static final StorageService _storageService = StorageService();
   // 프로그램명
   static const String programName = '교사용 수업 교체 관리자';
   
@@ -81,6 +85,121 @@ class AppInfo {
       return expiry.difference(now).inDays;
     } catch (e) {
       return null;
+    }
+  }
+  
+  /// 마지막 실행 시간 저장
+  /// 
+  /// 현재 시간을 마지막 실행 시간으로 저장합니다.
+  /// 시스템 날짜 조작 공격을 방어하기 위해 사용됩니다.
+  static Future<void> saveLastExecutionTime() async {
+    try {
+      final now = DateTime.now();
+      final data = {
+        'lastExecutionTime': now.toIso8601String(),
+        'timestamp': now.millisecondsSinceEpoch,
+      };
+      await _storageService.saveJson('last_execution_time.json', data);
+    } catch (e) {
+      // 저장 실패해도 프로그램 실행은 계속 (로그만 기록)
+      // ignore: avoid_print
+      print('⚠️ 마지막 실행 시간 저장 실패: $e');
+    }
+  }
+  
+  /// 마지막 실행 시간 로드
+  /// 
+  /// 저장된 마지막 실행 시간을 반환합니다.
+  /// 
+  /// 반환값:
+  /// - `DateTime?`: 마지막 실행 시간 (저장된 값이 없으면 null)
+  static Future<DateTime?> getLastExecutionTime() async {
+    try {
+      final data = await _storageService.loadJson('last_execution_time.json');
+      if (data == null) {
+        return null;
+      }
+      
+      // ISO 8601 형식으로 저장된 경우
+      if (data['lastExecutionTime'] != null) {
+        return DateTime.parse(data['lastExecutionTime'] as String);
+      }
+      
+      // 타임스탬프로 저장된 경우 (구버전 호환)
+      if (data['timestamp'] != null) {
+        return DateTime.fromMillisecondsSinceEpoch(data['timestamp'] as int);
+      }
+      
+      return null;
+    } catch (e) {
+      // 로드 실패 시 null 반환 (첫 실행으로 간주)
+      return null;
+    }
+  }
+  
+  /// 시간 역행 검증
+  /// 
+  /// 현재 시간이 마지막 실행 시간보다 이전인지 확인합니다.
+  /// 시스템 날짜를 조작한 경우를 감지합니다.
+  /// 
+  /// 반환값:
+  /// - `true`: 시간 역행 감지됨 (시스템 날짜 조작 의심)
+  /// - `false`: 정상적인 시간 흐름
+  static Future<bool> isTimeReversed() async {
+    try {
+      final lastExecutionTime = await getLastExecutionTime();
+      
+      // 마지막 실행 시간이 없으면 (첫 실행) 역행이 아님
+      if (lastExecutionTime == null) {
+        return false;
+      }
+      
+      final now = DateTime.now();
+      
+      // 현재 시간이 마지막 실행 시간보다 이전이면 역행
+      // 1분 이내의 차이는 시스템 시간 동기화 오차로 간주하여 허용
+      final difference = now.difference(lastExecutionTime);
+      if (difference.inMinutes < -1) {
+        return true; // 1분 이상 역행하면 조작으로 간주
+      }
+      
+      return false;
+    } catch (e) {
+      // 검증 실패 시 안전하게 false 반환 (프로그램 실행 허용)
+      return false;
+    }
+  }
+  
+  /// 시간 비정상 점프 검증
+  /// 
+  /// 현재 시간이 마지막 실행 시간보다 비정상적으로 앞서 있는지 확인합니다.
+  /// 예: 마지막 실행이 2024-01-01이고 현재가 2025-01-01인 경우
+  /// 
+  /// 반환값:
+  /// - `true`: 비정상적인 시간 점프 감지됨
+  /// - `false`: 정상적인 시간 흐름
+  static Future<bool> isTimeAbnormallyJumped() async {
+    try {
+      final lastExecutionTime = await getLastExecutionTime();
+      
+      // 마지막 실행 시간이 없으면 (첫 실행) 점프가 아님
+      if (lastExecutionTime == null) {
+        return false;
+      }
+      
+      final now = DateTime.now();
+      final difference = now.difference(lastExecutionTime);
+      
+      // 1년 이상 앞서 있으면 비정상으로 간주
+      // (일반적으로 프로그램을 1년 이상 사용하지 않았다가 다시 실행하는 경우는 드뭅니다)
+      if (difference.inDays > 365) {
+        return true;
+      }
+      
+      return false;
+    } catch (e) {
+      // 검증 실패 시 안전하게 false 반환
+      return false;
     }
   }
   
