@@ -175,15 +175,138 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
                 data: _processMarkdownWithYoutubeThumbnails(markdownContent),
                 styleSheet: _buildMarkdownStyleSheet(theme),
                 imageBuilder: (uri, title, alt) {
+                  // URI에서 경로 추출
+                  // flutter_markdown이 마크다운의 이미지 경로를 파싱할 때
+                  // 공백이 있는 파일명의 경우 path에서 일부만 추출될 수 있음
+                  // 따라서 전체 URI 문자열에서 직접 추출하는 것이 더 안전함
+                  
+                  String imagePath = '';
+                  final uriString = uri.toString();
+                  
+                  // 디버그 로그
+                  debugPrint('🖼️ 이미지 URI 전체: $uriString');
+                  debugPrint('🖼️ URI scheme: ${uri.scheme}');
+                  debugPrint('🖼️ URI path: ${uri.path}');
+                  debugPrint('🖼️ URI fragment: ${uri.fragment}');
+                  
+                  // URI가 상대 경로인 경우 (scheme이 없음)
+                  if (uri.scheme.isEmpty) {
+                    // 상대 경로는 전체 URI 문자열을 사용
+                    imagePath = uriString;
+                  } else if (uri.scheme == 'file') {
+                    // file:// 프로토콜인 경우 path 사용
+                    imagePath = uri.path;
+                  } else {
+                    // 그 외의 경우 path 사용
+                    imagePath = uri.path;
+                  }
+                  
+                  // URL 디코딩 (공백이 %20으로 인코딩된 경우 처리)
+                  imagePath = Uri.decodeComponent(imagePath);
+                  
+                  debugPrint('🖼️ 디코딩된 이미지 경로: $imagePath');
+                  
                   // 유튜브 썸네일 이미지인 경우 특별 처리
-                  if (uri.toString().contains('img.youtube.com')) {
-                    final videoId = _extractVideoIdFromThumbnailUrl(uri.toString());
+                  if (uriString.contains('img.youtube.com')) {
+                    final videoId = _extractVideoIdFromThumbnailUrl(uriString);
                     if (videoId != null) {
                       return _buildYouTubeThumbnail(videoId, alt ?? '');
                     }
                   }
-                  // 일반 이미지는 기본 처리
-                  return Image.network(uri.toString());
+                  
+                  // 네트워크 이미지 처리 (http:// 또는 https://로 시작)
+                  if (uriString.startsWith('http://') || uriString.startsWith('https://')) {
+                    return Image.network(
+                      uriString,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        debugPrint('❌ 네트워크 이미지 로드 실패: $uriString, 오류: $error');
+                        return Container(
+                          padding: const EdgeInsets.all(8),
+                          color: Colors.grey.shade200,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.broken_image, color: Colors.grey.shade400),
+                              const SizedBox(height: 4),
+                              Text(
+                                '이미지를 불러올 수 없습니다',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  }
+                  
+                  // 로컬 이미지 (assets) 처리
+                  // file:// 프로토콜 제거 (있는 경우)
+                  if (imagePath.startsWith('file://')) {
+                    imagePath = imagePath.substring(7);
+                  }
+                  
+                  // ./ 또는 ../ 제거
+                  if (imagePath.startsWith('./')) {
+                    imagePath = imagePath.substring(2);
+                  } else if (imagePath.startsWith('../')) {
+                    imagePath = imagePath.substring(3);
+                  }
+                  
+                  // 앞뒤 공백 제거
+                  imagePath = imagePath.trim();
+                  
+                  // lib/assets/docs/ 경로로 변환 (이미 해당 경로에 있으면 그대로 사용)
+                  if (!imagePath.startsWith('lib/assets/docs/')) {
+                    imagePath = 'lib/assets/docs/$imagePath';
+                  }
+                  
+                  debugPrint('🖼️ 최종 assets 경로: $imagePath');
+                  
+                  // Image.asset을 사용하여 이미지 로드
+                  // pubspec.yaml에 lib/assets/docs/가 등록되어 있으므로
+                  // lib/assets/docs/파일명 형식으로 경로를 지정해야 함
+                  return Image.asset(
+                    imagePath,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      debugPrint('❌ 이미지 로드 실패');
+                      debugPrint('   경로: $imagePath');
+                      debugPrint('   오류: $error');
+                      debugPrint('   스택 트레이스: $stackTrace');
+                      
+                      // 오류 상세 정보 표시
+                      String errorMessage = '이미지를 불러올 수 없습니다';
+                      if (error.toString().contains('Asset not found')) {
+                        errorMessage = '파일을 찾을 수 없습니다\n경로: $imagePath\n\n앱을 재시작해주세요';
+                      } else {
+                        errorMessage = '이미지 로드 오류\n$error';
+                      }
+                      
+                      return Container(
+                        padding: const EdgeInsets.all(8),
+                        color: Colors.grey.shade200,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.broken_image, color: Colors.grey.shade400),
+                            const SizedBox(height: 4),
+                            Text(
+                              errorMessage,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
                 },
                 onTapLink: (text, href, title) {
                   if (href != null) {
@@ -296,17 +419,47 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
   // YouTube Processing
   // ============================================================================
 
-  /// 마크다운 텍스트에서 유튜브 링크를 찾아 썸네일 이미지로 변환
+  /// 마크다운 텍스트 전처리
   /// 
-  /// 유튜브 링크를 감지하고 이미지 태그로 변환하여 썸네일을 표시합니다.
+  /// 1. HTML <img> 태그를 마크다운 이미지 문법으로 변환
+  /// 2. 유튜브 링크를 썸네일 이미지로 변환
   String _processMarkdownWithYoutubeThumbnails(String markdown) {
-    // 유튜브 링크 패턴
+    String processed = markdown;
+    
+    // 1. HTML <img> 태그를 마크다운 이미지 문법으로 변환
+    // <img src="image.png" style="width: 100%; max-width: 600px;" /> 형식 처리
+    // src 속성에서 이미지 경로 추출
+    // 따옴표가 작은따옴표 또는 큰따옴표일 수 있으므로 두 가지 패턴으로 처리
+    final htmlImgPattern1 = RegExp(
+      r'<img\s+src="([^"]+)"[^>]*/?>',
+      caseSensitive: false,
+      multiLine: true,
+    );
+    final htmlImgPattern2 = RegExp(
+      r"<img\s+src='([^']+)'[^>]*/?>",
+      caseSensitive: false,
+      multiLine: true,
+    );
+    
+    processed = processed.replaceAllMapped(htmlImgPattern1, (match) {
+      final imageSrc = match.group(1) ?? '';
+      // HTML 태그를 마크다운 이미지 문법으로 변환
+      return '![]($imageSrc)';
+    });
+    
+    processed = processed.replaceAllMapped(htmlImgPattern2, (match) {
+      final imageSrc = match.group(1) ?? '';
+      // HTML 태그를 마크다운 이미지 문법으로 변환
+      return '![]($imageSrc)';
+    });
+    
+    // 2. 유튜브 링크 패턴
     final youtubePattern = RegExp(
       r'\[([^\]]+)\]\(https?://(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]+)\)',
       multiLine: true,
     );
 
-    return markdown.replaceAllMapped(youtubePattern, (match) {
+    processed = processed.replaceAllMapped(youtubePattern, (match) {
       final linkText = match.group(1) ?? '';
       final videoId = match.group(2) ?? '';
       
@@ -317,6 +470,8 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
       // 이미지와 링크를 결합한 마크다운 형식으로 변환
       return '[![$linkText]($thumbnailUrl "$linkText")]($videoUrl)';
     });
+    
+    return processed;
   }
 
   /// 썸네일 URL에서 비디오 ID 추출
