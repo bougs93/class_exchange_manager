@@ -10,7 +10,7 @@ class AppInfo {
   static const String programName = '교사용 수업 교체 관리자';
   
   // 버전 정보
-  static const String version = '0.9.0 beta'; // 버전 번호는 나중에 추가 가능
+  static const String version = '0.9.0 beta(테스트 버전)'; // 버전 번호는 나중에 추가 가능
 
   // 소속
   static const String affiliation = 'Noah Lab';
@@ -30,7 +30,7 @@ class AppInfo {
   // 예시: null 또는 '2026-12-31'
   // (향후 null로 변경 가능하도록 nullable 타입 유지)
   // ignore: unnecessary_nullable_for_final_variable_declarations
-  static const String? expiryDate = '2026-02-29'; // 날짜 제한 없이 사용하려면 null로 변경
+  static const String? expiryDate = '2025-12-10'; // 날짜 제한 없이 사용하려면 null로 변경
   
   // 프로그램 실행 제한 정보
   static String get usageRestriction {

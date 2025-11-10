@@ -1,4 +1,5 @@
 import 'storage_service.dart';
+import 'app_settings_storage_service.dart';
 import '../utils/logger.dart';
 
 /// PDF 출력 설정 저장 서비스
@@ -206,7 +207,7 @@ class PdfExportSettingsStorageService {
   /// 기본 교사명과 학교명 저장 (설정 화면용)
   /// 
   /// PDF 출력 시 입력 필드가 비어있을 때 사용할 기본값을 저장합니다.
-  /// 기본값은 별도 필드(defaultTeacherName, defaultSchoolName)에 저장됩니다.
+  /// 호환성을 위해 유지되지만, 실제로는 AppSettingsStorageService를 사용합니다.
   /// 
   /// 매개변수:
   /// - `teacherName`: 기본 교사명
@@ -218,64 +219,31 @@ class PdfExportSettingsStorageService {
     required String teacherName,
     required String schoolName,
   }) async {
-    try {
-      // 현재 설정 로드
-      final settings = await loadPdfExportSettings();
-      Map<String, dynamic> updatedSettings;
-      
-      if (settings == null) {
-        // 설정 파일이 없으면 기본 설정 사용
-        updatedSettings = getDefaultSettings();
-      } else {
-        updatedSettings = Map<String, dynamic>.from(settings);
-      }
-      
-      // 기본값 필드에 저장
-      updatedSettings['defaultTeacherName'] = teacherName;
-      updatedSettings['defaultSchoolName'] = schoolName;
-      
-      // 저장
-      final success = await _storageService.saveJson('pdf_export_settings.json', updatedSettings);
-      
-      if (success) {
-        AppLogger.info('기본 교사명과 학교명 저장 성공: teacherName=$teacherName, schoolName=$schoolName');
-      } else {
-        AppLogger.error('기본 교사명과 학교명 저장 실패');
-      }
-      
-      return success;
-    } catch (e) {
-      AppLogger.error('기본 교사명과 학교명 저장 중 오류: $e', e);
-      return false;
-    }
+    // AppSettingsStorageService를 사용하여 저장
+    final appSettings = AppSettingsStorageService();
+    return await appSettings.saveTeacherAndSchoolName(
+      teacherName: teacherName,
+      schoolName: schoolName,
+    );
   }
   
   /// 기본 교사명과 학교명 로드
   /// 
   /// 설정 화면에서 저장한 기본값을 로드합니다.
+  /// 호환성을 위해 유지되지만, 실제로는 AppSettingsStorageService를 사용합니다.
   /// 
   /// 반환값:
   /// - `Future<Map<String, String>>`: 기본값 맵 (키: defaultTeacherName, defaultSchoolName)
   Future<Map<String, String>> loadDefaultTeacherAndSchoolName() async {
-    try {
-      final settings = await loadPdfExportSettings();
-      if (settings == null) {
-        return {'defaultTeacherName': '', 'defaultSchoolName': ''};
-      }
-      
-      return {
-        'defaultTeacherName': (settings['defaultTeacherName'] as String?) ?? '',
-        'defaultSchoolName': (settings['defaultSchoolName'] as String?) ?? '',
-      };
-    } catch (e) {
-      AppLogger.error('기본 교사명과 학교명 로드 중 오류: $e', e);
-      return {'defaultTeacherName': '', 'defaultSchoolName': ''};
-    }
+    // AppSettingsStorageService를 사용하여 로드
+    final appSettings = AppSettingsStorageService();
+    return await appSettings.loadTeacherAndSchoolName();
   }
 
   /// 하이라이트된 교사 행 색상 저장
   /// 
   /// 설정에서 지정한 하이라이트 색상을 ARGB 값으로 저장합니다.
+  /// 호환성을 위해 유지되지만, 실제로는 AppSettingsStorageService를 사용합니다.
   /// 
   /// 매개변수:
   /// - `colorValue`: ARGB 값 (int)
@@ -283,56 +251,22 @@ class PdfExportSettingsStorageService {
   /// 반환값:
   /// - `Future<bool>`: 저장 성공 여부
   Future<bool> saveHighlightedTeacherColor(int colorValue) async {
-    try {
-      // 현재 설정 로드
-      final settings = await loadPdfExportSettings();
-      Map<String, dynamic> updatedSettings;
-      
-      if (settings == null) {
-        // 설정 파일이 없으면 기본 설정 사용
-        updatedSettings = getDefaultSettings();
-      } else {
-        updatedSettings = Map<String, dynamic>.from(settings);
-      }
-      
-      // 하이라이트 색상 저장
-      updatedSettings['highlightedTeacherColor'] = colorValue;
-      
-      // 저장
-      final success = await _storageService.saveJson('pdf_export_settings.json', updatedSettings);
-      
-      if (success) {
-        AppLogger.info('하이라이트 교사 행 색상 저장 성공: $colorValue');
-      } else {
-        AppLogger.error('하이라이트 교사 행 색상 저장 실패');
-      }
-      
-      return success;
-    } catch (e) {
-      AppLogger.error('하이라이트 교사 행 색상 저장 중 오류: $e', e);
-      return false;
-    }
+    // AppSettingsStorageService를 사용하여 저장
+    final appSettings = AppSettingsStorageService();
+    return await appSettings.saveHighlightedTeacherColor(colorValue);
   }
 
   /// 하이라이트된 교사 행 색상 로드
   /// 
   /// 저장된 하이라이트 색상을 로드합니다.
+  /// 호환성을 위해 유지되지만, 실제로는 AppSettingsStorageService를 사용합니다.
   /// 
   /// 반환값:
   /// - `Future<int?>`: ARGB 값 (없으면 null)
   Future<int?> getHighlightedTeacherColor() async {
-    try {
-      final settings = await loadPdfExportSettings();
-      if (settings == null) {
-        return null;
-      }
-      
-      final colorValue = settings['highlightedTeacherColor'] as int?;
-      return colorValue;
-    } catch (e) {
-      AppLogger.error('하이라이트 교사 행 색상 로드 중 오류: $e', e);
-      return null;
-    }
+    // AppSettingsStorageService를 사용하여 로드
+    final appSettings = AppSettingsStorageService();
+    return await appSettings.getHighlightedTeacherColor();
   }
 
   /// PDF 템플릿 파일 경로만 저장

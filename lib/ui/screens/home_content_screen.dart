@@ -177,7 +177,28 @@ class HomeContentScreen extends ConsumerWidget {
                 Row(
                   children: [
                     Text(
-                      '사용 가능 기간: ',
+                      'Version : ',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      AppInfo.version,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade800,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Text(
+                      '사용 가능 기간 : ',
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.grey.shade700,
@@ -198,7 +219,7 @@ class HomeContentScreen extends ConsumerWidget {
                 Row(
                   children: [
                     Text(
-                      '남은 사용 기간: ',
+                      '남은 사용 기간 : ',
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.grey.shade700,

@@ -34,15 +34,20 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen> {
       AppLogger.exchangeDebug('메뉴 변경 감지: 인덱스 $index (파일 출력: $fileExportIndex)');
       
       if (index == fileExportIndex) {
-        AppLogger.info('📄 파일 출력 메뉴 진입: 결강기간 업데이트 요청');
+        AppLogger.info('📄 파일 출력 메뉴 진입: 결강기간 업데이트 및 입력란 자동 채우기 요청');
         
         // 위젯이 생성될 때까지 대기 (다음 프레임에 실행)
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             final widgetState = _fileExportWidgetKey.currentState;
             if (widgetState != null) {
+              // 결강기간 업데이트
               widgetState.updateAbsencePeriod();
               AppLogger.exchangeDebug('결강기간 업데이트 메서드 호출 완료');
+              
+              // 입력란이 비어있으면 설정에서 교사명, 학교명 자동 입력
+              widgetState.loadDefaultValuesIfEmpty();
+              AppLogger.exchangeDebug('입력란 자동 채우기 메서드 호출 완료');
             } else {
               AppLogger.warning('⚠️ FileExportWidgetState가 아직 생성되지 않았습니다. (GlobalKey가 null) - 재시도 예정');
               // 위젯이 생성될 때까지 추가 대기 (100ms 후 재시도)
@@ -50,8 +55,13 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen> {
                 if (mounted) {
                   final widgetState = _fileExportWidgetKey.currentState;
                   if (widgetState != null) {
+                    // 결강기간 업데이트
                     widgetState.updateAbsencePeriod();
                     AppLogger.exchangeDebug('결강기간 업데이트 메서드 호출 완료 (재시도 성공)');
+                    
+                    // 입력란이 비어있으면 설정에서 교사명, 학교명 자동 입력
+                    widgetState.loadDefaultValuesIfEmpty();
+                    AppLogger.exchangeDebug('입력란 자동 채우기 메서드 호출 완료 (재시도 성공)');
                   } else {
                     AppLogger.warning('⚠️ FileExportWidgetState를 찾을 수 없습니다. (재시도 실패)');
                   }

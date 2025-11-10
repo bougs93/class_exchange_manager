@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/app_settings_storage_service.dart';
-import '../../services/pdf_export_settings_storage_service.dart';
 import '../../services/storage_service.dart';
 import '../../utils/logger.dart';
 import '../../utils/simplified_timetable_theme.dart';
@@ -74,8 +73,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   /// 저장된 교사명과 학교명 로드 (기본값)
   Future<void> _loadTeacherAndSchoolName() async {
     try {
-      final pdfSettings = PdfExportSettingsStorageService();
-      final defaults = await pdfSettings.loadDefaultTeacherAndSchoolName();
+      final appSettings = AppSettingsStorageService();
+      final defaults = await appSettings.loadTeacherAndSchoolName();
       
       setState(() {
         _teacherNameController.text = defaults['defaultTeacherName'] ?? '';
@@ -93,7 +92,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   /// 하이라이트 색상 로드
   Future<void> _loadHighlightColor() async {
     try {
-      final colorValue = await PdfExportSettingsStorageService().getHighlightedTeacherColor();
+      final appSettings = AppSettingsStorageService();
+      final colorValue = await appSettings.getHighlightedTeacherColor();
       
       setState(() {
         if (colorValue != null) {
@@ -155,9 +155,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     });
     
     try {
-      final pdfSettings = PdfExportSettingsStorageService();
+      final appSettings = AppSettingsStorageService();
       // 기본값으로 저장 (PDF 출력 화면에서 입력 필드가 비어있을 때 사용)
-      final success = await pdfSettings.saveDefaultTeacherAndSchoolName(
+      final success = await appSettings.saveTeacherAndSchoolName(
         teacherName: _teacherNameController.text.trim(),
         schoolName: _schoolNameController.text.trim(),
       );

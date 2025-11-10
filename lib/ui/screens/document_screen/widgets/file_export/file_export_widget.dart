@@ -7,6 +7,7 @@ import '../../../../../utils/pdf_field_config.dart';
 import '../../../../../utils/date_format_utils.dart';
 import '../../../../../services/pdf_export_service.dart';
 import '../../../../../services/pdf_export_settings_storage_service.dart';
+import '../../../../../services/app_settings_storage_service.dart';
 import '../../../../../constants/korean_fonts.dart';
 import '../../../../../constants/pdf_notes_template.dart';
 import '../../../../../utils/logger.dart';
@@ -182,43 +183,71 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
           // 추가 필드 로드 (결강기간 제외 - 자동 계산값으로 덮어씀)
           final additionalFields = settings['additionalFields'] as Map<String, dynamic>?;
           if (additionalFields != null) {
-            // 결강교사: 저장된 값이 있으면 사용, 없으면 기본값 사용
+            // 결강교사: 저장된 값이 있으면 사용
             final savedTeacherName = additionalFields['teacherName'] as String? ?? '';
-            final defaultTeacherName = (settings['defaultTeacherName'] as String?)?.trim() ?? '';
-            _teacherNameController.text = savedTeacherName.isNotEmpty 
-                ? savedTeacherName 
-                : defaultTeacherName;
+            if (savedTeacherName.isNotEmpty) {
+              _teacherNameController.text = savedTeacherName;
+            }
             
             // 결강기간은 자동 계산으로 덮어씌우므로 저장된 값은 무시
             // _absencePeriodController.text = additionalFields['absencePeriod'] as String? ?? '';
             _workStatusController.text = additionalFields['workStatus'] as String? ?? '';
             _reasonForAbsenceController.text = additionalFields['reasonForAbsence'] as String? ?? '';
             
-            // 학교명: 저장된 값이 있으면 사용, 없으면 기본값 사용
+            // 학교명: 저장된 값이 있으면 사용
             final savedSchoolName = additionalFields['schoolName'] as String? ?? '';
-            final defaultSchoolName = (settings['defaultSchoolName'] as String?)?.trim() ?? '';
-            _schoolNameController.text = savedSchoolName.isNotEmpty 
-                ? savedSchoolName 
-                : defaultSchoolName;
+            if (savedSchoolName.isNotEmpty) {
+              _schoolNameController.text = savedSchoolName;
+            }
             
             _notesController.text = additionalFields['notes'] as String? ?? PdfNotesTemplate.defaultNotes;
-          } else {
-            // additionalFields가 없을 때는 기본값만 로드
-            final defaultTeacherName = (settings['defaultTeacherName'] as String?)?.trim() ?? '';
-            final defaultSchoolName = (settings['defaultSchoolName'] as String?)?.trim() ?? '';
-            if (defaultTeacherName.isNotEmpty) {
-              _teacherNameController.text = defaultTeacherName;
-            }
-            if (defaultSchoolName.isNotEmpty) {
-              _schoolNameController.text = defaultSchoolName;
-            }
           }
         });
+        
+        // 설정에서 교사명, 학교명 로드 (입력란이 비어있을 때만 사용)
+        // setState 밖에서 호출 (async 함수이므로)
+        await loadDefaultValuesIfEmpty();
       }
     } catch (e) {
       // 로드 실패 시 기본값 유지
       // AppLogger를 사용하여 프로덕션 환경에서 안전한 로깅 수행
       AppLogger.warning('PDF 설정 로드 실패: $e');
+    }
+  }
+
+  /// 설정에서 교사명, 학교명 로드 (입력란이 비어있을 때만 사용)
+  /// 
+  /// 설정 화면에서 저장한 교사명, 학교명을 가져와서
+  /// 입력란이 비어있는 경우에만 자동으로 입력합니다.
+  /// 
+  /// 외부에서 호출 가능한 public 메서드입니다.
+  /// 결보강 문서 탭 클릭 시 호출됩니다.
+  Future<void> loadDefaultValuesIfEmpty() async {
+    try {
+      final appSettings = AppSettingsStorageService();
+      final defaults = await appSettings.loadTeacherAndSchoolName();
+      
+      setState(() {
+        // 결강교사 입력란이 비어있으면 설정에서 가져온 값으로 채우기
+        if (_teacherNameController.text.trim().isEmpty) {
+          final defaultTeacherName = defaults['defaultTeacherName']?.trim() ?? '';
+          if (defaultTeacherName.isNotEmpty) {
+            _teacherNameController.text = defaultTeacherName;
+            AppLogger.info('설정에서 교사명 자동 입력: $defaultTeacherName');
+          }
+        }
+        
+        // 학교명 입력란이 비어있으면 설정에서 가져온 값으로 채우기
+        if (_schoolNameController.text.trim().isEmpty) {
+          final defaultSchoolName = defaults['defaultSchoolName']?.trim() ?? '';
+          if (defaultSchoolName.isNotEmpty) {
+            _schoolNameController.text = defaultSchoolName;
+            AppLogger.info('설정에서 학교명 자동 입력: $defaultSchoolName');
+          }
+        }
+      });
+    } catch (e) {
+      AppLogger.error('설정에서 기본값 로드 실패: $e', e);
     }
   }
 

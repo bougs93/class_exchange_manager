@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'cell_style_config.dart';
 import 'constants.dart';
 import '../services/timetable_theme_storage_service.dart';
-import '../services/pdf_export_settings_storage_service.dart';
+import '../services/app_settings_storage_service.dart';
 import 'logger.dart';
 
 /// 단순화된 시간표 테마 클래스
@@ -85,8 +85,8 @@ class SimplifiedTimetableTheme {
   /// 설정에서 저장된 하이라이트 색상을 로드합니다.
   static Future<void> loadHighlightedTeacherColor() async {
     try {
-      final pdfSettings = PdfExportSettingsStorageService();
-      final colorValue = await pdfSettings.getHighlightedTeacherColor();
+      final appSettings = AppSettingsStorageService();
+      final colorValue = await appSettings.getHighlightedTeacherColor();
       
       if (colorValue != null) {
         _highlightedTeacherColor = Color(colorValue);
@@ -115,9 +115,9 @@ class SimplifiedTimetableTheme {
   /// - `color`: 설정할 색상
   static Future<void> setHighlightedTeacherColor(Color color) async {
     _highlightedTeacherColor = color;
-    // PDF 설정에 저장
-    final pdfSettings = PdfExportSettingsStorageService();
-    await pdfSettings.saveHighlightedTeacherColor(color.toARGB32());
+    // 앱 설정에 저장
+    final appSettings = AppSettingsStorageService();
+    await appSettings.saveHighlightedTeacherColor(color.toARGB32());
   }
   
   // 색상 정의 (public으로 변경하여 다른 테마에서 참조 가능)
