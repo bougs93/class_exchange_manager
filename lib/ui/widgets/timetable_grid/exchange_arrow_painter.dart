@@ -80,24 +80,21 @@ class ExchangeArrowPainter extends CustomPainter {
     final circularPath = selectedPath as CircularExchangePath;
     final nodes = circularPath.nodes;
 
-    // 순환 경로의 각 단계별로 화살표 그리기 (세로 우선, 머리 사이즈 10)
-    // 역순으로 화살표 그리기: nodes[i+1] → nodes[i]
+    // 순환 경로의 각 단계별로 화살표 그리기 (가로 우선, 머리 사이즈 10)
     for (int i = 0; i < nodes.length - 1; i++) {
       
       // 4단계 이상인 경우에만 화살표 중간점에 숫자 표시
       String? stepText = nodes.length >= 4 ? "${i + 1}" : null;
       
-      // 역방향: 다음 노드에서 현재 노드로 화살표 그리기 (세로 우선)
-      _drawArrowBetweenNodes(canvas, size, nodes[i + 1], nodes[i], priority: ArrowPriority.verticalFirst, arrowHeadSize: 10.0, text: stepText);
+      _drawArrowBetweenNodes(canvas, size, nodes[i], nodes[i + 1], priority: ArrowPriority.horizontalFirst, arrowHeadSize: 10.0, text: stepText);
     }
     
-    // 순환 교체의 핵심: 첫 번째 노드에서 마지막 노드로 돌아가는 화살표 그리기 (역방향)
+    // 순환 교체의 핵심: 마지막 노드에서 첫 번째 노드로 돌아가는 화살표 그리기
     if (nodes.length > 4) { // 5개 이상 노드가 있어야 마지막 화살표 그리기
       
       // 마지막 화살표에도 단계 번호 표시 (마지막 단계 번호)
       String lastStepText = "${nodes.length}";
-      // 역방향: 첫 번째 노드에서 마지막 노드로 (세로 우선)
-      _drawArrowBetweenNodes(canvas, size, nodes.first, nodes.last, priority: ArrowPriority.verticalFirst, arrowHeadSize: 10.0, text: lastStepText);
+      _drawArrowBetweenNodes(canvas, size, nodes.last, nodes.first, priority: ArrowPriority.horizontalFirst, arrowHeadSize: 10.0, text: lastStepText);
     }
   }
 

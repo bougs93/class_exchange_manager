@@ -2,7 +2,7 @@
 
 > 💡 **유튜브 영상 가이드**: 프로그램 사용법 영상은 아래 썸네일을 클릭하여 확인하실 수 있습니다.
 > 
-> [프로그램 사용법 영상 보기 제작 예정](https://www.youtube.com/watch?v=YOUR_VIDEO_ID)
+> [프로그램 사용법 영상 보기 제작 예정](https://youtu.be/tYVXq3_XRFs)
 
 ## 시작하기
 

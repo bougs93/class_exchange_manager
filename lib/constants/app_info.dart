@@ -16,7 +16,7 @@ class AppInfo {
   static const String affiliation = 'Noah Lab';
 
   // 제작자 정보
-  static const String developer = 'Jeong won-gil';
+  static const String developer = 'Jeong won-gil, Kim Jin-kyu';
   
   
   // 프로그램 소개
