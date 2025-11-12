@@ -100,14 +100,22 @@ class MessageFormatter {
     if (option == MessageOption.option1) {
       // 옵션1: 화살표 형태 (날짜는 월.일 형식으로 표시)
       final arrow = category == ExchangeCategory.circularFourPlus ? '->' : '<->';
-      return "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' $arrow '${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}'";
+      
+      if (category == ExchangeCategory.circularFourPlus) {
+        // 순환교체 4단계+: 역방향 화살표 (교체일 → 결강일)
+        return "'${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' $arrow '${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}'";
+      } else {
+        // 일반 교체: 양방향 화살표 (결강일 <-> 교체일)
+        return "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' $arrow '${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}'";
+      }
     } else {
       // 옵션2: 수업 형태 (날짜는 월.일 형식으로 표시)
       if (category == ExchangeCategory.circularFourPlus) {
-        // 순환교체 4단계: 각 교사가 자신의 과목을 들고 교체일 자리로 이동
-        // 교체일(substitutionDate) 자리에 원래 교사(teacher)의 과목(subject)이 옴
-        return "'${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.subject} ${data.teacher}' 수업입니다.";
+        // 순환교체 4단계+: 결강일 자리에 교체 과목이 옴
+        // 예: 금|6 수학 이숙희 → 금|6 국어B 정영훈 수업으로 변경
+        return "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업입니다.";
       } else {
+        // 일반 교체: 교체일 자리에 교체 과목이 옴
         return "'${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업입니다.";
       }
     }

@@ -12,11 +12,11 @@ enum ExchangeMode {
   /// 1:1교체 모드 - 두 교사 간 직접 교체
   oneToOneExchange,
   
-  /// 순환교체 모드 - 여러 교사가 순환하며 교체
-  circularExchange,
-  
   /// 연쇄교체 모드 - 연쇄적으로 교체
   chainExchange,
+  
+  /// 순환교체 모드 - 여러 교사가 순환하며 교체
+  circularExchange,
   
   /// 보강교체 모드 - 보강 수업 추가
   supplementExchange,

@@ -313,18 +313,30 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
 
       planData.add(data);
     } else {
-      // 4개 이상: 모든 교체 쌍 표시
+      // 4개 이상: 역순으로 교체 쌍 표시 (역방향 순환 흐름)
+      // 역순 순환: [0]→[2]→[1]→[0] (정순은 [0]→[1]→[2]→[0])
+      // 마지막 교체부터 첫 번째 교체까지 역순으로 생성
       for (int i = 0; i < nodes.length - 1; i++) {
-        final sourceNode = nodes[i];
-        final targetNode = nodes[i + 1];
-        final exchangeId = _generateExchangeId(sourceNode.teacherName, sourceNode.day, sourceNode.period.toString(), sourceNode.subjectName, suffix: '순환${i + 1}');
+        // 역순 교체 쌍 생성
+        // i=0: nodes[0] → nodes[nodes.length-2]
+        // i=1: nodes[nodes.length-2] → nodes[nodes.length-3]
+        // i=2: nodes[nodes.length-3] → nodes[0]
+        final sourceNode = (i == 0) ? nodes[0] : nodes[nodes.length - 1 - i];
+        final targetNode = nodes[nodes.length - 2 - i];
+        
+        // 비고란 번호: 역순 (i=0일 때 3, i=1일 때 2, i=2일 때 1)
+        final stepNumber = nodes.length - 1 - i;
+        final exchangeId = _generateExchangeId(sourceNode.teacherName, sourceNode.day, sourceNode.period.toString(), sourceNode.subjectName, suffix: '순환$stepNumber');
+
+        // 비고란: 순환교체 번호만 표시 (별표 없음)
+        final remarks = '순환교체$stepNumber';
 
         final data = _parser.parseNode(
           sourceNode: sourceNode,
           targetNode: targetNode,
           exchangeId: exchangeId,
           groupId: groupId,
-          remarks: _getCircularExchangeRemarks(i, nodes.length),
+          remarks: remarks,
           isCircular: true,
         );
 

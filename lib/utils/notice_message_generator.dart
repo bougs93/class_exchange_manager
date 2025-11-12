@@ -237,6 +237,9 @@ ${classLines.join('\n')}''',
     String teacherName,
   ) {
     final List<String> exchangeLines = [];
+    
+    // 순환교체 그룹별로 처리된 항목 추적 (중복 방지)
+    final Set<String> processedCircularGroups = {};
 
     for (final data in sortedDataList) {
       final className = data.fullClassName;
@@ -250,11 +253,49 @@ ${classLines.join('\n')}''',
           );
           break;
         case ExchangeCategory.circularFourPlus:
-          // 순환교체 4단계 이상: -> 형식, 각 교사가 자신의 과목을 들고 이동 (날짜는 월.일 형식으로 변환)
-          if (teacherName == data.teacher) {
-            exchangeLines.add(
-              "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시' -> '${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.subject} $className' 이동 되었습니다."
-            );
+          // 순환교체 4단계 이상: 그룹별로 한 번만 처리
+          if (data.groupId != null && !processedCircularGroups.contains(data.groupId)) {
+            processedCircularGroups.add(data.groupId!);
+            
+            // 같은 그룹의 모든 PlanData 찾기
+            final groupData = sortedDataList.where((d) => d.groupId == data.groupId).toList();
+            
+            // 현재 교사의 출발지와 도착지 찾기
+            String? departureInfo;  // 출발: 날짜 요일 교시
+            String? arrivalInfo;    // 도착: 날짜 요일 교시 과목 학급
+            String? teacherSubject;        // 과목
+            String? teacherClassName;      // 학급
+            
+            // 순환교체: 각 교사는 자신의 과목을 들고 출발지 → 도착지로 이동
+            // 1. 출발지 찾기: teacher == teacherName인 PlanData의 absenceDate
+            for (final d in groupData) {
+              if (d.teacher == teacherName) {
+                // 출발지: absenceDate (결강일) - 교사가 자신의 과목을 들고 출발하는 곳
+                departureInfo = "${d.formattedAbsenceDate} ${d.absenceDay} ${d.period}교시";
+                // 과목과 학급은 출발지에서 가져옴
+                teacherSubject = d.subject;
+                teacherClassName = d.fullClassName;
+                break;
+              }
+            }
+            
+            // 2. 도착지 찾기: substitutionTeacher == teacherName인 PlanData의 absenceDate
+            // 순환교체에서 교사는 다른 교사의 원래 시간대로 이동하므로,
+            // substitutionTeacher가 자신인 PlanData의 absenceDate가 최종 도착지
+            for (final d in groupData) {
+              if (d.substitutionTeacher == teacherName && d.substitutionSubject == teacherSubject) {
+                // 도착지: absenceDate (결강일) - 교사가 자신의 과목을 들고 도착하는 곳
+                arrivalInfo = "${d.formattedAbsenceDate} ${d.absenceDay} ${d.period}교시";
+                break;
+              }
+            }
+            
+            // 3. 메시지 생성 (출발지와 도착지가 모두 있을 때만)
+            if (departureInfo != null && arrivalInfo != null && teacherSubject != null && teacherClassName != null) {
+              exchangeLines.add(
+                "'$departureInfo' -> '$arrivalInfo $teacherSubject $teacherClassName' 이동 되었습니다."
+              );
+            }
           }
           break;
         case ExchangeCategory.supplement:
@@ -314,6 +355,9 @@ ${classLines.join('\n')}''',
     String teacherName,
   ) {
     final List<String> classLines = [];
+    
+    // 순환교체 그룹별로 처리된 항목 추적 (중복 방지)
+    final Set<String> processedCircularGroups = {};
 
     for (final data in dataList) {
       final category = _getExchangeCategory(data);
@@ -323,7 +367,16 @@ ${classLines.join('\n')}''',
           classLines.addAll(_generateBasicExchangeTeacherLines(data, teacherName));
           break;
         case ExchangeCategory.circularFourPlus:
-          classLines.addAll(_generateCircularFourPlusTeacherLines(data, teacherName));
+          // 순환교체 4단계 이상: 그룹별로 한 번만 처리
+          if (data.groupId != null && !processedCircularGroups.contains(data.groupId)) {
+            processedCircularGroups.add(data.groupId!);
+            
+            // 같은 그룹의 모든 PlanData 찾기
+            final groupData = dataList.where((d) => d.groupId == data.groupId).toList();
+            
+            // 그룹 전체를 전달하여 처리
+            classLines.addAll(_generateCircularFourPlusTeacherLines(groupData, teacherName));
+          }
           break;
         case ExchangeCategory.supplement:
           classLines.addAll(_generateSupplementTeacherLines(data, teacherName));
@@ -360,16 +413,47 @@ ${classLines.join('\n')}''',
     return lines;
   }
 
-  /// 순환교체 4단계 이상 교사 메시지 라인 생성
+  /// 순환교체 4단계 이상 교사 메시지 라인 생성 (옵션2)
   static List<String> _generateCircularFourPlusTeacherLines(
-    SubstitutionPlanData data,
+    List<SubstitutionPlanData> groupData,
     String teacherName,
   ) {
     final List<String> lines = [];
 
-    if (teacherName == data.teacher) {
+    // 현재 교사의 출발지와 도착지 찾기
+    String? departureInfo;  // 출발: 날짜 요일 교시
+    String? arrivalInfo;    // 도착: 날짜 요일 교시
+    String? teacherSubject;        // 과목
+    String? teacherClassName;      // 학급
+    
+    // 순환교체: 각 교사는 자신의 과목을 들고 출발지 → 도착지로 이동
+    // 1. 출발지 찾기: teacher == teacherName인 PlanData의 absenceDate
+    for (final d in groupData) {
+      if (d.teacher == teacherName) {
+        // 출발지: absenceDate (결강일) - 교사가 자신의 과목을 들고 출발하는 곳
+        departureInfo = "${d.formattedAbsenceDate} ${d.absenceDay} ${d.period}교시";
+        // 과목과 학급은 출발지에서 가져옴
+        teacherSubject = d.subject;
+        teacherClassName = d.fullClassName;
+        break;
+      }
+    }
+    
+    // 2. 도착지 찾기: substitutionTeacher == teacherName인 PlanData의 absenceDate
+    // 순환교체에서 교사는 다른 교사의 원래 시간대로 이동하므로,
+    // substitutionTeacher가 자신인 PlanData의 absenceDate가 최종 도착지
+    for (final d in groupData) {
+      if (d.substitutionTeacher == teacherName && d.substitutionSubject == teacherSubject) {
+        // 도착지: absenceDate (결강일) - 교사가 자신의 과목을 들고 도착하는 곳
+        arrivalInfo = "${d.formattedAbsenceDate} ${d.absenceDay} ${d.period}교시";
+        break;
+      }
+    }
+    
+    // 3. 메시지 생성 (출발지와 도착지가 모두 있을 때만)
+    if (departureInfo != null && arrivalInfo != null && teacherSubject != null && teacherClassName != null) {
       lines.add(
-        "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시' -> '${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.subject} ${data.fullClassName}' 이동 되었습니다."
+        "'$departureInfo' -> '$arrivalInfo $teacherSubject $teacherClassName' 이동 되었습니다."
       );
     }
 
