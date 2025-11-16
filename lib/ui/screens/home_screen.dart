@@ -3,18 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'exchange_screen.dart';
 import 'personal_schedule_screen.dart';
 import 'document_screen.dart';
-import 'settings_screen.dart';
-import 'info_screen.dart';
-import 'help_screen.dart';
 import 'home_content_screen.dart';
 import '../../providers/navigation_provider.dart';
-import '../widgets/common_app_bar.dart';
 import '../widgets/unified_navigation_bar.dart';
 import '../../providers/exchange_screen_provider.dart';
-import '../../providers/state_reset_provider.dart';
 import '../../providers/services_provider.dart';
 import '../../providers/substitution_plan_provider.dart';
-import '../../models/exchange_mode.dart';
 import '../../ui/screens/exchange_screen/exchange_screen_state_proxy.dart';
 import '../../ui/screens/exchange_screen/managers/exchange_operation_manager.dart';
 import '../../utils/simplified_timetable_theme.dart';
@@ -201,81 +195,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  // 엑셀 파일 선택 메서드
-  Future<void> _selectExcelFile() async {
-    if (_operationManager != null) {
-      // 파일 선택 시도
-      bool fileSelected = await _operationManager!.selectExcelFile();
-      
-      // 파일 선택이 성공한 경우에만 초기화 수행
-      if (fileSelected) {
-        // 파일 선택 후 보기 모드로 전환
-        final globalNotifier = ref.read(exchangeScreenProvider.notifier);
-        globalNotifier.setCurrentMode(ExchangeMode.view);
-
-        // 파일 선택 후 Level 3 초기화
-        ref.read(stateResetProvider.notifier).resetAllStates(
-          reason: '파일 선택 후 전체 상태 초기화',
-        );
-        
-        if (mounted) {
-          setState(() {});
-        }
-      }
-      // 파일 선택이 취소된 경우 아무 동작하지 않음
-    }
-  }
-
-  // 엑셀 파일 선택 해제 메서드 (확인 다이얼로그 포함)
-  Future<void> _clearSelectedFile() async {
-    // 확인 다이얼로그 표시
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: Row(
-            children: [
-              Icon(
-                Icons.warning_amber_rounded,
-                color: Colors.orange.shade700,
-                size: 28,
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text('파일 선택 해제'),
-              ),
-            ],
-          ),
-          content: const Text(
-            '선택된 시간표 파일을 해제하시겠습니까?\n해제하면 현재 로드된 시간표 정보가 삭제됩니다.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('취소'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.red,
-              ),
-              child: const Text('해제'),
-            ),
-          ],
-        );
-      },
-    );
-
-    // 확인 버튼을 눌렀을 때만 파일 해제
-    if (confirm == true && mounted) {
-      _operationManager?.clearSelectedFile();
-      if (mounted) setState(() {});
-    }
-  }
 
 
 
-  // 메뉴 항목들 정의 (홈 제외: 교체 관리, 결보강 문서, 개인 시간표, 설정)
+  // 메뉴 항목들 정의 (홈 제외: 교체 관리, 결보강 문서, 개인 시간표)
   List<Map<String, dynamic>> _menuItems() => [
     {
       'title': '교체 관리',
@@ -292,11 +215,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       'icon': Icons.person,
       'screen': PersonalScheduleScreen(),
     },
-    {
-      'title': '설정',
-      'icon': Icons.settings,
-      'screen': SettingsScreen(),
-    },
   ];
 
   @override
@@ -304,154 +222,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final selectedIndex = ref.watch(navigationProvider);
 
     return Scaffold(
-      // 공통 AppBar 사용 (메뉴 아이콘 포함)
-      appBar: CommonAppBar(
-        title: 'Class Exchange Manager',
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-      ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            // Drawer 헤더
-            const DrawerHeader(
-              decoration: BoxDecoration(
-                color: Colors.blue,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.school,
-                    size: 48,
-                    color: Colors.white,
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    '수업교체 관리자\nClass Exchange Manager',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            const Divider(height: 1),
-            
-            // 엑셀 파일 선택 메뉴 (간단한 ListTile 형태)
-            Consumer(
-              builder: (context, ref, child) {
-                final screenState = ref.watch(exchangeScreenProvider);
-                final selectedFile = screenState.selectedFile;
-                
-                return ListTile(
-                  leading: Icon(
-                    Icons.upload_file,
-                    color: Colors.blue.shade600,
-                    size: 20,
-                  ),
-                  title: Text(
-                    selectedFile == null ? '엑셀 파일 선택' : '다른 파일 선택',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.blue.shade700,
-                    ),
-                  ),
-                  onTap: screenState.isLoading ? null : _selectExcelFile,
-                  enabled: !screenState.isLoading,
-                  trailing: screenState.isLoading 
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Icon(
-                        selectedFile == null ? Icons.add : Icons.refresh,
-                        color: Colors.grey.shade600,
-                        size: 16,
-                      ),
-                );
-              },
-            ),
-            
-            // 파일 해제 메뉴 (파일이 선택된 경우에만 표시)
-            Consumer(
-              builder: (context, ref, child) {
-                final screenState = ref.watch(exchangeScreenProvider);
-                final selectedFile = screenState.selectedFile;
-                
-                // 파일이 선택되지 않은 경우 아무것도 표시하지 않음
-                if (selectedFile == null) return const SizedBox.shrink();
-                
-                return ListTile(
-                  leading: const Icon(
-                    Icons.delete_outline,
-                    color: Colors.red,
-                    size: 20,
-                  ),
-                  title: const Text(
-                    '파일 선택 해제',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.red,
-                    ),
-                  ),
-
-                  onTap: screenState.isLoading ? null : _clearSelectedFile,
-                  enabled: !screenState.isLoading,
-                  trailing: screenState.isLoading 
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(
-                        Icons.clear,
-                        color: Colors.red,
-                        size: 16,
-                      ),
-                );
-              },
-            ),
-            
-            // 구분선 (통합 네비게이션 바와 중복되는 메뉴 항목 제거)
-            const Divider(height: 1),
-            // 도움말 메뉴
-            ListTile(
-              leading: const Icon(Icons.help_outline),
-              title: const Text('도움말'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const HelpScreen(),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.info_outline),
-              title: const Text('정보'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const InfoScreen(),
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
+      // 앱바 및 Drawer 제거됨
       body: Column(
         children: [
           // 통합 네비게이션 바 (모든 화면에서 표시)

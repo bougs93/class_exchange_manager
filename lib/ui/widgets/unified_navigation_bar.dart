@@ -41,12 +41,6 @@ class UnifiedNavigationBar extends ConsumerWidget {
         'label': '개인 시간표',
         'tooltip': '개인 시간표',
       },
-      {
-        'index': 4,
-        'icon': Icons.settings,
-        'label': '설정',
-        'tooltip': '설정',
-      },
     ];
 
     return Container(
