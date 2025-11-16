@@ -1,6 +1,6 @@
-# 수업 교체 관리자 - Windows 릴리즈 빌드 스크립트 (PowerShell)
+# 수업 교체 도우미 - Windows 릴리즈 빌드 스크립트 (PowerShell)
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host " 수업 교체 관리자 - Windows 릴리즈 빌드" -ForegroundColor Cyan
+Write-Host " 수업 교체 도우미 - Windows 릴리즈 빌드" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 

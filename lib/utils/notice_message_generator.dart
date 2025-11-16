@@ -17,7 +17,9 @@ class NoticeMessageGenerator {
     List<SubstitutionPlanData> planDataList,
     MessageOption messageOption,
   ) {
-    AppLogger.exchangeDebug('학급 메시지 생성 시작 - 데이터 개수: ${planDataList.length}, 옵션: ${messageOption.displayName}');
+    AppLogger.exchangeDebug(
+      '학급 메시지 생성 시작 - 데이터 개수: ${planDataList.length}, 옵션: ${messageOption.displayName}',
+    );
 
     // 학급별로 그룹화
     final Map<String, List<SubstitutionPlanData>> classGroups = {};
@@ -61,7 +63,10 @@ class NoticeMessageGenerator {
         // 그룹 내에서 날짜순으로 정렬
         final sortedGroupData = DataSorter.sortByDateAndPeriod(groupDataList);
 
-        final message = _generateCircularGroupMessage(sortedGroupData, messageOption);
+        final message = _generateCircularGroupMessage(
+          sortedGroupData,
+          messageOption,
+        );
         if (message != null) {
           messages.add(message);
         }
@@ -73,22 +78,30 @@ class NoticeMessageGenerator {
       // 일반 교체가 있는 경우 하나의 통합 메시지로 생성
       if (sortedOtherData.isNotEmpty) {
         final isFirstMessage = circularGroups.isEmpty; // 순환교체가 없을 때만 첫 번째 메시지
-        final message = _generateClassCombinedMessage(sortedOtherData, messageOption, isFirstMessage);
+        final message = _generateClassCombinedMessage(
+          sortedOtherData,
+          messageOption,
+          isFirstMessage,
+        );
         if (message != null) {
           messages.add(message);
         }
       }
 
       if (messages.isNotEmpty) {
-        classMessageGroups.add(NoticeMessageGroup(
-          groupIdentifier: className,
-          messages: messages,
-          groupType: GroupType.classGroup,
-        ));
+        classMessageGroups.add(
+          NoticeMessageGroup(
+            groupIdentifier: className,
+            messages: messages,
+            groupType: GroupType.classGroup,
+          ),
+        );
       }
     }
 
-    AppLogger.exchangeDebug('학급 메시지 그룹 생성 완료 - 그룹 개수: ${classMessageGroups.length}');
+    AppLogger.exchangeDebug(
+      '학급 메시지 그룹 생성 완료 - 그룹 개수: ${classMessageGroups.length}',
+    );
     return classMessageGroups;
   }
 
@@ -138,7 +151,9 @@ ${exchangeLines.join('\n')}''',
     List<SubstitutionPlanData> planDataList,
     MessageOption messageOption,
   ) {
-    AppLogger.exchangeDebug('교사 메시지 생성 시작 - 데이터 개수: ${planDataList.length}, 옵션: ${messageOption.displayName}');
+    AppLogger.exchangeDebug(
+      '교사 메시지 생성 시작 - 데이터 개수: ${planDataList.length}, 옵션: ${messageOption.displayName}',
+    );
 
     // 교사별로 그룹화 (원래 교사와 교체 교사 모두 포함)
     final Map<String, List<SubstitutionPlanData>> teacherGroups = {};
@@ -170,17 +185,25 @@ ${exchangeLines.join('\n')}''',
       final teacherDataList = entry.value;
 
       // 교사별로 하나의 통합 메시지 생성
-      final message = _generateTeacherGroupMessage(teacherDataList, teacherName, messageOption);
+      final message = _generateTeacherGroupMessage(
+        teacherDataList,
+        teacherName,
+        messageOption,
+      );
       if (message != null) {
-        teacherMessageGroups.add(NoticeMessageGroup(
-          groupIdentifier: teacherName,
-          messages: [message],
-          groupType: GroupType.teacherGroup,
-        ));
+        teacherMessageGroups.add(
+          NoticeMessageGroup(
+            groupIdentifier: teacherName,
+            messages: [message],
+            groupType: GroupType.teacherGroup,
+          ),
+        );
       }
     }
 
-    AppLogger.exchangeDebug('교사 메시지 그룹 생성 완료 - 그룹 개수: ${teacherMessageGroups.length}');
+    AppLogger.exchangeDebug(
+      '교사 메시지 그룹 생성 완료 - 그룹 개수: ${teacherMessageGroups.length}',
+    );
     return teacherMessageGroups;
   }
 
@@ -197,7 +220,10 @@ ${exchangeLines.join('\n')}''',
 
     if (messageOption == MessageOption.option1) {
       // 옵션1: 화살표 형태
-      final exchangeLines = _generateTeacherOption1Lines(sortedDataList, teacherName);
+      final exchangeLines = _generateTeacherOption1Lines(
+        sortedDataList,
+        teacherName,
+      );
 
       if (exchangeLines.isEmpty) return null;
 
@@ -206,13 +232,18 @@ ${exchangeLines.join('\n')}''',
         content: ''''$teacherName' 선생님
 ${exchangeLines.join('\n')}''',
         exchangeType: _determineExchangeType(sortedDataList),
-        exchangeTypeCombination: _determineExchangeTypeCombination(sortedDataList),
+        exchangeTypeCombination: _determineExchangeTypeCombination(
+          sortedDataList,
+        ),
         messageOption: messageOption,
         exchangeId: sortedDataList.first.exchangeId,
       );
     } else {
       // 옵션2: 수업 형태
-      final classLines = _generateTeacherOption2Lines(sortedDataList, teacherName);
+      final classLines = _generateTeacherOption2Lines(
+        sortedDataList,
+        teacherName,
+      );
 
       // 해당 교사가 관련된 수업이 있는 경우만 메시지 생성
       if (classLines.isNotEmpty) {
@@ -221,7 +252,9 @@ ${exchangeLines.join('\n')}''',
           content: ''''$teacherName' 선생님
 ${classLines.join('\n')}''',
           exchangeType: _determineExchangeType(sortedDataList),
-          exchangeTypeCombination: _determineExchangeTypeCombination(sortedDataList),
+          exchangeTypeCombination: _determineExchangeTypeCombination(
+            sortedDataList,
+          ),
           messageOption: messageOption,
           exchangeId: sortedDataList.first.exchangeId,
         );
@@ -237,83 +270,131 @@ ${classLines.join('\n')}''',
     String teacherName,
   ) {
     final List<String> exchangeLines = [];
-    
-    // 순환교체 그룹별로 처리된 항목 추적 (중복 방지)
     final Set<String> processedCircularGroups = {};
 
     for (final data in sortedDataList) {
-      final className = data.fullClassName;
       final category = _getExchangeCategory(data);
 
       switch (category) {
         case ExchangeCategory.basic:
-          // 기본 교체 유형: <-> 형식 (날짜는 월.일 형식으로 변환)
-          exchangeLines.add(
-            "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' <-> '${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업 교체되었습니다."
-          );
+          exchangeLines.add(_formatBasicExchangeOption1(data));
           break;
         case ExchangeCategory.circularFourPlus:
-          // 순환교체 4단계 이상: 그룹별로 한 번만 처리
-          if (data.groupId != null && !processedCircularGroups.contains(data.groupId)) {
-            processedCircularGroups.add(data.groupId!);
-            
-            // 같은 그룹의 모든 PlanData 찾기
-            final groupData = sortedDataList.where((d) => d.groupId == data.groupId).toList();
-            
-            // 현재 교사의 출발지와 도착지 찾기
-            String? departureInfo;  // 출발: 날짜 요일 교시
-            String? arrivalInfo;    // 도착: 날짜 요일 교시 과목 학급
-            String? teacherSubject;        // 과목
-            String? teacherClassName;      // 학급
-            
-            // 순환교체: 각 교사는 자신의 과목을 들고 출발지 → 도착지로 이동
-            // 1. 출발지 찾기: teacher == teacherName인 PlanData의 absenceDate
-            for (final d in groupData) {
-              if (d.teacher == teacherName) {
-                // 출발지: absenceDate (결강일) - 교사가 자신의 과목을 들고 출발하는 곳
-                departureInfo = "${d.formattedAbsenceDate} ${d.absenceDay} ${d.period}교시";
-                // 과목과 학급은 출발지에서 가져옴
-                teacherSubject = d.subject;
-                teacherClassName = d.fullClassName;
-                break;
-              }
-            }
-            
-            // 2. 도착지 찾기: substitutionTeacher == teacherName인 PlanData의 absenceDate
-            // 순환교체에서 교사는 다른 교사의 원래 시간대로 이동하므로,
-            // substitutionTeacher가 자신인 PlanData의 absenceDate가 최종 도착지
-            for (final d in groupData) {
-              if (d.substitutionTeacher == teacherName && d.substitutionSubject == teacherSubject) {
-                // 도착지: absenceDate (결강일) - 교사가 자신의 과목을 들고 도착하는 곳
-                arrivalInfo = "${d.formattedAbsenceDate} ${d.absenceDay} ${d.period}교시";
-                break;
-              }
-            }
-            
-            // 3. 메시지 생성 (출발지와 도착지가 모두 있을 때만)
-            if (departureInfo != null && arrivalInfo != null && teacherSubject != null && teacherClassName != null) {
-              exchangeLines.add(
-                "'$departureInfo' -> '$arrivalInfo $teacherSubject $teacherClassName' 이동 되었습니다."
-              );
-            }
-          }
+          _addCircularExchangeOption1(
+            data,
+            sortedDataList,
+            teacherName,
+            exchangeLines,
+            processedCircularGroups,
+          );
           break;
         case ExchangeCategory.supplement:
-          // 보강 교체 (날짜는 월.일 형식으로 변환)
-          if (teacherName == data.teacher) {
-            exchangeLines.add(
-              "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject}' 결강 되었습니다."
-            );
-          } else if (teacherName == data.supplementTeacher) {
-            exchangeLines.add(
-              "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject}' 보강 수업입니다."
-            );
-          }
+          _addSupplementExchangeOption1(data, teacherName, exchangeLines);
           break;
       }
     }
 
     return exchangeLines;
+  }
+
+  /// 기본 교체 옵션1 포맷팅
+  static String _formatBasicExchangeOption1(SubstitutionPlanData data) {
+    final className = data.fullClassName;
+    return "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' <-> '${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업 교체되었습니다.";
+  }
+
+  /// 순환교체 4단계+ 옵션1 추가
+  static void _addCircularExchangeOption1(
+    SubstitutionPlanData data,
+    List<SubstitutionPlanData> sortedDataList,
+    String teacherName,
+    List<String> exchangeLines,
+    Set<String> processedCircularGroups,
+  ) {
+    if (data.groupId == null ||
+        processedCircularGroups.contains(data.groupId)) {
+      return;
+    }
+
+    processedCircularGroups.add(data.groupId!);
+
+    // 같은 그룹의 모든 PlanData 찾기
+    final groupData =
+        sortedDataList.where((d) => d.groupId == data.groupId).toList();
+
+    // 현재 교사의 출발지와 도착지 찾기
+    final route = _findCircularRoute(groupData, teacherName);
+
+    if (route != null) {
+      exchangeLines.add(
+        "'${route['departure']}' -> '${route['arrival']} ${route['subject']} ${route['className']}' 이동 되었습니다.",
+      );
+    }
+  }
+
+  /// 순환교체 경로 찾기 (출발지 → 도착지)
+  static Map<String, String>? _findCircularRoute(
+    List<SubstitutionPlanData> groupData,
+    String teacherName,
+  ) {
+    String? departureInfo;
+    String? arrivalInfo;
+    String? teacherSubject;
+    String? teacherClassName;
+
+    // 1. 출발지 찾기: teacher == teacherName인 PlanData의 absenceDate
+    for (final d in groupData) {
+      if (d.teacher == teacherName) {
+        departureInfo =
+            "${d.formattedAbsenceDate} ${d.absenceDay} ${d.period}교시";
+        teacherSubject = d.subject;
+        teacherClassName = d.fullClassName;
+        break;
+      }
+    }
+
+    // 2. 도착지 찾기: substitutionTeacher == teacherName인 PlanData의 absenceDate
+    for (final d in groupData) {
+      if (d.substitutionTeacher == teacherName &&
+          d.substitutionSubject == teacherSubject) {
+        arrivalInfo = "${d.formattedAbsenceDate} ${d.absenceDay} ${d.period}교시";
+        break;
+      }
+    }
+
+    // 3. 메시지 생성 (출발지와 도착지가 모두 있을 때만)
+    if (departureInfo != null &&
+        arrivalInfo != null &&
+        teacherSubject != null &&
+        teacherClassName != null) {
+      return {
+        'departure': departureInfo,
+        'arrival': arrivalInfo,
+        'subject': teacherSubject,
+        'className': teacherClassName,
+      };
+    }
+
+    return null;
+  }
+
+  /// 보강 교체 옵션1 추가
+  static void _addSupplementExchangeOption1(
+    SubstitutionPlanData data,
+    String teacherName,
+    List<String> exchangeLines,
+  ) {
+    final className = data.fullClassName;
+
+    if (teacherName == data.teacher) {
+      exchangeLines.add(
+        "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject}' 결강 되었습니다.",
+      );
+    } else if (teacherName == data.supplementTeacher) {
+      exchangeLines.add(
+        "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject}' 보강 수업입니다.",
+      );
+    }
   }
 
   /// 교사 메시지 옵션2 라인 생성
@@ -328,8 +409,9 @@ ${classLines.join('\n')}''',
     final nonChainData = <SubstitutionPlanData>[];
 
     for (final data in sortedDataList) {
-      final isChainExchange = (data.groupId != null && GroupIdParser.isChain(data.groupId!)) ||
-                              data.remarks.contains('연쇄교체');
+      final isChainExchange =
+          (data.groupId != null && GroupIdParser.isChain(data.groupId!)) ||
+          data.remarks.contains('연쇄교체');
 
       if (isChainExchange) {
         chainGroups.putIfAbsent(data.groupId, () => []).add(data);
@@ -340,7 +422,9 @@ ${classLines.join('\n')}''',
 
     // 연쇄교체 그룹별로 최종 결과 계산하여 메시지 생성
     for (final groupDataList in chainGroups.values) {
-      classLines.addAll(_generateChainExchangeOption2Lines(groupDataList, teacherName));
+      classLines.addAll(
+        _generateChainExchangeOption2Lines(groupDataList, teacherName),
+      );
     }
 
     // 일반 교체 메시지 생성
@@ -355,7 +439,7 @@ ${classLines.join('\n')}''',
     String teacherName,
   ) {
     final List<String> classLines = [];
-    
+
     // 순환교체 그룹별로 처리된 항목 추적 (중복 방지)
     final Set<String> processedCircularGroups = {};
 
@@ -364,18 +448,24 @@ ${classLines.join('\n')}''',
 
       switch (category) {
         case ExchangeCategory.basic:
-          classLines.addAll(_generateBasicExchangeTeacherLines(data, teacherName));
+          classLines.addAll(
+            _generateBasicExchangeTeacherLines(data, teacherName),
+          );
           break;
         case ExchangeCategory.circularFourPlus:
           // 순환교체 4단계 이상: 그룹별로 한 번만 처리
-          if (data.groupId != null && !processedCircularGroups.contains(data.groupId)) {
+          if (data.groupId != null &&
+              !processedCircularGroups.contains(data.groupId)) {
             processedCircularGroups.add(data.groupId!);
-            
+
             // 같은 그룹의 모든 PlanData 찾기
-            final groupData = dataList.where((d) => d.groupId == data.groupId).toList();
-            
+            final groupData =
+                dataList.where((d) => d.groupId == data.groupId).toList();
+
             // 그룹 전체를 전달하여 처리
-            classLines.addAll(_generateCircularFourPlusTeacherLines(groupData, teacherName));
+            classLines.addAll(
+              _generateCircularFourPlusTeacherLines(groupData, teacherName),
+            );
           }
           break;
         case ExchangeCategory.supplement:
@@ -396,17 +486,17 @@ ${classLines.join('\n')}''',
 
     if (teacherName == data.teacher) {
       lines.add(
-        "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.subject} ${data.fullClassName}' 결강입니다."
+        "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.subject} ${data.fullClassName}' 결강입니다.",
       );
       lines.add(
-        "'${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.substitutionSubject} ${data.fullClassName}' 수업입니다."
+        "'${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.substitutionSubject} ${data.fullClassName}' 수업입니다.",
       );
     } else if (teacherName == data.substitutionTeacher) {
       lines.add(
-        "'${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.substitutionSubject} ${data.fullClassName}' 결강입니다."
+        "'${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.substitutionSubject} ${data.fullClassName}' 결강입니다.",
       );
       lines.add(
-        "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.subject} ${data.fullClassName}' 수업입니다."
+        "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.subject} ${data.fullClassName}' 수업입니다.",
       );
     }
 
@@ -421,39 +511,44 @@ ${classLines.join('\n')}''',
     final List<String> lines = [];
 
     // 현재 교사의 출발지와 도착지 찾기
-    String? departureInfo;  // 출발: 날짜 요일 교시
-    String? arrivalInfo;    // 도착: 날짜 요일 교시
-    String? teacherSubject;        // 과목
-    String? teacherClassName;      // 학급
-    
+    String? departureInfo; // 출발: 날짜 요일 교시
+    String? arrivalInfo; // 도착: 날짜 요일 교시
+    String? teacherSubject; // 과목
+    String? teacherClassName; // 학급
+
     // 순환교체: 각 교사는 자신의 과목을 들고 출발지 → 도착지로 이동
     // 1. 출발지 찾기: teacher == teacherName인 PlanData의 absenceDate
     for (final d in groupData) {
       if (d.teacher == teacherName) {
         // 출발지: absenceDate (결강일) - 교사가 자신의 과목을 들고 출발하는 곳
-        departureInfo = "${d.formattedAbsenceDate} ${d.absenceDay} ${d.period}교시";
+        departureInfo =
+            "${d.formattedAbsenceDate} ${d.absenceDay} ${d.period}교시";
         // 과목과 학급은 출발지에서 가져옴
         teacherSubject = d.subject;
         teacherClassName = d.fullClassName;
         break;
       }
     }
-    
+
     // 2. 도착지 찾기: substitutionTeacher == teacherName인 PlanData의 absenceDate
     // 순환교체에서 교사는 다른 교사의 원래 시간대로 이동하므로,
     // substitutionTeacher가 자신인 PlanData의 absenceDate가 최종 도착지
     for (final d in groupData) {
-      if (d.substitutionTeacher == teacherName && d.substitutionSubject == teacherSubject) {
+      if (d.substitutionTeacher == teacherName &&
+          d.substitutionSubject == teacherSubject) {
         // 도착지: absenceDate (결강일) - 교사가 자신의 과목을 들고 도착하는 곳
         arrivalInfo = "${d.formattedAbsenceDate} ${d.absenceDay} ${d.period}교시";
         break;
       }
     }
-    
+
     // 3. 메시지 생성 (출발지와 도착지가 모두 있을 때만)
-    if (departureInfo != null && arrivalInfo != null && teacherSubject != null && teacherClassName != null) {
+    if (departureInfo != null &&
+        arrivalInfo != null &&
+        teacherSubject != null &&
+        teacherClassName != null) {
       lines.add(
-        "'$departureInfo' -> '$arrivalInfo $teacherSubject $teacherClassName' 이동 되었습니다."
+        "'$departureInfo' -> '$arrivalInfo $teacherSubject $teacherClassName' 이동 되었습니다.",
       );
     }
 
@@ -469,11 +564,11 @@ ${classLines.join('\n')}''',
 
     if (teacherName == data.teacher) {
       lines.add(
-        "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.subject}' 결강 되었습니다."
+        "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.subject}' 결강 되었습니다.",
       );
     } else if (teacherName == data.supplementTeacher) {
       lines.add(
-        "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.supplementSubject}' 보강 수업입니다."
+        "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.supplementSubject}' 보강 수업입니다.",
       );
     }
 
@@ -513,9 +608,17 @@ ${classLines.join('\n')}''',
     }
 
     // 각 교사별 메시지 추가
-    _addIntermediateSourceTeacherLines(classLines, intermediateData, teacherName);
+    _addIntermediateSourceTeacherLines(
+      classLines,
+      intermediateData,
+      teacherName,
+    );
     _addFinalSourceTeacherLines(classLines, finalData, teacherName);
-    _addIntermediateSubstitutionTeacherLines(classLines, intermediateData, teacherName);
+    _addIntermediateSubstitutionTeacherLines(
+      classLines,
+      intermediateData,
+      teacherName,
+    );
     _addFinalSubstitutionTeacherLines(classLines, finalData, teacherName);
 
     return classLines;
@@ -527,10 +630,12 @@ ${classLines.join('\n')}''',
     SubstitutionPlanData? intermediateData,
     String teacherName,
   ) {
-    if (intermediateData == null || teacherName != intermediateData.teacher) return;
+    if (intermediateData == null || teacherName != intermediateData.teacher) {
+      return;
+    }
 
     classLines.add(
-      "'${intermediateData.formattedSubstitutionDate} ${intermediateData.substitutionDay} ${intermediateData.substitutionPeriod}교시 ${intermediateData.subject} ${intermediateData.fullClassName}' 수업입니다."
+      "'${intermediateData.formattedSubstitutionDate} ${intermediateData.substitutionDay} ${intermediateData.substitutionPeriod}교시 ${intermediateData.subject} ${intermediateData.fullClassName}' 수업입니다.",
     );
   }
 
@@ -540,13 +645,15 @@ ${classLines.join('\n')}''',
     SubstitutionPlanData? finalData,
     String teacherName,
   ) {
-    if (finalData == null || teacherName != finalData.teacher) return;
+    if (finalData == null || teacherName != finalData.teacher) {
+      return;
+    }
 
     classLines.add(
-      "'${finalData.formattedAbsenceDate} ${finalData.absenceDay} ${finalData.period}교시 ${finalData.subject} ${finalData.fullClassName}' 결강입니다."
+      "'${finalData.formattedAbsenceDate} ${finalData.absenceDay} ${finalData.period}교시 ${finalData.subject} ${finalData.fullClassName}' 결강입니다.",
     );
     classLines.add(
-      "'${finalData.formattedSubstitutionDate} ${finalData.substitutionDay} ${finalData.substitutionPeriod}교시 ${finalData.subject} ${finalData.fullClassName}' 수업입니다."
+      "'${finalData.formattedSubstitutionDate} ${finalData.substitutionDay} ${finalData.substitutionPeriod}교시 ${finalData.subject} ${finalData.fullClassName}' 수업입니다.",
     );
   }
 
@@ -556,13 +663,16 @@ ${classLines.join('\n')}''',
     SubstitutionPlanData? intermediateData,
     String teacherName,
   ) {
-    if (intermediateData == null || teacherName != intermediateData.substitutionTeacher) return;
+    if (intermediateData == null ||
+        teacherName != intermediateData.substitutionTeacher) {
+      return;
+    }
 
     classLines.add(
-      "'${intermediateData.formattedSubstitutionDate} ${intermediateData.substitutionDay} ${intermediateData.substitutionPeriod}교시 ${intermediateData.substitutionSubject} ${intermediateData.fullClassName}' 결강입니다."
+      "'${intermediateData.formattedSubstitutionDate} ${intermediateData.substitutionDay} ${intermediateData.substitutionPeriod}교시 ${intermediateData.substitutionSubject} ${intermediateData.fullClassName}' 결강입니다.",
     );
     classLines.add(
-      "'${intermediateData.formattedAbsenceDate} ${intermediateData.absenceDay} ${intermediateData.period}교시 ${intermediateData.substitutionSubject} ${intermediateData.fullClassName}' 수업입니다."
+      "'${intermediateData.formattedAbsenceDate} ${intermediateData.absenceDay} ${intermediateData.period}교시 ${intermediateData.substitutionSubject} ${intermediateData.fullClassName}' 수업입니다.",
     );
   }
 
@@ -572,13 +682,15 @@ ${classLines.join('\n')}''',
     SubstitutionPlanData? finalData,
     String teacherName,
   ) {
-    if (finalData == null || teacherName != finalData.substitutionTeacher) return;
+    if (finalData == null || teacherName != finalData.substitutionTeacher) {
+      return;
+    }
 
     classLines.add(
-      "'${finalData.formattedSubstitutionDate} ${finalData.substitutionDay} ${finalData.substitutionPeriod}교시 ${finalData.substitutionSubject} ${finalData.fullClassName}' 결강입니다."
+      "'${finalData.formattedSubstitutionDate} ${finalData.substitutionDay} ${finalData.substitutionPeriod}교시 ${finalData.substitutionSubject} ${finalData.fullClassName}' 결강입니다.",
     );
     classLines.add(
-      "'${finalData.formattedAbsenceDate} ${finalData.absenceDay} ${finalData.period}교시 ${finalData.substitutionSubject} ${finalData.fullClassName}' 수업입니다."
+      "'${finalData.formattedAbsenceDate} ${finalData.absenceDay} ${finalData.period}교시 ${finalData.substitutionSubject} ${finalData.fullClassName}' 수업입니다.",
     );
   }
 
@@ -600,11 +712,14 @@ ${classLines.join('\n')}''',
 
   /// 보강 교체 여부 확인 (공통 로직)
   static bool _isSupplement(SubstitutionPlanData data) {
-    return data.supplementTeacher.isNotEmpty || GroupIdParser.isSupplement(data.groupId);
+    return data.supplementTeacher.isNotEmpty ||
+        GroupIdParser.isSupplement(data.groupId);
   }
 
   /// 교체 유형 결정 헬퍼 메서드 (그룹ID 기반)
-  static ExchangeTypeCombination _determineExchangeTypeCombination(List<SubstitutionPlanData> dataList) {
+  static ExchangeTypeCombination _determineExchangeTypeCombination(
+    List<SubstitutionPlanData> dataList,
+  ) {
     final List<ExchangeType> types = [];
 
     for (final data in dataList) {
@@ -633,7 +748,9 @@ ${classLines.join('\n')}''',
   }
 
   /// 리스트의 교체 유형 결정 (우선순위: 보강 > 순환 > 수업교체)
-  static ExchangeType _determineExchangeType(List<SubstitutionPlanData> dataList) {
+  static ExchangeType _determineExchangeType(
+    List<SubstitutionPlanData> dataList,
+  ) {
     // 보강 교체가 하나라도 있으면 보강으로 분류
     if (dataList.any(_isSupplement)) {
       return ExchangeType.supplement;
@@ -666,9 +783,10 @@ ${classLines.join('\n')}''',
 
     // 교체 유형별로 메시지 생성 (헤더 제외)
     for (final data in dataList) {
-      final content = data.substitutionDate.isNotEmpty
-          ? _generateClassSubstitutionMessage(data, messageOption, false)
-          : _generateClassSupplementMessage(data, false);
+      final content =
+          data.substitutionDate.isNotEmpty
+              ? _generateClassSubstitutionMessage(data, messageOption, false)
+              : _generateClassSupplementMessage(data, false);
 
       if (content.isNotEmpty) {
         messageLines.add(content);
@@ -702,7 +820,8 @@ ${classLines.join('\n')}''',
     if (messageOption == MessageOption.option1) {
       // 옵션1: 교체 형태 - 교체 유형에 따라 화살표 형식 구분 (따옴표 제거)
       final category = _getExchangeCategory(data);
-      final arrowFormat = category == ExchangeCategory.circularFourPlus ? '->' : '<->';
+      final arrowFormat =
+          category == ExchangeCategory.circularFourPlus ? '->' : '<->';
 
       if (isFirstMessage) {
         return '''${data.fullClassName} 수업변경 안내
@@ -724,7 +843,10 @@ ${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPer
   }
 
   /// 학급 보강 메시지 생성
-  static String _generateClassSupplementMessage(SubstitutionPlanData data, bool isFirstMessage) {
+  static String _generateClassSupplementMessage(
+    SubstitutionPlanData data,
+    bool isFirstMessage,
+  ) {
     if (isFirstMessage) {
       return '''${data.fullClassName} 수업변경 안내
 '${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.supplementSubject} ${data.supplementTeacher}' 수업입니다.''';

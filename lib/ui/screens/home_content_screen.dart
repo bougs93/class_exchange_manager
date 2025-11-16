@@ -34,102 +34,66 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
 
   // 설정 관련 상태
   bool _isSettingsExpanded = false;
-  
+
   // 언어 설정 관련
   String _selectedLanguage = 'ko';
   bool _isLoadingLanguage = true;
-  
+
   // 교사명, 학교명 입력 필드
   final TextEditingController _teacherNameController = TextEditingController();
   final TextEditingController _schoolNameController = TextEditingController();
   bool _isLoadingNames = true;
   bool _isSavingNames = false;
-  
+
   // 하이라이트 색상 관련
   Color _highlightedTeacherColor = const Color(0xFFF3E5F5);
   bool _isLoadingHighlightColor = true;
   bool _isSavingHighlightColor = false;
-  
+
   // 데이터 초기화 관련
   bool _isResetting = false;
 
   @override
   void initState() {
     super.initState();
-    
+
     // StateProxy 초기화는 build에서 ref를 사용할 수 있으므로 나중에 수행
     _loadSettings();
   }
-  
+
   @override
   void dispose() {
     _teacherNameController.dispose();
     _schoolNameController.dispose();
     super.dispose();
   }
-  
-  /// 설정 로드
+
+  /// 설정 로드 (통합 버전 - setState 1회만 호출)
   Future<void> _loadSettings() async {
-    await Future.wait([
-      _loadLanguageSettings(),
-      _loadTeacherAndSchoolName(),
-      _loadHighlightColor(),
-    ]);
-  }
-  
-  /// 언어 설정 로드
-  Future<void> _loadLanguageSettings() async {
     try {
       final appSettings = AppSettingsStorageService();
-      final languageCode = await appSettings.getLanguageCode();
-      
+
+      // 병렬로 모든 설정 로드
+      final results = await Future.wait([
+        appSettings.getLanguageCode(),
+        appSettings.loadTeacherAndSchoolName(),
+        appSettings.getHighlightedTeacherColor(),
+      ]);
+
       if (mounted) {
         setState(() {
-          _selectedLanguage = languageCode;
+          // 언어 설정
+          _selectedLanguage = results[0] as String;
           _isLoadingLanguage = false;
-        });
-      }
-    } catch (e) {
-      AppLogger.error('설정 로드 중 오류: $e', e);
-      if (mounted) {
-        setState(() {
-          _isLoadingLanguage = false;
-        });
-      }
-    }
-  }
-  
-  /// 교사명과 학교명 로드
-  Future<void> _loadTeacherAndSchoolName() async {
-    try {
-      final appSettings = AppSettingsStorageService();
-      final defaults = await appSettings.loadTeacherAndSchoolName();
-      
-      if (mounted) {
-        setState(() {
-          _teacherNameController.text = defaults['defaultTeacherName'] ?? '';
-          _schoolNameController.text = defaults['defaultSchoolName'] ?? '';
+
+          // 교사명/학교명
+          final nameData = results[1] as Map<String, dynamic>;
+          _teacherNameController.text = nameData['defaultTeacherName'] ?? '';
+          _schoolNameController.text = nameData['defaultSchoolName'] ?? '';
           _isLoadingNames = false;
-        });
-      }
-    } catch (e) {
-      AppLogger.error('교사명과 학교명 로드 중 오류: $e', e);
-      if (mounted) {
-        setState(() {
-          _isLoadingNames = false;
-        });
-      }
-    }
-  }
-  
-  /// 하이라이트 색상 로드
-  Future<void> _loadHighlightColor() async {
-    try {
-      final appSettings = AppSettingsStorageService();
-      final colorValue = await appSettings.getHighlightedTeacherColor();
-      
-      if (mounted) {
-        setState(() {
+
+          // 하이라이트 색상
+          final colorValue = results[2] as int?;
           if (colorValue != null) {
             _highlightedTeacherColor = Color(colorValue);
           }
@@ -137,160 +101,132 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
         });
       }
     } catch (e) {
-      AppLogger.error('하이라이트 색상 로드 중 오류: $e', e);
+      AppLogger.error('설정 로드 중 오류: $e', e);
       if (mounted) {
         setState(() {
+          _isLoadingLanguage = false;
+          _isLoadingNames = false;
           _isLoadingHighlightColor = false;
         });
       }
     }
   }
-  
-  /// 언어 설정 저장
-  Future<void> _saveLanguage(String languageCode) async {
-    try {
-      final appSettings = AppSettingsStorageService();
-      final success = await appSettings.saveAppSettings(languageCode: languageCode);
-      
-      if (success && mounted) {
-        setState(() {
-          _selectedLanguage = languageCode;
-        });
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('언어 설정이 저장되었습니다. 앱을 재시작하면 적용됩니다.'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      AppLogger.error('언어 설정 저장 중 오류: $e', e);
+
+  /// 공통 설정 저장 헬퍼 메서드
+  Future<void> _saveSetting({
+    required Future<bool> Function() saver,
+    required String successMessage,
+    String? errorMessage,
+    VoidCallback? onSuccess,
+    void Function(bool)? setSavingState,
+  }) async {
+    if (setSavingState != null) {
+      setState(() => setSavingState(true));
     }
-  }
-  
-  /// 교사명과 학교명 저장
-  Future<void> _saveTeacherAndSchoolName() async {
-    setState(() {
-      _isSavingNames = true;
-    });
-    
+
     try {
-      final appSettings = AppSettingsStorageService();
-      final success = await appSettings.saveTeacherAndSchoolName(
-        teacherName: _teacherNameController.text,
-        schoolName: _schoolNameController.text,
-      );
-      
+      final success = await saver();
+
       if (mounted) {
         if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('기본 정보가 저장되었습니다.'),
-              duration: Duration(seconds: 2),
-            ),
-          );
+          onSuccess?.call();
+          _showSnackBar(successMessage);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('저장에 실패했습니다.'),
-              backgroundColor: Colors.red,
-              duration: Duration(seconds: 2),
-            ),
-          );
+          _showSnackBar(errorMessage ?? '저장에 실패했습니다.', isError: true);
         }
       }
     } catch (e) {
-      AppLogger.error('교사명과 학교명 저장 중 오류: $e', e);
+      AppLogger.error('설정 저장 중 오류: $e', e);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('오류가 발생했습니다: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        _showSnackBar('오류가 발생했습니다: $e', isError: true);
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isSavingNames = false;
-        });
+      if (mounted && setSavingState != null) {
+        setState(() => setSavingState(false));
       }
     }
   }
-  
+
+  /// SnackBar 표시 헬퍼 메서드
+  void _showSnackBar(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : null,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  /// 언어 설정 저장
+  Future<void> _saveLanguage(String languageCode) async {
+    final appSettings = AppSettingsStorageService();
+    await _saveSetting(
+      saver: () => appSettings.saveAppSettings(languageCode: languageCode),
+      successMessage: '언어 설정이 저장되었습니다. 앱을 재시작하면 적용됩니다.',
+      onSuccess: () => setState(() => _selectedLanguage = languageCode),
+    );
+  }
+
+  /// 교사명과 학교명 저장
+  Future<void> _saveTeacherAndSchoolName() async {
+    final appSettings = AppSettingsStorageService();
+    await _saveSetting(
+      saver:
+          () => appSettings.saveTeacherAndSchoolName(
+            teacherName: _teacherNameController.text,
+            schoolName: _schoolNameController.text,
+          ),
+      successMessage: '기본 정보가 저장되었습니다.',
+      setSavingState: (value) => _isSavingNames = value,
+    );
+  }
+
   /// 하이라이트 색상 저장
   Future<void> _saveHighlightColor(Color color) async {
-    setState(() {
-      _isSavingHighlightColor = true;
-    });
-    
-    try {
-      final appSettings = AppSettingsStorageService();
-      final success = await appSettings.saveHighlightedTeacherColor(color.toARGB32());
-      
-      if (success && mounted) {
-        setState(() {
-          _highlightedTeacherColor = color;
-        });
-        
-        // 교체 화면의 테마도 업데이트
+    final appSettings = AppSettingsStorageService();
+    await _saveSetting(
+      saver: () => appSettings.saveHighlightedTeacherColor(color.toARGB32()),
+      successMessage: '하이라이트 색상이 저장되었습니다.',
+      setSavingState: (value) => _isSavingHighlightColor = value,
+      onSuccess: () {
+        setState(() => _highlightedTeacherColor = color);
         SimplifiedTimetableTheme.setHighlightedTeacherColor(color);
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('하이라이트 색상이 저장되었습니다.'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      AppLogger.error('하이라이트 색상 저장 중 오류: $e', e);
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSavingHighlightColor = false;
-        });
-      }
-    }
+      },
+    );
   }
-  
+
   /// 모든 데이터 초기화
   Future<void> _resetAllData() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text(
-          '데이터 초기화',
-          style: TextStyle(color: Colors.red),
-        ),
-        content: const Text(
-          '모든 저장된 데이터를 삭제하시겠습니까?\n\n'
-          '다음 데이터가 삭제됩니다:\n'
-          '• 시간표 데이터\n'
-          '• 교체 리스트\n'
-          '• 교체불가 셀 데이터\n'
-          '• 결보강 계획서 데이터\n'
-          '• PDF 출력 설정\n'
-          '• 시간표 테마 설정\n'
-          '• 앱 설정\n\n'
-          '이 작업은 되돌릴 수 없습니다!',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.red,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('데이터 초기화', style: TextStyle(color: Colors.red)),
+            content: const Text(
+              '모든 저장된 데이터를 삭제하시겠습니까?\n\n'
+              '다음 데이터가 삭제됩니다:\n'
+              '• 시간표 데이터\n'
+              '• 교체 리스트\n'
+              '• 교체불가 셀 데이터\n'
+              '• 결보강 계획서 데이터\n'
+              '• PDF 출력 설정\n'
+              '• 시간표 테마 설정\n'
+              '• 앱 설정\n\n'
+              '이 작업은 되돌릴 수 없습니다!',
             ),
-            child: const Text('모두 삭제'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('취소'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('모두 삭제'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
 
     if (confirmed != true) return;
@@ -302,13 +238,11 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
     try {
       final storageService = StorageService();
       final results = await storageService.deleteAllJsonFiles();
-      
+
       final successCount = results.values.where((v) => v).length;
       final totalCount = results.length;
-      final failedFiles = results.entries
-          .where((e) => !e.value)
-          .map((e) => e.key)
-          .toList();
+      final failedFiles =
+          results.entries.where((e) => !e.value).map((e) => e.key).toList();
 
       if (mounted) {
         if (failedFiles.isEmpty && totalCount > 0) {
@@ -318,7 +252,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
               duration: const Duration(seconds: 3),
             ),
           );
-          
+
           setState(() {
             _teacherNameController.clear();
             _schoolNameController.clear();
@@ -367,7 +301,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
   void _initializeManagers() {
     if (_stateProxy == null) {
       _stateProxy = ExchangeScreenStateProxy(ref);
-      
+
       _operationManager = ExchangeOperationManager(
         context: context,
         ref: ref,
@@ -388,11 +322,11 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
   /// 엑셀 파일 선택 메서드
   Future<void> _selectExcelFile() async {
     _initializeManagers();
-    
+
     if (_operationManager != null) {
       // 파일 선택 시도
       bool fileSelected = await _operationManager!.selectExcelFile();
-      
+
       // 파일 선택이 성공한 경우에만 초기화 수행
       if (fileSelected) {
         // 파일 선택 후 보기 모드로 전환
@@ -400,10 +334,10 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
         globalNotifier.setCurrentMode(ExchangeMode.view);
 
         // 파일 선택 후 Level 3 초기화
-        ref.read(stateResetProvider.notifier).resetAllStates(
-          reason: '파일 선택 후 전체 상태 초기화',
-        );
-        
+        ref
+            .read(stateResetProvider.notifier)
+            .resetAllStates(reason: '파일 선택 후 전체 상태 초기화');
+
         if (mounted) {
           setState(() {});
         }
@@ -427,9 +361,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
                 size: 28,
               ),
               const SizedBox(width: 12),
-              const Expanded(
-                child: Text('파일 선택 해제'),
-              ),
+              const Expanded(child: Text('파일 선택 해제')),
             ],
           ),
           content: const Text(
@@ -442,9 +374,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
             ),
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.red,
-              ),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
               child: const Text('해제'),
             ),
           ],
@@ -477,17 +407,17 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
             // 환영 메시지 카드 (파일 관리 기능 포함)
             _buildWelcomeCard(context, theme, selectedFile, isLoading),
             const SizedBox(height: 16),
-            
+
             // 사용 기간 정보 카드
             _buildUsagePeriodCard(theme),
-            
+
             const SizedBox(height: 24),
 
             // 메뉴 그리드
             _buildMenuGrid(context, ref, theme),
-            
+
             const SizedBox(height: 24),
-            
+
             // 설정 카드 (접을 수 있음)
             _buildSettingsCard(context, theme),
           ],
@@ -525,11 +455,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
                   color: theme.primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  Icons.school,
-                  color: theme.primaryColor,
-                  size: 32,
-                ),
+                child: Icon(Icons.school, color: theme.primaryColor, size: 32),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -537,7 +463,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '수업 교체 관리자',
+                      '수업 교체 도우미',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -547,8 +473,8 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
                     const SizedBox(height: 4),
                     Text(
                       selectedFile != null
-                        ? '현재 시간표: ${selectedFile.path.split(Platform.pathSeparator).last}'
-                        : '시간표 파일을 선택해주세요',
+                          ? '현재 시간표: ${selectedFile.path.split(Platform.pathSeparator).last}'
+                          : '시간표 파일을 선택해주세요',
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.grey.shade600,
@@ -561,7 +487,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
               ),
             ],
           ),
-          
+
           // 하단: 파일 관리 버튼들
           const SizedBox(height: 16),
           Row(
@@ -570,18 +496,23 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: isLoading ? null : _selectExcelFile,
-                  icon: isLoading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : Icon(
-                        selectedFile == null ? Icons.upload_file : Icons.refresh,
-                      ),
+                  icon:
+                      isLoading
+                          ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          )
+                          : Icon(
+                            selectedFile == null
+                                ? Icons.upload_file
+                                : Icons.refresh,
+                          ),
                   label: Text(
                     selectedFile == null ? '시간표 파일 선택' : '다른 파일 선택',
                     style: const TextStyle(
@@ -599,32 +530,31 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
                   ),
                 ),
               ),
-              
+
               // 파일 해제 버튼 (파일이 선택된 경우에만 표시)
               if (selectedFile != null) ...[
                 const SizedBox(width: 12),
                 OutlinedButton.icon(
                   onPressed: isLoading ? null : _clearSelectedFile,
-                  icon: isLoading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Icon(Icons.delete_outline),
+                  icon:
+                      isLoading
+                          ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                          : const Icon(Icons.delete_outline),
                   label: const Text(
                     '해제',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                   ),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.red,
                     side: const BorderSide(color: Colors.red, width: 1.5),
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 16,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -658,19 +588,12 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
                 color: theme.primaryColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(
-                Icons.settings,
-                color: theme.primaryColor,
-                size: 14,
-              ),
+              child: Icon(Icons.settings, color: theme.primaryColor, size: 14),
             ),
             const SizedBox(width: 12),
             const Text(
               '설정',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -682,22 +605,25 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
         },
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 4.0,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // 언어 설정
                 _buildLanguageSection(),
                 const SizedBox(height: 4),
-                
+
                 // 기본 정보 (교사명, 학교명)
                 _buildTeacherAndSchoolNameSection(),
                 const SizedBox(height: 8),
-                
+
                 // 하이라이트 색상 설정
                 _buildHighlightColorSection(),
                 const SizedBox(height: 8),
-                
+
                 // 데이터 초기화
                 _buildDataResetSection(),
               ],
@@ -707,7 +633,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
       ),
     );
   }
-  
+
   /// 언어 설정 섹션
   Widget _buildLanguageSection() {
     if (_isLoadingLanguage) {
@@ -718,29 +644,33 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
         ),
       );
     }
-    
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         const Text(
           '언어 설정',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
         ),
         DropdownButton<String>(
           value: _selectedLanguage,
           underline: const SizedBox.shrink(),
-            items: const [
-              DropdownMenuItem(value: 'ko', child: Text('한국어', style: TextStyle(fontSize: 12))),
-            ],
-          onChanged: (newValue) => newValue != null && newValue != _selectedLanguage ? _saveLanguage(newValue) : null,
+          items: const [
+            DropdownMenuItem(
+              value: 'ko',
+              child: Text('한국어', style: TextStyle(fontSize: 12)),
+            ),
+          ],
+          onChanged:
+              (newValue) =>
+                  newValue != null && newValue != _selectedLanguage
+                      ? _saveLanguage(newValue)
+                      : null,
         ),
       ],
     );
   }
-  
+
   /// 교사명, 학교명 입력 섹션
   Widget _buildTeacherAndSchoolNameSection() {
     return Column(
@@ -748,13 +678,10 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
       children: [
         const Text(
           '기본 정보',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),
-        
+
         if (_isLoadingNames)
           const Center(
             child: Padding(
@@ -768,10 +695,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const Text(
-                    '교사명 :',
-                    style: TextStyle(fontSize: 12),
-                  ),
+                  const Text('교사명 :', style: TextStyle(fontSize: 12)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: SizedBox(
@@ -786,7 +710,10 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
                           ),
                           prefixIcon: Icon(Icons.person, size: 16),
                           isDense: true,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 0,
+                          ),
                           constraints: BoxConstraints(
                             minHeight: 28,
                             maxHeight: 28,
@@ -799,14 +726,11 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
                 ],
               ),
               const SizedBox(height: 8),
-              
+
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const Text(
-                    '학교명 :',
-                    style: TextStyle(fontSize: 12),
-                  ),
+                  const Text('학교명 :', style: TextStyle(fontSize: 12)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: SizedBox(
@@ -821,7 +745,10 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
                           ),
                           prefixIcon: Icon(Icons.school, size: 16),
                           isDense: true,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 0,
+                          ),
                           constraints: BoxConstraints(
                             minHeight: 28,
                             maxHeight: 28,
@@ -835,7 +762,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              
+
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -843,18 +770,14 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: _isSavingNames
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Text(
-                        '저장',
-                        style: TextStyle(fontSize: 14),
-                      ),
+                  child:
+                      _isSavingNames
+                          ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                          : const Text('저장', style: TextStyle(fontSize: 14)),
                 ),
               ),
             ],
@@ -862,7 +785,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
       ],
     );
   }
-  
+
   /// 하이라이트 색상 설정 섹션
   Widget _buildHighlightColorSection() {
     if (_isLoadingHighlightColor) {
@@ -873,7 +796,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
         ),
       );
     }
-    
+
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
@@ -886,13 +809,10 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
         children: [
           const Text(
             '교사 행 하이라이트',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
-          
+
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
@@ -925,7 +845,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
             ),
           ),
           const SizedBox(height: 6),
-          
+
           Wrap(
             spacing: 4,
             runSpacing: 4,
@@ -942,11 +862,11 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
       ),
     );
   }
-  
+
   /// 색상 옵션 버튼 위젯
   Widget _buildColorOption(Color color) {
     final isSelected = _highlightedTeacherColor.toARGB32() == color.toARGB32();
-    
+
     return InkWell(
       onTap: _isSavingHighlightColor ? null : () => _saveHighlightColor(color),
       borderRadius: BorderRadius.circular(8),
@@ -964,7 +884,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
       ),
     );
   }
-  
+
   /// 데이터 초기화 섹션
   Widget _buildDataResetSection() {
     return Column(
@@ -975,25 +895,19 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
           children: [
             const Text(
               '데이터 초기화',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 '모든 저장된 데이터를 삭제합니다.',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                ),
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
             ),
           ],
         ),
         const SizedBox(height: 16),
-        
+
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
@@ -1003,19 +917,17 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
-            child: _isResetting
-              ? const SizedBox(
-                  height: 18,
-                  width: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                )
-              : const Text(
-                  '모든 데이터 삭제',
-                  style: TextStyle(fontSize: 14),
-                ),
+            child:
+                _isResetting
+                    ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                    : const Text('모든 데이터 삭제', style: TextStyle(fontSize: 14)),
           ),
         ),
       ],
@@ -1027,7 +939,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
     final expiryDate = AppInfo.expiryDate;
     final daysUntilExpiry = AppInfo.getDaysUntilExpiry();
     final isExpired = AppInfo.isExpired();
-    
+
     // 사용 가능 기간 문자열 생성
     String availablePeriodText;
     if (expiryDate == null) {
@@ -1035,12 +947,13 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
     } else {
       try {
         final expiry = DateTime.parse(expiryDate);
-        availablePeriodText = '${expiry.year}년 ${expiry.month}월 ${expiry.day}일까지';
+        availablePeriodText =
+            '${expiry.year}년 ${expiry.month}월 ${expiry.day}일까지';
       } catch (e) {
         availablePeriodText = expiryDate;
       }
     }
-    
+
     // 남은 사용 기간 문자열 생성
     String remainingPeriodText;
     Color remainingPeriodColor;
@@ -1065,16 +978,13 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
       remainingPeriodText = '계산 불가';
       remainingPeriodColor = Colors.grey.shade700;
     }
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.grey.shade300,
-          width: 1,
-        ),
+        border: Border.all(color: Colors.grey.shade300, width: 1),
       ),
       child: Row(
         children: [
@@ -1199,9 +1109,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
         'onTap': () {
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => const HelpScreen(),
-            ),
+            MaterialPageRoute(builder: (context) => const HelpScreen()),
           );
         },
       },
@@ -1212,9 +1120,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
         'onTap': () {
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => const InfoScreen(),
-            ),
+            MaterialPageRoute(builder: (context) => const InfoScreen()),
           );
         },
       },
@@ -1225,16 +1131,17 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
       runSpacing: 4,
       alignment: WrapAlignment.start,
       crossAxisAlignment: WrapCrossAlignment.start,
-      children: menuItems.map((item) {
-        return _buildMenuCard(
-          context: context,
-          theme: theme,
-          title: item['title'] as String,
-          icon: item['icon'] as IconData,
-          color: item['color'] as Color,
-          onTap: item['onTap'] as VoidCallback,
-        );
-      }).toList(),
+      children:
+          menuItems.map((item) {
+            return _buildMenuCard(
+              context: context,
+              theme: theme,
+              title: item['title'] as String,
+              icon: item['icon'] as IconData,
+              color: item['color'] as Color,
+              onTap: item['onTap'] as VoidCallback,
+            );
+          }).toList(),
     );
   }
 
@@ -1269,10 +1176,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
             child: Container(
               padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
-                border: Border.all(
-                  color: Colors.grey.shade200,
-                  width: 1,
-                ),
+                border: Border.all(color: Colors.grey.shade200, width: 1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -1286,11 +1190,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
                       color: color.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(
-                      icon,
-                      size: 36,
-                      color: color,
-                    ),
+                    child: Icon(icon, size: 36, color: color),
                   ),
                   const SizedBox(height: 10),
                   Text(
@@ -1312,5 +1212,4 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
       ),
     );
   }
-
 }

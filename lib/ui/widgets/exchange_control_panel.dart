@@ -23,11 +23,8 @@ class ExchangeControlPanel extends StatefulWidget {
 }
 
 class _ExchangeControlPanelState extends State<ExchangeControlPanel> {
-
-  /// 탭 메뉴에 표시할 모드들 반환 (모든 모드 포함)
-  List<ExchangeMode> _getVisibleModes() {
-    return ExchangeMode.values;
-  }
+  /// 탭 메뉴에 표시할 모드들 (상수로 캐싱)
+  static final _visibleModes = ExchangeMode.values;
 
   @override
   Widget build(BuildContext context) {
@@ -40,13 +37,13 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 파일 선택 상태에 따른 UI
-            if (widget.selectedFile == null) 
+            if (widget.selectedFile == null)
               _buildNoFileSelectedUI()
-            else 
+            else
               _buildFileSelectedUI(),
-            
+
             const SizedBox(height: 8),
-            
+
             // 교체 모드 ToggleButtons
             _buildModeToggleButtons(),
           ],
@@ -59,7 +56,7 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel> {
   Widget _buildNoFileSelectedUI() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(8),
@@ -67,10 +64,7 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel> {
       ),
       child: Text(
         '시간표가 포함된 엑셀 파일(.xlsx, .xls)을 선택하세요.',
-        style: TextStyle(
-          fontSize: 14,
-          color: Colors.grey.shade600,
-        ),
+        style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
         textAlign: TextAlign.center,
       ),
     );
@@ -99,11 +93,7 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel> {
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.description,
-            color: Colors.blue.shade600,
-            size: 20,
-          ),
+          Icon(Icons.description, color: Colors.blue.shade600, size: 20),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -121,57 +111,53 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel> {
   }
 
   /// 교체 모드 ToggleButtons 구성
-  /// 
+  ///
   /// 버튼 그룹 스타일로 디자인하여 상단 네비게이션 바와 명확히 구분합니다.
   Widget _buildModeToggleButtons() {
-    final visibleModes = _getVisibleModes();
-    final selectedIndex = visibleModes.indexOf(widget.currentMode);
+    final selectedIndex = _visibleModes.indexOf(widget.currentMode);
     final selectedIndices = selectedIndex >= 0 ? {selectedIndex} : <int>{};
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4.0),
       child: ToggleButtons(
         isSelected: List.generate(
-          visibleModes.length,
+          _visibleModes.length,
           (index) => selectedIndices.contains(index),
         ),
         onPressed: (index) {
-          widget.onModeChanged(visibleModes[index]);
+          widget.onModeChanged(_visibleModes[index]);
         },
         borderRadius: BorderRadius.circular(8),
         borderWidth: 1,
         borderColor: Colors.grey.shade300,
-        selectedBorderColor: visibleModes[selectedIndex >= 0 ? selectedIndex : 0].color,
+        selectedBorderColor:
+            _visibleModes[selectedIndex >= 0 ? selectedIndex : 0].color,
         fillColor: widget.currentMode.color.withValues(alpha: 0.1),
         selectedColor: widget.currentMode.color,
         color: Colors.grey.shade600,
-        constraints: const BoxConstraints(
-          minHeight: 42,
-          minWidth: 55,
-        ),
-        children: visibleModes.map((mode) {
-          final isSelected = mode == widget.currentMode;
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  mode.icon,
-                  size: 18,
+        constraints: const BoxConstraints(minHeight: 42, minWidth: 55),
+        children:
+            _visibleModes.map((mode) {
+              final isSelected = mode == widget.currentMode;
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(mode.icon, size: 18),
+                    const SizedBox(height: 2),
+                    Text(
+                      mode.displayName,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  mode.displayName,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
+              );
+            }).toList(),
       ),
     );
   }

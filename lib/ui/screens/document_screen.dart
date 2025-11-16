@@ -18,12 +18,25 @@ class DocumentScreen extends ConsumerStatefulWidget {
 class _DocumentScreenState extends ConsumerState<DocumentScreen> {
   // 선택된 메뉴 인덱스
   int _selectedIndex = 0;
-  
+
   // 파일 출력 탭 업데이트용 GlobalKey
-  final GlobalKey<FileExportWidgetState> _fileExportWidgetKey = GlobalKey<FileExportWidgetState>();
-  
+  final GlobalKey<FileExportWidgetState> _fileExportWidgetKey =
+      GlobalKey<FileExportWidgetState>();
+
   // 사이드바 너비 (원하는 값으로 변경 가능)
   static const double _sidebarWidth = 135.0;
+
+  /// 파일 출력 위젯 업데이트 헬퍼 메서드
+  void _updateFileExportWidget() {
+    final widgetState = _fileExportWidgetKey.currentState;
+    if (widgetState != null) {
+      widgetState.updateAbsencePeriod();
+      widgetState.loadDefaultValuesIfEmpty();
+      AppLogger.exchangeDebug('결강기간 업데이트 및 입력란 자동 채우기 완료');
+    } else {
+      AppLogger.warning('⚠️ FileExportWidgetState를 찾을 수 없습니다.');
+    }
+  }
 
   /// 메뉴 선택 시 호출
   void _onMenuSelected(int index) {
@@ -31,46 +44,25 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen> {
       setState(() {
         _selectedIndex = index;
       });
-      
+
       // 파일 출력 탭으로 전환된 경우 결강기간 업데이트
       final fileExportIndex = DocumentType.fileExport.index;
       AppLogger.exchangeDebug('메뉴 변경 감지: 인덱스 $index (파일 출력: $fileExportIndex)');
-      
+
       if (index == fileExportIndex) {
         AppLogger.info('📄 파일 출력 메뉴 진입: 결강기간 업데이트 및 입력란 자동 채우기 요청');
-        
+
         // 위젯이 생성될 때까지 대기 (다음 프레임에 실행)
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            final widgetState = _fileExportWidgetKey.currentState;
-            if (widgetState != null) {
-              // 결강기간 업데이트
-              widgetState.updateAbsencePeriod();
-              AppLogger.exchangeDebug('결강기간 업데이트 메서드 호출 완료');
-              
-              // 입력란이 비어있으면 설정에서 교사명, 학교명 자동 입력
-              widgetState.loadDefaultValuesIfEmpty();
-              AppLogger.exchangeDebug('입력란 자동 채우기 메서드 호출 완료');
-            } else {
-              AppLogger.warning('⚠️ FileExportWidgetState가 아직 생성되지 않았습니다. (GlobalKey가 null) - 재시도 예정');
-              // 위젯이 생성될 때까지 추가 대기 (100ms 후 재시도)
-              Future.delayed(const Duration(milliseconds: 100), () {
-                if (mounted) {
-                  final widgetState = _fileExportWidgetKey.currentState;
-                  if (widgetState != null) {
-                    // 결강기간 업데이트
-                    widgetState.updateAbsencePeriod();
-                    AppLogger.exchangeDebug('결강기간 업데이트 메서드 호출 완료 (재시도 성공)');
-                    
-                    // 입력란이 비어있으면 설정에서 교사명, 학교명 자동 입력
-                    widgetState.loadDefaultValuesIfEmpty();
-                    AppLogger.exchangeDebug('입력란 자동 채우기 메서드 호출 완료 (재시도 성공)');
-                  } else {
-                    AppLogger.warning('⚠️ FileExportWidgetState를 찾을 수 없습니다. (재시도 실패)');
-                  }
-                }
-              });
-            }
+            _updateFileExportWidget();
+          }
+        });
+
+        // 100ms 후 재시도 (위젯이 아직 생성되지 않은 경우 대비)
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted) {
+            _updateFileExportWidget();
           }
         });
       }
@@ -85,11 +77,9 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen> {
         children: [
           // 왼쪽 사이드바
           _buildSidebar(),
-          
+
           // 오른쪽 컨텐츠 영역
-          Expanded(
-            child: _buildContent(),
-          ),
+          Expanded(child: _buildContent()),
         ],
       ),
     );
@@ -102,71 +92,72 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen> {
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         border: Border(
-          right: BorderSide(
-            color: Colors.grey.shade300,
-            width: 1,
-          ),
+          right: BorderSide(color: Colors.grey.shade300, width: 1),
         ),
       ),
       child: ListView(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        children: DocumentType.values.asMap().entries.map((entry) {
-          final index = entry.key;
-          final type = entry.value;
-          final isSelected = _selectedIndex == index;
-          
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => _onMenuSelected(index),
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: isSelected 
-                      ? type.color.withValues(alpha: 0.1) 
-                      : Colors.transparent,
+        children:
+            DocumentType.values.asMap().entries.map((entry) {
+              final index = entry.key;
+              final type = entry.value;
+              final isSelected = _selectedIndex == index;
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => _onMenuSelected(index),
                     borderRadius: BorderRadius.circular(8),
-                    border: isSelected
-                      ? Border.all(
-                          color: type.color,
-                          width: 2,
-                        )
-                      : null,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        type.icon,
-                        size: 20,
-                        color: isSelected 
-                          ? type.color 
-                          : Colors.grey.shade600,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          type.displayName,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: isSelected 
-                              ? FontWeight.bold 
-                              : FontWeight.normal,
-                            color: isSelected 
-                              ? type.color 
-                              : Colors.grey.shade700,
+                      decoration: BoxDecoration(
+                        color:
+                            isSelected
+                                ? type.color.withValues(alpha: 0.1)
+                                : Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                        border:
+                            isSelected
+                                ? Border.all(color: type.color, width: 2)
+                                : null,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            type.icon,
+                            size: 20,
+                            color:
+                                isSelected ? type.color : Colors.grey.shade600,
                           ),
-                        ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              type.displayName,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight:
+                                    isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                color:
+                                    isSelected
+                                        ? type.color
+                                        : Colors.grey.shade700,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
-          );
-        }).toList(),
+              );
+            }).toList(),
       ),
     );
   }
@@ -191,4 +182,3 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen> {
     }
   }
 }
-

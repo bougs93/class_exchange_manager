@@ -20,7 +20,7 @@ class AppInfo {
   static const String programName = '수업 교체 도우미';
   
   // 버전 정보
-  static const String version = '0.9.0 beta(테스트 버전)'; // 버전 번호는 나중에 추가 가능
+  static const String version = '0.9.1 beta(테스트 버전)'; // 버전 번호는 나중에 추가 가능
 
   // 소속
   static const String affiliation = 'Noah Lab';
