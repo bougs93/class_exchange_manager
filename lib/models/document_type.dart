@@ -21,9 +21,9 @@ extension DocumentTypeExtension on DocumentType {
   String get displayName {
     switch (this) {
       case DocumentType.substitutionPlan:
-        return '결보강 날짜선택';
+        return '날짜선택';
       case DocumentType.fileExport:
-        return '결보강 출력';
+        return '출력';
       case DocumentType.classNotice:
         return '학급안내';
       case DocumentType.teacherNotice:

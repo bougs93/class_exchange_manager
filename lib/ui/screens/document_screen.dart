@@ -21,6 +21,9 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen> {
   
   // 파일 출력 탭 업데이트용 GlobalKey
   final GlobalKey<FileExportWidgetState> _fileExportWidgetKey = GlobalKey<FileExportWidgetState>();
+  
+  // 사이드바 너비 (원하는 값으로 변경 가능)
+  static const double _sidebarWidth = 135.0;
 
   /// 메뉴 선택 시 호출
   void _onMenuSelected(int index) {
@@ -95,7 +98,7 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen> {
   /// 왼쪽 사이드바 위젯
   Widget _buildSidebar() {
     return Container(
-      width: 200, // 사이드바 너비
+      width: _sidebarWidth, // 사이드바 너비
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         border: Border(

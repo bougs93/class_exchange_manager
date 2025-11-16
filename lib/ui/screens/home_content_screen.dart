@@ -228,7 +228,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
     
     try {
       final appSettings = AppSettingsStorageService();
-      final success = await appSettings.saveHighlightedTeacherColor(color.value);
+      final success = await appSettings.saveHighlightedTeacherColor(color.toARGB32());
       
       if (success && mounted) {
         setState(() {
@@ -653,7 +653,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(0),
               decoration: BoxDecoration(
                 color: theme.primaryColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
@@ -661,14 +661,14 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
               child: Icon(
                 Icons.settings,
                 color: theme.primaryColor,
-                size: 20,
+                size: 14,
               ),
             ),
             const SizedBox(width: 12),
             const Text(
               '설정',
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 14,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -682,21 +682,21 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
         },
         children: [
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // 언어 설정
                 _buildLanguageSection(),
-                const SizedBox(height: 24),
+                const SizedBox(height: 4),
                 
                 // 기본 정보 (교사명, 학교명)
                 _buildTeacherAndSchoolNameSection(),
-                const SizedBox(height: 24),
+                const SizedBox(height: 8),
                 
                 // 하이라이트 색상 설정
                 _buildHighlightColorSection(),
-                const SizedBox(height: 24),
+                const SizedBox(height: 8),
                 
                 // 데이터 초기화
                 _buildDataResetSection(),
@@ -713,7 +713,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
     if (_isLoadingLanguage) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(16.0),
+          padding: EdgeInsets.all(4.0),
           child: CircularProgressIndicator(),
         ),
       );
@@ -725,16 +725,16 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
         const Text(
           '언어 설정',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
         ),
         DropdownButton<String>(
           value: _selectedLanguage,
           underline: const SizedBox.shrink(),
-          items: const [
-            DropdownMenuItem(value: 'ko', child: Text('한국어')),
-          ],
+            items: const [
+              DropdownMenuItem(value: 'ko', child: Text('한국어', style: TextStyle(fontSize: 12))),
+            ],
           onChanged: (newValue) => newValue != null && newValue != _selectedLanguage ? _saveLanguage(newValue) : null,
         ),
       ],
@@ -749,16 +749,16 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
         const Text(
           '기본 정보',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 12,
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 4),
         
         if (_isLoadingNames)
           const Center(
             child: Padding(
-              padding: EdgeInsets.all(16.0),
+              padding: EdgeInsets.all(4.0),
               child: CircularProgressIndicator(),
             ),
           )
@@ -770,46 +770,66 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
                 children: [
                   const Text(
                     '교사명 :',
-                    style: TextStyle(fontSize: 14),
+                    style: TextStyle(fontSize: 12),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: TextField(
-                      controller: _teacherNameController,
-                      decoration: const InputDecoration(
-                        hintText: '교사명을 입력하세요',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.person),
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    child: SizedBox(
+                      height: 28,
+                      child: TextField(
+                        controller: _teacherNameController,
+                        style: const TextStyle(fontSize: 13, height: 1.0),
+                        decoration: const InputDecoration(
+                          hintText: '교사명을 입력하세요',
+                          border: OutlineInputBorder(
+                            borderSide: BorderSide(width: 1),
+                          ),
+                          prefixIcon: Icon(Icons.person, size: 16),
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                          constraints: BoxConstraints(
+                            minHeight: 28,
+                            maxHeight: 28,
+                          ),
+                        ),
+                        textInputAction: TextInputAction.next,
                       ),
-                      textInputAction: TextInputAction.next,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const Text(
                     '학교명 :',
-                    style: TextStyle(fontSize: 14),
+                    style: TextStyle(fontSize: 12),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: TextField(
-                      controller: _schoolNameController,
-                      decoration: const InputDecoration(
-                        hintText: '학교명을 입력하세요',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.school),
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    child: SizedBox(
+                      height: 28,
+                      child: TextField(
+                        controller: _schoolNameController,
+                        style: const TextStyle(fontSize: 13, height: 1.0),
+                        decoration: const InputDecoration(
+                          hintText: '학교명을 입력하세요',
+                          border: OutlineInputBorder(
+                            borderSide: BorderSide(width: 1),
+                          ),
+                          prefixIcon: Icon(Icons.school, size: 16),
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                          constraints: BoxConstraints(
+                            minHeight: 28,
+                            maxHeight: 28,
+                          ),
+                        ),
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: (_) => _saveTeacherAndSchoolName(),
                       ),
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (_) => _saveTeacherAndSchoolName(),
                     ),
                   ),
                 ],
@@ -821,7 +841,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
                 child: ElevatedButton(
                   onPressed: _isSavingNames ? null : _saveTeacherAndSchoolName,
                   style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   child: _isSavingNames
                     ? const SizedBox(
@@ -867,7 +887,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
           const Text(
             '교사 행 하이라이트',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 14,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -956,7 +976,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
             const Text(
               '데이터 초기화',
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 14,
                 fontWeight: FontWeight.bold,
               ),
             ),
