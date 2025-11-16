@@ -5,7 +5,8 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = class_exchange_manager
+// AppInfo.programName과 동일하게 유지 ('수업 교체 도우미')
+PRODUCT_NAME = 수업 교체 도우미
 
 // The application's bundle identifier
 PRODUCT_BUNDLE_IDENTIFIER = com.example.classExchangeManager

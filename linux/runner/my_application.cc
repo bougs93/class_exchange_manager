@@ -40,11 +40,13 @@ static void my_application_activate(GApplication* application) {
   if (use_header_bar) {
     GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
     gtk_widget_show(GTK_WIDGET(header_bar));
-    gtk_header_bar_set_title(header_bar, "class_exchange_manager");
+    // 윈도우 타이틀: AppInfo.programName과 동일하게 유지 ('수업 교체 도우미')
+    gtk_header_bar_set_title(header_bar, "수업 교체 도우미");
     gtk_header_bar_set_show_close_button(header_bar, TRUE);
     gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
   } else {
-    gtk_window_set_title(window, "class_exchange_manager");
+    // 윈도우 타이틀: AppInfo.programName과 동일하게 유지 ('수업 교체 도우미')
+    gtk_window_set_title(window, "수업 교체 도우미");
   }
 
   gtk_window_set_default_size(window, 1280, 720);

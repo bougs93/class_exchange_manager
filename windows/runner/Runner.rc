@@ -90,12 +90,15 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "class_exchange_manager" "\0"
+            // FileDescription: AppInfo.programName과 동일하게 유지
+            VALUE "FileDescription", "수업 교체 도우미" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "class_exchange_manager" "\0"
+            // InternalName: AppInfo.programName과 동일하게 유지
+            VALUE "InternalName", "수업 교체 도우미" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2025 com.example. All rights reserved." "\0"
             VALUE "OriginalFilename", "class_exchange_manager.exe" "\0"
-            VALUE "ProductName", "class_exchange_manager" "\0"
+            // ProductName: AppInfo.programName과 동일하게 유지
+            VALUE "ProductName", "수업 교체 도우미" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

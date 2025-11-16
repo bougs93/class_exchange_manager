@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'constants/app_info.dart';
 import 'ui/widgets/expiry_check_wrapper.dart';
 
 /// 앱의 진입점
@@ -19,7 +20,8 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Class Exchange Manager',
+      // 앱 제목: AppInfo.programName과 동일하게 유지
+      title: AppInfo.programName,
       theme: ThemeData(
         primarySwatch: Colors.blue,
       

@@ -166,16 +166,7 @@ class InfoScreen extends StatelessWidget {
               _buildSectionSpacer(),
             ],
             
-            // 업데이트 정보 (불릿 리스트 형태)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionHeader(theme, Icons.update_outlined, '업데이트 정보'),
-                const SizedBox(height: 6),
-                _buildSectionContentAsList(AppInfo.updateInfo.trim()),
-              ],
-            ),
-            _buildSectionSpacer(),
+
             
             // 연락처 (불릿 리스트 형태)
             Column(

@@ -3,11 +3,21 @@ import '../services/storage_service.dart';
 /// 앱 정보 상수
 /// 
 /// 프로그램 정보를 중앙에서 관리합니다.
+/// 
+/// ⚠️ 중요: 이 파일의 programName을 변경할 때는 다음 네이티브 파일들도 함께 수정해야 합니다:
+/// - windows/runner/main.cpp (윈도우 타이틀)
+/// - windows/runner/Runner.rc (실행 파일 정보)
+/// - macos/Runner/Configs/AppInfo.xcconfig (macOS 앱 이름)
+/// - linux/runner/my_application.cc (Linux 윈도우 타이틀)
+/// - android/app/src/main/AndroidManifest.xml (Android 앱 라벨)
 class AppInfo {
   // StorageService 인스턴스 (마지막 실행 시간 저장용)
   static final StorageService _storageService = StorageService();
-  // 프로그램명
-  static const String programName = '교사용 수업 교체 관리자';
+  
+  /// 프로그램명
+  /// 
+  /// ⚠️ 이 값을 변경하면 위에 명시된 모든 네이티브 파일도 동일한 값으로 수정해야 합니다.
+  static const String programName = '수업 교체 도우미';
   
   // 버전 정보
   static const String version = '0.9.0 beta(테스트 버전)'; // 버전 번호는 나중에 추가 가능
@@ -202,11 +212,6 @@ class AppInfo {
       return false;
     }
   }
-  
-  // 업데이트 정보
-  static const String updateInfo = '''
-최신 업데이트 정보는 홈페이지를 참조해주세요.
-''';
   
   // 회사 정보
   static const String contact = '''
