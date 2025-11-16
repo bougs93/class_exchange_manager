@@ -848,14 +848,14 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
     if (_isLoadingHighlightColor) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(16.0),
+          padding: EdgeInsets.all(8.0),
           child: CircularProgressIndicator(),
         ),
       );
     }
     
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         border: Border.all(color: Colors.grey.shade300),
@@ -872,17 +872,9 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            '교체관리에서 교사명의 행이 하이라이트됩니다.',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey,
-            ),
-          ),
-          const SizedBox(height: 16),
           
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
               color: _highlightedTeacherColor,
               border: Border.all(color: Colors.grey.shade300),
@@ -891,8 +883,8 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
             child: Row(
               children: [
                 Container(
-                  width: 30,
-                  height: 30,
+                  width: 20,
+                  height: 20,
                   decoration: BoxDecoration(
                     color: _highlightedTeacherColor,
                     border: Border.all(color: Colors.black26, width: 2),
@@ -912,11 +904,11 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 6),
           
           Wrap(
-            spacing: 12,
-            runSpacing: 12,
+            spacing: 4,
+            runSpacing: 4,
             children: [
               _buildColorOption(const Color(0xFFE3F2FD)),
               _buildColorOption(const Color(0xFFE8F5E9)),
@@ -939,8 +931,8 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
       onTap: _isSavingHighlightColor ? null : () => _saveHighlightColor(color),
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        width: 45,
-        height: 45,
+        width: 30,
+        height: 30,
         decoration: BoxDecoration(
           color: color,
           border: Border.all(
@@ -958,20 +950,27 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          '데이터 초기화',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          '모든 저장된 데이터를 삭제합니다.',
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey,
-          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Text(
+              '데이터 초기화',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '모든 저장된 데이터를 삭제합니다.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         
@@ -1202,8 +1201,8 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
     ];
 
     return Wrap(
-      spacing: 12,
-      runSpacing: 12,
+      spacing: 4,
+      runSpacing: 4,
       alignment: WrapAlignment.start,
       crossAxisAlignment: WrapCrossAlignment.start,
       children: menuItems.map((item) {
@@ -1228,8 +1227,8 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
     required Color color,
     required VoidCallback onTap,
   }) {
-    const double cardWidth = 120.0;
-    const double cardHeight = 124.0;
+    const double cardWidth = 90.0;
+    const double cardHeight = 90.0;
 
     return ConstrainedBox(
       constraints: const BoxConstraints(
@@ -1248,7 +1247,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
             onTap: onTap,
             borderRadius: BorderRadius.circular(12),
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
                 border: Border.all(
                   color: Colors.grey.shade200,
@@ -1262,7 +1261,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
                       color: color.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
@@ -1278,7 +1277,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
                     title,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: Colors.grey.shade800,
                     ),
