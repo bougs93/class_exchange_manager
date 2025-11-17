@@ -107,6 +107,83 @@ class PdfExportSettingsStorageService {
     return loadPdfExportSettings(templateIndex: 0);
   }
   
+  /// 모든 양식에 대해 additionalFields를 업데이트하는 공통 메서드
+  ///
+  /// 매개변수:
+  /// - `operationName`: 작업 이름 (로그용)
+  /// - `modifier`: additionalFields를 수정하는 함수
+  ///   - 반환값이 null이면 해당 양식 건너뜀
+  /// - `useDefaultIfNull`: settings가 null일 때 기본값 사용 여부
+  /// - `successLogMessage`: 성공 시 로그 메시지 (선택사항)
+  ///
+  /// 반환값:
+  /// - `Future<bool>`: 모든 양식 업데이트 성공 여부
+  Future<bool> _updateAdditionalFieldsForAllTemplates({
+    required String operationName,
+    required Map<String, String>? Function(
+      Map<String, String> currentFields,
+      int templateIndex,
+    ) modifier,
+    bool useDefaultIfNull = false,
+    String? successLogMessage,
+  }) async {
+    try {
+      bool allSuccess = true;
+
+      // 모든 양식에 대해 처리
+      for (int templateIndex = 0; templateIndex < templateCount; templateIndex++) {
+        // 현재 양식의 설정 로드
+        final settings = await loadPdfExportSettings(templateIndex: templateIndex);
+        Map<String, dynamic>? updatedSettings;
+
+        if (settings == null) {
+          if (useDefaultIfNull) {
+            // 설정 파일이 없으면 기본 설정 사용
+            updatedSettings = getDefaultSettings(templateIndex: templateIndex);
+          } else {
+            // 설정 파일이 없으면 건너뜀
+            continue;
+          }
+        } else {
+          updatedSettings = Map<String, dynamic>.from(settings);
+        }
+
+        // additionalFields 가져오기
+        final additionalFields = (updatedSettings['additionalFields'] as Map<String, dynamic>?)
+            ?.cast<String, String>() ?? <String, String>{};
+
+        // modifier를 사용해서 필드 수정
+        final newAdditionalFields = modifier(additionalFields, templateIndex);
+
+        // null을 반환하면 건너뜀
+        if (newAdditionalFields == null) {
+          continue;
+        }
+
+        // additionalFields 업데이트
+        updatedSettings['additionalFields'] = newAdditionalFields;
+
+        // 양식별로 별도 파일에 저장
+        final fileName = 'pdf_export_settings_template_$templateIndex.json';
+        final success = await _storageService.saveJson(fileName, updatedSettings);
+
+        if (!success) {
+          allSuccess = false;
+          AppLogger.error('$operationName 실패 (양식 ${templateIndex + 1})');
+        }
+      }
+
+      if (allSuccess) {
+        AppLogger.info(successLogMessage ?? '$operationName 성공 (모든 양식)');
+      }
+
+      return allSuccess;
+    } catch (e) {
+      AppLogger.error('$operationName 중 오류: $e', e);
+      return false;
+    }
+  }
+
   /// 기본 PDF 출력 설정 가져오기
   /// 
   /// 저장된 설정이 없을 때 사용할 기본값을 반환합니다.
@@ -142,121 +219,55 @@ class PdfExportSettingsStorageService {
   }
   
   /// 교사명과 학교명만 초기화
-  /// 
-  /// PDF 출력 설정의 additionalFields에서 교사명(teacherName)과 
+  ///
+  /// PDF 출력 설정의 additionalFields에서 교사명(teacherName)과
   /// 학교명(schoolName)만 삭제하고 나머지 설정은 유지합니다.
   /// 모든 양식에 대해 초기화합니다.
-  /// 
+  ///
   /// 반환값:
   /// - `Future<bool>`: 초기화 성공 여부
   Future<bool> clearTeacherAndSchoolName() async {
-    try {
-      bool allSuccess = true;
-      // 모든 양식에 대해 초기화
-      for (int templateIndex = 0; templateIndex < templateCount; templateIndex++) {
-        // 현재 양식의 설정 로드
-        final settings = await loadPdfExportSettings(templateIndex: templateIndex);
-        if (settings == null) {
-          // 설정 파일이 없으면 이미 초기화된 상태로 간주
-          continue;
-        }
-        
-        // additionalFields 가져오기
-        final additionalFields = (settings['additionalFields'] as Map<String, dynamic>?)
-            ?.cast<String, String>() ?? <String, String>{};
-        
+    return await _updateAdditionalFieldsForAllTemplates(
+      operationName: '교사명과 학교명 초기화',
+      modifier: (currentFields, _) {
         // 교사명과 학교명만 제거 (나머지 필드는 유지)
-        final newAdditionalFields = Map<String, String>.from(additionalFields);
-        newAdditionalFields.remove('teacherName');
-        newAdditionalFields.remove('schoolName');
-        
-        // 나머지 설정은 그대로 유지하고 additionalFields만 업데이트
-        final updatedSettings = Map<String, dynamic>.from(settings);
-        updatedSettings['additionalFields'] = newAdditionalFields;
-        
-        // 양식별로 별도 파일에 저장
-        final fileName = 'pdf_export_settings_template_$templateIndex.json';
-        final success = await _storageService.saveJson(fileName, updatedSettings);
-        
-        if (!success) {
-          allSuccess = false;
-          AppLogger.error('교사명과 학교명 초기화 실패 (양식 ${templateIndex + 1})');
-        }
-      }
-      
-      if (allSuccess) {
-        AppLogger.info('교사명과 학교명 초기화 성공 (모든 양식)');
-      }
-      
-      return allSuccess;
-    } catch (e) {
-      AppLogger.error('교사명과 학교명 초기화 중 오류: $e', e);
-      return false;
-    }
+        final newFields = Map<String, String>.from(currentFields);
+        newFields.remove('teacherName');
+        newFields.remove('schoolName');
+        return newFields;
+      },
+      useDefaultIfNull: false, // 설정 파일이 없으면 건너뜀
+    );
   }
   
   /// 교사명과 학교명만 저장
-  /// 
-  /// PDF 출력 설정의 additionalFields에서 교사명(teacherName)과 
+  ///
+  /// PDF 출력 설정의 additionalFields에서 교사명(teacherName)과
   /// 학교명(schoolName)만 업데이트하고 나머지 설정은 유지합니다.
   /// 모든 양식에 대해 저장합니다.
-  /// 
+  ///
   /// 매개변수:
   /// - `teacherName`: 교사명
   /// - `schoolName`: 학교명
-  /// 
+  ///
   /// 반환값:
   /// - `Future<bool>`: 저장 성공 여부
   Future<bool> saveTeacherAndSchoolName({
     required String teacherName,
     required String schoolName,
   }) async {
-    try {
-      bool allSuccess = true;
-      // 모든 양식에 대해 저장
-      for (int templateIndex = 0; templateIndex < templateCount; templateIndex++) {
-        // 현재 양식의 설정 로드
-        final settings = await loadPdfExportSettings(templateIndex: templateIndex);
-        Map<String, dynamic> updatedSettings;
-        
-      if (settings == null) {
-        // 설정 파일이 없으면 기본 설정 사용 (양식별 기본값)
-        updatedSettings = getDefaultSettings(templateIndex: templateIndex);
-      } else {
-        updatedSettings = Map<String, dynamic>.from(settings);
-      }
-      
-      // additionalFields 가져오기
-      final additionalFields = (updatedSettings['additionalFields'] as Map<String, dynamic>?)
-          ?.cast<String, String>() ?? <String, String>{};
-      
-      // 교사명과 학교명만 업데이트 (나머지 필드는 유지)
-      final newAdditionalFields = Map<String, String>.from(additionalFields);
-      newAdditionalFields['teacherName'] = teacherName;
-      newAdditionalFields['schoolName'] = schoolName;
-      
-      // additionalFields 업데이트
-      updatedSettings['additionalFields'] = newAdditionalFields;
-      
-      // 양식별로 별도 파일에 저장
-      final fileName = 'pdf_export_settings_template_$templateIndex.json';
-        final success = await _storageService.saveJson(fileName, updatedSettings);
-        
-        if (!success) {
-          allSuccess = false;
-          AppLogger.error('교사명과 학교명 저장 실패 (양식 ${templateIndex + 1})');
-        }
-      }
-      
-      if (allSuccess) {
-        AppLogger.info('교사명과 학교명 저장 성공 (모든 양식): teacherName=$teacherName, schoolName=$schoolName');
-      }
-      
-      return allSuccess;
-    } catch (e) {
-      AppLogger.error('교사명과 학교명 저장 중 오류: $e', e);
-      return false;
-    }
+    return await _updateAdditionalFieldsForAllTemplates(
+      operationName: '교사명과 학교명 저장',
+      modifier: (currentFields, _) {
+        // 교사명과 학교명만 업데이트 (나머지 필드는 유지)
+        final newFields = Map<String, String>.from(currentFields);
+        newFields['teacherName'] = teacherName;
+        newFields['schoolName'] = schoolName;
+        return newFields;
+      },
+      useDefaultIfNull: true, // 설정 파일이 없으면 기본값 사용
+      successLogMessage: '교사명과 학교명 저장 성공 (모든 양식): teacherName=$teacherName, schoolName=$schoolName',
+    );
   }
   
   /// PDF 템플릿 파일 경로만 저장
