@@ -6,6 +6,10 @@ import 'package:flutter/foundation.dart';
 import '../models/teacher.dart';
 import '../models/time_slot.dart';
 import '../utils/day_utils.dart';
+import 'excel_parsing/excel_header_finder.dart';
+import 'excel_parsing/excel_teacher_extractor.dart';
+import 'excel_parsing/excel_cell_parser.dart';
+import 'excel_parsing/excel_parsing_utils.dart';
 
 /// 교사 이름 중복 예외 클래스
 /// 
@@ -461,7 +465,7 @@ class ExcelService {
       }
       
       // 교사명 헤더 찾기 (1~10행까지 검색)
-      Map<String, dynamic> teacherHeaderResult = _findTeacherHeader(sheet);
+      Map<String, dynamic> teacherHeaderResult = ExcelHeaderFinder.findTeacherHeader(sheet);
       int foundTeacherHeaderRow = teacherHeaderResult['row'] as int;
       int foundTeacherColumn = teacherHeaderResult['column'] as int;
       
@@ -471,7 +475,7 @@ class ExcelService {
       }
       
       // 요일 헤더 찾기 (1~10행까지 검색)
-      Map<String, dynamic> dayHeaderResult = _findDayHeaders(sheet);
+      Map<String, dynamic> dayHeaderResult = ExcelHeaderFinder.findDayHeaders(sheet);
       int foundDayHeaderRow = dayHeaderResult['row'] as int;
       List<String> dayHeaders = (dayHeaderResult['days'] as List).cast<String>();
       
@@ -488,7 +492,7 @@ class ExcelService {
       int finalDataStartRow = periodHeaderRow + 1;
       
       // dataStartColumn 계산: 첫 번째 요일의 1교시 열 찾기
-      int? dataStartColumn = _findDataStartColumn(sheet, foundDayHeaderRow, periodHeaderRow, dayHeaders);
+      int? dataStartColumn = ExcelHeaderFinder.findDataStartColumn(sheet, foundDayHeaderRow, periodHeaderRow, dayHeaders);
       if (dataStartColumn == null) {
         developer.log('데이터 시작 열을 찾을 수 없습니다.', name: 'ExcelService');
         return null;
@@ -516,7 +520,7 @@ class ExcelService {
       // 중복된 교사 이름이 발견되면 DuplicateTeacherException이 발생합니다.
       List<Teacher> teachers;
       try {
-        teachers = _extractTeacherInfo(sheet, dynamicConfig);
+        teachers = ExcelTeacherExtractor.extractTeacherInfo(sheet, dynamicConfig);
       } on DuplicateTeacherException catch (e) {
         // 중복 교사 이름 예외를 그대로 전파하여 상위 호출자에서 처리하도록 함
         developer.log('교사 이름 중복 오류: ${e.toString()}', name: 'ExcelService');
@@ -524,7 +528,7 @@ class ExcelService {
       }
       
       // 요일별 교시 번호 찾기 (동적 설정 사용)
-      Map<String, List<int>> periodsByDay = _findPeriodsByDay(sheet, dynamicConfig.periodHeaderRow, dayHeaders, dynamicConfig);
+      Map<String, List<int>> periodsByDay = ExcelHeaderFinder.findPeriodsByDay(sheet, dynamicConfig.periodHeaderRow, dayHeaders, dynamicConfig);
       if (periodsByDay.isEmpty) {
         developer.log('교시 번호를 찾을 수 없습니다.', name: 'ExcelService');
         return null;
@@ -629,283 +633,6 @@ class ExcelService {
     }
   }
 
-  /// 교사명 헤더를 찾는 메서드 (1~10행까지 검색)
-  /// 
-  /// 반환값: `Map<String, dynamic>` 형태로 {'row': 찾은 행 번호(1-based), 'column': 찾은 열 번호(1-based)}
-  /// 교사명 헤더를 찾지 못한 경우 {'row': 0, 'column': 0} 반환
-  static Map<String, dynamic> _findTeacherHeader(Sheet sheet) {
-    try {
-      // 교사명 헤더 키워드 목록
-      List<String> teacherHeaderKeywords = ['교사', '성명', '이름'];
-      
-      // 1행부터 10행까지 검색
-      for (int row = 1; row <= 10; row++) {
-        // 각 행의 모든 열을 확인 (최대 50열까지)
-        for (int col = 1; col <= ExcelServiceConstants.maxColumnsToCheck; col++) {
-          String cellValue = _getCellValue(sheet, row - 1, col - 1); // 0-based로 변환
-          cellValue = cellValue.trim();
-          
-          // 키워드와 일치하는지 확인
-          for (String keyword in teacherHeaderKeywords) {
-            if (cellValue == keyword) {
-              developer.log('교사명 헤더를 $row행 $col열에서 찾았습니다: $keyword', name: 'ExcelService');
-              return {
-                'row': row,
-                'column': col,
-              };
-            }
-          }
-        }
-      }
-      
-      // 교사명 헤더를 찾지 못한 경우
-      developer.log('1~10행에서 교사명 헤더를 찾을 수 없습니다.', name: 'ExcelService');
-      return {
-        'row': 0,
-        'column': 0,
-      };
-    } catch (e) {
-      developer.log('교사명 헤더 찾기 중 오류 발생: $e', name: 'ExcelService');
-      return {
-        'row': 0,
-        'column': 0,
-      };
-    }
-  }
-
-  /// 요일 헤더를 찾는 메서드 (1~10행까지 검색)
-  /// 
-  /// 반환값: `Map<String, dynamic>` 형태로 {'row': 찾은 행 번호(1-based), 'days': 요일 목록}
-  /// 요일을 찾지 못한 경우 {'row': 0, 'days': []} 반환
-  static Map<String, dynamic> _findDayHeaders(Sheet sheet) {
-    try {
-      // 요일 매핑 (월~일 모두 포함)
-      Map<String, String> dayMapping = {
-        '월': '월',
-        '화': '화', 
-        '수': '수',
-        '목': '목',
-        '금': '금',
-        '토': '토',
-        '일': '일',
-        'MON': '월',
-        'TUE': '화',
-        'WED': '수',
-        'THU': '목',
-        'FRI': '금',
-        'SAT': '토',
-        'SUN': '일',
-      };
-      
-      // 1행부터 10행까지 검색
-      for (int row = 1; row <= 10; row++) {
-        List<String> dayHeaders = [];
-        
-        // 해당 행의 모든 셀을 확인 (최대 50열까지)
-        for (int col = 1; col <= ExcelServiceConstants.maxColumnsToCheck; col++) {
-          String cellValue = _getCellValue(sheet, row - 1, col - 1); // 0-based로 변환
-          cellValue = cellValue.trim().toUpperCase();
-          
-          if (dayMapping.containsKey(cellValue)) {
-            String day = dayMapping[cellValue]!;
-            // 중복 제거
-            if (!dayHeaders.contains(day)) {
-              dayHeaders.add(day);
-            }
-          }
-        }
-        
-        // 요일을 찾은 경우 (최소 1개 이상)
-        if (dayHeaders.isNotEmpty) {
-          developer.log('요일 헤더를 $row행에서 찾았습니다: $dayHeaders', name: 'ExcelService');
-          return {
-            'row': row,
-            'days': dayHeaders,
-          };
-        }
-      }
-      
-      // 요일을 찾지 못한 경우
-      developer.log('1~10행에서 요일 헤더를 찾을 수 없습니다.', name: 'ExcelService');
-      return {
-        'row': 0,
-        'days': [],
-      };
-    } catch (e) {
-      developer.log('요일 헤더 찾기 중 오류 발생: $e', name: 'ExcelService');
-      return {
-        'row': 0,
-        'days': [],
-      };
-    }
-  }
-
-  /// 교시 번호를 찾는 메서드 (요일별로 실제 존재하는 교시만 찾기)
-  /// 요일 바로 다음 행에서 교시 번호를 찾습니다.
-  static Map<String, List<int>> _findPeriodsByDay(Sheet sheet, int periodHeaderRow, List<String> dayHeaders, ExcelParsingConfig config) {
-    try {
-      Map<String, List<int>> periodsByDay = {};
-      
-      // 요일별 시작 열 위치 계산
-      Map<String, int> dayColumnMapping = _calculateDayColumns(sheet, config, dayHeaders);
-      
-      for (String day in dayHeaders) {
-        int? dayStartCol = dayColumnMapping[day];
-        if (dayStartCol == null) continue;
-        
-        List<int> periods = [];
-        
-        // 해당 요일의 교시 번호만 찾기 (요일 바로 다음 행에서)
-        // 요일 헤더 행의 다음 행이 교시 행이므로 periodHeaderRow 사용
-        Set<int> uniquePeriods = {}; // 중복 제거를 위한 Set 사용
-        
-        // 각 요일의 시작 열부터 연속된 교시만 찾기
-        List<String> cellValues = []; // 디버깅용
-        for (int col = dayStartCol; col < dayStartCol + 15; col++) { // 최대 15열까지 검색
-          String cellValue = _getCellValue(sheet, periodHeaderRow - 1, col - 1); // 0-based로 변환
-          cellValue = cellValue.trim();
-          
-          cellValues.add(cellValue); // 디버깅용
-          
-          // 빈 셀이 나오면 해당 요일의 교시 검색 중단
-          if (cellValue.isEmpty) {
-            break;
-          }
-          
-          // 숫자로 변환 시도
-          int? period = int.tryParse(cellValue);
-          if (period != null && period >= 1 && period <= ExcelServiceConstants.maxPeriodsToCheck) {
-            // 이미 나온 숫자(교시)가 나오면 해당 요일의 교시 검색 중단
-            if (uniquePeriods.contains(period)) {
-              break;
-            }
-            uniquePeriods.add(period); // Set에 추가하여 중복 자동 제거
-          } else {
-            // 숫자가 아닌 값이 나오면 해당 요일의 교시 검색 중단
-            break;
-          }
-        }
-        
-        // 디버깅 로그 - 각 열의 값 확인
-        developer.log('$day요일 열 값들: $cellValues', name: 'ExcelService');
-        
-        // Set을 List로 변환하고 정렬
-        periods = uniquePeriods.toList()..sort();
-        periodsByDay[day] = periods;
-        
-        // 디버깅 로그
-        developer.log('$day요일에서 찾은 교시: $periods (시작열: $dayStartCol)', name: 'ExcelService');
-      }
-      
-      return periodsByDay;
-    } catch (e) {
-      developer.log('요일별 교시 번호 찾기 중 오류 발생: $e', name: 'ExcelService');
-      return {};
-    }
-  }
-
-  /// 교사 정보를 추출하는 메서드
-  /// 
-  /// 교사 행 개수를 고려하여 모든 교사 이름을 추출합니다.
-  /// 빈 셀을 만나면 추가로 지정된 행 수만큼 더 검색하여 마지막 교사까지 찾습니다.
-  /// 
-  /// 중복된 교사 이름이 발견되면 [DuplicateTeacherException]을 던집니다.
-  /// 
-  /// 예외:
-  /// - [DuplicateTeacherException]: 동일한 교사 이름이 중복되어 발견된 경우
-  static List<Teacher> _extractTeacherInfo(Sheet sheet, ExcelParsingConfig config) {
-    try {
-      List<Teacher> teachers = [];
-      // 중복 검사를 위한 Map: 교사 이름 -> 첫 번째로 발견된 행 번호
-      Map<String, int> seenNames = {}; // 중복 검사용 (이름 -> 첫 번째 행 번호)
-      int consecutiveEmptyRows = 0; // 연속된 빈 행 개수
-      
-      // 교사 이름이 있는 행 찾기
-      for (int row = config.dataStartRow; row <= sheet.maxRows; row++) {
-        String teacherCell = _getCellValue(sheet, row - 1, config.teacherColumn - 1); // 0-based로 변환
-        
-        if (teacherCell.trim().isEmpty) {
-          // 빈 셀을 만난 경우
-          consecutiveEmptyRows++;
-          
-          // 연속된 빈 행이 추가 검색 행 수를 초과하면 중단
-          if (consecutiveEmptyRows > ExcelServiceConstants.additionalSearchRowsAfterEmptyCell) {
-            developer.log('연속된 빈 행 $consecutiveEmptyRows개를 만나 검색을 중단합니다. ($row행)', name: 'ExcelService');
-            break;
-          }
-          
-          continue; // 빈 셀은 건너뛰기
-        }
-        
-        // 빈 셀이 아닌 경우 연속 빈 행 카운터 리셋
-        consecutiveEmptyRows = 0;
-        
-        // 교사명 파싱: "A교사(20)" → name: "A교사", id: "20"
-        Teacher? teacher = _parseTeacherName(teacherCell);
-        if (teacher != null) {
-          // 중복 검사: 이미 본 이름인지 확인
-          if (seenNames.containsKey(teacher.name)) {
-            // 중복 발견: 예외 던지기
-            int firstRow = seenNames[teacher.name]!;
-            developer.log('교사 이름 중복 발견: "$teacher.name"이(가) $firstRow행과 $row행에서 중복되었습니다.', name: 'ExcelService');
-            throw DuplicateTeacherException(
-              teacherName: teacher.name,
-              firstRow: firstRow,
-              duplicateRow: row,
-            );
-          }
-          
-          // 중복이 아닌 경우: 교사 추가 및 기록
-          teachers.add(teacher);
-          seenNames[teacher.name] = row; // 첫 번째로 발견된 행 번호 저장
-          developer.log('교사 발견: $teacher.name ($row행)', name: 'ExcelService');
-        }
-      }
-      
-      developer.log('총 ${teachers.length}명의 교사를 찾았습니다.', name: 'ExcelService');
-      return teachers;
-    } catch (e) {
-      // DuplicateTeacherException은 그대로 전파
-      if (e is DuplicateTeacherException) {
-        rethrow;
-      }
-      // 다른 예외는 로그만 남기고 빈 리스트 반환
-      developer.log('교사 정보 추출 중 오류 발생: $e', name: 'ExcelService');
-      return [];
-    }
-  }
-
-  /// 특정 교사 이름이 있는 행을 찾는 헬퍼 메서드
-  /// 
-  /// 매개변수:
-  /// - Sheet sheet: 엑셀 시트
-  /// - ExcelParsingConfig config: 파싱 설정
-  /// - Teacher teacher: 찾을 교사
-  /// - int startSearchRow: 검색 시작 행 (1-based)
-  /// 
-  /// 반환값:
-  /// - int: 교사 이름이 있는 행 번호 (1-based), 찾지 못하면 0
-  static int _findTeacherNameRow(
-    Sheet sheet,
-    ExcelParsingConfig config,
-    Teacher teacher,
-    int startSearchRow,
-  ) {
-    try {
-      for (int row = startSearchRow; row <= sheet.maxRows; row++) {
-        String cellValue = _getCellValue(sheet, row - 1, config.teacherColumn - 1);
-        Teacher? parsedTeacher = _parseTeacherName(cellValue);
-        
-        if (parsedTeacher != null && parsedTeacher.name == teacher.name) {
-          return row;
-        }
-      }
-      return 0;
-    } catch (e) {
-      developer.log('교사 이름 행 찾기 중 오류 발생: $e', name: 'ExcelService');
-      return 0;
-    }
-  }
 
   /// 교사 이름 행부터 다음 교사 이름 행 전까지의 행 개수를 계산하는 메서드
   /// 
@@ -936,14 +663,10 @@ class ExcelService {
       
       if (nextTeacher != null) {
         // 다음 교사 이름이 있는 행 검색 (현재 교사 행 다음부터)
-        for (int row = currentTeacherRow + 1; row <= sheet.maxRows; row++) {
-          String cellValue = _getCellValue(sheet, row - 1, config.teacherColumn - 1);
-          Teacher? parsedTeacher = _parseTeacherName(cellValue);
-          
-          if (parsedTeacher != null && parsedTeacher.name == nextTeacher.name) {
-            nextTeacherRow = row;
-            break;
-          }
+        nextTeacherRow = ExcelTeacherExtractor.findTeacherNameRow(
+          sheet, config, nextTeacher, currentTeacherRow + 1);
+        if (nextTeacherRow == 0) {
+          nextTeacherRow = sheet.maxRows + 1; // 찾지 못한 경우 기본값 유지
         }
       }
       
@@ -990,7 +713,7 @@ class ExcelService {
       Map<Teacher, int> teacherRows = {};
       for (int i = 0; i < sampleCount; i++) {
         Teacher teacher = teachers[i];
-        int teacherRow = _findTeacherNameRow(sheet, config, teacher, config.dataStartRow);
+        int teacherRow = ExcelTeacherExtractor.findTeacherNameRow(sheet, config, teacher, config.dataStartRow);
         if (teacherRow > 0) {
           teacherRows[teacher] = teacherRow;
         }
@@ -1081,7 +804,7 @@ class ExcelService {
     // 교사 이름이 있는 행들을 먼저 찾기
     Map<Teacher, int> teacherRows = {};
     for (Teacher teacher in teachers) {
-      int teacherRow = _findTeacherNameRow(sheet, config, teacher, config.dataStartRow);
+      int teacherRow = ExcelTeacherExtractor.findTeacherNameRow(sheet, config, teacher, config.dataStartRow);
       if (teacherRow > 0) {
         teacherRows[teacher] = teacherRow;
       }
@@ -1133,46 +856,6 @@ class ExcelService {
     return rowCounts;
   }
 
-  /// 교사명을 파싱하는 메서드
-  static Teacher? _parseTeacherName(String teacherText) {
-    try {
-      teacherText = teacherText.trim();
-      
-      // 괄호가 있는 경우: "A교사(20)" → "A교사"로 변환
-      if (teacherText.contains('(') && teacherText.contains(')')) {
-        int openIndex = teacherText.indexOf('(');
-        
-        if (openIndex > 0) {
-          String name = teacherText.substring(0, openIndex).trim();
-          
-          if (name.isNotEmpty) {
-            return Teacher(
-              id: null, // 괄호 안의 숫자는 ID가 아니므로 null로 설정
-              name: name,
-              subject: '', // 주 담당 과목은 나중에 계산
-              remarks: null,
-            );
-          }
-        }
-      }
-      
-      // 괄호가 없는 경우: "A교사"
-      if (teacherText.isNotEmpty) {
-        return Teacher(
-          id: null,
-          name: teacherText,
-          subject: '', // 주 담당 과목은 나중에 계산
-          remarks: null,
-        );
-      }
-      
-      return null;
-    } catch (e) {
-      developer.log('교사명 파싱 중 오류 발생: $e', name: 'ExcelService');
-      return null;
-    }
-  }
-
   /// 시간표 데이터를 추출하는 메서드 (요일별 교시 고려)
   static List<TimeSlot> _extractTimeSlotsByDay(
     Sheet sheet,
@@ -1187,12 +870,12 @@ class ExcelService {
       List<TimeSlot> timeSlots = [];
 
       // 요일별 시작 열 위치 계산
-      Map<String, int> dayColumnMapping = _calculateDayColumns(sheet, config, dayHeaders);
+      Map<String, int> dayColumnMapping = ExcelParsingUtils.calculateDayColumns(sheet, config, dayHeaders);
 
       // 각 교사에 대해 시간표 데이터 추출
       for (Teacher teacher in teachers) {
         // 교사 이름이 있는 행 찾기
-        int teacherRow = _findTeacherNameRow(sheet, config, teacher, config.dataStartRow);
+        int teacherRow = ExcelTeacherExtractor.findTeacherNameRow(sheet, config, teacher, config.dataStartRow);
         if (teacherRow == 0) continue;
         
         // 교사 행 개수 가져오기
@@ -1304,7 +987,7 @@ class ExcelService {
     int period,
     CellOrderPattern cellOrderPattern,
   ) {
-    int? periodCol = _findPeriodColumnInDay(sheet, config, dayStartCol, period);
+    int? periodCol = ExcelParsingUtils.findPeriodColumnInDay(sheet, config, dayStartCol, period);
     if (periodCol == null) return null;
 
     String cellValue;
@@ -1334,167 +1017,8 @@ class ExcelService {
       cellValue = rowValues.join('\n');
     }
     
-    return _parseTimeSlotCell(cellValue, teacher, dayOfWeek, period, 
+    return ExcelCellParser.parseTimeSlotCell(cellValue, teacher, dayOfWeek, period, 
         orderPattern: cellOrderPattern);
-  }
-
-  /// 데이터 시작 열을 찾는 메서드 (첫 번째 요일의 1교시 열)
-  /// 
-  /// 매개변수:
-  /// - Sheet sheet: 엑셀 시트
-  /// - int dayHeaderRow: 요일 헤더 행 (1-based)
-  /// - int periodHeaderRow: 교시 헤더 행 (1-based)
-  /// - `List<String>` dayHeaders: 요일 목록
-  /// 
-  /// 반환값:
-  /// - int?: 첫 번째 요일의 1교시 열 위치 (1-based), 찾지 못하면 null
-  static int? _findDataStartColumn(Sheet sheet, int dayHeaderRow, int periodHeaderRow, List<String> dayHeaders) {
-    try {
-      if (dayHeaders.isEmpty) {
-        return null;
-      }
-      
-      // 첫 번째 요일 찾기
-      String firstDay = dayHeaders.first;
-      
-      // 첫 번째 요일의 시작 열 찾기
-      int? firstDayStartCol;
-      for (int col = 1; col <= ExcelServiceConstants.maxColumnsToCheck; col++) {
-        String cellValue = _getCellValue(sheet, dayHeaderRow - 1, col - 1); // 0-based로 변환
-        cellValue = cellValue.trim();
-        
-        if (cellValue == firstDay) {
-          firstDayStartCol = col;
-          break;
-        }
-      }
-      
-      if (firstDayStartCol == null) {
-        developer.log('첫 번째 요일($firstDay)의 시작 열을 찾을 수 없습니다.', name: 'ExcelService');
-        return null;
-      }
-      
-      // 첫 번째 요일의 시작 열부터 1교시 찾기
-      for (int col = firstDayStartCol; col < firstDayStartCol + ExcelServiceConstants.maxPeriodsToCheck; col++) {
-        String cellValue = _getCellValue(sheet, periodHeaderRow - 1, col - 1); // 0-based로 변환
-        cellValue = cellValue.trim();
-        
-        // 숫자로 변환 시도
-        int? period = int.tryParse(cellValue);
-        if (period == 1) {
-          developer.log('데이터 시작 열을 찾았습니다: $col열 ($firstDay요일 1교시)', name: 'ExcelService');
-          return col;
-        }
-        
-        // 빈 셀이 나오면 해당 요일의 교시 검색 중단
-        if (cellValue.isEmpty) {
-          break;
-        }
-      }
-      
-      developer.log('첫 번째 요일($firstDay)에서 1교시를 찾을 수 없습니다.', name: 'ExcelService');
-      return null;
-    } catch (e) {
-      developer.log('데이터 시작 열 찾기 중 오류 발생: $e', name: 'ExcelService');
-      return null;
-    }
-  }
-
-  /// 요일별 시작 열 위치를 계산하는 메서드
-  static Map<String, int> _calculateDayColumns(Sheet sheet, ExcelParsingConfig config, List<String> dayHeaders) {
-    try {
-      Map<String, int> dayColumnMapping = {};
-      
-      // 요일 헤더 행에서 각 요일의 위치 찾기 (최대 50열까지)
-      for (int col = 1; col <= ExcelServiceConstants.maxColumnsToCheck; col++) {
-        String cellValue = _getCellValue(sheet, config.dayHeaderRow - 1, col - 1); // 0-based로 변환
-        cellValue = cellValue.trim();
-        
-        for (String day in dayHeaders) {
-          if (cellValue == day) {
-            dayColumnMapping[day] = col;
-            break;
-          }
-        }
-      }
-      
-      // 로그 제거
-      return dayColumnMapping;
-    } catch (e) {
-      developer.log('요일별 열 위치 계산 중 오류 발생: $e', name: 'ExcelService');
-      return {};
-    }
-  }
-
-  /// 특정 요일 내에서 교시의 열 위치를 찾는 메서드
-  /// 
-  /// 매개변수:
-  /// - Sheet sheet: 엑셀 시트
-  /// - ExcelParsingConfig config: 파싱 설정
-  /// - int dayStartCol: 요일의 시작 열 (1-based)
-  /// - int period: 찾을 교시 번호
-  /// 
-  /// 반환값:
-  /// - int?: 교시의 열 위치 (찾지 못하면 null)
-  static int? _findPeriodColumnInDay(Sheet sheet, ExcelParsingConfig config, int dayStartCol, int period) {
-    try {
-      // 요일 시작 열부터 오른쪽으로 최대 10열까지 검색
-      for (int col = dayStartCol; col < dayStartCol + ExcelServiceConstants.maxPeriodsToCheck; col++) {
-        String cellValue = _getCellValue(sheet, config.periodHeaderRow - 1, col - 1); // 0-based로 변환
-        cellValue = cellValue.trim();
-        
-        // 숫자로 변환 시도
-        int? cellPeriod = int.tryParse(cellValue);
-        if (cellPeriod == period) {
-          return col;
-        }
-      }
-      
-      // 로그 제거
-      return null;
-    } catch (e) {
-      developer.log('교시 열 위치 찾기 중 오류 발생: $e', name: 'ExcelService');
-      return null;
-    }
-  }
-
-
-  /// 학급번호를 표준 형식으로 변환하는 메서드
-  /// 
-  /// 변환 규칙:
-  /// - "202" → "2-2" (3자리 숫자: 첫 자리=학년, 나머지=반)
-  /// - "103" → "1-3"
-  /// - "1-3" → "1-3" (이미 변환된 형태는 그대로)
-  /// - "2-1" → "2-1" (이미 변환된 형태는 그대로)
-  static String _convertClassName(String className) {
-    try {
-      className = className.trim();
-      
-      // 이미 '-'가 포함된 경우 그대로 반환
-      if (className.contains('-')) {
-        return className;
-      }
-      
-      // 3자리 숫자인 경우 변환 (예: "202" → "2-2")
-      if (className.length == 3 && RegExp(r'^\d{3}$').hasMatch(className)) {
-        String grade = className[0];      // 첫 번째 자리: 학년
-        String classNum = className.substring(1); // 나머지: 반
-        
-        // 반 번호가 한 자리인 경우 앞의 0 제거
-        if (classNum.startsWith('0') && classNum.length > 1) {
-          classNum = classNum.substring(1);
-        }
-        
-        String converted = '$grade-$classNum';
-        return converted;
-      }
-      
-      // 변환할 수 없는 형태는 그대로 반환
-      return className;
-    } catch (e) {
-      developer.log('학급번호 변환 중 오류 발생: $e', name: 'ExcelService');
-      return className;
-    }
   }
 
   /// 학급명에서 학년 추출하는 유틸리티 메서드
@@ -1505,31 +1029,7 @@ class ExcelService {
   /// - "1학년 3반" → "1" (학년 포함 형태)
   /// - "1반" → "1" (단순 숫자 시작)
   static String extractGradeFromClassName(String className) {
-    try {
-      className = className.trim();
-      
-      // 1. 3자리 숫자 형태 처리 (예: "103" -> "1", "203" -> "2")
-      if (className.length == 3 && RegExp(r'^\d{3}$').hasMatch(className)) {
-        return className[0]; // 첫 번째 자리: 학년
-      }
-      
-      // 2. 하이픈 형태 처리 (예: "1-1" -> "1")
-      final gradeMatch = RegExp(r'(\d+)[-학년]').firstMatch(className);
-      if (gradeMatch != null) {
-        return gradeMatch.group(1) ?? '';
-      }
-      
-      // 3. 학년 포함 형태 처리 (예: "1학년 3반" -> "1", "2학년 10반" -> "2")
-      final gradeYearMatch = RegExp(r'(\d+)학년').firstMatch(className);
-      if (gradeYearMatch != null) {
-        return gradeYearMatch.group(1) ?? '';
-      }
-      
-      return '';
-    } catch (e) {
-      developer.log('학년 추출 중 오류 발생: $e', name: 'ExcelService');
-      return '';
-    }
+    return ExcelParsingUtils.extractGradeFromClassName(className);
   }
 
   /// 학급명에서 반 번호만 추출하는 유틸리티 메서드
@@ -1539,95 +1039,9 @@ class ExcelService {
   /// - "1-3" → "3" (하이픈 형태)
   /// - "1학년 3반" → "3" (학년 포함 형태)
   static String extractClassNumberFromClassName(String className) {
-    try {
-      className = className.trim();
-      
-      // 1. 3자리 숫자 형태 처리 (예: "103" -> "3", "110" -> "10")
-      if (className.length == 3 && RegExp(r'^\d{3}$').hasMatch(className)) {
-        String classNum = className.substring(1); // 나머지: 반
-        // 반 번호가 한 자리인 경우 앞의 0 제거
-        if (classNum.startsWith('0') && classNum.length > 1) {
-          classNum = classNum.substring(1);
-        }
-        return classNum;
-      }
-      
-      // 2. 하이픈 형태 처리 (예: "1-3" -> "3", "2-10" -> "10")
-      if (className.contains('-')) {
-        final parts = className.split('-');
-        if (parts.length >= 2) {
-          return parts[1].trim();
-        }
-      }
-      
-      // 3. 학년 포함 형태 처리 (예: "1학년 3반" -> "3", "2학년 10반" -> "10")
-      final classMatch = RegExp(r'학년\s*(\d+)반').firstMatch(className);
-      if (classMatch != null) {
-        return classMatch.group(1) ?? '';
-      }
-      
-      return '';
-    } catch (e) {
-      developer.log('반 번호 추출 중 오류 발생: $e', name: 'ExcelService');
-      return '';
-    }
+    return ExcelParsingUtils.extractClassNumberFromClassName(className);
   }
 
-  /// 학급번호 패턴인지 확인하는 메서드
-  /// 
-  /// 학급번호 패턴 예시:
-  /// - "103", "202" (3자리 숫자)
-  /// - "1-3", "2-1", "2-10" (하이픈 형태)
-  /// - "1반", "2반" (숫자+반)
-  /// - "1학년 3반" (학년-반 형태)
-  static bool _isClassNamePattern(String text) {
-    try {
-      text = text.trim();
-      
-      // 1. 3자리 숫자 (예: "103", "202")
-      if (RegExp(r'^\d{3}$').hasMatch(text)) return true;
-      
-      // 2. 하이픈 형태 (예: "1-3", "2-1", "2-10")
-      if (RegExp(r'^\d+-\d+$').hasMatch(text)) return true;
-      
-      // 3. 숫자+반 형태 (예: "1반", "2반")
-      if (RegExp(r'^\d+반?$').hasMatch(text)) return true;
-      
-      // 4. 학년-반 형태 (예: "1학년 3반", "2학년 10반")
-      if (RegExp(r'^\d+학년\s*\d+반$').hasMatch(text)) return true;
-      
-      return false;
-    } catch (e) {
-      developer.log('학급번호 패턴 확인 중 오류 발생: $e', name: 'ExcelService');
-      return false;
-    }
-  }
-
-  /// 과목명 패턴인지 확인하는 메서드
-  /// 
-  /// 과목명 패턴 예시:
-  /// - "국어", "수학", "영어" (한글)
-  /// - "English", "Math" (영문)
-  /// - "체육", "음악" (한글 과목명)
-  static bool _isSubjectPattern(String text) {
-    try {
-      text = text.trim();
-      
-      // 학급번호 패턴이면 과목이 아님
-      if (_isClassNamePattern(text)) return false;
-      
-      // 숫자만 있는 경우는 과목이 아님
-      if (RegExp(r'^\d+$').hasMatch(text)) return false;
-      
-      // 한글이나 영문으로 구성된 텍스트 (일반적인 과목명)
-      if (RegExp(r'^[가-힣a-zA-Z\s]+$').hasMatch(text)) return true;
-      
-      return false;
-    } catch (e) {
-      developer.log('과목명 패턴 확인 중 오류 발생: $e', name: 'ExcelService');
-      return false;
-    }
-  }
 
   /// 샘플링 기반으로 셀 순서 패턴을 검증하는 메서드
   /// 
@@ -1657,7 +1071,7 @@ class ExcelService {
       int sampleSize = 0;
       
       // 요일별 시작 열 위치 계산
-      Map<String, int> dayColumnMapping = _calculateDayColumns(sheet, config, dayHeaders);
+      Map<String, int> dayColumnMapping = ExcelParsingUtils.calculateDayColumns(sheet, config, dayHeaders);
       
       // 처음 몇 개 교사의 시간표 셀을 샘플링
       for (int teacherIndex = 0; 
@@ -1666,7 +1080,7 @@ class ExcelService {
         Teacher teacher = teachers[teacherIndex];
         
         // 교사 이름이 있는 행 찾기
-        int teacherRow = _findTeacherNameRow(sheet, config, teacher, config.dataStartRow);
+        int teacherRow = ExcelTeacherExtractor.findTeacherNameRow(sheet, config, teacher, config.dataStartRow);
         if (teacherRow == 0) continue;
         
         // 교사 행 개수 가져오기
@@ -1684,7 +1098,7 @@ class ExcelService {
           
           // 첫 번째 교시 셀 읽기
           int firstPeriod = periods.first;
-          int? periodCol = _findPeriodColumnInDay(sheet, config, dayStartCol, firstPeriod);
+          int? periodCol = ExcelParsingUtils.findPeriodColumnInDay(sheet, config, dayStartCol, firstPeriod);
           if (periodCol == null) continue;
           
           // 교사 행 개수에 따라 셀 값 읽기
@@ -1725,10 +1139,10 @@ class ExcelService {
                 .toList();
             
             if (lines.length >= 2) {
-              bool firstIsClassName = _isClassNamePattern(lines[0]);
-              bool secondIsSubject = _isSubjectPattern(lines[1]);
-              bool firstIsSubject = _isSubjectPattern(lines[0]);
-              bool secondIsClassName = _isClassNamePattern(lines[1]);
+              bool firstIsClassName = ExcelParsingUtils.isClassNamePattern(lines[0]);
+              bool secondIsSubject = ExcelParsingUtils.isSubjectPattern(lines[1]);
+              bool firstIsSubject = ExcelParsingUtils.isSubjectPattern(lines[0]);
+              bool secondIsClassName = ExcelParsingUtils.isClassNamePattern(lines[1]);
               
               if (firstIsClassName && secondIsSubject) {
                 normalOrderCount++;
@@ -1855,115 +1269,6 @@ class ExcelService {
     }
   }
 
-  /// 시간표 셀을 파싱하는 메서드
-  /// 
-  /// 셀 내용 예시:
-  /// - 빈 셀 → TimeSlot 생성 (subject, className = null)
-  /// - "103\n국어" → className: "103", subject: "국어" (정상 순서)
-  /// - "국어\n103" → className: "103", subject: "국어" (바뀐 순서)
-  /// - "1-3\n수학" → className: "1-3", subject: "수학"
-  /// - "2-1" → className: "2-1", subject: null
-  /// 
-  /// 매개변수:
-  /// - String cellValue: 셀 내용
-  /// - Teacher teacher: 교사 정보
-  /// - int dayOfWeek: 요일 번호
-  /// - int period: 교시 번호
-  /// - CellOrderPattern? orderPattern: 셀 순서 패턴 (null이면 자동 감지)
-  static TimeSlot _parseTimeSlotCell(
-    String cellValue, 
-    Teacher teacher, 
-    int dayOfWeek, 
-    int period,
-    {CellOrderPattern? orderPattern}
-  ) {
-    try {
-      String? className;
-      String? subject;
-      
-      // 빈 셀이 아닌 경우에만 내용 파싱
-      if (cellValue.trim().isNotEmpty) {
-        // 셀 내용 정리: 특수 문자 제거 및 줄바꿈 정규화
-        String cleanCellValue = cellValue
-            .replaceAll('\r', '')           // 캐리지 리턴 제거
-            .replaceAll('_x000D_', '')      // Excel 특수 문자 제거
-            .replaceAll('\n', '\n')          // 줄바꿈 정규화
-            .trim();
-        
-        // 셀 내용을 줄바꿈으로 분할하고 빈 줄 제거
-        List<String> lines = cleanCellValue.split('\n')
-            .map((line) => line.trim())
-            .where((line) => line.isNotEmpty)
-            .toList();
-        
-        if (lines.isNotEmpty) {
-          // 순서 패턴이 지정된 경우 해당 순서 사용, 없으면 자동 감지
-          CellOrderPattern detectedPattern = orderPattern ?? CellOrderPattern.unknown;
-          
-          if (detectedPattern == CellOrderPattern.unknown && lines.length >= 2) {
-            // 자동 감지: 각 줄의 패턴을 분석
-            bool firstIsClassName = _isClassNamePattern(lines[0]);
-            bool secondIsSubject = _isSubjectPattern(lines[1]);
-            bool firstIsSubject = _isSubjectPattern(lines[0]);
-            bool secondIsClassName = _isClassNamePattern(lines[1]);
-            
-            if (firstIsClassName && secondIsSubject) {
-              detectedPattern = CellOrderPattern.normal;
-            } else if (firstIsSubject && secondIsClassName) {
-              detectedPattern = CellOrderPattern.reversed;
-            } else {
-              // 패턴을 확인할 수 없으면 기본값(정상 순서) 사용
-              detectedPattern = CellOrderPattern.normal;
-            }
-          }
-          
-          // 순서 패턴에 따라 학급번호와 과목 추출
-          if (lines.length >= 2) {
-            if (detectedPattern == CellOrderPattern.reversed) {
-              // 바뀐 순서: 첫 번째 줄 = 과목, 두 번째 줄 = 학급번호
-              subject = lines[0];
-              className = _convertClassName(lines[1]);
-            } else {
-              // 정상 순서 또는 확인 불가: 첫 번째 줄 = 학급번호, 두 번째 줄 = 과목
-              className = _convertClassName(lines[0]);
-              subject = lines[1];
-            }
-          } else if (lines.length == 1) {
-            // 한 줄만 있는 경우: 패턴으로 판단
-            if (_isClassNamePattern(lines[0])) {
-              className = _convertClassName(lines[0]);
-            } else if (_isSubjectPattern(lines[0])) {
-              subject = lines[0];
-            } else {
-              // 패턴을 확인할 수 없으면 기본값으로 처리 (학급번호로 가정)
-              className = _convertClassName(lines[0]);
-            }
-          }
-        }
-      }
-      
-      // 빈 셀과 내용이 있는 셀 모두 TimeSlot 생성
-      return TimeSlot(
-        teacher: teacher.name,
-        subject: subject,  // 빈 셀은 null
-        className: className,  // 빈 셀은 null
-        dayOfWeek: dayOfWeek,
-        period: period,
-        isExchangeable: true, // 기본값: 교체 가능
-      );
-    } catch (e) {
-      developer.log('시간표 셀 파싱 중 오류 발생: $e', name: 'ExcelService');
-      // 오류 발생 시에도 빈 TimeSlot 생성
-      return TimeSlot(
-        teacher: teacher.name,
-        subject: null,
-        className: null,
-        dayOfWeek: dayOfWeek,
-        period: period,
-        isExchangeable: true,
-      );
-    }
-  }
 
   /// Sheet에서 셀 값을 안전하게 읽는 헬퍼 메서드
   static String _getCellValue(Sheet sheet, int row, int col) {
