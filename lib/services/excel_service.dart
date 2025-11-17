@@ -24,12 +24,14 @@ class ExcelParsingConfig {
   final int periodHeaderRow; // 교시 번호가 있는 행 (1-based)
   final int teacherColumn;   // 교사명이 있는 열 (A열 = 1)
   final int dataStartRow;    // 실제 데이터가 시작하는 행 (1-based)
+  final int dataStartColumn; // 실제 데이터가 시작하는 열 (1-based, 첫 번째 요일의 1교시 열)
   
   const ExcelParsingConfig({
     this.dayHeaderRow = 2,
     this.periodHeaderRow = 3,
     this.teacherColumn = 1,
     this.dataStartRow = 4,
+    this.dataStartColumn = 2, // 기본값: B열 (A열은 교사명)
   });
   
 }
@@ -67,6 +69,7 @@ class TimetableData {
         'periodHeaderRow': config.periodHeaderRow,
         'teacherColumn': config.teacherColumn,
         'dataStartRow': config.dataStartRow,
+        'dataStartColumn': config.dataStartColumn,
       },
       'totalParsedCells': totalParsedCells,
       'successCount': successCount,
@@ -94,6 +97,7 @@ class TimetableData {
       periodHeaderRow: configJson['periodHeaderRow'] as int? ?? 3,
       teacherColumn: configJson['teacherColumn'] as int? ?? 1,
       dataStartRow: configJson['dataStartRow'] as int? ?? 4,
+      dataStartColumn: configJson['dataStartColumn'] as int? ?? 2,
     );
     
     return TimetableData(
@@ -418,23 +422,31 @@ class ExcelService {
         return null;
       }
       
-      // dataStartRow 계산: 교사명 헤더 행 + 1과 기존 설정 중 더 큰 값 사용
-      // (교사 데이터는 교사명 헤더 행의 다음 행부터 시작)
-      int calculatedDataStartRow = foundTeacherHeaderRow + 1;
-      int finalDataStartRow = calculatedDataStartRow > parsingConfig.dataStartRow 
-          ? calculatedDataStartRow 
-          : parsingConfig.dataStartRow;
+      // 교시 헤더 행 계산: 요일 헤더 행의 다음 행
+      int periodHeaderRow = foundDayHeaderRow + 1;
+      
+      // dataStartRow 계산: 교시 헤더 행 + 1 (교시 헤더 다음 행부터 실제 데이터 시작)
+      // (교사 데이터는 교시 헤더 행의 다음 행부터 시작)
+      int finalDataStartRow = periodHeaderRow + 1;
+      
+      // dataStartColumn 계산: 첫 번째 요일의 1교시 열 찾기
+      int? dataStartColumn = _findDataStartColumn(sheet, foundDayHeaderRow, periodHeaderRow, dayHeaders);
+      if (dataStartColumn == null) {
+        developer.log('데이터 시작 열을 찾을 수 없습니다.', name: 'ExcelService');
+        return null;
+      }
       
       // 동적으로 찾은 헤더 정보를 사용하여 설정 업데이트
       // 교시 헤더 행은 요일 헤더 행의 다음 행으로 자동 설정
       final dynamicConfig = ExcelParsingConfig(
         dayHeaderRow: foundDayHeaderRow,
-        periodHeaderRow: foundDayHeaderRow + 1, // 요일 헤더 행의 다음 행
+        periodHeaderRow: periodHeaderRow, // 요일 헤더 행의 다음 행
         teacherColumn: foundTeacherColumn, // 동적으로 찾은 교사명 열
-        dataStartRow: finalDataStartRow, // 교사명 헤더 행 + 1과 기존 설정 중 더 큰 값
+        dataStartRow: finalDataStartRow, // 교시 헤더 행 + 1 (교시 헤더 다음 행부터 데이터 시작)
+        dataStartColumn: dataStartColumn, // 첫 번째 요일의 1교시 열
       );
       
-      developer.log('동적으로 찾은 파싱 설정: dayHeaderRow=${dynamicConfig.dayHeaderRow}, periodHeaderRow=${dynamicConfig.periodHeaderRow}, teacherColumn=${dynamicConfig.teacherColumn}, dataStartRow=${dynamicConfig.dataStartRow}', name: 'ExcelService');
+      developer.log('동적으로 찾은 파싱 설정: dayHeaderRow=${dynamicConfig.dayHeaderRow}, periodHeaderRow=${dynamicConfig.periodHeaderRow}, teacherColumn=${dynamicConfig.teacherColumn}, dataStartRow=${dynamicConfig.dataStartRow}, dataStartColumn=${dynamicConfig.dataStartColumn}', name: 'ExcelService');
       
       // 동적 설정으로 유효성 재검사
       if (!_validateParsingConfig(dynamicConfig, sheet)) {
@@ -884,6 +896,68 @@ class ExcelService {
 
     String cellValue = _getCellValue(sheet, teacherRow - 1, periodCol - 1);
     return _parseTimeSlotCell(cellValue, teacher, dayOfWeek, period);
+  }
+
+  /// 데이터 시작 열을 찾는 메서드 (첫 번째 요일의 1교시 열)
+  /// 
+  /// 매개변수:
+  /// - Sheet sheet: 엑셀 시트
+  /// - int dayHeaderRow: 요일 헤더 행 (1-based)
+  /// - int periodHeaderRow: 교시 헤더 행 (1-based)
+  /// - `List<String>` dayHeaders: 요일 목록
+  /// 
+  /// 반환값:
+  /// - int?: 첫 번째 요일의 1교시 열 위치 (1-based), 찾지 못하면 null
+  static int? _findDataStartColumn(Sheet sheet, int dayHeaderRow, int periodHeaderRow, List<String> dayHeaders) {
+    try {
+      if (dayHeaders.isEmpty) {
+        return null;
+      }
+      
+      // 첫 번째 요일 찾기
+      String firstDay = dayHeaders.first;
+      
+      // 첫 번째 요일의 시작 열 찾기
+      int? firstDayStartCol;
+      for (int col = 1; col <= ExcelServiceConstants.maxColumnsToCheck; col++) {
+        String cellValue = _getCellValue(sheet, dayHeaderRow - 1, col - 1); // 0-based로 변환
+        cellValue = cellValue.trim();
+        
+        if (cellValue == firstDay) {
+          firstDayStartCol = col;
+          break;
+        }
+      }
+      
+      if (firstDayStartCol == null) {
+        developer.log('첫 번째 요일($firstDay)의 시작 열을 찾을 수 없습니다.', name: 'ExcelService');
+        return null;
+      }
+      
+      // 첫 번째 요일의 시작 열부터 1교시 찾기
+      for (int col = firstDayStartCol; col < firstDayStartCol + ExcelServiceConstants.maxPeriodsToCheck; col++) {
+        String cellValue = _getCellValue(sheet, periodHeaderRow - 1, col - 1); // 0-based로 변환
+        cellValue = cellValue.trim();
+        
+        // 숫자로 변환 시도
+        int? period = int.tryParse(cellValue);
+        if (period == 1) {
+          developer.log('데이터 시작 열을 찾았습니다: $col열 ($firstDay요일 1교시)', name: 'ExcelService');
+          return col;
+        }
+        
+        // 빈 셀이 나오면 해당 요일의 교시 검색 중단
+        if (cellValue.isEmpty) {
+          break;
+        }
+      }
+      
+      developer.log('첫 번째 요일($firstDay)에서 1교시를 찾을 수 없습니다.', name: 'ExcelService');
+      return null;
+    } catch (e) {
+      developer.log('데이터 시작 열 찾기 중 오류 발생: $e', name: 'ExcelService');
+      return null;
+    }
   }
 
   /// 요일별 시작 열 위치를 계산하는 메서드
