@@ -24,6 +24,9 @@ class ExcelServiceConstants {
   // 교사 행 개수 검증 샘플링 설정
   static const int maxSamplesForTeacherRowDetection = 10; // 교사 행 개수 검증 최대 샘플 개수
   static const int minSamplesForTeacherRowDetection = 3;  // 교사 행 개수 검증 최소 샘플 개수
+  
+  // 교사 정보 추출 시 추가 검색 설정
+  static const int additionalSearchRowsAfterEmptyCell = 20; // 빈 셀 이후 추가 검색 행 수
 }
 
 /// 셀 순서 패턴을 나타내는 enum
@@ -757,26 +760,45 @@ class ExcelService {
   }
 
   /// 교사 정보를 추출하는 메서드
+  /// 
+  /// 교사 행 개수를 고려하여 모든 교사 이름을 추출합니다.
+  /// 빈 셀을 만나면 추가로 지정된 행 수만큼 더 검색하여 마지막 교사까지 찾습니다.
   static List<Teacher> _extractTeacherInfo(Sheet sheet, ExcelParsingConfig config) {
     try {
       List<Teacher> teachers = [];
+      Set<String> seenNames = {}; // 중복 제거용
+      int consecutiveEmptyRows = 0; // 연속된 빈 행 개수
       
-      // 교사 열에서 데이터 시작 행부터 읽기
+      // 교사 이름이 있는 행 찾기
       for (int row = config.dataStartRow; row <= sheet.maxRows; row++) {
         String teacherCell = _getCellValue(sheet, row - 1, config.teacherColumn - 1); // 0-based로 변환
         
         if (teacherCell.trim().isEmpty) {
-          break; // 빈 셀이 나오면 중단
+          // 빈 셀을 만난 경우
+          consecutiveEmptyRows++;
+          
+          // 연속된 빈 행이 추가 검색 행 수를 초과하면 중단
+          if (consecutiveEmptyRows > ExcelServiceConstants.additionalSearchRowsAfterEmptyCell) {
+            developer.log('연속된 빈 행 $consecutiveEmptyRows개를 만나 검색을 중단합니다. ($row행)', name: 'ExcelService');
+            break;
+          }
+          
+          continue; // 빈 셀은 건너뛰기
         }
+        
+        // 빈 셀이 아닌 경우 연속 빈 행 카운터 리셋
+        consecutiveEmptyRows = 0;
         
         // 교사명 파싱: "A교사(20)" → name: "A교사", id: "20"
         Teacher? teacher = _parseTeacherName(teacherCell);
-        if (teacher != null) {
+        if (teacher != null && !seenNames.contains(teacher.name)) {
           teachers.add(teacher);
+          seenNames.add(teacher.name);
+          developer.log('교사 발견: $teacher.name ($row행)', name: 'ExcelService');
         }
       }
       
-      // 로그 제거
+      developer.log('총 ${teachers.length}명의 교사를 찾았습니다.', name: 'ExcelService');
       return teachers;
     } catch (e) {
       developer.log('교사 정보 추출 중 오류 발생: $e', name: 'ExcelService');
