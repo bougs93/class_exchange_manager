@@ -16,6 +16,24 @@ class ExcelServiceConstants {
   static const int maxColumnsToCheck = 50; // 요일 헤더 검색 최대 열 수
   static const int maxPeriodsToCheck = 10; // 교시 검색 최대 범위
   static const int maxRowsToLog = 20; // 로그 출력 최대 행 수
+  
+  // 셀 순서 검증 샘플링 설정
+  static const int maxSamplesForOrderDetection = 20; // 순서 검증 최대 샘플 개수
+  static const int minSamplesForOrderDetection = 5; // 순서 검증 최소 샘플 개수
+}
+
+/// 셀 순서 패턴을 나타내는 enum
+/// 
+/// 셀 내용이 두 줄로 구성될 때의 순서를 나타냅니다.
+enum CellOrderPattern {
+  /// 정상 순서: 학급번호 → 과목 (예: "103\n국어")
+  normal,
+  
+  /// 바뀐 순서: 과목 → 학급번호 (예: "국어\n103")
+  reversed,
+  
+  /// 확인 불가: 패턴을 확인할 수 없는 경우
+  unknown,
 }
 
 /// 엑셀 파일 파싱 설정을 위한 클래스
@@ -470,8 +488,20 @@ class ExcelService {
         developer.log('$day요일 교시: $periods', name: 'ExcelService');
       }
       
-      // 시간표 데이터 추출 (동적 설정 사용)
-      List<TimeSlot> timeSlots = _extractTimeSlotsByDay(sheet, dynamicConfig, dayHeaders, periodsByDay, teachers);
+      // 셀 순서 패턴 감지 (하이브리드 검증)
+      CellOrderPattern cellOrderPattern = _detectCellOrder(
+        sheet, dynamicConfig, teachers, dayHeaders, periodsByDay);
+      developer.log('감지된 셀 순서 패턴: $cellOrderPattern', name: 'ExcelService');
+      
+      // 셀 순서 패턴을 확인할 수 없는 경우 파싱 중단
+      if (cellOrderPattern == CellOrderPattern.unknown) {
+        developer.log('셀 순서 패턴을 확인할 수 없어 파싱을 중단합니다. 충분한 샘플 데이터가 없거나 패턴이 일관되지 않습니다.', name: 'ExcelService');
+        return null;
+      }
+      
+      // 시간표 데이터 추출 (동적 설정 사용, 셀 순서 패턴 전달)
+      List<TimeSlot> timeSlots = _extractTimeSlotsByDay(
+        sheet, dynamicConfig, dayHeaders, periodsByDay, teachers, cellOrderPattern);
       
       // 파싱 통계 계산
       int totalCells = 0;
@@ -788,7 +818,8 @@ class ExcelService {
     ExcelParsingConfig config,
     List<String> dayHeaders,
     Map<String, List<int>> periodsByDay,
-    List<Teacher> teachers
+    List<Teacher> teachers,
+    CellOrderPattern cellOrderPattern,
   ) {
     try {
       List<TimeSlot> timeSlots = [];
@@ -810,7 +841,8 @@ class ExcelService {
           dayHeaders,
           dayColumnMapping,
           periodsByDay,
-          timeSlots
+          timeSlots,
+          cellOrderPattern,
         );
       }
 
@@ -831,6 +863,7 @@ class ExcelService {
     Map<String, int> dayColumnMapping,
     Map<String, List<int>> periodsByDay,
     List<TimeSlot> timeSlots,
+    CellOrderPattern cellOrderPattern,
   ) {
     for (String day in dayHeaders) {
       int? dayStartCol = dayColumnMapping[day];
@@ -848,7 +881,8 @@ class ExcelService {
         dayStartCol,
         dayOfWeek,
         periods,
-        timeSlots
+        timeSlots,
+        cellOrderPattern,
       );
     }
   }
@@ -864,6 +898,7 @@ class ExcelService {
     int dayOfWeek,
     List<int> periods,
     List<TimeSlot> timeSlots,
+    CellOrderPattern cellOrderPattern,
   ) {
     for (int period in periods) {
       TimeSlot? slot = _extractSingleTimeSlot(
@@ -873,7 +908,8 @@ class ExcelService {
         teacherRow,
         dayStartCol,
         dayOfWeek,
-        period
+        period,
+        cellOrderPattern,
       );
       if (slot != null) {
         timeSlots.add(slot);
@@ -890,12 +926,14 @@ class ExcelService {
     int dayStartCol,
     int dayOfWeek,
     int period,
+    CellOrderPattern cellOrderPattern,
   ) {
     int? periodCol = _findPeriodColumnInDay(sheet, config, dayStartCol, period);
     if (periodCol == null) return null;
 
     String cellValue = _getCellValue(sheet, teacherRow - 1, periodCol - 1);
-    return _parseTimeSlotCell(cellValue, teacher, dayOfWeek, period);
+    return _parseTimeSlotCell(cellValue, teacher, dayOfWeek, period, 
+        orderPattern: cellOrderPattern);
   }
 
   /// 데이터 시작 열을 찾는 메서드 (첫 번째 요일의 1교시 열)
@@ -1133,14 +1171,258 @@ class ExcelService {
     }
   }
 
+  /// 학급번호 패턴인지 확인하는 메서드
+  /// 
+  /// 학급번호 패턴 예시:
+  /// - "103", "202" (3자리 숫자)
+  /// - "1-3", "2-1", "2-10" (하이픈 형태)
+  /// - "1반", "2반" (숫자+반)
+  /// - "1학년 3반" (학년-반 형태)
+  static bool _isClassNamePattern(String text) {
+    try {
+      text = text.trim();
+      
+      // 1. 3자리 숫자 (예: "103", "202")
+      if (RegExp(r'^\d{3}$').hasMatch(text)) return true;
+      
+      // 2. 하이픈 형태 (예: "1-3", "2-1", "2-10")
+      if (RegExp(r'^\d+-\d+$').hasMatch(text)) return true;
+      
+      // 3. 숫자+반 형태 (예: "1반", "2반")
+      if (RegExp(r'^\d+반?$').hasMatch(text)) return true;
+      
+      // 4. 학년-반 형태 (예: "1학년 3반", "2학년 10반")
+      if (RegExp(r'^\d+학년\s*\d+반$').hasMatch(text)) return true;
+      
+      return false;
+    } catch (e) {
+      developer.log('학급번호 패턴 확인 중 오류 발생: $e', name: 'ExcelService');
+      return false;
+    }
+  }
+
+  /// 과목명 패턴인지 확인하는 메서드
+  /// 
+  /// 과목명 패턴 예시:
+  /// - "국어", "수학", "영어" (한글)
+  /// - "English", "Math" (영문)
+  /// - "체육", "음악" (한글 과목명)
+  static bool _isSubjectPattern(String text) {
+    try {
+      text = text.trim();
+      
+      // 학급번호 패턴이면 과목이 아님
+      if (_isClassNamePattern(text)) return false;
+      
+      // 숫자만 있는 경우는 과목이 아님
+      if (RegExp(r'^\d+$').hasMatch(text)) return false;
+      
+      // 한글이나 영문으로 구성된 텍스트 (일반적인 과목명)
+      if (RegExp(r'^[가-힣a-zA-Z\s]+$').hasMatch(text)) return true;
+      
+      return false;
+    } catch (e) {
+      developer.log('과목명 패턴 확인 중 오류 발생: $e', name: 'ExcelService');
+      return false;
+    }
+  }
+
+  /// 샘플링 기반으로 셀 순서 패턴을 검증하는 메서드
+  /// 
+  /// 처음 몇 개 셀을 샘플링하여 정상 순서인지 바뀐 순서인지 판단합니다.
+  /// 
+  /// 매개변수:
+  /// - Sheet sheet: 엑셀 시트
+  /// - ExcelParsingConfig config: 파싱 설정
+  /// - `List<Teacher>` teachers: 교사 목록
+  /// - `List<String>` dayHeaders: 요일 목록
+  /// - `Map<String, List<int>>` periodsByDay: 요일별 교시 목록
+  /// 
+  /// 반환값:
+  /// - `Map<String, dynamic>`: {'pattern': CellOrderPattern, 'normalCount': int, 'reversedCount': int, 'sampleSize': int}
+  static Map<String, dynamic> _detectCellOrderPattern(
+    Sheet sheet,
+    ExcelParsingConfig config,
+    List<Teacher> teachers,
+    List<String> dayHeaders,
+    Map<String, List<int>> periodsByDay,
+  ) {
+    try {
+      int normalOrderCount = 0;  // 정상 순서 셀 개수 (학급번호 → 과목)
+      int reversedOrderCount = 0; // 바뀐 순서 셀 개수 (과목 → 학급번호)
+      int sampleSize = 0;
+      
+      // 요일별 시작 열 위치 계산
+      Map<String, int> dayColumnMapping = _calculateDayColumns(sheet, config, dayHeaders);
+      
+      // 처음 몇 개 교사의 시간표 셀을 샘플링
+      for (int teacherIndex = 0; 
+           teacherIndex < teachers.length && sampleSize < ExcelServiceConstants.maxSamplesForOrderDetection; 
+           teacherIndex++) {
+        int teacherRow = config.dataStartRow + teacherIndex;
+        
+        // 각 요일의 첫 번째 교시 셀만 샘플링 (성능 고려)
+        for (String day in dayHeaders) {
+          if (sampleSize >= ExcelServiceConstants.maxSamplesForOrderDetection) break;
+          
+          int? dayStartCol = dayColumnMapping[day];
+          if (dayStartCol == null) continue;
+          
+          List<int> periods = periodsByDay[day] ?? [];
+          if (periods.isEmpty) continue;
+          
+          // 첫 번째 교시 셀 읽기
+          int firstPeriod = periods.first;
+          int? periodCol = _findPeriodColumnInDay(sheet, config, dayStartCol, firstPeriod);
+          if (periodCol == null) continue;
+          
+          String cellValue = _getCellValue(sheet, teacherRow - 1, periodCol - 1);
+          
+          if (cellValue.trim().isNotEmpty) {
+            // 셀 내용을 줄바꿈으로 분할
+            List<String> lines = cellValue
+                .replaceAll('\r', '')
+                .replaceAll('_x000D_', '')
+                .split('\n')
+                .map((line) => line.trim())
+                .where((line) => line.isNotEmpty)
+                .toList();
+            
+            if (lines.length >= 2) {
+              bool firstIsClassName = _isClassNamePattern(lines[0]);
+              bool secondIsSubject = _isSubjectPattern(lines[1]);
+              bool firstIsSubject = _isSubjectPattern(lines[0]);
+              bool secondIsClassName = _isClassNamePattern(lines[1]);
+              
+              if (firstIsClassName && secondIsSubject) {
+                normalOrderCount++;
+                sampleSize++;
+              } else if (firstIsSubject && secondIsClassName) {
+                reversedOrderCount++;
+                sampleSize++;
+              }
+            }
+          }
+        }
+      }
+      
+      // 통계적으로 더 많은 패턴을 기본값으로 사용
+      CellOrderPattern pattern;
+      if (sampleSize < ExcelServiceConstants.minSamplesForOrderDetection) {
+        pattern = CellOrderPattern.unknown;
+      } else if (normalOrderCount >= reversedOrderCount) {
+        pattern = CellOrderPattern.normal;
+      } else {
+        pattern = CellOrderPattern.reversed;
+      }
+      
+      developer.log('셀 순서 패턴 검증 완료: pattern=$pattern, normal=$normalOrderCount, reversed=$reversedOrderCount, samples=$sampleSize', 
+          name: 'ExcelService');
+      
+      return {
+        'pattern': pattern,
+        'normalCount': normalOrderCount,
+        'reversedCount': reversedOrderCount,
+        'sampleSize': sampleSize,
+      };
+    } catch (e) {
+      developer.log('셀 순서 패턴 검증 중 오류 발생: $e', name: 'ExcelService');
+      return {
+        'pattern': CellOrderPattern.unknown,
+        'normalCount': 0,
+        'reversedCount': 0,
+        'sampleSize': 0,
+      };
+    }
+  }
+
+  /// 하이브리드 방식으로 셀 순서를 검증하는 메서드
+  /// 
+  /// 1단계: 샘플링으로 빠른 검증
+  /// 2단계: 샘플링 결과가 불확실하면 패턴 기반으로 재검증
+  /// 
+  /// 매개변수:
+  /// - Sheet sheet: 엑셀 시트
+  /// - ExcelParsingConfig config: 파싱 설정
+  /// - `List<Teacher>` teachers: 교사 목록
+  /// - `List<String>` dayHeaders: 요일 목록
+  /// - `Map<String, List<int>>` periodsByDay: 요일별 교시 목록
+  /// 
+  /// 반환값:
+  /// - CellOrderPattern: 검증된 셀 순서 패턴
+  static CellOrderPattern _detectCellOrder(
+    Sheet sheet,
+    ExcelParsingConfig config,
+    List<Teacher> teachers,
+    List<String> dayHeaders,
+    Map<String, List<int>> periodsByDay,
+  ) {
+    try {
+      // 1단계: 샘플링으로 빠른 검증
+      Map<String, dynamic> samplingResult = _detectCellOrderPattern(
+        sheet, config, teachers, dayHeaders, periodsByDay);
+      
+      CellOrderPattern pattern = samplingResult['pattern'] as CellOrderPattern;
+      int normalCount = samplingResult['normalCount'] as int;
+      int reversedCount = samplingResult['reversedCount'] as int;
+      int sampleSize = samplingResult['sampleSize'] as int;
+      
+      // 샘플링 결과가 불확실한 경우 (차이가 적거나 샘플이 부족한 경우)
+      if (pattern == CellOrderPattern.unknown || 
+          (sampleSize >= ExcelServiceConstants.minSamplesForOrderDetection && 
+           (normalCount - reversedCount).abs() <= 2)) {
+        // 2단계: 패턴 기반으로 재검증 (추가 샘플링)
+        // 더 많은 샘플을 수집하여 재검증
+        developer.log('샘플링 결과가 불확실하여 추가 검증 수행', name: 'ExcelService');
+        
+        // 추가 샘플링 (더 많은 셀 확인)
+        Map<String, dynamic> extendedResult = _detectCellOrderPattern(
+          sheet, config, teachers, dayHeaders, periodsByDay);
+        
+        int extendedNormalCount = extendedResult['normalCount'] as int;
+        int extendedReversedCount = extendedResult['reversedCount'] as int;
+        int extendedSampleSize = extendedResult['sampleSize'] as int;
+        
+        if (extendedSampleSize > sampleSize) {
+          // 확장된 샘플링 결과 사용
+          if (extendedNormalCount >= extendedReversedCount) {
+            pattern = CellOrderPattern.normal;
+          } else {
+            pattern = CellOrderPattern.reversed;
+          }
+          developer.log('추가 검증 완료: pattern=$pattern', name: 'ExcelService');
+        }
+      }
+      
+      return pattern;
+    } catch (e) {
+      developer.log('하이브리드 셀 순서 검증 중 오류 발생: $e', name: 'ExcelService');
+      return CellOrderPattern.unknown;
+    }
+  }
+
   /// 시간표 셀을 파싱하는 메서드
   /// 
   /// 셀 내용 예시:
   /// - 빈 셀 → TimeSlot 생성 (subject, className = null)
-  /// - "103\n국어" → className: "103", subject: "국어"
+  /// - "103\n국어" → className: "103", subject: "국어" (정상 순서)
+  /// - "국어\n103" → className: "103", subject: "국어" (바뀐 순서)
   /// - "1-3\n수학" → className: "1-3", subject: "수학"
   /// - "2-1" → className: "2-1", subject: null
-  static TimeSlot _parseTimeSlotCell(String cellValue, Teacher teacher, int dayOfWeek, int period) {
+  /// 
+  /// 매개변수:
+  /// - String cellValue: 셀 내용
+  /// - Teacher teacher: 교사 정보
+  /// - int dayOfWeek: 요일 번호
+  /// - int period: 교시 번호
+  /// - CellOrderPattern? orderPattern: 셀 순서 패턴 (null이면 자동 감지)
+  static TimeSlot _parseTimeSlotCell(
+    String cellValue, 
+    Teacher teacher, 
+    int dayOfWeek, 
+    int period,
+    {CellOrderPattern? orderPattern}
+  ) {
     try {
       String? className;
       String? subject;
@@ -1161,12 +1443,47 @@ class ExcelService {
             .toList();
         
         if (lines.isNotEmpty) {
-          // 첫 번째 줄: 학급번호 (예: "103", "1-3", "2-1")
-          className = _convertClassName(lines[0]);
+          // 순서 패턴이 지정된 경우 해당 순서 사용, 없으면 자동 감지
+          CellOrderPattern detectedPattern = orderPattern ?? CellOrderPattern.unknown;
           
-          // 두 번째 줄: 과목명 (예: "국어", "수학", "영어")
+          if (detectedPattern == CellOrderPattern.unknown && lines.length >= 2) {
+            // 자동 감지: 각 줄의 패턴을 분석
+            bool firstIsClassName = _isClassNamePattern(lines[0]);
+            bool secondIsSubject = _isSubjectPattern(lines[1]);
+            bool firstIsSubject = _isSubjectPattern(lines[0]);
+            bool secondIsClassName = _isClassNamePattern(lines[1]);
+            
+            if (firstIsClassName && secondIsSubject) {
+              detectedPattern = CellOrderPattern.normal;
+            } else if (firstIsSubject && secondIsClassName) {
+              detectedPattern = CellOrderPattern.reversed;
+            } else {
+              // 패턴을 확인할 수 없으면 기본값(정상 순서) 사용
+              detectedPattern = CellOrderPattern.normal;
+            }
+          }
+          
+          // 순서 패턴에 따라 학급번호와 과목 추출
           if (lines.length >= 2) {
-            subject = lines[1];
+            if (detectedPattern == CellOrderPattern.reversed) {
+              // 바뀐 순서: 첫 번째 줄 = 과목, 두 번째 줄 = 학급번호
+              subject = lines[0];
+              className = _convertClassName(lines[1]);
+            } else {
+              // 정상 순서 또는 확인 불가: 첫 번째 줄 = 학급번호, 두 번째 줄 = 과목
+              className = _convertClassName(lines[0]);
+              subject = lines[1];
+            }
+          } else if (lines.length == 1) {
+            // 한 줄만 있는 경우: 패턴으로 판단
+            if (_isClassNamePattern(lines[0])) {
+              className = _convertClassName(lines[0]);
+            } else if (_isSubjectPattern(lines[0])) {
+              subject = lines[0];
+            } else {
+              // 패턴을 확인할 수 없으면 기본값으로 처리 (학급번호로 가정)
+              className = _convertClassName(lines[0]);
+            }
           }
         }
       }
