@@ -15,7 +15,6 @@ import '../../utils/simplified_timetable_theme.dart';
 import '../../utils/logger.dart';
 import '../../ui/widgets/timetable_grid/exchange_executor.dart';
 import '../../services/app_settings_storage_service.dart';
-import '../../services/pdf_export_settings_storage_service.dart';
 import '../../services/non_exchangeable_data_storage_service.dart';
 import '../../services/excel_service.dart';
 import '../../models/time_slot.dart';
@@ -133,8 +132,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
       // 6. 기본 교사명과 학교명 로드 (설정 화면 표시용)
       try {
-        final pdfSettings = PdfExportSettingsStorageService();
-        await pdfSettings.loadDefaultTeacherAndSchoolName(); // 설정 캐시를 위해 미리 로드
+        final appSettings = AppSettingsStorageService();
+        await appSettings.loadTeacherAndSchoolName(); // 설정 캐시를 위해 미리 로드
         AppLogger.info('기본 교사명과 학교명 로드 완료');
       } catch (e) {
         AppLogger.error('기본 교사명과 학교명 로드 중 오류: $e', e);

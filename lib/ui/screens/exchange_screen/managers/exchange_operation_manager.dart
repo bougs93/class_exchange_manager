@@ -125,6 +125,11 @@ class ExchangeOperationManager {
       } else {
         stateProxy.setErrorMessage('엑셀 파일을 읽을 수 없습니다.');
       }
+    } on DuplicateTeacherException catch (e) {
+      // 교사 이름 중복 오류: 사용자에게 알림하고 엑셀 파일 읽기 중지
+      AppLogger.error('교사 이름 중복 오류: ${e.toString()}');
+      stateProxy.setErrorMessage(e.userMessage);
+      // 엑셀 파일 읽기는 여기서 중지됨 (예외로 인해 더 이상 진행되지 않음)
     } catch (e) {
       stateProxy.setErrorMessage('파일 로딩 중 오류: $e');
     }
@@ -142,25 +147,41 @@ class ExchangeOperationManager {
       } else {
         stateProxy.setErrorMessage('유효하지 않은 엑셀 파일입니다.');
       }
+    } on DuplicateTeacherException catch (e) {
+      // 교사 이름 중복 오류: 사용자에게 알림하고 엑셀 파일 읽기 중지
+      AppLogger.error('교사 이름 중복 오류: ${e.toString()}');
+      stateProxy.setErrorMessage(e.userMessage);
+      // 엑셀 파일 읽기는 여기서 중지됨 (예외로 인해 더 이상 진행되지 않음)
     } catch (e) {
       stateProxy.setErrorMessage('파일 처리 중 오류: $e');
     }
   }
 
   Future<void> parseTimetableData(Excel excel) async {
-    final timetableData = ExcelService.parseTimetableData(excel);
+    try {
+      final timetableData = ExcelService.parseTimetableData(excel);
 
-    if (timetableData == null) {
-      stateProxy.setErrorMessage('시간표 데이터를 파싱할 수 없습니다.');
-      return;
+      if (timetableData == null) {
+        stateProxy.setErrorMessage('시간표 데이터를 파싱할 수 없습니다.');
+        return;
+      }
+
+      // 파일 변경 감지 및 사용자 확인
+      final shouldContinue = await _handleFileModification();
+      if (!shouldContinue) return;
+
+      // 데이터 저장 및 적용
+      await _saveAndApplyTimetableData(timetableData);
+    } on DuplicateTeacherException catch (e) {
+      // 교사 이름 중복 오류: 사용자에게 알림하고 엑셀 파일 읽기 중지
+      AppLogger.error('교사 이름 중복 오류: ${e.toString()}');
+      stateProxy.setErrorMessage(e.userMessage);
+      // 엑셀 파일 읽기는 여기서 중지됨 (예외로 인해 더 이상 진행되지 않음)
+    } catch (e) {
+      // 기타 예외 처리
+      AppLogger.error('시간표 파싱 중 오류: $e');
+      stateProxy.setErrorMessage('시간표 데이터를 파싱할 수 없습니다: $e');
     }
-
-    // 파일 변경 감지 및 사용자 확인
-    final shouldContinue = await _handleFileModification();
-    if (!shouldContinue) return;
-
-    // 데이터 저장 및 적용
-    await _saveAndApplyTimetableData(timetableData);
   }
 
   /// 파일 변경 감지 및 사용자 확인 처리

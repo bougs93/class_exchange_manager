@@ -50,6 +50,7 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
   // 자동 업데이트 중 플래그 (리스너가 업데이트를 감지하지 않도록)
   bool _isUpdatingAbsencePeriod = false;
   
+  
   @override
   void initState() {
     super.initState();
@@ -58,8 +59,10 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
     // 결강기간 필드 변경 감지 (사용자가 직접 수정한 경우 플래그 설정)
     _absencePeriodController.addListener(_onAbsencePeriodChanged);
     
-    // 저장된 PDF 출력 설정 로드 후 결강기간 자동 업데이트
-    _loadSavedSettings().then((_) {
+    // 추가 필드 Controller는 메모리 변수로만 관리 (자동 저장하지 않음)
+    
+    // 마지막으로 선택된 양식 인덱스 로드 후 해당 양식의 설정 로드
+    _loadLastSelectedTemplateIndex().then((_) {
       // 설정 로드 완료 후 결강기간 자동 업데이트 (위젯이 생성된 후 실행)
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -69,7 +72,60 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
       });
     });
   }
+  
+  @override
+  void dispose() {
+    // 프로그램 종료 시 현재 양식의 설정 저장
+    _saveCurrentSettings();
+    
+    // 프로그램 종료 시 마지막 선택된 양식 인덱스 저장
+    _pdfSettingsStorage.saveLastSelectedTemplateIndex(_selectedTemplateIndex);
+    
+    // Controller 정리
+    _teacherNameController.dispose();
+    _absencePeriodController.dispose();
+    _workStatusController.dispose();
+    _reasonForAbsenceController.dispose();
+    _schoolNameController.dispose();
+    _notesController.dispose();
+    
+    super.dispose();
+  }
 
+  /// 현재 설정을 디스크에 저장
+  /// 
+  /// 문서 출력 버튼 클릭 시 또는 프로그램 종료 시 호출됩니다.
+  Future<void> _saveCurrentSettings() async {
+    if (!mounted) return;
+    
+    try {
+      final saveSuccess = await _pdfSettingsStorage.savePdfExportSettings(
+        templateIndex: _selectedTemplateIndex,
+        fontSize: _fontSize,
+        remarksFontSize: _remarksFontSize,
+        selectedFont: _selectedFont,
+        includeRemarks: _includeRemarks,
+        additionalFields: {
+          'teacherName': _teacherNameController.text,
+          'absencePeriod': _absencePeriodController.text,
+          'workStatus': _workStatusController.text,
+          'reasonForAbsence': _reasonForAbsenceController.text,
+          'schoolName': _schoolNameController.text,
+          'notes': _notesController.text,
+        },
+        selectedTemplateFilePath: _selectedTemplateFilePath,
+      );
+      
+      if (saveSuccess) {
+        AppLogger.debug('PDF 설정 저장 성공 (양식 ${_selectedTemplateIndex + 1})');
+      } else {
+        AppLogger.warning('PDF 설정 저장 실패 (양식 ${_selectedTemplateIndex + 1})');
+      }
+    } catch (e) {
+      AppLogger.error('PDF 설정 저장 중 오류: $e', e);
+    }
+  }
+  
   /// 결강기간 필드 변경 리스너
   void _onAbsencePeriodChanged() {
     // 자동 업데이트 중이면 무시
@@ -140,74 +196,171 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
     }
   }
   
-  /// PDF 템플릿 파일 경로 저장 (즉시 저장)
-  Future<void> _saveTemplateFilePath(String? filePath) async {
-    await _pdfSettingsStorage.saveTemplateFilePath(filePath);
+  /// 마지막으로 선택된 양식 인덱스 로드
+  /// 
+  /// 프로그램 시작 시 호출되어 마지막으로 선택했던 양식을 로드합니다.
+  Future<void> _loadLastSelectedTemplateIndex() async {
+    try {
+      final lastIndex = await _pdfSettingsStorage.loadLastSelectedTemplateIndex();
+      if (lastIndex != null && lastIndex >= 0 && lastIndex <= 1) {
+        setState(() {
+          _selectedTemplateIndex = lastIndex;
+        });
+        AppLogger.info('마지막 선택된 양식 인덱스 로드: 양식 ${lastIndex + 1}');
+      }
+      
+      // 선택된 양식의 설정 로드
+      await _loadSavedSettings(templateIndex: lastIndex ?? 0);
+    } catch (e) {
+      AppLogger.error('마지막 선택된 양식 인덱스 로드 실패: $e', e);
+      // 오류 발생 시 기본값(양식 1)으로 설정 로드
+      await _loadSavedSettings(templateIndex: 0);
+    }
   }
 
   /// 저장된 PDF 출력 설정 로드
-  Future<void> _loadSavedSettings() async {
+  /// 
+  /// 지정된 양식의 설정을 로드합니다.
+  /// 
+  /// 매개변수:
+  /// - `templateIndex`: 로드할 양식 인덱스 (기본값: 현재 선택된 양식)
+  Future<void> _loadSavedSettings({int? templateIndex}) async {
     try {
-      final settings = await _pdfSettingsStorage.loadPdfExportSettings();
+      // 지정된 양식 인덱스가 없으면 현재 선택된 양식 사용
+      final targetIndex = templateIndex ?? _selectedTemplateIndex;
+      
+      // 지정된 양식의 설정 로드
+      final settings = await _pdfSettingsStorage.loadPdfExportSettings(templateIndex: targetIndex);
+      
+      // 폰트 설정 업데이트
+      double newFontSize = 10.0;
+      double newRemarksFontSize = 7.0;
+      String newSelectedFont = KoreanFontConstants.defaultFont;
+      bool newIncludeRemarks = true;
+      String? newSelectedTemplateFilePath;
+      
+      // 추가 필드 값
+      String newTeacherName = '';
+      String newWorkStatus = '';
+      String newReasonForAbsence = '';
+      String newSchoolName = '';
+      String newNotes = PdfNotesTemplate.defaultNotes;
+      
       if (settings != null) {
-        setState(() {
-            _fontSize = (settings['fontSize'] as num?)?.toDouble() ?? 10.0;
-            _remarksFontSize = (settings['remarksFontSize'] as num?)?.toDouble() ?? 7.0;
-            
-            // 폰트 값 유효성 검사: 드롭다운 아이템에 있는 값인지 확인
-            final savedFont = settings['selectedFont'] as String?;
-            final availableFonts = KoreanFontConstants.fontListWithNames
-                .map((font) => font['file']!)
-                .toList();
-            // 저장된 폰트가 유효한 목록에 있는지 확인하고, 없으면 기본 폰트 사용
-            _selectedFont = (savedFont != null && availableFonts.contains(savedFont))
-                ? savedFont
-                : KoreanFontConstants.defaultFont;
-          _includeRemarks = settings['includeRemarks'] as bool? ?? true;
-          
-          // 저장된 PDF 템플릿 파일 경로 로드 (파일 존재 여부 확인)
-          final savedTemplatePath = settings['selectedTemplateFilePath'] as String?;
-          if (savedTemplatePath != null && savedTemplatePath.isNotEmpty) {
-            // 파일이 존재하는지 확인
-            final file = File(savedTemplatePath);
-            if (file.existsSync()) {
-              _selectedTemplateFilePath = savedTemplatePath;
-              AppLogger.info('저장된 PDF 템플릿 파일 경로 로드: $savedTemplatePath');
-            } else {
-              AppLogger.warning('저장된 PDF 템플릿 파일이 존재하지 않습니다: $savedTemplatePath');
-              // 파일이 없으면 경로 초기화
-              _selectedTemplateFilePath = null;
-            }
-          }
-          
-          // 추가 필드 로드 (결강기간 제외 - 자동 계산값으로 덮어씀)
-          final additionalFields = settings['additionalFields'] as Map<String, dynamic>?;
-          if (additionalFields != null) {
-            // 결강교사: 저장된 값이 있으면 사용
-            final savedTeacherName = additionalFields['teacherName'] as String? ?? '';
-            if (savedTeacherName.isNotEmpty) {
-              _teacherNameController.text = savedTeacherName;
-            }
-            
-            // 결강기간은 자동 계산으로 덮어씌우므로 저장된 값은 무시
-            // _absencePeriodController.text = additionalFields['absencePeriod'] as String? ?? '';
-            _workStatusController.text = additionalFields['workStatus'] as String? ?? '';
-            _reasonForAbsenceController.text = additionalFields['reasonForAbsence'] as String? ?? '';
-            
-            // 학교명: 저장된 값이 있으면 사용
-            final savedSchoolName = additionalFields['schoolName'] as String? ?? '';
-            if (savedSchoolName.isNotEmpty) {
-              _schoolNameController.text = savedSchoolName;
-            }
-            
-            _notesController.text = additionalFields['notes'] as String? ?? PdfNotesTemplate.defaultNotes;
-          }
-        });
+        // 저장된 설정이 있는 경우: 저장된 값으로 로드
+        newFontSize = (settings['fontSize'] as num?)?.toDouble() ?? 10.0;
+        newRemarksFontSize = (settings['remarksFontSize'] as num?)?.toDouble() ?? 7.0;
         
-        // 설정에서 교사명, 학교명 로드 (입력란이 비어있을 때만 사용)
-        // setState 밖에서 호출 (async 함수이므로)
-        await loadDefaultValuesIfEmpty();
+        // 폰트 값 유효성 검사: 드롭다운 아이템에 있는 값인지 확인
+        final savedFont = settings['selectedFont'] as String?;
+        final availableFonts = KoreanFontConstants.fontListWithNames
+            .map((font) => font['file']!)
+            .toList();
+        // 저장된 폰트가 유효한 목록에 있는지 확인하고, 없으면 기본 폰트 사용
+        newSelectedFont = (savedFont != null && availableFonts.contains(savedFont))
+            ? savedFont
+            : KoreanFontConstants.defaultFont;
+        newIncludeRemarks = settings['includeRemarks'] as bool? ?? true;
+        
+        // 저장된 PDF 템플릿 파일 경로 로드 (파일 존재 여부 확인)
+        final savedTemplatePath = settings['selectedTemplateFilePath'] as String?;
+        if (savedTemplatePath != null && savedTemplatePath.isNotEmpty) {
+          // 파일이 존재하는지 확인
+          final file = File(savedTemplatePath);
+          if (file.existsSync()) {
+            newSelectedTemplateFilePath = savedTemplatePath;
+            AppLogger.info('저장된 PDF 템플릿 파일 경로 로드 (양식 ${targetIndex + 1}): $savedTemplatePath');
+          } else {
+            AppLogger.warning('저장된 PDF 템플릿 파일이 존재하지 않습니다: $savedTemplatePath');
+            // 파일이 없으면 경로 초기화
+            newSelectedTemplateFilePath = null;
+          }
+        } else {
+          // 저장된 경로가 없으면 null로 설정
+          newSelectedTemplateFilePath = null;
+        }
+        
+        // 추가 필드 로드
+        final additionalFields = settings['additionalFields'] as Map<String, dynamic>?;
+        // 양식별 기본값 가져오기 (notes 필드 기본값 사용)
+        final defaultSettings = _pdfSettingsStorage.getDefaultSettings(templateIndex: targetIndex);
+        final defaultNotes = (defaultSettings['additionalFields'] as Map<String, dynamic>?)?
+            ['notes'] as String? ?? PdfNotesTemplate.defaultNotes;
+        
+        if (additionalFields != null) {
+          // 결강교사: 저장된 값이 있으면 사용, 없으면 빈 문자열
+          newTeacherName = additionalFields['teacherName'] as String? ?? '';
+          
+          // 결강기간은 자동 계산으로 덮어씌우므로 저장된 값은 무시
+          // _absencePeriodController.text = additionalFields['absencePeriod'] as String? ?? '';
+          
+          newWorkStatus = additionalFields['workStatus'] as String? ?? '';
+          newReasonForAbsence = additionalFields['reasonForAbsence'] as String? ?? '';
+          
+          // 학교명: 저장된 값이 있으면 사용, 없으면 빈 문자열
+          newSchoolName = additionalFields['schoolName'] as String? ?? '';
+          
+          // notes: 저장된 값이 있으면 사용, 없으면 양식별 기본값 사용
+          newNotes = additionalFields['notes'] as String? ?? defaultNotes;
+        } else {
+          // 추가 필드가 없는 경우 양식별 기본값으로 초기화
+          newTeacherName = '';
+          newWorkStatus = '';
+          newReasonForAbsence = '';
+          newSchoolName = '';
+          newNotes = defaultNotes;
+        }
+        
+        AppLogger.info('양식 ${targetIndex + 1}의 설정 로드 완료');
+      } else {
+        // 저장된 설정이 없는 경우: 양식별 기본값으로 초기화
+        final defaultSettings = _pdfSettingsStorage.getDefaultSettings(templateIndex: targetIndex);
+        newFontSize = (defaultSettings['fontSize'] as num?)?.toDouble() ?? 10.0;
+        newRemarksFontSize = (defaultSettings['remarksFontSize'] as num?)?.toDouble() ?? 7.0;
+        
+        // 폰트 값 유효성 검사
+        final defaultFont = defaultSettings['selectedFont'] as String?;
+        final availableFonts = KoreanFontConstants.fontListWithNames
+            .map((font) => font['file']!)
+            .toList();
+        newSelectedFont = (defaultFont != null && availableFonts.contains(defaultFont))
+            ? defaultFont
+            : KoreanFontConstants.defaultFont;
+        newIncludeRemarks = defaultSettings['includeRemarks'] as bool? ?? true;
+        newSelectedTemplateFilePath = null;
+        
+        // 추가 필드도 양식별 기본값으로 초기화
+        final defaultAdditionalFields = defaultSettings['additionalFields'] as Map<String, dynamic>?;
+        newTeacherName = '';
+        newWorkStatus = '';
+        newReasonForAbsence = '';
+        newSchoolName = '';
+        // notes는 양식별 기본값 사용 (양식 2는 빈값, 양식 1은 기본 템플릿 값)
+        newNotes = defaultAdditionalFields?['notes'] as String? ?? PdfNotesTemplate.defaultNotes;
+        
+        AppLogger.info('양식 ${targetIndex + 1}의 저장된 설정이 없어 기본값으로 초기화 (폰트: $newSelectedFont, 비고 출력: $newIncludeRemarks)');
       }
+      
+      // UI 업데이트: setState로 상태 변경 및 Controller 값 업데이트
+      setState(() {
+        // 폰트 설정 업데이트
+        _fontSize = newFontSize;
+        _remarksFontSize = newRemarksFontSize;
+        _selectedFont = newSelectedFont;
+        _includeRemarks = newIncludeRemarks;
+        _selectedTemplateFilePath = newSelectedTemplateFilePath;
+        
+        // 추가 필드 Controller 값 업데이트 (UI에 반영됨)
+        _teacherNameController.text = newTeacherName;
+        _workStatusController.text = newWorkStatus;
+        _reasonForAbsenceController.text = newReasonForAbsence;
+        _schoolNameController.text = newSchoolName;
+        _notesController.text = newNotes;
+      });
+      
+      // 설정에서 교사명, 학교명 로드 (입력란이 비어있을 때만 사용)
+      // setState 밖에서 호출 (async 함수이므로)
+      await loadDefaultValuesIfEmpty();
     } catch (e) {
       // 로드 실패 시 기본값 유지
       // AppLogger를 사용하여 프로덕션 환경에서 안전한 로깅 수행
@@ -257,20 +410,9 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
   final TextEditingController _workStatusController = TextEditingController();
   final TextEditingController _reasonForAbsenceController = TextEditingController();
   final TextEditingController _schoolNameController = TextEditingController();
-  final TextEditingController _notesController = TextEditingController(
-    text: PdfNotesTemplate.defaultNotes,
-  );
+  // notes Controller는 초기값을 빈 문자열로 설정 (양식별 기본값은 로드 시 적용)
+  final TextEditingController _notesController = TextEditingController();
 
-  @override
-  void dispose() {
-    _teacherNameController.dispose();
-    _absencePeriodController.dispose();
-    _workStatusController.dispose();
-    _reasonForAbsenceController.dispose();
-    _notesController.dispose();
-    _schoolNameController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -305,25 +447,48 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
               includeRemarks: _includeRemarks,
               fontSizeOptions: _fontSizeOptions,
               remarksFontSizeOptions: _remarksFontSizeOptions,
-              onTemplateIndexChanged: (index) {
+              onTemplateIndexChanged: (index) async {
+                // 양식 변경 시: 먼저 현재 양식의 메모리 상 설정을 디스크에 저장한 후, 새 양식의 설정을 로드
+                
+                // 현재 양식의 설정 저장 (메모리 → 디스크)
+                await _saveCurrentSettings();
+                
+                // 양식 인덱스 업데이트 (로드 전에 업데이트하여 올바른 양식의 설정을 로드)
                 setState(() {
                   _selectedTemplateIndex = index;
-                  _selectedTemplateFilePath = null;
                 });
-                // 드롭다운에서 기본 템플릿 선택 시 저장된 경로 제거
-                _saveTemplateFilePath(null);
+                
+                // 마지막 선택된 양식 인덱스 저장
+                await _pdfSettingsStorage.saveLastSelectedTemplateIndex(index);
+                
+                // 새 양식의 설정 로드 (디스크 → 메모리)
+                // _loadSavedSettings 내부에서 setState를 호출하여 모든 메모리 변수와 Controller 값을 업데이트함
+                await _loadSavedSettings(templateIndex: index);
+                
+                AppLogger.info('양식 변경: 양식 ${index + 1} 선택됨, 설정 로드 완료');
               },
-              onTemplateFilePathChanged: (path) {
+              onTemplateFilePathChanged: (path) async {
+                // PDF 파일 경로는 메모리 변수만 업데이트 (디스크 저장하지 않음)
                 setState(() => _selectedTemplateFilePath = path);
-                // PDF 파일 선택 시 즉시 저장
-                if (path != null) {
-                  _saveTemplateFilePath(path);
-                }
+                // 파일 경로는 문서 출력 버튼 클릭 시 또는 프로그램 종료 시 저장됨
+                AppLogger.info('사용자 정의 PDF 파일 선택: $path (메모리에만 저장, 디스크 저장은 문서 출력 시)');
               },
-              onFontSizeChanged: (size) => setState(() => _fontSize = size),
-              onRemarksFontSizeChanged: (size) => setState(() => _remarksFontSize = size),
-              onFontChanged: (font) => setState(() => _selectedFont = font),
-              onIncludeRemarksChanged: (include) => setState(() => _includeRemarks = include),
+              onFontSizeChanged: (size) {
+                // 폰트 크기 변경 시 메모리 변수만 업데이트 (디스크 저장하지 않음)
+                setState(() => _fontSize = size);
+              },
+              onRemarksFontSizeChanged: (size) {
+                // 비고 폰트 크기 변경 시 메모리 변수만 업데이트 (디스크 저장하지 않음)
+                setState(() => _remarksFontSize = size);
+              },
+              onFontChanged: (font) {
+                // 폰트 종류 변경 시 메모리 변수만 업데이트 (디스크 저장하지 않음)
+                setState(() => _selectedFont = font);
+              },
+              onIncludeRemarksChanged: (include) {
+                // 비고 출력 여부 변경 시 메모리 변수만 업데이트 (디스크 저장하지 않음)
+                setState(() => _includeRemarks = include);
+              },
             ),
 
             const SizedBox(height: 15),
@@ -408,26 +573,8 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
         return;
       }
 
-      // 4. PDF 출력 설정 저장 (문서 출력 버튼 클릭 시)
-      final saveSuccess = await _pdfSettingsStorage.savePdfExportSettings(
-        fontSize: _fontSize,
-        remarksFontSize: _remarksFontSize,
-        selectedFont: _selectedFont,
-        includeRemarks: _includeRemarks,
-        additionalFields: {
-          'teacherName': _teacherNameController.text,
-          'absencePeriod': _absencePeriodController.text,
-          'workStatus': _workStatusController.text,
-          'reasonForAbsence': _reasonForAbsenceController.text,
-          'schoolName': _schoolNameController.text,
-          'notes': _notesController.text,
-        },
-        selectedTemplateFilePath: _selectedTemplateFilePath, // PDF 템플릿 파일 경로 저장
-      );
-      
-      if (!saveSuccess && mounted) {
-        _showSnackBar('PDF 설정 저장에 실패했습니다.', Colors.orange);
-      }
+      // 4. PDF 출력 설정 저장 (문서 출력 버튼 클릭 시, 양식별로 저장)
+      await _saveCurrentSettings();
       
       // 5. 미리보기 화면으로 이동
       if (mounted) {

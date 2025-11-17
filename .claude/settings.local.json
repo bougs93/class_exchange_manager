@@ -22,7 +22,8 @@
       "Bash(cat:*)",
       "Bash(xargs -I {} sh -c 'wc -l < \"\"\"\"{}\"\"\"\" | awk \"\"\"\"{if (\\$1 > 500) print \\$1, \\\"\"\"\"{}\\\"\"\"\"}\"\"\"\"')",
       "Bash(flutter pub:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(rm:*)"
     ],
     "deny": [],
     "ask": []

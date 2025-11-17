@@ -7,6 +7,39 @@ import '../models/teacher.dart';
 import '../models/time_slot.dart';
 import '../utils/day_utils.dart';
 
+/// 교사 이름 중복 예외 클래스
+/// 
+/// 엑셀 파일에서 동일한 교사 이름이 중복되어 발견될 때 발생하는 예외입니다.
+class DuplicateTeacherException implements Exception {
+  /// 중복된 교사 이름
+  final String teacherName;
+  
+  /// 첫 번째로 발견된 행 번호 (1-based)
+  final int firstRow;
+  
+  /// 중복이 발견된 행 번호 (1-based)
+  final int duplicateRow;
+  
+  DuplicateTeacherException({
+    required this.teacherName,
+    required this.firstRow,
+    required this.duplicateRow,
+  });
+  
+  @override
+  String toString() {
+    return '교사 이름 중복 오류: "$teacherName"이(가) $firstRow행과 $duplicateRow행에서 중복되었습니다.';
+  }
+  
+  /// 사용자에게 표시할 메시지
+  String get userMessage {
+    return '엑셀 파일에서 교사 이름 "$teacherName"이(가) 중복되었습니다.\n'
+           '첫 번째: $firstRow행\n'
+           '중복: $duplicateRow행\n\n'
+           '엑셀 파일을 확인하고 중복을 제거한 후 다시 시도해주세요.';
+  }
+}
+
 /// 상수 정의
 class ExcelServiceConstants {
   // 파일 크기 제한
@@ -480,7 +513,15 @@ class ExcelService {
       }
       
       // 교사 정보 추출 (동적 설정 사용)
-      List<Teacher> teachers = _extractTeacherInfo(sheet, dynamicConfig);
+      // 중복된 교사 이름이 발견되면 DuplicateTeacherException이 발생합니다.
+      List<Teacher> teachers;
+      try {
+        teachers = _extractTeacherInfo(sheet, dynamicConfig);
+      } on DuplicateTeacherException catch (e) {
+        // 중복 교사 이름 예외를 그대로 전파하여 상위 호출자에서 처리하도록 함
+        developer.log('교사 이름 중복 오류: ${e.toString()}', name: 'ExcelService');
+        rethrow;
+      }
       
       // 요일별 교시 번호 찾기 (동적 설정 사용)
       Map<String, List<int>> periodsByDay = _findPeriodsByDay(sheet, dynamicConfig.periodHeaderRow, dayHeaders, dynamicConfig);
@@ -542,6 +583,10 @@ class ExcelService {
       
       return result;
       
+    } on DuplicateTeacherException catch (e) {
+      // 중복 교사 이름 예외는 그대로 전파하여 상위 호출자에서 처리하도록 함
+      developer.log('시간표 파싱 중 교사 이름 중복 오류: ${e.toString()}', name: 'ExcelService');
+      rethrow;
     } catch (e) {
       developer.log('시간표 파싱 중 오류 발생: $e', name: 'ExcelService');
       return null;
@@ -763,10 +808,16 @@ class ExcelService {
   /// 
   /// 교사 행 개수를 고려하여 모든 교사 이름을 추출합니다.
   /// 빈 셀을 만나면 추가로 지정된 행 수만큼 더 검색하여 마지막 교사까지 찾습니다.
+  /// 
+  /// 중복된 교사 이름이 발견되면 [DuplicateTeacherException]을 던집니다.
+  /// 
+  /// 예외:
+  /// - [DuplicateTeacherException]: 동일한 교사 이름이 중복되어 발견된 경우
   static List<Teacher> _extractTeacherInfo(Sheet sheet, ExcelParsingConfig config) {
     try {
       List<Teacher> teachers = [];
-      Set<String> seenNames = {}; // 중복 제거용
+      // 중복 검사를 위한 Map: 교사 이름 -> 첫 번째로 발견된 행 번호
+      Map<String, int> seenNames = {}; // 중복 검사용 (이름 -> 첫 번째 행 번호)
       int consecutiveEmptyRows = 0; // 연속된 빈 행 개수
       
       // 교사 이름이 있는 행 찾기
@@ -791,9 +842,22 @@ class ExcelService {
         
         // 교사명 파싱: "A교사(20)" → name: "A교사", id: "20"
         Teacher? teacher = _parseTeacherName(teacherCell);
-        if (teacher != null && !seenNames.contains(teacher.name)) {
+        if (teacher != null) {
+          // 중복 검사: 이미 본 이름인지 확인
+          if (seenNames.containsKey(teacher.name)) {
+            // 중복 발견: 예외 던지기
+            int firstRow = seenNames[teacher.name]!;
+            developer.log('교사 이름 중복 발견: "$teacher.name"이(가) $firstRow행과 $row행에서 중복되었습니다.', name: 'ExcelService');
+            throw DuplicateTeacherException(
+              teacherName: teacher.name,
+              firstRow: firstRow,
+              duplicateRow: row,
+            );
+          }
+          
+          // 중복이 아닌 경우: 교사 추가 및 기록
           teachers.add(teacher);
-          seenNames.add(teacher.name);
+          seenNames[teacher.name] = row; // 첫 번째로 발견된 행 번호 저장
           developer.log('교사 발견: $teacher.name ($row행)', name: 'ExcelService');
         }
       }
@@ -801,6 +865,11 @@ class ExcelService {
       developer.log('총 ${teachers.length}명의 교사를 찾았습니다.', name: 'ExcelService');
       return teachers;
     } catch (e) {
+      // DuplicateTeacherException은 그대로 전파
+      if (e is DuplicateTeacherException) {
+        rethrow;
+      }
+      // 다른 예외는 로그만 남기고 빈 리스트 반환
       developer.log('교사 정보 추출 중 오류 발생: $e', name: 'ExcelService');
       return [];
     }

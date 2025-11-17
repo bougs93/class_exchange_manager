@@ -31,6 +31,37 @@ class _PdfFieldInputsSectionState extends State<PdfFieldInputsSection> {
   void initState() {
     super.initState();
     // 모든 컨트롤러에 리스너 추가하여 텍스트 변경 시 UI 업데이트
+    _addListeners();
+  }
+
+  @override
+  void didUpdateWidget(PdfFieldInputsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 위젯이 업데이트될 때 Controller가 변경된 경우에만 리스너 재등록
+    if (oldWidget.teacherNameController != widget.teacherNameController ||
+        oldWidget.workStatusController != widget.workStatusController ||
+        oldWidget.reasonForAbsenceController != widget.reasonForAbsenceController ||
+        oldWidget.schoolNameController != widget.schoolNameController ||
+        oldWidget.notesController != widget.notesController ||
+        oldWidget.absencePeriodController != widget.absencePeriodController) {
+      // Controller가 변경된 경우 리스너 재등록
+      _removeListeners();
+      _addListeners();
+      // UI 강제 업데이트 (새 Controller로 변경되었으므로 필요)
+      setState(() {});
+    }
+    // Controller가 동일한 경우 리스너가 자동으로 변경을 감지하므로 setState() 불필요
+  }
+
+  @override
+  void dispose() {
+    // 리스너 제거
+    _removeListeners();
+    super.dispose();
+  }
+
+  /// 모든 컨트롤러에 리스너 추가
+  void _addListeners() {
     widget.teacherNameController.addListener(_onTextChanged);
     widget.absencePeriodController.addListener(_onTextChanged);
     widget.workStatusController.addListener(_onTextChanged);
@@ -39,16 +70,14 @@ class _PdfFieldInputsSectionState extends State<PdfFieldInputsSection> {
     widget.notesController.addListener(_onTextChanged);
   }
 
-  @override
-  void dispose() {
-    // 리스너 제거
+  /// 모든 컨트롤러에서 리스너 제거
+  void _removeListeners() {
     widget.teacherNameController.removeListener(_onTextChanged);
     widget.absencePeriodController.removeListener(_onTextChanged);
     widget.workStatusController.removeListener(_onTextChanged);
     widget.reasonForAbsenceController.removeListener(_onTextChanged);
     widget.schoolNameController.removeListener(_onTextChanged);
     widget.notesController.removeListener(_onTextChanged);
-    super.dispose();
   }
 
   void _onTextChanged() {

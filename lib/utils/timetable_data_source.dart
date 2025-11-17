@@ -10,7 +10,7 @@ import '../models/supplement_exchange_path.dart';
 import '../ui/widgets/simplified_timetable_cell.dart';
 import '../providers/cell_selection_provider.dart';
 import '../services/non_exchangeable_data_storage_service.dart';
-import '../services/pdf_export_settings_storage_service.dart';
+import '../services/app_settings_storage_service.dart';
 import 'exchange_algorithm.dart';
 import 'day_utils.dart';
 import 'non_exchangeable_manager.dart';
@@ -391,9 +391,9 @@ class TimetableDataSource extends DataGridSource {
     }
     
     try {
-      final pdfSettings = PdfExportSettingsStorageService();
+      final appSettings = AppSettingsStorageService();
       // 비동기 로드
-      pdfSettings.loadDefaultTeacherAndSchoolName().then((defaults) {
+      appSettings.loadTeacherAndSchoolName().then((defaults) {
         final newTeacherName = defaults['defaultTeacherName'] ?? '';
         if (_highlightedTeacherName != newTeacherName) {
           _highlightedTeacherName = newTeacherName.isEmpty ? null : newTeacherName;

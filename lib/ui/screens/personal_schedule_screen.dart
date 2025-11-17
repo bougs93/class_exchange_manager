@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
-import '../../services/pdf_export_settings_storage_service.dart';
+import '../../services/app_settings_storage_service.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../providers/personal_schedule_provider.dart';
 import '../../utils/personal_timetable_helper.dart';
@@ -74,8 +74,8 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
     _isCheckingTeacherName = true;
 
     try {
-      final pdfSettings = PdfExportSettingsStorageService();
-      final defaults = await pdfSettings.loadDefaultTeacherAndSchoolName();
+      final appSettings = AppSettingsStorageService();
+      final defaults = await appSettings.loadTeacherAndSchoolName();
       final teacherName = defaults['defaultTeacherName'] ?? '';
 
       if (isInitialLoad) {
@@ -169,11 +169,11 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
     // 교사 선택 시 Provider 업데이트 및 설정 파일에 저장
     if (selectedTeacherName != null && selectedTeacherName.isNotEmpty) {
       // 설정 파일에 저장
-      final pdfSettings = PdfExportSettingsStorageService();
-      final defaults = await pdfSettings.loadDefaultTeacherAndSchoolName();
+      final appSettings = AppSettingsStorageService();
+      final defaults = await appSettings.loadTeacherAndSchoolName();
       final currentSchoolName = defaults['defaultSchoolName'] ?? '';
-      
-      await pdfSettings.saveDefaultTeacherAndSchoolName(
+
+      await appSettings.saveTeacherAndSchoolName(
         teacherName: selectedTeacherName,
         schoolName: currentSchoolName,
       );
