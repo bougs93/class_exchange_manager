@@ -391,24 +391,49 @@ class ExcelService {
       // 첫 번째 워크시트 가져오기
       var sheet = excel.tables.values.first;
       
-      // 설정 유효성 검사
-      if (!_validateParsingConfig(parsingConfig, sheet)) {
-        developer.log('파싱 설정이 유효하지 않습니다.', name: 'ExcelService');
+      // 기본 설정 유효성 검사 (teacherColumn, dataStartRow만 검증)
+      // dayHeaderRow와 periodHeaderRow는 동적으로 찾으므로 여기서는 검증하지 않음
+      if (parsingConfig.teacherColumn < 1 || parsingConfig.teacherColumn > ExcelServiceConstants.maxColumnsToCheck) {
+        developer.log('교사 열 설정이 유효하지 않습니다: ${parsingConfig.teacherColumn}', name: 'ExcelService');
+        return null;
+      }
+      if (parsingConfig.dataStartRow < 1 || parsingConfig.dataStartRow > sheet.maxRows) {
+        developer.log('데이터 시작 행 설정이 유효하지 않습니다: ${parsingConfig.dataStartRow}', name: 'ExcelService');
         return null;
       }
       
-      // 요일 헤더 찾기
-      List<String> dayHeaders = _findDayHeaders(sheet, parsingConfig.dayHeaderRow);
-      if (dayHeaders.isEmpty) {
+      // 요일 헤더 찾기 (1~10행까지 검색)
+      Map<String, dynamic> dayHeaderResult = _findDayHeaders(sheet);
+      int foundDayHeaderRow = dayHeaderResult['row'] as int;
+      List<String> dayHeaders = (dayHeaderResult['days'] as List).cast<String>();
+      
+      if (dayHeaders.isEmpty || foundDayHeaderRow == 0) {
         developer.log('요일 헤더를 찾을 수 없습니다.', name: 'ExcelService');
         return null;
       }
       
-      // 교사 정보 추출
+      // 동적으로 찾은 요일 헤더 행을 사용하여 설정 업데이트
+      // 교시 헤더 행은 요일 헤더 행의 다음 행으로 자동 설정
+      final dynamicConfig = ExcelParsingConfig(
+        dayHeaderRow: foundDayHeaderRow,
+        periodHeaderRow: foundDayHeaderRow + 1, // 요일 헤더 행의 다음 행
+        teacherColumn: parsingConfig.teacherColumn,
+        dataStartRow: parsingConfig.dataStartRow,
+      );
+      
+      developer.log('동적으로 찾은 파싱 설정: dayHeaderRow=${dynamicConfig.dayHeaderRow}, periodHeaderRow=${dynamicConfig.periodHeaderRow}', name: 'ExcelService');
+      
+      // 동적 설정으로 유효성 재검사
+      if (!_validateParsingConfig(dynamicConfig, sheet)) {
+        developer.log('동적으로 찾은 파싱 설정이 유효하지 않습니다.', name: 'ExcelService');
+        return null;
+      }
+      
+      // 교사 정보 추출 (기존 설정 사용)
       List<Teacher> teachers = _extractTeacherInfo(sheet, parsingConfig);
       
-      // 요일별 교시 번호 찾기
-      Map<String, List<int>> periodsByDay = _findPeriodsByDay(sheet, parsingConfig.periodHeaderRow, dayHeaders, parsingConfig);
+      // 요일별 교시 번호 찾기 (동적 설정 사용)
+      Map<String, List<int>> periodsByDay = _findPeriodsByDay(sheet, dynamicConfig.periodHeaderRow, dayHeaders, dynamicConfig);
       if (periodsByDay.isEmpty) {
         developer.log('교시 번호를 찾을 수 없습니다.', name: 'ExcelService');
         return null;
@@ -420,8 +445,8 @@ class ExcelService {
         developer.log('$day요일 교시: $periods', name: 'ExcelService');
       }
       
-      // 시간표 데이터 추출
-      List<TimeSlot> timeSlots = _extractTimeSlotsByDay(sheet, parsingConfig, dayHeaders, periodsByDay, teachers);
+      // 시간표 데이터 추출 (동적 설정 사용)
+      List<TimeSlot> timeSlots = _extractTimeSlotsByDay(sheet, dynamicConfig, dayHeaders, periodsByDay, teachers);
       
       // 파싱 통계 계산
       int totalCells = 0;
@@ -435,7 +460,7 @@ class ExcelService {
       TimetableData result = TimetableData(
         teachers: teachers,
         timeSlots: timeSlots,
-        config: parsingConfig,
+        config: dynamicConfig, // 동적으로 찾은 설정 사용
         totalParsedCells: totalCells,
         successCount: successCount,
         errorCount: errorCount,
@@ -489,40 +514,70 @@ class ExcelService {
     }
   }
 
-  /// 요일 헤더를 찾는 메서드
-  static List<String> _findDayHeaders(Sheet sheet, int row) {
+  /// 요일 헤더를 찾는 메서드 (1~10행까지 검색)
+  /// 
+  /// 반환값: `Map<String, dynamic>` 형태로 {'row': 찾은 행 번호(1-based), 'days': 요일 목록}
+  /// 요일을 찾지 못한 경우 {'row': 0, 'days': []} 반환
+  static Map<String, dynamic> _findDayHeaders(Sheet sheet) {
     try {
-      List<String> dayHeaders = [];
-      
-      // 요일 매핑
+      // 요일 매핑 (월~일 모두 포함)
       Map<String, String> dayMapping = {
         '월': '월',
         '화': '화', 
         '수': '수',
         '목': '목',
         '금': '금',
+        '토': '토',
+        '일': '일',
         'MON': '월',
         'TUE': '화',
         'WED': '수',
         'THU': '목',
         'FRI': '금',
+        'SAT': '토',
+        'SUN': '일',
       };
       
-      // 행의 모든 셀을 확인 (최대 50열까지)
-      for (int col = 1; col <= ExcelServiceConstants.maxColumnsToCheck; col++) {
-        String cellValue = _getCellValue(sheet, row - 1, col - 1); // 0-based로 변환
-        cellValue = cellValue.trim().toUpperCase();
+      // 1행부터 10행까지 검색
+      for (int row = 1; row <= 10; row++) {
+        List<String> dayHeaders = [];
         
-        if (dayMapping.containsKey(cellValue)) {
-          dayHeaders.add(dayMapping[cellValue]!);
+        // 해당 행의 모든 셀을 확인 (최대 50열까지)
+        for (int col = 1; col <= ExcelServiceConstants.maxColumnsToCheck; col++) {
+          String cellValue = _getCellValue(sheet, row - 1, col - 1); // 0-based로 변환
+          cellValue = cellValue.trim().toUpperCase();
+          
+          if (dayMapping.containsKey(cellValue)) {
+            String day = dayMapping[cellValue]!;
+            // 중복 제거
+            if (!dayHeaders.contains(day)) {
+              dayHeaders.add(day);
+            }
+          }
+        }
+        
+        // 요일을 찾은 경우 (최소 1개 이상)
+        if (dayHeaders.isNotEmpty) {
+          developer.log('요일 헤더를 $row행에서 찾았습니다: $dayHeaders', name: 'ExcelService');
+          return {
+            'row': row,
+            'days': dayHeaders,
+          };
         }
       }
       
-      // 로그 제거
-      return dayHeaders;
+      // 요일을 찾지 못한 경우
+      developer.log('1~10행에서 요일 헤더를 찾을 수 없습니다.', name: 'ExcelService');
+      return {
+        'row': 0,
+        'days': [],
+      };
     } catch (e) {
       developer.log('요일 헤더 찾기 중 오류 발생: $e', name: 'ExcelService');
-      return [];
+      return {
+        'row': 0,
+        'days': [],
+      };
     }
   }
 
