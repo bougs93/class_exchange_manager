@@ -391,14 +391,20 @@ class ExcelService {
       // 첫 번째 워크시트 가져오기
       var sheet = excel.tables.values.first;
       
-      // 기본 설정 유효성 검사 (teacherColumn, dataStartRow만 검증)
-      // dayHeaderRow와 periodHeaderRow는 동적으로 찾으므로 여기서는 검증하지 않음
-      if (parsingConfig.teacherColumn < 1 || parsingConfig.teacherColumn > ExcelServiceConstants.maxColumnsToCheck) {
-        developer.log('교사 열 설정이 유효하지 않습니다: ${parsingConfig.teacherColumn}', name: 'ExcelService');
-        return null;
-      }
+      // 기본 설정 유효성 검사 (dataStartRow만 검증)
+      // dayHeaderRow, periodHeaderRow, teacherColumn은 동적으로 찾으므로 여기서는 검증하지 않음
       if (parsingConfig.dataStartRow < 1 || parsingConfig.dataStartRow > sheet.maxRows) {
         developer.log('데이터 시작 행 설정이 유효하지 않습니다: ${parsingConfig.dataStartRow}', name: 'ExcelService');
+        return null;
+      }
+      
+      // 교사명 헤더 찾기 (1~10행까지 검색)
+      Map<String, dynamic> teacherHeaderResult = _findTeacherHeader(sheet);
+      int foundTeacherHeaderRow = teacherHeaderResult['row'] as int;
+      int foundTeacherColumn = teacherHeaderResult['column'] as int;
+      
+      if (foundTeacherHeaderRow == 0 || foundTeacherColumn == 0) {
+        developer.log('교사명 헤더를 찾을 수 없습니다.', name: 'ExcelService');
         return null;
       }
       
@@ -412,16 +418,23 @@ class ExcelService {
         return null;
       }
       
-      // 동적으로 찾은 요일 헤더 행을 사용하여 설정 업데이트
+      // dataStartRow 계산: 교사명 헤더 행 + 1과 기존 설정 중 더 큰 값 사용
+      // (교사 데이터는 교사명 헤더 행의 다음 행부터 시작)
+      int calculatedDataStartRow = foundTeacherHeaderRow + 1;
+      int finalDataStartRow = calculatedDataStartRow > parsingConfig.dataStartRow 
+          ? calculatedDataStartRow 
+          : parsingConfig.dataStartRow;
+      
+      // 동적으로 찾은 헤더 정보를 사용하여 설정 업데이트
       // 교시 헤더 행은 요일 헤더 행의 다음 행으로 자동 설정
       final dynamicConfig = ExcelParsingConfig(
         dayHeaderRow: foundDayHeaderRow,
         periodHeaderRow: foundDayHeaderRow + 1, // 요일 헤더 행의 다음 행
-        teacherColumn: parsingConfig.teacherColumn,
-        dataStartRow: parsingConfig.dataStartRow,
+        teacherColumn: foundTeacherColumn, // 동적으로 찾은 교사명 열
+        dataStartRow: finalDataStartRow, // 교사명 헤더 행 + 1과 기존 설정 중 더 큰 값
       );
       
-      developer.log('동적으로 찾은 파싱 설정: dayHeaderRow=${dynamicConfig.dayHeaderRow}, periodHeaderRow=${dynamicConfig.periodHeaderRow}', name: 'ExcelService');
+      developer.log('동적으로 찾은 파싱 설정: dayHeaderRow=${dynamicConfig.dayHeaderRow}, periodHeaderRow=${dynamicConfig.periodHeaderRow}, teacherColumn=${dynamicConfig.teacherColumn}, dataStartRow=${dynamicConfig.dataStartRow}', name: 'ExcelService');
       
       // 동적 설정으로 유효성 재검사
       if (!_validateParsingConfig(dynamicConfig, sheet)) {
@@ -429,8 +442,8 @@ class ExcelService {
         return null;
       }
       
-      // 교사 정보 추출 (기존 설정 사용)
-      List<Teacher> teachers = _extractTeacherInfo(sheet, parsingConfig);
+      // 교사 정보 추출 (동적 설정 사용)
+      List<Teacher> teachers = _extractTeacherInfo(sheet, dynamicConfig);
       
       // 요일별 교시 번호 찾기 (동적 설정 사용)
       Map<String, List<int>> periodsByDay = _findPeriodsByDay(sheet, dynamicConfig.periodHeaderRow, dayHeaders, dynamicConfig);
@@ -511,6 +524,50 @@ class ExcelService {
     } catch (e) {
       developer.log('파싱 설정 검증 중 오류 발생: $e', name: 'ExcelService');
       return false;
+    }
+  }
+
+  /// 교사명 헤더를 찾는 메서드 (1~10행까지 검색)
+  /// 
+  /// 반환값: `Map<String, dynamic>` 형태로 {'row': 찾은 행 번호(1-based), 'column': 찾은 열 번호(1-based)}
+  /// 교사명 헤더를 찾지 못한 경우 {'row': 0, 'column': 0} 반환
+  static Map<String, dynamic> _findTeacherHeader(Sheet sheet) {
+    try {
+      // 교사명 헤더 키워드 목록
+      List<String> teacherHeaderKeywords = ['교사', '성명', '이름'];
+      
+      // 1행부터 10행까지 검색
+      for (int row = 1; row <= 10; row++) {
+        // 각 행의 모든 열을 확인 (최대 50열까지)
+        for (int col = 1; col <= ExcelServiceConstants.maxColumnsToCheck; col++) {
+          String cellValue = _getCellValue(sheet, row - 1, col - 1); // 0-based로 변환
+          cellValue = cellValue.trim();
+          
+          // 키워드와 일치하는지 확인
+          for (String keyword in teacherHeaderKeywords) {
+            if (cellValue == keyword) {
+              developer.log('교사명 헤더를 $row행 $col열에서 찾았습니다: $keyword', name: 'ExcelService');
+              return {
+                'row': row,
+                'column': col,
+              };
+            }
+          }
+        }
+      }
+      
+      // 교사명 헤더를 찾지 못한 경우
+      developer.log('1~10행에서 교사명 헤더를 찾을 수 없습니다.', name: 'ExcelService');
+      return {
+        'row': 0,
+        'column': 0,
+      };
+    } catch (e) {
+      developer.log('교사명 헤더 찾기 중 오류 발생: $e', name: 'ExcelService');
+      return {
+        'row': 0,
+        'column': 0,
+      };
     }
   }
 
