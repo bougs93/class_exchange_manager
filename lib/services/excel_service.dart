@@ -20,6 +20,10 @@ class ExcelServiceConstants {
   // 셀 순서 검증 샘플링 설정
   static const int maxSamplesForOrderDetection = 20; // 순서 검증 최대 샘플 개수
   static const int minSamplesForOrderDetection = 5; // 순서 검증 최소 샘플 개수
+  
+  // 교사 행 개수 검증 샘플링 설정
+  static const int maxSamplesForTeacherRowDetection = 10; // 교사 행 개수 검증 최대 샘플 개수
+  static const int minSamplesForTeacherRowDetection = 3;  // 교사 행 개수 검증 최소 샘플 개수
 }
 
 /// 셀 순서 패턴을 나타내는 enum
@@ -488,9 +492,17 @@ class ExcelService {
         developer.log('$day요일 교시: $periods', name: 'ExcelService');
       }
       
-      // 셀 순서 패턴 감지 (하이브리드 검증)
+      // 교사 행 개수 패턴 감지 (샘플링 기반)
+      Map<String, dynamic> teacherRowPattern = _detectTeacherRowCountPattern(
+        sheet, dynamicConfig, teachers);
+      
+      // 모든 교사의 행 개수 계산
+      Map<Teacher, int> teacherRowCounts = _calculateAllTeacherRowCounts(
+        sheet, dynamicConfig, teachers, teacherRowPattern);
+      
+      // 셀 순서 패턴 감지 (하이브리드 검증, 교사 행 개수 정보 전달)
       CellOrderPattern cellOrderPattern = _detectCellOrder(
-        sheet, dynamicConfig, teachers, dayHeaders, periodsByDay);
+        sheet, dynamicConfig, teachers, dayHeaders, periodsByDay, teacherRowCounts);
       developer.log('감지된 셀 순서 패턴: $cellOrderPattern', name: 'ExcelService');
       
       // 셀 순서 패턴을 확인할 수 없는 경우 파싱 중단
@@ -499,9 +511,9 @@ class ExcelService {
         return null;
       }
       
-      // 시간표 데이터 추출 (동적 설정 사용, 셀 순서 패턴 전달)
+      // 시간표 데이터 추출 (동적 설정 사용, 셀 순서 패턴 및 교사 행 개수 전달)
       List<TimeSlot> timeSlots = _extractTimeSlotsByDay(
-        sheet, dynamicConfig, dayHeaders, periodsByDay, teachers, cellOrderPattern);
+        sheet, dynamicConfig, dayHeaders, periodsByDay, teachers, cellOrderPattern, teacherRowCounts);
       
       // 파싱 통계 계산
       int totalCells = 0;
@@ -772,6 +784,264 @@ class ExcelService {
     }
   }
 
+  /// 특정 교사 이름이 있는 행을 찾는 헬퍼 메서드
+  /// 
+  /// 매개변수:
+  /// - Sheet sheet: 엑셀 시트
+  /// - ExcelParsingConfig config: 파싱 설정
+  /// - Teacher teacher: 찾을 교사
+  /// - int startSearchRow: 검색 시작 행 (1-based)
+  /// 
+  /// 반환값:
+  /// - int: 교사 이름이 있는 행 번호 (1-based), 찾지 못하면 0
+  static int _findTeacherNameRow(
+    Sheet sheet,
+    ExcelParsingConfig config,
+    Teacher teacher,
+    int startSearchRow,
+  ) {
+    try {
+      for (int row = startSearchRow; row <= sheet.maxRows; row++) {
+        String cellValue = _getCellValue(sheet, row - 1, config.teacherColumn - 1);
+        Teacher? parsedTeacher = _parseTeacherName(cellValue);
+        
+        if (parsedTeacher != null && parsedTeacher.name == teacher.name) {
+          return row;
+        }
+      }
+      return 0;
+    } catch (e) {
+      developer.log('교사 이름 행 찾기 중 오류 발생: $e', name: 'ExcelService');
+      return 0;
+    }
+  }
+
+  /// 교사 이름 행부터 다음 교사 이름 행 전까지의 행 개수를 계산하는 메서드
+  /// 
+  /// 예시:
+  /// - 홍길동(4행) → 이순신(5행): 1행 (4행만)
+  /// - 홍길동(4행), 빈행(5행), 이순신(6행): 2행 (4-5행)
+  /// - 홍길동(4행), 빈행(5행), 빈행(6행), 이순신(7행): 3행 (4-6행)
+  /// 
+  /// 매개변수:
+  /// - Sheet sheet: 엑셀 시트
+  /// - ExcelParsingConfig config: 파싱 설정
+  /// - Teacher currentTeacher: 현재 교사
+  /// - int currentTeacherRow: 현재 교사 이름이 있는 행 (1-based)
+  /// - Teacher? nextTeacher: 다음 교사 (없으면 null)
+  /// 
+  /// 반환값:
+  /// - int: 교사가 차지하는 행 개수 (최소 1)
+  static int _calculateTeacherRowCount(
+    Sheet sheet,
+    ExcelParsingConfig config,
+    Teacher currentTeacher,
+    int currentTeacherRow,
+    Teacher? nextTeacher,
+  ) {
+    try {
+      // 다음 교사 이름이 있는 행 찾기
+      int nextTeacherRow = sheet.maxRows + 1; // 기본값: 마지막 행 다음
+      
+      if (nextTeacher != null) {
+        // 다음 교사 이름이 있는 행 검색 (현재 교사 행 다음부터)
+        for (int row = currentTeacherRow + 1; row <= sheet.maxRows; row++) {
+          String cellValue = _getCellValue(sheet, row - 1, config.teacherColumn - 1);
+          Teacher? parsedTeacher = _parseTeacherName(cellValue);
+          
+          if (parsedTeacher != null && parsedTeacher.name == nextTeacher.name) {
+            nextTeacherRow = row;
+            break;
+          }
+        }
+      }
+      
+      // 행 개수 계산: 다음 교사 행 - 현재 교사 행
+      int rowCount = nextTeacherRow - currentTeacherRow;
+      
+      // 최소 1행 보장
+      if (rowCount < 1) {
+        rowCount = 1;
+      }
+      
+      return rowCount;
+    } catch (e) {
+      developer.log('교사 행 개수 계산 중 오류 발생: $e', name: 'ExcelService');
+      return 1; // 오류 시 기본값 1행
+    }
+  }
+
+  /// 샘플링 기반으로 교사 행 개수 패턴을 감지하는 메서드
+  /// 
+  /// 처음 몇 개 교사를 샘플링하여 각 교사가 몇 행을 차지하는지 확인합니다.
+  /// 
+  /// 반환값:
+  /// - `Map<String, dynamic>`: {
+  ///     'rowsPerTeacher': `int?`, // 교사당 행 수 (일관된 경우), null이면 일관되지 않음
+  ///     'sampleCounts': `Map<Teacher, int>`, // 샘플 교사별 행 개수
+  ///     'isConsistent': bool, // 패턴이 일관되는지 여부
+  ///   }
+  static Map<String, dynamic> _detectTeacherRowCountPattern(
+    Sheet sheet,
+    ExcelParsingConfig config,
+    List<Teacher> teachers,
+  ) {
+    try {
+      Map<Teacher, int> sampleCounts = {};
+      List<int> rowsPerTeacherList = [];
+      
+      // 처음 몇 개 교사만 샘플링
+      int sampleCount = teachers.length < ExcelServiceConstants.maxSamplesForTeacherRowDetection
+          ? teachers.length
+          : ExcelServiceConstants.maxSamplesForTeacherRowDetection;
+      
+      // 교사 이름이 있는 행들을 먼저 찾기
+      Map<Teacher, int> teacherRows = {};
+      for (int i = 0; i < sampleCount; i++) {
+        Teacher teacher = teachers[i];
+        int teacherRow = _findTeacherNameRow(sheet, config, teacher, config.dataStartRow);
+        if (teacherRow > 0) {
+          teacherRows[teacher] = teacherRow;
+        }
+      }
+      
+      // 각 샘플 교사의 행 개수 계산
+      for (int i = 0; i < sampleCount; i++) {
+        Teacher teacher = teachers[i];
+        int? teacherRow = teacherRows[teacher];
+        
+        if (teacherRow == null) continue;
+        
+        Teacher? nextTeacher = (i < teachers.length - 1) ? teachers[i + 1] : null;
+        int rowCount = _calculateTeacherRowCount(
+          sheet, config, teacher, teacherRow, nextTeacher);
+        
+        sampleCounts[teacher] = rowCount;
+        rowsPerTeacherList.add(rowCount);
+        
+        developer.log('샘플 교사 ${teacher.name}: $rowCount행 ($teacherRow행부터)', 
+            name: 'ExcelService');
+      }
+      
+      // 패턴 일관성 검증
+      bool isConsistent = false;
+      int? consistentRowsPerTeacher;
+      
+      if (rowsPerTeacherList.length >= ExcelServiceConstants.minSamplesForTeacherRowDetection) {
+        // 가장 많이 나타나는 행 수 찾기
+        Map<int, int> frequency = {};
+        for (int rows in rowsPerTeacherList) {
+          frequency[rows] = (frequency[rows] ?? 0) + 1;
+        }
+        
+        int maxFrequency = frequency.values.reduce((a, b) => a > b ? a : b);
+        int mostCommonRows = frequency.entries
+            .firstWhere((e) => e.value == maxFrequency)
+            .key;
+        
+        // 일관성 검증: 샘플의 80% 이상이 동일한 행 수를 가지는지 확인
+        int consistentCount = frequency[mostCommonRows] ?? 0;
+        double consistencyRate = consistentCount / rowsPerTeacherList.length;
+        
+        if (consistencyRate >= 0.8) {
+          isConsistent = true;
+          consistentRowsPerTeacher = mostCommonRows;
+          developer.log('교사 행 개수 패턴 감지: 교사당 $consistentRowsPerTeacher행 (일관성: ${(consistencyRate * 100).toStringAsFixed(1)}%)', 
+              name: 'ExcelService');
+        } else {
+          developer.log('교사 행 개수가 일관되지 않음. 각 교사별로 개별 계산합니다.', name: 'ExcelService');
+        }
+      }
+      
+      return {
+        'rowsPerTeacher': consistentRowsPerTeacher,
+        'sampleCounts': sampleCounts,
+        'isConsistent': isConsistent,
+      };
+    } catch (e) {
+      developer.log('교사 행 개수 패턴 감지 중 오류 발생: $e', name: 'ExcelService');
+      return {
+        'rowsPerTeacher': null,
+        'sampleCounts': {},
+        'isConsistent': false,
+      };
+    }
+  }
+
+  /// 모든 교사의 행 개수를 계산하는 메서드 (패턴 결과 활용)
+  /// 
+  /// 샘플링으로 감지된 패턴을 사용하여 모든 교사의 행 개수를 계산합니다.
+  /// 
+  /// 반환값:
+  /// - `Map<Teacher, int>`: 각 교사별 행 개수
+  static Map<Teacher, int> _calculateAllTeacherRowCounts(
+    Sheet sheet,
+    ExcelParsingConfig config,
+    List<Teacher> teachers,
+    Map<String, dynamic> patternResult,
+  ) {
+    Map<Teacher, int> rowCounts = {};
+    
+    int? rowsPerTeacher = patternResult['rowsPerTeacher'] as int?;
+    bool isConsistent = patternResult['isConsistent'] as bool;
+    Map<Teacher, int> sampleCounts = 
+        (patternResult['sampleCounts'] as Map).cast<Teacher, int>();
+    
+    // 교사 이름이 있는 행들을 먼저 찾기
+    Map<Teacher, int> teacherRows = {};
+    for (Teacher teacher in teachers) {
+      int teacherRow = _findTeacherNameRow(sheet, config, teacher, config.dataStartRow);
+      if (teacherRow > 0) {
+        teacherRows[teacher] = teacherRow;
+      }
+    }
+    
+    if (isConsistent && rowsPerTeacher != null) {
+      // 패턴이 일관된 경우: 모든 교사에 동일한 행 수 적용
+      developer.log('일관된 패턴 적용: 교사당 $rowsPerTeacher행', name: 'ExcelService');
+      
+      for (Teacher teacher in teachers) {
+        rowCounts[teacher] = rowsPerTeacher;
+      }
+    } else {
+      // 패턴이 일관되지 않은 경우: 각 교사별로 개별 계산
+      developer.log('일관되지 않은 패턴: 각 교사별로 개별 계산', name: 'ExcelService');
+      
+      for (int i = 0; i < teachers.length; i++) {
+        Teacher teacher = teachers[i];
+        
+        // 샘플에 포함된 교사는 샘플 결과 사용
+        if (sampleCounts.containsKey(teacher)) {
+          rowCounts[teacher] = sampleCounts[teacher]!;
+          continue;
+        }
+        
+        // 샘플에 포함되지 않은 교사는 개별 계산
+        int? teacherRow = teacherRows[teacher];
+        if (teacherRow == null) {
+          rowCounts[teacher] = 1; // 기본값
+          continue;
+        }
+        
+        Teacher? nextTeacher = (i < teachers.length - 1) ? teachers[i + 1] : null;
+        int rowCount = _calculateTeacherRowCount(
+          sheet, config, teacher, teacherRow, nextTeacher);
+        
+        rowCounts[teacher] = rowCount;
+      }
+    }
+    
+    // 로그 출력
+    for (Teacher teacher in teachers) {
+      int rowCount = rowCounts[teacher] ?? 1;
+      int? teacherRow = teacherRows[teacher];
+      developer.log('교사 ${teacher.name}: $rowCount행${teacherRow != null ? ' ($teacherRow행부터)' : ''}', 
+          name: 'ExcelService');
+    }
+    
+    return rowCounts;
+  }
+
   /// 교사명을 파싱하는 메서드
   static Teacher? _parseTeacherName(String teacherText) {
     try {
@@ -820,6 +1090,7 @@ class ExcelService {
     Map<String, List<int>> periodsByDay,
     List<Teacher> teachers,
     CellOrderPattern cellOrderPattern,
+    Map<Teacher, int> teacherRowCounts,
   ) {
     try {
       List<TimeSlot> timeSlots = [];
@@ -828,9 +1099,13 @@ class ExcelService {
       Map<String, int> dayColumnMapping = _calculateDayColumns(sheet, config, dayHeaders);
 
       // 각 교사에 대해 시간표 데이터 추출
-      for (int teacherIndex = 0; teacherIndex < teachers.length; teacherIndex++) {
-        Teacher teacher = teachers[teacherIndex];
-        int teacherRow = config.dataStartRow + teacherIndex;
+      for (Teacher teacher in teachers) {
+        // 교사 이름이 있는 행 찾기
+        int teacherRow = _findTeacherNameRow(sheet, config, teacher, config.dataStartRow);
+        if (teacherRow == 0) continue;
+        
+        // 교사 행 개수 가져오기
+        int rowCount = teacherRowCounts[teacher] ?? 1;
 
         // 각 요일별로 데이터 추출
         _extractTeacherTimeSlots(
@@ -838,6 +1113,7 @@ class ExcelService {
           config,
           teacher,
           teacherRow,
+          rowCount,
           dayHeaders,
           dayColumnMapping,
           periodsByDay,
@@ -859,6 +1135,7 @@ class ExcelService {
     ExcelParsingConfig config,
     Teacher teacher,
     int teacherRow,
+    int rowCount,
     List<String> dayHeaders,
     Map<String, int> dayColumnMapping,
     Map<String, List<int>> periodsByDay,
@@ -877,6 +1154,7 @@ class ExcelService {
         config,
         teacher,
         teacherRow,
+        rowCount,
         day,
         dayStartCol,
         dayOfWeek,
@@ -893,6 +1171,7 @@ class ExcelService {
     ExcelParsingConfig config,
     Teacher teacher,
     int teacherRow,
+    int rowCount,
     String day,
     int dayStartCol,
     int dayOfWeek,
@@ -906,6 +1185,7 @@ class ExcelService {
         config,
         teacher,
         teacherRow,
+        rowCount,
         dayStartCol,
         dayOfWeek,
         period,
@@ -918,11 +1198,16 @@ class ExcelService {
   }
 
   /// 단일 시간표 슬롯 추출
+  /// 
+  /// 교사 행 개수에 따라 처리:
+  /// - 1행: 현재 방식 (줄바꿈으로 구분)
+  /// - 2행 이상: 1행과 2행을 줄바꿈으로 합쳐서 처리, 3행 이후는 무시
   static TimeSlot? _extractSingleTimeSlot(
     Sheet sheet,
     ExcelParsingConfig config,
     Teacher teacher,
     int teacherRow,
+    int rowCount,
     int dayStartCol,
     int dayOfWeek,
     int period,
@@ -931,7 +1216,33 @@ class ExcelService {
     int? periodCol = _findPeriodColumnInDay(sheet, config, dayStartCol, period);
     if (periodCol == null) return null;
 
-    String cellValue = _getCellValue(sheet, teacherRow - 1, periodCol - 1);
+    String cellValue;
+    
+    if (rowCount == 1) {
+      // 1행인 경우: 현재 방식 (줄바꿈으로 구분)
+      cellValue = _getCellValue(sheet, teacherRow - 1, periodCol - 1);
+    } else {
+      // 2행 이상인 경우: 1행과 2행을 줄바꿈으로 합쳐서 처리, 3행 이후는 무시
+      List<String> rowValues = [];
+      
+      // 최대 2행만 사용 (3행 이후는 무시)
+      int rowsToUse = rowCount > 2 ? 2 : rowCount;
+      
+      for (int i = 0; i < rowsToUse; i++) {
+        int currentRow = teacherRow + i - 1; // 0-based로 변환
+        String rowValue = _getCellValue(sheet, currentRow, periodCol - 1);
+        rowValue = rowValue.trim();
+        
+        // 빈 셀이 아닌 경우만 추가
+        if (rowValue.isNotEmpty) {
+          rowValues.add(rowValue);
+        }
+      }
+      
+      // 줄바꿈으로 합치기
+      cellValue = rowValues.join('\n');
+    }
+    
     return _parseTimeSlotCell(cellValue, teacher, dayOfWeek, period, 
         orderPattern: cellOrderPattern);
   }
@@ -1237,6 +1548,7 @@ class ExcelService {
   /// - `List<Teacher>` teachers: 교사 목록
   /// - `List<String>` dayHeaders: 요일 목록
   /// - `Map<String, List<int>>` periodsByDay: 요일별 교시 목록
+  /// - `Map<Teacher, int>` teacherRowCounts: 교사별 행 개수
   /// 
   /// 반환값:
   /// - `Map<String, dynamic>`: {'pattern': CellOrderPattern, 'normalCount': int, 'reversedCount': int, 'sampleSize': int}
@@ -1246,6 +1558,7 @@ class ExcelService {
     List<Teacher> teachers,
     List<String> dayHeaders,
     Map<String, List<int>> periodsByDay,
+    Map<Teacher, int> teacherRowCounts,
   ) {
     try {
       int normalOrderCount = 0;  // 정상 순서 셀 개수 (학급번호 → 과목)
@@ -1259,7 +1572,14 @@ class ExcelService {
       for (int teacherIndex = 0; 
            teacherIndex < teachers.length && sampleSize < ExcelServiceConstants.maxSamplesForOrderDetection; 
            teacherIndex++) {
-        int teacherRow = config.dataStartRow + teacherIndex;
+        Teacher teacher = teachers[teacherIndex];
+        
+        // 교사 이름이 있는 행 찾기
+        int teacherRow = _findTeacherNameRow(sheet, config, teacher, config.dataStartRow);
+        if (teacherRow == 0) continue;
+        
+        // 교사 행 개수 가져오기
+        int rowCount = teacherRowCounts[teacher] ?? 1;
         
         // 각 요일의 첫 번째 교시 셀만 샘플링 (성능 고려)
         for (String day in dayHeaders) {
@@ -1276,7 +1596,32 @@ class ExcelService {
           int? periodCol = _findPeriodColumnInDay(sheet, config, dayStartCol, firstPeriod);
           if (periodCol == null) continue;
           
-          String cellValue = _getCellValue(sheet, teacherRow - 1, periodCol - 1);
+          // 교사 행 개수에 따라 셀 값 읽기
+          String cellValue;
+          if (rowCount == 1) {
+            // 1행인 경우: 현재 방식 (줄바꿈으로 구분)
+            cellValue = _getCellValue(sheet, teacherRow - 1, periodCol - 1);
+          } else {
+            // 2행 이상인 경우: 1행과 2행을 줄바꿈으로 합쳐서 처리, 3행 이후는 무시
+            List<String> rowValues = [];
+            
+            // 최대 2행만 사용 (3행 이후는 무시)
+            int rowsToUse = rowCount > 2 ? 2 : rowCount;
+            
+            for (int i = 0; i < rowsToUse; i++) {
+              int currentRow = teacherRow + i - 1; // 0-based로 변환
+              String rowValue = _getCellValue(sheet, currentRow, periodCol - 1);
+              rowValue = rowValue.trim();
+              
+              // 빈 셀이 아닌 경우만 추가
+              if (rowValue.isNotEmpty) {
+                rowValues.add(rowValue);
+              }
+            }
+            
+            // 줄바꿈으로 합치기
+            cellValue = rowValues.join('\n');
+          }
           
           if (cellValue.trim().isNotEmpty) {
             // 셀 내용을 줄바꿈으로 분할
@@ -1309,7 +1654,23 @@ class ExcelService {
       // 통계적으로 더 많은 패턴을 기본값으로 사용
       CellOrderPattern pattern;
       if (sampleSize < ExcelServiceConstants.minSamplesForOrderDetection) {
-        pattern = CellOrderPattern.unknown;
+        // 샘플이 부족한 경우, 100% 일관성이 있으면 그 패턴 사용
+        if (sampleSize > 0) {
+          if (normalOrderCount == sampleSize) {
+            // 모든 샘플이 normal 패턴
+            pattern = CellOrderPattern.normal;
+            developer.log('샘플이 부족하지만 100% 일관성으로 normal 패턴 사용 (samples=$sampleSize)', name: 'ExcelService');
+          } else if (reversedOrderCount == sampleSize) {
+            // 모든 샘플이 reversed 패턴
+            pattern = CellOrderPattern.reversed;
+            developer.log('샘플이 부족하지만 100% 일관성으로 reversed 패턴 사용 (samples=$sampleSize)', name: 'ExcelService');
+          } else {
+            // 일관성이 없음
+            pattern = CellOrderPattern.unknown;
+          }
+        } else {
+          pattern = CellOrderPattern.unknown;
+        }
       } else if (normalOrderCount >= reversedOrderCount) {
         pattern = CellOrderPattern.normal;
       } else {
@@ -1347,6 +1708,7 @@ class ExcelService {
   /// - `List<Teacher>` teachers: 교사 목록
   /// - `List<String>` dayHeaders: 요일 목록
   /// - `Map<String, List<int>>` periodsByDay: 요일별 교시 목록
+  /// - `Map<Teacher, int>` teacherRowCounts: 교사별 행 개수
   /// 
   /// 반환값:
   /// - CellOrderPattern: 검증된 셀 순서 패턴
@@ -1356,11 +1718,12 @@ class ExcelService {
     List<Teacher> teachers,
     List<String> dayHeaders,
     Map<String, List<int>> periodsByDay,
+    Map<Teacher, int> teacherRowCounts,
   ) {
     try {
       // 1단계: 샘플링으로 빠른 검증
       Map<String, dynamic> samplingResult = _detectCellOrderPattern(
-        sheet, config, teachers, dayHeaders, periodsByDay);
+        sheet, config, teachers, dayHeaders, periodsByDay, teacherRowCounts);
       
       CellOrderPattern pattern = samplingResult['pattern'] as CellOrderPattern;
       int normalCount = samplingResult['normalCount'] as int;
@@ -1377,7 +1740,7 @@ class ExcelService {
         
         // 추가 샘플링 (더 많은 셀 확인)
         Map<String, dynamic> extendedResult = _detectCellOrderPattern(
-          sheet, config, teachers, dayHeaders, periodsByDay);
+          sheet, config, teachers, dayHeaders, periodsByDay, teacherRowCounts);
         
         int extendedNormalCount = extendedResult['normalCount'] as int;
         int extendedReversedCount = extendedResult['reversedCount'] as int;
