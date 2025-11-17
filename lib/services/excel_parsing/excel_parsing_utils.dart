@@ -17,7 +17,7 @@ class ExcelParsingUtils {
       
       // 요일 헤더 행에서 각 요일의 위치 찾기 (최대 50열까지)
       for (int col = 1; col <= ExcelServiceConstants.maxColumnsToCheck; col++) {
-        String cellValue = _getCellValue(sheet, config.dayHeaderRow - 1, col - 1); // 0-based로 변환
+        String cellValue = getCellValue(sheet, config.dayHeaderRow - 1, col - 1); // 0-based로 변환
         cellValue = cellValue.trim();
         
         for (String day in dayHeaders) {
@@ -54,7 +54,7 @@ class ExcelParsingUtils {
     try {
       // 요일 시작 열부터 오른쪽으로 최대 10열까지 검색
       for (int col = dayStartCol; col < dayStartCol + ExcelServiceConstants.maxPeriodsToCheck; col++) {
-        String cellValue = _getCellValue(sheet, config.periodHeaderRow - 1, col - 1); // 0-based로 변환
+        String cellValue = getCellValue(sheet, config.periodHeaderRow - 1, col - 1); // 0-based로 변환
         cellValue = cellValue.trim();
         
         // 숫자로 변환 시도
@@ -241,8 +241,19 @@ class ExcelParsingUtils {
     }
   }
 
-  /// Sheet에서 셀 값을 안전하게 읽는 헬퍼 메서드
-  static String _getCellValue(Sheet sheet, int row, int col) {
+  /// Sheet에서 셀 값을 안전하게 읽는 유틸리티 메서드
+  ///
+  /// 엑셀 시트에서 지정된 행과 열의 셀 값을 읽습니다.
+  /// 셀이 비어있거나 오류 발생 시 빈 문자열을 반환합니다.
+  ///
+  /// 매개변수:
+  /// - `sheet`: 엑셀 시트 객체
+  /// - `row`: 행 번호 (0-based)
+  /// - `col`: 열 번호 (0-based)
+  ///
+  /// 반환값:
+  /// - `String`: 셀 값 (빈 셀이거나 오류 시 빈 문자열)
+  static String getCellValue(Sheet sheet, int row, int col) {
     try {
       var cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
       return cell.value?.toString() ?? '';

@@ -52,6 +52,7 @@ class ExcelServiceConstants {
   // 검색 범위 제한
   static const int maxColumnsToCheck = 50; // 요일 헤더 검색 최대 열 수
   static const int maxPeriodsToCheck = 10; // 교시 검색 최대 범위
+  static const int maxHeaderSearchRows = 10; // 헤더 검색 최대 행 수
   static const int maxRowsToLog = 20; // 로그 출력 최대 행 수
   
   // 셀 순서 검증 샘플링 설정

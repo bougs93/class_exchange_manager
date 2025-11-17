@@ -17,10 +17,10 @@ class ExcelHeaderFinder {
       List<String> teacherHeaderKeywords = ['교사', '성명', '이름'];
       
       // 1행부터 10행까지 검색
-      for (int row = 1; row <= 10; row++) {
+      for (int row = 1; row <= ExcelServiceConstants.maxHeaderSearchRows; row++) {
         // 각 행의 모든 열을 확인 (최대 50열까지)
         for (int col = 1; col <= ExcelServiceConstants.maxColumnsToCheck; col++) {
-          String cellValue = _getCellValue(sheet, row - 1, col - 1); // 0-based로 변환
+          String cellValue = ExcelParsingUtils.getCellValue(sheet, row - 1, col - 1); // 0-based로 변환
           cellValue = cellValue.trim();
           
           // 키워드와 일치하는지 확인
@@ -76,12 +76,12 @@ class ExcelHeaderFinder {
       };
       
       // 1행부터 10행까지 검색
-      for (int row = 1; row <= 10; row++) {
+      for (int row = 1; row <= ExcelServiceConstants.maxHeaderSearchRows; row++) {
         List<String> dayHeaders = [];
         
         // 해당 행의 모든 셀을 확인 (최대 50열까지)
         for (int col = 1; col <= ExcelServiceConstants.maxColumnsToCheck; col++) {
-          String cellValue = _getCellValue(sheet, row - 1, col - 1); // 0-based로 변환
+          String cellValue = ExcelParsingUtils.getCellValue(sheet, row - 1, col - 1); // 0-based로 변환
           cellValue = cellValue.trim().toUpperCase();
           
           if (dayMapping.containsKey(cellValue)) {
@@ -144,8 +144,8 @@ class ExcelHeaderFinder {
         
         // 각 요일의 시작 열부터 연속된 교시만 찾기
         List<String> cellValues = []; // 디버깅용
-        for (int col = dayStartCol; col < dayStartCol + 15; col++) { // 최대 15열까지 검색
-          String cellValue = _getCellValue(sheet, periodHeaderRow - 1, col - 1); // 0-based로 변환
+        for (int col = dayStartCol; col < dayStartCol + ExcelServiceConstants.maxPeriodsToCheck; col++) {
+          String cellValue = ExcelParsingUtils.getCellValue(sheet, periodHeaderRow - 1, col - 1); // 0-based로 변환
           cellValue = cellValue.trim();
           
           cellValues.add(cellValue); // 디버깅용
@@ -214,7 +214,7 @@ class ExcelHeaderFinder {
       // 첫 번째 요일의 시작 열 찾기
       int? firstDayStartCol;
       for (int col = 1; col <= ExcelServiceConstants.maxColumnsToCheck; col++) {
-        String cellValue = _getCellValue(sheet, dayHeaderRow - 1, col - 1); // 0-based로 변환
+        String cellValue = ExcelParsingUtils.getCellValue(sheet, dayHeaderRow - 1, col - 1); // 0-based로 변환
         cellValue = cellValue.trim();
         
         if (cellValue == firstDay) {
@@ -230,7 +230,7 @@ class ExcelHeaderFinder {
       
       // 첫 번째 요일의 시작 열부터 1교시 찾기
       for (int col = firstDayStartCol; col < firstDayStartCol + ExcelServiceConstants.maxPeriodsToCheck; col++) {
-        String cellValue = _getCellValue(sheet, periodHeaderRow - 1, col - 1); // 0-based로 변환
+        String cellValue = ExcelParsingUtils.getCellValue(sheet, periodHeaderRow - 1, col - 1); // 0-based로 변환
         cellValue = cellValue.trim();
         
         // 숫자로 변환 시도
@@ -254,15 +254,5 @@ class ExcelHeaderFinder {
     }
   }
 
-  /// Sheet에서 셀 값을 안전하게 읽는 헬퍼 메서드
-  static String _getCellValue(Sheet sheet, int row, int col) {
-    try {
-      var cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
-      return cell.value?.toString() ?? '';
-    } catch (e) {
-      developer.log('셀 값 읽기 중 오류 발생 (행: $row, 열: $col): $e', name: 'ExcelHeaderFinder');
-      return '';
-    }
-  }
 }
 

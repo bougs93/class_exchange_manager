@@ -2,6 +2,7 @@ import 'package:excel/excel.dart';
 import 'dart:developer' as developer;
 import '../../models/teacher.dart';
 import '../excel_service.dart';
+import 'excel_parsing_utils.dart';
 
 /// 교사 정보 추출 클래스
 /// 
@@ -25,7 +26,7 @@ class ExcelTeacherExtractor {
       
       // 교사 이름이 있는 행 찾기
       for (int row = config.dataStartRow; row <= sheet.maxRows; row++) {
-        String teacherCell = _getCellValue(sheet, row - 1, config.teacherColumn - 1); // 0-based로 변환
+        String teacherCell = ExcelParsingUtils.getCellValue(sheet, row - 1, config.teacherColumn - 1); // 0-based로 변환
         
         if (teacherCell.trim().isEmpty) {
           // 빈 셀을 만난 경우
@@ -138,7 +139,7 @@ class ExcelTeacherExtractor {
   ) {
     try {
       for (int row = startSearchRow; row <= sheet.maxRows; row++) {
-        String cellValue = _getCellValue(sheet, row - 1, config.teacherColumn - 1);
+        String cellValue = ExcelParsingUtils.getCellValue(sheet, row - 1, config.teacherColumn - 1);
         Teacher? parsedTeacher = parseTeacherName(cellValue);
         
         if (parsedTeacher != null && parsedTeacher.name == teacher.name) {
@@ -152,15 +153,5 @@ class ExcelTeacherExtractor {
     }
   }
 
-  /// Sheet에서 셀 값을 안전하게 읽는 헬퍼 메서드
-  static String _getCellValue(Sheet sheet, int row, int col) {
-    try {
-      var cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
-      return cell.value?.toString() ?? '';
-    } catch (e) {
-      developer.log('셀 값 읽기 중 오류 발생 (행: $row, 열: $col): $e', name: 'ExcelTeacherExtractor');
-      return '';
-    }
-  }
 }
 
