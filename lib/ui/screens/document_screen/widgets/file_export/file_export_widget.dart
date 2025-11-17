@@ -15,6 +15,18 @@ import 'pdf_settings_section.dart';
 import 'pdf_field_inputs_section.dart';
 import '../../pdf_preview_screen.dart';
 
+/// 결강기간 업데이트 모드
+enum AbsencePeriodUpdateMode {
+  /// 자동 업데이트 가능 (기본값)
+  autoUpdate,
+
+  /// 사용자가 수동으로 수정함 (자동 업데이트 중지)
+  manualOverride,
+
+  /// 업데이트 진행 중 (리스너 무시)
+  updating,
+}
+
 /// 파일 출력 위젯 (리팩토링된 버전)
 ///
 /// 결보강 계획서를 PDF 형식으로 미리보고 저장할 수 있는 위젯입니다.
@@ -44,11 +56,9 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
   
   // PDF 출력 설정 저장 서비스
   final PdfExportSettingsStorageService _pdfSettingsStorage = PdfExportSettingsStorageService();
-  
-  // 결강기간 수동 수정 여부 (사용자가 직접 수정한 경우 자동 업데이트 비활성화)
-  bool _isAbsencePeriodManuallyEdited = false;
-  // 자동 업데이트 중 플래그 (리스너가 업데이트를 감지하지 않도록)
-  bool _isUpdatingAbsencePeriod = false;
+
+  // 결강기간 업데이트 모드
+  AbsencePeriodUpdateMode _absencePeriodMode = AbsencePeriodUpdateMode.autoUpdate;
   
   
   @override
@@ -128,22 +138,22 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
   
   /// 결강기간 필드 변경 리스너
   void _onAbsencePeriodChanged() {
-    // 자동 업데이트 중이면 무시
-    if (_isUpdatingAbsencePeriod) {
+    // 업데이트 진행 중이면 무시
+    if (_absencePeriodMode == AbsencePeriodUpdateMode.updating) {
       return;
     }
-    
-    if (!_isAbsencePeriodManuallyEdited) {
-      // 초기 로드가 아닌 경우에만 플래그 설정
+
+    if (_absencePeriodMode == AbsencePeriodUpdateMode.autoUpdate) {
+      // 자동 업데이트 모드: 계산된 값과 다르면 사용자가 수정한 것으로 간주
       final calculatedPeriod = DateFormatUtils.calculateAbsencePeriod(
         ref.read(substitutionPlanViewModelProvider).planData
             .map((data) => data.absenceDate).toList()
       );
-      // 계산된 값과 다르면 사용자가 수정한 것으로 간주
-      // 단, 빈 값인 경우는 제외 (저장된 설정 로드 중일 수 있음)
-      if (_absencePeriodController.text.isNotEmpty && 
+
+      // 빈 값인 경우는 제외 (저장된 설정 로드 중일 수 있음)
+      if (_absencePeriodController.text.isNotEmpty &&
           _absencePeriodController.text != calculatedPeriod) {
-        _isAbsencePeriodManuallyEdited = true;
+        _absencePeriodMode = AbsencePeriodUpdateMode.manualOverride;
         AppLogger.exchangeDebug('결강기간 수동 수정 감지: ${_absencePeriodController.text}');
       }
     }
@@ -160,36 +170,36 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
 
   /// 결강기간 자동 계산 및 업데이트 (내부 메서드)
   void _updateAbsencePeriod(List<SubstitutionPlanData> planData) {
-    AppLogger.exchangeDebug('결강기간 업데이트 시작 - 수동 수정 여부: $_isAbsencePeriodManuallyEdited');
-    
-    // 사용자가 직접 수정한 경우 자동 업데이트하지 않음
-    if (_isAbsencePeriodManuallyEdited) {
+    AppLogger.exchangeDebug('결강기간 업데이트 시작 - 모드: $_absencePeriodMode');
+
+    // 사용자가 수동으로 수정한 경우 자동 업데이트하지 않음
+    if (_absencePeriodMode == AbsencePeriodUpdateMode.manualOverride) {
       AppLogger.exchangeDebug('결강기간 자동 업데이트 건너뜀: 사용자가 수동 수정함');
       return;
     }
-    
+
     final absenceDates = planData.map((data) => data.absenceDate).toList();
     AppLogger.exchangeDebug('결강일 목록: ${absenceDates.join(", ")}');
-    
+
     final absencePeriod = DateFormatUtils.calculateAbsencePeriod(absenceDates);
     AppLogger.exchangeDebug('계산된 결강기간: "$absencePeriod" (현재 값: "${_absencePeriodController.text}")');
-    
+
     // Controller 값이 다를 때만 업데이트 (무한 루프 방지)
     if (_absencePeriodController.text != absencePeriod) {
-      // 자동 업데이트 플래그 설정 (리스너가 무시하도록)
-      _isUpdatingAbsencePeriod = true;
-      
+      // 업데이트 진행 중 모드로 설정 (리스너가 무시하도록)
+      _absencePeriodMode = AbsencePeriodUpdateMode.updating;
+
       _absencePeriodController.text = absencePeriod;
       AppLogger.info('✅ [결강기간] 자동 업데이트 완료: "$absencePeriod"');
-      
+
       // UI 업데이트를 위해 setState 호출
       if (mounted) {
         setState(() {});
       }
-      
-      // 플래그 해제 (다음 프레임에 해제하여 리스너가 정상 작동하도록)
+
+      // 자동 업데이트 모드로 복원 (다음 프레임에 복원하여 리스너가 정상 작동하도록)
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _isUpdatingAbsencePeriod = false;
+        _absencePeriodMode = AbsencePeriodUpdateMode.autoUpdate;
       });
     } else {
       AppLogger.exchangeDebug('결강기간 업데이트 건너뜀: 값이 동일함');

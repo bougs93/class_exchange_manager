@@ -1,6 +1,18 @@
 import 'storage_service.dart';
 import '../utils/logger.dart';
 
+/// PDF 출력 설정 파일명 상수
+class PdfExportSettingsConstants {
+  static const String settingsFilePrefix = 'pdf_export_settings_template_';
+  static const String settingsFileSuffix = '.json';
+  static const String lastSelectedTemplateFile = 'pdf_export_last_selected_template.json';
+
+  /// 양식별 설정 파일명 생성
+  static String getSettingsFileName(int templateIndex) {
+    return '$settingsFilePrefix$templateIndex$settingsFileSuffix';
+  }
+}
+
 /// PDF 출력 설정 저장 서비스
 ///
 /// PDF 출력 설정(폰트, 추가 필드)을 JSON 파일로 저장하고 로드합니다.
@@ -54,7 +66,7 @@ class PdfExportSettingsStorageService {
       }
       
       // 양식별로 별도 파일에 저장
-      final fileName = 'pdf_export_settings_template_$templateIndex.json';
+      final fileName = PdfExportSettingsConstants.getSettingsFileName(templateIndex);
       final success = await _storageService.saveJson(fileName, settings);
       
       if (success) {
@@ -82,7 +94,7 @@ class PdfExportSettingsStorageService {
   Future<Map<String, dynamic>?> loadPdfExportSettings({required int templateIndex}) async {
     try {
       // 양식별로 별도 파일에서 로드
-      final fileName = 'pdf_export_settings_template_$templateIndex.json';
+      final fileName = PdfExportSettingsConstants.getSettingsFileName(templateIndex);
       final settings = await _storageService.loadJson(fileName);
       
       if (settings == null) {
@@ -164,7 +176,7 @@ class PdfExportSettingsStorageService {
         updatedSettings['additionalFields'] = newAdditionalFields;
 
         // 양식별로 별도 파일에 저장
-        final fileName = 'pdf_export_settings_template_$templateIndex.json';
+        final fileName = PdfExportSettingsConstants.getSettingsFileName(templateIndex);
         final success = await _storageService.saveJson(fileName, updatedSettings);
 
         if (!success) {
@@ -307,7 +319,7 @@ class PdfExportSettingsStorageService {
       }
       
       // 양식별로 별도 파일에 저장
-      final fileName = 'pdf_export_settings_template_$templateIndex.json';
+      final fileName = PdfExportSettingsConstants.getSettingsFileName(templateIndex);
       final success = await _storageService.saveJson(fileName, updatedSettings);
       
       if (success) {
@@ -339,7 +351,7 @@ class PdfExportSettingsStorageService {
       };
       
       // 전역 설정 파일에 저장 (양식별 설정과 별도)
-      final fileName = 'pdf_export_last_selected_template.json';
+      final fileName = PdfExportSettingsConstants.lastSelectedTemplateFile;
       final success = await _storageService.saveJson(fileName, settings);
       
       if (success) {
@@ -364,7 +376,7 @@ class PdfExportSettingsStorageService {
   Future<int?> loadLastSelectedTemplateIndex() async {
     try {
       // 전역 설정 파일에서 로드
-      final fileName = 'pdf_export_last_selected_template.json';
+      final fileName = PdfExportSettingsConstants.lastSelectedTemplateFile;
       final settings = await _storageService.loadJson(fileName);
       
       if (settings == null) {

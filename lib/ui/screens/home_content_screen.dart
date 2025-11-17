@@ -81,16 +81,24 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
       ]);
 
       if (mounted) {
+        // 교사명/학교명 확인 (setState 전에)
+        final nameData = results[1] as Map<String, dynamic>;
+        final teacherName = (nameData['defaultTeacherName'] ?? '').trim();
+        
         setState(() {
           // 언어 설정
           _selectedLanguage = results[0] as String;
           _isLoadingLanguage = false;
 
           // 교사명/학교명
-          final nameData = results[1] as Map<String, dynamic>;
           _teacherNameController.text = nameData['defaultTeacherName'] ?? '';
           _schoolNameController.text = nameData['defaultSchoolName'] ?? '';
           _isLoadingNames = false;
+
+          // 교사명이 비어있으면 설정 메뉴를 자동으로 펼침
+          if (teacherName.isEmpty) {
+            _isSettingsExpanded = true;
+          }
 
           // 하이라이트 색상
           final colorValue = results[2] as int?;
@@ -107,6 +115,10 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
           _isLoadingLanguage = false;
           _isLoadingNames = false;
           _isLoadingHighlightColor = false;
+          // 오류 발생 시에도 교사명이 비어있으면 설정 메뉴 펼침
+          if (_teacherNameController.text.trim().isEmpty) {
+            _isSettingsExpanded = true;
+          }
         });
       }
     }
@@ -580,6 +592,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
         ),
       ),
       child: ExpansionTile(
+        key: ValueKey(_isSettingsExpanded), // 상태 변경 시 위젯 재생성
         title: Row(
           children: [
             Container(

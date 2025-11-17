@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../widgets/input_decoration_helper.dart';
+import '../../../../widgets/clear_icon_button.dart';
 
 /// PDF 추가 필드 입력 섹션
 ///
@@ -172,25 +173,6 @@ class _PdfFieldInputsSectionState extends State<PdfFieldInputsSection> {
     required String hint,
     int maxLines = 1,
   }) {
-    // 지우기 아이콘 (텍스트가 있을 때만 표시)
-    Widget? buildClearIcon() {
-      return controller.text.isNotEmpty
-          ? IconButton(
-              icon: Icon(Icons.clear, size: 16, color: Colors.grey.shade600),
-              onPressed: () {
-                controller.clear();
-              },
-              // padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(
-                minWidth: 20,
-                minHeight: 20,
-              ),
-              visualDensity: VisualDensity.compact,
-              iconSize: 16,
-            )
-          : null;
-    }
-
     // 여러 줄 입력인 경우 세로로 배치
     if (maxLines > 1) {
       return Column(
@@ -212,7 +194,7 @@ class _PdfFieldInputsSectionState extends State<PdfFieldInputsSection> {
             decoration: InputDecorationHelper.buildStandard(
               hintText: hint,
             ).copyWith(
-              suffixIcon: buildClearIcon(),
+              suffixIcon: ClearIconButton(controller: controller),
               suffixIconConstraints: const BoxConstraints(
                 minWidth: 20,
                 minHeight: 20,
@@ -248,7 +230,7 @@ class _PdfFieldInputsSectionState extends State<PdfFieldInputsSection> {
               hintText: hint,
               isDense: true,
             ).copyWith(
-              suffixIcon: buildClearIcon(),
+              suffixIcon: ClearIconButton(controller: controller),
               suffixIconConstraints: const BoxConstraints(
                 minWidth: 20,
                 minHeight: 20,

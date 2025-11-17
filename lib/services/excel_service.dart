@@ -995,7 +995,7 @@ class ExcelService {
     
     if (rowCount == 1) {
       // 1행인 경우: 현재 방식 (줄바꿈으로 구분)
-      cellValue = _getCellValue(sheet, teacherRow - 1, periodCol - 1);
+      cellValue = ExcelParsingUtils.getCellValue(sheet, teacherRow - 1, periodCol - 1);
     } else {
       // 2행 이상인 경우: 1행과 2행을 줄바꿈으로 합쳐서 처리, 3행 이후는 무시
       List<String> rowValues = [];
@@ -1005,7 +1005,7 @@ class ExcelService {
       
       for (int i = 0; i < rowsToUse; i++) {
         int currentRow = teacherRow + i - 1; // 0-based로 변환
-        String rowValue = _getCellValue(sheet, currentRow, periodCol - 1);
+        String rowValue = ExcelParsingUtils.getCellValue(sheet, currentRow, periodCol - 1);
         rowValue = rowValue.trim();
         
         // 빈 셀이 아닌 경우만 추가
@@ -1106,7 +1106,7 @@ class ExcelService {
           String cellValue;
           if (rowCount == 1) {
             // 1행인 경우: 현재 방식 (줄바꿈으로 구분)
-            cellValue = _getCellValue(sheet, teacherRow - 1, periodCol - 1);
+            cellValue = ExcelParsingUtils.getCellValue(sheet, teacherRow - 1, periodCol - 1);
           } else {
             // 2행 이상인 경우: 1행과 2행을 줄바꿈으로 합쳐서 처리, 3행 이후는 무시
             List<String> rowValues = [];
@@ -1116,7 +1116,7 @@ class ExcelService {
             
             for (int i = 0; i < rowsToUse; i++) {
               int currentRow = teacherRow + i - 1; // 0-based로 변환
-              String rowValue = _getCellValue(sheet, currentRow, periodCol - 1);
+              String rowValue = ExcelParsingUtils.getCellValue(sheet, currentRow, periodCol - 1);
               rowValue = rowValue.trim();
               
               // 빈 셀이 아닌 경우만 추가
@@ -1270,16 +1270,5 @@ class ExcelService {
     }
   }
 
-
-  /// Sheet에서 셀 값을 안전하게 읽는 헬퍼 메서드
-  static String _getCellValue(Sheet sheet, int row, int col) {
-    try {
-      var cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
-      return cell.value?.toString() ?? '';
-    } catch (e) {
-      developer.log('셀 값 읽기 중 오류 발생 (행: $row, 열: $col): $e', name: 'ExcelService');
-      return '';
-    }
-  }
 
 }
