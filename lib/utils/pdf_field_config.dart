@@ -54,11 +54,14 @@ class PdfTemplateInfo {
 /// 실제 파일이 에셋에 존재해야 합니다. (예: lib/assets/templates/substitution_plan_template.pdf)
 const List<PdfTemplateInfo> kPdfTemplates = [
   PdfTemplateInfo(
-    name: '기본 양식',
+    name: '양식 1',
     assetPath: 'lib/assets/templates/substitution_plan_template.pdf',
   ),
+  PdfTemplateInfo(
+    name: '양식 2',
+    assetPath: 'lib/assets/templates/substitution_plan_template2.pdf',
+  ),
   // 필요 시 다른 양식을 추가하세요.
-  // PdfTemplateInfo(name: '양식 A', assetPath: 'assets/templates/form_a.pdf'),
 ];
 
 /// 복합 필드 베이스 이름 허용 목록

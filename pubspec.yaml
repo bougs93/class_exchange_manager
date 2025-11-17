@@ -102,6 +102,7 @@ flutter:
     # PDF 템플릿 파일
     # 참고: lib/assets/ 폴더의 파일은 lib/assets/... 경로로 참조합니다.
     - lib/assets/templates/substitution_plan_template.pdf
+    - lib/assets/templates/substitution_plan_template2.pdf
     # 폰트 파일 (있는 경우)
     - lib/assets/fonts/
     # 도움말 마크다운 파일
