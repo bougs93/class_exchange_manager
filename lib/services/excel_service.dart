@@ -136,7 +136,7 @@ class ExcelService {
       // 파일 선택 다이얼로그 표시
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['xlsx', 'xls'], // 엑셀 파일 형식만 허용
+        allowedExtensions: ['xlsx', 'xls', 'xlsm'], // 엑셀 파일 형식만 허용 (xlsm: 매크로 포함)
         allowMultiple: false, // 단일 파일만 선택 가능
       );
 

@@ -63,7 +63,7 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel> {
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: Text(
-        '시간표가 포함된 엑셀 파일(.xlsx, .xls)을 선택하세요.',
+        '시간표가 포함된 엑셀 파일(.xlsx, .xls, .xlsm)을 선택하세요.',
         style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
         textAlign: TextAlign.center,
       ),

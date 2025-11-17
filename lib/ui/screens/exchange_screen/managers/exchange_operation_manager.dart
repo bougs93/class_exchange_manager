@@ -82,7 +82,7 @@ class ExchangeOperationManager {
   Future<bool> _selectExcelFileWeb() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['xlsx', 'xls'],
+      allowedExtensions: ['xlsx', 'xls', 'xlsm'], // xlsm: 매크로 포함 Excel 파일 지원
       allowMultiple: false,
     );
 
