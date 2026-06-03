@@ -23,10 +23,10 @@ class AppInfo {
   static const String version = '0.9.4 beta(테스트 버전)'; // 버전 번호는 나중에 추가 가능
 
   // 소속
-  static const String affiliation = 'Noah Lab';
+  static const String affiliation = 'Noah Lab 후원';
 
   // 제작자 정보
-  static const String developer = 'Jeong won-gil, Kim Jin-kyu';
+  static const String developer = '정원길';
 
   // 프로그램 소개
   static const String description = '''

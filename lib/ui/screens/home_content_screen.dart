@@ -17,8 +17,8 @@ import '../widgets/selected_timetable_file_banner.dart';
 /// 홈 콘텐츠 화면
 ///
 /// 메인 홈 화면의 내용을 표시합니다.
-/// - 환영 메시지 카드 (파일 관리 기능 포함)
-/// - 설정 (언어, 기본 정보, 저장 위치 등) — 화면 이동은 상단 통합 메뉴 사용
+/// - 시간표 파일 선택 카드 / 기본 정보 카드
+/// - 설정 (언어, 하이라이트 색상, 저장 위치 등) — 기본 정보는 별도 카드에서 편집
 class HomeContentScreen extends ConsumerStatefulWidget {
   const HomeContentScreen({super.key});
 
@@ -60,15 +60,26 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
   void initState() {
     super.initState();
 
+    // 설정에서 입력·저장 시 홈 카드 하단 기본 정보도 함께 갱신
+    _teacherNameController.addListener(_onBasicInfoControllersChanged);
+    _schoolNameController.addListener(_onBasicInfoControllersChanged);
+
     // StateProxy 초기화는 build에서 ref를 사용할 수 있으므로 나중에 수행
     _loadSettings();
   }
 
   @override
   void dispose() {
+    _teacherNameController.removeListener(_onBasicInfoControllersChanged);
+    _schoolNameController.removeListener(_onBasicInfoControllersChanged);
     _teacherNameController.dispose();
     _schoolNameController.dispose();
     super.dispose();
+  }
+
+  /// 교사명·학교명 변경 시 홈 카드 요약 영역 갱신
+  void _onBasicInfoControllersChanged() {
+    if (mounted) setState(() {});
   }
 
   /// 설정 로드 (통합 버전 - setState 1회만 호출)
@@ -422,8 +433,12 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 환영 메시지 카드 (파일 관리 기능 포함)
-            _buildWelcomeCard(context, theme, selectedFile, isLoading),
+            // 시간표 파일 선택 카드
+            _buildFileSelectionCard(theme, selectedFile, isLoading),
+            const SizedBox(height: 16),
+
+            // 기본 정보 카드 (교사명·학교명)
+            _buildBasicInfoCard(theme),
             const SizedBox(height: 16),
 
             // 사용 기간 정보 카드
@@ -439,23 +454,27 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
     );
   }
 
-  /// 환영 메시지 카드 생성 (파일 관리 기능 포함)
-  Widget _buildWelcomeCard(
-    BuildContext context,
+  /// 홈 화면 공통 카드 테두리 스타일
+  BoxDecoration _homeCardDecoration(ThemeData theme) {
+    return BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(
+        color: theme.primaryColor.withValues(alpha: 0.2),
+        width: 1,
+      ),
+    );
+  }
+
+  /// 시간표 파일 선택 카드
+  Widget _buildFileSelectionCard(
     ThemeData theme,
     File? selectedFile,
     bool isLoading,
   ) {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: theme.primaryColor.withValues(alpha: 0.2),
-          width: 1,
-        ),
-      ),
+      decoration: _homeCardDecoration(theme),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -573,6 +592,145 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
     );
   }
 
+  /// 기본 정보 카드 (교사명·학교명 입력 및 저장)
+  Widget _buildBasicInfoCard(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: _homeCardDecoration(theme),
+      child: _buildBasicInfoForm(theme),
+    );
+  }
+
+  /// 기본 정보 입력 폼 (제목·교사명·학교명·저장 한 줄)
+  Widget _buildBasicInfoForm(ThemeData theme) {
+    const titleStyle = TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.bold,
+    );
+
+    if (_isLoadingNames) {
+      return Row(
+        children: [
+          Text('기본 정보', style: titleStyle.copyWith(color: Colors.grey.shade700)),
+          const Spacer(),
+          const SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text('기본 정보', style: titleStyle.copyWith(color: Colors.grey.shade700)),
+        const SizedBox(width: 10),
+        Expanded(
+          flex: 3,
+          child: _buildBasicInfoInputField(
+            label: '교사명',
+            controller: _teacherNameController,
+            icon: Icons.person,
+            hintText: '교사명',
+            textInputAction: TextInputAction.next,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          flex: 3,
+          child: _buildBasicInfoInputField(
+            label: '학교명',
+            controller: _schoolNameController,
+            icon: Icons.school,
+            hintText: '학교명',
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _saveTeacherAndSchoolName(),
+          ),
+        ),
+        const SizedBox(width: 8),
+        _buildCompactSaveButton(theme),
+      ],
+    );
+  }
+
+  /// 최소 크기 저장 버튼 (한 줄 레이아웃용)
+  Widget _buildCompactSaveButton(ThemeData theme) {
+    return SizedBox(
+      height: 28,
+      child: TextButton(
+        onPressed: _isSavingNames ? null : _saveTeacherAndSchoolName,
+        style: TextButton.styleFrom(
+          foregroundColor: theme.primaryColor,
+          backgroundColor: theme.primaryColor.withValues(alpha: 0.08),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          minimumSize: const Size(44, 28),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        ),
+        child:
+            _isSavingNames
+                ? SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: theme.primaryColor,
+                  ),
+                )
+                : const Text('저장', style: TextStyle(fontSize: 12)),
+      ),
+    );
+  }
+
+  /// 기본 정보 입력 필드 한 칸 (라벨 + TextField)
+  Widget _buildBasicInfoInputField({
+    required String label,
+    required TextEditingController controller,
+    required IconData icon,
+    required String hintText,
+    required TextInputAction textInputAction,
+    void Function(String)? onSubmitted,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: 44,
+          child: Text('$label :', style: const TextStyle(fontSize: 11)),
+        ),
+        Expanded(
+          child: SizedBox(
+            height: 28,
+            child: TextField(
+              controller: controller,
+              style: const TextStyle(fontSize: 13, height: 1.0),
+              decoration: InputDecoration(
+                hintText: hintText,
+                border: const OutlineInputBorder(
+                  borderSide: BorderSide(width: 1),
+                ),
+                prefixIcon: Icon(icon, size: 16),
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 0,
+                ),
+                constraints: const BoxConstraints(
+                  minHeight: 28,
+                  maxHeight: 28,
+                ),
+              ),
+              textInputAction: textInputAction,
+              onSubmitted: onSubmitted,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   /// 설정 카드 생성 (접을 수 있음)
   Widget _buildSettingsCard(BuildContext context, ThemeData theme) {
     return Container(
@@ -619,10 +777,6 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
               children: [
                 // 언어 설정
                 _buildLanguageSection(),
-                const SizedBox(height: 4),
-
-                // 기본 정보 (교사명, 학교명)
-                _buildTeacherAndSchoolNameSection(),
                 const SizedBox(height: 8),
 
                 // 하이라이트 색상 설정
@@ -679,121 +833,6 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
                       ? _saveLanguage(newValue)
                       : null,
         ),
-      ],
-    );
-  }
-
-  /// 교사명, 학교명 입력 섹션
-  Widget _buildTeacherAndSchoolNameSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          '기본 정보',
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 4),
-
-        if (_isLoadingNames)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.all(4.0),
-              child: CircularProgressIndicator(),
-            ),
-          )
-        else
-          Column(
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Text('교사명 :', style: TextStyle(fontSize: 12)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: SizedBox(
-                      height: 28,
-                      child: TextField(
-                        controller: _teacherNameController,
-                        style: const TextStyle(fontSize: 13, height: 1.0),
-                        decoration: const InputDecoration(
-                          hintText: '교사명을 입력하세요',
-                          border: OutlineInputBorder(
-                            borderSide: BorderSide(width: 1),
-                          ),
-                          prefixIcon: Icon(Icons.person, size: 16),
-                          isDense: true,
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 0,
-                          ),
-                          constraints: BoxConstraints(
-                            minHeight: 28,
-                            maxHeight: 28,
-                          ),
-                        ),
-                        textInputAction: TextInputAction.next,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Text('학교명 :', style: TextStyle(fontSize: 12)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: SizedBox(
-                      height: 28,
-                      child: TextField(
-                        controller: _schoolNameController,
-                        style: const TextStyle(fontSize: 13, height: 1.0),
-                        decoration: const InputDecoration(
-                          hintText: '학교명을 입력하세요',
-                          border: OutlineInputBorder(
-                            borderSide: BorderSide(width: 1),
-                          ),
-                          prefixIcon: Icon(Icons.school, size: 16),
-                          isDense: true,
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 0,
-                          ),
-                          constraints: BoxConstraints(
-                            minHeight: 28,
-                            maxHeight: 28,
-                          ),
-                        ),
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: (_) => _saveTeacherAndSchoolName(),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isSavingNames ? null : _saveTeacherAndSchoolName,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child:
-                      _isSavingNames
-                          ? const SizedBox(
-                            height: 18,
-                            width: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                          : const Text('저장', style: TextStyle(fontSize: 14)),
-                ),
-              ),
-            ],
-          ),
       ],
     );
   }
