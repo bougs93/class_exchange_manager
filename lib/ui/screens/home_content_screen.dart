@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../providers/navigation_provider.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../providers/state_reset_provider.dart';
 import '../../models/exchange_mode.dart';
@@ -12,14 +11,13 @@ import '../../utils/logger.dart';
 import '../../utils/simplified_timetable_theme.dart';
 import 'exchange_screen/exchange_screen_state_proxy.dart';
 import 'exchange_screen/managers/exchange_operation_manager.dart';
-import 'help_screen.dart';
-import 'info_screen.dart';
+import '../widgets/data_storage_location_section.dart';
 
 /// 홈 콘텐츠 화면
 ///
 /// 메인 홈 화면의 내용을 표시합니다.
 /// - 환영 메시지 카드 (파일 관리 기능 포함)
-/// - 메뉴 그리드 (교체 관리, 결보강 문서, 개인 시간표, 설정, 도움말, 정보)
+/// - 설정 (언어, 기본 정보, 저장 위치 등) — 화면 이동은 상단 통합 메뉴 사용
 class HomeContentScreen extends ConsumerStatefulWidget {
   const HomeContentScreen({super.key});
 
@@ -53,6 +51,10 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
   // 데이터 초기화 관련
   bool _isResetting = false;
 
+  // 데이터 저장 위치 표시 (설정 카드 내)
+  final GlobalKey<DataStorageLocationSectionState> _dataStorageLocationKey =
+      GlobalKey<DataStorageLocationSectionState>();
+
   @override
   void initState() {
     super.initState();
@@ -81,18 +83,19 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
       ]);
 
       if (mounted) {
-        // 교사명/학교명 확인 (setState 전에)
+        // 교사명/학교명 확인 및 trim 처리 (setState 전에)
         final nameData = results[1] as Map<String, dynamic>;
         final teacherName = (nameData['defaultTeacherName'] ?? '').trim();
-        
+        final schoolName = (nameData['defaultSchoolName'] ?? '').trim();
+
         setState(() {
           // 언어 설정
           _selectedLanguage = results[0] as String;
           _isLoadingLanguage = false;
 
-          // 교사명/학교명
-          _teacherNameController.text = nameData['defaultTeacherName'] ?? '';
-          _schoolNameController.text = nameData['defaultSchoolName'] ?? '';
+          // 교사명/학교명 (trim된 값 저장)
+          _teacherNameController.text = teacherName;
+          _schoolNameController.text = schoolName;
           _isLoadingNames = false;
 
           // 교사명이 비어있으면 설정 메뉴를 자동으로 펼침
@@ -116,7 +119,8 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
           _isLoadingNames = false;
           _isLoadingHighlightColor = false;
           // 오류 발생 시에도 교사명이 비어있으면 설정 메뉴 펼침
-          if (_teacherNameController.text.trim().isEmpty) {
+          // (Controller에 이미 trim된 값이 저장되어 있음)
+          if (_teacherNameController.text.isEmpty) {
             _isSettingsExpanded = true;
           }
         });
@@ -305,6 +309,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
         setState(() {
           _isResetting = false;
         });
+        await _dataStorageLocationKey.currentState?.reload();
       }
     }
   }
@@ -422,11 +427,6 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
 
             // 사용 기간 정보 카드
             _buildUsagePeriodCard(theme),
-
-            const SizedBox(height: 24),
-
-            // 메뉴 그리드
-            _buildMenuGrid(context, ref, theme),
 
             const SizedBox(height: 24),
 
@@ -592,7 +592,6 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
         ),
       ),
       child: ExpansionTile(
-        key: ValueKey(_isSettingsExpanded), // 상태 변경 시 위젯 재생성
         title: Row(
           children: [
             Container(
@@ -635,6 +634,13 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
 
                 // 하이라이트 색상 설정
                 _buildHighlightColorSection(),
+                const SizedBox(height: 8),
+
+                // 데이터 저장 위치 (JSON 폴더 경로)
+                DataStorageLocationSection(
+                  key: _dataStorageLocationKey,
+                  compact: true,
+                ),
                 const SizedBox(height: 8),
 
                 // 데이터 초기화
@@ -1088,141 +1094,4 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
     );
   }
 
-  /// 메뉴 그리드 생성
-  Widget _buildMenuGrid(BuildContext context, WidgetRef ref, ThemeData theme) {
-    final menuItems = [
-      {
-        'title': '교체 관리',
-        'icon': Icons.swap_horiz,
-        'color': theme.primaryColor,
-        'onTap': () {
-          ref.read(navigationProvider.notifier).state = 1;
-        },
-      },
-      {
-        'title': '결보강 문서',
-        'icon': Icons.print,
-        'color': theme.primaryColor,
-        'onTap': () {
-          ref.read(navigationProvider.notifier).state = 2;
-        },
-      },
-      {
-        'title': '개인 시간표',
-        'icon': Icons.person,
-        'color': theme.primaryColor,
-        'onTap': () {
-          ref.read(navigationProvider.notifier).state = 3;
-        },
-      },
-      {
-        'title': '도움말',
-        'icon': Icons.help_outline,
-        'color': Colors.grey.shade600,
-        'onTap': () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const HelpScreen()),
-          );
-        },
-      },
-      {
-        'title': '정보',
-        'icon': Icons.info_outline,
-        'color': Colors.grey.shade600,
-        'onTap': () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const InfoScreen()),
-          );
-        },
-      },
-    ];
-
-    return Wrap(
-      spacing: 4,
-      runSpacing: 4,
-      alignment: WrapAlignment.start,
-      crossAxisAlignment: WrapCrossAlignment.start,
-      children:
-          menuItems.map((item) {
-            return _buildMenuCard(
-              context: context,
-              theme: theme,
-              title: item['title'] as String,
-              icon: item['icon'] as IconData,
-              color: item['color'] as Color,
-              onTap: item['onTap'] as VoidCallback,
-            );
-          }).toList(),
-    );
-  }
-
-  /// 메뉴 카드 생성
-  Widget _buildMenuCard({
-    required BuildContext context,
-    required ThemeData theme,
-    required String title,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    const double cardWidth = 90.0;
-    const double cardHeight = 90.0;
-
-    return ConstrainedBox(
-      constraints: const BoxConstraints(
-        minWidth: cardWidth,
-        maxWidth: cardWidth,
-        minHeight: cardHeight,
-        maxHeight: cardHeight,
-      ),
-      child: SizedBox(
-        width: cardWidth,
-        height: cardHeight,
-        child: Material(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade200, width: 1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(icon, size: 36, color: color),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade800,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }

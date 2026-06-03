@@ -4,6 +4,8 @@ import 'exchange_screen.dart';
 import 'personal_schedule_screen.dart';
 import 'document_screen.dart';
 import 'home_content_screen.dart';
+import 'help_screen.dart';
+import 'info_screen.dart';
 import '../../providers/navigation_provider.dart';
 import '../widgets/unified_navigation_bar.dart';
 import '../../providers/exchange_screen_provider.dart';
@@ -197,23 +199,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
 
 
-  // 메뉴 항목들 정의 (홈 제외: 교체 관리, 결보강 문서, 개인 시간표)
-  List<Map<String, dynamic>> _menuItems() => [
-    {
-      'title': '교체 관리',
-      'icon': Icons.swap_horiz,
-      'screen': ExchangeScreen(),
-    },
-    {
-      'title': '결보강 문서',
-      'icon': Icons.print,
-      'screen': DocumentScreen(),
-    },
-    {
-      'title': '개인 시간표',
-      'icon': Icons.person,
-      'screen': PersonalScheduleScreen(),
-    },
+  /// 상단 네비게이션 탭 1~5 (0은 HomeContentScreen)
+  List<Widget> _tabScreens() => const [
+    ExchangeScreen(),
+    DocumentScreen(),
+    PersonalScheduleScreen(),
+    HelpScreen(),
+    InfoScreen(),
   ];
 
   @override
@@ -232,10 +224,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: IndexedStack(
               index: selectedIndex,
               children: [
-                // 홈 화면 (인덱스 0)
-                HomeContentScreen(),
-                // 나머지 메뉴 화면들 (인덱스 1부터)
-                ..._menuItems().map((item) => item['screen'] as Widget),
+                const HomeContentScreen(),
+                ..._tabScreens(),
               ],
             ),
           ),

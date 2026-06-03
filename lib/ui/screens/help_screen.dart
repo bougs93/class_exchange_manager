@@ -79,12 +79,8 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     
+    // AppBar 없음 — HomeScreen 상단 UnifiedNavigationBar 사용
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('도움말'),
-        elevation: 0,
-        backgroundColor: Colors.blue.shade50,
-      ),
       body: Column(
         children: [
           // 탭 메뉴 (document_screen.dart와 동일한 스타일)

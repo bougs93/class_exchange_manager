@@ -13,19 +13,21 @@ class ExcelHeaderFinder {
   /// 교사명 헤더를 찾지 못한 경우 {'row': 0, 'column': 0} 반환
   static Map<String, dynamic> findTeacherHeader(Sheet sheet) {
     try {
-      // 교사명 헤더 키워드 목록
-      List<String> teacherHeaderKeywords = ['교사', '성명', '이름'];
+      // 교사명 헤더 키워드 목록 (학교 시간표에서 자주 쓰는 표기)
+      List<String> teacherHeaderKeywords = ['교사명', '교사', '성명', '이름'];
       
       // 1행부터 10행까지 검색
       for (int row = 1; row <= ExcelServiceConstants.maxHeaderSearchRows; row++) {
         // 각 행의 모든 열을 확인 (최대 50열까지)
         for (int col = 1; col <= ExcelServiceConstants.maxColumnsToCheck; col++) {
           String cellValue = ExcelParsingUtils.getCellValue(sheet, row - 1, col - 1); // 0-based로 변환
-          cellValue = cellValue.trim();
+          // 공백 제거 후 비교 ("교 사 명" 등 대응)
+          final normalized = cellValue.replaceAll(RegExp(r'\s+'), '');
           
           // 키워드와 일치하는지 확인
           for (String keyword in teacherHeaderKeywords) {
-            if (cellValue == keyword) {
+            final normalizedKeyword = keyword.replaceAll(RegExp(r'\s+'), '');
+            if (normalized == normalizedKeyword) {
               developer.log('교사명 헤더를 $row행 $col열에서 찾았습니다: $keyword', name: 'ExcelHeaderFinder');
               return {
                 'row': row,
@@ -57,50 +59,43 @@ class ExcelHeaderFinder {
   /// 요일을 찾지 못한 경우 {'row': 0, 'days': []} 반환
   static Map<String, dynamic> findDayHeaders(Sheet sheet) {
     try {
-      // 요일 매핑 (월~일 모두 포함)
-      Map<String, String> dayMapping = {
-        '월': '월',
-        '화': '화', 
-        '수': '수',
-        '목': '목',
-        '금': '금',
-        '토': '토',
-        '일': '일',
-        'MON': '월',
-        'TUE': '화',
-        'WED': '수',
-        'THU': '목',
-        'FRI': '금',
-        'SAT': '토',
-        'SUN': '일',
-      };
-      
-      // 1행부터 10행까지 검색
+      const dayOrder = ['월', '화', '수', '목', '금', '토', '일'];
+      const minDayCount = 2; // 최소 2개 요일이 같은 행에 있어야 헤더 행으로 인정
+
+      int bestRow = 0;
+      List<String> bestDayHeaders = [];
+
+      // 1행부터 10행까지 검색 — 요일이 가장 많이 모인 행을 헤더로 선택
       for (int row = 1; row <= ExcelServiceConstants.maxHeaderSearchRows; row++) {
         List<String> dayHeaders = [];
-        
-        // 해당 행의 모든 셀을 확인 (최대 50열까지)
+
         for (int col = 1; col <= ExcelServiceConstants.maxColumnsToCheck; col++) {
-          String cellValue = ExcelParsingUtils.getCellValue(sheet, row - 1, col - 1); // 0-based로 변환
-          cellValue = cellValue.trim().toUpperCase();
-          
-          if (dayMapping.containsKey(cellValue)) {
-            String day = dayMapping[cellValue]!;
-            // 중복 제거
-            if (!dayHeaders.contains(day)) {
+          String cellValue = ExcelParsingUtils.getCellValue(sheet, row - 1, col - 1);
+
+          for (final day in dayOrder) {
+            if (ExcelParsingUtils.matchesDayHeader(cellValue, day) &&
+                !dayHeaders.contains(day)) {
               dayHeaders.add(day);
+              break;
             }
           }
         }
-        
-        // 요일을 찾은 경우 (최소 1개 이상)
-        if (dayHeaders.isNotEmpty) {
-          developer.log('요일 헤더를 $row행에서 찾았습니다: $dayHeaders', name: 'ExcelHeaderFinder');
-          return {
-            'row': row,
-            'days': dayHeaders,
-          };
+
+        if (dayHeaders.length > bestDayHeaders.length) {
+          bestRow = row;
+          bestDayHeaders = dayHeaders;
         }
+      }
+
+      if (bestDayHeaders.length >= minDayCount) {
+        bestDayHeaders.sort(
+          (a, b) => dayOrder.indexOf(a).compareTo(dayOrder.indexOf(b)),
+        );
+        developer.log('요일 헤더를 $bestRow행에서 찾았습니다: $bestDayHeaders', name: 'ExcelHeaderFinder');
+        return {
+          'row': bestRow,
+          'days': bestDayHeaders,
+        };
       }
       
       // 요일을 찾지 못한 경우
@@ -144,27 +139,37 @@ class ExcelHeaderFinder {
         
         // 각 요일의 시작 열부터 연속된 교시만 찾기
         List<String> cellValues = []; // 디버깅용
+        int consecutiveEmpty = 0;
+        const maxConsecutiveEmpty = 3; // 병합 셀 등으로 빈 칸이 있어도 계속 검색
+
         for (int col = dayStartCol; col < dayStartCol + ExcelServiceConstants.maxPeriodsToCheck; col++) {
-          String cellValue = ExcelParsingUtils.getCellValue(sheet, periodHeaderRow - 1, col - 1); // 0-based로 변환
+          String cellValue = ExcelParsingUtils.getCellValue(sheet, periodHeaderRow - 1, col - 1);
           cellValue = cellValue.trim();
-          
-          cellValues.add(cellValue); // 디버깅용
-          
-          // 빈 셀이 나오면 해당 요일의 교시 검색 중단
+
+          cellValues.add(cellValue);
+
           if (cellValue.isEmpty) {
-            break;
+            consecutiveEmpty++;
+            // 교시를 하나도 못 찾은 상태에서 연속 빈 칸이 많으면 중단
+            if (uniquePeriods.isEmpty && consecutiveEmpty >= maxConsecutiveEmpty) {
+              break;
+            }
+            // 이미 교시를 찾았고 연속 빈 칸이 많으면 해당 요일 범위 종료로 간주
+            if (uniquePeriods.isNotEmpty && consecutiveEmpty >= maxConsecutiveEmpty) {
+              break;
+            }
+            continue;
           }
-          
-          // 숫자로 변환 시도
+
+          consecutiveEmpty = 0;
+
           int? period = int.tryParse(cellValue);
           if (period != null && period >= 1 && period <= ExcelServiceConstants.maxPeriodsToCheck) {
-            // 이미 나온 숫자(교시)가 나오면 해당 요일의 교시 검색 중단
             if (uniquePeriods.contains(period)) {
               break;
             }
-            uniquePeriods.add(period); // Set에 추가하여 중복 자동 제거
-          } else {
-            // 숫자가 아닌 값이 나오면 해당 요일의 교시 검색 중단
+            uniquePeriods.add(period);
+          } else if (uniquePeriods.isNotEmpty) {
             break;
           }
         }
@@ -217,7 +222,7 @@ class ExcelHeaderFinder {
         String cellValue = ExcelParsingUtils.getCellValue(sheet, dayHeaderRow - 1, col - 1); // 0-based로 변환
         cellValue = cellValue.trim();
         
-        if (cellValue == firstDay) {
+        if (ExcelParsingUtils.matchesDayHeader(cellValue, firstDay)) {
           firstDayStartCol = col;
           break;
         }
@@ -239,13 +244,11 @@ class ExcelHeaderFinder {
           developer.log('데이터 시작 열을 찾았습니다: $col열 ($firstDay요일 1교시)', name: 'ExcelHeaderFinder');
           return col;
         }
-        
-        // 빈 셀이 나오면 해당 요일의 교시 검색 중단
-        if (cellValue.isEmpty) {
-          break;
-        }
+
+        // 빈 칸(병합 셀)이거나 아직 1교시가 아니면 다음 열 계속 검색
+        continue;
       }
-      
+
       developer.log('첫 번째 요일($firstDay)에서 1교시를 찾을 수 없습니다.', name: 'ExcelHeaderFinder');
       return null;
     } catch (e) {

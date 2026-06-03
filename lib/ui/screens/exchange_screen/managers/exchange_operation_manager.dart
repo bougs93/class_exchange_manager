@@ -137,8 +137,19 @@ class ExchangeOperationManager {
 
   Future<void> processExcelBytes(Uint8List bytes) async {
     try {
-      // Web에서는 bytes를 Excel로 직접 변환
-      Excel excel = Excel.decodeBytes(bytes);
+      if (bytes.length > ExcelServiceConstants.maxFileSizeBytes) {
+        stateProxy.setErrorMessage(
+          '파일 크기가 너무 큽니다. (최대 ${ExcelServiceConstants.maxFileSizeBytes ~/ 1024 ~/ 1024}MB)',
+        );
+        return;
+      }
+
+      // Web: bytes → Excel (네이티브 readExcelFile과 동일 경로)
+      final Excel? excel = await ExcelService.readExcelFromBytes(bytes);
+      if (excel == null) {
+        stateProxy.setErrorMessage('엑셀 파일을 읽을 수 없습니다.');
+        return;
+      }
 
       bool isValid = ExcelService.isValidExcelFile(excel);
 

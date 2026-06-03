@@ -384,7 +384,7 @@ class ExcelService {
       }
 
       var cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
-      return cell.value?.toString() ?? '';
+      return ExcelParsingUtils.formatCellValue(cell.value);
     } catch (e) {
       developer.log('셀 값 읽기 중 오류 발생: $e', name: 'ExcelService');
       return '';
@@ -450,18 +450,16 @@ class ExcelService {
   /// ```
   static TimetableData? parseTimetableData(Excel excel, {ExcelParsingConfig? config}) {
     try {
-      // 기본 설정 사용
-      final parsingConfig = config ?? const ExcelParsingConfig();
-      
-      developer.log('시간표 파싱 시작: $parsingConfig', name: 'ExcelService');
+      developer.log(
+        '시간표 파싱 시작: ${config ?? const ExcelParsingConfig()}',
+        name: 'ExcelService',
+      );
       
       // 첫 번째 워크시트 가져오기
       var sheet = excel.tables.values.first;
-      
-      // 기본 설정 유효성 검사 (dataStartRow만 검증)
-      // dayHeaderRow, periodHeaderRow, teacherColumn은 동적으로 찾으므로 여기서는 검증하지 않음
-      if (parsingConfig.dataStartRow < 1 || parsingConfig.dataStartRow > sheet.maxRows) {
-        developer.log('데이터 시작 행 설정이 유효하지 않습니다: ${parsingConfig.dataStartRow}', name: 'ExcelService');
+
+      if (sheet.maxRows < 2) {
+        developer.log('시트에 데이터 행이 부족합니다.', name: 'ExcelService');
         return null;
       }
       

@@ -5,6 +5,7 @@ import '../../services/storage_service.dart';
 import '../../utils/logger.dart';
 import '../../utils/simplified_timetable_theme.dart';
 import '../../providers/exchange_screen_provider.dart';
+import '../widgets/data_storage_location_section.dart';
 
 /// 설정 화면
 /// 
@@ -36,6 +37,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Color _highlightedTeacherColor = const Color(0xFFF3E5F5); // 기본값: 연한 보라색
   bool _isLoadingHighlightColor = true;
   bool _isSavingHighlightColor = false;
+
+  final GlobalKey<DataStorageLocationSectionState> _dataStorageLocationKey =
+      GlobalKey<DataStorageLocationSectionState>();
 
   @override
   void initState() {
@@ -365,6 +369,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         setState(() {
           _isResetting = false;
         });
+        await _dataStorageLocationKey.currentState?.reload();
       }
     }
   }
@@ -386,6 +391,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           
           // 하이라이트 색상 설정 섹션
           _buildHighlightColorSection(),
+          const SizedBox(height: 32),
+
+          // 데이터 저장 위치
+          DataStorageLocationSection(key: _dataStorageLocationKey),
           const SizedBox(height: 32),
           
           // 데이터 초기화 섹션
@@ -654,7 +663,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
   }
-  
+
   /// 데이터 초기화 섹션
   Widget _buildDataResetSection() {
     return Column(

@@ -26,7 +26,7 @@ class ExchangeAppBar extends ConsumerWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return AppBar(
-      title: const Text('교체 관리'),
+      title: const Text('교체'),
       backgroundColor: Colors.blue.shade50,
       elevation: 0,
       actions: [

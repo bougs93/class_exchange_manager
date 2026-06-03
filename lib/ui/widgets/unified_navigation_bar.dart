@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../constants/nav_indices.dart';
 import '../../providers/navigation_provider.dart';
 
 /// 모든 화면에서 사용하는 통합 네비게이션 바
@@ -13,15 +14,42 @@ class UnifiedNavigationBar extends ConsumerWidget {
 
   // 네비게이션 항목 정의 (상수로 캐싱)
   static const _navItems = [
-    {'index': 0, 'icon': Icons.home, 'label': '홈', 'tooltip': '홈'},
     {
-      'index': 1,
-      'icon': Icons.swap_horiz,
-      'label': '교체 관리',
-      'tooltip': '교체 관리',
+      'index': NavIndices.home,
+      'icon': Icons.home,
+      'label': '홈',
+      'tooltip': '홈',
     },
-    {'index': 2, 'icon': Icons.print, 'label': '결보강 문서', 'tooltip': '결보강 문서'},
-    {'index': 3, 'icon': Icons.person, 'label': '개인 시간표', 'tooltip': '개인 시간표'},
+    {
+      'index': NavIndices.exchange,
+      'icon': Icons.swap_horiz,
+      'label': '교체',
+      'tooltip': '교체',
+    },
+    {
+      'index': NavIndices.document,
+      'icon': Icons.print,
+      'label': '출력',
+      'tooltip': '출력',
+    },
+    {
+      'index': NavIndices.personalSchedule,
+      'icon': Icons.person,
+      'label': '시간표',
+      'tooltip': '시간표',
+    },
+    {
+      'index': NavIndices.help,
+      'icon': Icons.help_outline,
+      'label': '도움말',
+      'tooltip': '도움말',
+    },
+    {
+      'index': NavIndices.info,
+      'icon': Icons.info_outline,
+      'label': '정보',
+      'tooltip': '정보',
+    },
   ];
 
   @override
@@ -118,7 +146,7 @@ class UnifiedNavigationBar extends ConsumerWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    fontSize: 14, // 폰트 크기를 11에서 10으로 약간 감소
+                    fontSize: 12,
                     fontWeight:
                         isSelected ? FontWeight.bold : FontWeight.normal,
                     color:

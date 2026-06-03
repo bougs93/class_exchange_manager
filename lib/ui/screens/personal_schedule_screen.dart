@@ -228,7 +228,7 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
     if (teacherName == null || teacherName.isEmpty) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('개인 시간표'),
+          title: const Text('시간표'),
           actions: [
             // 교사 선택 버튼
             IconButton(
@@ -273,7 +273,7 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
     if (timetableData == null) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('개인 시간표'),
+          title: const Text('시간표'),
         ),
         body: const Center(
           child: Column(

@@ -19,11 +19,8 @@ class InfoScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     
+    // AppBar 없음 — HomeScreen 상단 UnifiedNavigationBar 사용
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('정보'),
-        elevation: 0,
-      ),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(

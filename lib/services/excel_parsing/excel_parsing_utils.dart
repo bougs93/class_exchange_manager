@@ -21,7 +21,7 @@ class ExcelParsingUtils {
         cellValue = cellValue.trim();
         
         for (String day in dayHeaders) {
-          if (cellValue == day) {
+          if (matchesDayHeader(cellValue, day)) {
             dayColumnMapping[day] = col;
             break;
           }
@@ -241,6 +241,47 @@ class ExcelParsingUtils {
     }
   }
 
+  /// 엑셀 셀 원시 값을 표시용 문자열로 변환
+  ///
+  /// 교시 번호 등이 double(1.0)로 읽히는 경우 int 문자열("1")로 정규화합니다.
+  static String formatCellValue(Object? value) {
+    if (value == null) return '';
+
+    if (value is int) return value.toString();
+    if (value is double) {
+      if (value == value.roundToDouble()) {
+        return value.toInt().toString();
+      }
+      return value.toString();
+    }
+
+    return value.toString().trim();
+  }
+
+  /// 요일 헤더 셀 값이 특정 요일과 일치하는지 확인
+  ///
+  /// "월", "월요일", "MON" 등 다양한 표기를 지원합니다.
+  static bool matchesDayHeader(String cellValue, String day) {
+    final normalized = cellValue.trim();
+    if (normalized.isEmpty) return false;
+
+    final upper = normalized.toUpperCase();
+    const englishDays = {
+      '월': 'MON',
+      '화': 'TUE',
+      '수': 'WED',
+      '목': 'THU',
+      '금': 'FRI',
+      '토': 'SAT',
+      '일': 'SUN',
+    };
+
+    if (upper == day || upper == '$day요일') return true;
+    if (englishDays[day] != null && upper == englishDays[day]) return true;
+
+    return false;
+  }
+
   /// Sheet에서 셀 값을 안전하게 읽는 유틸리티 메서드
   ///
   /// 엑셀 시트에서 지정된 행과 열의 셀 값을 읽습니다.
@@ -256,7 +297,7 @@ class ExcelParsingUtils {
   static String getCellValue(Sheet sheet, int row, int col) {
     try {
       var cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
-      return cell.value?.toString() ?? '';
+      return formatCellValue(cell.value);
     } catch (e) {
       developer.log('셀 값 읽기 중 오류 발생 (행: $row, 열: $col): $e', name: 'ExcelParsingUtils');
       return '';
