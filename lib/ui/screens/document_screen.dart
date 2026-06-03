@@ -7,7 +7,7 @@ import 'document_screen/widgets/class_notice_widget.dart';
 import 'document_screen/widgets/teacher_notice_widget.dart';
 import 'document_screen/widgets/file_export/file_export_widget.dart';
 
-/// 문서 출력 화면
+/// PDF 출력 화면 (결보강 문서)
 class DocumentScreen extends ConsumerStatefulWidget {
   const DocumentScreen({super.key});
 
@@ -74,12 +74,20 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen> {
     return Scaffold(
       // AppBar 제거 - HomeScreen의 공통 AppBar 사용
       body: Row(
+        // 세로 전체 높이 사용 + 각 영역 내용은 상단 정렬 (출력 탭 > 출력 메뉴)
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // 왼쪽 사이드바
           _buildSidebar(),
 
-          // 오른쪽 컨텐츠 영역
-          Expanded(child: _buildContent()),
+          // 오른쪽 컨텐츠 영역 (상단부터 표시)
+          Expanded(
+            child: Align(
+              alignment: Alignment.topLeft,
+              widthFactor: 1.0,
+              child: _buildContent(),
+            ),
+          ),
         ],
       ),
     );
@@ -95,16 +103,21 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen> {
           right: BorderSide(color: Colors.grey.shade300, width: 1),
         ),
       ),
-      child: ListView(
+      alignment: Alignment.topCenter,
+      child: Padding(
+        // 사이드바 상·하 여백 (다른 탭 콘텐츠와 시각적 균형)
         padding: const EdgeInsets.symmetric(vertical: 8),
-        children:
-            DocumentType.values.asMap().entries.map((entry) {
-              final index = entry.key;
-              final type = entry.value;
-              final isSelected = _selectedIndex == index;
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children:
+              DocumentType.values.asMap().entries.map((entry) {
+                final index = entry.key;
+                final type = entry.value;
+                final isSelected = _selectedIndex == index;
 
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
@@ -157,7 +170,8 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen> {
                   ),
                 ),
               );
-            }).toList(),
+              }).toList(),
+        ),
       ),
     );
   }

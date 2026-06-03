@@ -431,7 +431,10 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
 
     // SingleChildScrollView로 감싸서 작은 창에서 스크롤 가능하도록 함
     return Container(
+      width: double.infinity,
+      // 날짜선택(SubstitutionPlanGrid) 등 다른 문서 탭과 동일한 16px 여백
       padding: const EdgeInsets.all(16),
+      alignment: Alignment.topLeft,
       // SingleChildScrollView를 사용하여 내용이 화면 높이를 초과할 때 스크롤 가능하게 함
       child: SingleChildScrollView(
         // 스크롤 방향은 수직(기본값)
@@ -442,8 +445,8 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 문서 출력 버튼 (상단으로 이동)
-            _buildDocumentOutputButton(),
+            // PDF 출력 버튼 (콘텐츠 영역 최상단)
+            _buildPdfOutputButton(),
 
             const SizedBox(height: 15),
 
@@ -518,15 +521,15 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
     );
   }
 
-  /// 문서 출력 버튼
-  Widget _buildDocumentOutputButton() {
+  /// PDF 출력 버튼
+  Widget _buildPdfOutputButton() {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
         onPressed: _handlePreview,
-        icon: const Icon(Icons.description, size: 20),
+        icon: const Icon(Icons.picture_as_pdf, size: 20),
         label: const Text(
-          '문서 출력',
+          'PDF 출력',
           style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
         style: OutlinedButton.styleFrom(

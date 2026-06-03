@@ -5,7 +5,7 @@ enum DocumentType {
   /// 결보강 날짜선택
   substitutionPlan,
   
-  /// 결보강 출력
+  /// 결보강 계획서(PDF)
   fileExport,
   
   /// 학급안내
@@ -23,7 +23,7 @@ extension DocumentTypeExtension on DocumentType {
       case DocumentType.substitutionPlan:
         return '날짜선택';
       case DocumentType.fileExport:
-        return '출력';
+        return '계획서';
       case DocumentType.classNotice:
         return '학급안내';
       case DocumentType.teacherNotice:
