@@ -1,19 +1,15 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../models/exchange_mode.dart';
 
 /// 교체 제어 패널 위젯
-/// 파일 선택 상태 표시와 교체 모드 선택을 담당하는 통합 제어 패널
+///
+/// 교체 모드 선택만 담당합니다. 엑셀 파일 표시는 홈 화면에서 합니다.
 class ExchangeControlPanel extends StatefulWidget {
-  final File? selectedFile;
-  final bool isLoading;
   final ExchangeMode currentMode;
   final void Function(ExchangeMode) onModeChanged;
 
   const ExchangeControlPanel({
     super.key,
-    required this.selectedFile,
-    required this.isLoading,
     required this.currentMode,
     required this.onModeChanged,
   });
@@ -36,76 +32,10 @@ class _ExchangeControlPanelState extends State<ExchangeControlPanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 파일 선택 상태에 따른 UI
-            if (widget.selectedFile == null)
-              _buildNoFileSelectedUI()
-            else
-              _buildFileSelectedUI(),
-
-            const SizedBox(height: 8),
-
             // 교체 모드 ToggleButtons
             _buildModeToggleButtons(),
           ],
         ),
-      ),
-    );
-  }
-
-  /// 파일이 선택되지 않았을 때의 UI
-  Widget _buildNoFileSelectedUI() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Text(
-        '시간표가 포함된 엑셀 파일(.xlsx, .xls, .xlsm)을 선택하세요.',
-        style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-        textAlign: TextAlign.center,
-      ),
-    );
-  }
-
-  /// 파일이 선택되었을 때의 UI
-  Widget _buildFileSelectedUI() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 선택된 파일 정보 표시
-        _buildSelectedFileInfo(),
-      ],
-    );
-  }
-
-  /// 선택된 파일 정보 표시
-  Widget _buildSelectedFileInfo() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blue.shade200),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.description, color: Colors.blue.shade600, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '파일: ${widget.selectedFile!.path.split('\\').last}',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: Colors.blue.shade700,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

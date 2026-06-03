@@ -50,8 +50,6 @@ class TimetableTabContent extends ConsumerWidget {
       children: [
         // 교체 제어 패널
         ExchangeControlPanel(
-          selectedFile: state.selectedFile,
-          isLoading: state.isLoading,
           currentMode: state.currentMode,
           onModeChanged: onModeChanged,
         ),

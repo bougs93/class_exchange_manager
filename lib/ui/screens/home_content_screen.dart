@@ -12,6 +12,7 @@ import '../../utils/simplified_timetable_theme.dart';
 import 'exchange_screen/exchange_screen_state_proxy.dart';
 import 'exchange_screen/managers/exchange_operation_manager.dart';
 import '../widgets/data_storage_location_section.dart';
+import '../widgets/selected_timetable_file_banner.dart';
 
 /// 홈 콘텐츠 화면
 ///
@@ -482,23 +483,15 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
                         color: Colors.grey.shade800,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      selectedFile != null
-                          ? '현재 시간표: ${selectedFile.path.split(Platform.pathSeparator).last}'
-                          : '시간표 파일을 선택해주세요',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade600,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
                   ],
                 ),
               ),
             ],
           ),
+
+          // 교체 화면과 동일한 파란색 파일 배너 (엑셀 파일명 표시)
+          const SizedBox(height: 12),
+          SelectedTimetableFileBanner(selectedFile: selectedFile),
 
           // 하단: 파일 관리 버튼들
           const SizedBox(height: 16),
