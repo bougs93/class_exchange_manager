@@ -954,6 +954,11 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     
     // 새로운 셀 선택 (수업이 있는 셀만)
     AppLogger.exchangeDebug('보강교체: 수업이 있는 셀 선택 - $teacherName ${dayPeriodInfo.day}${dayPeriodInfo.period}교시');
+
+    // 0. 다른 교체 모드와 동일하게 경로·화살표만 초기화 (선택된 셀은 이후 갱신)
+    ref.read(stateResetProvider.notifier).resetPathOnly(
+      reason: '보강교체 - 새로운 셀 선택',
+    );
     
     // 1. 셀 선택 (ExchangeService와 CellSelectionProvider에 저장)
     exchangeService.selectCell(teacherName, dayPeriodInfo.day, dayPeriodInfo.period);

@@ -328,6 +328,7 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
       selectedOneToOnePath: () => null,
       selectedCircularPath: () => null,
       selectedChainPath: () => null,
+      selectedSupplementPath: () => null,
     );
   }
 
@@ -338,6 +339,7 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
       selectedOneToOnePath: () => null,
       selectedCircularPath: () => null,
       selectedChainPath: () => null,
+      selectedSupplementPath: () => null,
       // 통합된 경로 리스트 초기화
       availablePaths: [],
       // UI 상태 초기화

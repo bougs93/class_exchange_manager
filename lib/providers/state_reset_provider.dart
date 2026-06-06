@@ -242,7 +242,7 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   /// Level 1: 경로 선택만 초기화
   ///
   /// **초기화 대상**:
-  /// - 선택된 교체 경로 (OneToOne/Circular/Chain)
+  /// - 선택된 교체 경로 (OneToOne/Circular/Chain/Supplement)
   /// - 화살표 상태
   ///
   /// **유지 대상**:

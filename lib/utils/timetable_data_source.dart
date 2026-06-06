@@ -667,6 +667,7 @@ class TimetableDataSource extends DataGridSource {
     ref.read(cellSelectionProvider.notifier).setCircularPath(null);
     ref.read(cellSelectionProvider.notifier).setOneToOnePath(null);
     ref.read(cellSelectionProvider.notifier).setChainPath(null);
+    ref.read(cellSelectionProvider.notifier).setSupplementPath(null);
     _localCache.clear(); // 로컬 캐시 초기화
     notifyDataSourceListeners(); // 한 번만 UI 업데이트
   }
@@ -677,6 +678,7 @@ class TimetableDataSource extends DataGridSource {
     ref.read(cellSelectionProvider.notifier).setCircularPath(null);
     ref.read(cellSelectionProvider.notifier).setOneToOnePath(null);
     ref.read(cellSelectionProvider.notifier).setChainPath(null);
+    ref.read(cellSelectionProvider.notifier).setSupplementPath(null);
     
     // 교체 옵션 초기화
     _exchangeOptions = [];
