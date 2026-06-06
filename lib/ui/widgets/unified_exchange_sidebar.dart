@@ -327,14 +327,18 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
           onExchange = () => _executeExchangeForPath(selectedPath);
         }
 
+        // 보강 모드는 '보강 실행', 그 외는 '교체 실행'
+        final executeLabel =
+            widget.mode == ExchangePathType.supplement ? '보강 실행' : '교체 실행';
+
         return _buildHeaderContainer(
           child: Row(
             children: [
               CompactToolbarLabelButton(
                 onPressed: onExchange,
                 icon: Icons.swap_horiz,
-                label: '교체 실행',
-                tooltip: '교체 실행',
+                label: executeLabel,
+                tooltip: executeLabel,
                 minWidth: 140,
                 height: 33,
                 fontSize: 12,
@@ -676,10 +680,10 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
               padding: const EdgeInsets.all(6),
               child: Column(
                 children: [
-                  // 1번째 노드 (선택된 셀) - 1:1 교체와 동일한 디자인
-                  _buildSupplementNode1(cellSelectionState),
+                  // 상단: 보강할 교사(빈 수업) 또는 대기 문구
+                  _buildSupplementTopNode(),
 
-                  // 화살표 (보강교체 특징: 단방향)
+                  // 화살표 (보강교체 특징: 단방향 — 보강 교사 → 결강 수업)
                   Container(
                     margin: const EdgeInsets.symmetric(vertical: 2),
                     child: Icon(
@@ -692,8 +696,8 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
                     ),
                   ),
 
-                  // 2번째 노드 (빈 박스) - 보강받을 셀
-                  _buildSupplementNode2(),
+                  // 하단: 결강(보강 대상) 수업 셀
+                  _buildSupplementBottomNode(cellSelectionState),
                 ],
               ),
             ),
@@ -705,8 +709,45 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
     );
   }
 
-  /// 1번째 노드 (선택된 셀) - 1:1 교체와 동일한 디자인
-  Widget _buildSupplementNode1(CellSelectionState cellSelectionState) {
+  /// 보강 상단 노드 — 보강할 교사(빈수업) 또는 [빈 수업 대기]
+  Widget _buildSupplementTopNode() {
+    final path = widget.selectedPath;
+    final colorScheme = PathColorScheme.getScheme(ExchangePathType.supplement);
+
+    if (path is SupplementExchangePath) {
+      return Consumer(
+        builder: (context, ref, child) {
+          final timetableData =
+              ref.watch(exchangeScreenProvider).timetableData;
+          final target = path.targetNode;
+          final label = _formatSupplementNodeLabel(
+            target,
+            isSubstituteSlot: true,
+            subject: _getSupplementTeacherDisplaySubject(
+              target,
+              timetableData?.timeSlots ?? [],
+            ),
+          );
+
+          return _buildSupplementTextBox(
+            label,
+            colorScheme: colorScheme,
+            isSelected: true,
+            isHighlighted: true,
+          );
+        },
+      );
+    }
+
+    return _buildSupplementTextBox(
+      '빈 수업 대기',
+      colorScheme: colorScheme,
+      isPlaceholder: true,
+    );
+  }
+
+  /// 보강 하단 노드 — 결강(보강 대상) 수업 셀
+  Widget _buildSupplementBottomNode(CellSelectionState cellSelectionState) {
     return Consumer(
       builder: (context, ref, child) {
         // 시간표 데이터에서 선택된 셀의 상세 정보 가져오기
@@ -736,48 +777,109 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
           subjectName: selectedSlot.subject ?? '',
         );
 
-        // 1:1 교체와 동일한 노드 컨테이너 사용
+        final colorScheme =
+            PathColorScheme.getScheme(ExchangePathType.supplement);
+
         return _buildNodeContainer(
           node,
-          'supplement_0',
-          true, // 선택된 상태
-          true, // 시작 노드
-          PathColorScheme.getScheme(ExchangePathType.supplement),
+          'supplement_source',
+          true,
+          true,
+          colorScheme,
+          labelOverride: _formatSupplementNodeLabel(
+            node,
+            isSubstituteSlot: false,
+            subject: node.subjectName.isNotEmpty
+                ? node.subjectName
+                : widget.getSubjectName(node),
+          ),
         );
       },
     );
   }
 
-  /// 2번째 노드 — 보강 대상 교사 (경로 선택 시 강조)
-  Widget _buildSupplementNode2() {
-    final path = widget.selectedPath;
-    if (path is SupplementExchangePath) {
-      final colorScheme = PathColorScheme.getScheme(ExchangePathType.supplement);
-      return _buildNodeContainer(
-        path.targetNode,
-        'supplement_1',
-        true,
-        false,
-        colorScheme,
-        isSecondNode: true,
-      );
+  /// 보강 교사 표시용 과목명 (해당 교시가 비어 있어도 담당 과목 표시)
+  String _getSupplementTeacherDisplaySubject(
+    ExchangeNode node,
+    List<TimeSlot> timeSlots,
+  ) {
+    for (final slot in timeSlots) {
+      if (slot.teacher == node.teacherName &&
+          slot.isNotEmpty &&
+          slot.subject != null &&
+          slot.subject!.isNotEmpty) {
+        return slot.subject!;
+      }
     }
+    return widget.getSubjectName(node);
+  }
 
-    // 경로 미선택: 빈 노드 placeholder
+  /// 보강 노드 라벨: 요일교시|학급|교사|과목
+  String _formatSupplementNodeLabel(
+    ExchangeNode node, {
+    required bool isSubstituteSlot,
+    String? subject,
+  }) {
+    final classLabel =
+        isSubstituteSlot && node.className.isEmpty ? '빈수업' : node.className;
+    final subjectLabel = subject ?? widget.getSubjectName(node);
+    return '${node.day}${node.period}|$classLabel|${node.teacherName}|$subjectLabel';
+  }
+
+  /// 보강 전용 텍스트 박스 (대기 문구·보강 교사 라벨)
+  Widget _buildSupplementTextBox(
+    String label, {
+    required PathColorScheme colorScheme,
+    bool isSelected = false,
+    bool isHighlighted = false,
+    bool isPlaceholder = false,
+  }) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: isPlaceholder
+            ? Colors.grey.shade100
+            : _getNodeBackgroundColor(
+                isSelected,
+                false,
+                isHighlighted,
+                colorScheme,
+              ),
         borderRadius: BorderRadius.circular(3),
-        border: Border.all(color: Colors.grey.shade300, width: 1),
+        border: Border.all(
+          color: isPlaceholder
+              ? Colors.grey.shade300
+              : _getNodeBorderColor(
+                  isSelected,
+                  false,
+                  isHighlighted,
+                  colorScheme,
+                ),
+          width: isSelected && !isPlaceholder ? 2 : 1,
+        ),
+        boxShadow: [
+          if (isSelected && !isPlaceholder)
+            BoxShadow(
+              color: colorScheme.shadow,
+              blurRadius: 1,
+              offset: const Offset(0, 1),
+            ),
+        ],
       ),
       child: Text(
-        '빈 수업 선택 대기',
+        label,
         style: TextStyle(
           fontSize: SidebarFontSizes.nodeText,
           fontWeight: FontWeight.w500,
-          color: Colors.grey.shade600,
+          color: isPlaceholder
+              ? Colors.grey.shade600
+              : _getNodeTextColor(
+                  isSelected,
+                  false,
+                  isHighlighted,
+                  colorScheme,
+                ),
         ),
         textAlign: TextAlign.center,
       ),
@@ -1650,6 +1752,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
     PathColorScheme colorScheme, {
     bool isLastNode = false,
     bool isSecondNode = false,
+    String? labelOverride,
   }) {
     return GestureDetector(
       onTap: () => _handleNodeTap(node, nodeKey, isSelected),
@@ -1696,7 +1799,8 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
                 ],
               ),
               child: Text(
-                '${node.day}${node.period}|${node.className}|${node.teacherName}|${widget.getSubjectName(node)}',
+                labelOverride ??
+                    '${node.day}${node.period}|${node.className}|${node.teacherName}|${widget.getSubjectName(node)}',
                 style: TextStyle(
                   fontSize: SidebarFontSizes.nodeText,
                   fontWeight: FontWeight.w500,
