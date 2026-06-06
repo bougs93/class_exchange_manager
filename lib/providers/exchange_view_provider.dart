@@ -103,8 +103,8 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
 
       AppLogger.exchangeInfo('[ExchangeViewProvider] 교체 뷰 활성화 시작');
 
-      // 교체 리스트 조회
-      final exchangeList = historyService.getExchangeList();
+      // 교체 리스트 조회 (되돌린 항목 제외)
+      final exchangeList = historyService.getActiveExchangeList();
       
       AppLogger.exchangeDebug('[백업 추적] exchangeList: ${exchangeList.length}, backedUp: ${state.backedUpCount}, work: ${state.backupData.length}');
 

@@ -80,9 +80,16 @@ class ExchangeHistoryItem {
   }
 
   /// 고유 ID 생성 (교체 유형 및 단계 정보 포함)
+  /// microsecond + 순번으로 동일 시각 연속 교체 시 ID 충돌 방지
+  static int _idSequence = 0;
+
   static String _generateId(ExchangePathType pathType, [int? stepCount]) {
     final now = DateTime.now();
-    final timestamp = '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}_${now.millisecond.toString().padLeft(3, '0')}';
+    final sequence = _idSequence++;
+    final timestamp =
+        '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_'
+        '${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}_'
+        '${now.microsecond.toString().padLeft(6, '0')}_$sequence';
     
     switch (pathType) {
       case ExchangePathType.oneToOne:

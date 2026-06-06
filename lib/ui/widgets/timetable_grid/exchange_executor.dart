@@ -264,33 +264,18 @@ class ExchangeExecutor {
     final item = historyService.undoLastExchange();
 
     if (item != null) {
-      // 보강교체인 경우 실제 TimeSlot 되돌리기
-      if (item.type == ExchangePathType.supplement) {
-        _undoSupplementExchange(item);
-      }
+      _applyExchangeStateAfterHistoryChange(item);
 
-      // 교체 리스트에서 삭제
-      historyService.removeFromExchangeList(item.id);
-
-      // 콘솔 출력
       historyService.printExchangeList();
       historyService.printUndoHistory();
+      historyService.printRedoHistory();
 
-      // 교체된 셀 상태 업데이트
-      _updateExchangedCells();
-
-      // 교체 뷰 활성화 여부 검사 (Level 2 초기화 전)
-      _checkExchangeViewStatus();
-
-      // 캐시 강제 무효화 및 UI 업데이트
       ref.read(stateResetProvider.notifier).resetExchangeStates(
             reason: '되돌리기 - 선택 상태 초기화',
           );
 
-      // UI 업데이트 (최적화됨 - 특정 셀만 업데이트하여 스크롤 위치 보존)
       dataSource?.notifyDataChanged();
 
-      // 사용자 피드백
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('교체 "${item.description}"가 되돌려졌습니다'),
@@ -309,16 +294,123 @@ class ExchangeExecutor {
     }
   }
 
+  /// 보강교체 다시 실행 처리
+  void _redoSupplementExchange(ExchangeHistoryItem item) {
+    if (dataSource?.timeSlots == null) return;
+    if (item.originalPath is! SupplementExchangePath) return;
+
+    final supplementPath = item.originalPath as SupplementExchangePath;
+    final sourceNode = supplementPath.sourceNode;
+    final targetNode = supplementPath.targetNode;
+
+    final exchangeService = ExchangeService();
+    final success = exchangeService.performSupplementExchange(
+      dataSource!.timeSlots,
+      sourceNode.teacherName,
+      sourceNode.day,
+      sourceNode.period,
+      targetNode.teacherName,
+      targetNode.day,
+      targetNode.period,
+    );
+
+    if (success) {
+      AppLogger.exchangeDebug(
+        '보강교체 다시 실행 성공: ${targetNode.teacherName} ${targetNode.day}${targetNode.period}교시',
+      );
+    }
+  }
+
+  /// 다시 실행 기능 (되돌리기 후 1단계 복구)
+  void redoLastExchange(BuildContext context) {
+    final historyService = ref.read(exchangeHistoryServiceProvider);
+    final item = historyService.redoLastExchange();
+
+    if (item == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('다시 실행할 교체가 없습니다'),
+          backgroundColor: Colors.grey,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    _applyExchangeStateAfterHistoryChange(item, isRedo: true);
+
+    historyService.printExchangeList();
+    historyService.printUndoHistory();
+    historyService.printRedoHistory();
+
+    ref.read(stateResetProvider.notifier).resetExchangeStates(
+          reason: '다시 실행 - 선택 상태 초기화',
+        );
+
+    dataSource?.notifyDataChanged();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('교체 "${item.description}"가 다시 실행되었습니다'),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  /// 되돌리기/다시 실행 후 시간표·셀 스타일 동기화
+  void _applyExchangeStateAfterHistoryChange(
+    ExchangeHistoryItem item, {
+    bool isRedo = false,
+  }) {
+    final isExchangeViewEnabled = ref.read(isExchangeViewEnabledProvider);
+
+    if (isExchangeViewEnabled) {
+      _syncExchangeViewIfEnabled();
+    } else if (item.type == ExchangePathType.supplement) {
+      if (isRedo) {
+        _redoSupplementExchange(item);
+      } else {
+        _undoSupplementExchange(item);
+      }
+    }
+
+    _updateExchangedCells();
+    _checkExchangeViewStatus();
+  }
+
+  /// 교체 뷰 ON 상태에서 활성 교체만 시간표에 다시 반영
+  void _syncExchangeViewIfEnabled() {
+    final screenState = ref.read(exchangeScreenProvider);
+    if (screenState.timetableData == null || dataSource == null) return;
+
+    final timeSlots = dataSource!.timeSlots;
+    final teachers = screenState.timetableData!.teachers;
+    final notifier = ref.read(exchangeViewProvider.notifier);
+
+    Future.microtask(() async {
+      await notifier.disableExchangeView(
+        timeSlots: timeSlots,
+        teachers: teachers,
+        dataSource: dataSource!,
+      );
+      await notifier.enableExchangeView(
+        timeSlots: timeSlots,
+        teachers: teachers,
+        dataSource: dataSource!,
+      );
+      dataSource?.notifyDataChanged();
+    });
+  }
+
   /// 보강교체 되돌리기 처리
   void _undoSupplementExchange(ExchangeHistoryItem item) {
     if (dataSource?.timeSlots == null) return;
 
-    // SupplementExchangePath에서 목적지 셀 정보 가져오기
     if (item.originalPath is SupplementExchangePath) {
       final supplementPath = item.originalPath as SupplementExchangePath;
       final targetNode = supplementPath.targetNode;
 
-      // ExchangeService를 통해 보강교체 되돌리기 실행
       final exchangeService = ExchangeService();
       final success = exchangeService.undoSupplementExchange(
         dataSource!.timeSlots,
@@ -328,75 +420,15 @@ class ExchangeExecutor {
       );
 
       if (success) {
-        AppLogger.exchangeDebug('보강교체 되돌리기 성공: ${targetNode.teacherName} ${targetNode.day}${targetNode.period}교시');
+        AppLogger.exchangeDebug(
+          '보강교체 되돌리기 성공: ${targetNode.teacherName} ${targetNode.day}${targetNode.period}교시',
+        );
       } else {
-        AppLogger.exchangeDebug('보강교체 되돌리기 실패: ${targetNode.teacherName} ${targetNode.day}${targetNode.period}교시');
+        AppLogger.exchangeDebug(
+          '보강교체 되돌리기 실패: ${targetNode.teacherName} ${targetNode.day}${targetNode.period}교시',
+        );
       }
     }
-  }
-
-  /// 다시 반복 기능
-  void repeatLastExchange(BuildContext context) {
-    final historyService = ref.read(exchangeHistoryServiceProvider);
-    final exchangeList = historyService.getExchangeList();
-    if (exchangeList.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('반복할 교체가 없습니다'),
-          backgroundColor: Colors.grey,
-          duration: Duration(seconds: 2),
-        ),
-      );
-      return;
-    }
-
-    // 가장 최근 교체 항목
-    final lastItem = exchangeList.last;
-
-    // 교체 다시 실행 - 순환교체의 경우 단계 수 전달
-    int? stepCount;
-    if (lastItem.originalPath is CircularExchangePath) {
-      stepCount = (lastItem.originalPath as CircularExchangePath).nodes.length; // 노드 수 = 단계 수
-    }
-    
-    historyService.executeExchange(
-      lastItem.originalPath,
-      customDescription: '다시 반복: ${lastItem.description}',
-      additionalMetadata: {
-        'executionTime': DateTime.now().toIso8601String(),
-        'userAction': 'repeat',
-        'source': 'timetable_grid_section',
-        'originalId': lastItem.id,
-      },
-      stepCount: stepCount,
-    );
-
-    // 콘솔 출력
-    historyService.printExchangeList();
-    historyService.printUndoHistory();
-
-    // 교체된 셀 상태 업데이트
-    _updateExchangedCells();
-
-    // 교체 뷰 활성화 여부 검사 (Level 2 초기화 전)
-    _checkExchangeViewStatus();
-
-    // 캐시 강제 무효화 및 UI 업데이트
-    ref.read(stateResetProvider.notifier).resetExchangeStates(
-          reason: '다시 반복 - 선택 상태 초기화',
-        );
-
-    // UI 업데이트 (최적화됨 - 특정 셀만 업데이트하여 스크롤 위치 보존)
-    dataSource?.notifyDataChanged();
-
-    // 사용자 피드백
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('교체 "${lastItem.description}"가 다시 실행되었습니다'),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
-      ),
-    );
   }
 
   /// 교체 뷰 활성화 여부 검사 및 처리 (공통 메서드)
@@ -470,6 +502,7 @@ class ExchangeExecutor {
         AppLogger.info('교체된 셀 테마 복원 시작: ${exchangeList.length}개 교체 항목');
         
         for (final item in exchangeList) {
+          if (item.isReverted) continue;
           final path = item.originalPath;
           
           // 소스 셀 추출
@@ -576,6 +609,7 @@ class ExchangeExecutor {
     final cellKeys = <String>[];
 
     for (final item in historyService.getExchangeList()) {
+      if (item.isReverted) continue;
       cellKeys.addAll(_getCellKeysFromPath(item.originalPath));
     }
 
@@ -614,6 +648,7 @@ class ExchangeExecutor {
     final cellKeys = <String>[];
 
     for (final item in historyService.getExchangeList()) {
+      if (item.isReverted) continue;
       final path = item.originalPath;
 
       // 1:1 교체 경로의 목적지 셀 추출

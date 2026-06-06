@@ -38,6 +38,7 @@ class PersonalExchangeFilter {
     final filteredExchanges = <ExchangeHistoryItem>[];
 
     for (final exchange in allExchanges) {
+      if (exchange.isReverted) continue;
       // 1. 교사명 필터링
       if (!_matchesTeacher(exchange, teacherName)) {
         continue;

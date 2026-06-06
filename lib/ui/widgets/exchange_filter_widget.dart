@@ -40,12 +40,16 @@ class ExchangeFilterWidget extends StatelessWidget {
   final String? selectedSubject;                 // 선택된 과목
   final Function(String?)? onSubjectChanged;     // 과목 변경 콜백
 
+  /// 필터 적용 후 경로 개수 (헤더에 「검색 필터 (N개 경로)」 표시용)
+  final int? filteredPathCount;
+
   const ExchangeFilterWidget({
     super.key,
     required this.mode,
     required this.paths,
     required this.searchQuery,
     this.isLoading = false,                        // 기본값 false로 설정
+    this.filteredPathCount,
     this.availableSteps,
     this.selectedStep,
     this.onStepChanged,
@@ -135,8 +139,17 @@ class ExchangeFilterWidget extends StatelessWidget {
     return paths.any((path) => path is CircularExchangePath);
   }
 
-  /// 필터 헤더 구성
+  /// 필터 헤더 구성 — 「검색 필터 (N개 경로)」
   Widget _buildFilterHeader() {
+    final String title;
+    if (isLoading) {
+      title = '검색 필터 (탐색 중...)';
+    } else if (filteredPathCount != null) {
+      title = '검색 필터 ($filteredPathCount개 경로)';
+    } else {
+      title = '검색 필터';
+    }
+
     return Row(
       children: [
         Icon(
@@ -145,12 +158,15 @@ class ExchangeFilterWidget extends StatelessWidget {
           color: Colors.grey.shade600,
         ),
         const SizedBox(width: 4),
-        Text(
-          '검색 필터',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: Colors.grey.shade700,
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade700,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],

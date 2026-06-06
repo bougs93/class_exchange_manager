@@ -5,6 +5,7 @@ import '../models/circular_exchange_path.dart';
 import '../models/chain_exchange_path.dart';
 import '../models/supplement_exchange_path.dart';
 import '../utils/logger.dart';
+import 'package:flutter/foundation.dart';
 import 'exchange_list_storage_service.dart';
 import 'dart:developer' as developer;
 
@@ -22,6 +23,9 @@ class ExchangeHistoryService {
   
   // 되돌리기용 스택 (메모리 저장, 최근 10개)
   final List<ExchangeHistoryItem> _undoStack = [];
+
+  // 다시 실행용 스택 (되돌리기 후 1단계씩 복구)
+  final List<ExchangeHistoryItem> _redoStack = [];
   
   // 교체 리스트용 아카이브 (로컬 저장소, 모든 교체 보관)
   final List<ExchangeHistoryItem> _exchangeList = [];
@@ -105,18 +109,19 @@ class ExchangeHistoryService {
       _undoStack.removeAt(0);
       // 메모리에서만 제거, 로컬 저장소는 유지
     }
+
+    // 새 교체 실행 시 다시 실행 스택 초기화 (표준 undo/redo 동작)
+    _redoStack.clear();
   }
 
   /// 교체 리스트에서 특정 항목 삭제
   /// 삭제 버튼 클릭 시 호출
   void removeFromExchangeList(String itemId) {
-    // 교체 리스트에서 제거
     _exchangeList.removeWhere((item) => item.id == itemId);
-    
-    // 로컬 저장소에서도 제거
+    _purgeItemFromStacks(itemId);
+
     _removeFromLocalStorage(itemId);
-    
-    // 🔥 교체 리스트 변경 추적: 버전 증가
+
     _exchangeListVersion++;
     _notifyVersionChanged();
   }
@@ -124,6 +129,11 @@ class ExchangeHistoryService {
   /// 교체 리스트 전체 조회
   List<ExchangeHistoryItem> getExchangeList() {
     return List.from(_exchangeList);
+  }
+
+  /// 활성(되돌리지 않은) 교체 리스트 조회
+  List<ExchangeHistoryItem> getActiveExchangeList() {
+    return _exchangeList.where((item) => !item.isReverted).toList();
   }
 
   /// 교체 리스트 버전 조회 (변경 추적용)
@@ -135,6 +145,8 @@ class ExchangeHistoryService {
   /// 교체 리스트 전체 삭제
   void clearExchangeList() {
     _exchangeList.clear();
+    _undoStack.clear();
+    _redoStack.clear();
     _clearLocalStorage();
     
     // 🔥 교체 리스트 변경 추적: 버전 증가
@@ -147,33 +159,93 @@ class ExchangeHistoryService {
     return List.from(_undoStack);
   }
 
+  /// 되돌리기 가능 여부
+  bool get canUndo => _undoStack.isNotEmpty;
+
+  /// 다시 실행 가능 여부 (되돌리기 직후에만)
+  bool get canRedo => _redoStack.isNotEmpty;
+
+  /// 다시 실행 스택 조회
+  List<ExchangeHistoryItem> getRedoStack() {
+    return List.from(_redoStack);
+  }
+
   /// 가장 최근 교체 작업 되돌리기
   /// 되돌리기 버튼 클릭 시 호출
   ExchangeHistoryItem? undoLastExchange() {
     if (_undoStack.isEmpty) return null;
-    
+
     final item = _undoStack.removeLast();
-    
-    // 되돌리기 상태로 변경
-    final revertedItem = item.copyWithReverted(true);
-    
-    // 교체 리스트에서도 되돌리기 상태 업데이트
+
     final index = _exchangeList.indexWhere((i) => i.id == item.id);
-    if (index != -1) {
-      _exchangeList[index] = revertedItem;
-      _updateInLocalStorage(revertedItem);
-      
-      // 🔥 교체 리스트 변경 추적: 버전 증가 (되돌리기 상태 변경)
-      _exchangeListVersion++;
-      _notifyVersionChanged();
+    if (index == -1) {
+      _undoStack.add(item);
+      return null;
     }
-    
+
+    // 되돌리기 상태로 변경 (리스트에서 제거하지 않음 → 다시 실행 가능)
+    final revertedItem = item.copyWithReverted(true);
+    _exchangeList[index] = revertedItem;
+    _updateInLocalStorage(revertedItem);
+
+    _exchangeListVersion++;
+    _notifyVersionChanged();
+
+    // 다시 실행 스택에 추가
+    _redoStack.add(item);
+
     return item;
+  }
+
+  /// 되돌리기한 교체 1건 다시 실행
+  /// 다시 실행 버튼 클릭 시 호출
+  ExchangeHistoryItem? redoLastExchange() {
+    if (_redoStack.isEmpty) return null;
+
+    final item = _redoStack.removeLast();
+
+    final index = _exchangeList.indexWhere((i) => i.id == item.id);
+    if (index == -1) {
+      _redoStack.add(item);
+      return null;
+    }
+
+    // 활성 상태로 복구
+    final restoredItem = item.copyWithReverted(false);
+    _exchangeList[index] = restoredItem;
+    _updateInLocalStorage(restoredItem);
+
+    // 되돌리기 스택에 다시 추가
+    _undoStack.add(item);
+    if (_undoStack.length > maxUndoItems) {
+      _undoStack.removeAt(0);
+    }
+
+    _exchangeListVersion++;
+    _notifyVersionChanged();
+
+    return restoredItem;
   }
 
   /// 되돌리기 스택 초기화
   void clearUndoStack() {
     _undoStack.clear();
+    _redoStack.clear();
+  }
+
+  /// undo/redo 스택에서 특정 항목 제거
+  void _purgeItemFromStacks(String itemId) {
+    _undoStack.removeWhere((item) => item.id == itemId);
+    _redoStack.removeWhere((item) => item.id == itemId);
+  }
+
+  /// 단위 테스트용 상태 초기화 (로컬 저장소 I/O 없음)
+  @visibleForTesting
+  void resetForTesting() {
+    _exchangeList.clear();
+    _undoStack.clear();
+    _redoStack.clear();
+    _exchangeListVersion = 0;
   }
 
   /// 교체 리스트에서 특정 항목 조회
@@ -343,6 +415,11 @@ class ExchangeHistoryService {
     _printList('[되돌리기 히스토리]', _undoStack);
   }
 
+  /// 다시 실행 히스토리를 콘솔에 출력
+  void printRedoHistory() {
+    _printList('[다시 실행 히스토리]', _redoStack);
+  }
+
   /// 공통 리스트 출력 메서드
   void _printList(String title, List<ExchangeHistoryItem> list) {
     AppLogger.exchangeInfo('$title 총 ${list.length}개');
@@ -364,6 +441,7 @@ class ExchangeHistoryService {
     AppLogger.exchangeInfo('활성 교체: ${stats['active']}개');
     AppLogger.exchangeInfo('되돌린 교체: ${stats['reverted']}개');
     AppLogger.exchangeInfo('되돌리기 가능: ${_undoStack.length}개');
+    AppLogger.exchangeInfo('다시 실행 가능: ${_redoStack.length}개');
     
     final typeStats = stats['typeStats'] as Map<ExchangePathType, int>;
     AppLogger.exchangeInfo('\n교체 타입별 통계:');
@@ -404,19 +482,21 @@ class ExchangeHistoryService {
     }).join(', ');
   }
   
-  /// 특정 셀이 교체된 셀인지 확인 (_exchangeList 기반)
+  /// 특정 셀이 교체된 셀인지 확인 (활성 교체만)
   bool isCellExchanged(String teacherName, String day, int period) {
     for (final item in _exchangeList) {
+      if (item.isReverted) continue;
       if (_isCellInExchangePath(item.originalPath, teacherName, day, period)) {
         return true;
       }
     }
     return false;
   }
-  
-  /// 교체된 셀에 해당하는 교체 경로 찾기 (_exchangeList 기반)
+
+  /// 교체된 셀에 해당하는 교체 경로 찾기 (활성 교체만)
   ExchangePath? findExchangePathByCell(String teacherName, String day, int period) {
     for (final item in _exchangeList) {
+      if (item.isReverted) continue;
       if (_isCellInExchangePath(item.originalPath, teacherName, day, period)) {
         return item.originalPath;
       }

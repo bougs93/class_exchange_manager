@@ -31,11 +31,11 @@ import '../mixins/scroll_management_mixin.dart';
 /// 교체된 셀의 원본 정보를 저장하는 클래스
 /// 복원에 필요한 최소한의 정보만 포함
 class ExchangeBackupInfo {
-  final String teacher;      // 교사명
-  final int dayOfWeek;       // 요일 (1-5)
-  final int period;          // 교시
-  final String? subject;     // 과목명
-  final String? className;   // 학급명
+  final String teacher; // 교사명
+  final int dayOfWeek; // 요일 (1-5)
+  final int period; // 교시
+  final String? subject; // 과목명
+  final String? className; // 학급명
 
   ExchangeBackupInfo({
     required this.teacher,
@@ -97,20 +97,19 @@ class TimetableGridSection extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<TimetableGridSection> createState() => _TimetableGridSectionState();
-
+  ConsumerState<TimetableGridSection> createState() =>
+      _TimetableGridSectionState();
 }
 
-class _TimetableGridSectionState extends ConsumerState<TimetableGridSection> 
+class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     with ScrollManagementMixin {
   // 🧪 테스트: GlobalKey만 사용 - 나머지 모든 수정사항 원상복구
   // GlobalKey만으로도 DataGrid 재생성 문제가 해결되는지 테스트
   final GlobalKey<SfDataGridState> _dataGridKey = GlobalKey<SfDataGridState>();
-  
+
   // 🆕 DataGridController 추가 (셀 스크롤용)
   final DataGridController _dataGridController = DataGridController();
-  
-  
+
   // 싱글톤 화살표 상태 매니저
   final ArrowStateManager _arrowStateManager = ArrowStateManager();
 
@@ -118,10 +117,11 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
   late final ExchangeExecutor _exchangeExecutor;
 
   /// 교체 모드인지 확인 (1:1, 순환, 연쇄 중 하나라도 활성화된 경우)
-  bool get isInExchangeMode => widget.isExchangeModeEnabled ||
-                               widget.isCircularExchangeModeEnabled ||
-                               widget.isChainExchangeModeEnabled;
-  
+  bool get isInExchangeMode =>
+      widget.isExchangeModeEnabled ||
+      widget.isCircularExchangeModeEnabled ||
+      widget.isChainExchangeModeEnabled;
+
   /// 🆕 노드 스크롤 콜백 설정
   void _setupNodeScrollCallback() {
     // 외부에서 노드 스크롤을 요청할 수 있도록 콜백 연결
@@ -142,7 +142,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
 
     // 공통 스크롤 관리 믹신 초기화
     initializeScrollControllers();
-    
+
     // 🆕 노드 스크롤 요청 콜백 설정
     if (widget.onNodeScrollRequest != null) {
       // 외부에서 노드 스크롤 요청을 받을 수 있도록 설정
@@ -170,11 +170,14 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     if (widget.timetableData != oldWidget.timetableData ||
         widget.dataSource != oldWidget.dataSource ||
         widget.isExchangeModeEnabled != oldWidget.isExchangeModeEnabled ||
-        widget.isCircularExchangeModeEnabled != oldWidget.isCircularExchangeModeEnabled ||
-        widget.isChainExchangeModeEnabled != oldWidget.isChainExchangeModeEnabled) {
-
+        widget.isCircularExchangeModeEnabled !=
+            oldWidget.isCircularExchangeModeEnabled ||
+        widget.isChainExchangeModeEnabled !=
+            oldWidget.isChainExchangeModeEnabled) {
       // Syncfusion DataGrid 초기화 로그 (위젯 업데이트 시)
-      AppLogger.exchangeDebug('[wg2] Syncfusion DataGrid 초기화: 위젯 업데이트 시 (didUpdateWidget) - 구조적 데이터 변경');
+      AppLogger.exchangeDebug(
+        '[wg2] Syncfusion DataGrid 초기화: 위젯 업데이트 시 (didUpdateWidget) - 구조적 데이터 변경',
+      );
 
       // 스크롤 초기화 로그 (위젯 업데이트 시)
       // 파일 로드 시에만 실제로 스크롤이 초기화됨 (fileLoadId 변경)
@@ -196,10 +199,10 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
   void dispose() {
     // Syncfusion DataGrid 해제 로그
     AppLogger.exchangeDebug('[wg2] Syncfusion DataGrid 해제: 위젯 해제 시 (dispose)');
-    
+
     // 스크롤 초기화 로그 (위젯 해제 시)
     AppLogger.exchangeDebug('[wg] 스크롤 초기화: 위젯 해제 시 (dispose)');
-    
+
     // 공통 스크롤 관리 믹신 해제
     disposeScrollControllers();
 
@@ -209,7 +212,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     // 기존 리소스 정리
     super.dispose();
   }
-
 
   /// UI 업데이트 요청
   void _requestUIUpdate() {
@@ -252,9 +254,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
             const SizedBox(height: 2),
 
             // Syncfusion DataGrid 위젯 (화살표와 함께)
-            Expanded(
-              child: _buildDataGridWithArrows(),
-            ),
+            Expanded(child: _buildDataGridWithArrows()),
 
             const SizedBox(height: 8),
 
@@ -277,250 +277,128 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
         final bool useVerticalLayout = constraints.maxWidth < 800;
         // 화면 폭이 600px 미만일 때 교사 수 표시 위젯 숨김
         final bool hideTeacherCount = constraints.maxWidth < 600;
-        // 화면 폭이 500px 미만일 때 되돌리기/재실행 버튼 숨김
-        final bool hideUndoRedoButtons = constraints.maxWidth < 500;
-        
-        if (useVerticalLayout) {
-          // 세로 레이아웃 (화면이 좁을 때)
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 첫 번째 행: 확대/축소, 교사 수, 교체 뷰
-              Row(
-                children: [
-                  const SizedBox(width: 8),
-                  
-                  // 확대/축소 컨트롤
-                  Consumer(
-                    builder: (context, ref, child) {
-                      final zoomState = ref.watch(zoomProvider);
-                      final zoomNotifier = ref.read(zoomProvider.notifier);
-                      
-                      return ZoomControlWidget(
-                        zoomPercentage: zoomState.zoomPercentage,
-                        zoomFactor: zoomState.zoomFactor,
-                        minZoom: zoomState.minZoom,
-                        maxZoom: zoomState.maxZoom,
-                        onZoomIn: zoomNotifier.zoomIn,
-                        onZoomOut: zoomNotifier.zoomOut,
-                        onResetZoom: zoomNotifier.resetZoom,
-                      );
-                    },
-                  ),
-                  
-                  const SizedBox(width: 8),
-                  
-                  // 전체 교사 수 표시 (화면이 충분히 넓을 때만)
-                  if (!hideTeacherCount) ...[
-                    TeacherCountWidget(
-                      teacherCount: widget.timetableData!.teachers.length,
-                    ),
-                    const SizedBox(width: 10),
-                  ],
-                  
-                  // 교체 뷰 체크박스
-                  ExchangeViewCheckbox(
-                    isEnabled: ref.watch(isExchangeViewEnabledProvider),
-                    onChanged: (bool? value) {
-                      final isEnabled = value ?? false;
-                      
-                      if (isEnabled) {
-                        _enableExchangeView();
-                      } else {
-                        _disableExchangeView();
-                      }
-                    },
-                  ),
-                  
-                  const SizedBox(width: 8),
-                  
-                  // 초기화 버튼
-                  Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    child: ElevatedButton.icon(
-                      onPressed: () => _showDeleteExchangeListDialog(context, ref),
-                      icon: const Icon(Icons.delete_outline, size: 16),
-                      label: const Text('초기화'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red.shade100,
-                        foregroundColor: Colors.red.shade700,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        minimumSize: const Size(60, 40),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(5),
-                          side: BorderSide(color: Colors.red.shade300),
-                        ),
-                      ),
-                    ),
-                  ),
-                  
-                  const SizedBox(width: 8),
-                  
-                  // 교체 버튼들 (되돌리기/다시실행/교체)
-                  Consumer(
-                    builder: (context, ref, child) {
-                      final cellState = ref.watch(cellSelectionProvider);
-                      final currentSelectedPath = cellState.selectedOneToOnePath ??
-                                                cellState.selectedCircularPath ??
-                                                cellState.selectedChainPath ??
-                                                cellState.selectedSupplementPath ??
-                                                widget.selectedExchangePath;
-                      final isFromExchangedCell = cellState.isFromExchangedCell;
 
-                      return ExchangeActionButtons(
-                        onUndo: () => _exchangeExecutor.undoLastExchange(context, () {
-                          ref.read(stateResetProvider.notifier).resetExchangeStates(
-                            reason: '내부 경로 초기화',
-                          );
-                        }),
-                        onRepeat: () => _exchangeExecutor.repeatLastExchange(context),
-                        onDelete: (currentSelectedPath != null && isFromExchangedCell)
-                          ? () async => await _exchangeExecutor.deleteFromExchangeList(currentSelectedPath, context, () {
-                              ref.read(stateResetProvider.notifier).resetExchangeStates(
-                                reason: '내부 경로 초기화',
-                              );
-                            })
-                          : null,
-                        onExchange: (isInExchangeMode && !isFromExchangedCell && currentSelectedPath != null)
-                          ? () => _exchangeExecutor.executeExchange(currentSelectedPath, context, () {
-                              ref.read(stateResetProvider.notifier).resetExchangeStates(
-                                reason: '내부 경로 초기화',
-                              );
-                            })
-                          : null,
-                        showDeleteButton: currentSelectedPath != null && isFromExchangedCell,
-                        showExchangeButton: isInExchangeMode && !isFromExchangedCell,
-                        hideUndoRedoButtons: hideUndoRedoButtons, // 되돌리기/재실행 버튼 숨김
-                      );
-                    },
-                  ),
-                  
-                  const Spacer(),
-                ],
-              ),
-              
+        final toolbarRow = _buildHeaderToolbarRow(hideTeacherCount);
+
+        if (useVerticalLayout) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              toolbarRow,
               const SizedBox(height: 8),
             ],
           );
-        } else {
-          // 가로 레이아웃 (화면이 넓을 때 - 기존 방식)
-          return Row(
-            children: [
-              const SizedBox(width: 8),
-
-              // 확대/축소 컨트롤
-              Consumer(
-                builder: (context, ref, child) {
-                  final zoomState = ref.watch(zoomProvider);
-                  final zoomNotifier = ref.read(zoomProvider.notifier);
-                  
-                  return ZoomControlWidget(
-                    zoomPercentage: zoomState.zoomPercentage,
-                    zoomFactor: zoomState.zoomFactor,
-                    minZoom: zoomState.minZoom,
-                    maxZoom: zoomState.maxZoom,
-                    onZoomIn: zoomNotifier.zoomIn,
-                    onZoomOut: zoomNotifier.zoomOut,
-                    onResetZoom: zoomNotifier.resetZoom,
-                  );
-                },
-              ),
-
-              const SizedBox(width: 8),
-
-              // 전체 교사 수 표시 (화면이 충분히 넓을 때만)
-              if (!hideTeacherCount) ...[
-                TeacherCountWidget(
-                  teacherCount: widget.timetableData!.teachers.length,
-                ),
-                const SizedBox(width: 10),
-              ],
-
-              // 교체 뷰 체크박스
-              ExchangeViewCheckbox(
-                isEnabled: ref.watch(isExchangeViewEnabledProvider),
-                onChanged: (bool? value) {
-                  final isEnabled = value ?? false;
-                  
-                  if (isEnabled) {
-                    _enableExchangeView();
-                  } else {
-                    _disableExchangeView();
-                  }
-                },
-              ),
-
-              const SizedBox(width: 8),
-
-              // 초기화 버튼
-              Container(
-                margin: const EdgeInsets.only(right: 8),
-                child: ElevatedButton.icon(
-                  onPressed: () => _showDeleteExchangeListDialog(context, ref),
-                  icon: const Icon(Icons.delete_outline, size: 16),
-                  label: const Text('초기화'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red.shade100,
-                    foregroundColor: Colors.red.shade700,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    minimumSize: const Size(60, 40),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(5),
-                      side: BorderSide(color: Colors.red.shade300),
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(width: 8),
-
-              // 교체 버튼들 (되돌리기/다시실행/교체)
-              Consumer(
-                builder: (context, ref, child) {
-                  final cellState = ref.watch(cellSelectionProvider);
-                  final currentSelectedPath = cellState.selectedOneToOnePath ??
-                                            cellState.selectedCircularPath ??
-                                            cellState.selectedChainPath ??
-                                            cellState.selectedSupplementPath ??
-                                            widget.selectedExchangePath;
-                  final isFromExchangedCell = cellState.isFromExchangedCell;
-
-                  return ExchangeActionButtons(
-                    onUndo: () => _exchangeExecutor.undoLastExchange(context, () {
-                      ref.read(stateResetProvider.notifier).resetExchangeStates(
-                        reason: '내부 경로 초기화',
-                      );
-                    }),
-                    onRepeat: () => _exchangeExecutor.repeatLastExchange(context),
-                    onDelete: (currentSelectedPath != null && isFromExchangedCell)
-                      ? () async => await _exchangeExecutor.deleteFromExchangeList(currentSelectedPath, context, () {
-                          ref.read(stateResetProvider.notifier).resetExchangeStates(
-                            reason: '내부 경로 초기화',
-                          );
-                        })
-                      : null,
-                    onExchange: (isInExchangeMode && !isFromExchangedCell && currentSelectedPath != null)
-                      ? () => _exchangeExecutor.executeExchange(currentSelectedPath, context, () {
-                          ref.read(stateResetProvider.notifier).resetExchangeStates(
-                            reason: '내부 경로 초기화',
-                          );
-                        })
-                      : null,
-                    showDeleteButton: currentSelectedPath != null && isFromExchangedCell,
-                    showExchangeButton: isInExchangeMode && !isFromExchangedCell,
-                    hideUndoRedoButtons: hideUndoRedoButtons, // 되돌리기/재실행 버튼 숨김
-                  );
-                },
-              ),
-
-              const Spacer(),
-            ],
-          );
         }
+        return toolbarRow;
       },
     );
   }
 
+  /// 헤더 툴바 — 버튼(왼쪽) + 정보(오른쪽)
+  Widget _buildHeaderToolbarRow(bool hideTeacherCount) {
+    return Row(
+      children: [
+        const SizedBox(width: 8),
+
+        // 왼쪽: 버튼 그룹
+        ExchangeViewCheckbox(
+          isEnabled: ref.watch(isExchangeViewEnabledProvider),
+          onChanged: (bool? value) {
+            final isEnabled = value ?? false;
+            if (isEnabled) {
+              _enableExchangeView();
+            } else {
+              _disableExchangeView();
+            }
+          },
+        ),
+        const SizedBox(width: 6),
+        ResetExchangeListButton(
+          onPressed: () => _showDeleteExchangeListDialog(context, ref),
+        ),
+        const SizedBox(width: 4),
+        _buildExchangeActionButtons(),
+
+        // 오른쪽: 확대/축소, 교사 수
+        const Spacer(),
+        _buildZoomControl(),
+        const SizedBox(width: 8),
+        if (!hideTeacherCount) ...[
+          TeacherCountWidget(
+            teacherCount: widget.timetableData!.teachers.length,
+          ),
+        ],
+        const SizedBox(width: 8),
+      ],
+    );
+  }
+
+  /// 확대/축소 컨트롤
+  Widget _buildZoomControl() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final zoomState = ref.watch(zoomProvider);
+        final zoomNotifier = ref.read(zoomProvider.notifier);
+
+        return ZoomControlWidget(
+          zoomPercentage: zoomState.zoomPercentage,
+          zoomFactor: zoomState.zoomFactor,
+          minZoom: zoomState.minZoom,
+          maxZoom: zoomState.maxZoom,
+          onZoomIn: zoomNotifier.zoomIn,
+          onZoomOut: zoomNotifier.zoomOut,
+          onResetZoom: zoomNotifier.resetZoom,
+        );
+      },
+    );
+  }
+
+  /// 되돌리기·다시 실행·삭제 버튼 그룹
+  Widget _buildExchangeActionButtons() {
+    return Consumer(
+      builder: (context, ref, child) {
+        // 교체 리스트 변경 시 버튼 활성 상태 갱신
+        ref.watch(exchangeListVersionProvider);
+        final historyService = ref.read(exchangeHistoryServiceProvider);
+        final canUndo = historyService.canUndo;
+        final canRedo = historyService.canRedo;
+
+        final cellState = ref.watch(cellSelectionProvider);
+        final currentSelectedPath = cellState.selectedOneToOnePath ??
+            cellState.selectedCircularPath ??
+            cellState.selectedChainPath ??
+            cellState.selectedSupplementPath ??
+            widget.selectedExchangePath;
+        final isFromExchangedCell = cellState.isFromExchangedCell;
+
+        return ExchangeActionButtons(
+          onUndo: canUndo
+              ? () => _exchangeExecutor.undoLastExchange(context, () {
+                    ref.read(stateResetProvider.notifier).resetExchangeStates(
+                          reason: '내부 경로 초기화',
+                        );
+                  })
+              : null,
+          onRepeat: canRedo
+              ? () => _exchangeExecutor.redoLastExchange(context)
+              : null,
+          onDelete: (currentSelectedPath != null && isFromExchangedCell)
+              ? () async => await _exchangeExecutor.deleteFromExchangeList(
+                    currentSelectedPath,
+                    context,
+                    () {
+                      ref.read(stateResetProvider.notifier).resetExchangeStates(
+                            reason: '내부 경로 초기화',
+                          );
+                    },
+                  )
+              : null,
+          showDeleteButton:
+              currentSelectedPath != null && isFromExchangedCell,
+        );
+      },
+    );
+  }
 
   /// DataGrid와 화살표를 함께 구성
   Widget _buildDataGridWithArrows() {
@@ -528,11 +406,12 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       builder: (context, ref, child) {
         // select 패턴으로 경로 상태만 구독
         final cellState = ref.watch(cellSelectionProvider);
-        final currentSelectedPath = cellState.selectedOneToOnePath ??
-                                    cellState.selectedCircularPath ??
-                                    cellState.selectedChainPath ??
-                                    cellState.selectedSupplementPath ??
-                                    widget.selectedExchangePath;
+        final currentSelectedPath =
+            cellState.selectedOneToOnePath ??
+            cellState.selectedCircularPath ??
+            cellState.selectedChainPath ??
+            cellState.selectedSupplementPath ??
+            widget.selectedExchangePath;
 
         Widget dataGrid = _buildDataGrid();
 
@@ -547,7 +426,10 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
   }
 
   /// 기존 CustomPainter 기반 화살표 표시
-  Widget _buildDataGridWithLegacyArrows(Widget dataGridWithGestures, ExchangePath selectedPath) {
+  Widget _buildDataGridWithLegacyArrows(
+    Widget dataGridWithGestures,
+    ExchangePath selectedPath,
+  ) {
     return Consumer(
       builder: (context, ref, child) {
         final zoomFactor = ref.watch(zoomProvider.select((s) => s.zoomFactor));
@@ -571,9 +453,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
                     zoomFactor: zoomFactor,
                     scrollOffset: scrollOffset,
                   ),
-                  child: RepaintBoundary(
-                    child: Container(),
-                  ),
+                  child: RepaintBoundary(child: Container()),
                 ),
               ),
             ),
@@ -583,7 +463,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     );
   }
 
-
   /// DataGrid 구성
   Widget _buildDataGrid() {
     return Consumer(
@@ -591,13 +470,14 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
         final zoomFactor = ref.watch(zoomProvider.select((s) => s.zoomFactor));
 
         // 🔒 열 개수와 행 셀 개수 일치 여부 검증
-        final scaledColumns = GridScalingHelper.scaleColumns(widget.columns, zoomFactor);
-        
+        final scaledColumns = GridScalingHelper.scaleColumns(
+          widget.columns,
+          zoomFactor,
+        );
+
         // 🔥 중요: 컬럼이 비어있거나 잘못된 경우 오류 로그
         if (widget.columns.isEmpty) {
-          AppLogger.error(
-            'SfDataGrid 컬럼이 비어있습니다. Provider 상태를 확인하세요.',
-          );
+          AppLogger.error('SfDataGrid 컬럼이 비어있습니다. Provider 상태를 확인하세요.');
           // 컬럼이 비어있으면 빈 위젯 반환 (앱 크래시 방지)
           return const Center(
             child: Text(
@@ -607,24 +487,24 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
             ),
           );
         }
-        
+
         if (widget.dataSource != null && widget.dataSource!.rows.isNotEmpty) {
           final firstRowCells = widget.dataSource!.rows.first.getCells();
           final expectedCellCount = scaledColumns.length;
           final actualCellCount = firstRowCells.length;
-          
+
           if (expectedCellCount != actualCellCount) {
             AppLogger.error(
               'SfDataGrid 열/셀 개수 불일치: columns=$expectedCellCount, cells=$actualCellCount (원본 컬럼: ${widget.columns.length}개)',
             );
-            
+
             // 🔥 중요: 컬럼이 1개만 있는 경우는 초기화 문제로 간주
             if (widget.columns.length == 1) {
               AppLogger.error(
                 '컬럼이 1개만 있습니다. Provider 상태가 초기화되지 않았거나 모드 전환 중 오류가 발생했습니다.',
               );
             }
-            
+
             // 오류 발생 시 빈 위젯 반환 (앱 크래시 방지)
             return const Center(
               child: Text(
@@ -646,12 +526,24 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
               child: Theme(
                 data: Theme.of(context).copyWith(
                   textTheme: Theme.of(context).textTheme.copyWith(
-                    bodyMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                    bodySmall: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                    titleMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                    labelMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                    labelLarge: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                    labelSmall: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
+                    bodyMedium: TextStyle(
+                      fontSize: GridLayoutConstants.baseFontSize * zoomFactor,
+                    ),
+                    bodySmall: TextStyle(
+                      fontSize: GridLayoutConstants.baseFontSize * zoomFactor,
+                    ),
+                    titleMedium: TextStyle(
+                      fontSize: GridLayoutConstants.baseFontSize * zoomFactor,
+                    ),
+                    labelMedium: TextStyle(
+                      fontSize: GridLayoutConstants.baseFontSize * zoomFactor,
+                    ),
+                    labelLarge: TextStyle(
+                      fontSize: GridLayoutConstants.baseFontSize * zoomFactor,
+                    ),
+                    labelSmall: TextStyle(
+                      fontSize: GridLayoutConstants.baseFontSize * zoomFactor,
+                    ),
                   ),
                 ),
                 child: NotificationListener<ScrollNotification>(
@@ -660,32 +552,37 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
                     if (notification is ScrollUpdateNotification) {
                       final metrics = notification.metrics;
                       final currentState = ref.read(scrollProvider);
-                      
+
                       // 현재 상태를 유지하면서 해당 축의 오프셋만 업데이트
-                      final newHorizontal = metrics.axis == Axis.horizontal 
-                          ? metrics.pixels 
-                          : currentState.horizontalOffset;
-                      final newVertical = metrics.axis == Axis.vertical 
-                          ? metrics.pixels 
-                          : currentState.verticalOffset;
-                      
-                          
-                      ref.read(scrollProvider.notifier).updateOffset(
-                        newHorizontal,
-                        newVertical,
-                      );
+                      final newHorizontal =
+                          metrics.axis == Axis.horizontal
+                              ? metrics.pixels
+                              : currentState.horizontalOffset;
+                      final newVertical =
+                          metrics.axis == Axis.vertical
+                              ? metrics.pixels
+                              : currentState.verticalOffset;
+
+                      ref
+                          .read(scrollProvider.notifier)
+                          .updateOffset(newHorizontal, newVertical);
                     }
                     return false; // 다른 위젯도 이벤트를 받을 수 있도록
                   },
                   child: SfDataGrid(
                     key: _dataGridKey,
-                    controller: _dataGridController,  // 🆕 DataGridController 연결
+                    controller: _dataGridController, // 🆕 DataGridController 연결
                     source: widget.dataSource!,
                     columns: scaledColumns, // 검증된 스케일된 열 사용
-                    stackedHeaderRows: GridScalingHelper.scaleStackedHeaders(widget.stackedHeaders, zoomFactor),
+                    stackedHeaderRows: GridScalingHelper.scaleStackedHeaders(
+                      widget.stackedHeaders,
+                      zoomFactor,
+                    ),
                     gridLinesVisibility: GridLinesVisibility.both,
                     headerGridLinesVisibility: GridLinesVisibility.both,
-                    headerRowHeight: GridScalingHelper.scaleHeaderHeight(zoomFactor),
+                    headerRowHeight: GridScalingHelper.scaleHeaderHeight(
+                      zoomFactor,
+                    ),
                     rowHeight: GridScalingHelper.scaleRowHeight(zoomFactor),
                     allowColumnsResizing: false,
                     allowSorting: false,
@@ -711,161 +608,189 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     );
   }
 
-
-
-
-
   /// 🆕 교체 경로 노드로 스크롤하는 메서드
   /// 사이드바에서 노드를 선택했을 때 해당 셀로 중앙 스크롤
-  /// 
+  ///
   /// [node] 교체 경로의 노드 정보
   void scrollToExchangeNode(ExchangeNode node) {
     try {
-      AppLogger.exchangeDebug('🔍 [노드 스크롤] 시작: ${node.teacherName} | ${node.day}요일 ${node.period}교시');
-      
+      AppLogger.exchangeDebug(
+        '🔍 [노드 스크롤] 시작: ${node.teacherName} | ${node.day}요일 ${node.period}교시',
+      );
+
       // 1. DataGridController 상태 확인
       // DataGridController는 hasClients 속성이 없으므로 다른 방법으로 확인
       try {
         // 간단한 테스트로 컨트롤러가 작동하는지 확인
         AppLogger.exchangeDebug('🔍 [노드 스크롤] DataGridController 상태 확인 중...');
       } catch (e) {
-        AppLogger.exchangeDebug('❌ [노드 스크롤] DataGridController가 아직 초기화되지 않음: $e');
+        AppLogger.exchangeDebug(
+          '❌ [노드 스크롤] DataGridController가 아직 초기화되지 않음: $e',
+        );
         // 잠시 후 재시도
         Future.delayed(const Duration(milliseconds: 100), () {
           scrollToExchangeNode(node);
         });
         return;
       }
-      
+
       // 2. 교사명으로 행 인덱스 찾기
       final teacherRowIndex = _findTeacherRowIndex(node.teacherName);
       if (teacherRowIndex == -1) {
         AppLogger.exchangeDebug('❌ [노드 스크롤] 교사를 찾을 수 없음: ${node.teacherName}');
         return;
       }
-      
+
       // 3. 요일과 교시로 열 인덱스 계산
       final dayOfWeekInt = DayUtils.getDayNumber(node.day);
       final columnIndex = _calculateColumnIndex(dayOfWeekInt, node.period);
       if (columnIndex == -1) {
-        AppLogger.exchangeDebug('❌ [노드 스크롤] 열 인덱스 계산 실패: 요일=${node.day}, 교시=${node.period}');
+        AppLogger.exchangeDebug(
+          '❌ [노드 스크롤] 열 인덱스 계산 실패: 요일=${node.day}, 교시=${node.period}',
+        );
         return;
       }
-      
+
       // 4. 인덱스 유효성 검증
       final dataSource = widget.dataSource;
       if (dataSource == null) {
         AppLogger.exchangeDebug('❌ [노드 스크롤] 데이터 소스가 null');
         return;
       }
-      
+
       final maxRowIndex = dataSource.rows.length - 1;
       final maxColumnIndex = widget.columns.length - 1;
-      
+
       if (teacherRowIndex > maxRowIndex) {
-        AppLogger.exchangeDebug('❌ [노드 스크롤] 행 인덱스 범위 초과: $teacherRowIndex > $maxRowIndex');
+        AppLogger.exchangeDebug(
+          '❌ [노드 스크롤] 행 인덱스 범위 초과: $teacherRowIndex > $maxRowIndex',
+        );
         return;
       }
-      
+
       if (columnIndex > maxColumnIndex) {
-        AppLogger.exchangeDebug('❌ [노드 스크롤] 열 인덱스 범위 초과: $columnIndex > $maxColumnIndex');
+        AppLogger.exchangeDebug(
+          '❌ [노드 스크롤] 열 인덱스 범위 초과: $columnIndex > $maxColumnIndex',
+        );
         return;
       }
-      
-      AppLogger.exchangeDebug('✅ [노드 스크롤] 인덱스 검증 완료: 행=$teacherRowIndex/$maxRowIndex, 열=$columnIndex/$maxColumnIndex');
-      
+
+      AppLogger.exchangeDebug(
+        '✅ [노드 스크롤] 인덱스 검증 완료: 행=$teacherRowIndex/$maxRowIndex, 열=$columnIndex/$maxColumnIndex',
+      );
+
       // 5. Syncfusion DataGrid의 내장 스크롤 기능 사용
       _dataGridController.scrollToCell(
-        teacherRowIndex.toDouble(),  // 행 인덱스 (double로 변환)
-        columnIndex.toDouble(),      // 열 인덱스 (double로 변환)
+        teacherRowIndex.toDouble(), // 행 인덱스 (double로 변환)
+        columnIndex.toDouble(), // 열 인덱스 (double로 변환)
         canAnimate: true, // 부드러운 애니메이션 효과 적용
-        rowPosition: DataGridScrollPosition.center,    // 행을 수직 중앙에 위치
+        rowPosition: DataGridScrollPosition.center, // 행을 수직 중앙에 위치
         columnPosition: DataGridScrollPosition.center, // 열을 수평 중앙에 위치
       );
-      
+
       AppLogger.exchangeDebug(
-        '🎯 [노드 스크롤] 셀 중앙 이동 완료: ${node.teacherName} | ${node.day}요일 ${node.period}교시 | 행:$teacherRowIndex, 열:$columnIndex'
+        '🎯 [노드 스크롤] 셀 중앙 이동 완료: ${node.teacherName} | ${node.day}요일 ${node.period}교시 | 행:$teacherRowIndex, 열:$columnIndex',
       );
-      
+
       // 6. 스크롤 실행 확인 (잠시 후)
       Future.delayed(const Duration(milliseconds: 500), () {
         _verifyScrollExecution(node, teacherRowIndex, columnIndex);
       });
-      
     } catch (e) {
       AppLogger.exchangeDebug('❌ [노드 스크롤] 스크롤 실패: $e');
     }
   }
-  
+
   /// 🆕 스크롤 실행 확인 메서드
   /// 실제로 스크롤이 실행되었는지 확인
-  void _verifyScrollExecution(ExchangeNode node, int expectedRowIndex, int expectedColumnIndex) {
+  void _verifyScrollExecution(
+    ExchangeNode node,
+    int expectedRowIndex,
+    int expectedColumnIndex,
+  ) {
     try {
       // 현재 스크롤 위치 확인
-      final currentHorizontalOffset = horizontalScrollController.hasClients 
-          ? horizontalScrollController.offset 
-          : 0.0;
-      final currentVerticalOffset = verticalScrollController.hasClients 
-          ? verticalScrollController.offset 
-          : 0.0;
-      
+      final currentHorizontalOffset =
+          horizontalScrollController.hasClients
+              ? horizontalScrollController.offset
+              : 0.0;
+      final currentVerticalOffset =
+          verticalScrollController.hasClients
+              ? verticalScrollController.offset
+              : 0.0;
+
       AppLogger.exchangeDebug(
-        '🔍 [스크롤 확인] 현재 위치: 수평=${currentHorizontalOffset.toStringAsFixed(1)}, 수직=${currentVerticalOffset.toStringAsFixed(1)}'
+        '🔍 [스크롤 확인] 현재 위치: 수평=${currentHorizontalOffset.toStringAsFixed(1)}, 수직=${currentVerticalOffset.toStringAsFixed(1)}',
       );
-      
+
       // 스크롤이 실제로 발생했는지 확인
       if (currentHorizontalOffset > 0 || currentVerticalOffset > 0) {
         AppLogger.exchangeDebug('✅ [스크롤 확인] 스크롤 실행됨');
       } else {
         AppLogger.exchangeDebug('⚠️ [스크롤 확인] 스크롤이 실행되지 않음 - 대체 방법 시도');
-        _tryAlternativeScrollMethod(node, expectedRowIndex, expectedColumnIndex);
+        _tryAlternativeScrollMethod(
+          node,
+          expectedRowIndex,
+          expectedColumnIndex,
+        );
       }
     } catch (e) {
       AppLogger.exchangeDebug('❌ [스크롤 확인] 확인 실패: $e');
     }
   }
-  
+
   /// 🆕 대체 스크롤 방법 시도
   /// DataGridController가 작동하지 않을 때 ScrollController 직접 사용
-  void _tryAlternativeScrollMethod(ExchangeNode node, int rowIndex, int columnIndex) {
+  void _tryAlternativeScrollMethod(
+    ExchangeNode node,
+    int rowIndex,
+    int columnIndex,
+  ) {
     try {
       AppLogger.exchangeDebug('🔄 [대체 스크롤] ScrollController 직접 사용 시도');
-      
+
       // ScrollController를 직접 사용하여 스크롤
-      if (horizontalScrollController.hasClients && verticalScrollController.hasClients) {
+      if (horizontalScrollController.hasClients &&
+          verticalScrollController.hasClients) {
         // 대략적인 위치 계산 (실제 구현에서는 더 정밀한 계산 필요)
         final estimatedHorizontalOffset = columnIndex * 100.0; // 열당 대략 100px
         final estimatedVerticalOffset = rowIndex * 50.0; // 행당 대략 50px
-        
+
         horizontalScrollController.animateTo(
-          estimatedHorizontalOffset.clamp(0.0, horizontalScrollController.position.maxScrollExtent),
+          estimatedHorizontalOffset.clamp(
+            0.0,
+            horizontalScrollController.position.maxScrollExtent,
+          ),
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
         );
-        
+
         verticalScrollController.animateTo(
-          estimatedVerticalOffset.clamp(0.0, verticalScrollController.position.maxScrollExtent),
+          estimatedVerticalOffset.clamp(
+            0.0,
+            verticalScrollController.position.maxScrollExtent,
+          ),
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
         );
-        
+
         AppLogger.exchangeDebug(
-          '🔄 [대체 스크롤] ScrollController 스크롤 실행: 수평=${estimatedHorizontalOffset.toStringAsFixed(1)}, 수직=${estimatedVerticalOffset.toStringAsFixed(1)}'
+          '🔄 [대체 스크롤] ScrollController 스크롤 실행: 수평=${estimatedHorizontalOffset.toStringAsFixed(1)}, 수직=${estimatedVerticalOffset.toStringAsFixed(1)}',
         );
       }
     } catch (e) {
       AppLogger.exchangeDebug('❌ [대체 스크롤] 실패: $e');
     }
   }
-  
+
   /// 교사명으로 행 인덱스 찾기
-  /// 
+  ///
   /// [teacherName] 찾을 교사명
   /// Returns 행 인덱스 (0부터 시작, 헤더 제외)
   int _findTeacherRowIndex(String teacherName) {
     final dataSource = widget.dataSource;
     if (dataSource == null) return -1;
-    
+
     // 데이터 소스에서 교사명이 포함된 행 찾기
     for (int i = 0; i < dataSource.rows.length; i++) {
       final row = dataSource.rows[i];
@@ -879,73 +804,88 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     }
     return -1;
   }
-  
+
   /// 요일과 교시로 열 인덱스 계산
-  /// 
+  ///
   /// [dayOfWeek] 요일 (1-5)
   /// [period] 교시 (1-8)
   /// Returns 열 인덱스 (0부터 시작)
   int _calculateColumnIndex(int dayOfWeek, int period) {
     try {
       AppLogger.exchangeDebug('🔍 [열 계산] 시작: 요일=$dayOfWeek, 교시=$period');
-      
+
       // 실제 그리드 구조 분석
       final columns = widget.columns;
       AppLogger.exchangeDebug('🔍 [열 계산] 전체 열 개수: ${columns.length}');
-      
+
       // 첫 번째 열이 교사명 열인지 확인
       bool hasTeacherColumn = false;
       if (columns.isNotEmpty) {
         final firstColumn = columns.first;
-        hasTeacherColumn = firstColumn.columnName.contains('교사') || 
-                          firstColumn.columnName.contains('선생님') ||
-                          firstColumn.columnName.contains('Teacher') ||
-                          firstColumn.columnName.toLowerCase().contains('teacher');
-        AppLogger.exchangeDebug('🔍 [열 계산] 교사명 열 존재: $hasTeacherColumn (${firstColumn.columnName})');
+        hasTeacherColumn =
+            firstColumn.columnName.contains('교사') ||
+            firstColumn.columnName.contains('선생님') ||
+            firstColumn.columnName.contains('Teacher') ||
+            firstColumn.columnName.toLowerCase().contains('teacher');
+        AppLogger.exchangeDebug(
+          '🔍 [열 계산] 교사명 열 존재: $hasTeacherColumn (${firstColumn.columnName})',
+        );
       }
-      
+
       // 교사명 열이 있다면 그 다음부터 시작
       int startColumnIndex = hasTeacherColumn ? 1 : 0;
-      
+
       // 🆕 실제 그리드 구조 분석하여 요일별 교시 수 계산
       final actualDataColumns = columns.length - startColumnIndex;
       AppLogger.exchangeDebug('🔍 [열 계산] 실제 데이터 열 개수: $actualDataColumns');
-      
+
       // 요일별 교시 수 계산 (실제 구조에 맞게)
       final periodsPerDay = actualDataColumns ~/ 5; // 5요일로 나누기
       AppLogger.exchangeDebug('🔍 [열 계산] 요일당 교시 수: $periodsPerDay');
-      
+
       // 🆕 더 정확한 계산 방식
       // 실제 그리드에서 요일별로 몇 개의 열이 있는지 확인
       int columnIndex;
-      
+
       if (periodsPerDay > 0) {
         // 일반적인 경우: 요일별로 일정한 교시 수
-        columnIndex = startColumnIndex + (dayOfWeek - 1) * periodsPerDay + (period - 1);
+        columnIndex =
+            startColumnIndex + (dayOfWeek - 1) * periodsPerDay + (period - 1);
       } else {
         // 🆕 특수한 경우: 실제 열 구조를 분석
         AppLogger.exchangeDebug('🔍 [열 계산] 특수 구조 감지 - 실제 열 분석 시작');
-        columnIndex = _analyzeActualColumnStructure(dayOfWeek, period, startColumnIndex);
+        columnIndex = _analyzeActualColumnStructure(
+          dayOfWeek,
+          period,
+          startColumnIndex,
+        );
       }
-      
+
       AppLogger.exchangeDebug(
-        '🔍 [열 계산] 계산 결과: 시작열=$startColumnIndex, 요일당교시=$periodsPerDay, 최종열인덱스=$columnIndex'
+        '🔍 [열 계산] 계산 결과: 시작열=$startColumnIndex, 요일당교시=$periodsPerDay, 최종열인덱스=$columnIndex',
       );
-      
+
       // 범위 검증
       if (columnIndex < 0 || columnIndex >= columns.length) {
-        AppLogger.exchangeDebug('❌ [열 계산] 범위 초과: $columnIndex (최대: ${columns.length - 1})');
-        
+        AppLogger.exchangeDebug(
+          '❌ [열 계산] 범위 초과: $columnIndex (최대: ${columns.length - 1})',
+        );
+
         // 🆕 범위 초과 시 대안 계산 시도
         AppLogger.exchangeDebug('🔄 [열 계산] 대안 계산 시도');
-        columnIndex = _tryAlternativeColumnCalculation(dayOfWeek, period, startColumnIndex, columns.length);
-        
+        columnIndex = _tryAlternativeColumnCalculation(
+          dayOfWeek,
+          period,
+          startColumnIndex,
+          columns.length,
+        );
+
         if (columnIndex == -1) {
           AppLogger.exchangeDebug('❌ [열 계산] 모든 계산 방법 실패');
           return -1;
         }
       }
-      
+
       AppLogger.exchangeDebug('✅ [열 계산] 성공: $columnIndex');
       return columnIndex;
     } catch (e) {
@@ -953,23 +893,27 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       return -1;
     }
   }
-  
+
   /// 🆕 실제 열 구조 분석
   /// 그리드의 실제 구조를 분석하여 정확한 열 인덱스 계산
-  int _analyzeActualColumnStructure(int dayOfWeek, int period, int startColumnIndex) {
+  int _analyzeActualColumnStructure(
+    int dayOfWeek,
+    int period,
+    int startColumnIndex,
+  ) {
     try {
       AppLogger.exchangeDebug('🔍 [구조 분석] 실제 열 구조 분석 시작');
-      
+
       // 열 이름들을 분석하여 패턴 파악
       final columns = widget.columns;
       List<String> columnNames = [];
-      
+
       for (int i = startColumnIndex; i < columns.length; i++) {
         columnNames.add(columns[i].columnName);
       }
-      
+
       AppLogger.exchangeDebug('🔍 [구조 분석] 데이터 열 이름들: $columnNames');
-      
+
       // 요일별로 그룹화 시도
       Map<String, List<int>> dayGroups = {};
       for (int i = 0; i < columnNames.length; i++) {
@@ -979,19 +923,21 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
           dayGroups.putIfAbsent(dayName, () => []).add(i + startColumnIndex);
         }
       }
-      
+
       AppLogger.exchangeDebug('🔍 [구조 분석] 요일별 그룹: $dayGroups');
-      
+
       // 해당 요일의 열들 찾기
       final dayName = DayUtils.getDayName(dayOfWeek);
       final dayColumns = dayGroups[dayName] ?? [];
-      
+
       if (dayColumns.isNotEmpty && period <= dayColumns.length) {
         final columnIndex = dayColumns[period - 1];
-        AppLogger.exchangeDebug('✅ [구조 분석] 성공: $dayName $period교시 = 열 $columnIndex');
+        AppLogger.exchangeDebug(
+          '✅ [구조 분석] 성공: $dayName $period교시 = 열 $columnIndex',
+        );
         return columnIndex;
       }
-      
+
       AppLogger.exchangeDebug('❌ [구조 분석] 해당 요일/교시를 찾을 수 없음');
       return -1;
     } catch (e) {
@@ -999,7 +945,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       return -1;
     }
   }
-  
+
   /// 🆕 열 이름에서 요일 추출
   String? _extractDayFromColumnName(String columnName) {
     final dayNames = ['월', '화', '수', '목', '금'];
@@ -1010,32 +956,38 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     }
     return null;
   }
-  
+
   /// 🆕 대안 열 계산 방법
   /// 기본 계산이 실패했을 때 시도하는 대안 방법
-  int _tryAlternativeColumnCalculation(int dayOfWeek, int period, int startColumnIndex, int totalColumns) {
+  int _tryAlternativeColumnCalculation(
+    int dayOfWeek,
+    int period,
+    int startColumnIndex,
+    int totalColumns,
+  ) {
     try {
       AppLogger.exchangeDebug('🔄 [대안 계산] 대안 방법 시도');
-      
+
       // 방법 1: 단순한 선형 계산 (교시별로 연속 배치)
       final linearIndex = startColumnIndex + (dayOfWeek - 1) * 8 + (period - 1);
       if (linearIndex < totalColumns) {
         AppLogger.exchangeDebug('✅ [대안 계산] 선형 계산 성공: $linearIndex');
         return linearIndex;
       }
-      
+
       // 방법 2: 교시 중심 계산 (요일별로 교시가 연속 배치)
-      final periodBasedIndex = startColumnIndex + (period - 1) * 5 + (dayOfWeek - 1);
+      final periodBasedIndex =
+          startColumnIndex + (period - 1) * 5 + (dayOfWeek - 1);
       if (periodBasedIndex < totalColumns) {
         AppLogger.exchangeDebug('✅ [대안 계산] 교시 중심 계산 성공: $periodBasedIndex');
         return periodBasedIndex;
       }
-      
+
       // 방법 3: 최소한의 안전한 인덱스 반환
-      final safeIndex = (startColumnIndex + (dayOfWeek - 1) * 6 + (period - 1)).clamp(startColumnIndex, totalColumns - 1);
+      final safeIndex = (startColumnIndex + (dayOfWeek - 1) * 6 + (period - 1))
+          .clamp(startColumnIndex, totalColumns - 1);
       AppLogger.exchangeDebug('⚠️ [대안 계산] 안전한 인덱스 사용: $safeIndex');
       return safeIndex;
-      
     } catch (e) {
       AppLogger.exchangeDebug('❌ [대안 계산] 오류: $e');
       return -1;
@@ -1046,13 +998,13 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
   /// 🔥 스크롤 문제 해결: 과거 커밋의 단순한 구조를 참고하여 스크롤 위치 보존
   void _handleExchangedCellClick(String teacherName, String day, int period) {
     AppLogger.exchangeDebug('🖱️ 교체된 셀 클릭: $teacherName | $day$period교시');
-    
+
     // 🔥 스크롤 문제 해결: 교체된 셀 클릭 시에도 스크롤 위치 보존
     // 과거 커밋의 단순한 구조를 유지하여 불필요한 상태 변경 방지
-    
+
     // 교체된 셀 선택 상태 플래그 설정 (헤더 색상 비활성화용)
     SimplifiedTimetableTheme.setExchangedCellSelectedHeaderDisabled(true);
-    
+
     final historyService = ref.read(exchangeHistoryServiceProvider);
     final exchangePath = historyService.findExchangePathByCell(
       teacherName,
@@ -1061,18 +1013,22 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     );
 
     if (exchangePath != null) {
-      AppLogger.exchangeDebug('✅ 교체 경로 발견: ${exchangePath.type} (ID: ${exchangePath.id})');
-      
-      ref.read(stateResetProvider.notifier).resetExchangeStates(
-        reason: '교체된 셀 클릭 - 이전 교체 상태 초기화',
+      AppLogger.exchangeDebug(
+        '✅ 교체 경로 발견: ${exchangePath.type} (ID: ${exchangePath.id})',
       );
 
+      ref
+          .read(stateResetProvider.notifier)
+          .resetExchangeStates(reason: '교체된 셀 클릭 - 이전 교체 상태 초기화');
+
       // Riverpod 기반 화살표 표시
-      ref.read(cellSelectionProvider.notifier).showArrowForExchangedCell(exchangePath);
-      
+      ref
+          .read(cellSelectionProvider.notifier)
+          .showArrowForExchangedCell(exchangePath);
+
       // 교체된 셀 클릭 시 교체 서비스 상태 업데이트 (헤더 업데이트를 위해)
       _updateExchangeServiceForExchangedCell(teacherName, day, period);
-      
+
       AppLogger.exchangeDebug('🔄 교체된 셀 클릭 - UI 업데이트 (스크롤 위치 보존)');
 
       AppLogger.exchangeDebug(
@@ -1083,31 +1039,32 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     }
   }
 
-
   /// 일반 셀 탭 시 화살표 숨기기 (Riverpod 기반)
   void _hideExchangeArrows() {
     // Riverpod 기반 화살표 숨기기
-    ref.read(cellSelectionProvider.notifier).hideArrow(
-      reason: ArrowDisplayReason.manualHide,
-    );
-    
-    ref.read(stateResetProvider.notifier).resetExchangeStates(
-      reason: '일반 셀 클릭 - 교체 화살표 숨김',
-    );
+    ref
+        .read(cellSelectionProvider.notifier)
+        .hideArrow(reason: ArrowDisplayReason.manualHide);
+
+    ref
+        .read(stateResetProvider.notifier)
+        .resetExchangeStates(reason: '일반 셀 클릭 - 교체 화살표 숨김');
   }
 
   /// 화살표 상태 초기화 (외부에서 호출) - StateResetProvider에서 처리됨
   void clearAllArrowStates() {
     // 화살표 상태 초기화는 StateResetProvider에서 처리됨
-    ref.read(stateResetProvider.notifier).resetExchangeStates(
-      reason: '외부 호출 - 화살표 상태 초기화',
-    );
+    ref
+        .read(stateResetProvider.notifier)
+        .resetExchangeStates(reason: '외부 호출 - 화살표 상태 초기화');
   }
 
   /// Level 1 전용 화살표 초기화 (경로 선택만 해제) - StateResetProvider에서 처리됨
   void clearPathSelectionOnly() {
     // 화살표 초기화는 StateResetProvider에서 처리됨
-    AppLogger.exchangeDebug('[Level 1] 경로 선택만 초기화 요청 (StateResetProvider에서 처리)');
+    AppLogger.exchangeDebug(
+      '[Level 1] 경로 선택만 초기화 요청 (StateResetProvider에서 처리)',
+    );
   }
 
   /// 셀 탭 이벤트 처리
@@ -1134,7 +1091,11 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
         final period = int.tryParse(parts[1]) ?? 0;
 
         final historyService = ref.read(exchangeHistoryServiceProvider);
-        final isExchangedCell = historyService.isCellExchanged(teacherName, day, period);
+        final isExchangedCell = historyService.isCellExchanged(
+          teacherName,
+          day,
+          period,
+        );
 
         if (isExchangedCell) {
           _handleExchangedCellClick(teacherName, day, period);
@@ -1151,7 +1112,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
 
     // Level 2 초기화 실행 (로그와 동일한 동작)
     _hideExchangeArrows();
-    
+
     widget.onCellTap(details);
     AppLogger.exchangeDebug('🔄 일반 셀 클릭 - UI 업데이트 (스크롤 위치 보존)');
   }
@@ -1161,21 +1122,24 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     // 현재 모드 및 교사 이름 선택 기능 활성화 상태 확인
     final screenState = ref.read(exchangeScreenProvider);
     final currentMode = screenState.currentMode;
-    final isNonExchangeableEditMode = currentMode == ExchangeMode.nonExchangeableEdit;
-    final isSupplementExchangeMode = currentMode == ExchangeMode.supplementExchange;
-    final isTeacherNameSelectionEnabled = screenState.isTeacherNameSelectionEnabled;
-    
+    final isNonExchangeableEditMode =
+        currentMode == ExchangeMode.nonExchangeableEdit;
+    final isSupplementExchangeMode =
+        currentMode == ExchangeMode.supplementExchange;
+    final isTeacherNameSelectionEnabled =
+        screenState.isTeacherNameSelectionEnabled;
+
     // 교체불가 편집 모드인 경우 교사 전체 시간 토글 기능 사용
     if (isNonExchangeableEditMode) {
       AppLogger.exchangeDebug('교체불가 편집 모드: 교사 전체 시간 토글 기능 사용 - $teacherName');
       _toggleTeacherAllTimesInNonExchangeableMode(teacherName);
       return;
     }
-    
+
     // 보강교체 모드이고 교사 이름 선택 기능이 활성화된 경우 보강교체 실행
     if (isSupplementExchangeMode && isTeacherNameSelectionEnabled) {
       AppLogger.exchangeDebug('보강교체 모드: 교사 이름 클릭 - 보강교체 실행 - $teacherName');
-      
+
       // 현재 선택된 셀 정보 가져오기
       final exchangeService = ref.read(exchangeServiceProvider);
       if (!exchangeService.hasSelectedCell()) {
@@ -1189,41 +1153,45 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
         );
         return;
       }
-      
+
       final selectedDay = exchangeService.selectedDay!;
       final selectedPeriod = exchangeService.selectedPeriod!;
-      
+
       // 교사 이름 클릭 시 해당 교사의 해당 시간대가 빈 셀인지 검사
       if (!_isCellEmpty(teacherName, selectedDay, selectedPeriod)) {
-        AppLogger.exchangeDebug('보강교체 실행 실패: $teacherName의 $selectedDay$selectedPeriod교시는 수업이 있는 시간입니다');
+        AppLogger.exchangeDebug(
+          '보강교체 실행 실패: $teacherName의 $selectedDay$selectedPeriod교시는 수업이 있는 시간입니다',
+        );
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('보강할 시간에 수업이 없는 교사을 선택해주세요. $teacherName의 $selectedDay$selectedPeriod교시는 수업이 있는 시간입니다.'),
+            content: Text(
+              '보강할 시간에 수업이 없는 교사을 선택해주세요. $teacherName의 $selectedDay$selectedPeriod교시는 수업이 있는 시간입니다.',
+            ),
             backgroundColor: Colors.orange,
             duration: const Duration(seconds: 3),
           ),
         );
         return;
       }
-      
+
       // 교사 이름 선택 상태 설정
       ref.read(cellSelectionProvider.notifier).selectTeacherName(teacherName);
-      
+
       // 보강교체 실행 (ExchangeExecutor 호출)
       executeSupplementExchangeViaExecutor(teacherName);
       return;
     }
-    
+
     // 다른 교체 모드이지만 교사 이름 선택 기능이 비활성화된 경우 아무 동작하지 않음
     if (!isInExchangeMode || !isTeacherNameSelectionEnabled) {
       AppLogger.exchangeDebug('교사 이름 클릭: 교체 모드가 아니거나 교사 이름 선택 기능이 비활성화됨');
       return;
     }
-    
+
     // 기존 교체 모드인 경우 교사 이름 선택 기능 사용 (1:1, 순환, 연쇄 교체)
     final cellNotifier = ref.read(cellSelectionProvider.notifier);
     final cellState = ref.read(cellSelectionProvider);
-    
+
     // 현재 선택된 교사 이름과 같은지 확인
     if (cellState.selectedTeacherName == teacherName) {
       // 같은 교사 이름을 다시 클릭하면 선택 해제
@@ -1234,30 +1202,31 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       cellNotifier.selectTeacherName(teacherName);
       AppLogger.exchangeDebug('교사 이름 선택: $teacherName');
     }
-    
+
     // UI 업데이트 로깅
     AppLogger.exchangeDebug('🔄 교사 이름 클릭 - UI 업데이트');
   }
 
   /// 셀이 비어있는지 확인 (과목이나 학급이 없는지 검사)
-  /// 
+  ///
   /// [teacherName] 교사 이름
   /// [day] 요일 (월, 화, 수, 목, 금)
   /// [period] 교시 (1-7)
-  /// 
+  ///
   /// Returns: `bool` - 셀이 비어있으면 true, 비어있지 않으면 false
   bool _isCellEmpty(String teacherName, String day, int period) {
     if (widget.timetableData == null) return false;
-    
+
     try {
       final dayNumber = DayUtils.getDayNumber(day);
       final timeSlot = widget.timetableData!.timeSlots.firstWhere(
-        (slot) => slot.teacher == teacherName && 
-                  slot.dayOfWeek == dayNumber && 
-                  slot.period == period,
+        (slot) =>
+            slot.teacher == teacherName &&
+            slot.dayOfWeek == dayNumber &&
+            slot.period == period,
         orElse: () => TimeSlot(), // 빈 TimeSlot 반환
       );
-      
+
       return timeSlot.isEmpty;
     } catch (e) {
       AppLogger.exchangeDebug('셀 비어있음 검사 중 오류: $e');
@@ -1292,9 +1261,10 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
 
     // 소스 셀의 정보 가져오기
     final sourceSlot = widget.timetableData!.timeSlots.firstWhere(
-      (slot) => slot.teacher == sourceTeacher && 
-                slot.dayOfWeek == DayUtils.getDayNumber(sourceDay) && 
-                slot.period == sourcePeriod,
+      (slot) =>
+          slot.teacher == sourceTeacher &&
+          slot.dayOfWeek == DayUtils.getDayNumber(sourceDay) &&
+          slot.period == sourcePeriod,
       orElse: () => throw StateError('소스 TimeSlot을 찾을 수 없습니다'),
     );
 
@@ -1302,7 +1272,9 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     if (!sourceSlot.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('보강 실패: $sourceTeacher의 $sourceDay$sourcePeriod교시에 수업이 없습니다'),
+          content: Text(
+            '보강 실패: $sourceTeacher의 $sourceDay$sourcePeriod교시에 수업이 없습니다',
+          ),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 3),
         ),
@@ -1313,7 +1285,9 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     if (!sourceSlot.canExchange) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('보강 실패: $sourceTeacher의 $sourceDay$sourcePeriod교시 수업은 교체 불가능합니다'),
+          content: Text(
+            '보강 실패: $sourceTeacher의 $sourceDay$sourcePeriod교시 수업은 교체 불가능합니다',
+          ),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 3),
         ),
@@ -1331,9 +1305,9 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       sourceSlot.subject ?? '',
       context,
       () {
-        ref.read(stateResetProvider.notifier).resetExchangeStates(
-          reason: '내부 경로 초기화',
-        );
+        ref
+            .read(stateResetProvider.notifier)
+            .resetExchangeStates(reason: '내부 경로 초기화');
       },
     );
 
@@ -1341,19 +1315,19 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     ref.read(exchangeScreenProvider.notifier).disableTeacherNameSelection();
     ref.read(cellSelectionProvider.notifier).selectTeacherName(null);
   }
-  
+
   /// 교체불가 편집 모드에서 교사 전체 시간 토글 처리
   void _toggleTeacherAllTimesInNonExchangeableMode(String teacherName) {
     if (widget.timetableData == null) return;
-    
+
     AppLogger.exchangeDebug('교체불가 편집 모드: 교사 $teacherName의 모든 시간 토글');
-    
+
     // TimetableDataSource의 toggleTeacherAllTimes 메서드 사용
     widget.dataSource?.toggleTeacherAllTimes(teacherName);
-    
+
     // UI 업데이트 로깅
     AppLogger.exchangeDebug('🔄 교사 전체 시간 토글 - UI 업데이트');
-    
+
     AppLogger.exchangeDebug('교사 $teacherName의 모든 시간 토글 완료');
   }
 
@@ -1362,29 +1336,36 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     const int headerRowCount = 2;
     int actualRowIndex = rowIndex - headerRowCount;
 
-    if (widget.timetableData == null || actualRowIndex < 0 || actualRowIndex >= widget.timetableData!.teachers.length) {
+    if (widget.timetableData == null ||
+        actualRowIndex < 0 ||
+        actualRowIndex >= widget.timetableData!.teachers.length) {
       return '';
     }
 
     return widget.timetableData!.teachers[actualRowIndex].name;
   }
 
-
   /// 교체된 셀 클릭 시 교체 서비스 상태 업데이트 (화살표 보존)
-  void _updateExchangeServiceForExchangedCell(String teacherName, String day, int period) {
+  void _updateExchangeServiceForExchangedCell(
+    String teacherName,
+    String day,
+    int period,
+  ) {
     try {
       // ExchangeService에 선택된 셀 정보 설정 (헤더 업데이트를 위해)
       // 하지만 실제 교체 서비스 로직은 실행하지 않음
       final exchangeService = ref.read(exchangeServiceProvider);
-      
+
       // 선택된 셀 정보만 설정 (교체 가능한 교사 정보 수집을 위해)
       exchangeService.selectCell(teacherName, day, period);
-      
+
       // TimetableThemeProvider 상태도 업데이트 (교사 이름 컬럼 하이라이트를 위해)
       final cellNotifier = ref.read(cellSelectionProvider.notifier);
       cellNotifier.selectCell(teacherName, day, period);
-      
-      AppLogger.exchangeDebug('📝 교체 서비스 상태 업데이트 완료: $teacherName $day$period교시');
+
+      AppLogger.exchangeDebug(
+        '📝 교체 서비스 상태 업데이트 완료: $teacherName $day$period교시',
+      );
     } catch (e) {
       AppLogger.error('교체 서비스 상태 업데이트 실패: $e');
     }
@@ -1393,54 +1374,69 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
   /// 교체 뷰 활성화 (Riverpod 기반)
   void _enableExchangeView() {
     AppLogger.exchangeDebug('[TimetableGridSection] _enableExchangeView() 호출됨');
-    
+
     if (widget.timetableData == null || widget.dataSource == null) {
-      AppLogger.exchangeDebug('[TimetableGridSection] 교체 뷰 활성화 실패: 필수 데이터가 null입니다');
+      AppLogger.exchangeDebug(
+        '[TimetableGridSection] 교체 뷰 활성화 실패: 필수 데이터가 null입니다',
+      );
       return;
     }
 
-    AppLogger.exchangeDebug('[TimetableGridSection] ExchangeViewProvider.enableExchangeView() 호출 시작');
-    
-    ref.read(exchangeViewProvider.notifier).enableExchangeView(
-      timeSlots: widget.dataSource!.timeSlots,
-      teachers: widget.timetableData!.teachers,
-      dataSource: widget.dataSource!,
+    AppLogger.exchangeDebug(
+      '[TimetableGridSection] ExchangeViewProvider.enableExchangeView() 호출 시작',
     );
-    
-    AppLogger.exchangeDebug('[TimetableGridSection] ExchangeViewProvider.enableExchangeView() 호출 완료');
+
+    ref
+        .read(exchangeViewProvider.notifier)
+        .enableExchangeView(
+          timeSlots: widget.dataSource!.timeSlots,
+          teachers: widget.timetableData!.teachers,
+          dataSource: widget.dataSource!,
+        );
+
+    AppLogger.exchangeDebug(
+      '[TimetableGridSection] ExchangeViewProvider.enableExchangeView() 호출 완료',
+    );
   }
 
   /// 삭제 확인 다이얼로그 표시
-  /// 
+  ///
   /// 사용자에게 삭제 확인을 받고, 확인 시 교체 리스트를 삭제합니다.
   void _showDeleteExchangeListDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('결보강 전체 초기화'),
-        content: const Text('결보강을 전체 초기화하겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('취소', style: TextStyle(color: Colors.grey.shade600)),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('결보강 전체 초기화'),
+            content: const Text('결보강을 전체 초기화하겠습니까?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  '취소',
+                  style: TextStyle(color: Colors.grey.shade600),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _deleteExchangeList(context, ref);
+                },
+                child: Text(
+                  '초기화',
+                  style: TextStyle(color: Colors.red.shade600),
+                ),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteExchangeList(context, ref);
-            },
-            child: Text('초기화', style: TextStyle(color: Colors.red.shade600)),
-          ),
-        ],
-      ),
     );
   }
 
   /// 교체 리스트 삭제 실행
-  /// 
+  ///
   /// ExchangeHistoryService를 통해 전체 교체 리스트를 삭제하고,
   /// UI 상태를 초기화합니다.
-  /// 
+  ///
   /// 주의: 교체 뷰 상태는 유지됩니다 (비활성화하지 않음).
   void _deleteExchangeList(BuildContext context, WidgetRef ref) {
     try {
@@ -1454,9 +1450,9 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       _exchangeExecutor.updateExchangedCells();
 
       // 3. UI 상태 초기화 (선택된 경로, 캐시, 화살표 등)
-      ref.read(stateResetProvider.notifier).resetExchangeStates(
-        reason: '결보강 전체 삭제',
-      );
+      ref
+          .read(stateResetProvider.notifier)
+          .resetExchangeStates(reason: '결보강 전체 삭제');
 
       // 4. DataGrid UI 업데이트 (스크롤 위치 보존)
       widget.dataSource?.notifyDataChanged();
@@ -1492,12 +1488,12 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       return;
     }
 
-    ref.read(exchangeViewProvider.notifier).disableExchangeView(
-      timeSlots: widget.dataSource!.timeSlots,
-      teachers: widget.timetableData!.teachers,
-      dataSource: widget.dataSource!,
-    );
+    ref
+        .read(exchangeViewProvider.notifier)
+        .disableExchangeView(
+          timeSlots: widget.dataSource!.timeSlots,
+          teachers: widget.timetableData!.teachers,
+          dataSource: widget.dataSource!,
+        );
   }
-
 }
-

@@ -1,6 +1,176 @@
 import 'package:flutter/material.dart';
 import '../../../utils/simplified_timetable_theme.dart';
 
+/// 컴팩트 툴바 공통 높이
+const double _kCompactToolbarHeight = 28.0;
+
+/// 아이콘만 표시 + Tooltip (컴팩트 툴바용)
+class CompactToolbarIconButton extends StatelessWidget {
+  final VoidCallback? onPressed;
+  final IconData icon;
+  final String tooltip;
+  final Color backgroundColor;
+  final Color foregroundColor;
+  final Color borderColor;
+  final double iconSize;
+
+  const CompactToolbarIconButton({
+    super.key,
+    required this.onPressed,
+    required this.icon,
+    required this.tooltip,
+    required this.backgroundColor,
+    required this.foregroundColor,
+    required this.borderColor,
+    this.iconSize = 16,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isEnabled = onPressed != null;
+    final effectiveBackground =
+        isEnabled ? backgroundColor : Colors.grey.shade100;
+    final effectiveForeground =
+        isEnabled ? foregroundColor : Colors.grey.shade400;
+    final effectiveBorder =
+        isEnabled ? borderColor : Colors.grey.shade300;
+
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: effectiveBackground,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(5),
+          side: BorderSide(color: effectiveBorder),
+        ),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(5),
+          child: SizedBox(
+            width: _kCompactToolbarHeight,
+            height: _kCompactToolbarHeight,
+            child: Icon(
+              icon,
+              size: iconSize,
+              color: effectiveForeground,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 아이콘 + 텍스트 라벨 (컴팩트 툴바용, 교체 실행 버튼 등)
+class CompactToolbarLabelButton extends StatelessWidget {
+  final VoidCallback? onPressed;
+  final IconData icon;
+  final String label;
+  final String tooltip;
+  final Color backgroundColor;
+  final Color foregroundColor;
+  final Color borderColor;
+
+  /// 최소 버튼 너비 (긴 라벨용, null이면 텍스트 길이에 맞춤)
+  final double? minWidth;
+
+  /// 버튼 높이 (기본 28px, 사이드바 등 큰 버튼용으로 조절)
+  final double height;
+
+  /// 라벨 글자 크기
+  final double fontSize;
+
+  /// 아이콘 크기
+  final double iconSize;
+
+  const CompactToolbarLabelButton({
+    super.key,
+    required this.onPressed,
+    required this.icon,
+    required this.label,
+    required this.tooltip,
+    required this.backgroundColor,
+    required this.foregroundColor,
+    required this.borderColor,
+    this.minWidth,
+    this.height = _kCompactToolbarHeight,
+    this.fontSize = 11,
+    this.iconSize = 15,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // onPressed가 null이면 비활성(회색) 스타일 적용
+    final isEnabled = onPressed != null;
+    final effectiveBackground =
+        isEnabled ? backgroundColor : Colors.grey.shade100;
+    final effectiveForeground =
+        isEnabled ? foregroundColor : Colors.grey.shade400;
+    final effectiveBorder = isEnabled ? borderColor : Colors.grey.shade300;
+
+    return Tooltip(
+      message: isEnabled ? tooltip : '$tooltip (경로를 선택하세요)',
+      child: Material(
+        color: effectiveBackground,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(6),
+          side: BorderSide(color: effectiveBorder),
+        ),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(6),
+          child: SizedBox(
+            height: height,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: minWidth ?? 0),
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: minWidth != null ? 10 : 6,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, size: iconSize, color: effectiveForeground),
+                    const SizedBox(width: 4),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: fontSize,
+                        fontWeight: FontWeight.w600,
+                        color: effectiveForeground,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 교체 리스트 전체 초기화 버튼 (삭제 버튼과 아이콘·색상 구분)
+class ResetExchangeListButton extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const ResetExchangeListButton({super.key, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return CompactToolbarIconButton(
+      onPressed: onPressed,
+      icon: Icons.restart_alt,
+      tooltip: '결보강 전체 초기화',
+      backgroundColor: Colors.grey.shade100,
+      foregroundColor: Colors.grey.shade700,
+      borderColor: Colors.grey.shade400,
+    );
+  }
+}
+
 /// 확대/축소 컨트롤 위젯
 class ZoomControlWidget extends StatelessWidget {
   final int zoomPercentage;
@@ -25,6 +195,7 @@ class ZoomControlWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      height: _kCompactToolbarHeight,
       decoration: BoxDecoration(
         color: Colors.grey.shade100,
         borderRadius: BorderRadius.circular(5),
@@ -33,42 +204,50 @@ class ZoomControlWidget extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 초기화 버튼
           IconButton(
             onPressed: zoomPercentage != 100 ? onResetZoom : null,
-            icon: const Icon(Icons.refresh, size: 16),
-            padding: const EdgeInsets.all(2),
-            constraints: const BoxConstraints(minWidth: 25, minHeight: 36),
-            color: zoomPercentage != 100 ? Colors.grey.shade600 : Colors.grey.shade400,
+            icon: const Icon(Icons.refresh, size: 15),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(
+              minWidth: 26,
+              minHeight: _kCompactToolbarHeight,
+            ),
+            color:
+                zoomPercentage != 100
+                    ? Colors.grey.shade600
+                    : Colors.grey.shade400,
             tooltip: '확대/축소 초기화',
           ),
-          // 축소 버튼
           IconButton(
             onPressed: zoomFactor > minZoom ? onZoomOut : null,
-            icon: const Icon(Icons.zoom_out, size: 18),
-            padding: const EdgeInsets.all(1),
-            constraints: const BoxConstraints(minWidth: 20, minHeight: 36),
+            icon: const Icon(Icons.zoom_out, size: 16),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(
+              minWidth: 24,
+              minHeight: _kCompactToolbarHeight,
+            ),
             color: zoomFactor > minZoom ? Colors.blue : Colors.grey,
             tooltip: '축소',
           ),
-          // 현재 확대 비율 표시
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Text(
               '$zoomPercentage%',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.w500,
                 color: Colors.grey.shade700,
               ),
             ),
           ),
-          // 확대 버튼
           IconButton(
             onPressed: zoomFactor < maxZoom ? onZoomIn : null,
-            icon: const Icon(Icons.zoom_in, size: 18),
-            padding: const EdgeInsets.all(1),
-            constraints: const BoxConstraints(minWidth: 20, minHeight: 36),
+            icon: const Icon(Icons.zoom_in, size: 16),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(
+              minWidth: 24,
+              minHeight: _kCompactToolbarHeight,
+            ),
             color: zoomFactor < maxZoom ? Colors.blue : Colors.grey,
             tooltip: '확대',
           ),
@@ -78,23 +257,30 @@ class ZoomControlWidget extends StatelessWidget {
   }
 }
 
-/// 교사 수 표시 위젯 (텍스트만)
+/// 교사 수 표시 (아이콘 + 숫자, Tooltip으로 전체 설명)
 class TeacherCountWidget extends StatelessWidget {
   final int teacherCount;
 
-  const TeacherCountWidget({
-    super.key,
-    required this.teacherCount,
-  });
+  const TeacherCountWidget({super.key, required this.teacherCount});
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      '교사 $teacherCount명',
-      style: TextStyle(
-        fontSize: 12,
-        color: Colors.grey.shade700,
-        fontWeight: FontWeight.w500,
+    return Tooltip(
+      message: '교사 $teacherCount명',
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.person_outline, size: 14, color: Colors.grey.shade600),
+          const SizedBox(width: 2),
+          Text(
+            '$teacherCount',
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey.shade700,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -109,7 +295,6 @@ class CellThemeLegend extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 선택된 셀 예시
         _buildLegendItem(
           backgroundColor: SimplifiedTimetableTheme.selectedColorLight,
           borderColor: SimplifiedTimetableTheme.selectedCellBorderColor,
@@ -117,17 +302,15 @@ class CellThemeLegend extends StatelessWidget {
           label: '선택한 수업',
         ),
         const SizedBox(width: 8),
-        
-        // 선택된 교사가 이동할 목적지 셀 예시 (테두리만 표시)
         _buildLegendItem(
-          backgroundColor: SimplifiedTimetableTheme.defaultColor, // 기본 배경색 사용
-          borderColor: SimplifiedTimetableTheme.selectedTeacherDestinationBorderColor,
-          borderWidth: SimplifiedTimetableTheme.selectedTeacherDestinationBorderWidth,
+          backgroundColor: SimplifiedTimetableTheme.defaultColor,
+          borderColor:
+              SimplifiedTimetableTheme.selectedTeacherDestinationBorderColor,
+          borderWidth:
+              SimplifiedTimetableTheme.selectedTeacherDestinationBorderWidth,
           label: '교체후 수업',
         ),
         const SizedBox(width: 8),
-        
-        // 교체된 소스 셀 예시
         _buildLegendItem(
           backgroundColor: SimplifiedTimetableTheme.defaultColor,
           borderColor: SimplifiedTimetableTheme.exchangedSourceCellBorderColor,
@@ -135,17 +318,14 @@ class CellThemeLegend extends StatelessWidget {
           label: '비워진 수업',
         ),
         const SizedBox(width: 8),
-        
-        // 교체된 목적지 셀 예시
         _buildLegendItem(
-          backgroundColor: SimplifiedTimetableTheme.exchangedDestinationCellBackgroundColor,
+          backgroundColor:
+              SimplifiedTimetableTheme.exchangedDestinationCellBackgroundColor,
           borderColor: Colors.transparent,
           borderWidth: 0,
           label: '채워진 수업 ',
         ),
         const SizedBox(width: 8),
-        
-        // 교체불가 셀 예시
         _buildLegendItem(
           backgroundColor: SimplifiedTimetableTheme.nonExchangeableColor,
           borderColor: Colors.transparent,
@@ -156,7 +336,6 @@ class CellThemeLegend extends StatelessWidget {
     );
   }
 
-  /// 개별 범례 아이템 생성
   Widget _buildLegendItem({
     required Color backgroundColor,
     required Color borderColor,
@@ -171,9 +350,10 @@ class CellThemeLegend extends StatelessWidget {
           height: 16,
           decoration: BoxDecoration(
             color: backgroundColor,
-            border: borderWidth > 0 
-                ? Border.all(color: borderColor, width: borderWidth)
-                : null,
+            border:
+                borderWidth > 0
+                    ? Border.all(color: borderColor, width: borderWidth)
+                    : null,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -207,9 +387,9 @@ class ExchangeViewCheckbox extends StatelessWidget {
     return Tooltip(
       message: isEnabled ? '교체 적용 끄기' : '교체 적용 켜기',
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 2),
         child: Transform.scale(
-          scale: 0.65, // 스위치 크기를 더 줄임 (0.8 → 0.65)
+          scale: 0.6,
           child: Switch(
             value: isEnabled,
             onChanged: onChanged,
@@ -225,25 +405,19 @@ class ExchangeViewCheckbox extends StatelessWidget {
   }
 }
 
-/// 교체 작업 버튼 그룹 위젯
+/// 교체 작업 버튼 그룹 (되돌리기·다시 실행 — 교체 버튼은 사이드바 헤더로 이동)
 class ExchangeActionButtons extends StatelessWidget {
-  final VoidCallback onUndo;
-  final VoidCallback onRepeat;
+  final VoidCallback? onUndo;
+  final VoidCallback? onRepeat;
   final Future<void> Function()? onDelete;
-  final VoidCallback? onExchange;
   final bool showDeleteButton;
-  final bool showExchangeButton;
-  final bool hideUndoRedoButtons; // 되돌리기/재실행 버튼 숨김 옵션
 
   const ExchangeActionButtons({
     super.key,
     required this.onUndo,
     required this.onRepeat,
     this.onDelete,
-    this.onExchange,
     required this.showDeleteButton,
-    required this.showExchangeButton,
-    this.hideUndoRedoButtons = false, // 기본값은 false (표시)
   });
 
   @override
@@ -251,103 +425,33 @@ class ExchangeActionButtons extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 되돌리기 버튼 (화면이 충분히 넓을 때만)
-        if (!hideUndoRedoButtons) ...[
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            child: ElevatedButton.icon(
-              onPressed: onUndo,
-              icon: const Icon(Icons.undo, size: 16),
-              label: const Text('', style: TextStyle(fontSize: 12)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange.shade100,
-                foregroundColor: Colors.orange.shade700,
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                minimumSize: const Size(40, 40),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(5),
-                  side: BorderSide(color: Colors.orange.shade300),
-                ),
-              ),
-            ),
+        CompactToolbarIconButton(
+          onPressed: onUndo,
+          icon: Icons.undo,
+          tooltip: onUndo != null ? '되돌리기' : '되돌리기 (불가)',
+          backgroundColor: Colors.orange.shade100,
+          foregroundColor: Colors.orange.shade700,
+          borderColor: Colors.orange.shade300,
+        ),
+        const SizedBox(width: 4),
+        CompactToolbarIconButton(
+          onPressed: onRepeat,
+          icon: Icons.redo,
+          tooltip: onRepeat != null ? '다시 실행' : '다시 실행 (불가)',
+          backgroundColor: Colors.purple.shade100,
+          foregroundColor: Colors.purple.shade700,
+          borderColor: Colors.purple.shade300,
+        ),
+        const SizedBox(width: 4),
+        if (showDeleteButton && onDelete != null)
+          CompactToolbarIconButton(
+            onPressed: () async => await onDelete!(),
+            icon: Icons.delete_outline,
+            tooltip: '삭제',
+            backgroundColor: Colors.red.shade100,
+            foregroundColor: Colors.red.shade700,
+            borderColor: Colors.red.shade300,
           ),
-
-          // 다시 반복 버튼 (화면이 충분히 넓을 때만)
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            child: ElevatedButton.icon(
-              onPressed: onRepeat,
-              icon: const Icon(Icons.redo, size: 16),
-              label: const Text('', style: TextStyle(fontSize: 12)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purple.shade100,
-                foregroundColor: Colors.purple.shade700,
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                minimumSize: const Size(40, 40),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(5),
-                  side: BorderSide(color: Colors.purple.shade300),
-                ),
-              ),
-            ),
-          ),
-        ],
-
-        // 삭제 버튼
-        if (showDeleteButton && onDelete != null) ...[
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            child: ElevatedButton.icon(
-              onPressed: () async => await onDelete!(),
-              icon: Icon(Icons.delete_outline, size: 16, color: Colors.red.shade700),
-              label: Text('삭제', style: TextStyle(fontSize: 12, color: Colors.red.shade700)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade100,
-                foregroundColor: Colors.red.shade700,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                minimumSize: const Size(60, 40),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(5),
-                  side: BorderSide(color: Colors.red.shade300),
-                ),
-              ),
-            ),
-          ),
-        ],
-
-        // 교체 버튼
-        if (showExchangeButton) ...[
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            child: ElevatedButton.icon(
-              onPressed: onExchange,
-              icon: Icon(
-                Icons.swap_horiz,
-                size: 16,
-                color: onExchange != null ? Colors.blue.shade700 : Colors.grey.shade400,
-              ),
-              label: Text(
-                '교체',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: onExchange != null ? Colors.blue.shade700 : Colors.grey.shade400,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: onExchange != null ? Colors.blue.shade100 : Colors.grey.shade100,
-                foregroundColor: onExchange != null ? Colors.blue.shade700 : Colors.grey.shade400,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                minimumSize: const Size(60, 40),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(5),
-                  side: BorderSide(
-                    color: onExchange != null ? Colors.blue.shade300 : Colors.grey.shade300,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
       ],
     );
   }
