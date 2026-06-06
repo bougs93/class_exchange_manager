@@ -748,9 +748,22 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
     );
   }
 
-  /// 2번째 노드 (빈 박스) - 보강받을 셀
+  /// 2번째 노드 — 보강 대상 교사 (경로 선택 시 강조)
   Widget _buildSupplementNode2() {
-    // 빈 노드 컨테이너 (회색 스타일)
+    final path = widget.selectedPath;
+    if (path is SupplementExchangePath) {
+      final colorScheme = PathColorScheme.getScheme(ExchangePathType.supplement);
+      return _buildNodeContainer(
+        path.targetNode,
+        'supplement_1',
+        true,
+        false,
+        colorScheme,
+        isSecondNode: true,
+      );
+    }
+
+    // 경로 미선택: 빈 노드 placeholder
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
@@ -837,12 +850,33 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
     );
   }
 
+  /// 보강 경로의 대상 교사 버튼인지 확인
+  bool _isSupplementTeacherButtonSelected(
+    String teacherName,
+    String day,
+    int period,
+  ) {
+    final path = widget.selectedPath;
+    if (path is! SupplementExchangePath) return false;
+    final target = path.targetNode;
+    return target.teacherName == teacherName &&
+        target.day == day &&
+        target.period == period;
+  }
+
   /// 교사 버튼 구성
   Widget _buildTeacherButton(Map<String, dynamic> teacher, int index) {
     final teacherName = teacher['teacherName'] as String;
     final day = teacher['day'] as String;
     final period = teacher['period'] as int;
     final subject = teacher['subject'] as String;
+    final isSelected = _isSupplementTeacherButtonSelected(
+      teacherName,
+      day,
+      period,
+    );
+    final accentColor = isSelected ? Colors.teal.shade700 : Colors.teal.shade600;
+    final nameColor = isSelected ? Colors.teal.shade800 : Colors.teal.shade700;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
@@ -853,15 +887,31 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color:
+                isSelected
+                    ? _getPathBackgroundColor(ExchangePathType.supplement)
+                    : Colors.white,
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: Colors.teal.shade300, width: 1),
+            border: Border.all(
+              color:
+                  isSelected
+                      ? _getPathBorderColor(ExchangePathType.supplement)
+                      : Colors.teal.shade300,
+              width: isSelected ? 2 : 1,
+            ),
             boxShadow: [
-              BoxShadow(
-                color: Colors.teal.shade100,
-                blurRadius: 2,
-                offset: const Offset(0, 1),
-              ),
+              if (isSelected)
+                BoxShadow(
+                  color: _getPathShadowColor(ExchangePathType.supplement),
+                  blurRadius: 2,
+                  offset: const Offset(0, 1),
+                )
+              else
+                BoxShadow(
+                  color: Colors.teal.shade100,
+                  blurRadius: 2,
+                  offset: const Offset(0, 1),
+                ),
             ],
           ),
           child: Row(
@@ -874,7 +924,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
                   style: TextStyle(
                     fontSize: SidebarFontSizes.nodeText - 1,
                     fontWeight: FontWeight.w500,
-                    color: Colors.teal.shade600,
+                    color: accentColor,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -884,7 +934,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
               Container(
                 width: 1,
                 height: 16,
-                color: Colors.teal.shade200,
+                color: isSelected ? Colors.teal.shade300 : Colors.teal.shade200,
                 margin: const EdgeInsets.symmetric(horizontal: 6),
               ),
 
@@ -896,7 +946,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
                   style: TextStyle(
                     fontSize: SidebarFontSizes.nodeText,
                     fontWeight: FontWeight.w600,
-                    color: Colors.teal.shade700,
+                    color: nameColor,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -906,7 +956,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
               Container(
                 width: 1,
                 height: 16,
-                color: Colors.teal.shade200,
+                color: isSelected ? Colors.teal.shade300 : Colors.teal.shade200,
                 margin: const EdgeInsets.symmetric(horizontal: 6),
               ),
 
@@ -917,7 +967,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
                   subject,
                   style: TextStyle(
                     fontSize: SidebarFontSizes.nodeText - 1,
-                    color: Colors.teal.shade600,
+                    color: accentColor,
                   ),
                   textAlign: TextAlign.center,
                 ),
