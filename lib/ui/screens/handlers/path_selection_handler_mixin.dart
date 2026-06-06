@@ -141,8 +141,7 @@ mixin PathSelectionHandlerMixin<T extends StatefulWidget> on State<T> {
   /// 보강 교체 경로 변경 핸들러
   void handleSupplementPathChanged(SupplementExchangePath? path) {
     setSelectedSupplementPath(path);
-    // dataSource에 보강 경로 업데이트 메서드가 있다면 추가
-    // dataSource?.updateSelectedSupplementPath(supplementPath);
+    dataSource?.updateSelectedSupplementPath(path);
 
     if (path != null) {
       AppLogger.exchangeDebug('보강교체 경로 선택: ${path.id}');

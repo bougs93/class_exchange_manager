@@ -4,6 +4,7 @@ import '../../models/exchange_path.dart';
 import '../../models/circular_exchange_path.dart';
 import '../../models/one_to_one_exchange_path.dart';
 import '../../models/chain_exchange_path.dart';
+import '../../models/supplement_exchange_path.dart';
 import '../../models/exchange_node.dart';
 import '../../models/time_slot.dart';
 import '../../utils/logger.dart';
@@ -284,9 +285,11 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
 
   /// 헤더 구성 — [교체 실행] | [닫기]  (경로 개수는 검색 필터 헤더에 표시)
   Widget _buildHeader() {
-    // 보강교체 모드는 교체 버튼 없이 안내 문구만 표시
-    if (widget.mode == ExchangePathType.supplement) {
-      final headerText = widget.isLoading ? '보강교체 준비 중...' : '보강교체 안내';
+    // 보강교체: 경로 미선택 시 안내, 선택 시 다른 모드와 동일하게 [교체 실행] 표시
+    if (widget.mode == ExchangePathType.supplement &&
+        widget.selectedPath == null) {
+      final headerText =
+          widget.isLoading ? '보강교체 준비 중...' : '보강교체 안내';
       return _buildHeaderContainer(
         child: Row(
           children: [
@@ -390,7 +393,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
 
   /// 교체 실행 (헤더 버튼·경로 더블클릭 공통)
   void _executeExchangeForPath(ExchangePath path) {
-    if (widget.isLoading || widget.mode == ExchangePathType.supplement) {
+    if (widget.isLoading) {
       return;
     }
 
@@ -405,6 +408,27 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
       dataSource: screenState.dataSource,
       onEnableExchangeView: () => _enableExchangeView(ref),
     );
+
+    if (path is SupplementExchangePath) {
+      executor.executeSupplementExchange(
+        path.sourceNode.teacherName,
+        path.sourceNode.day,
+        path.sourceNode.period,
+        path.targetNode.teacherName,
+        path.sourceNode.className,
+        path.sourceNode.subjectName,
+        context,
+        () {
+          ref.read(stateResetProvider.notifier).resetExchangeStates(
+                reason: '내부 경로 초기화',
+              );
+        },
+      );
+      ref.read(exchangeScreenProvider.notifier).disableTeacherNameSelection();
+      ref.read(cellSelectionProvider.notifier).selectTeacherName(null);
+      return;
+    }
+
     executor.executeExchange(path, context, () {
       ref
           .read(stateResetProvider.notifier)

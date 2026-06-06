@@ -232,6 +232,10 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
   void setSupplementPath(SupplementExchangePath? path) {
     state = state.copyWith(
       selectedSupplementPath: path,
+      isArrowVisible: path != null,
+      arrowReason:
+          path != null ? ArrowDisplayReason.pathSelected : state.arrowReason,
+      isFromExchangedCell: false,
       lastUpdated: DateTime.now(),
     );
   }

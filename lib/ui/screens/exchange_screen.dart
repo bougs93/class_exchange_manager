@@ -38,7 +38,6 @@ import '../../providers/state_reset_provider.dart';
 import '../../providers/zoom_provider.dart';
 import 'helpers/circular_path_finder.dart';
 import 'helpers/chain_path_finder.dart';
-import '../widgets/timetable_grid/exchange_executor.dart';
 
 // 새로 분리된 위젯, ViewModel, Managers
 import 'exchange_screen/widgets/timetable_tab_content.dart';
@@ -113,6 +112,10 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
   @override
   ChainExchangePath? get selectedChainPath => _stateProxy.selectedChainPath;
+
+  @override
+  SupplementExchangePath? get selectedSupplementPath =>
+      _stateProxy.selectedSupplementPath;
 
   // 시간표 그리드 제어를 위한 GlobalKey
   final GlobalKey<State<TimetableGridSection>> _timetableGridKey = GlobalKey<State<TimetableGridSection>>();
@@ -1606,59 +1609,19 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     notifier.setSidebarVisible(!_isSidebarVisible);
   }
 
-  /// 보강교체 교사 버튼 클릭 처리 (1컬럼 교사 이름 클릭과 동일한 동작)
+  /// 보강교체 교사 버튼 클릭 — 경로 미리보기 (1:1 교체와 동일, 실행은 사이드바 [교체 실행])
   void _onSupplementTeacherTap(String teacherName, String day, int period) {
     AppLogger.exchangeDebug('보강교체 교사 버튼 클릭: $teacherName ($day $period교시)');
-    
-    // 현재 모드 및 교사 이름 선택 기능 활성화 상태 확인
+
     final screenState = ref.read(exchangeScreenProvider);
-    final currentMode = screenState.currentMode;
-    final isSupplementExchangeMode = currentMode == ExchangeMode.supplementExchange;
-    final isTeacherNameSelectionEnabled = screenState.isTeacherNameSelectionEnabled;
-    
-    // 보강교체 모드이고 교사 이름 선택 기능이 활성화된 경우 보강교체 실행
-    if (isSupplementExchangeMode && isTeacherNameSelectionEnabled) {
-      AppLogger.exchangeDebug('보강교체 모드: 교사 이름 클릭 - 보강교체 실행 - $teacherName');
-      
-      // 현재 선택된 셀 정보 가져오기
-      if (!exchangeService.hasSelectedCell()) {
-        AppLogger.exchangeDebug('보강교체 실행 실패: 선택된 셀을 먼저 선택해주세요');
-        showSnackBar('보강할 셀을 먼저 선택해주세요', backgroundColor: Colors.red);
-        return;
-      }
-      
-      final selectedDay = exchangeService.selectedDay!;
-      final selectedPeriod = exchangeService.selectedPeriod!;
-      
-      // 교사 이름 클릭 시 해당 교사의 해당 시간대가 빈 셀인지 검사
-      if (_isCellNotEmpty(teacherName, selectedDay, selectedPeriod)) {
-        AppLogger.exchangeDebug('보강교체 실행 실패: $teacherName의 $selectedDay$selectedPeriod교시는 수업이 있는 시간입니다');
-        showSnackBar('보강할 시간에 수업이 없는 교사을 선택해주세요. $teacherName의 $selectedDay$selectedPeriod교시는 수업이 있는 시간입니다.', backgroundColor: Colors.orange);
-        return;
-      }
-      
-      // 교사 이름 선택 상태 설정
-      ref.read(cellSelectionProvider.notifier).selectTeacherName(teacherName);
-      
-      // 보강교체 실행 (ExchangeExecutor 호출)
-      _executeSupplementExchangeViaExecutor(teacherName);
-      return;
-    }
-  }
+    final isSupplementExchangeMode =
+        screenState.currentMode == ExchangeMode.supplementExchange;
+    final isTeacherNameSelectionEnabled =
+        screenState.isTeacherNameSelectionEnabled;
 
+    if (!isSupplementExchangeMode || !isTeacherNameSelectionEnabled) return;
 
-  /// 보강교체 실행 (ExchangeExecutor 호출)
-  void _executeSupplementExchangeViaExecutor(String targetTeacherName) {
-    AppLogger.exchangeDebug('보강교체 실행 시작: $targetTeacherName');
-    
-    if (_timetableData == null) {
-      AppLogger.exchangeDebug('보강교체 실행 실패: timetableData가 null입니다');
-      return;
-    }
-
-    // 현재 선택된 셀 정보 가져오기
     if (!exchangeService.hasSelectedCell()) {
-      AppLogger.exchangeDebug('보강교체 실행 실패: 선택된 셀을 먼저 선택해주세요');
       showSnackBar('보강할 셀을 먼저 선택해주세요', backgroundColor: Colors.red);
       return;
     }
@@ -1667,53 +1630,49 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     final sourceDay = exchangeService.selectedDay!;
     final sourcePeriod = exchangeService.selectedPeriod!;
 
-    // 소스 셀의 정보 가져오기
+    if (_isCellNotEmpty(teacherName, sourceDay, sourcePeriod)) {
+      showSnackBar(
+        '보강할 시간에 수업이 없는 교사를 선택해주세요. '
+        '$teacherName의 $sourceDay$sourcePeriod교시는 수업이 있는 시간입니다.',
+        backgroundColor: Colors.orange,
+      );
+      return;
+    }
+
+    if (_timetableData == null) return;
+
     final sourceSlot = _timetableData!.timeSlots.firstWhere(
-      (slot) => slot.teacher == sourceTeacher && 
-                slot.dayOfWeek == DayUtils.getDayNumber(sourceDay) && 
-                slot.period == sourcePeriod,
+      (slot) =>
+          slot.teacher == sourceTeacher &&
+          slot.dayOfWeek == DayUtils.getDayNumber(sourceDay) &&
+          slot.period == sourcePeriod,
       orElse: () => throw StateError('소스 TimeSlot을 찾을 수 없습니다'),
     );
 
-    // 보강 가능성 검증
-    if (!sourceSlot.isNotEmpty) {
-      showSnackBar('보강 실패: $sourceTeacher의 $sourceDay$sourcePeriod교시에 수업이 없습니다', backgroundColor: Colors.red);
+    if (!sourceSlot.isNotEmpty || !sourceSlot.canExchange) {
+      showSnackBar(
+        '보강할 수 없는 셀입니다.',
+        backgroundColor: Colors.red,
+      );
       return;
     }
 
-    if (!sourceSlot.canExchange) {
-      showSnackBar('보강 실패: $sourceTeacher의 $sourceDay$sourcePeriod교시 수업은 교체 불가능합니다', backgroundColor: Colors.red);
-      return;
-    }
-
-    // ExchangeExecutor에 위임 (1:1 교체와 동일한 패턴)
-    final exchangeExecutor = ExchangeExecutor(
-      ref: ref,
-      dataSource: _dataSource,
-      onEnableExchangeView: () {}, // 필요시 구현
-    );
-    
-    exchangeExecutor.executeSupplementExchange(
-      sourceTeacher,
-      sourceDay,
-      sourcePeriod,
-      targetTeacherName,
-      sourceSlot.className ?? '',
-      sourceSlot.subject ?? '',
-      context,
-      () {
-        ref.read(stateResetProvider.notifier).resetExchangeStates(
-          reason: '내부 경로 초기화',
-        );
-      },
+    // 경로 생성 후 시간표에 화살표 표시 (즉시 실행하지 않음)
+    final supplementPath = SupplementExchangePath.simple(
+      id: 'supplement_${sourceTeacher}_${sourceDay}_${sourcePeriod}_$teacherName',
+      sourceTeacher: sourceTeacher,
+      sourceDay: sourceDay,
+      sourcePeriod: sourcePeriod,
+      targetTeacher: teacherName,
+      targetDay: sourceDay,
+      targetPeriod: sourcePeriod,
+      className: sourceSlot.className ?? '',
+      subject: sourceSlot.subject ?? '',
     );
 
-    // 교사 이름 선택 기능 비활성화
-    ref.read(exchangeScreenProvider.notifier).disableTeacherNameSelection();
-    ref.read(cellSelectionProvider.notifier).selectTeacherName(null);
+    onUnifiedPathSelected(supplementPath);
+    ref.read(cellSelectionProvider.notifier).selectTeacherName(teacherName);
+    _updateHeaderTheme();
   }
-
-
-  
 }
 

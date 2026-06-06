@@ -3,6 +3,7 @@ import '../../../models/exchange_path.dart';
 import '../../../models/one_to_one_exchange_path.dart';
 import '../../../models/circular_exchange_path.dart';
 import '../../../models/chain_exchange_path.dart';
+import '../../../models/supplement_exchange_path.dart';
 import '../../../models/exchange_node.dart';
 import '../../widgets/unified_exchange_sidebar.dart';
 
@@ -17,6 +18,7 @@ mixin SidebarBuilder<T extends StatefulWidget> on State<T> {
   OneToOneExchangePath? get selectedOneToOnePath;
   CircularExchangePath? get selectedCircularPath;
   ChainExchangePath? get selectedChainPath;
+  SupplementExchangePath? get selectedSupplementPath;
 
   List<OneToOneExchangePath> get oneToOnePaths;
   List<CircularExchangePath> get circularPaths;
@@ -69,8 +71,9 @@ mixin SidebarBuilder<T extends StatefulWidget> on State<T> {
       selectedPath = selectedCircularPath;
     } else if (isChainExchangeModeEnabled) {
       selectedPath = selectedChainPath;
+    } else if (isSupplementExchangeModeEnabled) {
+      selectedPath = selectedSupplementPath;
     }
-    // 보강교체 모드에서는 선택된 경로가 없음 (메시지만 표시)
 
     // 경로 리스트 결정
     List<ExchangePath> paths;
@@ -132,6 +135,8 @@ mixin SidebarBuilder<T extends StatefulWidget> on State<T> {
       return selectedChainPath;
     } else if (selectedOneToOnePath != null) {
       return selectedOneToOnePath;
+    } else if (selectedSupplementPath != null) {
+      return selectedSupplementPath;
     }
     return null;
   }
