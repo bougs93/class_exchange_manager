@@ -459,6 +459,25 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
     _executeExchangeForPath(path);
   }
 
+  /// 보강 실행 가능 여부 (헤더 [보강 실행] 버튼·경로 더블클릭 공통)
+  bool _canExecuteSupplement() {
+    if (widget.selectedPath is! SupplementExchangePath || widget.isLoading) {
+      return false;
+    }
+    return !ref.read(cellSelectionProvider).isFromExchangedCell;
+  }
+
+  /// 보강교체 경로 박스 더블 클릭 — 헤더 [보강 실행] 버튼과 동일
+  void _onSupplementPathDoubleTap() {
+    final path = widget.selectedPath;
+    if (!_canExecuteSupplement() || path is! SupplementExchangePath) {
+      return;
+    }
+
+    AppLogger.exchangeDebug('보강교체 경로 더블클릭: 경로ID=${path.id}');
+    _executeExchangeForPath(path);
+  }
+
   /// 검색바 구성
   Widget _buildSearchBar() {
     return Container(
@@ -649,56 +668,66 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
 
   /// 선택된 셀 정보 표시 (1:1 교체와 동일한 디자인)
   Widget _buildSelectedCellInfo(CellSelectionState cellSelectionState) {
+    final canExecute = _canExecuteSupplement();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6),
       child: Column(
         children: [
-          // 2개 노드를 감싸는 박스 (1:1 교체와 동일한 구조)
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color:
-                    PathColorScheme.getScheme(
-                      ExchangePathType.supplement,
-                    ).primary,
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
+          // 2개 노드를 감싸는 박스 — 더블클릭 시 [보강 실행]과 동일
+          // (다른 교체 경로와 동일하게 onTap + onDoubleTap 병행)
+          InkWell(
+            onTap: () {},
+            onDoubleTap: canExecute ? _onSupplementPathDoubleTap : null,
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
                   color:
                       PathColorScheme.getScheme(
                         ExchangePathType.supplement,
-                      ).shadow,
-                  blurRadius: 2,
-                  offset: const Offset(0, 1),
+                      ).primary,
+                  width: 1,
                 ),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(6),
-              child: Column(
-                children: [
-                  // 상단: 보강할 교사(빈 수업) 또는 대기 문구
-                  _buildSupplementTopNode(),
-
-                  // 화살표 (보강교체 특징: 단방향 — 보강 교사 → 결강 수업)
-                  Container(
-                    margin: const EdgeInsets.symmetric(vertical: 2),
-                    child: Icon(
-                      Icons.keyboard_arrow_down,
-                      color:
-                          PathColorScheme.getScheme(
-                            ExchangePathType.supplement,
-                          ).primary,
-                      size: 14,
-                    ),
+                boxShadow: [
+                  BoxShadow(
+                    color:
+                        PathColorScheme.getScheme(
+                          ExchangePathType.supplement,
+                        ).shadow,
+                    blurRadius: 2,
+                    offset: const Offset(0, 1),
                   ),
-
-                  // 하단: 결강(보강 대상) 수업 셀
-                  _buildSupplementBottomNode(cellSelectionState),
                 ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(6),
+                child: Column(
+                  children: [
+                    // 상단: 보강할 교사(빈 수업) 또는 대기 문구
+                    _buildSupplementTopNode(),
+
+                    // 화살표 (순환교체와 동일한 아래 방향, 단계 번호 없음)
+                    Container(
+                      margin: const EdgeInsets.symmetric(vertical: 1),
+                      child: Icon(
+                        Icons.arrow_downward,
+                        color:
+                            widget.selectedPath is SupplementExchangePath
+                                ? PathColorScheme.getScheme(
+                                  ExchangePathType.supplement,
+                                ).primary
+                                : Colors.grey.shade500,
+                        size: 12,
+                      ),
+                    ),
+
+                    // 하단: 결강(보강 대상) 수업 셀
+                    _buildSupplementBottomNode(cellSelectionState),
+                  ],
+                ),
               ),
             ),
           ),
@@ -984,6 +1013,10 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
       margin: const EdgeInsets.only(bottom: 4),
       child: InkWell(
         onTap: () => _onTeacherButtonTap(teacherName, day, period),
+        onDoubleTap:
+            isSelected && _canExecuteSupplement()
+                ? _onSupplementPathDoubleTap
+                : null,
         borderRadius: BorderRadius.circular(6),
         child: Container(
           width: double.infinity,
@@ -1083,9 +1116,14 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
 
   /// 교사 버튼 탭 처리
   void _onTeacherButtonTap(String teacherName, String day, int period) {
+    // 이미 선택된 교사 재클릭 무시 (더블클릭 시 onTap 2회 방지)
+    if (_isSupplementTeacherButtonSelected(teacherName, day, period)) {
+      return;
+    }
+
     AppLogger.exchangeDebug('보강 가능한 교사 버튼 클릭: $teacherName ($day $period교시)');
 
-    // 보강교체 모드이고 콜백이 제공된 경우 보강교체 실행
+    // 보강교체 모드이고 콜백이 제공된 경우 경로 미리보기
     if (widget.mode == ExchangePathType.supplement &&
         widget.onSupplementTeacherTap != null) {
       widget.onSupplementTeacherTap!(teacherName, day, period);
