@@ -26,15 +26,11 @@ const double kModeRowFullLabelsMinWidth = 480.0;
 /// @deprecated [kModeRowFullLabelsMinWidth] 사용 — 통합 툴바도 모드 영역 폭 기준으로 판단
 const double kToolbarFullModeLabelsMinWidth = 880.0;
 
-/// [totalWidth]와 [isModeOnlyRow]로 라벨 스타일 결정
-///
-/// [isModeOnlyRow]가 false여도 [totalWidth]만 사용합니다 (레거시 호환).
+/// 툴바 [totalWidth] 기준으로 전체/축약 라벨 결정
 ExchangeModeLabelStyle resolveModeLabelStyle({
   required double totalWidth,
-  bool isModeOnlyRow = true,
 }) {
-  final threshold = kModeRowFullLabelsMinWidth;
-  return totalWidth >= threshold
+  return totalWidth >= kModeRowFullLabelsMinWidth
       ? ExchangeModeLabelStyle.full
       : ExchangeModeLabelStyle.compact;
 }
@@ -205,7 +201,6 @@ class ExchangeControlPanel extends StatelessWidget {
       builder: (context, constraints) {
         final labelStyle = resolveModeLabelStyle(
           totalWidth: constraints.maxWidth,
-          isModeOnlyRow: true,
         );
 
         return Container(

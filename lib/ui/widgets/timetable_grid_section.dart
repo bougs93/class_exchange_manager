@@ -288,7 +288,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
           // 모드 선택이 단독 행 → 가용 폭 기준으로 라벨 결정
           final modeLabelStyle = resolveModeLabelStyle(
             totalWidth: totalWidth,
-            isModeOnlyRow: true,
           );
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -300,8 +299,14 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
           );
         }
 
-        // 통합 한 줄 — 모드 영역에 실제 할당된 폭 기준으로 라벨 결정
-        return _buildUnifiedToolbarRow(hideTeacherCount);
+        // 통합 한 줄 — 툴바 전체 폭 기준으로 라벨 결정 (Flexible 할당 폭 X)
+        final modeLabelStyle = resolveModeLabelStyle(
+          totalWidth: totalWidth,
+        );
+        return _buildUnifiedToolbarRow(
+          hideTeacherCount,
+          modeLabelStyle,
+        );
       },
     );
   }
@@ -321,43 +326,45 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     );
   }
 
-  /// 통합 툴바 — [모드] | [실행 도구] | [zoom·교사수]
-  Widget _buildUnifiedToolbarRow(bool hideTeacherCount) {
+  /// 통합 툴바 — [모드 | 실행 도구] (스크롤) + [zoom·교사수] (고정)
+  ///
+  /// Spacer()를 쓰지 않아 모드 버튼 영역이 zoom 왼쪽까지 전체 폭을 사용합니다.
+  Widget _buildUnifiedToolbarRow(
+    bool hideTeacherCount,
+    ExchangeModeLabelStyle modeLabelStyle,
+  ) {
     return SizedBox(
       height: kExchangeUnifiedToolbarHeight,
       child: Row(
         children: [
           const SizedBox(width: 8),
-          // Flexible에 할당된 실제 폭으로 전체/축약 라벨 결정
-          Flexible(
-            child: LayoutBuilder(
-              builder: (context, modeConstraints) {
-                final modeLabelStyle = resolveModeLabelStyle(
-                  totalWidth: modeConstraints.maxWidth,
-                  isModeOnlyRow: true,
-                );
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: ExchangeModeSelector(
+          // 모드 + 실행도구 — 남는 폭 전부 사용, 넘치면 가로 스크롤
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ExchangeModeSelector(
                     currentMode: widget.currentMode,
                     onModeChanged: widget.onModeChanged,
                     labelStyle: modeLabelStyle,
                   ),
-                );
-              },
+                  const ToolbarGroupDivider(),
+                  ..._buildActionToolbarItems(),
+                ],
+              ),
             ),
           ),
-          const ToolbarGroupDivider(),
-          ..._buildActionToolbarItems(),
-          const Spacer(),
+          const SizedBox(width: 8),
           _buildZoomControl(),
           const SizedBox(width: 8),
           if (!hideTeacherCount) ...[
             TeacherCountWidget(
               teacherCount: widget.timetableData!.teachers.length,
             ),
+            const SizedBox(width: 8),
           ],
-          const SizedBox(width: 8),
         ],
       ),
     );
