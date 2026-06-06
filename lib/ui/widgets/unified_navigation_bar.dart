@@ -3,12 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../constants/nav_indices.dart';
 import '../../providers/navigation_provider.dart';
 
+/// 1차 메뉴 바 공통 높이 (아이콘+텍스트 가로 배치)
+const double kUnifiedNavBarHeight = 40.0;
+
 /// 모든 화면에서 사용하는 통합 네비게이션 바
 ///
 /// 특징:
+/// - 아이콘과 라벨을 가로로 배치하여 세로 공간 절약
 /// - 자주 사용하는 기능에 빠른 접근
 /// - 현재 페이지 위치 명확히 표시
-/// - 모든 화면에서 일관된 네비게이션
 class UnifiedNavigationBar extends ConsumerWidget {
   const UnifiedNavigationBar({super.key});
 
@@ -57,7 +60,7 @@ class UnifiedNavigationBar extends ConsumerWidget {
     final selectedIndex = ref.watch(navigationProvider);
 
     return Container(
-      height: 60, // 높이를 56에서 60으로 증가 (오버플로우 방지)
+      height: kUnifiedNavBarHeight,
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(
@@ -82,7 +85,6 @@ class UnifiedNavigationBar extends ConsumerWidget {
 
               return Expanded(
                 child: _buildNavItem(
-                  context: context,
                   ref: ref,
                   index: index,
                   icon: icon,
@@ -96,11 +98,8 @@ class UnifiedNavigationBar extends ConsumerWidget {
     );
   }
 
-  /// 네비게이션 항목 생성
-  ///
-  /// 선택된 항목은 파란색 배경과 하단 밑줄로 강조됩니다.
+  /// 네비게이션 항목 — 아이콘과 라벨을 가로로 배치
   Widget _buildNavItem({
-    required BuildContext context,
     required WidgetRef ref,
     required int index,
     required IconData icon,
@@ -117,45 +116,45 @@ class UnifiedNavigationBar extends ConsumerWidget {
             ref.read(navigationProvider.notifier).state = index;
           },
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 4), // 패딩을 8에서 4로 감소
+            height: kUnifiedNavBarHeight,
             decoration: BoxDecoration(
-              // 선택된 항목: 파란색 배경
               color: isSelected ? Colors.blue.shade50 : Colors.transparent,
-              // 선택된 항목: 하단 파란색 밑줄
               border:
                   isSelected
                       ? Border(
                         bottom: BorderSide(
                           color: Colors.blue.shade700,
-                          width: 3,
+                          width: 2,
                         ),
                       )
                       : null,
             ),
-            child: Column(
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
                   icon,
-                  size: 22, // 아이콘 크기를 24에서 22로 약간 감소
+                  size: 18,
                   color:
                       isSelected ? Colors.blue.shade700 : Colors.grey.shade600,
                 ),
-                const SizedBox(height: 3), // 간격을 4에서 3으로 감소
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight:
-                        isSelected ? FontWeight.bold : FontWeight.normal,
-                    color:
-                        isSelected
-                            ? Colors.blue.shade700
-                            : Colors.grey.shade700,
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.normal,
+                      color:
+                          isSelected
+                              ? Colors.blue.shade700
+                              : Colors.grey.shade700,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),

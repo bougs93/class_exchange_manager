@@ -48,17 +48,10 @@ class TimetableTabContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       children: [
-        // 교체 제어 패널
-        ExchangeControlPanel(
-          currentMode: state.currentMode,
-          onModeChanged: onModeChanged,
-        ),
-
-        // 시간표 그리드 표시 섹션 (TabBar와 바로 붙이기 위해 간격 제거)
+        // 시간표 그리드 (모드 선택 + 실행 도구가 그리드 헤더에 통합됨)
         if (timetableData != null)
           Expanded(
             child: TimetableGridSection(
-              // key: ValueKey('timetable_grid_${timetableData?.teachers.length ?? 0}_${columns.length}_${stackedHeaders.length}'),
               key: ValueKey('timetable_grid_${timetableData?.teachers.length ?? 0}'),
               timetableData: timetableData,
               dataSource: dataSource,
@@ -70,11 +63,19 @@ class TimetableTabContent extends ConsumerWidget {
               exchangeableCount: getActualExchangeableCount(),
               onCellTap: onCellTap,
               selectedExchangePath: getCurrentSelectedPath(),
-              onHeaderThemeUpdate: onHeaderThemeUpdate, // 헤더 테마 업데이트 콜백 전달
+              onHeaderThemeUpdate: onHeaderThemeUpdate,
+              currentMode: state.currentMode,
+              onModeChanged: onModeChanged,
             ),
           )
-        else
+        else ...[
+          // 파일 미로드 시 모드 선택만 표시
+          ExchangeControlPanel(
+            currentMode: state.currentMode,
+            onModeChanged: onModeChanged,
+          ),
           const Expanded(child: SizedBox.shrink()),
+        ],
 
         // 오류 메시지 표시
         if (state.errorMessage != null)

@@ -41,6 +41,23 @@ extension ExchangeModeExtension on ExchangeMode {
         return '보강교체';
     }
   }
+
+  /// 툴바용 짧은 라벨 (null이면 아이콘만 표시)
+  String? get toolbarLabel {
+    switch (this) {
+      case ExchangeMode.view:
+      case ExchangeMode.nonExchangeableEdit:
+        return null;
+      case ExchangeMode.oneToOneExchange:
+        return '1:1';
+      case ExchangeMode.chainExchange:
+        return '연쇄';
+      case ExchangeMode.circularExchange:
+        return '순환';
+      case ExchangeMode.supplementExchange:
+        return '보강';
+    }
+  }
   
   /// 모드의 아이콘
   IconData get icon {

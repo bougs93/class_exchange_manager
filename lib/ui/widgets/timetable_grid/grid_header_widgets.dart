@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../utils/simplified_timetable_theme.dart';
 
-/// 컴팩트 툴바 공통 높이
-const double _kCompactToolbarHeight = 28.0;
+/// 컴팩트 툴바 공통 높이 (모드 선택·실행 도구·줌 컨트롤 공통)
+const double kCompactToolbarHeight = 28.0;
+
+/// @deprecated 내부 호환용 — [kCompactToolbarHeight] 사용
+const double _kCompactToolbarHeight = kCompactToolbarHeight;
 
 /// 아이콘만 표시 + Tooltip (컴팩트 툴바용)
 class CompactToolbarIconButton extends StatelessWidget {

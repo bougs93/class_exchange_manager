@@ -28,6 +28,7 @@ import 'timetable_grid/exchange_arrow_painter.dart';
 import 'timetable_grid/exchange_executor.dart';
 import 'timetable_grid/grid_header_widgets.dart';
 import 'timetable_grid/grid_scaling_helper.dart';
+import 'exchange_control_panel.dart';
 import '../mixins/scroll_management_mixin.dart';
 
 /// 교체된 셀의 원본 정보를 저장하는 클래스
@@ -80,6 +81,8 @@ class TimetableGridSection extends ConsumerStatefulWidget {
   final ExchangeArrowStyle? customArrowStyle; // 커스텀 화살표 스타일
   final VoidCallback? onHeaderThemeUpdate; // 헤더 테마 업데이트 콜백
   final Function(ExchangeNode)? onNodeScrollRequest; // 🆕 노드 스크롤 요청 콜백
+  final ExchangeMode currentMode; // 현재 교체 모드
+  final void Function(ExchangeMode) onModeChanged; // 모드 변경 콜백
 
   const TimetableGridSection({
     super.key,
@@ -92,6 +95,8 @@ class TimetableGridSection extends ConsumerStatefulWidget {
     required this.isChainExchangeModeEnabled,
     required this.exchangeableCount,
     required this.onCellTap,
+    required this.currentMode,
+    required this.onModeChanged,
     this.selectedExchangePath,
     this.customArrowStyle,
     this.onHeaderThemeUpdate,
@@ -271,65 +276,136 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     );
   }
 
-  /// 헤더 구성
+  /// 헤더 구성 — 모드 선택 + 실행 도구를 한 줄(또는 좁은 화면에서 2줄)로 통합
   Widget _buildHeader() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // 화면 폭이 800px 미만일 때 세로 레이아웃으로 변경
-        final bool useVerticalLayout = constraints.maxWidth < 800;
-        // 화면 폭이 600px 미만일 때 교사 수 표시 위젯 숨김
-        final bool hideTeacherCount = constraints.maxWidth < 600;
-
-        final toolbarRow = _buildHeaderToolbarRow(hideTeacherCount);
+        final totalWidth = constraints.maxWidth;
+        final bool useVerticalLayout = totalWidth < 900;
+        final bool hideTeacherCount = totalWidth < 600;
 
         if (useVerticalLayout) {
+          // 모드 선택이 단독 행 → 가용 폭 기준으로 라벨 결정
+          final modeLabelStyle = resolveModeLabelStyle(
+            totalWidth: totalWidth,
+            isModeOnlyRow: true,
+          );
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [toolbarRow, const SizedBox(height: 8)],
+            children: [
+              _buildModeSelectorRow(modeLabelStyle),
+              const SizedBox(height: 4),
+              _buildActionToolbarRow(hideTeacherCount),
+            ],
           );
         }
-        return toolbarRow;
+
+        // 통합 한 줄 — 모드 영역에 실제 할당된 폭 기준으로 라벨 결정
+        return _buildUnifiedToolbarRow(hideTeacherCount);
       },
     );
   }
 
-  /// 헤더 툴바 — 버튼(왼쪽) + 정보(오른쪽)
-  Widget _buildHeaderToolbarRow(bool hideTeacherCount) {
-    return Row(
-      children: [
-        const SizedBox(width: 8),
-
-        // 왼쪽: 버튼 그룹
-        ExchangeViewCheckbox(
-          isEnabled: ref.watch(isExchangeViewEnabledProvider),
-          onChanged: (bool? value) {
-            final isEnabled = value ?? false;
-            if (isEnabled) {
-              _enableExchangeView();
-            } else {
-              _disableExchangeView();
-            }
-          },
+  /// 모드 선택 행 (좁은 화면용)
+  Widget _buildModeSelectorRow(ExchangeModeLabelStyle labelStyle) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: ExchangeModeSelector(
+          currentMode: widget.currentMode,
+          onModeChanged: widget.onModeChanged,
+          labelStyle: labelStyle,
         ),
-        const SizedBox(width: 6),
-        ResetExchangeListButton(
-          onPressed: () => _showDeleteExchangeListDialog(context, ref),
-        ),
-        const SizedBox(width: 4),
-        _buildExchangeActionButtons(),
-
-        // 오른쪽: 확대/축소, 교사 수
-        const Spacer(),
-        _buildZoomControl(),
-        const SizedBox(width: 8),
-        if (!hideTeacherCount) ...[
-          TeacherCountWidget(
-            teacherCount: widget.timetableData!.teachers.length,
-          ),
-        ],
-        const SizedBox(width: 8),
-      ],
+      ),
     );
+  }
+
+  /// 통합 툴바 — [모드] | [실행 도구] | [zoom·교사수]
+  Widget _buildUnifiedToolbarRow(bool hideTeacherCount) {
+    return SizedBox(
+      height: kExchangeUnifiedToolbarHeight,
+      child: Row(
+        children: [
+          const SizedBox(width: 8),
+          // Flexible에 할당된 실제 폭으로 전체/축약 라벨 결정
+          Flexible(
+            child: LayoutBuilder(
+              builder: (context, modeConstraints) {
+                final modeLabelStyle = resolveModeLabelStyle(
+                  totalWidth: modeConstraints.maxWidth,
+                  isModeOnlyRow: true,
+                );
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ExchangeModeSelector(
+                    currentMode: widget.currentMode,
+                    onModeChanged: widget.onModeChanged,
+                    labelStyle: modeLabelStyle,
+                  ),
+                );
+              },
+            ),
+          ),
+          const ToolbarGroupDivider(),
+          ..._buildActionToolbarItems(),
+          const Spacer(),
+          _buildZoomControl(),
+          const SizedBox(width: 8),
+          if (!hideTeacherCount) ...[
+            TeacherCountWidget(
+              teacherCount: widget.timetableData!.teachers.length,
+            ),
+          ],
+          const SizedBox(width: 8),
+        ],
+      ),
+    );
+  }
+
+  /// 실행 도구 행 (좁은 화면용)
+  Widget _buildActionToolbarRow(bool hideTeacherCount) {
+    return SizedBox(
+      height: kExchangeUnifiedToolbarHeight,
+      child: Row(
+        children: [
+          const SizedBox(width: 8),
+          ..._buildActionToolbarItems(),
+          const Spacer(),
+          _buildZoomControl(),
+          const SizedBox(width: 8),
+          if (!hideTeacherCount) ...[
+            TeacherCountWidget(
+              teacherCount: widget.timetableData!.teachers.length,
+            ),
+          ],
+          const SizedBox(width: 8),
+        ],
+      ),
+    );
+  }
+
+  /// 교체 적용·초기화·undo/redo 버튼 그룹
+  List<Widget> _buildActionToolbarItems() {
+    return [
+      ExchangeViewCheckbox(
+        isEnabled: ref.watch(isExchangeViewEnabledProvider),
+        onChanged: (bool? value) {
+          final isEnabled = value ?? false;
+          if (isEnabled) {
+            _enableExchangeView();
+          } else {
+            _disableExchangeView();
+          }
+        },
+      ),
+      const SizedBox(width: 6),
+      ResetExchangeListButton(
+        onPressed: () => _showDeleteExchangeListDialog(context, ref),
+      ),
+      const SizedBox(width: 4),
+      _buildExchangeActionButtons(),
+    ];
   }
 
   /// 확대/축소 컨트롤
