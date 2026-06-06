@@ -3,6 +3,7 @@ import 'cell_style_config.dart';
 import 'constants.dart';
 import '../services/timetable_theme_storage_service.dart';
 import '../services/app_settings_storage_service.dart';
+import '../constants/teacher_row_highlight_colors.dart';
 import 'logger.dart';
 
 /// 단순화된 시간표 테마 클래스
@@ -17,8 +18,8 @@ class SimplifiedTimetableTheme {
   static Color _nonExchangeableColor = const Color(0xFFFFCDD2);
   
   /// 하이라이트된 교사 행 색상 (저장/로드 가능)
-  /// 기본값: 연한 보라색 (0xFFF3E5F5)
-  static Color _highlightedTeacherColor = const Color(0xFFF3E5F5);
+  /// 기본값: 청록 (0xFFB2DFDB) — 교체 범례 색상과 구분
+  static Color _highlightedTeacherColor = TeacherRowHighlightColors.defaultColor;
   
   /// 폰트 사이즈 배율 설정 (줌 인/아웃 시 호출)
   static void setFontScaleFactor(double factor) {
@@ -89,7 +90,8 @@ class SimplifiedTimetableTheme {
       final colorValue = await appSettings.getHighlightedTeacherColor();
       
       if (colorValue != null) {
-        _highlightedTeacherColor = Color(colorValue);
+        _highlightedTeacherColor =
+            TeacherRowHighlightColors.resolveSavedColor(colorValue);
         AppLogger.info('하이라이트 교사 행 색상 로드 완료: ${_highlightedTeacherColor.toARGB32().toRadixString(16)}');
       } else {
         // 저장된 색상이 없으면 기본값 유지

@@ -5,6 +5,7 @@ import '../../providers/exchange_screen_provider.dart';
 import '../../providers/state_reset_provider.dart';
 import '../../models/exchange_mode.dart';
 import '../../constants/app_info.dart';
+import '../../constants/teacher_row_highlight_colors.dart';
 import '../../services/app_settings_storage_service.dart';
 import '../../services/storage_service.dart';
 import '../../utils/logger.dart';
@@ -45,7 +46,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
   bool _isSavingNames = false;
 
   // 하이라이트 색상 관련
-  Color _highlightedTeacherColor = const Color(0xFFF3E5F5);
+  Color _highlightedTeacherColor = TeacherRowHighlightColors.defaultColor;
   bool _isLoadingHighlightColor = true;
   bool _isSavingHighlightColor = false;
 
@@ -115,10 +116,13 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
             _isSettingsExpanded = true;
           }
 
-          // 하이라이트 색상
+          // 하이라이트 색상 (구 프리셋은 교체 범례와 유사하여 자동 교체)
           final colorValue = results[2] as int?;
-          if (colorValue != null) {
-            _highlightedTeacherColor = Color(colorValue);
+          final resolvedColor =
+              TeacherRowHighlightColors.resolveSavedColor(colorValue);
+          _highlightedTeacherColor = resolvedColor;
+          if (colorValue != null && resolvedColor.toARGB32() != colorValue) {
+            SimplifiedTimetableTheme.setHighlightedTeacherColor(resolvedColor);
           }
           _isLoadingHighlightColor = false;
         });
@@ -202,12 +206,24 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
     await _saveSetting(
       saver:
           () => appSettings.saveTeacherAndSchoolName(
-            teacherName: _teacherNameController.text,
-            schoolName: _schoolNameController.text,
+            teacherName: _teacherNameController.text.trim(),
+            schoolName: _schoolNameController.text.trim(),
           ),
       successMessage: '기본 정보가 저장되었습니다.',
       setSavingState: (value) => _isSavingNames = value,
+      onSuccess: _refreshExchangeScreenHighlightedTeacher,
     );
+  }
+
+  /// 교체 화면의 교사 행 하이라이트를 저장된 교사명으로 즉시 갱신
+  void _refreshExchangeScreenHighlightedTeacher() {
+    try {
+      final dataSource = ref.read(exchangeScreenProvider).dataSource;
+      dataSource?.refreshHighlightedTeacherName();
+    } catch (e) {
+      // 시간표 미로드 등으로 DataSource가 없을 수 있음
+      AppLogger.debug('교체 화면 DataSource가 아직 없습니다: $e');
+    }
   }
 
   /// 하이라이트 색상 저장
@@ -862,6 +878,11 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
             '교사 행 하이라이트',
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
           ),
+          const SizedBox(height: 4),
+          Text(
+            '교체 화면 범례(선택·채움·교체불가 등)와 구분되는 색상입니다.',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
           const SizedBox(height: 8),
 
           Container(
@@ -900,14 +921,9 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
           Wrap(
             spacing: 4,
             runSpacing: 4,
-            children: [
-              _buildColorOption(const Color(0xFFE3F2FD)),
-              _buildColorOption(const Color(0xFFE8F5E9)),
-              _buildColorOption(const Color(0xFFFFF9C4)),
-              _buildColorOption(const Color(0xFFF3E5F5)),
-              _buildColorOption(const Color(0xFFE1F5FE)),
-              _buildColorOption(const Color(0xFFFFE0B2)),
-            ],
+            children: TeacherRowHighlightColors.presets
+                .map(_buildColorOption)
+                .toList(),
           ),
         ],
       ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../constants/teacher_row_highlight_colors.dart';
 import '../../services/app_settings_storage_service.dart';
 import '../../services/storage_service.dart';
 import '../../utils/logger.dart';
@@ -34,7 +35,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _isSavingNames = false;
   
   // 하이라이트 색상 관련
-  Color _highlightedTeacherColor = const Color(0xFFF3E5F5); // 기본값: 연한 보라색
+  Color _highlightedTeacherColor = TeacherRowHighlightColors.defaultColor;
   bool _isLoadingHighlightColor = true;
   bool _isSavingHighlightColor = false;
 
@@ -99,12 +100,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       final appSettings = AppSettingsStorageService();
       final colorValue = await appSettings.getHighlightedTeacherColor();
       
+      final resolvedColor =
+          TeacherRowHighlightColors.resolveSavedColor(colorValue);
       setState(() {
-        if (colorValue != null) {
-          _highlightedTeacherColor = Color(colorValue);
-        } else {
-          // 기본값 사용
-          _highlightedTeacherColor = const Color(0xFFF3E5F5);
+        _highlightedTeacherColor = resolvedColor;
+        if (colorValue != null && resolvedColor.toARGB32() != colorValue) {
+          SimplifiedTimetableTheme.setHighlightedTeacherColor(resolvedColor);
         }
         _isLoadingHighlightColor = false;
       });
@@ -579,7 +580,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 8),
           // 설명
           const Text(
-            '교체관리에서 교사명의 행이 하이라이트됩니다.',
+            '교체관리에서 내 교사 행을 표시합니다. '
+            '범례(선택·채움·교체불가 등)와 구분되는 색상만 제공합니다.',
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey,
@@ -624,17 +626,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // 색상 옵션들 (한 줄로 배치)
           Row(
             children: [
-              _buildColorOption(const Color(0xFFE3F2FD)),
-              const SizedBox(width: 12),
-              _buildColorOption(const Color(0xFFE8F5E9)),
-              const SizedBox(width: 12),
-              _buildColorOption(const Color(0xFFFFF9C4)),
-              const SizedBox(width: 12),
-              _buildColorOption(const Color(0xFFF3E5F5)),
-              const SizedBox(width: 12),
-              _buildColorOption(const Color(0xFFE1F5FE)),
-              const SizedBox(width: 12),
-              _buildColorOption(const Color(0xFFFFE0B2)), // 연한 오렌지색
+              for (int i = 0; i < TeacherRowHighlightColors.presets.length; i++) ...[
+                if (i > 0) const SizedBox(width: 12),
+                _buildColorOption(TeacherRowHighlightColors.presets[i]),
+              ],
             ],
           ),
         ],
