@@ -150,9 +150,11 @@ class ExchangeArrowPainter extends CustomPainter {
     // 보강 교체 스타일 가져오기
     ExchangeArrowStyle style = ExchangeArrowStyle.supplement;
 
-    // 화살표 시작점과 끝점 계산 (상대적 위치 기반)
-    // sourceNode는 빈 셀, targetNode는 수업이 있는 셀
-    // 기존 로직을 사용하여 상대적 위치에 따라 화살표 방향 결정
+    // 보강교체 전용: 시작점은 보강 교사(빈 셀)의 정중앙
+    // (다른 교체 모드처럼 셀 경계 밖이 아닌 셀 안쪽에서 출발)
+    Offset sourcePos = _getCellCenterPosition(columnIndex, sourceTeacherIndex);
+
+    // 끝점은 수업이 있는 셀의 경계면 중앙 (기존 로직 유지)
     Map<String, ArrowEdge> edges = _determineArrowEdges(
       columnIndex,
       sourceTeacherIndex,
@@ -160,9 +162,11 @@ class ExchangeArrowPainter extends CustomPainter {
       targetTeacherIndex,
       ArrowPriority.verticalFirst,
     );
-
-    Offset sourcePos = _getCellEdgeCenterPosition(columnIndex, sourceTeacherIndex, edges['start']!);
-    Offset targetPos = _getCellEdgeCenterPosition(columnIndex, targetTeacherIndex, edges['end']!);
+    Offset targetPos = _getCellEdgeCenterPosition(
+      columnIndex,
+      targetTeacherIndex,
+      edges['end']!,
+    );
 
     // 화면 영역 내에 화살표가 있는지 검사
     bool isVisible = _isArrowVisible(sourcePos, targetPos, size);
@@ -415,6 +419,43 @@ class ExchangeArrowPainter extends CustomPainter {
   }
 
 
+
+  /// 셀의 정중앙 위치 계산 (보강교체 화살표 시작점 전용)
+  ///
+  /// [columnIndex] 셀의 열 인덱스
+  /// [teacherIndex] 셀의 교사 인덱스
+  ///
+  /// Returns: Offset - 셀 가로·세로 중앙 좌표 (스크롤 오프셋 반영)
+  Offset _getCellCenterPosition(int columnIndex, int teacherIndex) {
+    double x = 0;
+    for (int i = 0; i < columnIndex; i++) {
+      if (i == 0) {
+        x += AppConstants.teacherColumnWidth * zoomFactor;
+      } else {
+        x += AppConstants.periodColumnWidth * zoomFactor;
+      }
+    }
+
+    double y =
+        AppConstants.headerRowHeight *
+        GridLayoutConstants.headerRowsCount *
+        zoomFactor;
+    y += teacherIndex * AppConstants.dataRowHeight * zoomFactor;
+
+    final isFrozenColumn = columnIndex == 0;
+    x -= isFrozenColumn ? 0.0 : scrollOffset.dx;
+    y -= scrollOffset.dy;
+
+    if (columnIndex == 0) {
+      x += AppConstants.teacherColumnWidth * zoomFactor / 2;
+      y += AppConstants.dataRowHeight * zoomFactor / 2;
+    } else {
+      x += AppConstants.periodColumnWidth * zoomFactor / 2;
+      y += AppConstants.dataRowHeight * zoomFactor / 2;
+    }
+
+    return Offset(x, y);
+  }
 
   /// 셀의 경계면 중앙 위치 계산 (화살표 시작점/끝점용)
   /// 스크롤 오프셋과 고정 영역을 반영하여 실제 화면상의 위치를 계산
