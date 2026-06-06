@@ -6,6 +6,7 @@ import '../../services/exchange_service.dart';
 import '../../services/circular_exchange_service.dart';
 import '../../services/chain_exchange_service.dart';
 import '../../providers/exchange_screen_provider.dart';
+import '../../providers/navigation_provider.dart';
 import '../../providers/services_provider.dart';
 import '../../providers/cell_selection_provider.dart';
 import '../../models/circular_exchange_path.dart';
@@ -24,6 +25,7 @@ import '../../models/supplement_exchange_path.dart';
 import '../../utils/exchange_path_converter.dart';
 import '../../utils/exchange_path_utils.dart';
 import '../../models/time_slot.dart';
+import '../../constants/nav_indices.dart';
 
 import '../widgets/timetable_grid_section.dart';
 import '../mixins/exchange_logic_mixin.dart';
@@ -140,6 +142,27 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   ChainExchangePath? get _selectedChainPath => selectedChainPath;
   OneToOneExchangePath? get _selectedOneToOnePath => selectedOneToOnePath;
   bool get _isSidebarVisible => _stateProxy.isSidebarVisible;
+
+  /// 교체 메뉴 진입 시 1:1교체 모드를 기본으로 적용
+  void _applyDefaultOneToOneModeOnMenuEntry() {
+    final currentMode = ref.read(exchangeScreenProvider).currentMode;
+
+    if (currentMode != ExchangeMode.oneToOneExchange) {
+      AppLogger.exchangeDebug(
+        '🔄 교체관리 화면 진입: ${currentMode.displayName} → 1:1교체 모드로 자동 전환',
+      );
+      _changeMode(ExchangeMode.oneToOneExchange);
+      return;
+    }
+
+    AppLogger.exchangeDebug('✅ 교체관리 화면 진입: 이미 1:1교체 모드 상태');
+
+    // 1:1교체에 필요한 단계 필터만 보장
+    final state = ref.read(exchangeScreenProvider);
+    if (state.availableSteps.length != 1 || state.availableSteps.first != 2) {
+      ref.read(exchangeScreenProvider.notifier).setAvailableSteps([2]);
+    }
+  }
 
   /// 교체 모드 변경 (TabBar에서 호출)
   void _changeMode(ExchangeMode newMode) {
@@ -617,29 +640,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       onChainPathChanged: (path) => handleChainPathChanged(path as ChainExchangePath?),
     );
     
-    // 교체 관리 화면 진입 시 보기 모드로 자동 설정
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final notifier = ref.read(exchangeScreenProvider.notifier);
-      final currentMode = ref.read(exchangeScreenProvider).currentMode;
-      
-      // 현재 모드가 보기 모드가 아닌 경우에만 보기 모드로 설정
-      if (currentMode != ExchangeMode.view) {
-        AppLogger.exchangeDebug('🔄 교체관리 화면 진입: ${currentMode.displayName} → 보기 모드로 자동 전환');
-        notifier.setCurrentMode(ExchangeMode.view);
-
-        // 보기 모드 상태 초기화 (Level 3)
-        ref.read(stateResetProvider.notifier).resetAllStates(
-          reason: '교체관리 화면 진입 시 보기 모드로 전환',
-        );
-      } else {
-        AppLogger.exchangeDebug('✅ 교체관리 화면 진입: 이미 보기 모드 상태');
-      }
-      
-      // timetableData 상태 확인
-      final timetableData = ref.read(exchangeScreenProvider).timetableData;
-      AppLogger.exchangeDebug('📊 timetableData 상태: ${timetableData != null ? "데이터 있음" : "데이터 없음"}');
-    });
-
     // FilterStateManager 콜백 설정
     _filterStateManager.setOnFilterChanged(_updateFilteredPaths);
 
@@ -678,6 +678,17 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   Widget build(BuildContext context) {
     // Provider에서 상태 읽기
     final screenState = ref.watch(exchangeScreenProvider);
+
+    // 교체 메뉴 탭 진입 시 1:1교체 모드로 자동 전환
+    ref.listen<int>(navigationProvider, (previous, next) {
+      if (next == NavIndices.exchange && previous != NavIndices.exchange) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _applyDefaultOneToOneModeOnMenuEntry();
+          }
+        });
+      }
+    });
     
     // 줌 팩터 변경 감지하여 헤더 재생성
     ref.listen<double>(
