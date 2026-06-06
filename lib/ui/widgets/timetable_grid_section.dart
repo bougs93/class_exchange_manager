@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -283,10 +285,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
         if (useVerticalLayout) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              toolbarRow,
-              const SizedBox(height: 8),
-            ],
+            children: [toolbarRow, const SizedBox(height: 8)],
           );
         }
         return toolbarRow;
@@ -353,6 +352,21 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     );
   }
 
+  /// 교체 경로 삭제 (툴바 삭제 버튼 · 우클릭 메뉴 공통)
+  Future<void> _deleteExchangePath(ExchangePath exchangePath) async {
+    if (!mounted) return;
+
+    await _exchangeExecutor.deleteFromExchangeList(
+      exchangePath,
+      context,
+      () {
+        ref.read(stateResetProvider.notifier).resetExchangeStates(
+              reason: '내부 경로 초기화',
+            );
+      },
+    );
+  }
+
   /// 되돌리기·다시 실행·삭제 버튼 그룹
   Widget _buildExchangeActionButtons() {
     return Consumer(
@@ -364,7 +378,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
         final canRedo = historyService.canRedo;
 
         final cellState = ref.watch(cellSelectionProvider);
-        final currentSelectedPath = cellState.selectedOneToOnePath ??
+        final currentSelectedPath =
+            cellState.selectedOneToOnePath ??
             cellState.selectedCircularPath ??
             cellState.selectedChainPath ??
             cellState.selectedSupplementPath ??
@@ -372,29 +387,23 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
         final isFromExchangedCell = cellState.isFromExchangedCell;
 
         return ExchangeActionButtons(
-          onUndo: canUndo
-              ? () => _exchangeExecutor.undoLastExchange(context, () {
-                    ref.read(stateResetProvider.notifier).resetExchangeStates(
-                          reason: '내부 경로 초기화',
-                        );
+          onUndo:
+              canUndo
+                  ? () => _exchangeExecutor.undoLastExchange(context, () {
+                    ref
+                        .read(stateResetProvider.notifier)
+                        .resetExchangeStates(reason: '내부 경로 초기화');
                   })
-              : null,
-          onRepeat: canRedo
-              ? () => _exchangeExecutor.redoLastExchange(context)
-              : null,
-          onDelete: (currentSelectedPath != null && isFromExchangedCell)
-              ? () async => await _exchangeExecutor.deleteFromExchangeList(
-                    currentSelectedPath,
-                    context,
-                    () {
-                      ref.read(stateResetProvider.notifier).resetExchangeStates(
-                            reason: '내부 경로 초기화',
-                          );
-                    },
-                  )
-              : null,
-          showDeleteButton:
-              currentSelectedPath != null && isFromExchangedCell,
+                  : null,
+          onRepeat:
+              canRedo
+                  ? () => _exchangeExecutor.redoLastExchange(context)
+                  : null,
+          onDelete:
+              (currentSelectedPath != null && isFromExchangedCell)
+                  ? () async => await _deleteExchangePath(currentSelectedPath)
+                  : null,
+          showDeleteButton: currentSelectedPath != null && isFromExchangedCell,
         );
       },
     );
@@ -593,6 +602,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
                     columnWidthMode: ColumnWidthMode.none,
                     frozenColumnsCount: GridLayoutConstants.frozenColumnsCount,
                     onCellTap: _handleCellTap,
+                    onCellSecondaryTap: _handleCellSecondaryTap,
                     horizontalScrollController: horizontalScrollController,
                     verticalScrollController: verticalScrollController,
                   ),
@@ -1115,6 +1125,131 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
 
     widget.onCellTap(details);
     AppLogger.exchangeDebug('🔄 일반 셀 클릭 - UI 업데이트 (스크롤 위치 보존)');
+  }
+
+  /// 교체 경로가 있는 셀 우클릭 → 컨텍스트 메뉴 표시
+  void _handleCellSecondaryTap(DataGridCellTapDetails details) {
+    final columnName = details.column.columnName;
+    if (columnName == 'teacher') return;
+
+    final parts = columnName.split('_');
+    if (parts.length != 2) return;
+
+    final teacherName = _extractTeacherNameFromRowIndex(
+      details.rowColumnIndex.rowIndex,
+    );
+    if (teacherName.isEmpty) return;
+
+    final day = parts[0];
+    final period = int.tryParse(parts[1]) ?? 0;
+
+    final historyService = ref.read(exchangeHistoryServiceProvider);
+    final isExchangedCell = historyService.isCellExchanged(
+      teacherName,
+      day,
+      period,
+    );
+    if (!isExchangedCell) return;
+
+    final exchangePath = historyService.findExchangePathByCell(
+      teacherName,
+      day,
+      period,
+    );
+    if (exchangePath == null) return;
+
+    // 좌클릭과 동일하게 경로 선택(화살표 표시) 후 메뉴 표시
+    _handleExchangedCellClick(teacherName, day, period);
+
+    _showExchangePathDeleteContextMenu(
+      globalPosition: details.globalPosition,
+      exchangePath: exchangePath,
+    );
+  }
+
+  /// 우클릭 컨텍스트 메뉴 — 경로 삭제
+  /// showMenu는 Material 기본 여백(상하 8px 등)이 있어 커스텀 오버레이 사용
+  Future<void> _showExchangePathDeleteContextMenu({
+    required Offset globalPosition,
+    required ExchangePath exchangePath,
+  }) async {
+    final selected = await _showCompactDeleteMenu(globalPosition);
+    if (selected != 'delete_path') return;
+
+    await _deleteExchangePath(exchangePath);
+  }
+
+  /// 여백 최소화된 삭제 컨텍스트 메뉴 (PopupMenu 기본 padding 없음)
+  Future<String?> _showCompactDeleteMenu(Offset globalPosition) {
+    final overlayState = Overlay.of(context);
+    final overlayBox = overlayState.context.findRenderObject()! as RenderBox;
+    final localPosition = overlayBox.globalToLocal(globalPosition);
+
+    final completer = Completer<String?>();
+    late OverlayEntry entry;
+
+    void close([String? value]) {
+      if (!completer.isCompleted) completer.complete(value);
+      entry.remove();
+    }
+
+    entry = OverlayEntry(
+      builder: (ctx) => Stack(
+        children: [
+          // 바깥 클릭 시 메뉴 닫기
+          Positioned.fill(
+            child: Listener(
+              behavior: HitTestBehavior.translucent,
+              onPointerDown: (_) => close(null),
+            ),
+          ),
+          Positioned(
+            left: localPosition.dx,
+            top: localPosition.dy,
+            child: Material(
+              elevation: 3,
+              shadowColor: Colors.black26,
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(6),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => close('delete_path'),
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 7,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.delete_outline,
+                        size: 16,
+                        color: Colors.red.shade700,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '삭제',
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.2,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.red.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    overlayState.insert(entry);
+    return completer.future;
   }
 
   /// 교사 이름 클릭 처리 (교체 모드 또는 교체불가 편집 모드에서 동작) - public 메서드로 변경

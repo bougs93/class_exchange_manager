@@ -32,8 +32,7 @@ class CompactToolbarIconButton extends StatelessWidget {
         isEnabled ? backgroundColor : Colors.grey.shade100;
     final effectiveForeground =
         isEnabled ? foregroundColor : Colors.grey.shade400;
-    final effectiveBorder =
-        isEnabled ? borderColor : Colors.grey.shade300;
+    final effectiveBorder = isEnabled ? borderColor : Colors.grey.shade300;
 
     return Tooltip(
       message: tooltip,
@@ -49,11 +48,7 @@ class CompactToolbarIconButton extends StatelessWidget {
           child: SizedBox(
             width: _kCompactToolbarHeight,
             height: _kCompactToolbarHeight,
-            child: Icon(
-              icon,
-              size: iconSize,
-              color: effectiveForeground,
-            ),
+            child: Icon(icon, size: iconSize, color: effectiveForeground),
           ),
         ),
       ),
