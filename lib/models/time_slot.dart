@@ -25,10 +25,14 @@ class TimeSlot {
     this.exchangeReason, // 교체 불가능한 사유 (기본값: null)
   });
   
-  /// 빈 슬롯인지 확인 (과목이나 학급이 없는 경우)
-  bool get isEmpty => subject == null && className == null;
-  
-  /// 비어있지 않은 슬롯인지 확인 (과목이나 학급이 있는 경우)
+  /// 빈 슬롯인지 확인 (과목·학급이 모두 없거나 공백뿐인 경우)
+  bool get isEmpty {
+    final hasSubject = subject != null && subject!.trim().isNotEmpty;
+    final hasClass = className != null && className!.trim().isNotEmpty;
+    return !hasSubject && !hasClass;
+  }
+
+  /// 비어있지 않은 슬롯인지 확인 (과목 또는 학급 정보가 있는 경우)
   bool get isNotEmpty => !isEmpty;
   
   /// 빈 TimeSlot 생성

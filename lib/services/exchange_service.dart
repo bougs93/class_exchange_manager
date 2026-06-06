@@ -461,6 +461,19 @@ class ExchangeService extends BaseExchangeService {
       AppLogger.exchangeDebug('보강 실패: $sourceTeacher의 $sourceDay$sourcePeriod교시 수업은 교체 불가능합니다 (${sourceSlot.exchangeReason})');
       return false;
     }
+
+    // 6. 보강 대상 셀이 교체 불가로 설정되어 있지 않은지 확인
+    _nonExchangeableManager.setTimeSlots(timeSlots);
+    if (_nonExchangeableManager.isNonExchangeableTimeSlot(
+      targetTeacher,
+      targetDay,
+      targetPeriod,
+    )) {
+      AppLogger.exchangeDebug(
+        '보강 실패: $targetTeacher의 $targetDay$targetPeriod교시는 교체 불가능합니다',
+      );
+      return false;
+    }
     
     AppLogger.exchangeDebug('보강교체 검증 성공');
     return true;
@@ -727,59 +740,191 @@ class ExchangeService extends BaseExchangeService {
     return exchangeableTeachers;
   }
 
-  /// 보강교체용 교사 목록 가져오기 (선택된 시간에 빈 시간이 있는 모든 교사)
+  /// 보강교체용 교사 목록 (단일 진입점)
+  ///
+  /// [subjectFilter]가 있으면 해당 교과를 가르치는 교사만 포함합니다.
+  /// 공강·교체불가·결강 교사 본인은 항상 제외합니다.
+  List<Map<String, dynamic>> getSupplementTeachers(
+    List<TimeSlot> timeSlots,
+    List<Teacher> teachers, {
+    String? subjectFilter,
+  }) {
+    if (selectedTeacher == null || selectedDay == null || selectedPeriod == null) {
+      return [];
+    }
+
+    _nonExchangeableManager.setTimeSlots(timeSlots);
+
+    final trimmedSubject = subjectFilter?.trim();
+    final supplementTeachers = <Map<String, dynamic>>[];
+
+    for (final teacher in teachers) {
+      if (!_isTeacherAvailableForSupplement(teacher.name, timeSlots)) {
+        continue;
+      }
+
+      if (trimmedSubject != null &&
+          trimmedSubject.isNotEmpty &&
+          !teacherTeachesSubject(teacher.name, trimmedSubject, timeSlots)) {
+        continue;
+      }
+
+      supplementTeachers.add({
+        'teacherName': teacher.name,
+        'day': selectedDay!,
+        'period': selectedPeriod!,
+        'subject': _getTeacherDisplaySubject(teacher.name, timeSlots),
+      });
+    }
+
+    final filterLabel = trimmedSubject == null || trimmedSubject.isEmpty
+        ? '전체'
+        : trimmedSubject;
+    AppLogger.exchangeDebug(
+      '보강교체 가능한 교사 수 ($filterLabel): ${supplementTeachers.length}명',
+    );
+    return supplementTeachers;
+  }
+
+  /// 보강교체용 교사 목록 가져오기 (선택된 시간에 공강이 있는 교사)
   List<Map<String, dynamic>> getSupplementExchangeableTeachers(
     List<TimeSlot> timeSlots,
     List<Teacher> teachers,
   ) {
-    if (selectedTeacher == null || selectedDay == null || selectedPeriod == null) {
-      return [];
-    }
-    
-    List<Map<String, dynamic>> supplementTeachers = [];
-    
-    // 선택된 시간에 빈 시간이 있는 모든 교사 찾기
-    for (Teacher teacher in teachers) {
-      if (teacher.name == selectedTeacher) continue; // 자기 자신 제외
-      
-      // 해당 교사가 선택된 시간에 수업이 있는지 확인
-      bool hasClassAtSelectedTime = timeSlots.any((slot) => 
-        slot.teacher == teacher.name &&
-        slot.dayOfWeek == DayUtils.getDayNumber(selectedDay!) &&
-        slot.period == selectedPeriod &&
-        slot.isNotEmpty &&
-        slot.canExchange // 교체 가능한 셀만 고려
-      );
-      
-      // 선택된 시간에 수업이 없는 교사만 보강 가능한 교사로 추가
-      if (!hasClassAtSelectedTime) {
-        // 해당 교사가 다른 시간에 가르치는 과목 정보 가져오기 (표시용)
-        String subjectInfo = _getTeacherSubjectInfo(teacher.name, timeSlots);
-        
-        supplementTeachers.add({
-          'teacherName': teacher.name,
-          'day': selectedDay!,
-          'period': selectedPeriod!,
-          'subject': subjectInfo,
-        });
-      }
-    }
-    
-    AppLogger.exchangeDebug('보강교체 가능한 교사 수: ${supplementTeachers.length}명');
-    return supplementTeachers;
+    return getSupplementTeachers(timeSlots, teachers);
   }
 
-  /// 교사의 과목 정보 가져오기 (표시용)
-  String _getTeacherSubjectInfo(String teacherName, List<TimeSlot> timeSlots) {
-    // 해당 교사가 가르치는 과목들 중 첫 번째 과목 반환
-    for (var slot in timeSlots) {
-      if (slot.teacher == teacherName && slot.isNotEmpty && slot.subject != null) {
-        return slot.subject!;
+  /// 보강 대상으로 선택 가능한 교사인지 확인
+  ///
+  /// - 결강 교사 본인 제외
+  /// - 해당 교시 수업 중이면 제외
+  /// - 해당 교시가 교체불가로 설정되어 있으면 제외
+  bool _isTeacherAvailableForSupplement(
+    String teacherName,
+    List<TimeSlot> timeSlots,
+  ) {
+    if (selectedTeacher == null || selectedDay == null || selectedPeriod == null) {
+      return false;
+    }
+
+    if (teacherName == selectedTeacher) {
+      return false;
+    }
+
+    if (_isTeacherBusyAtSelectedTime(teacherName, timeSlots)) {
+      return false;
+    }
+
+    return !_nonExchangeableManager.isNonExchangeableTimeSlot(
+      teacherName,
+      selectedDay!,
+      selectedPeriod!,
+    );
+  }
+
+  /// 선택된 시간에 해당 교사가 수업 중인지 확인
+  bool _isTeacherBusyAtSelectedTime(
+    String teacherName,
+    List<TimeSlot> timeSlots,
+  ) {
+    if (selectedDay == null || selectedPeriod == null) {
+      return false;
+    }
+
+    return timeSlots.any(
+      (slot) =>
+          slot.teacher == teacherName &&
+          slot.dayOfWeek == DayUtils.getDayNumber(selectedDay!) &&
+          slot.period == selectedPeriod &&
+          slot.isNotEmpty,
+    );
+  }
+
+  /// 시간표 어디든 해당 교과를 가르치는지 확인
+  bool teacherTeachesSubject(
+    String teacherName,
+    String subject,
+    List<TimeSlot> timeSlots,
+  ) {
+    final target = subject.trim();
+    if (target.isEmpty) {
+      return false;
+    }
+
+    return timeSlots.any(
+      (slot) =>
+          slot.teacher == teacherName &&
+          slot.isNotEmpty &&
+          (slot.subject?.trim() ?? '') == target,
+    );
+  }
+
+  /// 동일 교과목을 가르치는 보강 가능 교사 목록 (사이드바 필터용)
+  List<Map<String, dynamic>> getSupplementTeachersTeachingSubject(
+    List<TimeSlot> timeSlots,
+    List<Teacher> teachers,
+    String subject,
+  ) {
+    return getSupplementTeachers(
+      timeSlots,
+      teachers,
+      subjectFilter: subject,
+    );
+  }
+
+  /// 교사 표시용 과목 — 선택 결강 셀과 같은 교과목이 있으면 우선 표시
+  String _getTeacherDisplaySubject(
+    String teacherName,
+    List<TimeSlot> timeSlots,
+  ) {
+    String? preferredSubject;
+    String? fallbackSubject;
+
+    final selectedSubject = _getSelectedCellSubjectName(timeSlots);
+
+    for (final slot in timeSlots) {
+      if (slot.teacher != teacherName || !slot.isNotEmpty) {
+        continue;
+      }
+
+      final slotSubject = slot.subject?.trim();
+      if (slotSubject == null || slotSubject.isEmpty) {
+        continue;
+      }
+
+      fallbackSubject ??= slotSubject;
+      if (selectedSubject != null && slotSubject == selectedSubject) {
+        preferredSubject = slotSubject;
+        break;
       }
     }
-    return '과목정보없음';
+
+    return preferredSubject ?? fallbackSubject ?? '과목정보없음';
   }
-  
+
+  /// 선택된 결강 셀의 교과목명
+  String? _getSelectedCellSubjectName(List<TimeSlot> timeSlots) {
+    if (selectedTeacher == null ||
+        selectedDay == null ||
+        selectedPeriod == null) {
+      return null;
+    }
+
+    final slot = findTimeSlot(
+      selectedTeacher!,
+      selectedDay!,
+      selectedPeriod!,
+      timeSlots,
+      requireNotEmpty: true,
+    );
+
+    final subject = slot?.subject?.trim();
+    if (subject == null || subject.isEmpty) {
+      return null;
+    }
+    return subject;
+  }
+
   /// 빈시간에 같은 반을 가르치는 교사 찾기
   List<Map<String, dynamic>> _findSameClassTeachers(
     String day, 
@@ -871,17 +1016,8 @@ class ExchangeService extends BaseExchangeService {
           ? teacherInfo.split('(')[0] 
           : teacherInfo;
       
-      // 해당 교사가 선택된 시간에 수업이 있는지 확인
-      bool hasClassAtSelectedTime = timeSlots.any((slot) => 
-        slot.teacher == teacherName &&
-        slot.dayOfWeek == DayUtils.getDayNumber(selectedDay!) &&
-        slot.period == selectedPeriod &&
-        slot.isNotEmpty &&
-        slot.canExchange // 교체 가능한 셀만 고려
-      );
-      
       // 선택된 시간에 수업이 없는 교사만 실제 교체 가능한 교사로 추가
-      if (!hasClassAtSelectedTime) {
+      if (!_isTeacherBusyAtSelectedTime(teacherName, timeSlots)) {
         actuallyAvailableTeachers.add(teacherInfo);
       }
     }

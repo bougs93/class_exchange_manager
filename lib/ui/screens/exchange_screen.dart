@@ -1644,6 +1644,19 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       return;
     }
 
+    // 목록과 동일: 해당 교시가 교체불가로 설정된 교사는 보강 대상에서 제외
+    if (nonExchangeableManager.isNonExchangeableTimeSlot(
+      teacherName,
+      sourceDay,
+      sourcePeriod,
+    )) {
+      showSnackBar(
+        '$teacherName의 $sourceDay$sourcePeriod교시는 교체 불가능한 시간입니다.',
+        backgroundColor: Colors.red,
+      );
+      return;
+    }
+
     if (_timetableData == null) return;
 
     final sourceSlot = _timetableData!.timeSlots.firstWhere(

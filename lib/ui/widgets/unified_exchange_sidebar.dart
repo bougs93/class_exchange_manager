@@ -191,6 +191,12 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
   final Map<String, AnimationController> _flashControllers = {};
   final Map<String, Animation<double>> _flashAnimations = {};
 
+  /// 보강교체 동일 교과목 필터 활성 여부 (토글)
+  bool _supplementSubjectFilterEnabled = false;
+
+  /// 셀 변경 시 필터 자동 해제용 — 마지막 선택 셀 키
+  String? _lastSupplementCellKey;
+
   @override
   void dispose() {
     // 모든 애니메이션 컨트롤러 정리
@@ -624,7 +630,12 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
                 // 선택된 셀 정보
                 _buildSelectedCellInfo(cellSelectionState),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
+
+                // 동일 교과목 필터 (보강 가능한 교사 목록 위)
+                _buildSupplementSubjectFilter(cellSelectionState),
+
+                const SizedBox(height: 8),
 
                 // 보강 가능한 교사 버튼 섹션
                 Expanded(
@@ -634,6 +645,9 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
             ),
           );
         } else {
+          _lastSupplementCellKey = null;
+          _supplementSubjectFilterEnabled = false;
+
           // 선택된 셀이 없는 경우: 안내 메시지 표시 (상단 간격 추가)
           return Padding(
             padding: const EdgeInsets.only(top: 16.0), // 헤더와 안내 메시지 사이 간격
@@ -915,10 +929,139 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
     );
   }
 
+  /// 선택 셀 키 생성 (셀 변경 감지용)
+  String _supplementCellKey(CellSelectionState state) {
+    return '${state.selectedTeacher}_${state.selectedDay}_${state.selectedPeriod}';
+  }
+
+  /// 셀이 바뀌면 동일 교과목 필터 자동 해제
+  void _syncSupplementCellSelection(CellSelectionState state) {
+    final key = _supplementCellKey(state);
+    if (_lastSupplementCellKey != key) {
+      _lastSupplementCellKey = key;
+      _supplementSubjectFilterEnabled = false;
+    }
+  }
+
+  /// 선택된 결강 셀의 교과목 (없으면 null)
+  String? _getSelectedCellSubject(
+    CellSelectionState state,
+    List<TimeSlot> timeSlots,
+  ) {
+    if (state.selectedTeacher == null ||
+        state.selectedDay == null ||
+        state.selectedPeriod == null) {
+      return null;
+    }
+
+    TimeSlot? selectedSlot;
+    for (final slot in timeSlots) {
+      if (slot.teacher == state.selectedTeacher &&
+          slot.dayOfWeek == DayUtils.getDayNumber(state.selectedDay!) &&
+          slot.period == state.selectedPeriod &&
+          slot.isNotEmpty) {
+        selectedSlot = slot;
+        break;
+      }
+    }
+
+    if (selectedSlot == null) return null;
+
+    final subject = selectedSlot.subject?.trim();
+    if (subject == null || subject.isEmpty) return null;
+    return subject;
+  }
+
+  /// 동일 교과목 필터 버튼 (예: 기가 (12명))
+  Widget _buildSupplementSubjectFilter(CellSelectionState cellSelectionState) {
+    return Consumer(
+      builder: (context, ref, child) {
+        _syncSupplementCellSelection(cellSelectionState);
+
+        final timetableData = ref.watch(exchangeScreenProvider).timetableData;
+        if (timetableData == null) {
+          return const SizedBox.shrink();
+        }
+
+        final exchangeService = ref.watch(exchangeServiceProvider);
+
+        final subject = _getSelectedCellSubject(
+          cellSelectionState,
+          timetableData.timeSlots,
+        );
+        final isEnabled = subject != null;
+
+        final matchCount = subject == null
+            ? 0
+            : exchangeService
+                .getSupplementTeachers(
+                  timetableData.timeSlots,
+                  timetableData.teachers,
+                  subjectFilter: subject,
+                )
+                .length;
+
+        final label = isEnabled ? '$subject ($matchCount명)' : '과목 없음';
+        final isFilterActive = _supplementSubjectFilterEnabled && isEnabled;
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          child: GestureDetector(
+            onTap: isEnabled
+                ? () {
+                    setState(() {
+                      _supplementSubjectFilterEnabled =
+                          !_supplementSubjectFilterEnabled;
+                    });
+                  }
+                : null,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: !isEnabled
+                    ? Colors.grey.shade100
+                    : isFilterActive
+                        ? Colors.teal.shade100
+                        : Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: !isEnabled
+                      ? Colors.grey.shade300
+                      : isFilterActive
+                          ? PathColorScheme.getScheme(
+                            ExchangePathType.supplement,
+                          ).primary
+                          : Colors.teal.shade300,
+                  width: isFilterActive ? 2 : 1,
+                ),
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: SidebarFontSizes.nodeText,
+                  fontWeight: isFilterActive ? FontWeight.w600 : FontWeight.w500,
+                  color: !isEnabled
+                      ? Colors.grey.shade500
+                      : isFilterActive
+                          ? Colors.teal.shade800
+                          : Colors.teal.shade700,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   /// 보강 가능한 교사 버튼 섹션
   Widget _buildSupplementTeacherButtons(CellSelectionState cellSelectionState) {
     return Consumer(
       builder: (context, ref, child) {
+        _syncSupplementCellSelection(cellSelectionState);
+
         // ExchangeService에서 보강 가능한 교사 목록 가져오기
         final exchangeService = ref.watch(exchangeServiceProvider);
         final timetableData = ref.watch(exchangeScreenProvider).timetableData;
@@ -927,14 +1070,35 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
           return _buildNoDataMessage();
         }
 
-        // 보강 가능한 교사 목록 가져오기
-        final exchangeableTeachers = exchangeService
-            .getSupplementExchangeableTeachers(
-              timetableData.timeSlots,
-              timetableData.teachers,
-            );
+        final subject = _getSelectedCellSubject(
+          cellSelectionState,
+          timetableData.timeSlots,
+        );
 
-        if (exchangeableTeachers.isEmpty) {
+        // 보강 가능 교사 목록 (필터 ON/OFF 모두 동일한 단일 로직 사용)
+        var teachersToShow = exchangeService.getSupplementTeachers(
+          timetableData.timeSlots,
+          timetableData.teachers,
+          subjectFilter:
+              _supplementSubjectFilterEnabled ? subject : null,
+        );
+
+        // 동일 교과목 필터 결과가 0명이면 필터 자동 해제 후 전체 목록 표시
+        if (_supplementSubjectFilterEnabled &&
+            subject != null &&
+            teachersToShow.isEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _supplementSubjectFilterEnabled) {
+              setState(() => _supplementSubjectFilterEnabled = false);
+            }
+          });
+          teachersToShow = exchangeService.getSupplementTeachers(
+            timetableData.timeSlots,
+            timetableData.teachers,
+          );
+        }
+
+        if (teachersToShow.isEmpty) {
           return _buildNoAvailableTeachersMessage();
         }
 
@@ -968,9 +1132,9 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 6),
-                itemCount: exchangeableTeachers.length,
+                itemCount: teachersToShow.length,
                 itemBuilder: (context, index) {
-                  final teacher = exchangeableTeachers[index];
+                  final teacher = teachersToShow[index];
                   return _buildTeacherButton(teacher, index);
                 },
               ),
