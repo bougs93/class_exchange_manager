@@ -191,11 +191,8 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
   final Map<String, AnimationController> _flashControllers = {};
   final Map<String, Animation<double>> _flashAnimations = {};
 
-  /// 보강교체 동일 교과목 필터 활성 여부 (토글)
+  /// 보강교체 동일 교과목 필터 활성 여부 (토글, 셀 변경 시에도 유지)
   bool _supplementSubjectFilterEnabled = false;
-
-  /// 셀 변경 시 필터 자동 해제용 — 마지막 선택 셀 키
-  String? _lastSupplementCellKey;
 
   @override
   void dispose() {
@@ -645,7 +642,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
             ),
           );
         } else {
-          _lastSupplementCellKey = null;
+          // 셀 선택이 해제된 경우에만 필터 상태 초기화
           _supplementSubjectFilterEnabled = false;
 
           // 선택된 셀이 없는 경우: 안내 메시지 표시 (상단 간격 추가)
@@ -929,20 +926,6 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
     );
   }
 
-  /// 선택 셀 키 생성 (셀 변경 감지용)
-  String _supplementCellKey(CellSelectionState state) {
-    return '${state.selectedTeacher}_${state.selectedDay}_${state.selectedPeriod}';
-  }
-
-  /// 셀이 바뀌면 동일 교과목 필터 자동 해제
-  void _syncSupplementCellSelection(CellSelectionState state) {
-    final key = _supplementCellKey(state);
-    if (_lastSupplementCellKey != key) {
-      _lastSupplementCellKey = key;
-      _supplementSubjectFilterEnabled = false;
-    }
-  }
-
   /// 선택된 결강 셀의 교과목 (없으면 null)
   String? _getSelectedCellSubject(
     CellSelectionState state,
@@ -972,12 +955,56 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
     return subject;
   }
 
-  /// 동일 교과목 필터 버튼 (예: 기가 (12명))
+  /// 보강 동일 교과목 필터 버튼 — ExchangeFilterWidget 요일/단계 버튼과 동일한 칩 형태
+  Widget _buildSupplementSubjectFilterButton({
+    required String label,
+    required bool isEnabled,
+    required bool isSelected,
+    required VoidCallback? onTap,
+  }) {
+    final scheme = PathColorScheme.getScheme(ExchangePathType.supplement);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        decoration: BoxDecoration(
+          color: !isEnabled
+              ? Colors.grey.shade100
+              : isSelected
+                  ? scheme.nodeBackground
+                  : Colors.grey.shade100,
+          border: Border.all(
+            color: !isEnabled
+                ? Colors.grey.shade300
+                : isSelected
+                    ? scheme.nodeBorder
+                    : Colors.grey.shade300,
+            width: 1,
+          ),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: !isEnabled
+                ? Colors.grey.shade400
+                : isSelected
+                    ? scheme.nodeText
+                    : Colors.grey.shade700,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 동일 교과목 필터 — 다른 교체 모드 검색 필터 헤더와 동일한 1줄 레이아웃
+  /// [아이콘] [필터] [기가 (1명) 버튼]
   Widget _buildSupplementSubjectFilter(CellSelectionState cellSelectionState) {
     return Consumer(
       builder: (context, ref, child) {
-        _syncSupplementCellSelection(cellSelectionState);
-
         final timetableData = ref.watch(exchangeScreenProvider).timetableData;
         if (timetableData == null) {
           return const SizedBox.shrink();
@@ -1001,55 +1028,57 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
                 )
                 .length;
 
-        final label = isEnabled ? '$subject ($matchCount명)' : '과목 없음';
+        // 필터 ON 상태는 셀 변경 후에도 유지 (과목 없는 셀에서는 비활성 표시만)
         final isFilterActive = _supplementSubjectFilterEnabled && isEnabled;
+        final subjectBadge = isEnabled
+            ? '$subject ($matchCount명)'
+            : '과목 없음';
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          child: GestureDetector(
-            onTap: isEnabled
-                ? () {
-                    setState(() {
-                      _supplementSubjectFilterEnabled =
-                          !_supplementSubjectFilterEnabled;
-                    });
-                  }
-                : null,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              decoration: BoxDecoration(
-                color: !isEnabled
-                    ? Colors.grey.shade100
-                    : isFilterActive
-                        ? Colors.teal.shade100
-                        : Colors.white,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: !isEnabled
-                      ? Colors.grey.shade300
-                      : isFilterActive
-                          ? PathColorScheme.getScheme(
-                            ExchangePathType.supplement,
-                          ).primary
-                          : Colors.teal.shade300,
-                  width: isFilterActive ? 2 : 1,
-                ),
-              ),
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: SidebarFontSizes.nodeText,
-                  fontWeight: isFilterActive ? FontWeight.w600 : FontWeight.w500,
-                  color: !isEnabled
-                      ? Colors.grey.shade500
-                      : isFilterActive
-                          ? Colors.teal.shade800
-                          : Colors.teal.shade700,
-                ),
-                textAlign: TextAlign.center,
-              ),
+        // ExchangeFilterWidget 헤더와 동일한 컨테이너 스타일
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            border: Border.all(
+              color: Colors.grey.shade200,
+              width: 1,
             ),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.filter_list,
+                size: 14,
+                color: Colors.grey.shade600,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '필터',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+              const SizedBox(width: 8),
+              // 동일 교과목 필터 토글 버튼
+              _buildSupplementSubjectFilterButton(
+                label: subjectBadge,
+                isEnabled: isEnabled,
+                isSelected: isFilterActive,
+                onTap: isEnabled
+                    ? () {
+                        setState(() {
+                          _supplementSubjectFilterEnabled =
+                              !_supplementSubjectFilterEnabled;
+                        });
+                      }
+                    : null,
+              ),
+            ],
           ),
         );
       },
@@ -1060,8 +1089,6 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
   Widget _buildSupplementTeacherButtons(CellSelectionState cellSelectionState) {
     return Consumer(
       builder: (context, ref, child) {
-        _syncSupplementCellSelection(cellSelectionState);
-
         // ExchangeService에서 보강 가능한 교사 목록 가져오기
         final exchangeService = ref.watch(exchangeServiceProvider);
         final timetableData = ref.watch(exchangeScreenProvider).timetableData;
@@ -1075,28 +1102,13 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
           timetableData.timeSlots,
         );
 
-        // 보강 가능 교사 목록 (필터 ON/OFF 모두 동일한 단일 로직 사용)
-        var teachersToShow = exchangeService.getSupplementTeachers(
+        // 보강 가능 교사 목록 (필터 ON 상태는 셀 변경 후에도 유지)
+        final teachersToShow = exchangeService.getSupplementTeachers(
           timetableData.timeSlots,
           timetableData.teachers,
           subjectFilter:
               _supplementSubjectFilterEnabled ? subject : null,
         );
-
-        // 동일 교과목 필터 결과가 0명이면 필터 자동 해제 후 전체 목록 표시
-        if (_supplementSubjectFilterEnabled &&
-            subject != null &&
-            teachersToShow.isEmpty) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted && _supplementSubjectFilterEnabled) {
-              setState(() => _supplementSubjectFilterEnabled = false);
-            }
-          });
-          teachersToShow = exchangeService.getSupplementTeachers(
-            timetableData.timeSlots,
-            timetableData.teachers,
-          );
-        }
 
         if (teachersToShow.isEmpty) {
           return _buildNoAvailableTeachersMessage();
