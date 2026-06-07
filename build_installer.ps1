@@ -38,15 +38,24 @@ Write-Host "버전: $appVersion" -ForegroundColor Gray
 Write-Host "베타 만료일: $expiryDate" -ForegroundColor Gray
 Write-Host ""
 
-# Debug data → installer/bundled_user_data 동기화 (있으면 최신 시간표 반영)
-$syncScript = Join-Path $PSScriptRoot "tool\sync_bundled_data.ps1"
-if (Test-Path $syncScript) {
-    Write-Host "[0/4] 번들 시간표 데이터 동기화..." -ForegroundColor Yellow
-    & $syncScript
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "경고: 번들 데이터 동기화 실패 — 기존 bundled_user_data 사용" -ForegroundColor Yellow
+# Debug data → installer/bundled_user_data 동기화
+$userDataSyncScript = Join-Path $PSScriptRoot "tool\user_data_sync.ps1"
+$bundledJsonNames = @()
+if (Test-Path $userDataSyncScript) {
+    Write-Host "[0/4] Debug data → 번들 JSON 동기화..." -ForegroundColor Yellow
+    . $userDataSyncScript
+    try {
+        $bundledJsonNames = @(Sync-BundledUserDataFromDebug)
+    } catch {
+        Write-Host "오류: $($_.Exception.Message)" -ForegroundColor Red
+        if ([Environment]::UserInteractive -and -not $env:CI) { Read-Host "Press Enter to exit" }
+        exit 1
     }
     Write-Host ""
+} else {
+    Write-Host "오류: tool\user_data_sync.ps1 을 찾을 수 없습니다." -ForegroundColor Red
+    if ([Environment]::UserInteractive -and -not $env:CI) { Read-Host "Press Enter to exit" }
+    exit 1
 }
 
 Write-Host "[1/4] Flutter 의존성 확인 중..." -ForegroundColor Yellow
@@ -102,20 +111,16 @@ if ((Get-FileHash $distFlutterDll -Algorithm SHA256).Hash -ne (Get-FileHash $rel
     exit 1
 }
 
-# installer/bundled_user_data → dist (초기 JSON만, Excel 제외)
-$bundledRoot = Join-Path $PSScriptRoot "installer\bundled_user_data"
-if (Test-Path $bundledRoot) {
-    $bundledDataDir = Join-Path $bundledRoot "data"
-    $distDataDir = Join-Path $distPath "data"
+# Debug 기준 번들 JSON → dist (Release 잔여 구버전 JSON 제거)
+$distDataDir = Join-Path $distPath "data"
+Write-Host "  Debug 기준 JSON 적용 및 구버전 제거..." -ForegroundColor Gray
+Apply-BundledJsonToDataDir -TargetDataDir $distDataDir -AllowedNames $bundledJsonNames
+Write-Host "  JSON $($bundledJsonNames.Count)개 포함 (런타임 JSON·구버전 제외)" -ForegroundColor Gray
 
-    if (Test-Path $bundledDataDir) {
-        Get-ChildItem $bundledDataDir -Filter "*.json" | ForEach-Object {
-            Copy-Item $_.FullName (Join-Path $distDataDir $_.Name) -Force
-        }
-        Write-Host "  JSON 설정·시간표 데이터 포함됨 (Excel 제외)" -ForegroundColor Gray
-    }
-} else {
-    Write-Host "  경고: installer\bundled_user_data 없음 — tool\sync_bundled_data.ps1 실행 권장" -ForegroundColor Yellow
+# Release data 폴더도 동일하게 정리 (다음 빌드 시 dist 오염 방지)
+$releaseDataDir = Join-Path $PSScriptRoot "build\windows\x64\runner\Release\data"
+if (Test-Path $releaseDataDir) {
+    Apply-BundledJsonToDataDir -TargetDataDir $releaseDataDir -AllowedNames $bundledJsonNames | Out-Null
 }
 Write-Host ""
 
