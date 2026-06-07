@@ -6,11 +6,7 @@ import 'ui/widgets/expiry_check_wrapper.dart';
 
 /// 앱의 진입점
 void main() {
-  runApp(
-    const ProviderScope(
-      child: MyApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 /// 메인 앱 위젯
@@ -22,10 +18,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       // 앱 제목: AppInfo.programName과 동일하게 유지
       title: AppInfo.programName,
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      
-      ),
+      theme: ThemeData(primarySwatch: Colors.blue),
       debugShowCheckedModeBanner: false,
       locale: const Locale('ko', 'KR'),
       localizationsDelegates: const [
@@ -33,12 +26,8 @@ class MyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('ko', 'KR'),
-        Locale('en', 'US'),
-      ],
+      supportedLocales: const [Locale('ko', 'KR'), Locale('en', 'US')],
       home: const ExpiryCheckWrapper(),
     );
   }
 }
-

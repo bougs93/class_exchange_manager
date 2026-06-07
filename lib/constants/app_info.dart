@@ -19,8 +19,8 @@ class AppInfo {
   /// ⚠️ 이 값을 변경하면 위에 명시된 모든 네이티브 파일도 동일한 값으로 수정해야 합니다.
   static const String programName = '수업 교체 도우미';
 
-  // 버전 정보
-  static const String version = '0.9.4 beta(테스트 버전)'; // 버전 번호는 나중에 추가 가능
+  /// 앱 버전 (이 값만 수정 — pubspec.yaml은 tool/bump_version.dart가 자동 동기화)
+  static const String version = '0.9.5';
 
   // 소속
   static const String affiliation = 'Noah Lab 후원';

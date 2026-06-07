@@ -1,0 +1,5 @@
+#!/bin/sh
+# app_info.dart 기준으로 패치 버전 +1, pubspec.yaml 자동 동기화
+
+dart tool/bump_version.dart || exit 1
+git add lib/constants/app_info.dart pubspec.yaml
