@@ -11,21 +11,40 @@ class NoticeControlPanelConfig {
   static const double cardPadding = 1.0;
   static const double contentPadding = 5.0;
   static const double iconSize = 20.0;
-  static const double switchScale = 0.7;
-  static const double horizontalSpacing = 12.0;
   static const double fontSize = 14.0;
+
+  /// 안내 방식 버튼 고정 폭 (질문 / 교체 안내 / 수업 안내)
+  static const double messageOptionButtonWidth = 96.0;
+
+  /// 안내 방식 버튼 간격
+  static const double messageOptionButtonGap = 4.0;
+
+  /// 라벨+아이콘 버튼 표시에 필요한 최소 가로 폭
+  static double minWidthForFullLabels(int buttonCount) {
+    if (buttonCount <= 0) return 0;
+    return messageOptionButtonWidth * buttonCount +
+        messageOptionButtonGap * (buttonCount - 1);
+  }
 }
 
 /// 안내 메시지 제어 패널 위젯
 ///
-/// 새로고침 버튼과 안내 방식 스위치(수업/교체)를 포함하는 공통 위젯입니다.
-/// 학급안내와 교사안내에서 재사용됩니다.
+/// 새로고침 버튼과 안내 방식 선택 버튼을 포함하는 공통 위젯입니다.
+/// - 교사안내: 질문 / 교체 안내 / 수업 안내
+/// - 학급안내: 교체 안내 / 수업 안내 (질문 미지원)
 class NoticeControlPanel extends ConsumerWidget {
   /// 메시지 타입 (학급 또는 교사)
   final NoticeMessageType messageType;
-  
+
   /// 새로고침 버튼 색상 (기본값: 파란색)
   final Color? refreshButtonColor;
+
+  /// 안내 방식 선택 버튼 정의
+  static const List<({MessageOption option, IconData icon})> _messageOptionButtons = [
+    (option: MessageOption.option1, icon: Icons.help_outline),
+    (option: MessageOption.option2, icon: Icons.swap_horiz),
+    (option: MessageOption.option3, icon: Icons.menu_book_outlined),
+  ];
 
   const NoticeControlPanel({
     super.key,
@@ -37,8 +56,9 @@ class NoticeControlPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final noticeState = ref.watch(noticeMessageProvider);
     final noticeNotifier = ref.read(noticeMessageProvider.notifier);
-    final isClassAsLessonGuide =
-        _getCurrentMessageOption(noticeState) == MessageOption.option2;
+    final currentOption = _getCurrentMessageOption(noticeState);
+    final optionButtons = _availableMessageOptionButtons();
+    const buttonHeight = kExchangeUnifiedToolbarHeight - 8;
 
     return Card(
       elevation: 1,
@@ -63,29 +83,40 @@ class NoticeControlPanel extends ConsumerWidget {
                   ),
                   const SizedBox(width: 4),
 
-                  // 스위치 옵션
-                  Transform.scale(
-                    scale: NoticeControlPanelConfig.switchScale,
-                    child: Switch(
-                      value: isClassAsLessonGuide,
-                      onChanged: (value) {
-                        _setMessageOption(noticeNotifier, value ? MessageOption.option2 : MessageOption.option1);
+                  // 공간 부족 시 아이콘만, 충분하면 고정 폭 라벨 버튼
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final showLabels =
+                            constraints.maxWidth >=
+                            NoticeControlPanelConfig.minWidthForFullLabels(
+                              optionButtons.length,
+                            );
+
+                        return Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (int i = 0; i < optionButtons.length; i++) ...[
+                              _buildMessageOptionButton(
+                                option: optionButtons[i].option,
+                                icon: optionButtons[i].icon,
+                                label: optionButtons[i].option.toolbarLabel,
+                                currentOption: currentOption,
+                                buttonHeight: buttonHeight,
+                                showLabel: showLabels,
+                                onSelected: (option) =>
+                                    _setMessageOption(noticeNotifier, option),
+                              ),
+                              if (i < optionButtons.length - 1)
+                                const SizedBox(
+                                  width: NoticeControlPanelConfig.messageOptionButtonGap,
+                                ),
+                            ],
+                          ],
+                        );
                       },
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      activeThumbColor: Colors.blue.shade600,
-                      activeTrackColor: Colors.blue.shade200,
-                      inactiveThumbColor: Colors.grey.shade400,
-                      inactiveTrackColor: Colors.grey.shade300,
                     ),
                   ),
-                  Text(
-                    isClassAsLessonGuide ? '수업으로 안내' : '교체로 안내',
-                    style: TextStyle(
-                      fontSize: NoticeControlPanelConfig.fontSize,
-                      color: Colors.grey.shade700,
-                    ),
-                  ),
-                  const Spacer(),
                   // 전체 복사 버튼 (오른쪽)
                   IconButton(
                     onPressed: () => _copyAllMessages(context, noticeState),
@@ -102,6 +133,63 @@ class NoticeControlPanel extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  /// 메시지 타입별 표시할 안내 방식 버튼 (학급안내는 질문 제외)
+  List<({MessageOption option, IconData icon})> _availableMessageOptionButtons() {
+    if (messageType == NoticeMessageType.classNotice) {
+      return _messageOptionButtons
+          .where((item) => item.option != MessageOption.option1)
+          .toList(growable: false);
+    }
+    return _messageOptionButtons;
+  }
+
+  /// 안내 방식 선택 버튼 (교체 화면 CompactToolbar 스타일)
+  Widget _buildMessageOptionButton({
+    required MessageOption option,
+    required IconData icon,
+    required String label,
+    required MessageOption currentOption,
+    required double buttonHeight,
+    required bool showLabel,
+    required ValueChanged<MessageOption> onSelected,
+  }) {
+    final isSelected = currentOption == option;
+    final selectedColors = _refreshColors;
+    final backgroundColor =
+        isSelected ? selectedColors.background : Colors.grey.shade100;
+    final foregroundColor =
+        isSelected ? selectedColors.foreground : Colors.grey.shade700;
+    final borderColor =
+        isSelected ? selectedColors.border : Colors.grey.shade300;
+
+    // 가로 폭 부족: 아이콘만 표시 (Tooltip으로 라벨 제공)
+    if (!showLabel) {
+      return CompactToolbarIconButton(
+        onPressed: () => onSelected(option),
+        icon: icon,
+        tooltip: label,
+        backgroundColor: backgroundColor,
+        foregroundColor: foregroundColor,
+        borderColor: borderColor,
+        iconSize: kModeButtonIconSize,
+      );
+    }
+
+    return CompactToolbarLabelButton(
+      onPressed: () => onSelected(option),
+      icon: icon,
+      label: label,
+      tooltip: label,
+      backgroundColor: backgroundColor,
+      foregroundColor: foregroundColor,
+      borderColor: borderColor,
+      width: NoticeControlPanelConfig.messageOptionButtonWidth,
+      height: buttonHeight,
+      fontSize: kModeButtonFontSize,
+      iconSize: kModeButtonIconSize,
     );
   }
 
@@ -130,10 +218,19 @@ class NoticeControlPanel extends ConsumerWidget {
   }
 
   /// 현재 메시지 옵션 가져오기
-  MessageOption _getCurrentMessageOption(NoticeMessageState noticeState) =>
-      messageType == NoticeMessageType.classNotice
-          ? noticeState.classMessageOption
-          : noticeState.teacherMessageOption;
+  MessageOption _getCurrentMessageOption(NoticeMessageState noticeState) {
+    final option =
+        messageType == NoticeMessageType.classNotice
+            ? noticeState.classMessageOption
+            : noticeState.teacherMessageOption;
+
+    // 학급안내는 질문(option1) 미지원 — 표시/선택 상태도 교체 안내로 맞춤
+    if (messageType == NoticeMessageType.classNotice &&
+        option == MessageOption.option1) {
+      return MessageOption.option2;
+    }
+    return option;
+  }
 
   /// 메시지 옵션 설정하기
   void _setMessageOption(NoticeMessageNotifier noticeNotifier, MessageOption option) =>

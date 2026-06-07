@@ -219,7 +219,27 @@ ${exchangeLines.join('\n')}''',
     final sortedDataList = DataSorter.sortByDateAndPeriod(teacherDataList);
 
     if (messageOption == MessageOption.option1) {
-      // 옵션1: 화살표 형태
+      // 질문 형태
+      final exchangeLines = _generateTeacherQuestionLines(
+        sortedDataList,
+        teacherName,
+      );
+
+      if (exchangeLines.isEmpty) return null;
+
+      return NoticeMessage(
+        identifier: teacherName,
+        content: ''''$teacherName' 선생님
+${exchangeLines.join('\n')}''',
+        exchangeType: _determineExchangeType(sortedDataList),
+        exchangeTypeCombination: _determineExchangeTypeCombination(
+          sortedDataList,
+        ),
+        messageOption: messageOption,
+        exchangeId: sortedDataList.first.exchangeId,
+      );
+    } else if (messageOption == MessageOption.option2) {
+      // 교체 안내 형태
       final exchangeLines = _generateTeacherOption1Lines(
         sortedDataList,
         teacherName,
@@ -239,7 +259,7 @@ ${exchangeLines.join('\n')}''',
         exchangeId: sortedDataList.first.exchangeId,
       );
     } else {
-      // 옵션2: 수업 형태
+      // 수업 안내 형태
       final classLines = _generateTeacherOption2Lines(
         sortedDataList,
         teacherName,
@@ -262,6 +282,33 @@ ${classLines.join('\n')}''',
     }
 
     return null;
+  }
+
+  /// 교사 메시지 질문 라인 생성 (교체 안내 문구를 질문 형태로 변환)
+  static List<String> _generateTeacherQuestionLines(
+    List<SubstitutionPlanData> sortedDataList,
+    String teacherName,
+  ) {
+    return _generateTeacherOption1Lines(sortedDataList, teacherName)
+        .map(_convertExchangeLineToQuestion)
+        .toList();
+  }
+
+  /// 교체 안내 문구를 질문 형태로 변환
+  static String _convertExchangeLineToQuestion(String line) {
+    if (line.endsWith('수업 교체되었습니다.')) {
+      return line.replaceFirst('수업 교체되었습니다.', '수업 교체 가능하시나요?');
+    }
+    if (line.endsWith('이동 되었습니다.')) {
+      return line.replaceFirst('이동 되었습니다.', '이동 가능하신지요?');
+    }
+    if (line.endsWith('결강 되었습니다.')) {
+      return line.replaceFirst('결강 되었습니다.', '결강 - 대체 가능하신지요?');
+    }
+    if (line.endsWith('보강 수업입니다.')) {
+      return line.replaceFirst('보강 수업입니다.', '보강 수업 가능하신지요?');
+    }
+    return '$line 교체 가능하신지요?';
   }
 
   /// 교사 메시지 옵션1 라인 생성
@@ -818,19 +865,14 @@ ${classLines.join('\n')}''',
     bool isFirstMessage,
   ) {
     if (messageOption == MessageOption.option1) {
-      // 옵션1: 교체 형태 - 교체 유형에 따라 화살표 형식 구분 (따옴표 제거)
-      final category = _getExchangeCategory(data);
-      final arrowFormat =
-          category == ExchangeCategory.circularFourPlus ? '->' : '<->';
-
-      if (isFirstMessage) {
-        return '''${data.fullClassName} 수업변경 안내
-${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.subject} ${data.teacher} $arrowFormat ${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.fullClassName} ${data.substitutionSubject} ${data.substitutionTeacher}''';
-      } else {
-        return '''${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.subject} ${data.teacher} $arrowFormat ${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.fullClassName} ${data.substitutionSubject} ${data.substitutionTeacher}''';
-      }
+      // 질문 형태
+      final exchangeLine = _buildClassExchangeArrowLine(data, isFirstMessage);
+      return '$exchangeLine 교체 가능하신지요?';
+    } else if (messageOption == MessageOption.option2) {
+      // 교체 안내 형태
+      return _buildClassExchangeArrowLine(data, isFirstMessage);
     } else {
-      // 옵션2: 분리된 형태 (따옴표 및 " 수업입니다." 문구 제거)
+      // 수업 안내 형태
       if (isFirstMessage) {
         return '''${data.fullClassName} 수업변경 안내
 ${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.substitutionSubject} ${data.substitutionTeacher}
@@ -840,6 +882,23 @@ ${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPer
 ${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.fullClassName} ${data.subject} ${data.teacher}''';
       }
     }
+  }
+
+  /// 학급 교체 안내 화살표 한 줄 생성
+  static String _buildClassExchangeArrowLine(
+    SubstitutionPlanData data,
+    bool isFirstMessage,
+  ) {
+    final category = _getExchangeCategory(data);
+    final arrowFormat =
+        category == ExchangeCategory.circularFourPlus ? '->' : '<->';
+
+    if (isFirstMessage) {
+      return '''${data.fullClassName} 수업변경 안내
+${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.subject} ${data.teacher} $arrowFormat ${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.fullClassName} ${data.substitutionSubject} ${data.substitutionTeacher}''';
+    }
+
+    return '''${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.subject} ${data.teacher} $arrowFormat ${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.fullClassName} ${data.substitutionSubject} ${data.substitutionTeacher}''';
   }
 
   /// 학급 보강 메시지 생성

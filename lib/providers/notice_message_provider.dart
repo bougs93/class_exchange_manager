@@ -27,8 +27,8 @@ class NoticeMessageState {
   const NoticeMessageState({
     this.classMessageGroups = const [],
     this.teacherMessageGroups = const [],
-    this.classMessageOption = MessageOption.option2,
-    this.teacherMessageOption = MessageOption.option2,
+    this.classMessageOption = MessageOption.option3,
+    this.teacherMessageOption = MessageOption.option3,
     this.isLoading = false,
     this.errorMessage,
   });
@@ -59,8 +59,12 @@ class NoticeMessageNotifier extends StateNotifier<NoticeMessageState> {
 
   final Ref _ref;
 
-  /// 메시지 옵션 변경 (학급)
+  /// 메시지 옵션 변경 (학급) — 질문(option1)은 학급안내에서 미지원
   void setClassMessageOption(MessageOption option) {
+    if (option == MessageOption.option1) {
+      AppLogger.exchangeDebug('학급 메시지: 질문 옵션은 지원하지 않음');
+      return;
+    }
     AppLogger.exchangeDebug('학급 메시지 옵션 변경: ${option.displayName}');
     state = state.copyWith(classMessageOption: option);
     _regenerateClassMessages();
@@ -92,10 +96,10 @@ class NoticeMessageNotifier extends StateNotifier<NoticeMessageState> {
         return;
       }
 
-      // 학급 메시지 생성
+      // 학급 메시지 생성 (질문 옵션은 사용하지 않음)
       final classGroups = NoticeMessageGenerator.generateClassMessages(
         planData,
-        state.classMessageOption,
+        _effectiveClassMessageOption(state.classMessageOption),
       );
 
       // 교사 메시지 생성
@@ -132,7 +136,7 @@ class NoticeMessageNotifier extends StateNotifier<NoticeMessageState> {
 
       final classGroups = NoticeMessageGenerator.generateClassMessages(
         planData,
-        state.classMessageOption,
+        _effectiveClassMessageOption(state.classMessageOption),
       );
 
       state = state.copyWith(classMessageGroups: classGroups);
@@ -164,6 +168,14 @@ class NoticeMessageNotifier extends StateNotifier<NoticeMessageState> {
       AppLogger.error('교사 메시지 재생성 중 오류 발생', e);
       state = state.copyWith(errorMessage: '교사 메시지 생성 중 오류가 발생했습니다: $e');
     }
+  }
+
+  /// 학급안내에서 사용할 메시지 옵션 (질문 option1 → 교체 안내 option2)
+  MessageOption _effectiveClassMessageOption(MessageOption option) {
+    if (option == MessageOption.option1) {
+      return MessageOption.option2;
+    }
+    return option;
   }
 
   /// 특정 학급의 메시지 그룹 찾기

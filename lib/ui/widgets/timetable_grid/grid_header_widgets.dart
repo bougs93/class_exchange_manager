@@ -72,6 +72,9 @@ class CompactToolbarLabelButton extends StatelessWidget {
   /// 최소 버튼 너비 (긴 라벨용, null이면 텍스트 길이에 맞춤)
   final double? minWidth;
 
+  /// 고정 버튼 너비 (동일 폭 버튼 그룹용)
+  final double? width;
+
   /// 버튼 높이 (기본 28px, 사이드바 등 큰 버튼용으로 조절)
   final double height;
 
@@ -91,6 +94,7 @@ class CompactToolbarLabelButton extends StatelessWidget {
     required this.foregroundColor,
     required this.borderColor,
     this.minWidth,
+    this.width,
     this.height = _kCompactToolbarHeight,
     this.fontSize = 11,
     this.iconSize = 15,
@@ -119,14 +123,16 @@ class CompactToolbarLabelButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(6),
           child: SizedBox(
             height: height,
+            width: width,
             child: ConstrainedBox(
               constraints: BoxConstraints(minWidth: minWidth ?? 0),
               child: Padding(
                 padding: EdgeInsets.symmetric(
-                  horizontal: minWidth != null ? 10 : 6,
+                  horizontal: (minWidth != null || width != null) ? 10 : 6,
                 ),
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisSize:
+                      width != null ? MainAxisSize.max : MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(icon, size: iconSize, color: effectiveForeground),

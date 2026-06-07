@@ -80,11 +80,14 @@ extension ExchangeTypeExtension on ExchangeType {
 
 /// 메시지 옵션 열거형
 enum MessageOption {
-  /// 옵션1: 교체 형태로 표시
+  /// 질문 형태 (교체 가능 여부)
   option1,
-  
-  /// 옵션2: 분리된 형태로 표시
+
+  /// 교체 안내 형태
   option2,
+
+  /// 수업 안내 형태
+  option3,
 }
 
 /// MessageOption 확장 메서드
@@ -93,9 +96,23 @@ extension MessageOptionExtension on MessageOption {
   String get displayName {
     switch (this) {
       case MessageOption.option1:
-        return '옵션1';
+        return '질문';
       case MessageOption.option2:
-        return '옵션2';
+        return '교체 안내';
+      case MessageOption.option3:
+        return '수업 안내';
+    }
+  }
+
+  /// 안내 방식 선택 버튼 라벨
+  String get toolbarLabel {
+    switch (this) {
+      case MessageOption.option1:
+        return '질문';
+      case MessageOption.option2:
+        return '교체 안내';
+      case MessageOption.option3:
+        return '수업 안내';
     }
   }
 }
