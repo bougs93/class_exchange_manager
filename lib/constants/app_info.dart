@@ -20,7 +20,7 @@ class AppInfo {
   static const String programName = '수업 교체 도우미';
 
   /// 앱 버전 (이 값만 수정 — pubspec.yaml은 tool/bump_version.dart가 자동 동기화)
-  static const String version = '0.9.8';
+  static const String version = '0.9.9';
 
   // 소속
   static const String affiliation = 'Noah Lab 후원';
@@ -34,13 +34,15 @@ class AppInfo {
 시간표 관리, 교체 가능한 수업 찾기, 결보강계획서 출력, 학급 교사 안내 등의 기능을 제공합니다.
 ''';
 
-  // 프로그램 실행 가능 종료 날짜 (YYYY-MM-DD 형식)
-  // null로 설정하려면 아래 값을 null로 변경하세요 (날짜 제한 없음)
-  // 예시: null 또는 '2026-12-31'
-  // (향후 null로 변경 가능하도록 nullable 타입 유지)
-  // ignore: unnecessary_nullable_for_final_variable_declarations
-  // static const String? expiryDate = '2027-02-28'; // 날짜 제한 없이 사용하려면 null로 변경
-  static const String? expiryDate = null; // 날짜 제한 없이 사용하려면 null로 변경
+  /// 프로그램 실행 가능 종료 날짜 (YYYY-MM-DD)
+  ///
+  /// 빌드 시 `--dart-define=EXPIRY_DATE=2027-02-28` 로 주입합니다.
+  /// - 일반 exe: [build_release.ps1] — define 없음 → null (제한 없음)
+  /// - 설치 프로그램: [build_installer.ps1] — [tool/build_installer.json] 값 적용
+  static String? get expiryDate {
+    const value = String.fromEnvironment('EXPIRY_DATE', defaultValue: '');
+    return value.isEmpty ? null : value;
+  }
 
   // 프로그램 실행 제한 정보
   static String get usageRestriction {

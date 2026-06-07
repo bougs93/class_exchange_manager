@@ -1,4 +1,5 @@
 # 수업 교체 도우미 - Windows 릴리즈 빌드 스크립트 (PowerShell)
+# 만료일 없음 (EXPIRY_DATE 미전달). 베타 설치 프로그램은 build_installer.ps1 사용.
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host " 수업 교체 도우미 - Windows 릴리즈 빌드" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
