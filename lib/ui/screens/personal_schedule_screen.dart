@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../services/app_settings_storage_service.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../providers/personal_schedule_provider.dart';
@@ -13,21 +12,21 @@ import '../../models/time_slot.dart';
 import '../../ui/widgets/timetable_grid/grid_header_widgets.dart';
 import '../../providers/services_provider.dart';
 import '../../providers/substitution_plan_provider.dart';
+import '../../providers/substitution_plan_viewmodel.dart';
 import '../../models/exchange_history_item.dart';
 import '../../services/excel_service.dart';
 import '../../utils/personal_exchange_info_extractor.dart';
 import '../../providers/zoom_provider.dart';
-import '../../ui/widgets/timetable_grid/grid_scaling_helper.dart';
-import '../../ui/widgets/timetable_grid/timetable_grid_constants.dart';
 import '../../utils/simplified_timetable_theme.dart';
 import '../../config/debug_config.dart';
-import 'personal_schedule_screen/personal_timetable_datasource.dart';
 import 'personal_schedule_screen/teacher_selection_dialog.dart';
 import 'personal_schedule_screen/personal_schedule_constants.dart';
+import 'personal_schedule_screen/teacher_card_grid_view.dart';
+import 'personal_schedule_screen/teacher_card_teacher_collector.dart';
 
 /// 개인 시간표 화면
-/// 
-/// 설정에서 저장한 교사명에 해당하는 개인 시간표를 표시합니다.
+///
+/// 설정에서 저장한 교사 + 결보강 계획서의 교체·보강 교사 시간표를 카드 그리드로 표시합니다.
 /// - 세로행: 교시
 /// - 가로행: 요일 (날짜 포함)
 /// - 교체 뷰 스위치로 교체관리와 동일한 기능 제공
@@ -40,7 +39,6 @@ class PersonalScheduleScreen extends ConsumerStatefulWidget {
 
 class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen> {
   bool _isLoadingTeacherName = true;
-  PersonalTimetableDataSource? _dataSource;
   bool _isExchangeViewEnabled = false;
   List<TimeSlot>? _originalTimeSlots; // 원본 데이터 백업용
   DateTime? _lastCheckTime; // 마지막 확인 시간 (중복 호출 방지)
@@ -55,7 +53,6 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
   /// 시간표 데이터 초기화 헬퍼 메서드
   void _clearTimetableData() {
     setState(() {
-      _dataSource = null;
       _originalTimeSlots = null;
       _isExchangeViewEnabled = false;
     });
@@ -190,9 +187,8 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
         await _disablePersonalExchangeView(timetableData);
       }
       
-      // DataSource 초기화 (새 교사로 시간표 재생성)
+      // 원본 데이터 초기화 (새 교사로 시간표 재생성)
       setState(() {
-        _dataSource = null;
         _originalTimeSlots = null;
       });
     }
@@ -389,20 +385,16 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
       AppLogger.info('=== 교체 정보 추출 완료 ===\n');
     }
 
-    // DataSource 생성 또는 업데이트
-    if (_dataSource == null || _dataSource!.rows.length != result.rows.length) {
-      _dataSource = PersonalTimetableDataSource(
-        rows: result.rows,
-        exchangeInfoList: exchangeInfoList,
-        isExchangeViewEnabled: _isExchangeViewEnabled,
-      );
-    } else {
-      _dataSource!.updateRows(
-        result.rows,
-        exchangeInfoList: exchangeInfoList,
-        isExchangeViewEnabled: _isExchangeViewEnabled,
-      );
-    }
+    // DataSource 생성 또는 업데이트 — TeacherTimetableCard 내부에서 처리
+
+    // 저장 교사 + 결보강 계획서(교체·보강) 교사 카드 목록
+    final planData = ref.watch(
+      substitutionPlanViewModelProvider.select((state) => state.planData),
+    );
+    final cardTargets = TeacherCardTeacherCollector.collect(
+      savedTeacherName: teacherName,
+      planData: planData,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -517,55 +509,15 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
                 
                 const SizedBox(height: 2),
                 
-                // 시간표 그리드 (줌 팩터 적용)
+                // 저장·교체·보강 교사 카드 그리드
                 Expanded(
-                  child: Consumer(
-                    builder: (context, ref, child) {
-                      final zoomFactor = ref.watch(zoomProvider.select((s) => s.zoomFactor));
-                      
-                      // 줌 팩터에 따라 헤더 재생성 (폰트 사이즈 반영)
-                      final resultWithZoom = PersonalTimetableHelper.convertToPersonalTimetableData(
-                        timeSlotsToUse,
-                        teacherName,
-                        weekDates,
-                        zoomFactor: zoomFactor,
-                      );
-                      
-                      // 줌 팩터에 따라 컬럼과 헤더 스케일링
-                      final scaledColumns = GridScalingHelper.scaleColumns(resultWithZoom.columns, zoomFactor);
-                      final scaledStackedHeaders = GridScalingHelper.scaleStackedHeaders(resultWithZoom.stackedHeaders, zoomFactor);
-                      
-                      // DataSource 업데이트 (줌 팩터에 따라 행 데이터도 업데이트)
-                      _dataSource?.updateRows(
-                        resultWithZoom.rows,
-                      );
-                      
-                      return Theme(
-                        data: Theme.of(context).copyWith(
-                          textTheme: Theme.of(context).textTheme.copyWith(
-                            bodyMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                            bodySmall: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                            titleMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                            labelMedium: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                            labelLarge: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                            labelSmall: TextStyle(fontSize: GridLayoutConstants.baseFontSize * zoomFactor),
-                          ),
-                        ),
-                        child: SfDataGrid(
-                          source: _dataSource!,
-                          columns: scaledColumns,
-                          stackedHeaderRows: scaledStackedHeaders,
-                          gridLinesVisibility: GridLinesVisibility.both,
-                          headerGridLinesVisibility: GridLinesVisibility.both,
-                          allowSorting: false,
-                          allowTriStateSorting: false,
-                          columnWidthMode: ColumnWidthMode.fill,
-                          // 개인 시간표 테이블 크기 20% 증가 적용 (세로 높이)
-                          headerRowHeight: GridScalingHelper.scaleHeaderHeight(zoomFactor) * 1.2,
-                          rowHeight: GridScalingHelper.scaleRowHeight(zoomFactor) * 1.2,
-                        ),
-                      );
-                    },
+                  child: TeacherCardGridView(
+                    targets: cardTargets,
+                    timetableData: timetableData,
+                    timeSlots: timeSlotsToUse,
+                    weekDates: weekDates,
+                    isExchangeViewEnabled: _isExchangeViewEnabled,
+                    scheduleState: scheduleState,
                   ),
                 ),
                 

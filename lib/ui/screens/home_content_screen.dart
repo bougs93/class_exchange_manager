@@ -118,8 +118,9 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
 
           // 하이라이트 색상 (구 프리셋은 교체 범례와 유사하여 자동 교체)
           final colorValue = results[2] as int?;
-          final resolvedColor =
-              TeacherRowHighlightColors.resolveSavedColor(colorValue);
+          final resolvedColor = TeacherRowHighlightColors.resolveSavedColor(
+            colorValue,
+          );
           _highlightedTeacherColor = resolvedColor;
           if (colorValue != null && resolvedColor.toARGB32() != colorValue) {
             SimplifiedTimetableTheme.setHighlightedTeacherColor(resolvedColor);
@@ -619,15 +620,15 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
 
   /// 기본 정보 입력 폼 (제목·교사명·학교명·저장 한 줄)
   Widget _buildBasicInfoForm(ThemeData theme) {
-    const titleStyle = TextStyle(
-      fontSize: 12,
-      fontWeight: FontWeight.bold,
-    );
+    const titleStyle = TextStyle(fontSize: 12, fontWeight: FontWeight.bold);
 
     if (_isLoadingNames) {
       return Row(
         children: [
-          Text('기본 정보', style: titleStyle.copyWith(color: Colors.grey.shade700)),
+          Text(
+            '기본 정보',
+            style: titleStyle.copyWith(color: Colors.grey.shade700),
+          ),
           const Spacer(),
           const SizedBox(
             width: 18,
@@ -733,10 +734,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
                   horizontal: 8,
                   vertical: 0,
                 ),
-                constraints: const BoxConstraints(
-                  minHeight: 28,
-                  maxHeight: 28,
-                ),
+                constraints: const BoxConstraints(minHeight: 28, maxHeight: 28),
               ),
               textInputAction: textInputAction,
               onSubmitted: onSubmitted,
@@ -921,9 +919,10 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
           Wrap(
             spacing: 4,
             runSpacing: 4,
-            children: TeacherRowHighlightColors.presets
-                .map(_buildColorOption)
-                .toList(),
+            children:
+                TeacherRowHighlightColors.presets
+                    .map(_buildColorOption)
+                    .toList(),
           ),
         ],
       ),
@@ -1141,5 +1140,4 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
       ),
     );
   }
-
 }
