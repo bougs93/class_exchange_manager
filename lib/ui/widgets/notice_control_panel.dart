@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/notice_message.dart';
 import '../../providers/notice_message_provider.dart';
+import 'exchange_control_panel.dart';
+import 'timetable_grid/grid_header_widgets.dart';
 
 /// 안내 메시지 제어 패널 설정값
 class NoticeControlPanelConfig {
@@ -16,7 +18,7 @@ class NoticeControlPanelConfig {
 
 /// 안내 메시지 제어 패널 위젯
 ///
-/// 새로고침 버튼과 "수업으로 안내" 스위치를 포함하는 공통 위젯입니다.
+/// 새로고침 버튼과 안내 방식 스위치(수업/교체)를 포함하는 공통 위젯입니다.
 /// 학급안내와 교사안내에서 재사용됩니다.
 class NoticeControlPanel extends ConsumerWidget {
   /// 메시지 타입 (학급 또는 교사)
@@ -35,6 +37,8 @@ class NoticeControlPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final noticeState = ref.watch(noticeMessageProvider);
     final noticeNotifier = ref.read(noticeMessageProvider.notifier);
+    final isClassAsLessonGuide =
+        _getCurrentMessageOption(noticeState) == MessageOption.option2;
 
     return Card(
       elevation: 1,
@@ -47,35 +51,23 @@ class NoticeControlPanel extends ConsumerWidget {
               padding: const EdgeInsets.all(NoticeControlPanelConfig.contentPadding),
               child: Row(
                 children: [
-                  // 새로고침 버튼 (원형 - 결보강 계획서 스타일)
-                  Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    child: ElevatedButton(
-                      onPressed: () => noticeNotifier.refreshAllMessages(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: (refreshButtonColor ?? Colors.blue.shade600).withValues(alpha: 0.1),
-                        foregroundColor: refreshButtonColor ?? Colors.blue.shade700,
-                        padding: const EdgeInsets.all(8),
-                        minimumSize: const Size(40, 40),
-                        maximumSize: const Size(40, 40),
-                        shape: CircleBorder(
-                          side: BorderSide(
-                            color: refreshButtonColor ?? Colors.blue,
-                            width: 1,
-                          ),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: const Icon(Icons.refresh, size: 16),
-                    ),
+                  // 새로고침 버튼 (날짜선택 화면과 동일한 CompactToolbarIconButton 스타일)
+                  CompactToolbarIconButton(
+                    onPressed: () => noticeNotifier.refreshAllMessages(),
+                    icon: Icons.refresh,
+                    tooltip: '새로고침',
+                    backgroundColor: _refreshColors.background,
+                    foregroundColor: _refreshColors.foreground,
+                    borderColor: _refreshColors.border,
+                    iconSize: kModeButtonIconSize,
                   ),
-                  const SizedBox(width: NoticeControlPanelConfig.horizontalSpacing),
+                  const SizedBox(width: 4),
 
                   // 스위치 옵션
                   Transform.scale(
                     scale: NoticeControlPanelConfig.switchScale,
                     child: Switch(
-                      value: _getCurrentMessageOption(noticeState) == MessageOption.option2,
+                      value: isClassAsLessonGuide,
                       onChanged: (value) {
                         _setMessageOption(noticeNotifier, value ? MessageOption.option2 : MessageOption.option1);
                       },
@@ -87,7 +79,7 @@ class NoticeControlPanel extends ConsumerWidget {
                     ),
                   ),
                   Text(
-                    '수업으로 안내',
+                    isClassAsLessonGuide ? '수업으로 안내' : '교체로 안내',
                     style: TextStyle(
                       fontSize: NoticeControlPanelConfig.fontSize,
                       color: Colors.grey.shade700,
@@ -110,6 +102,30 @@ class NoticeControlPanel extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  /// 새로고침 버튼 색상 (날짜선택 CompactToolbarIconButton과 동일 패턴, 탭별 색상 유지)
+  ({Color background, Color foreground, Color border}) get _refreshColors {
+    final color = refreshButtonColor;
+    if (color == Colors.green) {
+      return (
+        background: Colors.green.shade100,
+        foreground: Colors.green.shade700,
+        border: Colors.green.shade300,
+      );
+    }
+    if (color == Colors.orange.shade600) {
+      return (
+        background: Colors.orange.shade100,
+        foreground: Colors.orange.shade600,
+        border: Colors.orange.shade300,
+      );
+    }
+    return (
+      background: Colors.blue.shade100,
+      foreground: Colors.blue.shade700,
+      border: Colors.blue.shade300,
     );
   }
 
@@ -146,11 +162,10 @@ class NoticeControlPanel extends ConsumerWidget {
         return;
       }
 
-      // 모든 메시지를 하나의 문자열로 합치기
+      // 모든 메시지를 하나의 문자열로 합치기 (개별 복사와 동일하게 본문만)
       final buffer = StringBuffer();
       for (int i = 0; i < messageGroups.length; i++) {
         final group = messageGroups[i];
-        buffer.write('${group.groupIdentifier}: ');
         buffer.write(group.combinedContent);
         if (i < messageGroups.length - 1) {
           buffer.write('\n\n');

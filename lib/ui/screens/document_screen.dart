@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/document_type.dart';
+import '../../ui/widgets/unified_navigation_bar.dart';
 import '../../utils/logger.dart';
 import 'document_screen/widgets/substitution_plan_grid.dart';
 import 'document_screen/widgets/class_notice_widget.dart';
@@ -117,59 +118,60 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen> {
                 final isSelected = _selectedIndex == index;
 
                 return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => _onMenuSelected(index),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color:
-                            isSelected
-                                ? type.color.withValues(alpha: 0.1)
-                                : Colors.transparent,
-                        borderRadius: BorderRadius.circular(8),
-                        border:
-                            isSelected
-                                ? Border.all(color: type.color, width: 2)
-                                : null,
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            type.icon,
-                            size: 20,
-                            color:
-                                isSelected ? type.color : Colors.grey.shade600,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              type.displayName,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight:
-                                    isSelected
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                color:
-                                    isSelected
-                                        ? type.color
-                                        : Colors.grey.shade700,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => _onMenuSelected(index),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        // 교체 1차 메뉴(kUnifiedNavBarHeight)와 동일한 높이
+                        height: kUnifiedNavBarHeight,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        decoration: BoxDecoration(
+                          color:
+                              isSelected
+                                  ? type.color.withValues(alpha: 0.1)
+                                  : Colors.transparent,
+                          borderRadius: BorderRadius.circular(6),
+                          border:
+                              isSelected
+                                  ? Border.all(color: type.color, width: 1)
+                                  : null,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              type.icon,
+                              size: 18,
+                              color:
+                                  isSelected ? type.color : Colors.grey.shade600,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                type.displayName,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight:
+                                      isSelected
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                  color:
+                                      isSelected
+                                          ? type.color
+                                          : Colors.grey.shade700,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              );
+                );
               }).toList(),
         ),
       ),

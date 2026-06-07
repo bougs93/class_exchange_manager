@@ -529,7 +529,7 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
         onPressed: _handlePreview,
         icon: const Icon(Icons.picture_as_pdf, size: 20),
         label: const Text(
-          'PDF 출력',
+          'PDF 출력 · 인쇄',
           style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
         style: OutlinedButton.styleFrom(

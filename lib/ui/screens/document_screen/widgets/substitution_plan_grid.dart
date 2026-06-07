@@ -7,7 +7,9 @@ import '../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../../providers/exchange_screen_provider.dart';
 import '../../../../providers/services_provider.dart';
 import '../../../../providers/state_reset_provider.dart';
+import '../../../../ui/widgets/exchange_control_panel.dart';
 import '../../../../ui/widgets/timetable_grid/exchange_executor.dart';
+import '../../../../ui/widgets/timetable_grid/grid_header_widgets.dart';
 import '../../../../utils/logger.dart';
 import '../../../../utils/date_format_utils.dart';
 import '../../../../utils/snackbar_helper.dart';
@@ -112,95 +114,69 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
   }
 
   Widget _buildActionButtons(BuildContext context, WidgetRef ref, SubstitutionPlanViewModel viewModel) {
+    // 교체 화면 툴바와 동일한 버튼 높이·글자·아이콘 크기
+    const buttonHeight = kExchangeUnifiedToolbarHeight - 8;
+
     return Row(
       children: [
-        // 스크롤 가능한 버튼 영역
         Expanded(
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                // 새로고침 버튼 (원형 - 교체관리 스타일)
-                Container(
-                  margin: const EdgeInsets.only(right: 8),
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      await viewModel.loadPlanData();
-                      final currentPlanData = ref.read(
-                        substitutionPlanViewModelProvider.select((state) => state.planData)
-                      );
-                      SubstitutionPlanDebugger.printTable(currentPlanData);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue.shade100,
-                      foregroundColor: Colors.blue.shade700,
-                      padding: const EdgeInsets.all(8),
-                      minimumSize: const Size(40, 40),
-                      maximumSize: const Size(40, 40),
-                      shape: const CircleBorder(
-                        side: BorderSide(color: Colors.blue, width: 1),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: const Icon(Icons.refresh, size: 16),
-                  ),
+                CompactToolbarIconButton(
+                  onPressed: () async {
+                    await viewModel.loadPlanData();
+                    final currentPlanData = ref.read(
+                      substitutionPlanViewModelProvider.select((state) => state.planData),
+                    );
+                    SubstitutionPlanDebugger.printTable(currentPlanData);
+                  },
+                  icon: Icons.refresh,
+                  tooltip: '새로고침',
+                  backgroundColor: Colors.blue.shade100,
+                  foregroundColor: Colors.blue.shade700,
+                  borderColor: Colors.blue.shade300,
+                  iconSize: kModeButtonIconSize,
                 ),
-                // 날짜과목 초기화 버튼 (교체관리 스타일)
-                Container(
-                  margin: const EdgeInsets.only(right: 8),
-                  child: ElevatedButton.icon(
-                    onPressed: () => _clearAllDates(context, viewModel),
-                    icon: const Icon(Icons.clear, size: 16),
-                    label: const Text('날짜과목 초기화'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange.shade100,
-                      foregroundColor: Colors.orange.shade700,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      minimumSize: const Size(60, 40),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(5),
-                        side: BorderSide(color: Colors.orange.shade300),
-                      ),
-                    ),
-                  ),
+                const SizedBox(width: 4),
+                CompactToolbarLabelButton(
+                  onPressed: () => _clearAllDates(context, viewModel),
+                  icon: Icons.clear,
+                  label: '날짜과목 초기화',
+                  tooltip: '날짜과목 초기화',
+                  backgroundColor: Colors.orange.shade100,
+                  foregroundColor: Colors.orange.shade700,
+                  borderColor: Colors.orange.shade300,
+                  height: buttonHeight,
+                  fontSize: kModeButtonFontSize,
+                  iconSize: kModeButtonIconSize,
                 ),
-                // 결보강 초기화 버튼 (교체관리 스타일)
-                Container(
-                  margin: const EdgeInsets.only(right: 8),
-                  child: ElevatedButton.icon(
-                    onPressed: () => _showDeleteConfirmDialog(context, ref),
-                    icon: const Icon(Icons.delete_outline, size: 16),
-                    label: const Text('결보강 초기화'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red.shade100,
-                      foregroundColor: Colors.red.shade700,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      minimumSize: const Size(60, 40),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(5),
-                        side: BorderSide(color: Colors.red.shade300),
-                      ),
-                    ),
-                  ),
+                const SizedBox(width: 4),
+                CompactToolbarLabelButton(
+                  onPressed: () => _showDeleteConfirmDialog(context, ref),
+                  icon: Icons.delete_outline,
+                  label: '결보강 초기화',
+                  tooltip: '결보강 초기화',
+                  backgroundColor: Colors.red.shade100,
+                  foregroundColor: Colors.red.shade700,
+                  borderColor: Colors.red.shade300,
+                  height: buttonHeight,
+                  fontSize: kModeButtonFontSize,
+                  iconSize: kModeButtonIconSize,
                 ),
-                // 엑셀서식 복사 버튼 (교체관리 스타일)
-                Container(
-                  margin: const EdgeInsets.only(right: 8),
-                  child: ElevatedButton.icon(
-                    onPressed: () => _copyTableToClipboard(context, ref),
-                    icon: const Icon(Icons.copy, size: 16),
-                    label: const Text('엑셀서식 복사'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue.shade100,
-                      foregroundColor: Colors.blue.shade700,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      minimumSize: const Size(60, 40),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(5),
-                        side: BorderSide(color: Colors.blue.shade300),
-                      ),
-                    ),
-                  ),
+                const SizedBox(width: 4),
+                CompactToolbarLabelButton(
+                  onPressed: () => _copyTableToClipboard(context, ref),
+                  icon: Icons.copy,
+                  label: '엑셀서식 복사',
+                  tooltip: '엑셀서식 복사',
+                  backgroundColor: Colors.blue.shade100,
+                  foregroundColor: Colors.blue.shade700,
+                  borderColor: Colors.blue.shade300,
+                  height: buttonHeight,
+                  fontSize: kModeButtonFontSize,
+                  iconSize: kModeButtonIconSize,
                 ),
               ],
             ),
