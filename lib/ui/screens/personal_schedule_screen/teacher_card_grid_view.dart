@@ -7,12 +7,16 @@ import '../../../providers/substitution_plan_provider.dart';
 import '../../../services/excel_service.dart';
 import '../../../utils/personal_exchange_info_extractor.dart';
 import '../../../providers/zoom_provider.dart';
+import '../../../ui/mixins/scroll_management_mixin.dart';
 import 'teacher_card_grid_constants.dart';
 import 'teacher_card_teacher_collector.dart';
 import 'teacher_timetable_card.dart';
 
 /// 교사별 시간표 카드를 그리드(Wrap) 형태로 배치합니다.
-class TeacherCardGridView extends ConsumerWidget {
+///
+/// 마우스 오른쪽 버튼 드래그로 세로 스크롤이 가능합니다.
+/// (교체 관리 화면과 동일한 [ScrollManagementMixin] 사용)
+class TeacherCardGridView extends ConsumerStatefulWidget {
   final List<TeacherCardTarget> targets;
   final TimetableData timetableData;
   final List<TimeSlot> timeSlots;
@@ -31,8 +35,27 @@ class TeacherCardGridView extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (targets.isEmpty) {
+  ConsumerState<TeacherCardGridView> createState() => _TeacherCardGridViewState();
+}
+
+class _TeacherCardGridViewState extends ConsumerState<TeacherCardGridView>
+    with ScrollManagementMixin {
+  @override
+  void initState() {
+    super.initState();
+    // 스크롤 컨트롤러 초기화 (오른쪽 버튼 드래그 스크롤용)
+    initializeScrollControllers();
+  }
+
+  @override
+  void dispose() {
+    disposeScrollControllers();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.targets.isEmpty) {
       return const Center(
         child: Text(
           '표시할 교사가 없습니다.',
@@ -45,40 +68,44 @@ class TeacherCardGridView extends ConsumerWidget {
     final exchangeList = ref.read(exchangeHistoryServiceProvider).getExchangeList();
     final substitutionPlanState = ref.read(substitutionPlanProvider);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
-        TeacherCardGridConstants.toolbarHorizontalPadding,
-        TeacherCardGridConstants.toolbarGridGap,
-        TeacherCardGridConstants.toolbarHorizontalPadding,
-        TeacherCardGridConstants.cardOuterPadding,
-      ),
-      child: Wrap(
-        spacing: TeacherCardGridConstants.cardOuterPadding,
-        runSpacing: TeacherCardGridConstants.cardOuterPadding,
-        alignment: WrapAlignment.start,
-        children: targets.map((target) {
-          final exchangeInfoList = PersonalExchangeInfoExtractor.extractExchangeInfo(
-            exchangeList: exchangeList,
-            teacherName: target.name,
-            weekDates: weekDates,
-            substitutionPlanState: substitutionPlanState,
-            scheduleState: scheduleState,
-          );
+    // 오른쪽 버튼 드래그로 스크롤 가능하도록 믹신으로 감쌉니다.
+    return wrapWithDragScroll(
+      SingleChildScrollView(
+        controller: verticalScrollController,
+        padding: const EdgeInsets.fromLTRB(
+          TeacherCardGridConstants.toolbarHorizontalPadding,
+          TeacherCardGridConstants.toolbarGridGap,
+          TeacherCardGridConstants.toolbarHorizontalPadding,
+          TeacherCardGridConstants.cardOuterPadding,
+        ),
+        child: Wrap(
+          spacing: TeacherCardGridConstants.cardOuterPadding,
+          runSpacing: TeacherCardGridConstants.cardOuterPadding,
+          alignment: WrapAlignment.start,
+          children: widget.targets.map((target) {
+            final exchangeInfoList = PersonalExchangeInfoExtractor.extractExchangeInfo(
+              exchangeList: exchangeList,
+              teacherName: target.name,
+              weekDates: widget.weekDates,
+              substitutionPlanState: substitutionPlanState,
+              scheduleState: widget.scheduleState,
+            );
 
-          return TeacherTimetableCard(
-            key: ValueKey(target.name),
-            teacherName: target.name,
-            subject: _findTeacherSubject(timetableData, target.name),
-            roleLabel: target.roleLabel,
-            dateStatusMessage: target.dateStatusMessage,
-            timeSlots: timeSlots,
-            weekDates: weekDates,
-            zoomFactor: zoomFactor,
-            exchangeInfoList: exchangeInfoList,
-            isExchangeViewEnabled: isExchangeViewEnabled,
-            isHighlighted: target.isSaved,
-          );
-        }).toList(),
+            return TeacherTimetableCard(
+              key: ValueKey(target.name),
+              teacherName: target.name,
+              subject: _findTeacherSubject(widget.timetableData, target.name),
+              roleLabel: target.roleLabel,
+              dateStatusMessage: target.dateStatusMessage,
+              timeSlots: widget.timeSlots,
+              weekDates: widget.weekDates,
+              zoomFactor: zoomFactor,
+              exchangeInfoList: exchangeInfoList,
+              isExchangeViewEnabled: widget.isExchangeViewEnabled,
+              isHighlighted: target.isSaved,
+            );
+          }).toList(),
+        ),
       ),
     );
   }

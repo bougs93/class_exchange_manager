@@ -555,7 +555,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
                           ),
                   label: const Text(
                     '시간표 파일 선택',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
