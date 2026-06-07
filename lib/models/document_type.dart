@@ -8,11 +8,11 @@ enum DocumentType {
   /// 결보강 계획서(PDF)
   fileExport,
   
-  /// 학급안내
-  classNotice,
-  
   /// 교사안내
   teacherNotice,
+  
+  /// 학급안내
+  classNotice,
 }
 
 /// DocumentType 확장 메서드들
