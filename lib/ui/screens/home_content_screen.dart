@@ -5,6 +5,7 @@ import '../../providers/exchange_screen_provider.dart';
 import '../../providers/state_reset_provider.dart';
 import '../../models/exchange_mode.dart';
 import '../../constants/app_info.dart';
+import '../../constants/app_assets.dart';
 import '../../constants/teacher_row_highlight_colors.dart';
 import '../../services/app_settings_storage_service.dart';
 import '../../services/storage_service.dart';
@@ -498,13 +499,11 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
           // 상단: 아이콘과 파일 정보
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: theme.primaryColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(Icons.school, color: theme.primaryColor, size: 32),
+              Image.asset(
+                AppAssets.appIcon,
+                width: 48,
+                height: 48,
+                fit: BoxFit.contain,
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -554,8 +553,8 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
                                 ? Icons.upload_file
                                 : Icons.refresh,
                           ),
-                  label: Text(
-                    selectedFile == null ? '시간표 파일 선택' : '다른 파일 선택',
+                  label: const Text(
+                    '시간표 파일 선택',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
