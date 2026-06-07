@@ -78,6 +78,30 @@ if (Test-Path $distPath) {
 New-Item -ItemType Directory -Path $distPath | Out-Null
 Copy-Item -Recurse -Force (Join-Path $PSScriptRoot "build\windows\x64\runner\Release\*") $distPath
 
+# Release exe + Debug flutter_windows.dll 조합은 시작 직후 종료(exit 1)됩니다.
+$releaseFlutterDll = Join-Path $PSScriptRoot "build\windows\x64\runner\Release\flutter_windows.dll"
+$debugFlutterDll = Join-Path $PSScriptRoot "build\windows\x64\runner\Debug\flutter_windows.dll"
+$distFlutterDll = Join-Path $distPath "flutter_windows.dll"
+if (-not (Test-Path $distFlutterDll)) {
+    Write-Host "오류: dist\flutter_windows.dll 이 없습니다." -ForegroundColor Red
+    Pop-Location
+    if ([Environment]::UserInteractive -and -not $env:CI) { Read-Host "Press Enter to exit" }
+    exit 1
+}
+if ((Test-Path $debugFlutterDll) -and ((Get-Item $distFlutterDll).Length -eq (Get-Item $debugFlutterDll).Length)) {
+    Write-Host "오류: dist에 Debug용 flutter_windows.dll 이 포함되어 있습니다." -ForegroundColor Red
+    Write-Host "      flutter build windows --release 를 다시 실행한 뒤 재시도하세요." -ForegroundColor Yellow
+    Pop-Location
+    if ([Environment]::UserInteractive -and -not $env:CI) { Read-Host "Press Enter to exit" }
+    exit 1
+}
+if ((Get-FileHash $distFlutterDll -Algorithm SHA256).Hash -ne (Get-FileHash $releaseFlutterDll -Algorithm SHA256).Hash) {
+    Write-Host "오류: dist\flutter_windows.dll 이 Release 빌드와 일치하지 않습니다." -ForegroundColor Red
+    Pop-Location
+    if ([Environment]::UserInteractive -and -not $env:CI) { Read-Host "Press Enter to exit" }
+    exit 1
+}
+
 # installer/bundled_user_data → dist (초기 JSON만, Excel 제외)
 $bundledRoot = Join-Path $PSScriptRoot "installer\bundled_user_data"
 if (Test-Path $bundledRoot) {

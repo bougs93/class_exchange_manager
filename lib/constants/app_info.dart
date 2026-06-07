@@ -20,7 +20,7 @@ class AppInfo {
   static const String programName = '수업 교체 도우미';
 
   /// 앱 버전 (이 값만 수정 — pubspec.yaml은 tool/bump_version.dart가 자동 동기화)
-  static const String version = '0.9.9';
+  static const String version = '0.9.10';
 
   // 소속
   static const String affiliation = 'Noah Lab 후원';
@@ -217,8 +217,7 @@ class AppInfo {
 
   // 회사 정보
   static const String contact = '''
-주소 : 광주광역시 북구 안산로 76 4층
-연락처 : 062-267-0153
+주소 : 전북특별자치도 순창군 금과면 방계로
 e-mail : happyreportr@gmail.com
 ''';
 
