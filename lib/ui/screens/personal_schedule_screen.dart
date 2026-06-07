@@ -6,10 +6,10 @@ import '../../providers/personal_schedule_provider.dart';
 import '../../utils/personal_timetable_helper.dart';
 import '../../utils/week_date_calculator.dart';
 import '../../utils/logger.dart';
-import '../../utils/personal_schedule_debug_helper.dart';
 import '../../utils/day_utils.dart';
 import '../../models/time_slot.dart';
 import '../../ui/widgets/timetable_grid/grid_header_widgets.dart';
+import '../../ui/widgets/exchange_control_panel.dart';
 import '../../providers/services_provider.dart';
 import '../../providers/substitution_plan_provider.dart';
 import '../../providers/substitution_plan_viewmodel.dart';
@@ -23,6 +23,9 @@ import 'personal_schedule_screen/teacher_selection_dialog.dart';
 import 'personal_schedule_screen/personal_schedule_constants.dart';
 import 'personal_schedule_screen/teacher_card_grid_view.dart';
 import 'personal_schedule_screen/teacher_card_teacher_collector.dart';
+import 'personal_schedule_screen/exchange_week_collector.dart';
+import 'personal_schedule_screen/exchange_week_selector.dart';
+import 'personal_schedule_screen/teacher_card_grid_constants.dart';
 
 /// 개인 시간표 화면
 ///
@@ -396,137 +399,115 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
       planData: planData,
     );
 
+    // 결보강 계획서에 지정된 교체·결강 날짜가 속한 주차 목록
+    final exchangeWeeks = ExchangeWeekCollector.collectWeekMondays(
+      planData,
+      referenceDate: scheduleState.currentWeekMonday,
+    );
+
     return Scaffold(
       appBar: AppBar(
-        actions: [
-          // 디버그 버튼
-          IconButton(
-            icon: const Icon(Icons.bug_report),
-            onPressed: () => _showDebugInfo(scheduleState, timetableData, teacherName),
-            tooltip: '디버그 정보',
-          ),
-        ],
-        title: Row(
-          children: [
-            // 교사 선택 버튼 (아이콘 + 교사명, 검색 기능 유지)
-            InkWell(
-              onTap: _showTeacherSelectionDialog,
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.person_search,
-                      size: 20,
+        toolbarHeight: TeacherCardGridConstants.scheduleAppBarHeight,
+        titleSpacing: 8,
+        title: LayoutBuilder(
+          builder: (context, constraints) {
+            final showDateRange = constraints.maxWidth >=
+                TeacherCardGridConstants.scheduleAppBarDateRangeMinWidth;
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // 교사 선택 버튼 (아이콘 + 교사명, 검색 기능 유지)
+                InkWell(
+                  onTap: _showTeacherSelectionDialog,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.person_search,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          teacherName,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      teacherName,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            // 기간선택 (이전에 "선생님 시간표" 위치였던 부분)
-            SizedBox(
-              width: 200, // 고정폭 설정 (날짜 범위 텍스트가 잘리지 않도록 넓게 설정)
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 이전 주 버튼
-                  IconButton(
-                    icon: const Icon(Icons.chevron_left),
-                    onPressed: () {
-                      ref.read(personalScheduleProvider.notifier).moveToPreviousWeek();
-                    },
-                    tooltip: '이전 주',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                  const SizedBox(width: 4),
-                  // 현재 주 정보 (왼쪽 정렬)
-                  Expanded(
-                    child: Text(
-                      WeekDateCalculator.formatWeekRange(scheduleState.currentWeekMonday),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.visible, // 텍스트가 잘리지 않도록 설정
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  // 다음 주 버튼
-                  IconButton(
-                    icon: const Icon(Icons.chevron_right),
-                    onPressed: () {
-                      ref.read(personalScheduleProvider.notifier).moveToNextWeek();
-                    },
-                    tooltip: '다음 주',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
+                // 현재 주차로 이동 (교사명 바로 옆)
+                IconButton(
+                  icon: const Icon(Icons.today, size: 20),
+                  onPressed: _isCurrentWeek(scheduleState.currentWeekMonday)
+                      ? null
+                      : () {
+                          ref
+                              .read(personalScheduleProvider.notifier)
+                              .moveToThisWeek();
+                        },
+                  tooltip: '현재 주차로 이동',
+                  padding: EdgeInsets.zero,
+                  constraints:
+                      const BoxConstraints(minWidth: 28, minHeight: 28),
+                  color: _isCurrentWeek(scheduleState.currentWeekMonday)
+                      ? Colors.grey
+                      : null,
+                ),
+                if (showDateRange) ...[
+                  const SizedBox(width: 8),
+                  _buildWeekDateRangeSelector(scheduleState),
                 ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            // 현재 주차로 이동 버튼
-            IconButton(
-              icon: const Icon(Icons.today),
-              onPressed: _isCurrentWeek(scheduleState.currentWeekMonday)
-                  ? null
-                  : () {
-                      ref.read(personalScheduleProvider.notifier).moveToThisWeek();
-                    },
-              tooltip: '현재 주차로 이동',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              color: _isCurrentWeek(scheduleState.currentWeekMonday)
-                  ? Colors.grey
-                  : null,
-            ),
-          ],
+                const SizedBox(width: 8),
+                // 교체 주 선택 + 이전/다음 교체 주 이동
+                ExchangeWeekToolbar(
+                  exchangeWeeks: exchangeWeeks,
+                  currentWeekMonday: scheduleState.currentWeekMonday,
+                ),
+              ],
+            );
+          },
         ),
       ),
       body: Padding(
-        padding: const EdgeInsets.all(8.0),
+        padding: const EdgeInsets.fromLTRB(8, 2, 8, 8),
         child: Card(
           elevation: 2,
-          child: Padding(
-            padding: const EdgeInsets.all(4.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 헤더 (줌 컨트롤 및 교체 뷰 스위치)
-                _buildControlPanel(scheduleState, weekDates),
-                
-                const SizedBox(height: 2),
-                
-                // 저장·교체·보강 교사 카드 그리드
-                Expanded(
-                  child: TeacherCardGridView(
-                    targets: cardTargets,
-                    timetableData: timetableData,
-                    timeSlots: timeSlotsToUse,
-                    weekDates: weekDates,
-                    isExchangeViewEnabled: _isExchangeViewEnabled,
-                    scheduleState: scheduleState,
-                  ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildScheduleToolbar(
+                exchangeWeeks: exchangeWeeks,
+                scheduleState: scheduleState,
+                weekDates: weekDates,
+              ),
+              Expanded(
+                child: TeacherCardGridView(
+                  targets: cardTargets,
+                  timetableData: timetableData,
+                  timeSlots: timeSlotsToUse,
+                  weekDates: weekDates,
+                  isExchangeViewEnabled: _isExchangeViewEnabled,
+                  scheduleState: scheduleState,
                 ),
-                
-                const SizedBox(height: 8),
-                
-                // 범례 표시 (비워진 수업, 채워진 수업)
-                _buildLegend(),
-              ],
-            ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(
+                  left: TeacherCardGridConstants.toolbarHorizontalPadding,
+                  right: TeacherCardGridConstants.toolbarHorizontalPadding,
+                  bottom: 8,
+                ),
+                child: _buildLegend(),
+              ),
+            ],
           ),
         ),
       ),
@@ -536,30 +517,28 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
   /// 범례 위젯 생성 (비워진 수업, 채워진 수업)
   /// 교체 관리 페이지와 동일한 방식으로 좌측 정렬
   Widget _buildLegend() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // 비워진 수업 범례
-          _buildLegendItem(
-            backgroundColor: SimplifiedTimetableTheme.defaultColor,
-            borderColor: SimplifiedTimetableTheme.exchangedSourceCellBorderColor,
-            borderWidth: SimplifiedTimetableTheme.exchangedSourceCellBorderWidth,
-            label: '비워진 수업',
-          ),
-          const SizedBox(width: 8),
-          
-          // 채워진 수업 범례
-          _buildLegendItem(
-            backgroundColor: SimplifiedTimetableTheme.exchangedDestinationCellBackgroundColor,
-            borderColor: Colors.transparent,
-            borderWidth: 0,
-            label: '채워진 수업',
-          ),
-        ],
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // 비워진 수업 범례
+        _buildLegendItem(
+          backgroundColor: SimplifiedTimetableTheme.defaultColor,
+          borderColor: SimplifiedTimetableTheme.exchangedSourceCellBorderColor,
+          borderWidth: SimplifiedTimetableTheme.exchangedSourceCellBorderWidth,
+          label: '비워진 수업',
+        ),
+        const SizedBox(width: 8),
+
+        // 채워진 수업 범례
+        _buildLegendItem(
+          backgroundColor:
+              SimplifiedTimetableTheme.exchangedDestinationCellBackgroundColor,
+          borderColor: Colors.transparent,
+          borderWidth: 0,
+          label: '채워진 수업',
+        ),
+      ],
     );
   }
 
@@ -608,15 +587,127 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
            currentWeekMonday.day == thisWeekMonday.day;
   }
 
-  /// 디버그 정보 출력
-  ///
-  /// 교체 리스트를 콘솔에 출력합니다.
-  void _showDebugInfo(
-    PersonalScheduleState scheduleState,
-    TimetableData? timetableData,
-    String? teacherName,
-  ) {
-    PersonalScheduleDebugHelper.showDebugInfo(ref, scheduleState, timetableData, teacherName);
+  /// AppBar — ◀ yyyy.mm.dd ~ yyyy.mm.dd ▶ 주간 이동
+  Widget _buildWeekDateRangeSelector(PersonalScheduleState scheduleState) {
+    return SizedBox(
+      width: 200,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.chevron_left, size: 20),
+            onPressed: () {
+              ref.read(personalScheduleProvider.notifier).moveToPreviousWeek();
+            },
+            tooltip: '이전 주',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 24, minHeight: 28),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              WeekDateCalculator.formatWeekRange(
+                scheduleState.currentWeekMonday,
+              ),
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 4),
+          IconButton(
+            icon: const Icon(Icons.chevron_right, size: 20),
+            onPressed: () {
+              ref.read(personalScheduleProvider.notifier).moveToNextWeek();
+            },
+            tooltip: '다음 주',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 24, minHeight: 28),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 주차 칩 + 줌/교체 스위치 툴바
+  /// 넓을 때 1줄: [줌·교체] [주차 칩] / 좁을 때 2줄로 분리
+  Widget _buildScheduleToolbar({
+    required List<DateTime> exchangeWeeks,
+    required PersonalScheduleState scheduleState,
+    required List<DateTime> weekDates,
+  }) {
+    final hasChips = exchangeWeeks.isNotEmpty;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(
+            top: TeacherCardGridConstants.chipRowPaddingTop,
+            bottom: TeacherCardGridConstants.zoomToolbarPaddingBottom,
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final useSingleRow = !hasChips ||
+                  constraints.maxWidth >=
+                      TeacherCardGridConstants.scheduleToolbarSingleRowMinWidth;
+
+              if (useSingleRow) {
+                return SizedBox(
+                  height: kExchangeUnifiedToolbarHeight,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      _buildControlPanel(scheduleState, weekDates),
+                      if (hasChips) ...[
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ExchangeWeekChipRow(
+                            exchangeWeeks: exchangeWeeks,
+                            currentWeekMonday:
+                                scheduleState.currentWeekMonday,
+                            inline: true,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                    ],
+                  ),
+                );
+              }
+
+              // 좁은 폭: 1줄=줌·교체, 2줄=주차 칩
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    height: kExchangeUnifiedToolbarHeight,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: _buildControlPanel(scheduleState, weekDates),
+                    ),
+                  ),
+                  const SizedBox(
+                    height:
+                        TeacherCardGridConstants.scheduleToolbarWrappedRowGap,
+                  ),
+                  ExchangeWeekChipRow(
+                    exchangeWeeks: exchangeWeeks,
+                    currentWeekMonday: scheduleState.currentWeekMonday,
+                    inline: false,
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+        Divider(height: 1, thickness: 1, color: Colors.grey.shade200),
+      ],
+    );
   }
 
   /// 컨트롤 패널 위젯 (줌 컨트롤 + 교체 뷰 스위치)

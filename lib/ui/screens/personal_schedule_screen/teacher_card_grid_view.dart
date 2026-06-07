@@ -46,7 +46,12 @@ class TeacherCardGridView extends ConsumerWidget {
     final substitutionPlanState = ref.read(substitutionPlanProvider);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(TeacherCardGridConstants.cardOuterPadding),
+      padding: const EdgeInsets.fromLTRB(
+        TeacherCardGridConstants.toolbarHorizontalPadding,
+        TeacherCardGridConstants.toolbarGridGap,
+        TeacherCardGridConstants.toolbarHorizontalPadding,
+        TeacherCardGridConstants.cardOuterPadding,
+      ),
       child: Wrap(
         spacing: TeacherCardGridConstants.cardOuterPadding,
         runSpacing: TeacherCardGridConstants.cardOuterPadding,

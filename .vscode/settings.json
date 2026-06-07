@@ -1,3 +1,11 @@
 {
-    "specstory.cloudSync.enabled": "never"
+    "specstory.cloudSync.enabled": "never",
+    "C_Cpp.default.includePath": [
+        "${workspaceFolder}/windows/flutter/ephemeral/cpp_client_wrapper/include",
+        "${workspaceFolder}/windows/flutter/ephemeral",
+        "${workspaceFolder}/windows/runner"
+    ],
+    "clangd.arguments": [
+        "--query-driver=C:/Program Files/Microsoft Visual Studio/**/cl.exe"
+    ]
 }

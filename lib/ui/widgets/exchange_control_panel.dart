@@ -174,7 +174,7 @@ class ToolbarGroupDivider extends StatelessWidget {
       width: 1,
       height: 24,
       margin: const EdgeInsets.symmetric(horizontal: 6),
-      color: Colors.grey.shade300,
+      color: Colors.grey.shade500,
     );
   }
 }

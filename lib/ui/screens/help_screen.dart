@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import '../widgets/exchange_control_panel.dart';
+import '../widgets/timetable_grid/grid_header_widgets.dart';
 import '../../utils/url_launcher_helper.dart';
 
 /// 도움말 화면
@@ -15,25 +17,32 @@ class HelpScreen extends StatefulWidget {
   State<HelpScreen> createState() => _HelpScreenState();
 }
 
-class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  
+class _HelpScreenState extends State<HelpScreen> {
+  /// 선택된 서브 메뉴 (0: 기본 사용법, 1: 양식PDF 제작 방법)
+  int _selectedIndex = 0;
+
   // 마크다운 파일 내용을 저장할 변수
   String _basicUsageMarkdown = '';
   String _pdfFormGuideMarkdown = '';
   bool _isLoading = true;
 
+  /// 서브 메뉴 정의 (아이콘·라벨·선택 색상)
+  static const _menuItems = [
+    (
+      icon: Icons.help_outline,
+      label: '기본 사용법',
+      color: Colors.blue,
+    ),
+    (
+      icon: Icons.description,
+      label: '양식PDF 제작 방법',
+      color: Colors.purple,
+    ),
+  ];
+
   @override
   void initState() {
     super.initState();
-    // 2개의 탭: "기본 사용법", "양식PDF 제작방법"
-    _tabController = TabController(
-      length: 2,
-      vsync: this,
-      animationDuration: Duration.zero,
-    );
-    
-    // 마크다운 파일 로드
     _loadMarkdownFiles();
   }
   
@@ -65,12 +74,6 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
     }
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
   // ============================================================================
   // Main Build Method
   // ============================================================================
@@ -78,64 +81,73 @@ class _HelpScreenState extends State<HelpScreen> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     // AppBar 없음 — HomeScreen 상단 UnifiedNavigationBar 사용
+    // 서브 메뉴는 1차 메뉴 바로 아래 2번째 줄(가로 툴바)
     return Scaffold(
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 탭 메뉴 (document_screen.dart와 동일한 스타일)
-          Card(
-            elevation: 2,
-            margin: EdgeInsets.zero,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 0.0),
-              child: TabBar(
-                controller: _tabController,
-                indicator: BoxDecoration(
-                  color: theme.primaryColor,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                indicatorSize: TabBarIndicatorSize.tab,
-                indicatorPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                labelColor: Colors.white,
-                unselectedLabelColor: Colors.grey.shade600,
-                labelStyle: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-                unselectedLabelStyle: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.normal,
-                ),
-                tabs: const [
-                  Tab(
-                    text: '기본 사용법',
-                    icon: Icon(Icons.help_outline, size: 18),
-                  ),
-                  Tab(
-                    text: '양식PDF 제작 방법',
-                    icon: Icon(Icons.description, size: 18),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          // 탭 컨텐츠
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                // "기본 사용법" 탭
-                _buildBasicUsageTab(theme),
-                // "양식DF 파일" 탭
-                _buildFormFileTab(theme),
-              ],
-            ),
-          ),
+          _buildSubMenuBar(),
+          Expanded(child: _buildContent(theme)),
         ],
       ),
     );
+  }
+
+  /// 메인 메뉴 하단 가로 서브 메뉴 — 교체/시간표 2차 툴바와 동일 패턴
+  Widget _buildSubMenuBar() {
+    return Container(
+      height: kExchangeUnifiedToolbarHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade200, width: 1),
+        ),
+      ),
+      child: Row(
+        children: List.generate(_menuItems.length, (index) {
+          final item = _menuItems[index];
+          final isSelected = _selectedIndex == index;
+
+          return Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: CompactToolbarLabelButton(
+              onPressed: () {
+                if (_selectedIndex != index) {
+                  setState(() => _selectedIndex = index);
+                }
+              },
+              icon: item.icon,
+              label: item.label,
+              tooltip: item.label,
+              backgroundColor: isSelected
+                  ? item.color.withValues(alpha: 0.12)
+                  : Colors.grey.shade100,
+              foregroundColor:
+                  isSelected ? item.color : Colors.grey.shade700,
+              borderColor: isSelected ? item.color : Colors.grey.shade300,
+              height: kExchangeUnifiedToolbarHeight - 8,
+              fontSize: kModeButtonFontSize,
+              iconSize: kModeButtonIconSize,
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  /// 선택된 서브 메뉴에 따른 콘텐츠
+  Widget _buildContent(ThemeData theme) {
+    switch (_selectedIndex) {
+      case 0:
+        return _buildBasicUsageTab(theme);
+      case 1:
+        return _buildFormFileTab(theme);
+      default:
+        return _buildBasicUsageTab(theme);
+    }
   }
 
   // ============================================================================

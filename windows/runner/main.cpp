@@ -24,12 +24,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
 
-  FlutterWindow window(project);
+  FlutterWindow window{project};
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
-  // Window title: Keep same as AppInfo.programName ('Class Exchange Helper')
-  // Using English name to avoid encoding issues with Windows C++ compiler
-  if (!window.Create(L"Class Exchange Helper", origin, size)) {
+  // Window title matches AppInfo.programName (Unicode escapes avoid MSVC C4819).
+  if (!window.Create(L"\uC218\uC5C5 \uAD50\uCCB4 \uB3C4\uC6B0\uBBF8", origin, size)) {
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);

@@ -1,0 +1,17 @@
+# Flutter Windows runner용 clangd 설정.
+#
+# ephemeral 헤더(flutter/dart_project.h 등)는 아래 명령 실행 후 생성됩니다.
+#   flutter build windows   또는   flutter run -d windows
+#
+# 주의: clangd는 상대 -I 경로를 "소스 파일이 있는 폴더" 기준으로 해석하므로
+#       경로가 어긋나기 쉽습니다. 그래서 절대 경로로 지정합니다.
+CompileFlags:
+  Add:
+    - -ID:/Project/flutter_Teacher_Swap_Manager/class_exchange_manager/windows/flutter/ephemeral/cpp_client_wrapper/include
+    - -ID:/Project/flutter_Teacher_Swap_Manager/class_exchange_manager/windows/flutter/ephemeral
+    - -ID:/Project/flutter_Teacher_Swap_Manager/class_exchange_manager/windows/runner
+    - -DUNICODE
+    - -D_UNICODE
+    - -DNOMINMAX
+    - -D_HAS_EXCEPTIONS=0
+    - -std=c++17
