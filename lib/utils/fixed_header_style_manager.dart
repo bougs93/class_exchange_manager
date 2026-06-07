@@ -221,7 +221,7 @@ class FixedHeaderStyleManager {
   /// [selectedCircularPath] 순환교체 경로
   /// [selectedOneToOnePath] 1:1 교체 경로
   /// [selectedChainPath] 연쇄교체 경로
-  /// [selectedSupplementPath] 보강교체 경로
+  /// [selectedSupplementPath] 보강 경로
   static List<GridColumn> buildGridColumns({
     required List<String> days,
     required Map<String, Map<int, Map<String, dynamic>>> groupedData,

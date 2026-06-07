@@ -49,7 +49,7 @@ class ExchangeArrowStyle {
     direction: ArrowDirection.bidirectional,
   );
 
-  /// 보강 교체 모드용 스타일 (단방향)
+  /// 보강 모드용 스타일 (단방향)
   static const ExchangeArrowStyle supplement = ExchangeArrowStyle(
     color: Color(0xFF20B2AA), // 틸 색상 (#20B2AA)
     strokeWidth: 2.5,

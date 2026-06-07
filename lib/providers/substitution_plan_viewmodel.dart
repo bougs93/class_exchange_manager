@@ -399,10 +399,10 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
     AppLogger.exchangeDebug('연쇄교체 처리 완료');
   }
 
-  /// 보강 교체 처리
+  /// 보강 처리
   void _handleSupplementExchange(List nodes, List<SubstitutionPlanData> planData, String groupId) {
     if (nodes.length < 2) {
-      AppLogger.exchangeDebug('보강교체: 노드가 부족합니다 (${nodes.length}개)');
+      AppLogger.exchangeDebug('보강: 노드가 부족합니다 (${nodes.length}개)');
       return;
     }
 
@@ -419,7 +419,7 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
     );
 
     planData.add(data);
-    AppLogger.exchangeDebug('보강교체 처리 완료');
+    AppLogger.exchangeDebug('보강 처리 완료');
   }
 
   /// 날짜 업데이트 (동일 수업 조건 연동) - 성능 최적화 버전 O(n)

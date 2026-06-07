@@ -7,10 +7,10 @@ import '../../models/one_to_one_exchange_path.dart';
 import '../../models/supplement_exchange_path.dart';
 
 /// 교체 경로 필터 위젯
-/// 순환교체, 연쇄교체, 1:1교체, 보강교체 등 모든 교체 모드에서 공용으로 사용하는 필터 위젯
+/// 순환교체, 연쇄교체, 1:1교체, 보강 등 모든 교체 모드에서 공용으로 사용하는 필터 위젯
 /// 
 /// 주요 기능:
-/// - 단계 필터: 순환교체(2~5단계, 경로가 있을 때만), 연쇄교체(필터 불필요), 1:1교체, 보강교체
+/// - 단계 필터: 순환교체(2~5단계, 경로가 있을 때만), 연쇄교체(필터 불필요), 1:1교체, 보강
 /// - 요일 필터: 월~금 요일별 필터링
 /// - 로딩 상태 처리: 경로 탐색 중에는 단계 필터 숨김
 /// - 빈 경로 처리: 교체 가능한 경로가 없을 때는 단계 필터 숨김
@@ -126,7 +126,7 @@ class ExchangeFilterWidget extends StatelessWidget {
       return false;
     }
 
-    // 1:1교체, 보강교체 모드: 경로가 있을 때 표시
+    // 1:1교체, 보강 모드: 경로가 있을 때 표시
     if (mode == ExchangePathType.oneToOne || mode == ExchangePathType.supplement) {
       return paths.isNotEmpty;
     }
@@ -204,7 +204,7 @@ class ExchangeFilterWidget extends StatelessWidget {
       case ExchangePathType.oneToOne:
         return '1:1교체(${_getStepCount(step)})';
       case ExchangePathType.supplement:
-        return '보강교체(${_getStepCount(step)})';
+        return '보강(${_getStepCount(step)})';
     }
   }
 
@@ -220,7 +220,7 @@ class ExchangeFilterWidget extends StatelessWidget {
         case ExchangePathType.oneToOne:
           return path is OneToOneExchangePath; // 1:1 교체는 항상 2개 노드
         case ExchangePathType.supplement:
-          return path is SupplementExchangePath; // 보강교체는 항상 2개 노드
+          return path is SupplementExchangePath; // 보강는 항상 2개 노드
       }
     }).toList();
     
@@ -270,7 +270,7 @@ class ExchangeFilterWidget extends StatelessWidget {
         break;
       case ExchangePathType.supplement:
         if (path is SupplementExchangePath) {
-          return path.targetNode; // 보강교체의 경우 보강 대상 노드
+          return path.targetNode; // 보강의 경우 보강 대상 노드
         }
         break;
     }

@@ -333,9 +333,9 @@ class ExchangeService extends BaseExchangeService {
     }
   }
   
-  /// 보강교체 실행
+  /// 보강 실행
   /// 
-  /// 보강교체 예시:
+  /// 보강 예시:
   /// - 보강 전: 문유란 월2교시 "1-3|국어", 김연주 월2교시 빈 셀
   /// - 보강 후: 문유란 월2교시 "1-3|국어" (파란색 테두리), 김연주 월2교시 "1-3|과목 미선택" (연한 파란색 배경)
   /// 
@@ -349,7 +349,7 @@ class ExchangeService extends BaseExchangeService {
   /// - `targetPeriod`: 보강할 교사의 교시 (2)
   /// 
   /// 반환값:
-  /// - `bool`: 보강교체 성공 여부
+  /// - `bool`: 보강 성공 여부
   bool performSupplementExchange(
     List<TimeSlot> timeSlots,
     String sourceTeacher,
@@ -361,13 +361,13 @@ class ExchangeService extends BaseExchangeService {
   ) {
     try {
       // 다른 경로와 다른 방식 : 타켓(2번째 클릭) -> 소스(1번째 클릭) : [주의]소스,타켓 색상 유지를 위해서 그대로 사용
-      AppLogger.exchangeInfo('보강교체 시작: $targetTeacher($targetDay$targetPeriod교시) → $sourceTeacher($sourceDay$sourcePeriod교시)');
+      AppLogger.exchangeInfo('보강 시작: $targetTeacher($targetDay$targetPeriod교시) → $sourceTeacher($sourceDay$sourcePeriod교시)');
       
       // 1. 보강 가능성 검증
       if (!_validateSupplementExchange(
         timeSlots, sourceTeacher, sourceDay, sourcePeriod, targetTeacher, targetDay, targetPeriod
       )) {
-        AppLogger.exchangeDebug('보강교체 검증 실패');
+        AppLogger.exchangeDebug('보강 검증 실패');
         return false;
       }
       
@@ -404,16 +404,16 @@ class ExchangeService extends BaseExchangeService {
 
       // 히스토리 관리는 ExchangeHistoryService에서 담당
       //     다른 경로와 다른 방식 : 타켓(2번째 클릭) -> 소스(1번째 클릭) : [주의]소스,타켓 색상 유지를 위해서 그대로 사용
-      AppLogger.exchangeInfo('보강교체 완료: $targetTeacher($targetDay$targetPeriod교시) → $sourceTeacher($sourceDay$sourcePeriod교시) [보강 성공]');
+      AppLogger.exchangeInfo('보강 완료: $targetTeacher($targetDay$targetPeriod교시) → $sourceTeacher($sourceDay$sourcePeriod교시) [보강 성공]');
       return true;
       
     } catch (e) {
-      AppLogger.exchangeDebug('보강교체 중 오류 발생: $e');
+      AppLogger.exchangeDebug('보강 중 오류 발생: $e');
       return false;
     }
   }
 
-  /// 보강교체 가능성 검증
+  /// 보강 가능성 검증
   /// 
   /// 검증 조건:
   /// 1. 보강할 셀에 수업이 있어야 함
@@ -475,11 +475,11 @@ class ExchangeService extends BaseExchangeService {
       return false;
     }
     
-    AppLogger.exchangeDebug('보강교체 검증 성공');
+    AppLogger.exchangeDebug('보강 검증 성공');
     return true;
   }
 
-  /// 보강교체 되돌리기
+  /// 보강 되돌리기
   /// 
   /// 매개변수:
   /// - `timeSlots`: 전체 시간표 데이터
@@ -496,13 +496,13 @@ class ExchangeService extends BaseExchangeService {
     int targetPeriod,
   ) {
     try {
-      AppLogger.exchangeInfo('보강교체 되돌리기: $targetTeacher($targetDay$targetPeriod교시)');
+      AppLogger.exchangeInfo('보강 되돌리기: $targetTeacher($targetDay$targetPeriod교시)');
       
       // 보강된 TimeSlot 찾기
       TimeSlot? targetSlot = findTimeSlot(targetTeacher, targetDay, targetPeriod, timeSlots);
       
       if (targetSlot == null) {
-        AppLogger.exchangeDebug('보강교체 되돌리기 실패: TimeSlot을 찾을 수 없습니다');
+        AppLogger.exchangeDebug('보강 되돌리기 실패: TimeSlot을 찾을 수 없습니다');
         return false;
       }
       
@@ -510,11 +510,11 @@ class ExchangeService extends BaseExchangeService {
       targetSlot.className = null;
       targetSlot.subject = null;
       
-      AppLogger.exchangeInfo('보강교체 되돌리기 완료: $targetTeacher($targetDay$targetPeriod교시) → 빈 셀');
+      AppLogger.exchangeInfo('보강 되돌리기 완료: $targetTeacher($targetDay$targetPeriod교시) → 빈 셀');
       return true;
       
     } catch (e) {
-      AppLogger.exchangeDebug('보강교체 되돌리기 중 오류 발생: $e');
+      AppLogger.exchangeDebug('보강 되돌리기 중 오류 발생: $e');
       return false;
     }
   }
@@ -740,7 +740,7 @@ class ExchangeService extends BaseExchangeService {
     return exchangeableTeachers;
   }
 
-  /// 보강교체용 교사 목록 (단일 진입점)
+  /// 보강용 교사 목록 (단일 진입점)
   ///
   /// [subjectFilter]가 있으면 해당 교과를 가르치는 교사만 포함합니다.
   /// 공강·교체불가·결강 교사 본인은 항상 제외합니다.
@@ -781,12 +781,12 @@ class ExchangeService extends BaseExchangeService {
         ? '전체'
         : trimmedSubject;
     AppLogger.exchangeDebug(
-      '보강교체 가능한 교사 수 ($filterLabel): ${supplementTeachers.length}명',
+      '보강 가능한 교사 수 ($filterLabel): ${supplementTeachers.length}명',
     );
     return supplementTeachers;
   }
 
-  /// 보강교체용 교사 목록 가져오기 (선택된 시간에 공강이 있는 교사)
+  /// 보강용 교사 목록 가져오기 (선택된 시간에 공강이 있는 교사)
   List<Map<String, dynamic>> getSupplementExchangeableTeachers(
     List<TimeSlot> timeSlots,
     List<Teacher> teachers,

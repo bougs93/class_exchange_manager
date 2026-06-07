@@ -4,8 +4,8 @@ import '../utils/day_utils.dart';
 import 'exchange_path.dart';
 import 'exchange_node.dart';
 
-/// 보강 교체 경로를 나타내는 클래스
-/// OneToOneExchangePath와 동일한 구조로 보강 교체를 처리
+/// 보강 경로를 나타내는 클래스
+/// OneToOneExchangePath와 동일한 구조로 보강을 처리
 class SupplementExchangePath implements ExchangePath {
   final ExchangeNode _sourceNode;      // 선택된 원본 노드 (보강할 셀)
   final ExchangeNode _targetNode;      // 보강 대상 노드 (보강할 교사)
@@ -23,7 +23,7 @@ class SupplementExchangePath implements ExchangePath {
        _option = option,
        _customId = customId;
   
-  /// 간단한 보강교체 경로 생성 (새로운 패턴용)
+  /// 간단한 보강 경로 생성 (새로운 패턴용)
   factory SupplementExchangePath.simple({
     required String id,
     required String sourceTeacher,
@@ -62,7 +62,7 @@ class SupplementExchangePath implements ExchangePath {
       ),
       type: ExchangeType.sameClass,
       priority: 1,
-      reason: '보강교체',
+      reason: '보강',
     );
     
     return SupplementExchangePath(
@@ -128,7 +128,7 @@ class SupplementExchangePath implements ExchangePath {
   }
   
   @override
-  String get displayTitle => '보강 교체';
+  String get displayTitle => '보강';
   
   @override
   List<ExchangeNode> get nodes => [_sourceNode, _targetNode];
@@ -273,7 +273,7 @@ class SupplementExchangePath implements ExchangePath {
       ),
       type: ExchangeType.sameClass,
       priority: json['priority'] as int? ?? 1,
-      reason: json['description'] as String? ?? '보강교체',
+      reason: json['description'] as String? ?? '보강',
     );
     
     return SupplementExchangePath(

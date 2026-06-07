@@ -470,7 +470,7 @@ class PersonalExchangeInfoExtractor {
     return infoList;
   }
 
-  /// 보강교체 정보 추출
+  /// 보강 정보 추출
   static List<ExchangeCellInfo> _extractSupplementInfo(
     SupplementExchangePath path,
     String teacherName,

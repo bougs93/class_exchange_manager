@@ -414,8 +414,8 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
     );
   }
 
-  /// 보강 교체의 원본 정보 백업
-  /// 보강 교체에서는 소스 교사의 수업을 타겟 교사의 빈 셀로 복사하므로
+  /// 보강의 원본 정보 백업
+  /// 보강에서는 소스 교사의 수업을 타겟 교사의 빈 셀로 복사하므로
   /// 소스 교사의 원본 셀과 타겟 교사의 빈 셀을 백업해야 함
   void _backupSupplementExchange(
     SupplementExchangePath exchangeItem,
@@ -425,7 +425,7 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
     final sourceNode = exchangeItem.sourceNode;
     final targetNode = exchangeItem.targetNode;
     
-    AppLogger.exchangeDebug('보강 교체 백업: ${sourceNode.displayText} → ${targetNode.displayText}');
+    AppLogger.exchangeDebug('보강 백업: ${sourceNode.displayText} → ${targetNode.displayText}');
     
     // 1. 소스 교사의 원본 셀 백업 (수업이 있는 셀)
     _backupNodeData(sourceNode, timeSlots, backupData);
@@ -439,7 +439,7 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
       backupData,
     );
     
-    AppLogger.exchangeDebug('보강 교체 백업 완료: 소스(${sourceNode.displayText}), 타겟(${targetNode.displayText})');
+    AppLogger.exchangeDebug('보강 백업 완료: 소스(${sourceNode.displayText}), 타겟(${targetNode.displayText})');
   }
 
   /// ExchangeNode의 데이터를 백업
@@ -649,7 +649,7 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
     }
   }
 
-  /// 보강 교체 실행
+  /// 보강 실행
   bool _executeSupplementExchange(
     SupplementExchangePath exchangePath,
     List<TimeSlot> timeSlots,
@@ -659,7 +659,7 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
       final sourceNode = exchangePath.sourceNode;
       final targetNode = exchangePath.targetNode;
       // 다른 경로와 다른 방식 : 타켓(2번째 클릭) -> 소스(1번째 클릭) : [주의]소스,타켓 색상 유지를 위해서 그대로 사용
-      AppLogger.exchangeDebug('보강 교체 실행: ${targetNode.displayText} → ${sourceNode.displayText}');
+      AppLogger.exchangeDebug('보강 실행: ${targetNode.displayText} → ${sourceNode.displayText}');
       
       return exchangeService.performSupplementExchange(
         timeSlots,
@@ -671,7 +671,7 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
         targetNode.period,
       );
     } catch (e) {
-      AppLogger.exchangeDebug('보강 교체 실행 중 오류: $e');
+      AppLogger.exchangeDebug('보강 실행 중 오류: $e');
       return false;
     }
   }

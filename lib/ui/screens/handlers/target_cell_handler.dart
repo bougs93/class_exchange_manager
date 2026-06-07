@@ -100,15 +100,15 @@ mixin TargetCellHandler<T extends StatefulWidget> on State<T> {
     AppLogger.exchangeDebug('연쇄교체 타겟 셀 설정: $selectedTeacher $targetDay $targetPeriod교시 (마지막 교체 대상)');
   }
 
-  /// 보강교체 경로에서 타겟 셀 설정 (보강 대상의 같은 행 셀)
+  /// 보강 경로에서 타겟 셀 설정 (보강 대상의 같은 행 셀)
   /// 보강 대상이 월1교시라면, 선택된 셀의 같은 행의 월1교시를 타겟으로 설정
   void setTargetCellFromSupplementPath(SupplementExchangePath path) {
     if (!exchangeService.hasSelectedCell() || timetableData == null) {
-      AppLogger.exchangeDebug('보강교체 타겟 셀 설정 실패: 조건 불충족');
+      AppLogger.exchangeDebug('보강 타겟 셀 설정 실패: 조건 불충족');
       return;
     }
 
-    // 보강교체 경로의 보강 대상 노드 가져오기
+    // 보강 경로의 보강 대상 노드 가져오기
     ExchangeNode targetNode = path.targetNode; // 보강 대상
 
     // 교체 대상의 요일과 교시 가져오기
@@ -124,7 +124,7 @@ mixin TargetCellHandler<T extends StatefulWidget> on State<T> {
     // 데이터 소스에 타겟 셀 정보 전달
     dataSource?.updateTargetCell(selectedTeacher, targetDay, targetPeriod);
 
-    AppLogger.exchangeDebug('보강교체 타겟 셀 설정: $selectedTeacher $targetDay $targetPeriod교시');
+    AppLogger.exchangeDebug('보강 타겟 셀 설정: $selectedTeacher $targetDay $targetPeriod교시');
   }
 
   /// 타겟 셀 해제

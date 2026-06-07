@@ -21,7 +21,7 @@ class ExchangeModeSteps {
   static const List<int> oneToOne = [2]; // 1:1 교체는 2단계만
   static const List<int> circular = [2, 3, 4, 5]; // 순환교체는 2~5단계
   static const List<int> chain = []; // 연쇄교체는 단계 필터 불필요
-  static const List<int> supplement = [2]; // 보강교체는 2단계
+  static const List<int> supplement = [2]; // 보강는 2단계
 }
 
 /// 파일 선택, 로딩, 교체 모드 전환 등 핵심 비즈니스 로직을 관리하는 Manager
@@ -435,9 +435,9 @@ class ExchangeOperationManager {
     onRefreshHeaderTheme();
   }
 
-  /// 보강교체 모드 강제 활성화 (TabBar에서 호출)
+  /// 보강 모드 강제 활성화 (TabBar에서 호출)
   void activateSupplementExchangeMode() {
-    AppLogger.exchangeDebug('보강교체 모드 강제 활성화 시작');
+    AppLogger.exchangeDebug('보강 모드 강제 활성화 시작');
 
     // 1. 다른 모드 비활성화
     _disableOtherModes();
@@ -447,7 +447,7 @@ class ExchangeOperationManager {
       stateProxy.setNonExchangeableEditMode(false);
     }
 
-    // 3. 보강교체 모드 강제 활성화
+    // 3. 보강 모드 강제 활성화
     stateProxy.setSupplementExchangeModeEnabled(true);
 
     // 4. 활성화 처리
@@ -465,9 +465,9 @@ class ExchangeOperationManager {
     onRefreshHeaderTheme();
   }
 
-  /// 보강교체 모드 토글
+  /// 보강 모드 토글
   void toggleSupplementExchangeMode() {
-    AppLogger.exchangeDebug('보강교체 모드 토글 시작 - 현재 상태: ${stateProxy.isSupplementExchangeModeEnabled}');
+    AppLogger.exchangeDebug('보강 모드 토글 시작 - 현재 상태: ${stateProxy.isSupplementExchangeModeEnabled}');
 
     final wasEnabled = stateProxy.isSupplementExchangeModeEnabled;
 
@@ -479,7 +479,7 @@ class ExchangeOperationManager {
       stateProxy.setNonExchangeableEditMode(false);
     }
 
-    // 3. 보강교체 모드 토글
+    // 3. 보강 모드 토글
     stateProxy.setSupplementExchangeModeEnabled(!wasEnabled);
 
     // 4. 활성화/비활성화 처리
@@ -510,7 +510,7 @@ class ExchangeOperationManager {
 
     // 6. 사용자 피드백
     if (stateProxy.isSupplementExchangeModeEnabled) {
-      _showFeedback('보강교체 모드가 활성화되었습니다. 교사가 부재 시 다른 교사가 대신 수업할 수 있습니다.', backgroundColor: Colors.orange);
+      _showFeedback('보강 모드가 활성화되었습니다. 교사가 부재 시 다른 교사가 대신 수업할 수 있습니다.', backgroundColor: Colors.orange);
     }
   }
 }

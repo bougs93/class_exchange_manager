@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/exchange_mode.dart';
+import '../../providers/app_settings_provider.dart';
 import 'timetable_grid/grid_header_widgets.dart';
 
 /// 통합 툴바 공통 높이 (1차 메뉴와 동일하게 맞춤)
@@ -10,6 +12,9 @@ const double kModeButtonFontSize = 12.0;
 
 /// 모드 버튼 아이콘 크기 — 1차 메뉴와 동일
 const double kModeButtonIconSize = 18.0;
+
+/// 교체 모드 버튼 고정 폭 (라벨 길이와 무관하게 동일)
+const double kExchangeModeButtonWidth = 84.0;
 
 /// 모드 버튼 라벨 표시 방식
 enum ExchangeModeLabelStyle {
@@ -38,7 +43,8 @@ ExchangeModeLabelStyle resolveModeLabelStyle({
 /// 교체 모드 선택 위젯 (컴팩트 가로 배치)
 ///
 /// [labelStyle]에 따라 전체 라벨 또는 축약 라벨을 표시합니다.
-class ExchangeModeSelector extends StatelessWidget {
+/// 연쇄 교체는 홈>설정에서 활성화한 경우에만 메뉴에 표시됩니다.
+class ExchangeModeSelector extends ConsumerWidget {
   final ExchangeMode currentMode;
   final void Function(ExchangeMode) onModeChanged;
   final ExchangeModeLabelStyle labelStyle;
@@ -62,19 +68,46 @@ class ExchangeModeSelector extends StatelessWidget {
     ExchangeMode.supplementExchange,
   ];
 
+  List<ExchangeMode> _visibleExchangeModes(bool isChainExchangeEnabled) {
+    if (isChainExchangeEnabled) {
+      return _exchangeModes;
+    }
+
+    return _exchangeModes
+        .where((mode) => mode != ExchangeMode.chainExchange)
+        .toList();
+  }
+
+  void _handleModeChanged(
+    ExchangeMode mode,
+    bool isChainExchangeEnabled,
+  ) {
+    if (mode == ExchangeMode.chainExchange && !isChainExchangeEnabled) {
+      return;
+    }
+
+    onModeChanged(mode);
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isChainExchangeEnabled = ref.watch(chainExchangeEnabledProvider);
+    final exchangeModes = _visibleExchangeModes(isChainExchangeEnabled);
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ..._buildModeGroup(_viewEditModes),
+        ..._buildModeGroup(_viewEditModes, isChainExchangeEnabled),
         const _ToolbarGroupDivider(),
-        ..._buildModeGroup(_exchangeModes),
+        ..._buildModeGroup(exchangeModes, isChainExchangeEnabled),
       ],
     );
   }
 
-  List<Widget> _buildModeGroup(List<ExchangeMode> modes) {
+  List<Widget> _buildModeGroup(
+    List<ExchangeMode> modes,
+    bool isChainExchangeEnabled,
+  ) {
     return modes.map((mode) {
       final isSelected = mode == currentMode;
       return Padding(
@@ -83,7 +116,7 @@ class ExchangeModeSelector extends StatelessWidget {
           mode: mode,
           isSelected: isSelected,
           labelStyle: labelStyle,
-          onPressed: () => onModeChanged(mode),
+          onPressed: () => _handleModeChanged(mode, isChainExchangeEnabled),
         ),
       );
     }).toList();
@@ -125,7 +158,7 @@ class _ModeToolbarButton extends StatelessWidget {
     // 축약 모드 + 조회/편집: 아이콘만
     if (visibleLabel == null) {
       return Tooltip(
-        message: mode.displayName,
+        message: '${mode.displayName}\n${mode.tooltipDescription}',
         child: Material(
           color: backgroundColor,
           shape: RoundedRectangleBorder(
@@ -136,12 +169,14 @@ class _ModeToolbarButton extends StatelessWidget {
             onTap: onPressed,
             borderRadius: BorderRadius.circular(6),
             child: SizedBox(
-              width: kExchangeUnifiedToolbarHeight - 8,
+              width: kExchangeModeButtonWidth,
               height: kExchangeUnifiedToolbarHeight - 8,
-              child: Icon(
-                mode.icon,
-                size: kModeButtonIconSize,
-                color: foregroundColor,
+              child: Center(
+                child: Icon(
+                  mode.icon,
+                  size: kModeButtonIconSize,
+                  color: foregroundColor,
+                ),
               ),
             ),
           ),
@@ -153,10 +188,11 @@ class _ModeToolbarButton extends StatelessWidget {
       onPressed: onPressed,
       icon: mode.icon,
       label: visibleLabel,
-      tooltip: mode.displayName,
+      tooltip: mode.tooltipDescription,
       backgroundColor: backgroundColor,
       foregroundColor: foregroundColor,
       borderColor: borderColor,
+      width: kExchangeModeButtonWidth,
       height: kExchangeUnifiedToolbarHeight - 8,
       fontSize: kModeButtonFontSize,
       iconSize: kModeButtonIconSize,

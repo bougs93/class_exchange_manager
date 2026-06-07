@@ -47,7 +47,7 @@ class ExchangeNodeParser {
     final parsed = ClassNameParser.parse(sourceNode.className);
 
     if (isSupplement) {
-      // 보강 교체
+      // 보강
       return SubstitutionPlanData(
         exchangeId: exchangeId,
         absenceDate: getSavedDate(exchangeId, 'absenceDate'),

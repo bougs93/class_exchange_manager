@@ -549,7 +549,7 @@ class TimetableDataSource extends DataGridSource {
     _clearCacheAndNotify();
   }
 
-  /// 선택된 보강교체 경로 업데이트
+  /// 선택된 보강 경로 업데이트
   void updateSelectedSupplementPath(SupplementExchangePath? path) {
     ref.read(cellSelectionProvider.notifier).setSupplementPath(path);
     _clearCacheAndNotify();
@@ -706,7 +706,7 @@ class TimetableDataSource extends DataGridSource {
     return ref.read(cellSelectionProvider).selectedChainPath;
   }
 
-  /// 선택된 보강교체 경로 접근자 (보기 모드용)
+  /// 선택된 보강 경로 접근자 (보기 모드용)
   SupplementExchangePath? getSelectedSupplementPath() {
     return ref.read(cellSelectionProvider).selectedSupplementPath;
   }

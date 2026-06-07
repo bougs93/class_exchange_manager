@@ -23,7 +23,7 @@ class GroupIdParser {
     return step != null && step >= 4;
   }
 
-  /// 보강 교체 여부 확인
+  /// 보강 여부 확인
   static bool isSupplement(String? groupId) {
     return groupId != null && groupId.startsWith(supplementPrefix);
   }
@@ -127,6 +127,6 @@ class MessageFormatter {
 /// 교체 유형 카테고리 (메시지 처리 방식 구분)
 enum ExchangeCategory {
   basic,           // 1:1교체, 순환교체 3단계, 연쇄교체 (동일한 방식)
-  supplement,      // 보강교체 (별도 방식)
+  supplement,      // 보강 (별도 방식)
   circularFourPlus, // 순환교체 4단계 이상 (별도 방식)
 }

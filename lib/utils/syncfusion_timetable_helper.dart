@@ -35,7 +35,7 @@ class SyncfusionTimetableHelper {
     CircularExchangePath? selectedCircularPath, // 선택된 순환교체 경로
     OneToOneExchangePath? selectedOneToOnePath, // 선택된 1:1 교체 경로
     ChainExchangePath? selectedChainPath, // 선택된 연쇄교체 경로
-    SupplementExchangePath? selectedSupplementPath, // 선택된 보강교체 경로
+    SupplementExchangePath? selectedSupplementPath, // 선택된 보강 경로
   }) {
     // 요일별로 데이터 그룹화
     Map<String, Map<int, Map<String, TimeSlot?>>> groupedData = _groupTimeSlotsByDayAndPeriod(timeSlots);

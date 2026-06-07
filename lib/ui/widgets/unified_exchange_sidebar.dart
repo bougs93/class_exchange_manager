@@ -97,7 +97,7 @@ class PathColorScheme {
     shadow: Color(0xFFFFCCBC), // 주황색 그림자
   );
 
-  /// 보강교체 색상 스키마 (틸 색상 계열)
+  /// 보강 색상 스키마 (틸 색상 계열)
   static const supplement = PathColorScheme(
     primary: Color(0xFF20B2AA), // 틸 색상 화살표
     nodeBackground: Color(0xFFE0F2F1), // 연한 틸 색상 노드 배경 (선택됨)
@@ -151,7 +151,7 @@ class UnifiedExchangeSidebar extends ConsumerStatefulWidget {
   final String? selectedDay; // 선택된 요일 (null이면 모든 요일 표시)
   final Function(String?)? onDayChanged; // 요일 변경 콜백
 
-  // 보강교체 모드에서 사용되는 교사 버튼 클릭 콜백
+  // 보강 모드에서 사용되는 교사 버튼 클릭 콜백
   final Function(String, String, int)? onSupplementTeacherTap; // 교사명, 요일, 교시
 
   const UnifiedExchangeSidebar({
@@ -176,7 +176,7 @@ class UnifiedExchangeSidebar extends ConsumerStatefulWidget {
     // 순환교체 모드에서만 사용되는 요일 필터 매개변수들
     this.selectedDay,
     this.onDayChanged,
-    // 보강교체 모드에서 사용되는 교사 버튼 클릭 콜백
+    // 보강 모드에서 사용되는 교사 버튼 클릭 콜백
     this.onSupplementTeacherTap,
   });
 
@@ -191,7 +191,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
   final Map<String, AnimationController> _flashControllers = {};
   final Map<String, Animation<double>> _flashAnimations = {};
 
-  /// 보강교체 동일 교과목 필터 활성 여부 (토글, 셀 변경 시에도 유지)
+  /// 보강 동일 교과목 필터 활성 여부 (토글, 셀 변경 시에도 유지)
   bool _supplementSubjectFilterEnabled = false;
 
   @override
@@ -262,7 +262,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
       child: Column(
         children: [
           _buildHeader(),
-          // 보강교체 모드가 아닌 경우에만 검색바 표시
+          // 보강 모드가 아닌 경우에만 검색바 표시
           if (widget.mode != ExchangePathType.supplement) _buildSearchBar(),
           // 순환교체, 1:1 교체, 연쇄교체 모드에서 검색 필터 그룹 표시
           if (widget.mode == ExchangePathType.circular ||
@@ -288,11 +288,11 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
 
   /// 헤더 구성 — [교체 실행] | [닫기]  (경로 개수는 검색 필터 헤더에 표시)
   Widget _buildHeader() {
-    // 보강교체: 경로 미선택 시 안내, 선택 시 다른 모드와 동일하게 [교체 실행] 표시
+    // 보강: 경로 미선택 시 안내, 선택 시 다른 모드와 동일하게 [교체 실행] 표시
     if (widget.mode == ExchangePathType.supplement &&
         widget.selectedPath == null) {
       final headerText =
-          widget.isLoading ? '보강교체 준비 중...' : '보강교체 안내';
+          widget.isLoading ? '보강 준비 중...' : '보강 선택';
       return _buildHeaderContainer(
         child: Row(
           children: [
@@ -470,14 +470,14 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
     return !ref.read(cellSelectionProvider).isFromExchangedCell;
   }
 
-  /// 보강교체 경로 박스 더블 클릭 — 헤더 [보강 실행] 버튼과 동일
+  /// 보강 경로 박스 더블 클릭 — 헤더 [보강 실행] 버튼과 동일
   void _onSupplementPathDoubleTap() {
     final path = widget.selectedPath;
     if (!_canExecuteSupplement() || path is! SupplementExchangePath) {
       return;
     }
 
-    AppLogger.exchangeDebug('보강교체 경로 더블클릭: 경로ID=${path.id}');
+    AppLogger.exchangeDebug('보강 경로 더블클릭: 경로ID=${path.id}');
     _executeExchangeForPath(path);
   }
 
@@ -561,7 +561,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
           const SizedBox(height: 12),
           Text(
             widget.mode == ExchangePathType.supplement
-                ? '보강교체 준비 중...'
+                ? '보강 준비 중...'
                 : '경로 탐색 중...',
             style: TextStyle(
               color: Colors.blue.shade600,
@@ -583,7 +583,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
 
   /// 빈 콘텐츠 구성
   Widget _buildEmptyContent() {
-    // 보강교체 모드인 경우 특별한 안내 메시지 표시
+    // 보강 모드인 경우 특별한 안내 메시지 표시
     if (widget.mode == ExchangePathType.supplement) {
       return _buildSupplementContent();
     }
@@ -607,7 +607,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
     );
   }
 
-  /// 보강교체 모드 콘텐츠 구성
+  /// 보강 모드 콘텐츠 구성
   Widget _buildSupplementContent() {
     return Consumer(
       builder: (context, ref, child) {
@@ -655,7 +655,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
     );
   }
 
-  /// 보강교체 안내 메시지
+  /// 보강 선택 안내 메시지
   Widget _buildSupplementGuide() {
     return Center(
       child: Column(
@@ -664,7 +664,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
           Icon(Icons.info_outline, size: 64, color: Colors.blue.shade400),
           const SizedBox(height: 16),
           Text(
-            '보강교체를 위해 빈 셀을 선택하거나\n교사명을 클릭해주세요',
+            '보강을 위해 빈 셀을 선택하거나\n교사명을 클릭해주세요',
             style: TextStyle(
               color: Colors.blue.shade600,
               fontSize: SidebarFontSizes.emptyMessage,
@@ -1299,7 +1299,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
 
     AppLogger.exchangeDebug('보강 가능한 교사 버튼 클릭: $teacherName ($day $period교시)');
 
-    // 보강교체 모드이고 콜백이 제공된 경우 경로 미리보기
+    // 보강 모드이고 콜백이 제공된 경우 경로 미리보기
     if (widget.mode == ExchangePathType.supplement &&
         widget.onSupplementTeacherTap != null) {
       widget.onSupplementTeacherTap!(teacherName, day, period);
@@ -2094,7 +2094,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
       case ExchangePathType.chain:
         return '연쇄교체';
       case ExchangePathType.supplement:
-        return '보강교체';
+        return '보강';
     }
   }
 }

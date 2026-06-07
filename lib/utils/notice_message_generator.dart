@@ -52,7 +52,7 @@ class NoticeMessageGenerator {
           // 순환교체 4단계 이상: 그룹화하여 처리
           circularGroups.putIfAbsent(data.groupId, () => []).add(data);
         } else {
-          // 기본 교체 유형과 보강 교체: 일반 교체로 처리
+          // 기본 교체 유형과 보강: 일반 교체로 처리
           otherData.add(data);
         }
       }
@@ -425,7 +425,7 @@ ${classLines.join('\n')}''',
     return null;
   }
 
-  /// 보강 교체 옵션1 추가
+  /// 보강 옵션1 추가
   static void _addSupplementExchangeOption1(
     SubstitutionPlanData data,
     String teacherName,
@@ -602,7 +602,7 @@ ${classLines.join('\n')}''',
     return lines;
   }
 
-  /// 보강 교체 교사 메시지 라인 생성
+  /// 보강 교사 메시지 라인 생성
   static List<String> _generateSupplementTeacherLines(
     SubstitutionPlanData data,
     String teacherName,
@@ -743,7 +743,7 @@ ${classLines.join('\n')}''',
 
   /// 교체 유형 구분 헬퍼 메서드 (그룹ID 기반)
   static ExchangeCategory _getExchangeCategory(SubstitutionPlanData data) {
-    // 보강 교체 확인
+    // 보강 확인
     if (_isSupplement(data)) {
       return ExchangeCategory.supplement;
     }
@@ -757,7 +757,7 @@ ${classLines.join('\n')}''',
     return ExchangeCategory.basic;
   }
 
-  /// 보강 교체 여부 확인 (공통 로직)
+  /// 보강 여부 확인 (공통 로직)
   static bool _isSupplement(SubstitutionPlanData data) {
     return data.supplementTeacher.isNotEmpty ||
         GroupIdParser.isSupplement(data.groupId);
@@ -798,7 +798,7 @@ ${classLines.join('\n')}''',
   static ExchangeType _determineExchangeType(
     List<SubstitutionPlanData> dataList,
   ) {
-    // 보강 교체가 하나라도 있으면 보강으로 분류
+    // 보강가 하나라도 있으면 보강으로 분류
     if (dataList.any(_isSupplement)) {
       return ExchangeType.supplement;
     }

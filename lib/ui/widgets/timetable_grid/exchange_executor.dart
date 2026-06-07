@@ -128,7 +128,7 @@ class ExchangeExecutor {
     );
   }
 
-  /// 보강교체 실행 기능
+  /// 보강 실행 기능
   void executeSupplementExchange(
     String sourceTeacher,
     String sourceDay,
@@ -141,7 +141,7 @@ class ExchangeExecutor {
   ) {
     final historyService = ref.read(exchangeHistoryServiceProvider);
 
-    // 보강교체 경로 생성
+    // 보강 경로 생성
     final supplementPath = SupplementExchangePath.simple(
       id: 'supplement_${sourceTeacher}_${sourceDay}_$sourcePeriod',
       sourceTeacher: sourceTeacher,
@@ -157,7 +157,7 @@ class ExchangeExecutor {
     // 교체 실행
     historyService.executeExchange(
       supplementPath,
-      customDescription: '보강교체 예약: $targetTeacherName → $sourceTeacher($sourceDay$sourcePeriod교시)',
+      customDescription: '보강 예약: $targetTeacherName → $sourceTeacher($sourceDay$sourcePeriod교시)',
       additionalMetadata: {
         'executionTime': DateTime.now().toIso8601String(),
         'userAction': 'supplement_reservation',
@@ -294,7 +294,7 @@ class ExchangeExecutor {
     }
   }
 
-  /// 보강교체 다시 실행 처리
+  /// 보강 다시 실행 처리
   void _redoSupplementExchange(ExchangeHistoryItem item) {
     if (dataSource?.timeSlots == null) return;
     if (item.originalPath is! SupplementExchangePath) return;
@@ -316,7 +316,7 @@ class ExchangeExecutor {
 
     if (success) {
       AppLogger.exchangeDebug(
-        '보강교체 다시 실행 성공: ${targetNode.teacherName} ${targetNode.day}${targetNode.period}교시',
+        '보강 다시 실행 성공: ${targetNode.teacherName} ${targetNode.day}${targetNode.period}교시',
       );
     }
   }
@@ -403,7 +403,7 @@ class ExchangeExecutor {
     });
   }
 
-  /// 보강교체 되돌리기 처리
+  /// 보강 되돌리기 처리
   void _undoSupplementExchange(ExchangeHistoryItem item) {
     if (dataSource?.timeSlots == null) return;
 
@@ -421,11 +421,11 @@ class ExchangeExecutor {
 
       if (success) {
         AppLogger.exchangeDebug(
-          '보강교체 되돌리기 성공: ${targetNode.teacherName} ${targetNode.day}${targetNode.period}교시',
+          '보강 되돌리기 성공: ${targetNode.teacherName} ${targetNode.day}${targetNode.period}교시',
         );
       } else {
         AppLogger.exchangeDebug(
-          '보강교체 되돌리기 실패: ${targetNode.teacherName} ${targetNode.day}${targetNode.period}교시',
+          '보강 되돌리기 실패: ${targetNode.teacherName} ${targetNode.day}${targetNode.period}교시',
         );
       }
     }
@@ -546,7 +546,7 @@ class ExchangeExecutor {
         '${path.node2.teacherName}_${path.node2.day}_${path.node2.period}',
       ];
     } else if (path is SupplementExchangePath) {
-      // 보강교체: 소스 셀만 교체된 소스 셀로 표시
+      // 보강: 소스 셀만 교체된 소스 셀로 표시
       return [
         '${path.sourceTeacher}_${path.sourceDay}_${path.sourcePeriod}',
       ];
@@ -594,7 +594,7 @@ class ExchangeExecutor {
       // nodeB 교사가 nodeA 위치로 이동
       cellKeys.add('${path.nodeB.teacherName}_${path.nodeA.day}_${path.nodeA.period}');
 
-      // 보강교체 경로의 목적지 셀 추출
+      // 보강 경로의 목적지 셀 추출
       // 타겟 교사의 위치가 목적지 셀
     } else if (path is SupplementExchangePath) {
       cellKeys.add('${path.targetTeacher}_${path.targetDay}_${path.targetPeriod}');
@@ -634,7 +634,7 @@ class ExchangeExecutor {
         '${path.node2.teacherName}_${path.node2.day}_${path.node2.period}',
       ];
     } else if (path is SupplementExchangePath) {
-      // 보강교체: 소스 셀만 교체된 소스 셀로 표시
+      // 보강: 소스 셀만 교체된 소스 셀로 표시
       return [
         '${path.sourceTeacher}_${path.sourceDay}_${path.sourcePeriod}',
       ];
@@ -687,7 +687,7 @@ class ExchangeExecutor {
         // nodeB 교사가 nodeA 위치로 이동
         cellKeys.add('${path.nodeB.teacherName}_${path.nodeA.day}_${path.nodeA.period}');
 
-        // 보강교체 경로의 목적지 셀 추출
+        // 보강 경로의 목적지 셀 추출
         // 타겟 교사의 위치가 목적지 셀
       } else if (path is SupplementExchangePath) {
         cellKeys.add('${path.targetTeacher}_${path.targetDay}_${path.targetPeriod}');

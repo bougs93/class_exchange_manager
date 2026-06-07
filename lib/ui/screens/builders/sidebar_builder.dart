@@ -45,7 +45,7 @@ mixin SidebarBuilder<T extends StatefulWidget> on State<T> {
   String Function(ExchangeNode) get getSubjectName;
   void onStepChanged(int? step);
   void onDayChanged(String? day);
-  void Function(String, String, int)? onSupplementTeacherTap; // 보강교체 교사 버튼 클릭 콜백
+  void Function(String, String, int)? onSupplementTeacherTap; // 보강 교사 버튼 클릭 콜백
 
   /// 통합 교체 사이드바 빌드
   Widget buildUnifiedExchangeSidebar() {
@@ -84,7 +84,7 @@ mixin SidebarBuilder<T extends StatefulWidget> on State<T> {
     } else if (isChainExchangeModeEnabled) {
       paths = chainPaths;
     } else {
-      paths = []; // 보강교체 모드에서는 빈 리스트
+      paths = []; // 보강 모드에서는 빈 리스트
     }
 
     // 로딩 상태 결정 (모든 모드 통합 처리)
@@ -96,7 +96,7 @@ mixin SidebarBuilder<T extends StatefulWidget> on State<T> {
     } else if (isChainExchangeModeEnabled) {
       isLoading = isChainPathsLoading;
     } else if (isSupplementExchangeModeEnabled) {
-      // 보강교체는 실제 로딩이 없지만 일관성을 위해 동일한 로딩 상태 사용
+      // 보강는 실제 로딩이 없지만 일관성을 위해 동일한 로딩 상태 사용
       isLoading = isCircularPathsLoading;
     }
 
@@ -121,7 +121,7 @@ mixin SidebarBuilder<T extends StatefulWidget> on State<T> {
       onStepChanged: (isCircularExchangeModeEnabled || isExchangeModeEnabled || isChainExchangeModeEnabled) ? onStepChanged : null,
       selectedDay: (isCircularExchangeModeEnabled || isExchangeModeEnabled || isChainExchangeModeEnabled) ? selectedDay : null,
       onDayChanged: (isCircularExchangeModeEnabled || isExchangeModeEnabled || isChainExchangeModeEnabled) ? onDayChanged : null,
-      // 보강교체 모드에서 사용되는 교사 버튼 클릭 콜백
+      // 보강 모드에서 사용되는 교사 버튼 클릭 콜백
       onSupplementTeacherTap: isSupplementExchangeModeEnabled ? onSupplementTeacherTap : null,
     );
   }

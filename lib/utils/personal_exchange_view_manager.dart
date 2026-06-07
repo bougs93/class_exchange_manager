@@ -216,7 +216,7 @@ class PersonalExchangeViewManager {
     }
   }
 
-  /// 보강 교체 실행
+  /// 보강 실행
   static bool _executeSupplementExchange(
     SupplementExchangePath exchangePath,
     List<TimeSlot> timeSlots,
@@ -227,7 +227,7 @@ class PersonalExchangeViewManager {
       final targetNode = exchangePath.targetNode;
       
       // 다른 경로와 다른 방식 : 타켓(2번째 클릭) -> 소스(1번째 클릭)
-      AppLogger.exchangeDebug('[PersonalExchangeViewManager] 보강 교체 실행: ${targetNode.displayText} → ${sourceNode.displayText}');
+      AppLogger.exchangeDebug('[PersonalExchangeViewManager] 보강 실행: ${targetNode.displayText} → ${sourceNode.displayText}');
       
       return exchangeService.performSupplementExchange(
         timeSlots,
@@ -239,7 +239,7 @@ class PersonalExchangeViewManager {
         targetNode.period,
       );
     } catch (e) {
-      AppLogger.exchangeDebug('[PersonalExchangeViewManager] 보강 교체 실행 중 오류: $e');
+      AppLogger.exchangeDebug('[PersonalExchangeViewManager] 보강 실행 중 오류: $e');
       return false;
     }
   }

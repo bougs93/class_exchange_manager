@@ -38,6 +38,7 @@ import 'handlers/filter_search_handler.dart';
 import 'builders/sidebar_builder.dart';
 import '../../providers/state_reset_provider.dart';
 import '../../providers/zoom_provider.dart';
+import '../../providers/app_settings_provider.dart';
 import 'helpers/circular_path_finder.dart';
 import 'helpers/chain_path_finder.dart';
 
@@ -166,6 +167,11 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
   /// 교체 모드 변경 (TabBar에서 호출)
   void _changeMode(ExchangeMode newMode) {
+    if (newMode == ExchangeMode.chainExchange &&
+        !ref.read(chainExchangeEnabledProvider)) {
+      return;
+    }
+
     final notifier = ref.read(exchangeScreenProvider.notifier);
 
     // 모드 전환 전 선택된 셀 정보 저장
@@ -227,7 +233,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
         _filterStateManager.setStepFilter(null);
         break;
       case ExchangeMode.supplementExchange:
-        // 보강교체 모드 활성화 (토글이 아닌 강제 활성화)
+        // 보강 모드 활성화 (토글이 아닌 강제 활성화)
         _operationManager.activateSupplementExchangeMode();
         break;
       case ExchangeMode.nonExchangeableEdit:
@@ -342,12 +348,12 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
         break;
 
       case ExchangeMode.supplementExchange:
-        // 보강 교체 시작
+        // 보강 시작
         exchangeService.selectCell(teacher, day, period);
         ref.read(cellSelectionProvider.notifier).selectCell(teacher, day, period);
         ref.read(cellSelectionProvider.notifier).selectTeacherName(teacher);
         ref.read(cellSelectionProvider.notifier).setExchangeMode(ExchangeMode.supplementExchange);
-        // 보강교체 셀 선택 후 처리 (사이드바 표시 포함)
+        // 보강 셀 선택 후 처리 (사이드바 표시 포함)
         _processSupplementCellSelection();
         break;
 
@@ -401,7 +407,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     return viewModel.extractDayPeriodFromColumnName(details);
   }
 
-  /// 보강교체 셀 선택 후 처리 로직 (다른 교체 모드들과 동일)
+  /// 보강 셀 선택 후 처리 로직 (다른 교체 모드들과 동일)
   void _processSupplementCellSelection() {
     // ✅ 로딩 상태 시작 (일관된 사용자 경험을 위해)
     final notifier = ref.read(exchangeScreenProvider.notifier);
@@ -416,7 +422,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       exchangeService.selectedPeriod
     );
     
-    // 보강교체 모드에서는 교체 가능한 시간 탐색하지 않음
+    // 보강 모드에서는 교체 가능한 시간 탐색하지 않음
     // _updateExchangeableTimes(); // 제거됨
     
     // 테마 기반 헤더 업데이트 (컬럼/헤더 재생성 없이)
@@ -429,7 +435,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     notifier.setPathsLoading(false);
     notifier.setLoadingProgress(1.0);
     
-    AppLogger.exchangeDebug('보강교체: 셀 선택 후 처리 완료 - 사이드바 활성화 및 교사 이름 선택 기능 활성화');
+    AppLogger.exchangeDebug('보강: 셀 선택 후 처리 완료 - 사이드바 활성화 및 교사 이름 선택 기능 활성화');
   }
 
   /// 공통 빈셀 확인 메서드 (모든 교체 모드에서 사용)
@@ -603,11 +609,11 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   @override
   String Function(ExchangeNode) get getSubjectName => _getSubjectName;
   
-  // 보강교체 모드 관련 getter 추가
+  // 보강 모드 관련 getter 추가
   @override
   bool get isSupplementExchangeModeEnabled => _isSupplementExchangeModeEnabled;
 
-  // 보강교체 교사 버튼 클릭 콜백 구현
+  // 보강 교사 버튼 클릭 콜백 구현
   @override
   void Function(String, String, int)? get onSupplementTeacherTap => _onSupplementTeacherTap;
 
@@ -689,6 +695,23 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
         });
       }
     });
+
+    // 연쇄 교체 비활성화 시 연쇄 모드에서 1:1교체로 자동 전환
+    ref.listen<bool>(chainExchangeEnabledProvider, (previous, next) {
+      if (previous == next) {
+        return;
+      }
+
+      if (!next &&
+          ref.read(exchangeScreenProvider).currentMode ==
+              ExchangeMode.chainExchange) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _changeMode(ExchangeMode.oneToOneExchange);
+          }
+        });
+      }
+    });
     
     // 줌 팩터 변경 감지하여 헤더 재생성
     ref.listen<double>(
@@ -757,7 +780,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
             (isExchangeModeEnabled && (ExchangePathUtils.hasPathsOfType<OneToOneExchangePath>(availablePaths) || isPathsLoading)) ||
             (isCircularExchangeModeEnabled && (ExchangePathUtils.hasPathsOfType<CircularExchangePath>(availablePaths) || isPathsLoading)) ||
             (isChainExchangeModeEnabled && (ExchangePathUtils.hasPathsOfType<ChainExchangePath>(availablePaths) || isPathsLoading)) ||
-            (_isSupplementExchangeModeEnabled && ref.read(cellSelectionProvider.notifier).hasSelectedCell) // 보강교체 모드에서는 셀 선택 시에만 사이드바 표시
+            (_isSupplementExchangeModeEnabled && ref.read(cellSelectionProvider.notifier).hasSelectedCell) // 보강 모드에서는 셀 선택 시에만 사이드바 표시
           ))
             buildUnifiedExchangeSidebar(),
         ],
@@ -837,7 +860,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       selectedCircularPath: _selectedCircularPath, // 선택된 순환교체 경로 전달
       selectedOneToOnePath: _selectedOneToOnePath, // 선택된 1:1 교체 경로 전달
       selectedChainPath: _selectedChainPath, // 선택된 연쇄교체 경로 전달
-      selectedSupplementPath: _stateProxy.selectedSupplementPath, // 선택된 보강교체 경로 전달
+      selectedSupplementPath: _stateProxy.selectedSupplementPath, // 선택된 보강 경로 전달
     );
     
     // Provider를 통해 그리드 데이터 업데이트 (변경이 필요한 경우에만 호출하여 성능 최적화)
@@ -891,10 +914,10 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       return;
     }
     
-    // 보강교체 모드인 경우 보강 처리 시작
+    // 보강 모드인 경우 보강 처리 시작
     if (ref.read(exchangeScreenProvider).currentMode == ExchangeMode.supplementExchange) {
       startSupplementExchange(details);
-      // 보강교체 모드에서도 셀 선택은 계속 진행해야 함
+      // 보강 모드에서도 셀 선택은 계속 진행해야 함
     }
 
     // 교체 모드가 비활성화된 경우 아무 동작하지 않음
@@ -916,39 +939,39 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     }
   }
 
-  /// 보강교체 시작
+  /// 보강 시작
   void startSupplementExchange(DataGridCellTapDetails details) {
-    AppLogger.exchangeDebug('보강교체 시작 - 셀 클릭');
+    AppLogger.exchangeDebug('보강 시작 - 셀 클릭');
     
     // 교사명 열 클릭은 교사 이름 선택 기능으로 처리
     if (details.column.columnName == 'teacher') {
-      AppLogger.exchangeDebug('보강교체: 교사명 열 클릭 - 교사 이름 선택 기능으로 처리');
+      AppLogger.exchangeDebug('보강: 교사명 열 클릭 - 교사 이름 선택 기능으로 처리');
       return;
     }
     
     // 셀에서 교사명 추출
     final teacherName = _getTeacherNameFromCell(details);
     if (teacherName == null) {
-      AppLogger.exchangeDebug('보강교체 실패: 교사명을 추출할 수 없음');
+      AppLogger.exchangeDebug('보강 실패: 교사명을 추출할 수 없음');
       return;
     }
     
     // 요일과 교시 정보 추출
     final dayPeriodInfo = _extractDayPeriodFromColumnName(details);
     if (dayPeriodInfo == null) {
-      AppLogger.exchangeDebug('보강교체 실패: 요일/교시 정보를 추출할 수 없음');
+      AppLogger.exchangeDebug('보강 실패: 요일/교시 정보를 추출할 수 없음');
       return;
     }
     
-    AppLogger.exchangeDebug('보강교체 셀 정보: $teacherName ${dayPeriodInfo.day}${dayPeriodInfo.period}교시');
+    AppLogger.exchangeDebug('보강 셀 정보: $teacherName ${dayPeriodInfo.day}${dayPeriodInfo.period}교시');
     
     // 셀이 수업이 있는 셀인지 확인
     bool hasClass = _isCellNotEmpty(teacherName, dayPeriodInfo.day, dayPeriodInfo.period);
-    AppLogger.exchangeDebug('보강교체 셀 상태: 수업 있음=$hasClass');
+    AppLogger.exchangeDebug('보강 셀 상태: 수업 있음=$hasClass');
     
     // 빈 셀인 경우 경로 탐색하지 않음
     if (!hasClass) {
-      AppLogger.exchangeDebug('보강교체: 빈 셀 클릭 - 경로 탐색 건너뜀');
+      AppLogger.exchangeDebug('보강: 빈 셀 클릭 - 경로 탐색 건너뜀');
       _processEmptyCellSelection(teacherName, dayPeriodInfo.day, dayPeriodInfo.period);
       return;
     }
@@ -959,38 +982,38 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       exchangeService.clearCellSelection();
       ref.read(cellSelectionProvider.notifier).clearAllSelections();
       ref.read(cellSelectionProvider.notifier).selectTeacherName(null);
-      AppLogger.exchangeDebug('보강교체: 동일한 셀 클릭 - 셀 선택 해제');
+      AppLogger.exchangeDebug('보강: 동일한 셀 클릭 - 셀 선택 해제');
       return;
     }
     
     // 새로운 셀 선택 (수업이 있는 셀만)
-    AppLogger.exchangeDebug('보강교체: 수업이 있는 셀 선택 - $teacherName ${dayPeriodInfo.day}${dayPeriodInfo.period}교시');
+    AppLogger.exchangeDebug('보강: 수업이 있는 셀 선택 - $teacherName ${dayPeriodInfo.day}${dayPeriodInfo.period}교시');
 
     // 0. 다른 교체 모드와 동일하게 경로·화살표만 초기화 (선택된 셀은 이후 갱신)
     ref.read(stateResetProvider.notifier).resetPathOnly(
-      reason: '보강교체 - 새로운 셀 선택',
+      reason: '보강 - 새로운 셀 선택',
     );
     
     // 1. 셀 선택 (ExchangeService와 CellSelectionProvider에 저장)
     exchangeService.selectCell(teacherName, dayPeriodInfo.day, dayPeriodInfo.period);
     ref.read(cellSelectionProvider.notifier).selectCell(teacherName, dayPeriodInfo.day, dayPeriodInfo.period);
-    AppLogger.exchangeDebug('보강교체: 셀 선택 완료 - $teacherName ${dayPeriodInfo.day}${dayPeriodInfo.period}교시');
+    AppLogger.exchangeDebug('보강: 셀 선택 완료 - $teacherName ${dayPeriodInfo.day}${dayPeriodInfo.period}교시');
     
     // 2. 교사 이름 선택 상태 설정 (교사 이름 테마 변경용)
     ref.read(cellSelectionProvider.notifier).selectTeacherName(teacherName);
-    AppLogger.exchangeDebug('보강교체: 교사 이름 선택 완료 - $teacherName');
+    AppLogger.exchangeDebug('보강: 교사 이름 선택 완료 - $teacherName');
     
     // 3. 교체 모드 설정 (테마 변경용)
     ref.read(cellSelectionProvider.notifier).setExchangeMode(ExchangeMode.supplementExchange);
-    AppLogger.exchangeDebug('보강교체: 교체 모드 설정 완료 - supplementExchange');
+    AppLogger.exchangeDebug('보강: 교체 모드 설정 완료 - supplementExchange');
     
     // 4. 셀 선택 후 처리 (사이드바 표시 포함)
     _processSupplementCellSelection();
   }
 
-  /// 보강교체에서 빈 셀 선택 처리 (공통 빈셀 처리 방식)
+  /// 보강에서 빈 셀 선택 처리 (공통 빈셀 처리 방식)
   void _processEmptyCellSelection(String teacherName, String day, int period) {
-    AppLogger.exchangeDebug('보강교체: 빈 셀 선택 처리 - $teacherName $day$period교시');
+    AppLogger.exchangeDebug('보강: 빈 셀 선택 처리 - $teacherName $day$period교시');
     
     // 동일한 셀을 다시 클릭했는지 확인
     if (exchangeService.isSameCell(teacherName, day, period)) {
@@ -998,12 +1021,12 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       exchangeService.clearCellSelection();
       ref.read(cellSelectionProvider.notifier).clearAllSelections();
       ref.read(cellSelectionProvider.notifier).selectTeacherName(null);
-      AppLogger.exchangeDebug('보강교체: 동일한 빈 셀 클릭 - 셀 선택 해제');
+      AppLogger.exchangeDebug('보강: 동일한 빈 셀 클릭 - 셀 선택 해제');
       return;
     }
     
     // 새로운 빈 셀 선택
-    AppLogger.exchangeDebug('보강교체: 새로운 빈 셀 선택 - $teacherName $day$period교시');
+    AppLogger.exchangeDebug('보강: 새로운 빈 셀 선택 - $teacherName $day$period교시');
     
     // 1. 셀 선택 (ExchangeService와 CellSelectionProvider에 저장)
     exchangeService.selectCell(teacherName, day, period);
@@ -1472,7 +1495,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       selectedCircularPath: _selectedCircularPath, // 순환교체 경로
       selectedOneToOnePath: _selectedOneToOnePath, // 1:1 교체 경로
       selectedChainPath: _selectedChainPath, // 연쇄교체 경로
-      selectedSupplementPath: _stateProxy.selectedSupplementPath, // 보강교체 경로
+      selectedSupplementPath: _stateProxy.selectedSupplementPath, // 보강 경로
     );
 
     // Provider를 통한 헤더 업데이트 (최적화됨 - 구조적 변경이 있는 경우에만 업데이트)
@@ -1625,9 +1648,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     notifier.setSidebarVisible(!_isSidebarVisible);
   }
 
-  /// 보강교체 교사 버튼 클릭 — 경로 미리보기 (1:1 교체와 동일, 실행은 사이드바 [교체 실행])
+  /// 보강 교사 버튼 클릭 — 경로 미리보기 (1:1 교체와 동일, 실행은 사이드바 [교체 실행])
   void _onSupplementTeacherTap(String teacherName, String day, int period) {
-    AppLogger.exchangeDebug('보강교체 교사 버튼 클릭: $teacherName ($day $period교시)');
+    AppLogger.exchangeDebug('보강 교사 버튼 클릭: $teacherName ($day $period교시)');
 
     final screenState = ref.read(exchangeScreenProvider);
     final isSupplementExchangeMode =

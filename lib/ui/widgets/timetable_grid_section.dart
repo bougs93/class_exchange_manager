@@ -1196,7 +1196,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
         }
 
         // 보강 모드에서는 일반 셀 클릭 시 교사 이름 추출하지 않음
-        // 교사 이름 열을 통해서만 보강교체 실행
+        // 교사 이름 열을 통해서만 보강 실행
       }
     }
 
@@ -1354,14 +1354,14 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       return;
     }
 
-    // 보강교체 모드이고 교사 이름 선택 기능이 활성화된 경우 보강교체 실행
+    // 보강 모드이고 교사 이름 선택 기능이 활성화된 경우 보강 실행
     if (isSupplementExchangeMode && isTeacherNameSelectionEnabled) {
-      AppLogger.exchangeDebug('보강교체 모드: 교사 이름 클릭 - 보강교체 실행 - $teacherName');
+      AppLogger.exchangeDebug('보강 모드: 교사 이름 클릭 - 보강 실행 - $teacherName');
 
       // 현재 선택된 셀 정보 가져오기
       final exchangeService = ref.read(exchangeServiceProvider);
       if (!exchangeService.hasSelectedCell()) {
-        AppLogger.exchangeDebug('보강교체 실행 실패: 선택된 셀을 먼저 선택해주세요');
+        AppLogger.exchangeDebug('보강 실행 실패: 선택된 셀을 먼저 선택해주세요');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('보강할 셀을 먼저 선택해주세요'),
@@ -1378,7 +1378,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       // 교사 이름 클릭 시 해당 교사의 해당 시간대가 빈 셀인지 검사
       if (!_isCellEmpty(teacherName, selectedDay, selectedPeriod)) {
         AppLogger.exchangeDebug(
-          '보강교체 실행 실패: $teacherName의 $selectedDay$selectedPeriod교시는 수업이 있는 시간입니다',
+          '보강 실행 실패: $teacherName의 $selectedDay$selectedPeriod교시는 수업이 있는 시간입니다',
         );
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1395,7 +1395,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       // 교사 이름 선택 상태 설정
       ref.read(cellSelectionProvider.notifier).selectTeacherName(teacherName);
 
-      // 보강교체 실행 (ExchangeExecutor 호출)
+      // 보강 실행 (ExchangeExecutor 호출)
       executeSupplementExchangeViaExecutor(teacherName);
       return;
     }
@@ -1452,17 +1452,17 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     }
   }
 
-  /// 보강교체 실행 (ExchangeExecutor 호출 - 1:1 교체와 동일한 패턴) - public 메서드로 변경
+  /// 보강 실행 (ExchangeExecutor 호출 - 1:1 교체와 동일한 패턴) - public 메서드로 변경
   void executeSupplementExchangeViaExecutor(String targetTeacherName) {
     if (widget.timetableData == null) {
-      AppLogger.exchangeDebug('보강교체 실행 실패: timetableData가 null입니다');
+      AppLogger.exchangeDebug('보강 실행 실패: timetableData가 null입니다');
       return;
     }
 
     // 현재 선택된 셀 정보 가져오기
     final exchangeService = ExchangeService();
     if (!exchangeService.hasSelectedCell()) {
-      AppLogger.exchangeDebug('보강교체 실행 실패: 선택된 셀을 먼저 선택해주세요');
+      AppLogger.exchangeDebug('보강 실행 실패: 선택된 셀을 먼저 선택해주세요');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('보강할 셀을 먼저 선택해주세요'),

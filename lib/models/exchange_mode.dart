@@ -18,7 +18,7 @@ enum ExchangeMode {
   /// 순환교체 모드 - 여러 교사가 순환하며 교체
   circularExchange,
   
-  /// 보강교체 모드 - 보강 수업 추가
+  /// 보강 모드 - 보강 수업 추가
   supplementExchange,
 }
 
@@ -38,7 +38,7 @@ extension ExchangeModeExtension on ExchangeMode {
       case ExchangeMode.chainExchange:
         return '연쇄교체';
       case ExchangeMode.supplementExchange:
-        return '보강교체';
+        return '보강';
     }
   }
 
@@ -56,6 +56,24 @@ extension ExchangeModeExtension on ExchangeMode {
         return '순환';
       case ExchangeMode.supplementExchange:
         return '보강';
+    }
+  }
+
+  /// 교체 서브 메뉴 툴팁 설명
+  String get tooltipDescription {
+    switch (this) {
+      case ExchangeMode.view:
+        return '교체 작업 없이 시간표만 확인합니다.';
+      case ExchangeMode.nonExchangeableEdit:
+        return '교체할 수 없는 시간을 선택해 표시하면, 교체 탐색 시 해당 시간이 제외됩니다.';
+      case ExchangeMode.oneToOneExchange:
+        return '가장 기본적인 교체 방식입니다. 한 교사와 같은 반 수업을 서로 맞바꿉니다.';
+      case ExchangeMode.circularExchange:
+        return '1:1 교체가 어려울 때, 두 교사의 같은 반 수업을 순환해 맞바꿉니다.';
+      case ExchangeMode.chainExchange:
+        return '1:1 교체가 어려울 때, 1:1 교체를 두 번 연결해 수업을 맞바꿉니다.';
+      case ExchangeMode.supplementExchange:
+        return '수업 교체가 불가능할 때, 해당 시간에 수업이 비어 있는 교사가 보강 수업을 진행합니다.';
     }
   }
   

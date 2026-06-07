@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../providers/state_reset_provider.dart';
+import '../../providers/app_settings_provider.dart';
 import '../../models/exchange_mode.dart';
 import '../../constants/app_info.dart';
 import '../../constants/app_assets.dart';
@@ -792,6 +793,10 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
                 _buildLanguageSection(),
                 const SizedBox(height: 8),
 
+                // 연쇄 교체 사용 설정
+                _buildChainExchangeSection(),
+                const SizedBox(height: 8),
+
                 // 하이라이트 색상 설정
                 _buildHighlightColorSection(),
                 const SizedBox(height: 8),
@@ -847,6 +852,53 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
                       : null,
         ),
       ],
+    );
+  }
+
+  /// 연쇄 교체 사용 설정 섹션
+  Widget _buildChainExchangeSection() {
+    final isEnabled = ref.watch(chainExchangeEnabledProvider);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // 스위치를 텍스트 앞(왼쪽)에 작게 배치
+        Transform.scale(
+          scale: 0.72,
+          child: Switch(
+            value: isEnabled,
+            onChanged: _saveChainExchangeEnabled,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ),
+        const SizedBox(width: 2),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '연쇄 교체',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+              ),
+              Text(
+                '교체 화면 연쇄교체 메뉴 표시',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 연쇄 교체 설정 저장
+  Future<void> _saveChainExchangeEnabled(bool enabled) async {
+    await _saveSetting(
+      saver: () =>
+          ref.read(chainExchangeEnabledProvider.notifier).setEnabled(enabled),
+      successMessage: enabled
+          ? '연쇄 교체 기능이 활성화되었습니다.'
+          : '연쇄 교체 기능이 비활성화되었습니다.',
     );
   }
 

@@ -58,7 +58,7 @@ class PathColorScheme {
     shadow: Color(0xFFFFCCBC),                     // 주황색 그림자
   );
 
-  /// 보강교체 색상 스키마 (틸 색상 계열)
+  /// 보강 색상 스키마 (틸 색상 계열)
   static const supplement = PathColorScheme(
     primary: Color(0xFF20B2AA),                    // 틸 색상 화살표
     nodeBackground: Color(0xFFE0F2F1),             // 연한 틸 색상 노드 배경 (선택됨)

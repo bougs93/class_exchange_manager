@@ -228,7 +228,7 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
     );
   }
 
-  /// 보강 교체 경로 설정
+  /// 보강 경로 설정
   void setSupplementPath(SupplementExchangePath? path) {
     state = state.copyWith(
       selectedSupplementPath: path,
@@ -313,7 +313,7 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
         lastUpdated: DateTime.now(),
       );
     } else if (path is SupplementExchangePath) {
-      AppLogger.debug('🔍 [CellSelectionProvider] 보강 교체 경로 설정');
+      AppLogger.debug('🔍 [CellSelectionProvider] 보강 경로 설정');
       state = state.copyWith(
         selectedSupplementPath: path,
         isArrowVisible: true,
@@ -516,7 +516,7 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
             path.targetNode.period == period);
   }
 
-  /// 특정 셀이 선택된 보강 교체 경로에 포함되어 있는지 확인
+  /// 특정 셀이 선택된 보강 경로에 포함되어 있는지 확인
   bool isInSelectedSupplementPath(String teacherName, String day, int period) {
     if (state.selectedSupplementPath == null) return false;
     

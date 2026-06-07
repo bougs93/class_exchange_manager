@@ -137,12 +137,16 @@ class CompactToolbarLabelButton extends StatelessWidget {
                   children: [
                     Icon(icon, size: iconSize, color: effectiveForeground),
                     const SizedBox(width: 4),
-                    Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: fontSize,
-                        fontWeight: FontWeight.w600,
-                        color: effectiveForeground,
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: fontSize,
+                          fontWeight: FontWeight.w600,
+                          color: effectiveForeground,
+                        ),
                       ),
                     ),
                   ],

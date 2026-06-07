@@ -1,10 +1,16 @@
 import 'storage_service.dart';
 import '../utils/logger.dart';
 
+/// 연쇄 교체 설정 저장/로드 인터페이스 (테스트 mock 지원)
+abstract class ChainExchangeSettingsStorage {
+  Future<bool> getChainExchangeEnabled();
+  Future<bool> saveChainExchangeEnabled(bool enabled);
+}
+
 /// 앱 설정 저장 서비스
 /// 
 /// 언어 설정 등 앱 전역 설정을 JSON 파일로 저장하고 로드합니다.
-class AppSettingsStorageService {
+class AppSettingsStorageService implements ChainExchangeSettingsStorage {
   final StorageService _storageService = StorageService();
   
   // 싱글톤 인스턴스
@@ -213,6 +219,57 @@ class AppSettingsStorageService {
     } catch (e) {
       AppLogger.error('하이라이트 교사 행 색상 로드 중 오류: $e', e);
       return null;
+    }
+  }
+
+  /// 연쇄 교체 기능 사용 여부 저장
+  ///
+  /// 홈>설정에서 연쇄 교체 메뉴 표시 여부를 저장합니다.
+  /// 기존 설정은 merge 방식으로 유지합니다.
+  @override
+  Future<bool> saveChainExchangeEnabled(bool enabled) async {
+    try {
+      final settings = await loadAppSettings();
+      final updatedSettings = settings == null
+          ? <String, dynamic>{}
+          : Map<String, dynamic>.from(settings);
+
+      updatedSettings['chainExchangeEnabled'] = enabled;
+
+      final success = await _storageService.saveJson(
+        'app_settings.json',
+        updatedSettings,
+      );
+
+      if (success) {
+        AppLogger.info('연쇄 교체 설정 저장 성공: enabled=$enabled');
+      } else {
+        AppLogger.error('연쇄 교체 설정 저장 실패');
+      }
+
+      return success;
+    } catch (e) {
+      AppLogger.error('연쇄 교체 설정 저장 중 오류: $e', e);
+      return false;
+    }
+  }
+
+  /// 연쇄 교체 기능 사용 여부 로드
+  ///
+  /// 반환값:
+  /// - `Future<bool>`: 활성화 여부 (기본값: false)
+  @override
+  Future<bool> getChainExchangeEnabled() async {
+    try {
+      final settings = await loadAppSettings();
+      if (settings == null) {
+        return false;
+      }
+
+      return settings['chainExchangeEnabled'] as bool? ?? false;
+    } catch (e) {
+      AppLogger.error('연쇄 교체 설정 로드 중 오류: $e', e);
+      return false;
     }
   }
 }

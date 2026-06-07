@@ -138,21 +138,21 @@ mixin PathSelectionHandlerMixin<T extends StatefulWidget> on State<T> {
     }
   }
 
-  /// 보강 교체 경로 변경 핸들러
+  /// 보강 경로 변경 핸들러
   void handleSupplementPathChanged(SupplementExchangePath? path) {
     setSelectedSupplementPath(path);
     dataSource?.updateSelectedSupplementPath(path);
 
     if (path != null) {
-      AppLogger.exchangeDebug('보강교체 경로 선택: ${path.id}');
+      AppLogger.exchangeDebug('보강 경로 선택: ${path.id}');
       setTargetCellFromSupplementPath(path);
       updateHeaderTheme();
     } else {
-      AppLogger.exchangeDebug('보강교체 경로 선택 해제');
+      AppLogger.exchangeDebug('보강 경로 선택 해제');
       clearTargetCell();
       updateHeaderTheme();
       showSnackBar(
-        '보강교체 경로 선택이 해제되었습니다.',
+        '보강 경로 선택이 해제되었습니다.',
         backgroundColor: Colors.grey.shade600,
       );
     }

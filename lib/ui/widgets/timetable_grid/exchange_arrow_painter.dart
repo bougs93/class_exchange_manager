@@ -112,21 +112,21 @@ class ExchangeArrowPainter extends CustomPainter {
     }
   }
 
-  /// 보강 교체 화살표 그리기 (단방향 화살표)
+  /// 보강 화살표 그리기 (단방향 화살표)
   void _drawSupplementArrows(Canvas canvas, Size size) {
     final supplementPath = selectedPath as SupplementExchangePath;
     final sourceNode = supplementPath.sourceNode;  // 보강할 셀 (수업이 있는 셀)
     final targetNode = supplementPath.targetNode;  // 보강할 교사 (빈 셀)
 
-    // 보강 교체는 보강할 교사(빈 셀)에서 보강할 셀(수업이 있는 셀)로의 방향
-    // 보강 교체 전용 화살표 그리기 (명시적 방향 지정)
+    // 보강는 보강할 교사(빈 셀)에서 보강할 셀(수업이 있는 셀)로의 방향
+    // 보강 전용 화살표 그리기 (명시적 방향 지정)
     _drawSupplementArrowDirectly(canvas, size, targetNode, sourceNode);
   }
 
 
 
-  /// 보강 교체 전용 화살표 그리기 (직접 그리기 방식)
-  /// 보강 교체는 같은 교시의 다른 교사들 간 교체이므로 수직선으로 직접 그리기
+  /// 보강 전용 화살표 그리기 (직접 그리기 방식)
+  /// 보강는 같은 교시의 다른 교사들 간 교체이므로 수직선으로 직접 그리기
   void _drawSupplementArrowDirectly(Canvas canvas, Size size, ExchangeNode sourceNode, ExchangeNode targetNode) {
     // 교사 인덱스 찾기
     int sourceTeacherIndex = timetableData.teachers
@@ -138,7 +138,7 @@ class ExchangeArrowPainter extends CustomPainter {
       return;
     }
 
-    // 컬럼 인덱스 찾기 (보강 교체는 같은 교시이므로 같은 컬럼)
+    // 컬럼 인덱스 찾기 (보강는 같은 교시이므로 같은 컬럼)
     String columnName = '${sourceNode.day}_${sourceNode.period}';
     int columnIndex = columns
         .indexWhere((column) => column.columnName == columnName);
@@ -147,10 +147,10 @@ class ExchangeArrowPainter extends CustomPainter {
       return;
     }
 
-    // 보강 교체 스타일 가져오기
+    // 보강 스타일 가져오기
     ExchangeArrowStyle style = ExchangeArrowStyle.supplement;
 
-    // 보강교체 전용: 시작점은 보강 교사(빈 셀)의 정중앙
+    // 보강 전용: 시작점은 보강 교사(빈 셀)의 정중앙
     // (다른 교체 모드처럼 셀 경계 밖이 아닌 셀 안쪽에서 출발)
     Offset sourcePos = _getCellCenterPosition(columnIndex, sourceTeacherIndex);
 
@@ -420,7 +420,7 @@ class ExchangeArrowPainter extends CustomPainter {
 
 
 
-  /// 셀의 정중앙 위치 계산 (보강교체 화살표 시작점 전용)
+  /// 셀의 정중앙 위치 계산 (보강 화살표 시작점 전용)
   ///
   /// [columnIndex] 셀의 열 인덱스
   /// [teacherIndex] 셀의 교사 인덱스
