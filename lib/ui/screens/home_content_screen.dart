@@ -3,19 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../providers/state_reset_provider.dart';
-import '../../providers/app_settings_provider.dart';
 import '../../models/exchange_mode.dart';
 import '../../constants/app_info.dart';
 import '../../constants/app_assets.dart';
-import '../../constants/teacher_row_highlight_colors.dart';
 import '../../services/app_settings_storage_service.dart';
-import '../../services/storage_service.dart';
 import '../../utils/logger.dart';
-import '../../utils/simplified_timetable_theme.dart';
 import 'exchange_screen/exchange_screen_state_proxy.dart';
 import 'exchange_screen/managers/exchange_operation_manager.dart';
-import '../widgets/data_storage_location_section.dart';
 import '../widgets/selected_timetable_file_banner.dart';
+import 'home_content/home_settings_card.dart';
+import 'home_content/setting_save_mixin.dart';
 
 /// 홈 콘텐츠 화면
 ///
@@ -29,35 +26,20 @@ class HomeContentScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeContentScreen> createState() => _HomeContentScreenState();
 }
 
-class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
+class _HomeContentScreenState extends ConsumerState<HomeContentScreen>
+    with SettingSaveMixin {
   // 엑셀 파일 선택 관련 상태 관리
   ExchangeScreenStateProxy? _stateProxy;
   ExchangeOperationManager? _operationManager;
 
-  // 설정 관련 상태
+  // 설정 카드 펼침 상태 (교사명이 비어 있으면 자동 펼침)
   bool _isSettingsExpanded = false;
-
-  // 언어 설정 관련
-  String _selectedLanguage = 'ko';
-  bool _isLoadingLanguage = true;
 
   // 교사명, 학교명 입력 필드
   final TextEditingController _teacherNameController = TextEditingController();
   final TextEditingController _schoolNameController = TextEditingController();
   bool _isLoadingNames = true;
   bool _isSavingNames = false;
-
-  // 하이라이트 색상 관련
-  Color _highlightedTeacherColor = TeacherRowHighlightColors.defaultColor;
-  bool _isLoadingHighlightColor = true;
-  bool _isSavingHighlightColor = false;
-
-  // 데이터 초기화 관련
-  bool _isResetting = false;
-
-  // 데이터 저장 위치 표시 (설정 카드 내)
-  final GlobalKey<DataStorageLocationSectionState> _dataStorageLocationKey =
-      GlobalKey<DataStorageLocationSectionState>();
 
   @override
   void initState() {
@@ -85,30 +67,17 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
     if (mounted) setState(() {});
   }
 
-  /// 설정 로드 (통합 버전 - setState 1회만 호출)
+  /// 교사명·학교명 로드 (언어·색상 등 설정은 HomeSettingsCard가 자체 로드)
   Future<void> _loadSettings() async {
     try {
       final appSettings = AppSettingsStorageService();
-
-      // 병렬로 모든 설정 로드
-      final results = await Future.wait([
-        appSettings.getLanguageCode(),
-        appSettings.loadTeacherAndSchoolName(),
-        appSettings.getHighlightedTeacherColor(),
-      ]);
+      final nameData = await appSettings.loadTeacherAndSchoolName();
 
       if (mounted) {
-        // 교사명/학교명 확인 및 trim 처리 (setState 전에)
-        final nameData = results[1] as Map<String, dynamic>;
         final teacherName = (nameData['defaultTeacherName'] ?? '').trim();
         final schoolName = (nameData['defaultSchoolName'] ?? '').trim();
 
         setState(() {
-          // 언어 설정
-          _selectedLanguage = results[0] as String;
-          _isLoadingLanguage = false;
-
-          // 교사명/학교명 (trim된 값 저장)
           _teacherNameController.text = teacherName;
           _schoolNameController.text = schoolName;
           _isLoadingNames = false;
@@ -117,28 +86,14 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
           if (teacherName.isEmpty) {
             _isSettingsExpanded = true;
           }
-
-          // 하이라이트 색상 (구 프리셋은 교체 범례와 유사하여 자동 교체)
-          final colorValue = results[2] as int?;
-          final resolvedColor = TeacherRowHighlightColors.resolveSavedColor(
-            colorValue,
-          );
-          _highlightedTeacherColor = resolvedColor;
-          if (colorValue != null && resolvedColor.toARGB32() != colorValue) {
-            SimplifiedTimetableTheme.setHighlightedTeacherColor(resolvedColor);
-          }
-          _isLoadingHighlightColor = false;
         });
       }
     } catch (e) {
-      AppLogger.error('설정 로드 중 오류: $e', e);
+      AppLogger.error('기본 정보 로드 중 오류: $e', e);
       if (mounted) {
         setState(() {
-          _isLoadingLanguage = false;
           _isLoadingNames = false;
-          _isLoadingHighlightColor = false;
           // 오류 발생 시에도 교사명이 비어있으면 설정 메뉴 펼침
-          // (Controller에 이미 trim된 값이 저장되어 있음)
           if (_teacherNameController.text.isEmpty) {
             _isSettingsExpanded = true;
           }
@@ -147,71 +102,14 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
     }
   }
 
-  /// 공통 설정 저장 헬퍼 메서드
-  Future<void> _saveSetting({
-    required Future<bool> Function() saver,
-    required String successMessage,
-    String? errorMessage,
-    VoidCallback? onSuccess,
-    void Function(bool)? setSavingState,
-  }) async {
-    if (setSavingState != null) {
-      setState(() => setSavingState(true));
-    }
-
-    try {
-      final success = await saver();
-
-      if (mounted) {
-        if (success) {
-          onSuccess?.call();
-          _showSnackBar(successMessage);
-        } else {
-          _showSnackBar(errorMessage ?? '저장에 실패했습니다.', isError: true);
-        }
-      }
-    } catch (e) {
-      AppLogger.error('설정 저장 중 오류: $e', e);
-      if (mounted) {
-        _showSnackBar('오류가 발생했습니다: $e', isError: true);
-      }
-    } finally {
-      if (mounted && setSavingState != null) {
-        setState(() => setSavingState(false));
-      }
-    }
-  }
-
-  /// SnackBar 표시 헬퍼 메서드
-  void _showSnackBar(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.red : null,
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
-  /// 언어 설정 저장
-  Future<void> _saveLanguage(String languageCode) async {
-    final appSettings = AppSettingsStorageService();
-    await _saveSetting(
-      saver: () => appSettings.saveAppSettings(languageCode: languageCode),
-      successMessage: '언어 설정이 저장되었습니다. 앱을 재시작하면 적용됩니다.',
-      onSuccess: () => setState(() => _selectedLanguage = languageCode),
-    );
-  }
-
   /// 교사명과 학교명 저장
   Future<void> _saveTeacherAndSchoolName() async {
     final appSettings = AppSettingsStorageService();
-    await _saveSetting(
-      saver:
-          () => appSettings.saveTeacherAndSchoolName(
-            teacherName: _teacherNameController.text.trim(),
-            schoolName: _schoolNameController.text.trim(),
-          ),
+    await saveSetting(
+      saver: () => appSettings.saveTeacherAndSchoolName(
+        teacherName: _teacherNameController.text.trim(),
+        schoolName: _schoolNameController.text.trim(),
+      ),
       successMessage: '기본 정보가 저장되었습니다.',
       setSavingState: (value) => _isSavingNames = value,
       onSuccess: _refreshExchangeScreenHighlightedTeacher,
@@ -226,122 +124,6 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
     } catch (e) {
       // 시간표 미로드 등으로 DataSource가 없을 수 있음
       AppLogger.debug('교체 화면 DataSource가 아직 없습니다: $e');
-    }
-  }
-
-  /// 하이라이트 색상 저장
-  Future<void> _saveHighlightColor(Color color) async {
-    final appSettings = AppSettingsStorageService();
-    await _saveSetting(
-      saver: () => appSettings.saveHighlightedTeacherColor(color.toARGB32()),
-      successMessage: '하이라이트 색상이 저장되었습니다.',
-      setSavingState: (value) => _isSavingHighlightColor = value,
-      onSuccess: () {
-        setState(() => _highlightedTeacherColor = color);
-        SimplifiedTimetableTheme.setHighlightedTeacherColor(color);
-      },
-    );
-  }
-
-  /// 모든 데이터 초기화
-  Future<void> _resetAllData() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('데이터 초기화', style: TextStyle(color: Colors.red)),
-            content: const Text(
-              '모든 저장된 데이터를 삭제하시겠습니까?\n\n'
-              '다음 데이터가 삭제됩니다:\n'
-              '• 시간표 데이터\n'
-              '• 교체 리스트\n'
-              '• 교체불가 셀 데이터\n'
-              '• 결보강 계획서 데이터\n'
-              '• PDF 출력 설정\n'
-              '• 시간표 테마 설정\n'
-              '• 앱 설정\n\n'
-              '이 작업은 되돌릴 수 없습니다!',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('취소'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('모두 삭제'),
-              ),
-            ],
-          ),
-    );
-
-    if (confirmed != true) return;
-
-    setState(() {
-      _isResetting = true;
-    });
-
-    try {
-      final storageService = StorageService();
-      final results = await storageService.deleteAllJsonFiles();
-
-      final successCount = results.values.where((v) => v).length;
-      final totalCount = results.length;
-      final failedFiles =
-          results.entries.where((e) => !e.value).map((e) => e.key).toList();
-
-      if (mounted) {
-        if (failedFiles.isEmpty && totalCount > 0) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('모든 데이터가 삭제되었습니다. ($totalCount개 파일)'),
-              duration: const Duration(seconds: 3),
-            ),
-          );
-
-          setState(() {
-            _teacherNameController.clear();
-            _schoolNameController.clear();
-          });
-        } else if (totalCount == 0) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('삭제할 데이터가 없습니다.'),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                '일부 데이터 삭제에 실패했습니다.\n'
-                '성공: $successCount개 / 전체: $totalCount개',
-              ),
-              backgroundColor: Colors.orange,
-              duration: const Duration(seconds: 4),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      AppLogger.error('데이터 초기화 중 오류: $e', e);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('오류가 발생했습니다: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isResetting = false;
-        });
-        await _dataStorageLocationKey.currentState?.reload();
-      }
     }
   }
 
@@ -473,8 +255,17 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
 
             const SizedBox(height: 24),
 
-            // 설정 카드 (접을 수 있음)
-            _buildSettingsCard(context, theme),
+            // 설정 카드 (접을 수 있음) — 언어·색상·초기화 등은 카드가 자체 관리
+            HomeSettingsCard(
+              expanded: _isSettingsExpanded,
+              onExpansionChanged: (expanded) {
+                setState(() => _isSettingsExpanded = expanded);
+              },
+              onDataReset: () {
+                _teacherNameController.clear();
+                _schoolNameController.clear();
+              },
+            ),
           ],
         ),
       ),
@@ -752,312 +543,6 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
               textInputAction: textInputAction,
               onSubmitted: onSubmitted,
             ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// 설정 카드 생성 (접을 수 있음)
-  Widget _buildSettingsCard(BuildContext context, ThemeData theme) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: theme.primaryColor.withValues(alpha: 0.2),
-          width: 1,
-        ),
-      ),
-      child: ExpansionTile(
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(0),
-              decoration: BoxDecoration(
-                color: theme.primaryColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(Icons.settings, color: theme.primaryColor, size: 14),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              '설정',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        initiallyExpanded: _isSettingsExpanded,
-        onExpansionChanged: (expanded) {
-          setState(() {
-            _isSettingsExpanded = expanded;
-          });
-        },
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 4.0,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 언어 설정
-                _buildLanguageSection(),
-                const SizedBox(height: 8),
-
-                // 연쇄 교체 사용 설정
-                _buildChainExchangeSection(),
-                const SizedBox(height: 8),
-
-                // 하이라이트 색상 설정
-                _buildHighlightColorSection(),
-                const SizedBox(height: 8),
-
-                // 데이터 저장 위치 (JSON 폴더 경로)
-                DataStorageLocationSection(
-                  key: _dataStorageLocationKey,
-                  compact: true,
-                ),
-                const SizedBox(height: 8),
-
-                // 데이터 초기화
-                _buildDataResetSection(),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 언어 설정 섹션
-  Widget _buildLanguageSection() {
-    if (_isLoadingLanguage) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(4.0),
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        const Text(
-          '언어 설정',
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-        ),
-        DropdownButton<String>(
-          value: _selectedLanguage,
-          underline: const SizedBox.shrink(),
-          items: const [
-            DropdownMenuItem(
-              value: 'ko',
-              child: Text('한국어', style: TextStyle(fontSize: 12)),
-            ),
-          ],
-          onChanged:
-              (newValue) =>
-                  newValue != null && newValue != _selectedLanguage
-                      ? _saveLanguage(newValue)
-                      : null,
-        ),
-      ],
-    );
-  }
-
-  /// 연쇄 교체 사용 설정 섹션
-  Widget _buildChainExchangeSection() {
-    final isEnabled = ref.watch(chainExchangeEnabledProvider);
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // 스위치를 텍스트 앞(왼쪽)에 작게 배치
-        Transform.scale(
-          scale: 0.72,
-          child: Switch(
-            value: isEnabled,
-            onChanged: _saveChainExchangeEnabled,
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-        ),
-        const SizedBox(width: 2),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '연쇄 교체',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-              ),
-              Text(
-                '교체 화면 연쇄교체 메뉴 표시',
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// 연쇄 교체 설정 저장
-  Future<void> _saveChainExchangeEnabled(bool enabled) async {
-    await _saveSetting(
-      saver: () =>
-          ref.read(chainExchangeEnabledProvider.notifier).setEnabled(enabled),
-      successMessage: enabled
-          ? '연쇄 교체 기능이 활성화되었습니다.'
-          : '연쇄 교체 기능이 비활성화되었습니다.',
-    );
-  }
-
-  /// 하이라이트 색상 설정 섹션
-  Widget _buildHighlightColorSection() {
-    if (_isLoadingHighlightColor) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(8.0),
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '교사 행 하이라이트',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '교체 화면 범례(선택·채움·교체불가 등)와 구분되는 색상입니다.',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-          ),
-          const SizedBox(height: 8),
-
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: _highlightedTeacherColor,
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: _highlightedTeacherColor,
-                    border: Border.all(color: Colors.black26, width: 2),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    '현재 색상: RGB(${(_highlightedTeacherColor.r * 255.0).round()}, ${(_highlightedTeacherColor.g * 255.0).round()}, ${(_highlightedTeacherColor.b * 255.0).round()})',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 6),
-
-          Wrap(
-            spacing: 4,
-            runSpacing: 4,
-            children:
-                TeacherRowHighlightColors.presets
-                    .map(_buildColorOption)
-                    .toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 색상 옵션 버튼 위젯
-  Widget _buildColorOption(Color color) {
-    final isSelected = _highlightedTeacherColor.toARGB32() == color.toARGB32();
-
-    return InkWell(
-      onTap: _isSavingHighlightColor ? null : () => _saveHighlightColor(color),
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        width: 30,
-        height: 30,
-        decoration: BoxDecoration(
-          color: color,
-          border: Border.all(
-            color: isSelected ? Colors.blue : Colors.grey.shade300,
-            width: isSelected ? 3 : 1,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-    );
-  }
-
-  /// 데이터 초기화 섹션
-  Widget _buildDataResetSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Text(
-              '데이터 초기화',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                '모든 저장된 데이터를 삭제합니다.',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _isResetting ? null : _resetAllData,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-            ),
-            child:
-                _isResetting
-                    ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                    : const Text('모든 데이터 삭제', style: TextStyle(fontSize: 14)),
           ),
         ),
       ],

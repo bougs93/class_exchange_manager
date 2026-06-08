@@ -18,111 +18,8 @@ import '../../providers/state_reset_provider.dart';
 import 'exchange_filter_widget.dart';
 import 'timetable_grid/exchange_executor.dart';
 import 'timetable_grid/grid_header_widgets.dart';
-
-/// 사이드바 폰트 사이즈 상수
-class SidebarFontSizes {
-  // 헤더 영역
-  static const double headerText = 12.0; // 경로 개수 텍스트
-
-  // 검색바 영역
-  static const double searchHint = 12.0; // 힌트 텍스트
-  static const double searchInput = 12.0; // 입력 텍스트
-
-  // 로딩 영역
-  static const double loadingMessage = 14.0; // 로딩 메시지
-  static const double loadingProgress = 12.0; // 진행률 텍스트
-
-  // 빈 콘텐츠 영역
-  static const double emptyMessage = 16.0; // 안내 메시지
-
-  // 경로 아이템
-  static const double nodeText = 12.0; // 노드 텍스트 (메인)
-}
-
-/// 경로 타입별 색상 시스템
-class PathColorScheme {
-  final Color primary; // 메인 색상 (화살표, 강조)
-  final Color nodeBackground; // 노드 배경색 (선택된 상태)
-  final Color nodeBackgroundUnselected; // 노드 배경색 (선택되지 않은 상태)
-  final Color nodeBorder; // 노드 테두리색 (선택된 상태)
-  final Color nodeBorderUnselected; // 노드 테두리색 (선택되지 않은 상태)
-  final Color nodeText; // 노드 텍스트 색상 (선택된 상태)
-  final Color nodeTextUnselected; // 노드 텍스트 색상 (선택되지 않은 상태)
-  final Color shadow; // 그림자 색상
-
-  const PathColorScheme({
-    required this.primary,
-    required this.nodeBackground,
-    required this.nodeBackgroundUnselected,
-    required this.nodeBorder,
-    required this.nodeBorderUnselected,
-    required this.nodeText,
-    required this.nodeTextUnselected,
-    required this.shadow,
-  });
-
-  /// 1:1교체 색상 스키마 (초록색 계열)
-  static const oneToOne = PathColorScheme(
-    primary: Color(0xFF4CAF50), // 초록색 화살표
-    nodeBackground: Color(0xFFE8F5E8), // 연한 초록색 노드 배경 (선택됨)
-    nodeBackgroundUnselected: Color(0xFFF8FFF8), // 매우 연한 초록색 노드 배경 (선택안됨)
-    nodeBorder: Color(0xFF4CAF50), // 초록색 노드 테두리 (선택됨)
-    nodeBorderUnselected: Color(0xFFC8E6C9), // 연한 초록색 노드 테두리 (선택안됨)
-    nodeText: Color(0xFF2E7D32), // 진한 초록색 노드 텍스트 (선택됨)
-    nodeTextUnselected: Color(0xFF4CAF50), // 초록색 노드 텍스트 (선택안됨)
-    shadow: Color(0xFFC8E6C9), // 초록색 그림자
-  );
-
-  /// 순환교체 색상 스키마 (보라색 계열)
-  static const circular = PathColorScheme(
-    primary: Color(0xFF9C27B0), // 보라색 화살표
-    nodeBackground: Color(0xFFF3E5F5), // 연한 보라색 노드 배경 (선택됨)
-    nodeBackgroundUnselected: Color(0xFFF8FFF8), // 매우 연한 보라색 노드 배경 (선택안됨)
-    nodeBorder: Color(0xFF9C27B0), // 보라색 노드 테두리 (선택됨)
-    nodeBorderUnselected: Color(0xFFE1BEE7), // 연한 보라색 노드 테두리 (선택안됨)
-    nodeText: Color(0xFF6A1B9A), // 진한 보라색 노드 텍스트 (선택됨)
-    nodeTextUnselected: Color(0xFF9C27B0), // 보라색 노드 텍스트 (선택안됨)
-    shadow: Color(0xFFE1BEE7), // 보라색 그림자
-  );
-
-  /// 연쇄교체 색상 스키마 (주황색 계열)
-  static const chain = PathColorScheme(
-    primary: Color(0xFFFF5722), // 주황색 화살표
-    nodeBackground: Color(0xFFFBE9E7), // 연한 주황색 노드 배경 (선택됨)
-    nodeBackgroundUnselected: Color(0xFFFFF8F8), // 매우 연한 주황색 노드 배경 (선택안됨)
-    nodeBorder: Color(0xFFFF5722), // 주황색 노드 테두리 (선택됨)
-    nodeBorderUnselected: Color(0xFFFFCCBC), // 연한 주황색 노드 테두리 (선택안됨)
-    nodeText: Color(0xFFD84315), // 진한 주황색 노드 텍스트 (선택됨)
-    nodeTextUnselected: Color(0xFFFF5722), // 주황색 노드 텍스트 (선택안됨)
-    shadow: Color(0xFFFFCCBC), // 주황색 그림자
-  );
-
-  /// 보강 색상 스키마 (틸 색상 계열)
-  static const supplement = PathColorScheme(
-    primary: Color(0xFF20B2AA), // 틸 색상 화살표
-    nodeBackground: Color(0xFFE0F2F1), // 연한 틸 색상 노드 배경 (선택됨)
-    nodeBackgroundUnselected: Color(0xFFF0FFFF), // 매우 연한 틸 색상 노드 배경 (선택안됨)
-    nodeBorder: Color(0xFF20B2AA), // 틸 색상 노드 테두리 (선택됨)
-    nodeBorderUnselected: Color(0xFFB2DFDB), // 연한 틸 색상 노드 테두리 (선택안됨)
-    nodeText: Color(0xFF00695C), // 진한 틸 색상 노드 텍스트 (선택됨)
-    nodeTextUnselected: Color(0xFF20B2AA), // 틸 색상 노드 텍스트 (선택안됨)
-    shadow: Color(0xFFB2DFDB), // 틸 색상 그림자
-  );
-
-  /// 경로 타입에 따른 색상 스키마 반환
-  static PathColorScheme getScheme(ExchangePathType type) {
-    switch (type) {
-      case ExchangePathType.oneToOne:
-        return oneToOne;
-      case ExchangePathType.circular:
-        return circular;
-      case ExchangePathType.chain:
-        return chain;
-      case ExchangePathType.supplement:
-        return supplement;
-    }
-  }
-}
+import 'exchange_sidebar/sidebar_constants.dart';
+import 'exchange_sidebar/sidebar_color_scheme.dart';
 
 /// 통합 교체 사이드바 위젯
 /// 1:1교체와 순환교체 경로를 모두 표시할 수 있는 통합 사이드바
@@ -445,7 +342,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
 
   /// 경로 단일 클릭 — 선택만
   void _onPathTap(ExchangePath path, int index) {
-    final pathTypeName = _getPathTypeName(path.type);
+    final pathTypeName = path.type.displayName;
     AppLogger.exchangeDebug(
       '사이드바에서 $pathTypeName 경로 클릭: 인덱스=$index, 경로ID=${path.id}',
     );
@@ -454,7 +351,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
 
   /// 경로 더블 클릭 — 선택 후 교체 실행
   void _onPathDoubleTap(ExchangePath path, int index) {
-    final pathTypeName = _getPathTypeName(path.type);
+    final pathTypeName = path.type.displayName;
     AppLogger.exchangeDebug(
       '사이드바에서 $pathTypeName 경로 더블클릭: 인덱스=$index, 경로ID=${path.id}',
     );
@@ -880,22 +777,12 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
       decoration: BoxDecoration(
         color: isPlaceholder
             ? Colors.grey.shade100
-            : _getNodeBackgroundColor(
-                isSelected,
-                false,
-                isHighlighted,
-                colorScheme,
-              ),
+            : colorScheme.backgroundFor(isSelected, false, isHighlighted),
         borderRadius: BorderRadius.circular(3),
         border: Border.all(
           color: isPlaceholder
               ? Colors.grey.shade300
-              : _getNodeBorderColor(
-                  isSelected,
-                  false,
-                  isHighlighted,
-                  colorScheme,
-                ),
+              : colorScheme.borderFor(isSelected, false, isHighlighted),
           width: isSelected && !isPlaceholder ? 2 : 1,
         ),
         boxShadow: [
@@ -914,12 +801,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
           fontWeight: FontWeight.w500,
           color: isPlaceholder
               ? Colors.grey.shade600
-              : _getNodeTextColor(
-                  isSelected,
-                  false,
-                  isHighlighted,
-                  colorScheme,
-                ),
+              : colorScheme.textFor(isSelected, false, isHighlighted),
         ),
         textAlign: TextAlign.center,
       ),
@@ -1200,20 +1082,20 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
           decoration: BoxDecoration(
             color:
                 isSelected
-                    ? _getPathBackgroundColor(ExchangePathType.supplement)
+                    ? PathColorScheme.pathBackground(ExchangePathType.supplement)
                     : Colors.white,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
               color:
                   isSelected
-                      ? _getPathBorderColor(ExchangePathType.supplement)
+                      ? PathColorScheme.pathBorder(ExchangePathType.supplement)
                       : Colors.teal.shade300,
               width: isSelected ? 2 : 1,
             ),
             boxShadow: [
               if (isSelected)
                 BoxShadow(
-                  color: _getPathShadowColor(ExchangePathType.supplement),
+                  color: PathColorScheme.pathShadow(ExchangePathType.supplement),
                   blurRadius: 2,
                   offset: const Offset(0, 1),
                 )
@@ -1396,14 +1278,14 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
         // 선택됨: 각 경로 타입별 색상, 선택안됨: 회색으로 통일
         color:
             isSelected
-                ? _getPathBackgroundColor(path.type)
+                ? PathColorScheme.pathBackground(path.type)
                 : Colors.grey.shade50,
         border: Border.all(
           // 선택 상태에 따른 테두리색
           // 선택됨: 각 경로 타입별 색상, 선택안됨: 더 진한 회색으로 통일
           color:
               isSelected
-                  ? _getPathBorderColor(path.type)
+                  ? PathColorScheme.pathBorder(path.type)
                   : Colors.grey.shade600,
           width: isSelected ? 2 : 1,
         ),
@@ -1412,7 +1294,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
           if (isSelected)
             BoxShadow(
               // 선택된 상태에서 각 경로 타입별 그림자 색상
-              color: _getPathShadowColor(path.type),
+              color: PathColorScheme.pathShadow(path.type),
               blurRadius: 2,
               offset: const Offset(0, 1),
             ),
@@ -1891,72 +1773,6 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
     }
   }
 
-  /// 노드 배경색 계산
-  Color _getNodeBackgroundColor(
-    bool isSelected,
-    bool isLastNode,
-    bool isSecondNode,
-    PathColorScheme colorScheme,
-  ) {
-    if (isLastNode) {
-      return isSelected
-          ? colorScheme.nodeBackground.withValues(alpha: 0.3)
-          : Colors.grey.shade50;
-    }
-
-    if (isSecondNode) {
-      return isSelected
-          ? _getDarkerColor(colorScheme.nodeBackground)
-          : Colors.grey.shade300;
-    }
-
-    return isSelected ? colorScheme.nodeBackground : Colors.grey.shade100;
-  }
-
-  /// 노드 테두리색 계산
-  Color _getNodeBorderColor(
-    bool isSelected,
-    bool isLastNode,
-    bool isSecondNode,
-    PathColorScheme colorScheme,
-  ) {
-    if (isLastNode) {
-      return isSelected
-          ? colorScheme.nodeBorder.withValues(alpha: 0.3)
-          : Colors.grey.shade300;
-    }
-
-    if (isSecondNode) {
-      return isSelected
-          ? _getDarkerColor(colorScheme.nodeBorder)
-          : Colors.grey.shade500;
-    }
-
-    return isSelected ? colorScheme.nodeBorder : Colors.grey.shade400;
-  }
-
-  /// 노드 텍스트 색상 계산
-  Color _getNodeTextColor(
-    bool isSelected,
-    bool isLastNode,
-    bool isSecondNode,
-    PathColorScheme colorScheme,
-  ) {
-    if (isLastNode) {
-      return isSelected
-          ? colorScheme.nodeText.withValues(alpha: 0.4)
-          : Colors.grey.shade400;
-    }
-
-    if (isSecondNode) {
-      return isSelected
-          ? _getDarkerColor(colorScheme.nodeText)
-          : Colors.grey.shade800;
-    }
-
-    return isSelected ? colorScheme.nodeText : Colors.grey.shade600;
-  }
-
   /// 노드 컨테이너 구성 (공통)
   Widget _buildNodeContainer(
     ExchangeNode node,
@@ -1986,20 +1802,18 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
               ), // 4,2 → 3,1로 축소
               decoration: BoxDecoration(
                 // 노드 타입별 배경색 적용
-                color: _getNodeBackgroundColor(
+                color: colorScheme.backgroundFor(
                   isSelected,
                   isLastNode,
                   isSecondNode,
-                  colorScheme,
                 ),
                 borderRadius: BorderRadius.circular(3),
                 border: Border.all(
                   // 노드 타입별 테두리색 적용
-                  color: _getNodeBorderColor(
+                  color: colorScheme.borderFor(
                     isSelected,
                     isLastNode,
                     isSecondNode,
-                    colorScheme,
                   ),
                   width: isSelected ? 2 : 1,
                 ),
@@ -2019,11 +1833,10 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
                   fontSize: SidebarFontSizes.nodeText,
                   fontWeight: FontWeight.w500,
                   // 노드 타입별 텍스트 색상 적용
-                  color: _getNodeTextColor(
+                  color: colorScheme.textFor(
                     isSelected,
                     isLastNode,
                     isSecondNode,
-                    colorScheme,
                   ),
                 ),
                 textAlign: TextAlign.center,
@@ -2035,66 +1848,4 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
     );
   }
 
-  /// 색상을 진하게 만드는 헬퍼 메서드 (투명도 변경 없이)
-  Color _getDarkerColor(Color originalColor) {
-    // HSL 색상 공간에서 명도(Lightness)를 낮춰서 진하게 만듦 (0.7 → 0.85로 조정하여 덜 진하게)
-    HSLColor hsl = HSLColor.fromColor(originalColor);
-    return hsl.withLightness((hsl.lightness * 0.85).clamp(0.0, 1.0)).toColor();
-  }
-
-  /// 경로 타입별 배경색 반환
-  Color _getPathBackgroundColor(ExchangePathType type) {
-    switch (type) {
-      case ExchangePathType.oneToOne:
-        return Colors.green.shade50;
-      case ExchangePathType.circular:
-        return Colors.purple.shade50;
-      case ExchangePathType.chain:
-        return Colors.deepOrange.shade50;
-      case ExchangePathType.supplement:
-        return Colors.teal.shade50;
-    }
-  }
-
-  /// 경로 타입별 테두리색 반환
-  Color _getPathBorderColor(ExchangePathType type) {
-    switch (type) {
-      case ExchangePathType.oneToOne:
-        return Colors.green.shade400;
-      case ExchangePathType.circular:
-        return Colors.purple.shade400;
-      case ExchangePathType.chain:
-        return Colors.deepOrange.shade400;
-      case ExchangePathType.supplement:
-        return Colors.teal.shade400;
-    }
-  }
-
-  /// 경로 타입별 그림자 색상 반환
-  Color _getPathShadowColor(ExchangePathType type) {
-    switch (type) {
-      case ExchangePathType.oneToOne:
-        return Colors.green.shade200;
-      case ExchangePathType.circular:
-        return Colors.purple.shade200;
-      case ExchangePathType.chain:
-        return Colors.deepOrange.shade200;
-      case ExchangePathType.supplement:
-        return Colors.teal.shade200;
-    }
-  }
-
-  /// 경로 타입별 이름 반환
-  String _getPathTypeName(ExchangePathType type) {
-    switch (type) {
-      case ExchangePathType.oneToOne:
-        return '1:1교체';
-      case ExchangePathType.circular:
-        return '순환교체';
-      case ExchangePathType.chain:
-        return '연쇄교체';
-      case ExchangePathType.supplement:
-        return '보강';
-    }
-  }
 }

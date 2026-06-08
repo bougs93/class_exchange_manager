@@ -11,6 +11,7 @@ import '../../providers/exchange_screen_provider.dart';
 import '../../providers/cell_selection_provider.dart';
 import '../../models/exchange_mode.dart';
 import '../../utils/timetable_data_source.dart';
+import 'timetable_grid/grid_column_locator.dart';
 import '../../utils/day_utils.dart';
 import 'timetable_grid/arrow_state_manager.dart';
 import '../../utils/logger.dart';
@@ -729,7 +730,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       }
 
       // 2. 교사명으로 행 인덱스 찾기
-      final teacherRowIndex = _findTeacherRowIndex(node.teacherName);
+      final locator = GridColumnLocator(widget.columns, widget.dataSource);
+      final teacherRowIndex = locator.findTeacherRowIndex(node.teacherName);
       if (teacherRowIndex == -1) {
         AppLogger.exchangeDebug('❌ [노드 스크롤] 교사를 찾을 수 없음: ${node.teacherName}');
         return;
@@ -737,7 +739,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
 
       // 3. 요일과 교시로 열 인덱스 계산
       final dayOfWeekInt = DayUtils.getDayNumber(node.day);
-      final columnIndex = _calculateColumnIndex(dayOfWeekInt, node.period);
+      final columnIndex = locator.calculateColumnIndex(dayOfWeekInt, node.period);
       if (columnIndex == -1) {
         AppLogger.exchangeDebug(
           '❌ [노드 스크롤] 열 인덱스 계산 실패: 요일=${node.day}, 교시=${node.period}',
@@ -874,217 +876,6 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       }
     } catch (e) {
       AppLogger.exchangeDebug('❌ [대체 스크롤] 실패: $e');
-    }
-  }
-
-  /// 교사명으로 행 인덱스 찾기
-  ///
-  /// [teacherName] 찾을 교사명
-  /// Returns 행 인덱스 (0부터 시작, 헤더 제외)
-  int _findTeacherRowIndex(String teacherName) {
-    final dataSource = widget.dataSource;
-    if (dataSource == null) return -1;
-
-    // 데이터 소스에서 교사명이 포함된 행 찾기
-    for (int i = 0; i < dataSource.rows.length; i++) {
-      final row = dataSource.rows[i];
-      // 첫 번째 셀(교사명)에서 교사명 확인
-      if (row.getCells().isNotEmpty) {
-        final cellValue = row.getCells().first.value?.toString() ?? '';
-        if (cellValue.contains(teacherName)) {
-          return i; // 헤더 행이 있다면 +1 필요할 수 있음
-        }
-      }
-    }
-    return -1;
-  }
-
-  /// 요일과 교시로 열 인덱스 계산
-  ///
-  /// [dayOfWeek] 요일 (1-5)
-  /// [period] 교시 (1-8)
-  /// Returns 열 인덱스 (0부터 시작)
-  int _calculateColumnIndex(int dayOfWeek, int period) {
-    try {
-      AppLogger.exchangeDebug('🔍 [열 계산] 시작: 요일=$dayOfWeek, 교시=$period');
-
-      // 실제 그리드 구조 분석
-      final columns = widget.columns;
-      AppLogger.exchangeDebug('🔍 [열 계산] 전체 열 개수: ${columns.length}');
-
-      // 첫 번째 열이 교사명 열인지 확인
-      bool hasTeacherColumn = false;
-      if (columns.isNotEmpty) {
-        final firstColumn = columns.first;
-        hasTeacherColumn =
-            firstColumn.columnName.contains('교사') ||
-            firstColumn.columnName.contains('선생님') ||
-            firstColumn.columnName.contains('Teacher') ||
-            firstColumn.columnName.toLowerCase().contains('teacher');
-        AppLogger.exchangeDebug(
-          '🔍 [열 계산] 교사명 열 존재: $hasTeacherColumn (${firstColumn.columnName})',
-        );
-      }
-
-      // 교사명 열이 있다면 그 다음부터 시작
-      int startColumnIndex = hasTeacherColumn ? 1 : 0;
-
-      // 🆕 실제 그리드 구조 분석하여 요일별 교시 수 계산
-      final actualDataColumns = columns.length - startColumnIndex;
-      AppLogger.exchangeDebug('🔍 [열 계산] 실제 데이터 열 개수: $actualDataColumns');
-
-      // 요일별 교시 수 계산 (실제 구조에 맞게)
-      final periodsPerDay = actualDataColumns ~/ 5; // 5요일로 나누기
-      AppLogger.exchangeDebug('🔍 [열 계산] 요일당 교시 수: $periodsPerDay');
-
-      // 🆕 더 정확한 계산 방식
-      // 실제 그리드에서 요일별로 몇 개의 열이 있는지 확인
-      int columnIndex;
-
-      if (periodsPerDay > 0) {
-        // 일반적인 경우: 요일별로 일정한 교시 수
-        columnIndex =
-            startColumnIndex + (dayOfWeek - 1) * periodsPerDay + (period - 1);
-      } else {
-        // 🆕 특수한 경우: 실제 열 구조를 분석
-        AppLogger.exchangeDebug('🔍 [열 계산] 특수 구조 감지 - 실제 열 분석 시작');
-        columnIndex = _analyzeActualColumnStructure(
-          dayOfWeek,
-          period,
-          startColumnIndex,
-        );
-      }
-
-      AppLogger.exchangeDebug(
-        '🔍 [열 계산] 계산 결과: 시작열=$startColumnIndex, 요일당교시=$periodsPerDay, 최종열인덱스=$columnIndex',
-      );
-
-      // 범위 검증
-      if (columnIndex < 0 || columnIndex >= columns.length) {
-        AppLogger.exchangeDebug(
-          '❌ [열 계산] 범위 초과: $columnIndex (최대: ${columns.length - 1})',
-        );
-
-        // 🆕 범위 초과 시 대안 계산 시도
-        AppLogger.exchangeDebug('🔄 [열 계산] 대안 계산 시도');
-        columnIndex = _tryAlternativeColumnCalculation(
-          dayOfWeek,
-          period,
-          startColumnIndex,
-          columns.length,
-        );
-
-        if (columnIndex == -1) {
-          AppLogger.exchangeDebug('❌ [열 계산] 모든 계산 방법 실패');
-          return -1;
-        }
-      }
-
-      AppLogger.exchangeDebug('✅ [열 계산] 성공: $columnIndex');
-      return columnIndex;
-    } catch (e) {
-      AppLogger.exchangeDebug('❌ [열 계산] 오류: $e');
-      return -1;
-    }
-  }
-
-  /// 🆕 실제 열 구조 분석
-  /// 그리드의 실제 구조를 분석하여 정확한 열 인덱스 계산
-  int _analyzeActualColumnStructure(
-    int dayOfWeek,
-    int period,
-    int startColumnIndex,
-  ) {
-    try {
-      AppLogger.exchangeDebug('🔍 [구조 분석] 실제 열 구조 분석 시작');
-
-      // 열 이름들을 분석하여 패턴 파악
-      final columns = widget.columns;
-      List<String> columnNames = [];
-
-      for (int i = startColumnIndex; i < columns.length; i++) {
-        columnNames.add(columns[i].columnName);
-      }
-
-      AppLogger.exchangeDebug('🔍 [구조 분석] 데이터 열 이름들: $columnNames');
-
-      // 요일별로 그룹화 시도
-      Map<String, List<int>> dayGroups = {};
-      for (int i = 0; i < columnNames.length; i++) {
-        final columnName = columnNames[i];
-        String? dayName = _extractDayFromColumnName(columnName);
-        if (dayName != null) {
-          dayGroups.putIfAbsent(dayName, () => []).add(i + startColumnIndex);
-        }
-      }
-
-      AppLogger.exchangeDebug('🔍 [구조 분석] 요일별 그룹: $dayGroups');
-
-      // 해당 요일의 열들 찾기
-      final dayName = DayUtils.getDayName(dayOfWeek);
-      final dayColumns = dayGroups[dayName] ?? [];
-
-      if (dayColumns.isNotEmpty && period <= dayColumns.length) {
-        final columnIndex = dayColumns[period - 1];
-        AppLogger.exchangeDebug(
-          '✅ [구조 분석] 성공: $dayName $period교시 = 열 $columnIndex',
-        );
-        return columnIndex;
-      }
-
-      AppLogger.exchangeDebug('❌ [구조 분석] 해당 요일/교시를 찾을 수 없음');
-      return -1;
-    } catch (e) {
-      AppLogger.exchangeDebug('❌ [구조 분석] 오류: $e');
-      return -1;
-    }
-  }
-
-  /// 🆕 열 이름에서 요일 추출
-  String? _extractDayFromColumnName(String columnName) {
-    final dayNames = ['월', '화', '수', '목', '금'];
-    for (String day in dayNames) {
-      if (columnName.contains(day)) {
-        return day;
-      }
-    }
-    return null;
-  }
-
-  /// 🆕 대안 열 계산 방법
-  /// 기본 계산이 실패했을 때 시도하는 대안 방법
-  int _tryAlternativeColumnCalculation(
-    int dayOfWeek,
-    int period,
-    int startColumnIndex,
-    int totalColumns,
-  ) {
-    try {
-      AppLogger.exchangeDebug('🔄 [대안 계산] 대안 방법 시도');
-
-      // 방법 1: 단순한 선형 계산 (교시별로 연속 배치)
-      final linearIndex = startColumnIndex + (dayOfWeek - 1) * 8 + (period - 1);
-      if (linearIndex < totalColumns) {
-        AppLogger.exchangeDebug('✅ [대안 계산] 선형 계산 성공: $linearIndex');
-        return linearIndex;
-      }
-
-      // 방법 2: 교시 중심 계산 (요일별로 교시가 연속 배치)
-      final periodBasedIndex =
-          startColumnIndex + (period - 1) * 5 + (dayOfWeek - 1);
-      if (periodBasedIndex < totalColumns) {
-        AppLogger.exchangeDebug('✅ [대안 계산] 교시 중심 계산 성공: $periodBasedIndex');
-        return periodBasedIndex;
-      }
-
-      // 방법 3: 최소한의 안전한 인덱스 반환
-      final safeIndex = (startColumnIndex + (dayOfWeek - 1) * 6 + (period - 1))
-          .clamp(startColumnIndex, totalColumns - 1);
-      AppLogger.exchangeDebug('⚠️ [대안 계산] 안전한 인덱스 사용: $safeIndex');
-      return safeIndex;
-    } catch (e) {
-      AppLogger.exchangeDebug('❌ [대안 계산] 오류: $e');
-      return -1;
     }
   }
 
