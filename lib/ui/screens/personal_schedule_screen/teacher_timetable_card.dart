@@ -96,73 +96,96 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
 
     final theme = Theme.of(context);
     final highlightColor = theme.colorScheme.primary;
+    final borderRadius = BorderRadius.circular(
+      TeacherCardGridConstants.cardBorderRadius,
+    );
+    final cardShape = RoundedRectangleBorder(
+      borderRadius: borderRadius,
+      side: widget.isHighlighted
+          ? BorderSide(color: highlightColor, width: 1.5)
+          : BorderSide(color: Colors.grey.shade300),
+    );
 
-    return RepaintBoundary(
-      key: _captureKey,
-      child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(
-            TeacherCardGridConstants.cardBorderRadius,
+    // 그림자는 RepaintBoundary 밖 — 이미지 복사 시 검정 테두리(그림자) 제외
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: borderRadius,
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1A000000),
+            blurRadius: 4,
+            offset: Offset(0, 2),
           ),
-          side: widget.isHighlighted
-              ? BorderSide(color: highlightColor, width: 1.5)
-              : BorderSide(color: Colors.grey.shade300),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: SizedBox(
-          width: cardWidth,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildCardHeader(context, highlightColor),
-              SizedBox(
-                height: gridHeight,
-                child: Theme(
-                data: theme.copyWith(
-                  textTheme: theme.textTheme.copyWith(
-                    bodyMedium: TextStyle(
-                      fontSize:
-                          GridLayoutConstants.baseFontSize * widget.zoomFactor,
+        ],
+      ),
+      child: RepaintBoundary(
+        key: _captureKey,
+        child: Material(
+          color: Colors.white,
+          elevation: 0,
+          surfaceTintColor: Colors.transparent,
+          shape: cardShape,
+          clipBehavior: Clip.antiAlias,
+          child: SizedBox(
+            width: cardWidth,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildCardHeader(context, highlightColor),
+                SizedBox(
+                  height: gridHeight,
+                  child: Theme(
+                    data: theme.copyWith(
+                      textTheme: theme.textTheme.copyWith(
+                        bodyMedium: TextStyle(
+                          fontSize:
+                              GridLayoutConstants.baseFontSize *
+                              widget.zoomFactor,
+                        ),
+                        bodySmall: TextStyle(
+                          fontSize:
+                              GridLayoutConstants.baseFontSize *
+                              widget.zoomFactor,
+                        ),
+                        titleMedium: TextStyle(
+                          fontSize:
+                              GridLayoutConstants.baseFontSize *
+                              widget.zoomFactor,
+                        ),
+                        labelMedium: TextStyle(
+                          fontSize:
+                              GridLayoutConstants.baseFontSize *
+                              widget.zoomFactor,
+                        ),
+                        labelLarge: TextStyle(
+                          fontSize:
+                              GridLayoutConstants.baseFontSize *
+                              widget.zoomFactor,
+                        ),
+                        labelSmall: TextStyle(
+                          fontSize:
+                              GridLayoutConstants.baseFontSize *
+                              widget.zoomFactor,
+                        ),
+                      ),
                     ),
-                    bodySmall: TextStyle(
-                      fontSize:
-                          GridLayoutConstants.baseFontSize * widget.zoomFactor,
-                    ),
-                    titleMedium: TextStyle(
-                      fontSize:
-                          GridLayoutConstants.baseFontSize * widget.zoomFactor,
-                    ),
-                    labelMedium: TextStyle(
-                      fontSize:
-                          GridLayoutConstants.baseFontSize * widget.zoomFactor,
-                    ),
-                    labelLarge: TextStyle(
-                      fontSize:
-                          GridLayoutConstants.baseFontSize * widget.zoomFactor,
-                    ),
-                    labelSmall: TextStyle(
-                      fontSize:
-                          GridLayoutConstants.baseFontSize * widget.zoomFactor,
+                    child: SfDataGrid(
+                      source: _dataSource!,
+                      columns: scaledColumns,
+                      stackedHeaderRows: scaledStackedHeaders,
+                      gridLinesVisibility: GridLinesVisibility.both,
+                      headerGridLinesVisibility: GridLinesVisibility.both,
+                      allowSorting: false,
+                      allowTriStateSorting: false,
+                      columnWidthMode: ColumnWidthMode.none,
+                      headerRowHeight: headerHeight,
+                      rowHeight: rowHeight,
                     ),
                   ),
                 ),
-                child: SfDataGrid(
-                  source: _dataSource!,
-                  columns: scaledColumns,
-                  stackedHeaderRows: scaledStackedHeaders,
-                  gridLinesVisibility: GridLinesVisibility.both,
-                  headerGridLinesVisibility: GridLinesVisibility.both,
-                  allowSorting: false,
-                  allowTriStateSorting: false,
-                  columnWidthMode: ColumnWidthMode.none,
-                  headerRowHeight: headerHeight,
-                  rowHeight: rowHeight,
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
