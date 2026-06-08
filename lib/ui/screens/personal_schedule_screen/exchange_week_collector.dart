@@ -30,42 +30,41 @@ class ExchangeWeekCollector {
     return sorted;
   }
 
-  /// 칩 라벨 맵 생성 — 같은 달 교체 주 순서로 "6월1주", "6월2주" …
+  /// 칩 라벨 맵 생성 — 해당 월의 몇 번째 월요일 주인지 표시 (예: 6월1주, 6월5주)
   static Map<String, String> buildChipLabels(List<DateTime> sortedExchangeWeeks) {
     final labels = <String, String>{};
-    final monthOrdinal = <String, int>{};
-
     for (final week in sortedExchangeWeeks) {
       final normalized = _normalizeDate(week);
-      final monthKey = '${normalized.year}-${normalized.month}';
-      monthOrdinal[monthKey] = (monthOrdinal[monthKey] ?? 0) + 1;
-      labels[_dateKey(normalized)] =
-          '${normalized.month}월${monthOrdinal[monthKey]}주';
+      labels[_dateKey(normalized)] = monthWeekLabel(normalized);
     }
     return labels;
   }
 
-  /// 칩 라벨 — [sortedExchangeWeeks]에서 같은 달 몇 번째 교체 주인지 표시
+  /// 칩 라벨 — 주의 월요일이 속한 달에서 몇 번째 월요일 주인지 표시
   static String chipLabel(
     DateTime weekMonday,
     List<DateTime> sortedExchangeWeeks,
   ) {
-    final labels = buildChipLabels(sortedExchangeWeeks);
-    final key = _dateKey(weekMonday);
-    if (labels.containsKey(key)) {
-      return labels[key]!;
-    }
+    return monthWeekLabel(weekMonday);
+  }
 
-    // 교체 주 목록에 없을 때 — 해당 월의 몇 번째 월요일인지로 계산
+  /// 해당 월에서 몇 번째 월요일인지 (1~5) — "6월5주" 등 라벨용
+  static int mondayIndexInMonth(DateTime weekMonday) {
     final normalized = _normalizeDate(weekMonday);
-    var weekNumber = 0;
+    var index = 0;
     for (int day = 1; day <= normalized.day; day++) {
       if (DateTime(normalized.year, normalized.month, day).weekday ==
           DateTime.monday) {
-        weekNumber++;
+        index++;
       }
     }
-    return '${normalized.month}월$weekNumber주';
+    return index;
+  }
+
+  /// "6월1주" 형식 라벨 (월요일 기준 주의 달·주차)
+  static String monthWeekLabel(DateTime weekMonday) {
+    final normalized = _normalizeDate(weekMonday);
+    return '${normalized.month}월${mondayIndexInMonth(normalized)}주';
   }
 
   /// 현재 주 바로 이전 교체 주
@@ -105,6 +104,36 @@ class ExchangeWeekCollector {
 
   static bool isSameWeek(DateTime a, DateTime b) {
     return weekKey(a) == weekKey(b);
+  }
+
+  /// 결강일·교체일 변경 감지용 지문
+  static String planDatesFingerprint(List<SubstitutionPlanData> planData) {
+    if (planData.isEmpty) return '';
+
+    final parts = planData
+        .map(
+          (plan) =>
+              '${plan.exchangeId}|${plan.absenceDate}|${plan.substitutionDate}',
+        )
+        .toList()
+      ..sort();
+    return parts.join(';');
+  }
+
+  /// planData 기준 표시할 주(월요일): 교체 주 첫 번째, 없으면 이번 주
+  static DateTime defaultWeekMonday(
+    List<SubstitutionPlanData> planData, {
+    DateTime? referenceDate,
+  }) {
+    final weeks = collectWeekMondays(
+      planData,
+      referenceDate: referenceDate,
+    );
+    if (weeks.isNotEmpty) {
+      final first = weeks.first;
+      return DateTime(first.year, first.month, first.day);
+    }
+    return WeekDateCalculator.getThisWeekMonday();
   }
 
   /// 주(월요일) DateTime을 맵 키 문자열로 변환

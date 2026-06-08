@@ -600,45 +600,40 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
 
   /// AppBar — ◀ yyyy.mm.dd ~ yyyy.mm.dd ▶ 주간 이동
   Widget _buildWeekDateRangeSelector(PersonalScheduleState scheduleState) {
-    return SizedBox(
-      width: 200,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left, size: 20),
-            onPressed: () {
-              ref.read(personalScheduleProvider.notifier).moveToPreviousWeek();
-            },
-            tooltip: '이전 주',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 24, minHeight: 28),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.chevron_left, size: 20),
+          onPressed: () {
+            ref.read(personalScheduleProvider.notifier).moveToPreviousWeek();
+          },
+          tooltip: '이전 주',
+          padding: EdgeInsets.zero,
+          visualDensity: VisualDensity.compact,
+          constraints: const BoxConstraints(minWidth: 20, minHeight: 28),
+        ),
+        Text(
+          WeekDateCalculator.formatWeekRange(
+            scheduleState.currentWeekMonday,
           ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: Text(
-              WeekDateCalculator.formatWeekRange(
-                scheduleState.currentWeekMonday,
-              ),
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
           ),
-          const SizedBox(width: 4),
-          IconButton(
-            icon: const Icon(Icons.chevron_right, size: 20),
-            onPressed: () {
-              ref.read(personalScheduleProvider.notifier).moveToNextWeek();
-            },
-            tooltip: '다음 주',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 24, minHeight: 28),
-          ),
-        ],
-      ),
+          maxLines: 1,
+        ),
+        IconButton(
+          icon: const Icon(Icons.chevron_right, size: 20),
+          onPressed: () {
+            ref.read(personalScheduleProvider.notifier).moveToNextWeek();
+          },
+          tooltip: '다음 주',
+          padding: EdgeInsets.zero,
+          visualDensity: VisualDensity.compact,
+          constraints: const BoxConstraints(minWidth: 20, minHeight: 28),
+        ),
+      ],
     );
   }
 

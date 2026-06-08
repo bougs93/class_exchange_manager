@@ -169,7 +169,11 @@ class InfoScreen extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildSectionHeader(theme, Icons.contact_support_outlined, ' 정보'),
+                _buildSectionHeader(
+                  theme,
+                  Icons.contact_support_outlined,
+                  'Noah Lab 정보',
+                ),
                 const SizedBox(height: 6),
                 _buildSectionContentAsList(AppInfo.contact.trim()),
               ],

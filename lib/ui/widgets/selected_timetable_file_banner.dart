@@ -29,10 +29,7 @@ class SelectedTimetableFileBanner extends StatelessWidget {
 
     final name = displayFileName?.trim();
     if (name != null && name.isNotEmpty) {
-      return _buildFileBanner(
-        name,
-        subtitle: '저장된 시간표 데이터(JSON)에서 불러옴',
-      );
+      return _buildFileBanner(name, subtitle: '저장된 시간표 데이터에서 불러옴');
     }
 
     return _buildNoFileBanner();
@@ -89,10 +86,7 @@ class SelectedTimetableFileBanner extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.blue.shade600,
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.blue.shade600),
                   ),
                 ],
               ],

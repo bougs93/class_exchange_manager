@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../ui/screens/personal_schedule_screen/exchange_week_collector.dart';
 import '../utils/week_date_calculator.dart';
 import '../providers/exchange_screen_provider.dart';
+import '../providers/substitution_plan_viewmodel.dart';
 import '../services/excel_service.dart';
 
 /// 개인 시간표 상태 클래스
@@ -39,16 +41,47 @@ class PersonalScheduleState {
   }
 
   /// 현재 주의 날짜 리스트 가져오기
-  List<DateTime> get weekDates => WeekDateCalculator.getWeekDates(currentWeekMonday);
+  List<DateTime> get weekDates =>
+      WeekDateCalculator.getWeekDates(currentWeekMonday);
 }
 
 /// 개인 시간표 상태 관리 Notifier
+///
+/// 결보강 planData의 결강일·교체일이 바뀌면 교체 주를 자동 맞춥니다.
+/// - 교체 주 있음 → 첫 번째(가장 이른 주)
+/// - 교체 주 없음 → 이번 주
 class PersonalScheduleNotifier extends StateNotifier<PersonalScheduleState> {
-  PersonalScheduleNotifier() : super(
-    PersonalScheduleState(
-      currentWeekMonday: WeekDateCalculator.getThisWeekMonday(),
-    ),
-  );
+  PersonalScheduleNotifier(this._ref)
+      : super(
+          PersonalScheduleState(
+            currentWeekMonday: WeekDateCalculator.getThisWeekMonday(),
+          ),
+        ) {
+    _ref.listen<String>(
+      substitutionPlanViewModelProvider.select(
+        (vm) => ExchangeWeekCollector.planDatesFingerprint(vm.planData),
+      ),
+      (previous, next) {
+        if (previous == null || previous == next) return;
+        _syncWeekFromPlanData();
+      },
+    );
+  }
+
+  final Ref _ref;
+
+  /// planData 기준으로 교체 주 동기화
+  void _syncWeekFromPlanData() {
+    final planData = _ref.read(substitutionPlanViewModelProvider).planData;
+    final target = ExchangeWeekCollector.defaultWeekMonday(
+      planData,
+      referenceDate: state.currentWeekMonday,
+    );
+    if (ExchangeWeekCollector.isSameWeek(target, state.currentWeekMonday)) {
+      return;
+    }
+    state = state.copyWith(currentWeekMonday: target);
+  }
 
   /// 교사명 설정
   void setTeacherName(String? teacherName) {
@@ -89,13 +122,12 @@ class PersonalScheduleNotifier extends StateNotifier<PersonalScheduleState> {
 /// 개인 시간표 상태 Provider
 final personalScheduleProvider =
     StateNotifierProvider<PersonalScheduleNotifier, PersonalScheduleState>(
-  (ref) => PersonalScheduleNotifier(),
+  (ref) => PersonalScheduleNotifier(ref),
 );
 
 /// 개인 시간표 데이터 Provider
-/// 
+///
 /// ExchangeScreenProvider의 timetableData를 기반으로 특정 교사의 시간표를 제공합니다.
 final personalTimetableDataProvider = Provider<TimetableData?>((ref) {
   return ref.watch(exchangeScreenProvider).timetableData;
 });
-

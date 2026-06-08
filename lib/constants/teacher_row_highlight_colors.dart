@@ -7,21 +7,25 @@ import 'package:flutter/material.dart';
 class TeacherRowHighlightColors {
   TeacherRowHighlightColors._();
 
-  /// 기본 하이라이트 — Teal 100 (교체 범례와 구분되는 청록)
-  static const Color defaultColor = Color(0xFFB2DFDB);
+  /// 기본 하이라이트 — Teal 50 (교체 범례와 구분되는 연한 청록)
+  static const Color defaultColor = Color(0xFFE0F2F1);
 
-  /// 홈/설정에서 선택 가능한 프리셋
+  /// 홈/설정에서 선택 가능한 프리셋 (연한 파스텔 톤)
   static const List<Color> presets = [
+    Color(0xFFE0F2F1), // 연청록 (Teal 50)
     Color(0xFFB2DFDB), // 청록 (Teal 100)
-    Color(0xFF80CBC4), // 진청록 (Teal 200)
-    Color(0xFFD7CCC8), // Warm grey (Brown 100)
-    Color(0xFFBCAAA4), // Taupe (Brown 200)
-    Color(0xFFC5CAE9), // 연남보라 (Indigo 100)
-    Color(0xFFCFD8DC), // Blue grey 100
+    Color(0xFFEFEBE9), // 연웜그레이 (Brown 50)
+    Color(0xFFD7CCC8), // 웜그레이 (Brown 100)
+    Color(0xFFE8EAF6), // 연남보라 (Indigo 50)
+    Color(0xFFECEFF1), // 연블루그레이 (Blue grey 50)
   ];
 
-  /// 이전 버전 프리셋 (교체 화면 색상과 유사하여 더 이상 사용하지 않음)
+  /// 이전 버전 프리셋 (교체 화면 색상·진한 하이라이트 — 기본 연한 색으로 대체)
   static const Set<int> _legacyPresetArgb = {
+    0xFF80CBC4, // 구 Teal 200 — 현재 팔레트보다 진함
+    0xFFBCAAA4, // 구 Brown 200
+    0xFFC5CAE9, // 구 Indigo 100
+    0xFFCFD8DC, // 구 Blue grey 100
     0xFFE3F2FD, // 연파랑 — 채워진 수업(0xFF90C7F5)과 유사
     0xFFE8F5E9, // 연녹 — 교사명 선택(0xFFC8E6C9)과 유사
     0xFFFFF9C4, // 연노랑 — 선택한 수업(0xFFFFEB3B)과 유사
