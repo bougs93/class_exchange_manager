@@ -2,7 +2,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
+import '../../../../../constants/document_usage_hints.dart';
+import '../../../../../models/document_type.dart';
 import '../../../../../providers/substitution_plan_viewmodel.dart';
+import '../../../../widgets/document_toolbar_layout.dart';
+import '../../../../widgets/document_usage_hint_bar.dart';
+import '../../../../widgets/timetable_grid/grid_header_widgets.dart';
 import '../../../../../utils/pdf_field_config.dart';
 import '../../../../../utils/date_format_utils.dart';
 import '../../../../../services/pdf_export_service.dart';
@@ -445,6 +450,11 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            DocumentUsageHintBar(
+              message: DocumentUsageHints.fileExport,
+              accentColor: DocumentType.fileExport.color,
+            ),
+            DocumentToolbarLayout.hintToToolbarSpacer,
             // PDF 출력 버튼 (콘텐츠 영역 최상단)
             _buildPdfOutputButton(),
 
@@ -521,23 +531,23 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
     );
   }
 
-  /// PDF 출력 버튼
+  /// PDF 출력 버튼 (문서 출력 탭 툴바와 동일 높이·아이콘 크기)
   Widget _buildPdfOutputButton() {
+    final accentColor = Colors.purple;
     return SizedBox(
       width: double.infinity,
-      child: OutlinedButton.icon(
+      child: CompactToolbarLabelButton(
         onPressed: _handlePreview,
-        icon: const Icon(Icons.picture_as_pdf, size: 20),
-        label: const Text(
-          'PDF 출력 · 인쇄',
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-        ),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.purple.shade600,
-          side: BorderSide(color: Colors.purple.shade600),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
+        icon: Icons.picture_as_pdf,
+        label: 'PDF 출력 · 인쇄',
+        tooltip: 'PDF 출력 · 인쇄',
+        backgroundColor: accentColor.shade50,
+        foregroundColor: accentColor.shade600,
+        borderColor: accentColor.shade600,
+        width: double.infinity,
+        height: DocumentToolbarLayout.buttonHeight,
+        fontSize: DocumentToolbarLayout.buttonFontSize,
+        iconSize: DocumentToolbarLayout.buttonIconSize,
       ),
     );
   }
@@ -547,13 +557,8 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
     if (!mounted) return;
 
     try {
-      // 1. 데이터 수집
+      // 1. 데이터 수집 (비어 있어도 템플릿·입력란 기준으로 미리보기 가능)
       final planData = ref.read(substitutionPlanViewModelProvider).planData;
-      if (planData.isEmpty) {
-        if (!mounted) return;
-        _showSnackBar('미리볼 데이터가 없습니다.', Colors.orange);
-        return;
-      }
 
       // 2. 임시 파일 경로 생성
       final tempDir = await getTemporaryDirectory();

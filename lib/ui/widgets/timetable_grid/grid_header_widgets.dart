@@ -17,6 +17,9 @@ class CompactToolbarIconButton extends StatelessWidget {
   final Color borderColor;
   final double iconSize;
 
+  /// 버튼 정사각형 크기 (기본 28px)
+  final double size;
+
   const CompactToolbarIconButton({
     super.key,
     required this.onPressed,
@@ -26,6 +29,7 @@ class CompactToolbarIconButton extends StatelessWidget {
     required this.foregroundColor,
     required this.borderColor,
     this.iconSize = 16,
+    this.size = _kCompactToolbarHeight,
   });
 
   @override
@@ -49,8 +53,8 @@ class CompactToolbarIconButton extends StatelessWidget {
           onTap: onPressed,
           borderRadius: BorderRadius.circular(5),
           child: SizedBox(
-            width: _kCompactToolbarHeight,
-            height: _kCompactToolbarHeight,
+            width: size,
+            height: size,
             child: Icon(icon, size: iconSize, color: effectiveForeground),
           ),
         ),

@@ -20,7 +20,7 @@ class AppInfo {
   static const String programName = '수업 교체 도우미';
 
   /// 앱 버전 (이 값만 수정 — pubspec.yaml은 tool/bump_version.dart가 자동 동기화)
-  static const String version = '0.9.15';
+  static const String version = '0.9.16';
 
   // 소속
   static const String affiliation = 'Noah Lab 후원';

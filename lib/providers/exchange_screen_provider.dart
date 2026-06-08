@@ -14,6 +14,8 @@ import '../utils/logger.dart';
 /// ExchangeScreen 상태 클래스
 class ExchangeScreenState {
   final File? selectedFile;
+  /// JSON 캐시 로드 시 표시용 파일명 (로컬 xlsm 경로가 없을 때 metadata.fileName)
+  final String? timetableFileName;
   final TimetableData? timetableData;
   final TimetableDataSource? dataSource;
   final List<GridColumn> columns;
@@ -46,6 +48,7 @@ class ExchangeScreenState {
 
   const ExchangeScreenState({
     this.selectedFile,
+    this.timetableFileName,
     this.timetableData,
     this.dataSource,
     this.columns = const [],
@@ -70,8 +73,15 @@ class ExchangeScreenState {
     this.fileLoadId = 0, // 기본값: 0
   });
 
+  /// 시간표가 로드된 상태인지 (로컬 파일 또는 JSON 캐시)
+  bool get hasLoadedTimetable =>
+      timetableData != null &&
+      (selectedFile != null ||
+          (timetableFileName != null && timetableFileName!.isNotEmpty));
+
   ExchangeScreenState copyWith({
     File? Function()? selectedFile,
+    String? Function()? timetableFileName,
     TimetableData? Function()? timetableData,
     TimetableDataSource? Function()? dataSource,
     List<GridColumn>? columns,
@@ -97,6 +107,9 @@ class ExchangeScreenState {
   }) {
     return ExchangeScreenState(
       selectedFile: selectedFile != null ? selectedFile() : this.selectedFile,
+      timetableFileName: timetableFileName != null
+          ? timetableFileName()
+          : this.timetableFileName,
       timetableData:
           timetableData != null ? timetableData() : this.timetableData,
       dataSource: dataSource != null ? dataSource() : this.dataSource,
@@ -129,7 +142,16 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
   ExchangeScreenNotifier() : super(const ExchangeScreenState());
 
   void setSelectedFile(File? file) {
-    state = state.copyWith(selectedFile: () => file);
+    state = state.copyWith(
+      selectedFile: () => file,
+      timetableFileName: () =>
+          file?.path.split(Platform.pathSeparator).last,
+    );
+  }
+
+  /// JSON 캐시 등 로컬 xlsm 없이 로드된 시간표의 표시용 파일명
+  void setTimetableFileName(String? name) {
+    state = state.copyWith(timetableFileName: () => name);
   }
 
   void setTimetableData(TimetableData? data) {
@@ -153,8 +175,9 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
     
     state = state.copyWith(
       timetableData: () => data,
+      timetableFileName: data == null ? () => null : null,
       // 파일 로드 시 fileLoadId 증가 (SfDataGrid 재생성용)
-      fileLoadId: state.fileLoadId + 1,
+      fileLoadId: data != null ? state.fileLoadId + 1 : state.fileLoadId,
     );
   }
 

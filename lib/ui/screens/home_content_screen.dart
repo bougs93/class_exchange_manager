@@ -443,6 +443,8 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
     final theme = Theme.of(context);
     final screenState = ref.watch(exchangeScreenProvider);
     final selectedFile = screenState.selectedFile;
+    final timetableFileName = screenState.timetableFileName;
+    final hasLoadedTimetable = screenState.hasLoadedTimetable;
     final isLoading = screenState.isLoading;
 
     return Container(
@@ -453,7 +455,13 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 시간표 파일 선택 카드
-            _buildFileSelectionCard(theme, selectedFile, isLoading),
+            _buildFileSelectionCard(
+              theme,
+              selectedFile,
+              timetableFileName,
+              hasLoadedTimetable,
+              isLoading,
+            ),
             const SizedBox(height: 16),
 
             // 기본 정보 카드 (교사명·학교명)
@@ -489,6 +497,8 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
   Widget _buildFileSelectionCard(
     ThemeData theme,
     File? selectedFile,
+    String? timetableFileName,
+    bool hasLoadedTimetable,
     bool isLoading,
   ) {
     return Container(
@@ -527,7 +537,10 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
 
           // 교체 화면과 동일한 파란색 파일 배너 (엑셀 파일명 표시)
           const SizedBox(height: 12),
-          SelectedTimetableFileBanner(selectedFile: selectedFile),
+          SelectedTimetableFileBanner(
+            selectedFile: selectedFile,
+            displayFileName: timetableFileName,
+          ),
 
           // 하단: 파일 관리 버튼들
           const SizedBox(height: 16),
@@ -550,13 +563,13 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
                             ),
                           )
                           : Icon(
-                            selectedFile == null
-                                ? Icons.upload_file
-                                : Icons.refresh,
+                            hasLoadedTimetable
+                                ? Icons.refresh
+                                : Icons.upload_file,
                           ),
-                  label: const Text(
-                    '시간표 파일 선택',
-                    style: TextStyle(
+                  label: Text(
+                    hasLoadedTimetable ? '다른 파일 선택' : '시간표 파일 선택',
+                    style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -572,8 +585,8 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen> {
                 ),
               ),
 
-              // 파일 해제 버튼 (파일이 선택된 경우에만 표시)
-              if (selectedFile != null) ...[
+              // 파일 해제 버튼 (시간표가 로드된 경우 표시)
+              if (hasLoadedTimetable) ...[
                 const SizedBox(width: 12),
                 OutlinedButton.icon(
                   onPressed: isLoading ? null : _clearSelectedFile,

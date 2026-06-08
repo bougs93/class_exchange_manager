@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../constants/document_usage_hints.dart';
 import '../../models/notice_message.dart';
 import '../../providers/notice_message_provider.dart';
-import 'exchange_control_panel.dart';
+import 'document_toolbar_layout.dart';
+import 'document_usage_hint_bar.dart';
 import 'timetable_grid/grid_header_widgets.dart';
 
 /// 안내 메시지 제어 패널 설정값
 class NoticeControlPanelConfig {
   static const double cardPadding = 1.0;
-  static const double contentPadding = 5.0;
-  static const double iconSize = 20.0;
+  static const double contentPadding = DocumentToolbarLayout.toolbarInset;
   static const double fontSize = 14.0;
 
   /// 안내 방식 버튼 고정 폭 (질문 / 교체 안내 / 수업 안내)
@@ -58,7 +59,7 @@ class NoticeControlPanel extends ConsumerWidget {
     final noticeNotifier = ref.read(noticeMessageProvider.notifier);
     final currentOption = _getCurrentMessageOption(noticeState);
     final optionButtons = _availableMessageOptionButtons();
-    const buttonHeight = kExchangeUnifiedToolbarHeight - 8;
+    const buttonHeight = DocumentToolbarLayout.buttonHeight;
 
     return Card(
       elevation: 1,
@@ -67,8 +68,14 @@ class NoticeControlPanel extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            DocumentUsageHintBar(
+              message: _usageHintMessage,
+              accentColor: refreshButtonColor ?? Colors.blue,
+              padded: true,
+            ),
+            DocumentToolbarLayout.hintToToolbarSpacer,
             Padding(
-              padding: const EdgeInsets.all(NoticeControlPanelConfig.contentPadding),
+              padding: DocumentToolbarLayout.toolbarPadding,
               child: Row(
                 children: [
                   // 새로고침 버튼 (날짜선택 화면과 동일한 CompactToolbarIconButton 스타일)
@@ -79,9 +86,10 @@ class NoticeControlPanel extends ConsumerWidget {
                     backgroundColor: _refreshColors.background,
                     foregroundColor: _refreshColors.foreground,
                     borderColor: _refreshColors.border,
-                    iconSize: kModeButtonIconSize,
+                    iconSize: DocumentToolbarLayout.buttonIconSize,
+                    size: buttonHeight,
                   ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: DocumentToolbarLayout.buttonGap),
 
                   // 공간 부족 시 아이콘만, 충분하면 고정 폭 라벨 버튼
                   Expanded(
@@ -117,15 +125,16 @@ class NoticeControlPanel extends ConsumerWidget {
                       },
                     ),
                   ),
-                  // 전체 복사 버튼 (오른쪽)
-                  IconButton(
+                  // 전체 복사 버튼 (오른쪽, 툴바 버튼과 동일 높이·아이콘 크기)
+                  CompactToolbarIconButton(
                     onPressed: () => _copyAllMessages(context, noticeState),
-                    icon: const Icon(Icons.copy, size: NoticeControlPanelConfig.iconSize),
+                    icon: Icons.copy,
                     tooltip: '전체 복사',
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.blue.shade50,
-                      foregroundColor: Colors.blue.shade700,
-                    ),
+                    backgroundColor: Colors.blue.shade100,
+                    foregroundColor: Colors.blue.shade700,
+                    borderColor: Colors.blue.shade300,
+                    iconSize: DocumentToolbarLayout.buttonIconSize,
+                    size: buttonHeight,
                   ),
                 ],
               ),
@@ -135,6 +144,12 @@ class NoticeControlPanel extends ConsumerWidget {
       ),
     );
   }
+
+  /// 메시지 타입별 사용 안내 문구
+  String get _usageHintMessage =>
+      messageType == NoticeMessageType.classNotice
+          ? DocumentUsageHints.classNotice
+          : DocumentUsageHints.teacherNotice;
 
   /// 메시지 타입별 표시할 안내 방식 버튼 (학급안내는 질문 제외)
   List<({MessageOption option, IconData icon})> _availableMessageOptionButtons() {
@@ -174,7 +189,8 @@ class NoticeControlPanel extends ConsumerWidget {
         backgroundColor: backgroundColor,
         foregroundColor: foregroundColor,
         borderColor: borderColor,
-        iconSize: kModeButtonIconSize,
+        iconSize: DocumentToolbarLayout.buttonIconSize,
+        size: buttonHeight,
       );
     }
 
@@ -188,8 +204,8 @@ class NoticeControlPanel extends ConsumerWidget {
       borderColor: borderColor,
       width: NoticeControlPanelConfig.messageOptionButtonWidth,
       height: buttonHeight,
-      fontSize: kModeButtonFontSize,
-      iconSize: kModeButtonIconSize,
+      fontSize: DocumentToolbarLayout.buttonFontSize,
+      iconSize: DocumentToolbarLayout.buttonIconSize,
     );
   }
 

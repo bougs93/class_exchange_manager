@@ -96,13 +96,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       // Provider에 데이터 설정
       ref.read(exchangeScreenProvider.notifier).setTimetableData(timetableData);
 
-      // 저장된 파일 경로 가져오기 및 설정
+      // 저장된 파일 경로·파일명 설정
+      // - 로컬 xlsm이 있으면 selectedFile 설정
+      // - Setup 설치 PC 등 JSON 캐시만 있으면 metadata.fileName으로 표시
       final savedFilePath = await timetableStorage.getSavedFilePath();
+      final savedFileName = await timetableStorage.getSavedFileName();
       if (savedFilePath != null) {
         final file = File(savedFilePath);
         if (await file.exists()) {
           _stateProxy?.setSelectedFile(file);
+        } else if (savedFileName != null && savedFileName.isNotEmpty) {
+          _stateProxy?.setTimetableFileName(savedFileName);
         }
+      } else if (savedFileName != null && savedFileName.isNotEmpty) {
+        _stateProxy?.setTimetableFileName(savedFileName);
       }
 
       // 시간표 그리드 데이터 생성

@@ -55,6 +55,12 @@ class ExchangeScreenStateProxy {
   File? get selectedFile => _getState().selectedFile;
   void setSelectedFile(File? value) => _notifier.setSelectedFile(value);
 
+  String? get timetableFileName => _getState().timetableFileName;
+  void setTimetableFileName(String? value) =>
+      _notifier.setTimetableFileName(value);
+
+  bool get hasLoadedTimetable => _getState().hasLoadedTimetable;
+
   bool get isLoading => _getState().isLoading;
   void setLoading(bool value) => _notifier.setLoading(value);
 

@@ -3,12 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:calendar_date_picker2/calendar_date_picker2.dart';
 import 'package:flutter/services.dart';
+import '../../../../constants/document_usage_hints.dart';
+import '../../../../models/document_type.dart';
 import '../../../../providers/substitution_plan_provider.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../../providers/exchange_screen_provider.dart';
 import '../../../../providers/services_provider.dart';
 import '../../../../providers/state_reset_provider.dart';
-import '../../../../ui/widgets/exchange_control_panel.dart';
+import '../../../../ui/widgets/document_toolbar_layout.dart';
+import '../../../../ui/widgets/document_usage_hint_bar.dart';
 import '../../../../ui/widgets/timetable_grid/exchange_executor.dart';
 import '../../../../ui/widgets/timetable_grid/grid_header_widgets.dart';
 import '../../../../utils/logger.dart';
@@ -106,6 +109,11 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          DocumentUsageHintBar(
+            message: DocumentUsageHints.substitutionPlan,
+            accentColor: DocumentType.substitutionPlan.color,
+          ),
+          DocumentToolbarLayout.hintToToolbarSpacer,
           _buildActionButtons(context, ref, viewModel),
           const SizedBox(height: 10),
           _buildDataGrid(context, ref, planData, isLoading, viewModel),
@@ -115,8 +123,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
   }
 
   Widget _buildActionButtons(BuildContext context, WidgetRef ref, SubstitutionPlanViewModel viewModel) {
-    // 교체 화면 툴바와 동일한 버튼 높이·글자·아이콘 크기
-    const buttonHeight = kExchangeUnifiedToolbarHeight - 8;
+    const buttonHeight = DocumentToolbarLayout.buttonHeight;
 
     return Row(
       children: [
@@ -138,9 +145,10 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
                   backgroundColor: Colors.blue.shade100,
                   foregroundColor: Colors.blue.shade700,
                   borderColor: Colors.blue.shade300,
-                  iconSize: kModeButtonIconSize,
+                  iconSize: DocumentToolbarLayout.buttonIconSize,
+                  size: buttonHeight,
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: DocumentToolbarLayout.buttonGap),
                 CompactToolbarLabelButton(
                   onPressed: () => _clearAllDates(context, viewModel),
                   icon: Icons.clear,
@@ -150,10 +158,10 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
                   foregroundColor: Colors.orange.shade700,
                   borderColor: Colors.orange.shade300,
                   height: buttonHeight,
-                  fontSize: kModeButtonFontSize,
-                  iconSize: kModeButtonIconSize,
+                  fontSize: DocumentToolbarLayout.buttonFontSize,
+                  iconSize: DocumentToolbarLayout.buttonIconSize,
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: DocumentToolbarLayout.buttonGap),
                 CompactToolbarLabelButton(
                   onPressed: () => _showDeleteConfirmDialog(context, ref),
                   icon: Icons.delete_forever,
@@ -163,10 +171,10 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
                   foregroundColor: Colors.red.shade700,
                   borderColor: Colors.red.shade300,
                   height: buttonHeight,
-                  fontSize: kModeButtonFontSize,
-                  iconSize: kModeButtonIconSize,
+                  fontSize: DocumentToolbarLayout.buttonFontSize,
+                  iconSize: DocumentToolbarLayout.buttonIconSize,
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: DocumentToolbarLayout.buttonGap),
                 CompactToolbarLabelButton(
                   onPressed: () => _copyTableToClipboard(context, ref),
                   icon: Icons.copy,
@@ -176,8 +184,8 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
                   foregroundColor: Colors.blue.shade700,
                   borderColor: Colors.blue.shade300,
                   height: buttonHeight,
-                  fontSize: kModeButtonFontSize,
-                  iconSize: kModeButtonIconSize,
+                  fontSize: DocumentToolbarLayout.buttonFontSize,
+                  iconSize: DocumentToolbarLayout.buttonIconSize,
                 ),
               ],
             ),
