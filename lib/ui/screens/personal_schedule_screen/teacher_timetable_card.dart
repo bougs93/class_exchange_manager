@@ -120,13 +120,16 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
       ),
       child: RepaintBoundary(
         key: _captureKey,
-        child: Material(
+        // 둥근 모서리 바깥 영역을 흰색으로 채워 캡처 시 투명(검정) 픽셀 방지
+        child: ColoredBox(
           color: Colors.white,
-          elevation: 0,
-          surfaceTintColor: Colors.transparent,
-          shape: cardShape,
-          clipBehavior: Clip.antiAlias,
-          child: SizedBox(
+          child: Material(
+            color: Colors.white,
+            elevation: 0,
+            surfaceTintColor: Colors.transparent,
+            shape: cardShape,
+            clipBehavior: Clip.antiAlias,
+            child: SizedBox(
             width: cardWidth,
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -187,6 +190,7 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
               ],
             ),
           ),
+        ),
         ),
       ),
     );
