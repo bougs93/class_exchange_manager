@@ -40,7 +40,10 @@
       "Bash(sed -i '134,249d' lib/ui/screens/home_content_screen.dart)",
       "Bash(sed -n '131,136p' lib/ui/screens/home_content_screen.dart)",
       "Bash(sed -i '556,772d' lib/ui/screens/home_content_screen.dart)",
-      "Bash(sed -n '552,558p' lib/ui/screens/home_content_screen.dart)"
+      "Bash(sed -n '552,558p' lib/ui/screens/home_content_screen.dart)",
+      "Bash(cat)",
+      "Bash(printf '}\\\\n')",
+      "Bash(cat /tmp/supp_header.dart /tmp/supp_body.dart /tmp/supp_footer.dart)"
     ],
     "deny": [],
     "ask": []

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/exchange_screen_provider.dart';
+import '../../providers/personal_schedule_provider.dart';
 import '../../providers/state_reset_provider.dart';
 import '../../models/exchange_mode.dart';
 import '../../constants/app_info.dart';
@@ -31,9 +32,6 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen>
   // 엑셀 파일 선택 관련 상태 관리
   ExchangeScreenStateProxy? _stateProxy;
   ExchangeOperationManager? _operationManager;
-
-  // 설정 카드 펼침 상태 (교사명이 비어 있으면 자동 펼침)
-  bool _isSettingsExpanded = false;
 
   // 교사명, 학교명 입력 필드
   final TextEditingController _teacherNameController = TextEditingController();
@@ -81,23 +79,12 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen>
           _teacherNameController.text = teacherName;
           _schoolNameController.text = schoolName;
           _isLoadingNames = false;
-
-          // 교사명이 비어있으면 설정 메뉴를 자동으로 펼침
-          if (teacherName.isEmpty) {
-            _isSettingsExpanded = true;
-          }
         });
       }
     } catch (e) {
       AppLogger.error('기본 정보 로드 중 오류: $e', e);
       if (mounted) {
-        setState(() {
-          _isLoadingNames = false;
-          // 오류 발생 시에도 교사명이 비어있으면 설정 메뉴 펼침
-          if (_teacherNameController.text.isEmpty) {
-            _isSettingsExpanded = true;
-          }
-        });
+        setState(() => _isLoadingNames = false);
       }
     }
   }
@@ -112,8 +99,19 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen>
       ),
       successMessage: '기본 정보가 저장되었습니다.',
       setSavingState: (value) => _isSavingNames = value,
-      onSuccess: _refreshExchangeScreenHighlightedTeacher,
+      onSuccess: _onTeacherNameSaved,
     );
+  }
+
+  /// 교사명 저장 성공 시 다른 화면에 즉시 반영
+  ///
+  /// 메인 화면들은 IndexedStack으로 살아있어 탭 전환만으로는 갱신되지 않으므로,
+  /// 저장한 교사명을 교체 화면·개인 시간표에 직접 반영한다.
+  void _onTeacherNameSaved() {
+    _refreshExchangeScreenHighlightedTeacher();
+    ref
+        .read(personalScheduleProvider.notifier)
+        .setTeacherName(_teacherNameController.text.trim());
   }
 
   /// 교체 화면의 교사 행 하이라이트를 저장된 교사명으로 즉시 갱신
@@ -257,10 +255,6 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen>
 
             // 설정 카드 (접을 수 있음) — 언어·색상·초기화 등은 카드가 자체 관리
             HomeSettingsCard(
-              expanded: _isSettingsExpanded,
-              onExpansionChanged: (expanded) {
-                setState(() => _isSettingsExpanded = expanded);
-              },
               onDataReset: () {
                 _teacherNameController.clear();
                 _schoolNameController.clear();

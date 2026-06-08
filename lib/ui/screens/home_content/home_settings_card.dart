@@ -19,14 +19,10 @@ import 'setting_save_mixin.dart';
 /// 비어 있을 때 자동으로 펼치는 등의 판단을 부모(기본 정보 로더)가 담당하기 때문이다.
 /// 데이터 초기화 성공 시 [onDataReset]으로 부모에 알려 교사명/학교명을 비우게 한다.
 class HomeSettingsCard extends ConsumerStatefulWidget {
-  final bool expanded;
-  final ValueChanged<bool> onExpansionChanged;
   final VoidCallback onDataReset;
 
   const HomeSettingsCard({
     super.key,
-    required this.expanded,
-    required this.onExpansionChanged,
     required this.onDataReset,
   });
 
@@ -36,8 +32,6 @@ class HomeSettingsCard extends ConsumerStatefulWidget {
 
 class _HomeSettingsCardState extends ConsumerState<HomeSettingsCard>
     with SettingSaveMixin {
-  final _expansionController = ExpansibleController();
-
   // 언어 설정
   String _selectedLanguage = 'ko';
   bool _isLoadingLanguage = true;
@@ -58,19 +52,6 @@ class _HomeSettingsCardState extends ConsumerState<HomeSettingsCard>
   void initState() {
     super.initState();
     _loadSettings();
-  }
-
-  @override
-  void didUpdateWidget(HomeSettingsCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // 부모가 펼침 상태를 바꾸면(예: 교사명 미입력 시 자동 펼침) 카드에 반영
-    if (widget.expanded != oldWidget.expanded) {
-      if (widget.expanded && !_expansionController.isExpanded) {
-        _expansionController.expand();
-      } else if (!widget.expanded && _expansionController.isExpanded) {
-        _expansionController.collapse();
-      }
-    }
   }
 
   /// 언어·하이라이트 색상 설정 로드
@@ -225,9 +206,6 @@ class _HomeSettingsCardState extends ConsumerState<HomeSettingsCard>
         ),
       ),
       child: ExpansionTile(
-        controller: _expansionController,
-        initiallyExpanded: widget.expanded,
-        onExpansionChanged: widget.onExpansionChanged,
         title: Row(
           children: [
             Container(
