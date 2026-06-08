@@ -1,21 +1,23 @@
+import 'day_utils.dart';
+
 /// 날짜 포맷 변환 유틸리티
-/// 
+///
 /// 결보강 계획서의 날짜 포맷 변환을 담당합니다.
 /// - 내부 저장: 년.월.일 형식 (예: "2025.11.24")
 /// - UI 표시/출력: 월.일 형식 (예: "11.24")
 class DateFormatUtils {
   /// DateTime을 년.월.일 형식으로 변환
-  /// 
+  ///
   /// 예: DateTime(2025, 11, 24) → "2025.11.24
   static String toYearMonthDay(DateTime date) {
     return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
   }
 
   /// 년.월.일 형식 문자열을 월.일 형식으로 변환
-  /// 
+  ///
   /// 입력: "2025.11.24" 또는 "2025.1.5"
   /// 출력: "11.24" 또는 "1.5"
-  /// 
+  ///
   /// 만약 입력이 이미 월.일 형식이거나 유효하지 않은 형식이면 원본을 반환합니다.
   static String toMonthDay(String yearMonthDay) {
     // "선택"이나 빈 문자열인 경우 그대로 반환
@@ -30,7 +32,7 @@ class DateFormatUtils {
       final year = parts[0];
       final month = parts[1];
       final day = parts[2];
-      
+
       // 년도가 4자리 숫자인지 확인
       if (year.length == 4 && int.tryParse(year) != null) {
         return '$month.$day';
@@ -42,12 +44,15 @@ class DateFormatUtils {
   }
 
   /// 월.일 형식 문자열을 년.월.일 형식으로 변환
-  /// 
+  ///
   /// 입력: "11.24" (현재 년도 사용)
   /// 출력: "2025.11.24"
-  /// 
+  ///
   /// 만약 입력이 이미 년.월.일 형식이면 그대로 반환합니다.
-  static String toYearMonthDayFromMonthDay(String monthDay, {DateTime? referenceDate}) {
+  static String toYearMonthDayFromMonthDay(
+    String monthDay, {
+    DateTime? referenceDate,
+  }) {
     // "선택"이나 빈 문자열인 경우 그대로 반환
     if (monthDay.isEmpty || monthDay == '선택') {
       return monthDay;
@@ -78,10 +83,10 @@ class DateFormatUtils {
   }
 
   /// 년.월.일 형식 문자열을 DateTime으로 파싱
-  /// 
+  ///
   /// 입력: "2025.11.24"
   /// 출력: DateTime(2025, 11, 24)
-  /// 
+  ///
   /// 파싱 실패 시 null 반환
   static DateTime? parseYearMonthDay(String dateString) {
     if (dateString.isEmpty || dateString == '선택') {
@@ -106,8 +111,38 @@ class DateFormatUtils {
     return null;
   }
 
+  /// 결보강 계획서 날짜를 내부 비교용 YYYY.MM.DD 형식으로 통일합니다.
+  ///
+  /// UI에는 `6.10`처럼 월.일만 표시되지만, 매칭·필터는 이 메서드 결과를 사용합니다.
+  static String normalizePlanDate(String raw, {DateTime? referenceDate}) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty || trimmed == '선택') return '';
+
+    if (trimmed.contains('-')) {
+      final parsed = DateTime.tryParse(trimmed);
+      if (parsed != null) return toYearMonthDay(parsed);
+    }
+
+    final direct = parseYearMonthDay(trimmed);
+    if (direct != null) return toYearMonthDay(direct);
+
+    final withYear = toYearMonthDayFromMonthDay(
+      trimmed,
+      referenceDate: referenceDate ?? DateTime.now(),
+    );
+    final resolved = parseYearMonthDay(withYear);
+    return resolved != null ? toYearMonthDay(resolved) : '';
+  }
+
+  /// 정규화된 날짜(YYYY.MM.DD)에서 요일명(월~일)을 반환합니다.
+  static String dayNameFromPlanDate(String normalizedDate) {
+    final parsed = parseYearMonthDay(normalizedDate);
+    if (parsed == null) return '';
+    return DayUtils.getDayName(parsed.weekday);
+  }
+
   /// 날짜 문자열이 유효한 날짜 형식인지 확인
-  /// 
+  ///
   /// 년.월.일 또는 월.일 형식 모두 유효하다고 판단합니다.
   static bool isValidDateString(String dateString) {
     if (dateString.isEmpty || dateString == '선택') {
@@ -124,21 +159,22 @@ class DateFormatUtils {
   }
 
   /// 결강기간 계산 (최소 날짜와 최대 날짜 추출)
-  /// 
+  ///
   /// [absenceDates] 결강일 문자열 리스트 (년.월.일 형식 또는 "선택", 빈 문자열)
-  /// 
-  /// Returns: 
+  ///
+  /// Returns:
   /// - 날짜가 2개 이상: "2025.11.03. - 2025.11.18." (각 날짜 끝에 마침표 추가)
   /// - 날짜가 1개: "2025.11.03." (날짜 끝에 마침표 추가)
   /// - 날짜가 없으면: 빈 문자열
   static String calculateAbsencePeriod(List<String> absenceDates) {
     // 유효한 날짜만 추출 (년.월.일 형식만, "선택"과 빈 문자열 제외)
-    final validDates = absenceDates
-        .where((date) => date.isNotEmpty && date != '선택')
-        .map((date) => parseYearMonthDay(date))
-        .where((date) => date != null)
-        .cast<DateTime>()
-        .toList();
+    final validDates =
+        absenceDates
+            .where((date) => date.isNotEmpty && date != '선택')
+            .map((date) => parseYearMonthDay(date))
+            .where((date) => date != null)
+            .cast<DateTime>()
+            .toList();
 
     if (validDates.isEmpty) {
       return '';
@@ -152,7 +188,7 @@ class DateFormatUtils {
 
     // 날짜 형식: "년.월.일." (끝에 마침표 추가)
     final minDateStr = '${toYearMonthDay(minDate)}.';
-    
+
     // 날짜가 1개인 경우
     if (minDate == maxDate) {
       return minDateStr;
@@ -163,4 +199,3 @@ class DateFormatUtils {
     return '$minDateStr - $maxDateStr';
   }
 }
-

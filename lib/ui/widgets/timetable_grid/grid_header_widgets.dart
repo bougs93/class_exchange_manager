@@ -339,7 +339,7 @@ class CellThemeLegend extends StatelessWidget {
           backgroundColor: SimplifiedTimetableTheme.defaultColor,
           borderColor: SimplifiedTimetableTheme.exchangedSourceCellBorderColor,
           borderWidth: SimplifiedTimetableTheme.exchangedSourceCellBorderWidth,
-          label: '비워진 수업',
+          label: '빠진 수업',
         ),
         const SizedBox(width: 8),
         _buildLegendItem(
@@ -347,7 +347,7 @@ class CellThemeLegend extends StatelessWidget {
               SimplifiedTimetableTheme.exchangedDestinationCellBackgroundColor,
           borderColor: Colors.transparent,
           borderWidth: 0,
-          label: '채워진 수업 ',
+          label: '맡은 수업',
         ),
         const SizedBox(width: 8),
         _buildLegendItem(

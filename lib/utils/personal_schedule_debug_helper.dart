@@ -1,15 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/personal_schedule_provider.dart';
-import '../providers/substitution_plan_provider.dart';
-import '../providers/services_provider.dart';
-import '../models/one_to_one_exchange_path.dart';
-import '../models/circular_exchange_path.dart';
 import '../models/chain_exchange_path.dart';
+import '../models/circular_exchange_path.dart';
+import '../models/one_to_one_exchange_path.dart';
 import '../models/supplement_exchange_path.dart';
+import '../providers/personal_schedule_provider.dart';
+import '../providers/services_provider.dart';
+import '../providers/substitution_plan_viewmodel.dart';
 import '../services/excel_service.dart';
-import 'logger.dart';
+import '../utils/logger.dart';
 import 'personal_exchange_info_extractor.dart';
-
 /// 개인 시간표 디버그 헬퍼
 ///
 /// 디버그 정보 출력 및 교사별 안내 메시지 생성 기능을 제공합니다.
@@ -70,36 +69,29 @@ class PersonalScheduleDebugHelper {
   /// PersonalExchangeInfoExtractor를 사용하여 교체 정보를 추출하고 메시지를 생성합니다.
   static void printTeacherScheduleInfo(WidgetRef ref, PersonalScheduleState scheduleState) {
     try {
-      final historyService = ref.read(exchangeHistoryServiceProvider);
-      final exchangeList = historyService.getExchangeList();
-      final substitutionPlanState = ref.read(substitutionPlanProvider);
+      final planData = ref.read(substitutionPlanViewModelProvider).planData;
+      if (planData.isEmpty) return;
 
-      if (exchangeList.isEmpty) {
-        return;
-      }
+      AppLogger.info('\n=== 교사별 안내 메시지 (결보강 계획서 기준) ===');
 
-      AppLogger.info('\n=== 교사별 안내 메시지 (교체리스트 기준) ===');
-
-      // PersonalExchangeInfoExtractor를 사용하여 모든 교사의 교체 정보 추출
       final allTeachers = <String>{};
-      for (final exchange in exchangeList) {
-        final path = exchange.originalPath;
-        for (final node in path.nodes) {
-          allTeachers.add(node.teacherName);
+      for (final plan in planData) {
+        if (plan.teacher.isNotEmpty) allTeachers.add(plan.teacher);
+        if (plan.substitutionTeacher.isNotEmpty) {
+          allTeachers.add(plan.substitutionTeacher);
+        }
+        if (plan.supplementTeacher.isNotEmpty) {
+          allTeachers.add(plan.supplementTeacher);
         }
       }
 
-      // 교사별로 그룹화
       final Map<String, List<String>> teacherMessages = {};
 
-      // 각 교사별로 교체 정보 추출
       for (final teacherName in allTeachers) {
         final exchangeInfoList = PersonalExchangeInfoExtractor.extractExchangeInfo(
-          exchangeList: exchangeList,
+          planData: planData,
           teacherName: teacherName,
           weekDates: scheduleState.weekDates,
-          substitutionPlanState: substitutionPlanState,
-          scheduleState: scheduleState,
         );
 
         // ExchangeCellInfo를 메시지 형식으로 변환

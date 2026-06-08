@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/time_slot.dart';
 import '../../../providers/personal_schedule_provider.dart';
-import '../../../providers/services_provider.dart';
-import '../../../providers/substitution_plan_provider.dart';
+import '../../../providers/substitution_plan_viewmodel.dart';
 import '../../../services/excel_service.dart';
 import '../../../utils/personal_exchange_info_extractor.dart';
 import '../../../providers/zoom_provider.dart';
@@ -65,8 +64,8 @@ class _TeacherCardGridViewState extends ConsumerState<TeacherCardGridView>
     }
 
     final zoomFactor = ref.watch(zoomProvider.select((s) => s.zoomFactor));
-    final exchangeList = ref.read(exchangeHistoryServiceProvider).getExchangeList();
-    final substitutionPlanState = ref.read(substitutionPlanProvider);
+    final planData =
+        ref.read(substitutionPlanViewModelProvider.select((s) => s.planData));
 
     // 오른쪽 버튼 드래그로 스크롤 가능하도록 믹신으로 감쌉니다.
     return wrapWithDragScroll(
@@ -84,11 +83,9 @@ class _TeacherCardGridViewState extends ConsumerState<TeacherCardGridView>
           alignment: WrapAlignment.start,
           children: widget.targets.map((target) {
             final exchangeInfoList = PersonalExchangeInfoExtractor.extractExchangeInfo(
-              exchangeList: exchangeList,
+              planData: planData,
               teacherName: target.name,
               weekDates: widget.weekDates,
-              substitutionPlanState: substitutionPlanState,
-              scheduleState: widget.scheduleState,
             );
 
             return TeacherTimetableCard(

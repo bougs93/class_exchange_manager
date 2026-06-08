@@ -64,7 +64,7 @@ class PersonalTimetableDataSource extends DataGridSource {
         final timeSlot = dataGridCell.value as TimeSlot?;
         final columnName = dataGridCell.columnName;
 
-        // columnName 파싱: "월_5_2025.11.10" 형식
+        // columnName 파싱: "월_5_2026.06.10" (요일_교시_YYYY.MM.DD)
         final columnNameParts = columnName.split('_');
         if (columnNameParts.length < 3) {
           // 형식이 맞지 않으면 기본 처리 (교시 헤더 열인 경우)
@@ -90,20 +90,16 @@ class PersonalTimetableDataSource extends DataGridSource {
 
         final day = columnNameParts[0];
         final period = int.tryParse(columnNameParts[1]) ?? 0;
-        // 날짜 부분: "월_5_2025.11.10" 형식에서 세 번째 요소가 날짜 (YYYY.MM.DD)
-        final date = columnNameParts.length >= 3 ? columnNameParts[2] : '';
+        final date = columnNameParts[2];
 
-        // 교체 정보와 매칭하여 테마 결정
+        // 교체 정보와 매칭하여 테마 결정 (날짜+교시 — 해당 날짜 열에만 표시)
         bool isExchangedSourceCell = false;
         bool isExchangedDestinationCell = false;
         String content = timeSlot?.displayText ?? '';
 
-        // 교체 정보 리스트에서 매칭되는 항목 찾기
         bool matched = false;
         for (final exchangeInfo in _exchangeInfoList) {
-          if (exchangeInfo.day == day &&
-              exchangeInfo.period == period &&
-              exchangeInfo.date == date) {
+          if (exchangeInfo.period == period && exchangeInfo.date == date) {
             matched = true;
             if (exchangeInfo.isAbsence) {
               // 결강 셀

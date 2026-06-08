@@ -11,9 +11,7 @@ import '../../models/time_slot.dart';
 import '../../ui/widgets/timetable_grid/grid_header_widgets.dart';
 import '../../ui/widgets/exchange_control_panel.dart';
 import '../../providers/services_provider.dart';
-import '../../providers/substitution_plan_provider.dart';
 import '../../providers/substitution_plan_viewmodel.dart';
-import '../../models/exchange_history_item.dart';
 import '../../services/excel_service.dart';
 import '../../utils/personal_exchange_info_extractor.dart';
 import '../../providers/zoom_provider.dart';
@@ -45,7 +43,10 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
   /// 시간표 화면 기본값: 교체 뷰 활성화
   bool _isExchangeViewEnabled = true;
   bool _hasInitializedExchangeView = false;
-  List<TimeSlot>? _originalTimeSlots; // 원본 데이터 백업용
+  /// Excel 파싱 원본 슬롯 (교체 관리 화면의 요일 기준 변경과 분리)
+  List<TimeSlot>? _originalTimeSlots;
+  int? _lastFileLoadId;
+  bool _isLoadingPristineTimeSlots = false;
   DateTime? _lastCheckTime; // 마지막 확인 시간 (중복 호출 방지)
   bool _isCheckingTeacherName = false; // 교사명 확인 중 플래그 (중복 실행 방지)
 
@@ -59,7 +60,45 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
   void _clearTimetableData() {
     setState(() {
       _originalTimeSlots = null;
+      _lastFileLoadId = null;
     });
+  }
+
+  /// JSON 저장소의 Excel 원본 슬롯을 로드합니다.
+  ///
+  /// 교체 관리 화면은 [TimeSlot]을 요일(teacher+day+period) 기준으로 변경하므로
+  /// 개인 시간표는 저장된 원본만 사용하고, 날짜별 표시는 DataSource에서 처리합니다.
+  Future<void> _refreshPristineTimeSlots(
+    int fileLoadId,
+    TimetableData fallbackTimetableData,
+  ) async {
+    if (_isLoadingPristineTimeSlots) return;
+    if (_lastFileLoadId == fileLoadId && _originalTimeSlots != null) return;
+
+    _isLoadingPristineTimeSlots = true;
+    try {
+      final storage = ref.read(timetableStorageServiceProvider);
+      final stored = await storage.loadTimetableData();
+      if (!mounted) return;
+
+      final source = stored ?? fallbackTimetableData;
+      setState(() {
+        _originalTimeSlots = source.timeSlots.map((slot) => slot.copy()).toList();
+        _lastFileLoadId = fileLoadId;
+      });
+    } catch (e) {
+      AppLogger.error('원본 시간표 로드 실패: $e', e);
+      if (!mounted) return;
+      setState(() {
+        _originalTimeSlots =
+            fallbackTimetableData.timeSlots.map((slot) => slot.copy()).toList();
+        _lastFileLoadId = fileLoadId;
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingPristineTimeSlots = false);
+      }
+    }
   }
 
   /// 설정에서 교사명 확인 및 로드
@@ -305,17 +344,27 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
       );
     }
 
-    // 원본 데이터 백업 (교체 뷰 비활성화 시 복원용)
-    // 교사명이 변경되었을 때도 원본 데이터 재백업
-    if (_originalTimeSlots == null || 
-        (ref.read(personalScheduleProvider).teacherName != teacherName)) {
-      _originalTimeSlots = List<TimeSlot>.from(timetableData.timeSlots);
+    final fileLoadId = ref.watch(exchangeScreenProvider.select((s) => s.fileLoadId));
+    if (_lastFileLoadId != fileLoadId || _originalTimeSlots == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _refreshPristineTimeSlots(fileLoadId, timetableData);
+      });
     }
 
-    // 교체 뷰가 활성화되어 있지 않으면 원본 데이터 사용, 활성화되어 있으면 현재 시간표 데이터 사용
-    final timeSlotsToUse = _isExchangeViewEnabled
-        ? timetableData.timeSlots
-        : List<TimeSlot>.from(_originalTimeSlots!);
+    if (_originalTimeSlots == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('시간표'),
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    // Excel 원본 슬롯만 사용 — 교체 관리의 요일 기준 변경은 반영하지 않음
+    // 비워진/채워진 수업 표시는 PersonalTimetableDataSource가 결보강 날짜로 적용
+    final timeSlotsToUse = _originalTimeSlots!;
 
     // 전체 시간표 데이터에서 실제 존재하는 요일만 포함한 날짜 리스트 계산
     // 전체 시간표 데이터를 사용하여 실제 존재하는 요일 확인
@@ -341,15 +390,14 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
       weekDates,
     );
 
-    // 교체 정보 추출
-    final exchangeList = ref.read(exchangeHistoryServiceProvider).getExchangeList();
-    final substitutionPlanState = ref.read(substitutionPlanProvider);
+    // 교체 정보 추출 (결보강 계획서 planData 기준)
+    final planData = ref.watch(
+      substitutionPlanViewModelProvider.select((state) => state.planData),
+    );
     final exchangeInfoList = PersonalExchangeInfoExtractor.extractExchangeInfo(
-      exchangeList: exchangeList,
+      planData: planData,
       teacherName: teacherName,
       weekDates: weekDates,
-      substitutionPlanState: substitutionPlanState,
-      scheduleState: scheduleState,
     );
 
     // 교체 정보 추출 결과 디버그 로그 (조건부)
@@ -402,9 +450,6 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
     // DataSource 생성 또는 업데이트 — TeacherTimetableCard 내부에서 처리
 
     // 저장 교사 + 결보강 계획서(교체·보강) 교사 카드 목록
-    final planData = ref.watch(
-      substitutionPlanViewModelProvider.select((state) => state.planData),
-    );
     final cardTargets = TeacherCardTeacherCollector.collect(
       savedTeacherName: teacherName,
       planData: planData,
@@ -525,29 +570,29 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
     );
   }
 
-  /// 범례 위젯 생성 (비워진 수업, 채워진 수업)
+  /// 범례 위젯 생성 (빠진 수업(결강), 맡은 수업(교체·보강))
   /// 교체 관리 페이지와 동일한 방식으로 좌측 정렬
   Widget _buildLegend() {
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // 비워진 수업 범례
+        // 빠진 수업(결강) 범례
         _buildLegendItem(
           backgroundColor: SimplifiedTimetableTheme.defaultColor,
           borderColor: SimplifiedTimetableTheme.exchangedSourceCellBorderColor,
           borderWidth: SimplifiedTimetableTheme.exchangedSourceCellBorderWidth,
-          label: '비워진 수업',
+          label: '빠진 수업(결강)',
         ),
         const SizedBox(width: 8),
 
-        // 채워진 수업 범례
+        // 맡은 수업(교체·보강) 범례
         _buildLegendItem(
           backgroundColor:
               SimplifiedTimetableTheme.exchangedDestinationCellBackgroundColor,
           borderColor: Colors.transparent,
           borderWidth: 0,
-          label: '채워진 수업',
+          label: '맡은 수업(교체·보강)',
         ),
       ],
     );
@@ -806,55 +851,27 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
     BuildContext context,
   ) async {
     try {
-      final historyService = ref.read(exchangeHistoryServiceProvider);
-      final substitutionPlanState = ref.read(substitutionPlanProvider);
-
-      // 필터링된 교체 리스트 가져오기
       final teacherName = ref.read(personalScheduleProvider).teacherName;
       if (teacherName == null) return;
-      
-      // PersonalExchangeInfoExtractor를 사용하여 날짜가 있는 교체만 확인
-      final exchangeList = historyService.getExchangeList();
-      final scheduleState = ref.read(personalScheduleProvider);
+
+      final planData = ref.read(substitutionPlanViewModelProvider).planData;
       final exchangeInfoList = PersonalExchangeInfoExtractor.extractExchangeInfo(
-        exchangeList: exchangeList,
+        planData: planData,
         teacherName: teacherName,
         weekDates: weekDates,
-        substitutionPlanState: substitutionPlanState,
-        scheduleState: scheduleState,
       );
 
-      // 원본 교체 리스트에서 날짜가 없는 항목 확인 (교사와 관련된 교체만)
-      final allExchanges = historyService.getExchangeList();
-      final exchangesWithoutDate = <ExchangeHistoryItem>[];
-      for (final exchange in allExchanges) {
-        final path = exchange.originalPath;
-        final nodes = path.nodes;
-        
-        // 해당 교사와 관련된 교체인지 확인
-        bool isRelated = nodes.any((node) => node.teacherName == teacherName);
-        if (!isRelated) continue;
-        
-        // 날짜 확인 (exchangeId 기반)
-        final exchangeId = exchange.id;
-        final absenceDateStr = substitutionPlanState.savedDates['${exchangeId}_absenceDate'] ?? '';
-        final substitutionDateStr = substitutionPlanState.savedDates['${exchangeId}_substitutionDate'] ?? '';
-        
-        // 날짜가 하나도 지정되지 않은 경우
-        if (absenceDateStr.isEmpty && substitutionDateStr.isEmpty) {
-          exchangesWithoutDate.add(exchange);
-        }
-      }
+      final unassignedCount = PersonalExchangeInfoExtractor.countUnassignedPlansForTeacher(
+        planData,
+        teacherName,
+      );
 
-      // 날짜가 없는 교체가 있고, 실제로 표시될 교체 정보가 있는 경우에만 경고 표시
-      // (날짜가 없으면 PersonalExchangeInfoExtractor에서 필터링되어 표시되지 않음)
-      if (exchangesWithoutDate.isNotEmpty && exchangeInfoList.isEmpty) {
-        final count = exchangesWithoutDate.length;
+      if (unassignedCount > 0 && exchangeInfoList.isEmpty) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                '경고: 날짜가 지정되지 않은 교체 항목 $count개가 있어 표시되지 않습니다. 결보강 계획서에서 날짜를 지정해주세요.',
+                '경고: 날짜가 지정되지 않은 교체 항목 $unassignedCount개가 있어 표시되지 않습니다. 결보강 계획서에서 날짜를 지정해주세요.',
                 style: const TextStyle(fontSize: 14),
               ),
               backgroundColor: Colors.orange,
@@ -869,11 +886,9 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
         }
       }
 
-      // 교체 뷰 활성화 플래그 설정
-      // (실제 셀 변경은 DataSource의 buildRow에서 처리)
       AppLogger.info('\n=== [개인시간표] 교체 뷰 활성화 ===');
       AppLogger.info('표시될 교체 정보: ${exchangeInfoList.length}개');
-      AppLogger.info('날짜 없는 교체: ${exchangesWithoutDate.length}개');
+      AppLogger.info('날짜 없는 교체: $unassignedCount개');
       setState(() {
         _isExchangeViewEnabled = true;
       });
