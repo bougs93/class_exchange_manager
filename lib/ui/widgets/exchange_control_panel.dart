@@ -184,6 +184,9 @@ class _ModeToolbarButton extends StatelessWidget {
       );
     }
 
+    // 전체 라벨: 텍스트 길이에 맞게 폭 확장 / 축약 라벨: 고정 폭 유지
+    final useFullLabel = labelStyle == ExchangeModeLabelStyle.full;
+
     return CompactToolbarLabelButton(
       onPressed: onPressed,
       icon: mode.icon,
@@ -192,7 +195,8 @@ class _ModeToolbarButton extends StatelessWidget {
       backgroundColor: backgroundColor,
       foregroundColor: foregroundColor,
       borderColor: borderColor,
-      width: kExchangeModeButtonWidth,
+      width: useFullLabel ? null : kExchangeModeButtonWidth,
+      minWidth: useFullLabel ? kExchangeModeButtonWidth : null,
       height: kExchangeUnifiedToolbarHeight - 8,
       fontSize: kModeButtonFontSize,
       iconSize: kModeButtonIconSize,

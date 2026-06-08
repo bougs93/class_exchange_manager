@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:calendar_date_picker2/calendar_date_picker2.dart';
 import 'package:flutter/services.dart';
+import '../../../../providers/substitution_plan_provider.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../../providers/exchange_screen_provider.dart';
 import '../../../../providers/services_provider.dart';
@@ -155,7 +156,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
                 const SizedBox(width: 4),
                 CompactToolbarLabelButton(
                   onPressed: () => _showDeleteConfirmDialog(context, ref),
-                  icon: Icons.delete_outline,
+                  icon: Icons.delete_forever,
                   label: '결보강 초기화',
                   tooltip: '결보강 초기화',
                   backgroundColor: Colors.red.shade100,
@@ -215,19 +216,22 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
       final historyService = ref.read(exchangeHistoryServiceProvider);
       historyService.clearExchangeList();
 
-      // 2. 교체된 셀 상태 업데이트 (빈 리스트로 갱신하여 교체된 셀 스타일 제거)
+      // 2. 저장된 결강일·교체일·보강 과목 정보 삭제
+      ref.read(substitutionPlanProvider.notifier).clearAllDates();
+
+      // 3. 교체된 셀 상태 업데이트 (빈 리스트로 갱신하여 교체된 셀 스타일 제거)
       ExchangeExecutor.restoreExchangedCells(ref);
 
-      // 3. UI 상태 초기화 (선택된 경로, 캐시, 화살표 등)
+      // 4. UI 상태 초기화 (선택된 경로, 캐시, 화살표 등)
       ref.read(stateResetProvider.notifier).resetExchangeStates(
         reason: '교체목록 전체 초기화',
       );
 
-      // 4. 보강계획서 데이터 자동 새로고침
+      // 5. 보강계획서 데이터 자동 새로고침
       final viewModel = ref.read(substitutionPlanViewModelProvider.notifier);
       viewModel.loadPlanData();
 
-      // 5. 성공 메시지 표시
+      // 6. 성공 메시지 표시
       SnackBarHelper.showSuccess(context, '교체목록이 초기화되었습니다.');
     } catch (e) {
       // 오류 메시지 표시

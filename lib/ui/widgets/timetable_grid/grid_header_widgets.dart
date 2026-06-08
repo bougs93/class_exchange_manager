@@ -137,18 +137,30 @@ class CompactToolbarLabelButton extends StatelessWidget {
                   children: [
                     Icon(icon, size: iconSize, color: effectiveForeground),
                     const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
+                    // 고정 폭일 때만 말줄임 — minWidth·자동 폭이면 라벨 전체 표시
+                    if (width != null)
+                      Flexible(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: fontSize,
+                            fontWeight: FontWeight.w600,
+                            color: effectiveForeground,
+                          ),
+                        ),
+                      )
+                    else
+                      Text(
                         label,
                         maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: fontSize,
                           fontWeight: FontWeight.w600,
                           color: effectiveForeground,
                         ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -160,7 +172,7 @@ class CompactToolbarLabelButton extends StatelessWidget {
   }
 }
 
-/// 교체 리스트 전체 초기화 버튼 (삭제 버튼과 아이콘·색상 구분)
+/// 교체 리스트 전체 초기화 버튼
 class ResetExchangeListButton extends StatelessWidget {
   final VoidCallback onPressed;
 
@@ -170,7 +182,7 @@ class ResetExchangeListButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return CompactToolbarIconButton(
       onPressed: onPressed,
-      icon: Icons.restart_alt,
+      icon: Icons.delete_forever,
       tooltip: '결보강 전체 초기화',
       backgroundColor: Colors.grey.shade100,
       foregroundColor: Colors.grey.shade700,
@@ -482,7 +494,7 @@ class ExchangeActionButtons extends StatelessWidget {
           CompactToolbarIconButton(
             onPressed: () async => await onDelete!(),
             icon: Icons.delete_outline,
-            tooltip: '삭제',
+            tooltip: '선택 교체 삭제',
             backgroundColor: Colors.red.shade100,
             foregroundColor: Colors.red.shade700,
             borderColor: Colors.red.shade300,

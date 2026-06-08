@@ -32,6 +32,9 @@ ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayIcon={app}\{#MyAppExeName}
 SetupIconFile=..\windows\runner\resources\app_icon.ico
 DisableProgramGroupPage=yes
+; 제거 시 실행 중 프로세스 처리는 [Code] InitializeUninstall 에서 안내 후 종료
+CloseApplications=no
+RestartApplications=no
 
 [Languages]
 Name: "korean"; MessagesFile: "compiler:Languages\Korean.isl"
@@ -53,7 +56,84 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{#MyAppName} 실행"; Flags: nowait postinstall skipifsilent
 
+[UninstallDelete]
+; 실행 중 생성된 JSON·캐시 (last_execution_time.json 등 설치 목록 외 파일 포함)
+Type: filesandordirs; Name: "{app}\data"
+Type: files; Name: "{app}\data\*.json"
+Type: files; Name: "{app}\*.json"
+Type: files; Name: "{app}\*.dll"
+Type: files; Name: "{app}\*.exe"
+; 설치 폴더 전체 (잔여 파일·하위 폴더·빈 폴더 방지)
+Type: filesandordirs; Name: "{app}"
+
 [Code]
+// 실행 중인 앱 프로세스 확인
+function IsAppRunning(): Boolean;
+var
+  ResultCode: Integer;
+begin
+  Result := False;
+  if Exec('cmd.exe',
+    '/C tasklist /FI "IMAGENAME eq {#MyAppExeName}" /NH | find /I "{#MyAppExeName}"',
+    '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+    Result := (ResultCode = 0);
+end;
+
+// 프로세스 강제 종료 (설치·업그레이드용 — 메시지 없음)
+procedure KillAppIfRunning();
+var
+  ResultCode: Integer;
+begin
+  if not IsAppRunning() then
+    Exit;
+  Exec('taskkill.exe', '/F /IM {#MyAppExeName} /T', '', SW_HIDE,
+    ewWaitUntilTerminated, ResultCode);
+  Sleep(800);
+end;
+
+// 제거 시: 실행 중이면 안내 → 사용자 확인 → 종료
+function StopAppForUninstall(): Boolean;
+var
+  ResultCode: Integer;
+  RetryCount: Integer;
+begin
+  Result := True;
+  if not IsAppRunning() then
+    Exit;
+
+  if MsgBox(
+    '{#MyAppName}이(가) 현재 실행 중입니다.' + #13#10 + #13#10 +
+    '제거를 계속하려면 프로그램을 종료해야 합니다.' + #13#10 +
+    '지금 종료하시겠습니까?',
+    mbConfirmation, MB_YESNO) = IDNO then
+  begin
+    MsgBox('제거가 취소되었습니다.', mbInformation, MB_OK);
+    Result := False;
+    Exit;
+  end;
+
+  Exec('taskkill.exe', '/F /IM {#MyAppExeName} /T', '', SW_HIDE,
+    ewWaitUntilTerminated, ResultCode);
+  Sleep(1000);
+
+  RetryCount := 0;
+  while IsAppRunning() and (RetryCount < 6) do
+  begin
+    Sleep(500);
+    Inc(RetryCount);
+  end;
+
+  if IsAppRunning() then
+  begin
+    MsgBox(
+      '프로그램을 종료하지 못했습니다.' + #13#10 + #13#10 +
+      '작업 관리자에서 {#MyAppName}을(를) 직접 종료한 뒤' + #13#10 +
+      '다시 제거를 시도해 주세요.',
+      mbError, MB_OK);
+    Result := False;
+  end;
+end;
+
 // YYYY-MM-DD → YYYYMMDD 정수 (Inno Setup 6/7 공통 호환)
 function DateStringToInt(const DateStr: String): Integer;
 var
@@ -74,11 +154,43 @@ begin
   Result := StrToInt(YearStr) * 10000 + StrToInt(MonthStr) * 100 + StrToInt(DayStr);
 end;
 
+// 제거 마무리: 설치 폴더를 통째로 삭제 (런타임 생성 파일·빈 폴더 잔류 방지)
+procedure ForceRemoveAppDirectory();
+var
+  AppDir: String;
+begin
+  AppDir := ExpandConstant('{app}');
+  if not DirExists(AppDir) then
+    Exit;
+
+  DelTree(AppDir, True, True, True);
+
+  if DirExists(AppDir) then
+    RemoveDir(AppDir);
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  case CurUninstallStep of
+    usUninstall:
+      KillAppIfRunning();
+    usPostUninstall:
+      ForceRemoveAppDirectory();
+  end;
+end;
+
+function InitializeUninstall(): Boolean;
+begin
+  Result := StopAppForUninstall();
+end;
+
 function InitializeSetup(): Boolean;
 var
   ExpiryInt, TodayInt: Integer;
   ExpiryStr, TodayStr: String;
 begin
+  KillAppIfRunning();
+
   ExpiryStr := '{#EXPIRY_DATE}';
   if ExpiryStr <> '' then
   begin

@@ -18,6 +18,7 @@ import '../../models/exchange_path.dart';
 import '../../models/exchange_node.dart'; // 🆕 ExchangeNode import 추가
 import '../../models/time_slot.dart';
 import '../../providers/state_reset_provider.dart';
+import '../../providers/substitution_plan_provider.dart';
 import '../../providers/zoom_provider.dart';
 import '../../providers/scroll_provider.dart';
 import '../../providers/node_scroll_provider.dart'; // 🆕 노드 스크롤 Provider 추가
@@ -1662,20 +1663,23 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       final historyService = ref.read(exchangeHistoryServiceProvider);
       historyService.clearExchangeList();
 
-      // 2. 교체된 셀 상태 업데이트 (빈 리스트로 갱신하여 교체된 셀 스타일 제거)
+      // 2. 저장된 결강일·교체일·보강 과목 정보 삭제
+      ref.read(substitutionPlanProvider.notifier).clearAllDates();
+
+      // 3. 교체된 셀 상태 업데이트 (빈 리스트로 갱신하여 교체된 셀 스타일 제거)
       // ExchangeExecutor의 updateExchangedCells() 재사용 (코드 중복 방지)
       // 교체 리스트가 비어있으므로 모든 교체된 셀 스타일이 제거됨
       _exchangeExecutor.updateExchangedCells();
 
-      // 3. UI 상태 초기화 (선택된 경로, 캐시, 화살표 등)
+      // 4. UI 상태 초기화 (선택된 경로, 캐시, 화살표 등)
       ref
           .read(stateResetProvider.notifier)
           .resetExchangeStates(reason: '결보강 전체 삭제');
 
-      // 4. DataGrid UI 업데이트 (스크롤 위치 보존)
+      // 5. DataGrid UI 업데이트 (스크롤 위치 보존)
       widget.dataSource?.notifyDataChanged();
 
-      // 5. 성공 메시지 표시
+      // 6. 성공 메시지 표시
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

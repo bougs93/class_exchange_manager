@@ -3,6 +3,8 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../../models/time_slot.dart';
 import '../../../utils/personal_exchange_info_extractor.dart';
 import '../../../utils/personal_timetable_helper.dart';
+import '../../../utils/snackbar_helper.dart';
+import '../../../utils/widget_image_clipboard_helper.dart';
 import '../../../ui/widgets/timetable_grid/grid_scaling_helper.dart';
 import '../../../ui/widgets/timetable_grid/timetable_grid_constants.dart';
 import 'personal_timetable_datasource.dart';
@@ -45,8 +47,12 @@ class TeacherTimetableCard extends StatefulWidget {
 }
 
 class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
+  /// 카드 전체(헤더+표)를 이미지로 캡처할 때 사용합니다.
+  final GlobalKey _captureKey = GlobalKey();
+
   PersonalTimetableDataSource? _dataSource;
   int _lastRowCount = 0;
+  bool _isCopyingImage = false;
 
   @override
   Widget build(BuildContext context) {
@@ -91,27 +97,29 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
     final theme = Theme.of(context);
     final highlightColor = theme.colorScheme.primary;
 
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(
-          TeacherCardGridConstants.cardBorderRadius,
+    return RepaintBoundary(
+      key: _captureKey,
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(
+            TeacherCardGridConstants.cardBorderRadius,
+          ),
+          side: widget.isHighlighted
+              ? BorderSide(color: highlightColor, width: 1.5)
+              : BorderSide(color: Colors.grey.shade300),
         ),
-        side: widget.isHighlighted
-            ? BorderSide(color: highlightColor, width: 1.5)
-            : BorderSide(color: Colors.grey.shade300),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: SizedBox(
-        width: cardWidth,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildCardHeader(context, highlightColor),
-            SizedBox(
-              height: gridHeight,
-              child: Theme(
+        clipBehavior: Clip.antiAlias,
+        child: SizedBox(
+          width: cardWidth,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildCardHeader(context, highlightColor),
+              SizedBox(
+                height: gridHeight,
+                child: Theme(
                 data: theme.copyWith(
                   textTheme: theme.textTheme.copyWith(
                     bodyMedium: TextStyle(
@@ -151,10 +159,11 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
                   columnWidthMode: ColumnWidthMode.none,
                   headerRowHeight: headerHeight,
                   rowHeight: rowHeight,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -279,8 +288,72 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
               ),
             ),
           ],
+          const SizedBox(width: 4),
+          _buildCopyImageButton(highlightColor),
         ],
       ),
     );
+  }
+
+  /// 시간표 카드를 이미지로 클립보드에 복사하는 버튼
+  Widget _buildCopyImageButton(Color highlightColor) {
+    return Tooltip(
+      message: '이미지로 복사',
+      child: InkWell(
+        onTap: _isCopyingImage ? null : _copyCardAsImage,
+        borderRadius: BorderRadius.circular(4),
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: _isCopyingImage
+              ? SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: highlightColor,
+                  ),
+                )
+              : Icon(
+                  Icons.image_outlined,
+                  size: 16,
+                  color: highlightColor,
+                ),
+        ),
+      ),
+    );
+  }
+
+  /// 카드(헤더+시간표)를 PNG로 캡처해 클립보드에 저장합니다.
+  Future<void> _copyCardAsImage() async {
+    final pixelRatio = MediaQuery.devicePixelRatioOf(context).clamp(2.0, 3.0);
+    setState(() => _isCopyingImage = true);
+
+    try {
+      // 그리드 페인트가 끝난 뒤 캡처합니다.
+      await WidgetsBinding.instance.endOfFrame;
+      final copied = await WidgetImageClipboardHelper.copyWidgetToClipboard(
+        _captureKey,
+        pixelRatio: pixelRatio,
+      );
+
+      if (!mounted) return;
+
+      if (copied) {
+        SnackBarHelper.showSuccess(
+          context,
+          '${widget.teacherName} 시간표가 클립보드에 복사되었습니다.',
+        );
+      } else {
+        SnackBarHelper.showError(context, '이미지 캡처에 실패했습니다.');
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackBarHelper.showError(context, '이미지 복사 중 오류가 발생했습니다: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isCopyingImage = false);
+      }
+    }
   }
 }
