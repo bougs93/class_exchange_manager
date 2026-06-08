@@ -42,7 +42,9 @@ class PersonalScheduleScreen extends ConsumerStatefulWidget {
 
 class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen> {
   bool _isLoadingTeacherName = true;
-  bool _isExchangeViewEnabled = false;
+  /// 시간표 화면 기본값: 교체 뷰 활성화
+  bool _isExchangeViewEnabled = true;
+  bool _hasInitializedExchangeView = false;
   List<TimeSlot>? _originalTimeSlots; // 원본 데이터 백업용
   DateTime? _lastCheckTime; // 마지막 확인 시간 (중복 호출 방지)
   bool _isCheckingTeacherName = false; // 교사명 확인 중 플래그 (중복 실행 방지)
@@ -57,7 +59,6 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
   void _clearTimetableData() {
     setState(() {
       _originalTimeSlots = null;
-      _isExchangeViewEnabled = false;
     });
   }
 
@@ -181,19 +182,18 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
       // Provider 업데이트
       ref.read(personalScheduleProvider.notifier).setTeacherName(selectedTeacherName);
       
-      // 교체 뷰가 활성화되어 있으면 비활성화 (새 교사 선택 시 원본 데이터로 초기화)
-      if (_isExchangeViewEnabled) {
-        setState(() {
-          _isExchangeViewEnabled = false;
-        });
-        // 원본 데이터로 복원
-        await _disablePersonalExchangeView(timetableData);
-      }
-      
       // 원본 데이터 초기화 (새 교사로 시간표 재생성)
       setState(() {
         _originalTimeSlots = null;
+        _isExchangeViewEnabled = true;
       });
+
+      // 교체 뷰 기본 활성화 유지
+      final scheduleState = ref.read(personalScheduleProvider);
+      await _ensureExchangeViewEnabled(
+        timetableData,
+        scheduleState.currentWeekMonday,
+      );
     }
   }
 
@@ -323,6 +323,17 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
       scheduleState.currentWeekMonday,
       timetableData.timeSlots,
     );
+
+    // 최초 진입 시 교체 뷰 기본 활성화
+    if (!_hasInitializedExchangeView) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _ensureExchangeViewEnabled(
+          timetableData,
+          scheduleState.currentWeekMonday,
+        );
+      });
+    }
+
     // 주의: 헤더 폰트 사이즈는 Consumer 내부에서 줌 팩터를 반영하여 재생성됨
     final result = PersonalTimetableHelper.convertToPersonalTimetableData(
       timeSlotsToUse,
@@ -751,6 +762,27 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
         ),
       ],
     );
+  }
+
+  /// 교체 뷰를 활성화합니다 (시간표 화면 기본값).
+  Future<void> _ensureExchangeViewEnabled(
+    TimetableData timetableData,
+    DateTime weekMonday,
+  ) async {
+    if (!mounted) return;
+
+    _hasInitializedExchangeView = true;
+
+    final weekDates = WeekDateCalculator.getWeekDatesWithAvailableDays(
+      weekMonday,
+      timetableData.timeSlots,
+    );
+
+    setState(() {
+      _isExchangeViewEnabled = true;
+    });
+
+    await _enablePersonalExchangeView(weekDates, timetableData, context);
   }
 
   /// 교체 뷰 스위치 토글 처리

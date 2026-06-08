@@ -9,6 +9,9 @@ class TeacherCardGridConstants {
   /// 카드 헤더 높이
   static const double cardHeaderHeight = 36.0;
 
+  /// 헤더 오른쪽 이미지 복사 버튼 영역 너비 (겹침 방지)
+  static const double copyButtonReserveWidth = 24.0;
+
   /// 카드 모서리 둥글기
   static const double cardBorderRadius = 8.0;
 

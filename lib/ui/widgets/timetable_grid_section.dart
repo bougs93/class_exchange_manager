@@ -277,36 +277,36 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     );
   }
 
-  /// 헤더 구성 — 모드 선택 + 실행 도구를 한 줄(또는 좁은 화면에서 2줄)로 통합
+  /// 헤더 구성 — 모드 선택 + 실행 도구를 한 줄(또는 콘텐츠가 넘칠 때 2줄)로 통합
   Widget _buildHeader() {
     return LayoutBuilder(
       builder: (context, constraints) {
         final totalWidth = constraints.maxWidth;
-        final bool useVerticalLayout = totalWidth < 900;
         final bool hideTeacherCount = totalWidth < 600;
+        final teacherCount = widget.timetableData?.teachers.length ?? 0;
 
-        if (useVerticalLayout) {
-          // 모드 선택이 단독 행 → 가용 폭 기준으로 라벨 결정
-          final modeLabelStyle = resolveModeLabelStyle(
-            totalWidth: totalWidth,
-          );
+        // 고정 900px 대신 실제 콘텐츠 최소 폭으로 1줄 유지 여부 판단
+        final layout = resolveUnifiedToolbarLayout(
+          totalWidth: totalWidth,
+          isChainExchangeEnabled: widget.isChainExchangeModeEnabled,
+          showTeacherCount: !hideTeacherCount,
+          teacherCount: teacherCount,
+        );
+
+        if (!layout.useSingleRow) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildModeSelectorRow(modeLabelStyle),
+              _buildModeSelectorRow(layout.modeLabelStyle),
               const SizedBox(height: 4),
               _buildActionToolbarRow(hideTeacherCount),
             ],
           );
         }
 
-        // 통합 한 줄 — 툴바 전체 폭 기준으로 라벨 결정 (Flexible 할당 폭 X)
-        final modeLabelStyle = resolveModeLabelStyle(
-          totalWidth: totalWidth,
-        );
         return _buildUnifiedToolbarRow(
           hideTeacherCount,
-          modeLabelStyle,
+          layout.modeLabelStyle,
         );
       },
     );

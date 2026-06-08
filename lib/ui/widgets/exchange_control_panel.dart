@@ -40,6 +40,197 @@ ExchangeModeLabelStyle resolveModeLabelStyle({
       : ExchangeModeLabelStyle.compact;
 }
 
+/// 툴바 그룹 구분선 실제 점유 폭 (선 1px + 좌우 margin 6px)
+const double kToolbarGroupDividerWidth = 13.0;
+
+/// 모드 버튼 사이 간격 ([ExchangeModeSelector]의 padding right)
+const double kModeButtonSpacing = 4.0;
+
+/// 통합 툴바 1줄/2줄 및 모드 라벨 스타일 결정 결과
+class UnifiedToolbarLayoutDecision {
+  final bool useSingleRow;
+  final ExchangeModeLabelStyle modeLabelStyle;
+
+  const UnifiedToolbarLayoutDecision({
+    required this.useSingleRow,
+    required this.modeLabelStyle,
+  });
+}
+
+/// 가용 폭과 실제 콘텐츠 최소 폭을 비교해 1줄 유지 여부를 결정합니다.
+///
+/// 전체 라벨이 들어가면 full, 아니면 compact로 1줄을 시도하고
+/// 둘 다 불가하면 2줄(모드 단독 행)로 전환합니다.
+UnifiedToolbarLayoutDecision resolveUnifiedToolbarLayout({
+  required double totalWidth,
+  required bool isChainExchangeEnabled,
+  required bool showTeacherCount,
+  int teacherCount = 0,
+}) {
+  for (final labelStyle in [
+    ExchangeModeLabelStyle.full,
+    ExchangeModeLabelStyle.compact,
+  ]) {
+    final minWidth = estimateUnifiedToolbarMinWidth(
+      isChainExchangeEnabled: isChainExchangeEnabled,
+      labelStyle: labelStyle,
+      showTeacherCount: showTeacherCount,
+      teacherCount: teacherCount,
+    );
+    if (totalWidth >= minWidth) {
+      return UnifiedToolbarLayoutDecision(
+        useSingleRow: true,
+        modeLabelStyle: labelStyle,
+      );
+    }
+  }
+
+  return UnifiedToolbarLayoutDecision(
+    useSingleRow: false,
+    modeLabelStyle: resolveModeLabelStyle(totalWidth: totalWidth),
+  );
+}
+
+/// 통합 툴바 1줄 배치에 필요한 최소 가로 폭 (모드·실행도구·줌·교사 수 합산)
+double estimateUnifiedToolbarMinWidth({
+  required bool isChainExchangeEnabled,
+  required ExchangeModeLabelStyle labelStyle,
+  required bool showTeacherCount,
+  int teacherCount = 0,
+}) {
+  const horizontalPadding = 8.0;
+  const scrollToZoomGap = 8.0;
+
+  var width = horizontalPadding;
+  width += estimateModeSelectorWidth(
+    isChainExchangeEnabled: isChainExchangeEnabled,
+    labelStyle: labelStyle,
+  );
+  // 모드 선택 영역과 실행 도구 사이 구분선
+  width += kToolbarGroupDividerWidth;
+  width += estimateActionToolbarItemsWidth();
+  width += scrollToZoomGap;
+  width += kZoomControlWidth;
+  if (showTeacherCount) {
+    width += scrollToZoomGap;
+    width += estimateTeacherCountWidth(teacherCount);
+  }
+  width += horizontalPadding;
+  return width;
+}
+
+/// [ExchangeModeSelector] 최소 폭 (내부 그룹 구분선 포함)
+double estimateModeSelectorWidth({
+  required bool isChainExchangeEnabled,
+  required ExchangeModeLabelStyle labelStyle,
+}) {
+  const viewEditModes = [
+    ExchangeMode.view,
+    ExchangeMode.nonExchangeableEdit,
+  ];
+  final exchangeModes =
+      isChainExchangeEnabled
+          ? const [
+            ExchangeMode.oneToOneExchange,
+            ExchangeMode.chainExchange,
+            ExchangeMode.circularExchange,
+            ExchangeMode.supplementExchange,
+          ]
+          : const [
+            ExchangeMode.oneToOneExchange,
+            ExchangeMode.circularExchange,
+            ExchangeMode.supplementExchange,
+          ];
+
+  double groupWidth(List<ExchangeMode> modes) {
+    return modes
+        .map(
+          (mode) => estimateModeButtonWidth(mode: mode, labelStyle: labelStyle),
+        )
+        .fold(0.0, (sum, itemWidth) => sum + itemWidth);
+  }
+
+  return groupWidth(viewEditModes) +
+      kToolbarGroupDividerWidth +
+      groupWidth(exchangeModes);
+}
+
+/// 모드 버튼 1개 폭 (오른쪽 [kModeButtonSpacing] 포함)
+double estimateModeButtonWidth({
+  required ExchangeMode mode,
+  required ExchangeModeLabelStyle labelStyle,
+}) {
+  if (labelStyle == ExchangeModeLabelStyle.compact) {
+    return kExchangeModeButtonWidth + kModeButtonSpacing;
+  }
+
+  final label = mode.displayName;
+  final textWidth = _measureToolbarTextWidth(
+    label,
+    fontSize: kModeButtonFontSize,
+    fontWeight: FontWeight.w600,
+  );
+  // 아이콘 + 간격 + 텍스트 + 좌우 패딩(10px × 2), 최소 폭 84px
+  final innerWidth = (kModeButtonIconSize + 4 + textWidth + 20).clamp(
+    kExchangeModeButtonWidth,
+    double.infinity,
+  );
+  return innerWidth + kModeButtonSpacing;
+}
+
+/// 원본 스위치 + 전체삭제 + undo/redo 그룹 최소 폭
+double estimateActionToolbarItemsWidth() {
+  final labelWidth = _measureToolbarTextWidth(
+    '교체',
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+  );
+  const switchAreaWidth = 34.0;
+  const labelToSwitchGap = 4.0;
+  const checkboxToDeleteGap = 6.0;
+  const compactButtonSize = kCompactToolbarHeight;
+  const buttonGap = 4.0;
+
+  return labelWidth +
+      labelToSwitchGap +
+      switchAreaWidth +
+      checkboxToDeleteGap +
+      compactButtonSize +
+      buttonGap +
+      compactButtonSize +
+      buttonGap +
+      compactButtonSize;
+}
+
+/// 줌 컨트롤 ([ZoomControlWidget] IconButton constraints 합산)
+const double kZoomControlWidth = 110.0;
+
+/// 교사 수 표시 ([TeacherCountWidget]) 최소 폭
+double estimateTeacherCountWidth(int teacherCount) {
+  final textWidth = _measureToolbarTextWidth(
+    '$teacherCount',
+    fontSize: 11,
+    fontWeight: FontWeight.w600,
+  );
+  return 14 + 2 + textWidth;
+}
+
+double _measureToolbarTextWidth(
+  String text, {
+  required double fontSize,
+  required FontWeight fontWeight,
+}) {
+  final painter = TextPainter(
+    text: TextSpan(
+      text: text,
+      style: TextStyle(fontSize: fontSize, fontWeight: fontWeight),
+    ),
+    textDirection: TextDirection.ltr,
+    maxLines: 1,
+  )..layout();
+  return painter.width;
+}
+
 /// 교체 모드 선택 위젯 (컴팩트 가로 배치)
 ///
 /// [labelStyle]에 따라 전체 라벨 또는 축약 라벨을 표시합니다.

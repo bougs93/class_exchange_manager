@@ -118,24 +118,28 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
           ),
         ],
       ),
-      child: RepaintBoundary(
-        key: _captureKey,
-        // 둥근 모서리 바깥 영역을 흰색으로 채워 캡처 시 투명(검정) 픽셀 방지
-        child: ColoredBox(
-          color: Colors.white,
-          child: Material(
-            color: Colors.white,
-            elevation: 0,
-            surfaceTintColor: Colors.transparent,
-            shape: cardShape,
-            clipBehavior: Clip.antiAlias,
-            child: SizedBox(
-            width: cardWidth,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildCardHeader(context, highlightColor),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          RepaintBoundary(
+            key: _captureKey,
+            // 둥근 모서리 바깥 영역을 흰색으로 채워 캡처 시 투명(검정) 픽셀 방지
+            child: ColoredBox(
+              color: Colors.white,
+              child: Material(
+                color: Colors.white,
+                elevation: 0,
+                surfaceTintColor: Colors.transparent,
+                shape: cardShape,
+                clipBehavior: Clip.antiAlias,
+                child: SizedBox(
+                  width: cardWidth,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // 복사 버튼은 캡처 영역 밖(Stack)에 배치
+                      _buildCardHeader(context, highlightColor),
                 SizedBox(
                   height: gridHeight,
                   child: Theme(
@@ -187,11 +191,22 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
                     ),
                   ),
                 ),
-              ],
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
-        ),
+          // 이미지 복사 버튼 — 화면에만 표시, 캡처 이미지에는 포함하지 않음
+          Positioned(
+            top:
+                (TeacherCardGridConstants.cardHeaderHeight -
+                    TeacherCardGridConstants.copyButtonReserveWidth) /
+                2,
+            right: TeacherCardGridConstants.cardInnerPadding,
+            child: _buildCopyImageButton(highlightColor),
+          ),
+        ],
       ),
     );
   }
@@ -246,6 +261,7 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
             color: widget.isHighlighted ? highlightColor : Colors.grey.shade600,
           ),
           const SizedBox(width: 6),
+          // 교사명 + 교체·보강·날짜 미지정 — 왼쪽 우선 배치
           Expanded(
             child: Row(
               children: [
@@ -262,62 +278,74 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                if (hasRoleLabel) ...[
+                  const SizedBox(width: 6),
+                  _buildRoleBadge(roleLabel),
+                ],
                 if (hasDateStatusMessage) ...[
                   const SizedBox(width: 6),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade50,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: Colors.red.shade200),
-                    ),
-                    child: Text(
-                      dateStatusMessage,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.red.shade700,
-                      ),
-                    ),
-                  ),
+                  _buildDateStatusBadge(dateStatusMessage),
                 ],
               ],
             ),
           ),
           if (hasSubject) ...[
             const SizedBox(width: 4),
-            Text(
-              subject,
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.grey.shade600,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-          if (hasRoleLabel) ...[
-            const SizedBox(width: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.orange.shade50,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: Colors.orange.shade200),
-              ),
+            Flexible(
               child: Text(
-                roleLabel,
+                subject,
                 style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.orange.shade800,
+                  fontSize: 11,
+                  color: Colors.grey.shade600,
                 ),
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.end,
               ),
             ),
           ],
-          const SizedBox(width: 4),
-          _buildCopyImageButton(highlightColor),
+          // 오른쪽 이미지 복사 버튼과 겹치지 않도록 여백 확보
+          const SizedBox(width: TeacherCardGridConstants.copyButtonReserveWidth),
         ],
+      ),
+    );
+  }
+
+  /// 교체·보강 역할 뱃지 (교사명 바로 옆)
+  Widget _buildRoleBadge(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: Colors.orange.shade200),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: Colors.orange.shade800,
+        ),
+      ),
+    );
+  }
+
+  /// 날짜 미지정 안내 뱃지
+  Widget _buildDateStatusBadge(String message) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: Colors.red.shade200),
+      ),
+      child: Text(
+        message,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: Colors.red.shade700,
+        ),
       ),
     );
   }
