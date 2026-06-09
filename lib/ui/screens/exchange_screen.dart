@@ -39,6 +39,8 @@ import 'builders/sidebar_builder.dart';
 import '../../providers/state_reset_provider.dart';
 import '../../providers/zoom_provider.dart';
 import '../../providers/app_settings_provider.dart';
+import '../../providers/teacher_scroll_provider.dart';
+import '../../services/app_settings_storage_service.dart';
 import 'helpers/circular_path_finder.dart';
 import 'helpers/chain_path_finder.dart';
 
@@ -82,6 +84,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   
   // 마지막 처리된 fileLoadId 추적 (무한 루프 방지)
   int _lastProcessedFileLoadId = 0;
+
+  /// 앱 실행 후 홈 교사 행 자동 스크롤을 이미 수행했는지 (세션당 1회)
+  bool _hasScrolledToHomeTeacherOnEntry = false;
 
   // Mixin에서 요구하는 getter들 - Service는 Provider에서, 나머지는 Proxy 사용
   @override
@@ -162,6 +167,42 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     final state = ref.read(exchangeScreenProvider);
     if (state.availableSteps.length != 1 || state.availableSteps.first != 2) {
       ref.read(exchangeScreenProvider.notifier).setAvailableSteps([2]);
+    }
+  }
+
+  /// 교체 화면 진입 시 홈 기본 교사명 행으로 스크롤 (앱 실행 후 최초 1회)
+  Future<void> _scrollToHomeTeacherOnEntry() async {
+    if (_hasScrolledToHomeTeacherOnEntry) {
+      AppLogger.exchangeDebug('⏭️ [교사 스크롤] 이미 수행됨 — 세션당 1회 제한');
+      return;
+    }
+
+    final screenState = ref.read(exchangeScreenProvider);
+    if (screenState.timetableData == null || screenState.dataSource == null) {
+      AppLogger.exchangeDebug('⏭️ [교사 스크롤] 시간표 미로드 — 스크롤 건너뜀');
+      return;
+    }
+
+    try {
+      final defaults =
+          await AppSettingsStorageService().loadTeacherAndSchoolName();
+      final teacherName = (defaults['defaultTeacherName'] ?? '').trim();
+      if (teacherName.isEmpty) {
+        AppLogger.exchangeDebug('⏭️ [교사 스크롤] 홈 교사명 없음 — 스크롤 건너뜀');
+        return;
+      }
+
+      _hasScrolledToHomeTeacherOnEntry = true;
+
+      // DataGrid 레이아웃 완료 후 스크롤 (짧은 지연 + 그리드 내부 재시도)
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (!mounted) return;
+        ref.read(teacherScrollProvider.notifier).requestScrollToTeacher(
+          teacherName,
+        );
+      });
+    } catch (e) {
+      AppLogger.exchangeDebug('❌ [교사 스크롤] 홈 교사명 로드 실패: $e');
     }
   }
 
@@ -691,6 +732,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             _applyDefaultOneToOneModeOnMenuEntry();
+            _scrollToHomeTeacherOnEntry();
           }
         });
       }

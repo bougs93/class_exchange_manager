@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../constants/app_info.dart';
 import '../../utils/url_launcher_helper.dart';
+import '../widgets/app_branding_header.dart';
+import '../widgets/app_content_card.dart';
 
 /// 정보 화면
 /// 
@@ -22,32 +24,26 @@ class InfoScreen extends StatelessWidget {
     // AppBar 없음 — HomeScreen 상단 UnifiedNavigationBar 사용
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              theme.primaryColor.withValues(alpha: 0.05),
-              Colors.white,
-            ],
-          ),
-        ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 헤더 섹션 (프로그램명, 버전)
-              _buildHeaderCard(theme),
-              const SizedBox(height: 16),
-              
-              // 기본 정보 카드 (제작자, 소속)
-              _buildBasicInfoCard(theme),
-              const SizedBox(height: 16),
-              
-              // 모든 정보를 하나의 카드로 통합
-              _buildAllInfoCard(theme),
-            ],
+        // 홈 화면과 동일한 연한 회색 배경
+        color: Colors.grey.shade50,
+        child: SelectionArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 헤더 섹션 (프로그램명, 버전)
+                _buildHeaderCard(theme),
+                const SizedBox(height: 16),
+
+                // 기본 정보 카드 (제작자, 소속)
+                _buildBasicInfoCard(theme),
+                const SizedBox(height: 16),
+
+                // 모든 정보를 하나의 카드로 통합
+                _buildAllInfoCard(theme),
+              ],
+            ),
           ),
         ),
       ),
@@ -58,56 +54,17 @@ class InfoScreen extends StatelessWidget {
   // Main Cards
   // ============================================================================
 
-  /// 헤더 카드 (프로그램명, 버전, 만료일 정보)
+  /// 헤더 카드 (앱 아이콘 + 프로그램명 + 버전·사용 기간 정보)
   Widget _buildHeaderCard(ThemeData theme) {
-    final daysUntilExpiry = AppInfo.getDaysUntilExpiry();
-    final isExpired = AppInfo.isExpired();
-    
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              theme.primaryColor,
-              theme.primaryColor.withValues(alpha: 0.8),
-            ],
-          ),
-        ),
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 프로그램명과 버전
-            _buildProgramTitleSection(),
-            
-            // 만료일 정보 (있는 경우만 표시)
-            if (daysUntilExpiry != null) ...[
-              const SizedBox(height: 16),
-              _buildExpiryInfoBanner(daysUntilExpiry, isExpired),
-            ],
-          ],
-        ),
-      ),
+    return const AppContentCard(
+      child: AppBrandingHeader(showVersionAndPeriod: true),
     );
   }
 
   /// 기본 정보 카드 (제작자, 회사)
   Widget _buildBasicInfoCard(ThemeData theme) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
+    return AppContentCard(
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Developer
@@ -119,20 +76,13 @@ class InfoScreen extends StatelessWidget {
             _buildAffiliationRow(),
           ],
         ),
-      ),
     );
   }
 
   /// 모든 정보를 하나의 카드로 통합
   Widget _buildAllInfoCard(ThemeData theme) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
+    return AppContentCard(
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 프로그램 소개 (불릿 리스트 형태)
@@ -191,113 +141,7 @@ class InfoScreen extends StatelessWidget {
             ),
           ],
         ),
-      ),
     );
-  }
-
-  // ============================================================================
-  // Header Card Components
-  // ============================================================================
-
-  /// 프로그램명과 버전 섹션
-  Widget _buildProgramTitleSection() {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: const Icon(
-            Icons.school,
-            color: Colors.white,
-            size: 32,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                AppInfo.programName,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  AppInfo.version,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// 만료일 정보 배너
-  Widget _buildExpiryInfoBanner(int daysUntilExpiry, bool isExpired) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isExpired 
-          ? Colors.red.withValues(alpha: 0.2)
-          : daysUntilExpiry <= 30
-            ? Colors.orange.withValues(alpha: 0.2)
-            : Colors.white.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            isExpired ? Icons.error_outline : Icons.info_outline,
-            color: Colors.white,
-            size: 20,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              _getExpiryMessage(daysUntilExpiry, isExpired),
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 만료일 메시지 생성
-  String _getExpiryMessage(int daysUntilExpiry, bool isExpired) {
-    if (isExpired) {
-      return '프로그램 사용 기간이 만료되었습니다.';
-    } else if (daysUntilExpiry == 0) {
-      return '오늘이 사용 가능 마지막 날입니다.';
-    } else {
-      return '남은 사용 기간: $daysUntilExpiry일';
-    }
   }
 
   // ============================================================================
@@ -446,7 +290,7 @@ class InfoScreen extends StatelessWidget {
     );
   }
 
-  /// 라이선스 및 정식 버전 안내  하위 섹션 (불릿 리스트 형태)
+  /// 베타 버전 이용 안내 하위 섹션 (불릿 리스트 형태)
   Widget _buildUsageRestrictionSubSectionWithList(ThemeData theme) {
     final daysUntilExpiry = AppInfo.getDaysUntilExpiry();
     final isExpired = AppInfo.isExpired();
@@ -464,7 +308,7 @@ class InfoScreen extends StatelessWidget {
         _buildSectionHeader(
           theme,
           Icons.warning_amber_rounded,
-          '라이선스 및 정식 버전 안내',
+          '베타 버전 이용 안내',
           color: color,
         ),
         const SizedBox(height: 6),

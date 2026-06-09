@@ -5,12 +5,12 @@ import '../../providers/exchange_screen_provider.dart';
 import '../../providers/personal_schedule_provider.dart';
 import '../../providers/state_reset_provider.dart';
 import '../../models/exchange_mode.dart';
-import '../../constants/app_info.dart';
-import '../../constants/app_assets.dart';
 import '../../services/app_settings_storage_service.dart';
 import '../../utils/logger.dart';
 import 'exchange_screen/exchange_screen_state_proxy.dart';
 import 'exchange_screen/managers/exchange_operation_manager.dart';
+import '../widgets/app_branding_header.dart';
+import '../widgets/app_content_card.dart';
 import '../widgets/selected_timetable_file_banner.dart';
 import 'home_content/home_settings_card.dart';
 import 'home_content/setting_save_mixin.dart';
@@ -234,6 +234,12 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 앱 아이콘 + 프로그램명 + 버전·이용 기간 (정보 화면과 동일)
+            const AppContentCard(
+              child: AppBrandingHeader(showVersionAndPeriod: true),
+            ),
+            const SizedBox(height: 16),
+
             // 시간표 파일 선택 카드
             _buildFileSelectionCard(
               theme,
@@ -246,10 +252,6 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen>
 
             // 기본 정보 카드 (교사명·학교명)
             _buildBasicInfoCard(theme),
-            const SizedBox(height: 16),
-
-            // 사용 기간 정보 카드
-            _buildUsagePeriodCard(theme),
 
             const SizedBox(height: 24),
 
@@ -266,18 +268,6 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen>
     );
   }
 
-  /// 홈 화면 공통 카드 테두리 스타일
-  BoxDecoration _homeCardDecoration(ThemeData theme) {
-    return BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(
-        color: theme.primaryColor.withValues(alpha: 0.2),
-        width: 1,
-      ),
-    );
-  }
-
   /// 시간표 파일 선택 카드
   Widget _buildFileSelectionCard(
     ThemeData theme,
@@ -286,42 +276,11 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen>
     bool hasLoadedTimetable,
     bool isLoading,
   ) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: _homeCardDecoration(theme),
+    return AppContentCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 상단: 아이콘과 파일 정보
-          Row(
-            children: [
-              Image.asset(
-                AppAssets.appIcon,
-                width: 48,
-                height: 48,
-                fit: BoxFit.contain,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '수업 교체 도우미',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey.shade800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
           // 교체 화면과 동일한 파란색 파일 배너 (엑셀 파일명 표시)
-          const SizedBox(height: 12),
           SelectedTimetableFileBanner(
             selectedFile: selectedFile,
             displayFileName: timetableFileName,
@@ -409,9 +368,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen>
 
   /// 기본 정보 카드 (교사명·학교명 입력 및 저장)
   Widget _buildBasicInfoCard(ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: _homeCardDecoration(theme),
+    return AppContentCard(
       child: _buildBasicInfoForm(theme),
     );
   }
@@ -499,7 +456,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen>
     );
   }
 
-  /// 기본 정보 입력 필드 한 칸 (라벨 + TextField)
+  /// 기본 정보 입력 필드 한 칸 (라벨 + 아이콘 + TextField)
   Widget _buildBasicInfoInputField({
     required String label,
     required TextEditingController controller,
@@ -513,29 +470,50 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen>
       children: [
         SizedBox(
           width: 44,
-          child: Text('$label :', style: const TextStyle(fontSize: 11)),
+          child: Text(
+            '$label :',
+            textAlign: TextAlign.right,
+            style: const TextStyle(fontSize: 11),
+          ),
         ),
+        const SizedBox(width: 8),
         Expanded(
           child: SizedBox(
             height: 28,
-            child: TextField(
-              controller: controller,
-              style: const TextStyle(fontSize: 13, height: 1.0),
-              decoration: InputDecoration(
-                hintText: hintText,
-                border: const OutlineInputBorder(
-                  borderSide: BorderSide(width: 1),
-                ),
-                prefixIcon: Icon(icon, size: 16),
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 0,
-                ),
-                constraints: const BoxConstraints(minHeight: 28, maxHeight: 28),
+            // 아이콘을 TextField 밖에 두어 prefix 여백 문제를 방지
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade400),
+                borderRadius: BorderRadius.circular(4),
               ),
-              textInputAction: textInputAction,
-              onSubmitted: onSubmitted,
+              child: Row(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: Icon(icon, size: 14, color: Colors.grey.shade600),
+                  ),
+                  Expanded(
+                    child: TextField(
+                      controller: controller,
+                      style: const TextStyle(fontSize: 13, height: 1.2),
+                      decoration: InputDecoration(
+                        hintText: hintText,
+                        hintStyle: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade400,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                        isCollapsed: true,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 6),
+                      ),
+                      textInputAction: textInputAction,
+                      onSubmitted: onSubmitted,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                ],
+              ),
             ),
           ),
         ),
@@ -543,144 +521,4 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen>
     );
   }
 
-  /// 사용 기간 정보 카드 생성
-  Widget _buildUsagePeriodCard(ThemeData theme) {
-    final expiryDate = AppInfo.expiryDate;
-    final daysUntilExpiry = AppInfo.getDaysUntilExpiry();
-    final isExpired = AppInfo.isExpired();
-
-    // 사용 가능 기간 문자열 생성
-    String availablePeriodText;
-    if (expiryDate == null) {
-      availablePeriodText = '제한 없음';
-    } else {
-      try {
-        final expiry = DateTime.parse(expiryDate);
-        availablePeriodText =
-            '${expiry.year}년 ${expiry.month}월 ${expiry.day}일까지';
-      } catch (e) {
-        availablePeriodText = expiryDate;
-      }
-    }
-
-    // 남은 사용 기간 문자열 생성
-    String remainingPeriodText;
-    Color remainingPeriodColor;
-    if (expiryDate == null) {
-      remainingPeriodText = '제한 없음';
-      remainingPeriodColor = Colors.green.shade700;
-    } else if (isExpired) {
-      remainingPeriodText = '만료됨';
-      remainingPeriodColor = Colors.red.shade700;
-    } else if (daysUntilExpiry != null) {
-      if (daysUntilExpiry == 0) {
-        remainingPeriodText = '오늘까지';
-        remainingPeriodColor = Colors.orange.shade700;
-      } else if (daysUntilExpiry <= 30) {
-        remainingPeriodText = '$daysUntilExpiry일 남음';
-        remainingPeriodColor = Colors.orange.shade700;
-      } else {
-        remainingPeriodText = '$daysUntilExpiry일 남음';
-        remainingPeriodColor = Colors.green.shade700;
-      }
-    } else {
-      remainingPeriodText = '계산 불가';
-      remainingPeriodColor = Colors.grey.shade700;
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300, width: 1),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: theme.primaryColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              Icons.calendar_today,
-              color: theme.primaryColor,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'Version : ',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade700,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    Text(
-                      AppInfo.version,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade800,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Text(
-                      '사용 가능 기간 : ',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade700,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    Text(
-                      availablePeriodText,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade800,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Text(
-                      '남은 사용 기간 : ',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade700,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    Text(
-                      remainingPeriodText,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: remainingPeriodColor,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }

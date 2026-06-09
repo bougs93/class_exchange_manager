@@ -218,7 +218,7 @@ class _HomeSettingsCardState extends ConsumerState<HomeSettingsCard>
             ),
             const SizedBox(width: 12),
             const Text(
-              '설정',
+              '기타 설정',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
             ),
           ],

@@ -22,17 +22,32 @@ class GridColumnLocator {
     final source = dataSource;
     if (source == null) return -1;
 
+    final target = teacherName.trim();
+    if (target.isEmpty) return -1;
+
     for (int i = 0; i < source.rows.length; i++) {
       final cells = source.rows[i].getCells();
-      // 첫 번째 셀(교사명)에서 교사명 확인
-      if (cells.isNotEmpty) {
-        final cellValue = cells.first.value?.toString() ?? '';
-        if (cellValue.contains(teacherName)) {
-          return i; // 헤더 행이 있다면 +1 필요할 수 있음
-        }
+      if (cells.isEmpty) continue;
+
+      final cellValue = cells.first.value?.toString() ?? '';
+      if (_isTeacherNameMatch(cellValue, target)) {
+        return i;
       }
     }
     return -1;
+  }
+
+  /// 홈 기본 교사명과 그리드 교사명 비교 (괄호 번호 등 형식 차이 허용)
+  bool _isTeacherNameMatch(String cellValue, String targetName) {
+    final cell = cellValue.trim();
+    final target = targetName.trim();
+    if (cell.isEmpty || target.isEmpty) return false;
+    if (cell == target) return true;
+    if (cell.contains(target) || target.contains(cell)) return true;
+
+    final cellBase = cell.split('(').first.trim();
+    final targetBase = target.split('(').first.trim();
+    return cellBase.isNotEmpty && cellBase == targetBase;
   }
 
   /// 요일·교시로 열 인덱스 계산

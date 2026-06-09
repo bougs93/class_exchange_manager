@@ -23,6 +23,7 @@ import '../../providers/substitution_plan_provider.dart';
 import '../../providers/zoom_provider.dart';
 import '../../providers/scroll_provider.dart';
 import '../../providers/node_scroll_provider.dart'; // 🆕 노드 스크롤 Provider 추가
+import '../../providers/teacher_scroll_provider.dart';
 import '../../utils/simplified_timetable_theme.dart';
 import 'timetable_grid/timetable_grid_constants.dart';
 import 'timetable_grid/exchange_arrow_style.dart';
@@ -240,6 +241,14 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
         scrollToExchangeNode(next);
         // 스크롤 완료 후 상태 초기화
         ref.read(nodeScrollProvider.notifier).clearScrollRequest();
+      }
+    });
+
+    // 홈 기본 교사명 행으로 스크롤 요청 처리
+    ref.listen<String?>(teacherScrollProvider, (previous, next) {
+      if (next != null) {
+        scrollToTeacher(next);
+        ref.read(teacherScrollProvider.notifier).clearScrollRequest();
       }
     });
 
@@ -707,6 +716,41 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
   /// 사이드바에서 노드를 선택했을 때 해당 셀로 중앙 스크롤
   ///
   /// [node] 교체 경로의 노드 정보
+  /// 홈에서 지정한 교사명 행으로 스크롤 (교체 화면 첫 진입 시 사용)
+  void scrollToTeacher(String teacherName, {int retryCount = 0}) {
+    try {
+      AppLogger.exchangeDebug('🔍 [교사 스크롤] 시작: $teacherName');
+
+      final locator = GridColumnLocator(widget.columns, widget.dataSource);
+      final teacherRowIndex = locator.findTeacherRowIndex(teacherName);
+      if (teacherRowIndex == -1) {
+        AppLogger.exchangeDebug('❌ [교사 스크롤] 교사를 찾을 수 없음: $teacherName');
+        return;
+      }
+
+      _dataGridController.scrollToCell(
+        teacherRowIndex.toDouble(),
+        0,
+        canAnimate: retryCount == 0,
+        rowPosition: DataGridScrollPosition.center,
+        columnPosition: DataGridScrollPosition.center,
+      );
+
+      AppLogger.exchangeDebug(
+        '🎯 [교사 스크롤] 완료: $teacherName | 행:$teacherRowIndex',
+      );
+    } catch (e) {
+      AppLogger.exchangeDebug('❌ [교사 스크롤] 실패(재시도 $retryCount): $e');
+      if (retryCount < 5 && mounted) {
+        Future.delayed(Duration(milliseconds: 120 * (retryCount + 1)), () {
+          if (mounted) {
+            scrollToTeacher(teacherName, retryCount: retryCount + 1);
+          }
+        });
+      }
+    }
+  }
+
   void scrollToExchangeNode(ExchangeNode node) {
     try {
       AppLogger.exchangeDebug(

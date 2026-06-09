@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import '../widgets/app_content_card.dart';
 import '../widgets/exchange_control_panel.dart';
 import '../widgets/timetable_grid/grid_header_widgets.dart';
 import '../../utils/url_launcher_helper.dart';
@@ -9,7 +10,7 @@ import '../../utils/url_launcher_helper.dart';
 /// 
 /// 프로그램 사용법과 양식 파일 정보를 제공합니다.
 /// - 기본 사용법: 프로그램의 주요 기능 사용 방법
-/// - 양식DF 파일: PDF 양식 파일 안내
+/// - 양식PDF 제작 방법: PDF 양식 파일 안내
 class HelpScreen extends StatefulWidget {
   const HelpScreen({super.key});
 
@@ -167,22 +168,20 @@ class _HelpScreenState extends State<HelpScreen> {
       );
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
+    // selectable: true 는 문단마다 SelectableText를 분리해 1블록씩만 선택됩니다.
+    // SelectionArea + 일반 Text 렌더링으로 여러 문단을 한 번에 드래그 선택할 수 있습니다.
+    return SelectionArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AppContentCard(
               child: MarkdownBody(
-                data: _processMarkdownWithYoutubeThumbnails(markdownContent),
-                styleSheet: _buildMarkdownStyleSheet(theme),
-                imageBuilder: (uri, title, alt) {
+                  data: _processMarkdownWithYoutubeThumbnails(markdownContent),
+                  selectable: false,
+                  styleSheet: _buildMarkdownStyleSheet(theme),
+                  imageBuilder: (uri, title, alt) {
                   // URI에서 경로 추출
                   // flutter_markdown이 마크다운의 이미지 경로를 파싱할 때
                   // 공백이 있는 파일명의 경우 path에서 일부만 추출될 수 있음
@@ -316,15 +315,15 @@ class _HelpScreenState extends State<HelpScreen> {
                     },
                   );
                 },
-                onTapLink: (text, href, title) {
-                  if (href != null) {
-                    UrlLauncherHelper.launchURL(href, context: context);
-                  }
-                },
-              ),
+                  onTapLink: (text, href, title) {
+                    if (href != null) {
+                      UrlLauncherHelper.launchURL(href, context: context);
+                    }
+                  },
+                ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

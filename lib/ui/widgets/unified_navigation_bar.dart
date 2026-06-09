@@ -31,9 +31,9 @@ class UnifiedNavigationBar extends ConsumerWidget {
     },
     {
       'index': NavIndices.document,
-      'icon': Icons.print,
-      'label': '출력',
-      'tooltip': '출력',
+      'icon': Icons.description,
+      'label': '문서',
+      'tooltip': '문서',
     },
     {
       'index': NavIndices.personalSchedule,
