@@ -65,8 +65,10 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
 
     _ensureDataSource(result.rows);
 
-    final scaledColumns =
-        GridScalingHelper.scaleColumns(result.columns, widget.zoomFactor);
+    final scaledColumns = GridScalingHelper.scaleColumns(
+      result.columns,
+      widget.zoomFactor,
+    );
     final scaledStackedHeaders = GridScalingHelper.scaleStackedHeaders(
       result.stackedHeaders,
       widget.zoomFactor,
@@ -101,9 +103,10 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
     );
     final cardShape = RoundedRectangleBorder(
       borderRadius: borderRadius,
-      side: widget.isHighlighted
-          ? BorderSide(color: highlightColor, width: 1.5)
-          : BorderSide(color: Colors.grey.shade300),
+      side:
+          widget.isHighlighted
+              ? BorderSide(color: highlightColor, width: 1.5)
+              : BorderSide(color: Colors.grey.shade300),
     );
 
     // 그림자는 RepaintBoundary 밖 — 이미지 복사 시 검정 테두리(그림자) 제외
@@ -140,57 +143,57 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
                     children: [
                       // 복사 버튼은 캡처 영역 밖(Stack)에 배치
                       _buildCardHeader(context, highlightColor),
-                SizedBox(
-                  height: gridHeight,
-                  child: Theme(
-                    data: theme.copyWith(
-                      textTheme: theme.textTheme.copyWith(
-                        bodyMedium: TextStyle(
-                          fontSize:
-                              GridLayoutConstants.baseFontSize *
-                              widget.zoomFactor,
-                        ),
-                        bodySmall: TextStyle(
-                          fontSize:
-                              GridLayoutConstants.baseFontSize *
-                              widget.zoomFactor,
-                        ),
-                        titleMedium: TextStyle(
-                          fontSize:
-                              GridLayoutConstants.baseFontSize *
-                              widget.zoomFactor,
-                        ),
-                        labelMedium: TextStyle(
-                          fontSize:
-                              GridLayoutConstants.baseFontSize *
-                              widget.zoomFactor,
-                        ),
-                        labelLarge: TextStyle(
-                          fontSize:
-                              GridLayoutConstants.baseFontSize *
-                              widget.zoomFactor,
-                        ),
-                        labelSmall: TextStyle(
-                          fontSize:
-                              GridLayoutConstants.baseFontSize *
-                              widget.zoomFactor,
+                      SizedBox(
+                        height: gridHeight,
+                        child: Theme(
+                          data: theme.copyWith(
+                            textTheme: theme.textTheme.copyWith(
+                              bodyMedium: TextStyle(
+                                fontSize:
+                                    GridLayoutConstants.baseFontSize *
+                                    widget.zoomFactor,
+                              ),
+                              bodySmall: TextStyle(
+                                fontSize:
+                                    GridLayoutConstants.baseFontSize *
+                                    widget.zoomFactor,
+                              ),
+                              titleMedium: TextStyle(
+                                fontSize:
+                                    GridLayoutConstants.baseFontSize *
+                                    widget.zoomFactor,
+                              ),
+                              labelMedium: TextStyle(
+                                fontSize:
+                                    GridLayoutConstants.baseFontSize *
+                                    widget.zoomFactor,
+                              ),
+                              labelLarge: TextStyle(
+                                fontSize:
+                                    GridLayoutConstants.baseFontSize *
+                                    widget.zoomFactor,
+                              ),
+                              labelSmall: TextStyle(
+                                fontSize:
+                                    GridLayoutConstants.baseFontSize *
+                                    widget.zoomFactor,
+                              ),
+                            ),
+                          ),
+                          child: SfDataGrid(
+                            source: _dataSource!,
+                            columns: scaledColumns,
+                            stackedHeaderRows: scaledStackedHeaders,
+                            gridLinesVisibility: GridLinesVisibility.both,
+                            headerGridLinesVisibility: GridLinesVisibility.both,
+                            allowSorting: false,
+                            allowTriStateSorting: false,
+                            columnWidthMode: ColumnWidthMode.none,
+                            headerRowHeight: headerHeight,
+                            rowHeight: rowHeight,
+                          ),
                         ),
                       ),
-                    ),
-                    child: SfDataGrid(
-                      source: _dataSource!,
-                      columns: scaledColumns,
-                      stackedHeaderRows: scaledStackedHeaders,
-                      gridLinesVisibility: GridLinesVisibility.both,
-                      headerGridLinesVisibility: GridLinesVisibility.both,
-                      allowSorting: false,
-                      allowTriStateSorting: false,
-                      columnWidthMode: ColumnWidthMode.none,
-                      headerRowHeight: headerHeight,
-                      rowHeight: rowHeight,
-                    ),
-                  ),
-                ),
                     ],
                   ),
                 ),
@@ -246,12 +249,11 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
         horizontal: TeacherCardGridConstants.cardInnerPadding,
       ),
       decoration: BoxDecoration(
-        color: widget.isHighlighted
-            ? highlightColor.withValues(alpha: 0.08)
-            : Colors.grey.shade50,
-        border: Border(
-          bottom: BorderSide(color: Colors.grey.shade300),
-        ),
+        color:
+            widget.isHighlighted
+                ? highlightColor.withValues(alpha: 0.08)
+                : Colors.grey.shade50,
+        border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
       ),
       child: Row(
         children: [
@@ -271,9 +273,10 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: widget.isHighlighted
-                          ? highlightColor
-                          : Colors.grey.shade800,
+                      color:
+                          widget.isHighlighted
+                              ? highlightColor
+                              : Colors.grey.shade800,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -294,17 +297,16 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
             Flexible(
               child: Text(
                 subject,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey.shade600,
-                ),
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.end,
               ),
             ),
           ],
           // 오른쪽 이미지 복사 버튼과 겹치지 않도록 여백 확보
-          const SizedBox(width: TeacherCardGridConstants.copyButtonReserveWidth),
+          const SizedBox(
+            width: TeacherCardGridConstants.copyButtonReserveWidth,
+          ),
         ],
       ),
     );
@@ -312,21 +314,21 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
 
   /// 교체·보강 역할 뱃지 (교사명 바로 옆)
   Widget _buildRoleBadge(String label) => _buildBadge(
-        label,
-        horizontalPadding: 6,
-        background: Colors.orange.shade50,
-        border: Colors.orange.shade200,
-        text: Colors.orange.shade800,
-      );
+    label,
+    horizontalPadding: 6,
+    background: Colors.orange.shade50,
+    border: Colors.orange.shade200,
+    text: Colors.orange.shade800,
+  );
 
   /// 날짜 미지정 안내 뱃지
   Widget _buildDateStatusBadge(String message) => _buildBadge(
-        message,
-        horizontalPadding: 5,
-        background: Colors.red.shade50,
-        border: Colors.red.shade200,
-        text: Colors.red.shade700,
-      );
+    message,
+    horizontalPadding: 5,
+    background: Colors.red.shade50,
+    border: Colors.red.shade200,
+    text: Colors.red.shade700,
+  );
 
   /// 카드 헤더용 소형 뱃지 (역할·날짜 미지정 공통)
   Widget _buildBadge(
@@ -363,20 +365,17 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
         borderRadius: BorderRadius.circular(4),
         child: Padding(
           padding: const EdgeInsets.all(4),
-          child: _isCopyingImage
-              ? SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: highlightColor,
-                  ),
-                )
-              : Icon(
-                  Icons.image_outlined,
-                  size: 16,
-                  color: highlightColor,
-                ),
+          child:
+              _isCopyingImage
+                  ? SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: highlightColor,
+                    ),
+                  )
+                  : Icon(Icons.image_outlined, size: 16, color: highlightColor),
         ),
       ),
     );

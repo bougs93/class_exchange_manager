@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../../../models/one_to_one_exchange_path.dart';
 import '../../../models/circular_exchange_path.dart';
 import '../../../models/dual_exchange_path.dart';
@@ -44,22 +44,24 @@ mixin ExchangePathHandler<T extends StatefulWidget> on State<T> {
     }
 
     // 선택된 셀의 학급명 추출
-    String selectedClassName = ExchangePathConverter.extractClassNameFromTimeSlots(
-      timeSlots: timetableData!.timeSlots,
-      teacherName: exchangeService.selectedTeacher!,
-      day: exchangeService.selectedDay!,
-      period: exchangeService.selectedPeriod!,
-    );
+    String selectedClassName =
+        ExchangePathConverter.extractClassNameFromTimeSlots(
+          timeSlots: timetableData!.timeSlots,
+          teacherName: exchangeService.selectedTeacher!,
+          day: exchangeService.selectedDay!,
+          period: exchangeService.selectedPeriod!,
+        );
 
     // ExchangeOption을 OneToOneExchangePath로 변환
-    List<OneToOneExchangePath> paths = ExchangePathConverter.convertToOneToOnePaths(
-      selectedTeacher: exchangeService.selectedTeacher!,
-      selectedDay: exchangeService.selectedDay!,
-      selectedPeriod: exchangeService.selectedPeriod!,
-      selectedClassName: selectedClassName,
-      options: options.cast(),
-      timeSlots: timetableData!.timeSlots, // 시간표 데이터 추가
-    );
+    List<OneToOneExchangePath> paths =
+        ExchangePathConverter.convertToOneToOnePaths(
+          selectedTeacher: exchangeService.selectedTeacher!,
+          selectedDay: exchangeService.selectedDay!,
+          selectedPeriod: exchangeService.selectedPeriod!,
+          selectedClassName: selectedClassName,
+          options: options.cast(),
+          timeSlots: timetableData!.timeSlots, // 시간표 데이터 추가
+        );
 
     // 순차적인 ID 부여
     for (int i = 0; i < paths.length; i++) {
@@ -92,7 +94,9 @@ mixin ExchangePathHandler<T extends StatefulWidget> on State<T> {
       // 4단계: DFS 경로 탐색 시작 (80%)
       updateProgressSmoothly(0.8);
 
-      AppLogger.exchangeDebug('경로 탐색 실행 시작 - 선택된 셀: ${circularExchangeService.selectedTeacher}, ${circularExchangeService.selectedDay}, ${circularExchangeService.selectedPeriod}');
+      AppLogger.exchangeDebug(
+        '경로 탐색 실행 시작 - 선택된 셀: ${circularExchangeService.selectedTeacher}, ${circularExchangeService.selectedDay}, ${circularExchangeService.selectedPeriod}',
+      );
 
       if (timetableData == null) {
         AppLogger.error('시간표 데이터가 없습니다.');
@@ -102,10 +106,11 @@ mixin ExchangePathHandler<T extends StatefulWidget> on State<T> {
       }
 
       // 실제 경로 탐색
-      List<CircularExchangePath> paths = circularExchangeService.findCircularExchangePaths(
-        timetableData!.timeSlots,
-        timetableData!.teachers,
-      );
+      List<CircularExchangePath> paths = circularExchangeService
+          .findCircularExchangePaths(
+            timetableData!.timeSlots,
+            timetableData!.teachers,
+          );
 
       AppLogger.exchangeDebug('경로 탐색 완료: ${paths.length}개 발견');
 

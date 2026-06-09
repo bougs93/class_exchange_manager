@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../services/excel_service.dart';
@@ -14,6 +14,7 @@ import '../utils/logger.dart';
 /// ExchangeScreen 상태 클래스
 class ExchangeScreenState {
   final File? selectedFile;
+
   /// JSON 캐시 로드 시 표시용 파일명 (로컬 xlsm 경로가 없을 때 metadata.fileName)
   final String? timetableFileName;
   final TimetableData? timetableData;
@@ -107,9 +108,10 @@ class ExchangeScreenState {
   }) {
     return ExchangeScreenState(
       selectedFile: selectedFile != null ? selectedFile() : this.selectedFile,
-      timetableFileName: timetableFileName != null
-          ? timetableFileName()
-          : this.timetableFileName,
+      timetableFileName:
+          timetableFileName != null
+              ? timetableFileName()
+              : this.timetableFileName,
       timetableData:
           timetableData != null ? timetableData() : this.timetableData,
       dataSource: dataSource != null ? dataSource() : this.dataSource,
@@ -121,17 +123,29 @@ class ExchangeScreenState {
       availablePaths: availablePaths ?? this.availablePaths,
       isPathsLoading: isPathsLoading ?? this.isPathsLoading,
       loadingProgress: loadingProgress ?? this.loadingProgress,
-      selectedOneToOnePath: selectedOneToOnePath != null ? selectedOneToOnePath() : this.selectedOneToOnePath,
-      selectedCircularPath: selectedCircularPath != null ? selectedCircularPath() : this.selectedCircularPath,
-      selectedDualPath: selectedDualPath != null ? selectedDualPath() : this.selectedDualPath,
-      selectedSupplementPath: selectedSupplementPath != null ? selectedSupplementPath() : this.selectedSupplementPath,
+      selectedOneToOnePath:
+          selectedOneToOnePath != null
+              ? selectedOneToOnePath()
+              : this.selectedOneToOnePath,
+      selectedCircularPath:
+          selectedCircularPath != null
+              ? selectedCircularPath()
+              : this.selectedCircularPath,
+      selectedDualPath:
+          selectedDualPath != null ? selectedDualPath() : this.selectedDualPath,
+      selectedSupplementPath:
+          selectedSupplementPath != null
+              ? selectedSupplementPath()
+              : this.selectedSupplementPath,
       isSidebarVisible: isSidebarVisible ?? this.isSidebarVisible,
       searchQuery: searchQuery ?? this.searchQuery,
       availableSteps: availableSteps ?? this.availableSteps,
       selectedStep: selectedStep != null ? selectedStep() : this.selectedStep,
       selectedDay: selectedDay != null ? selectedDay() : this.selectedDay,
-      isNonExchangeableEditMode: isNonExchangeableEditMode ?? this.isNonExchangeableEditMode,
-      isTeacherNameSelectionEnabled: isTeacherNameSelectionEnabled ?? this.isTeacherNameSelectionEnabled,
+      isNonExchangeableEditMode:
+          isNonExchangeableEditMode ?? this.isNonExchangeableEditMode,
+      isTeacherNameSelectionEnabled:
+          isTeacherNameSelectionEnabled ?? this.isTeacherNameSelectionEnabled,
       fileLoadId: fileLoadId ?? this.fileLoadId,
     );
   }
@@ -144,8 +158,7 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
   void setSelectedFile(File? file) {
     state = state.copyWith(
       selectedFile: () => file,
-      timetableFileName: () =>
-          file?.path.split(Platform.pathSeparator).last,
+      timetableFileName: () => file?.path.split(Platform.pathSeparator).last,
     );
   }
 
@@ -157,22 +170,34 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
   void setTimetableData(TimetableData? data) {
     // 데이터 검증 로그 추가
     if (data != null) {
-      AppLogger.exchangeDebug('📊 [ExchangeScreenProvider] timetableData 설정: ${data.teachers.length}명 교사, ${data.timeSlots.length}개 TimeSlot');
-      
+      AppLogger.exchangeDebug(
+        '📊 [ExchangeScreenProvider] timetableData 설정: ${data.teachers.length}명 교사, ${data.timeSlots.length}개 TimeSlot',
+      );
+
       // 비어있지 않은 TimeSlot 개수 확인
-      final nonEmptySlots = data.timeSlots.where((slot) => slot.isNotEmpty).length;
-      AppLogger.exchangeDebug('📊 [ExchangeScreenProvider] 수업이 있는 TimeSlot: $nonEmptySlots개 / 전체 ${data.timeSlots.length}개');
-      
+      final nonEmptySlots =
+          data.timeSlots.where((slot) => slot.isNotEmpty).length;
+      AppLogger.exchangeDebug(
+        '📊 [ExchangeScreenProvider] 수업이 있는 TimeSlot: $nonEmptySlots개 / 전체 ${data.timeSlots.length}개',
+      );
+
       // 샘플 TimeSlot 확인 (최대 5개)
-      final sampleSlots = data.timeSlots.where((slot) => slot.isNotEmpty).take(5).toList();
-      AppLogger.exchangeDebug('📊 [ExchangeScreenProvider] TimeSlot 샘플 (최대 5개):');
+      final sampleSlots =
+          data.timeSlots.where((slot) => slot.isNotEmpty).take(5).toList();
+      AppLogger.exchangeDebug(
+        '📊 [ExchangeScreenProvider] TimeSlot 샘플 (최대 5개):',
+      );
       for (var slot in sampleSlots) {
-        AppLogger.exchangeDebug('  - teacher=${slot.teacher}, dayOfWeek=${slot.dayOfWeek}, period=${slot.period}, subject=${slot.subject}, className=${slot.className}');
+        AppLogger.exchangeDebug(
+          '  - teacher=${slot.teacher}, dayOfWeek=${slot.dayOfWeek}, period=${slot.period}, subject=${slot.subject}, className=${slot.className}',
+        );
       }
     } else {
-      AppLogger.exchangeDebug('📊 [ExchangeScreenProvider] timetableData를 null로 설정');
+      AppLogger.exchangeDebug(
+        '📊 [ExchangeScreenProvider] timetableData를 null로 설정',
+      );
     }
-    
+
     state = state.copyWith(
       timetableData: () => data,
       timetableFileName: data == null ? () => null : null,
@@ -185,10 +210,12 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
     // 이전 dataSource 정리 (메모리 누수 방지)
     final previousDataSource = state.dataSource;
     if (previousDataSource != null) {
-      AppLogger.exchangeDebug('🧹 [ExchangeScreenProvider] 이전 TimetableDataSource 정리');
+      AppLogger.exchangeDebug(
+        '🧹 [ExchangeScreenProvider] 이전 TimetableDataSource 정리',
+      );
       previousDataSource.dispose();
     }
-    
+
     state = state.copyWith(dataSource: () => dataSource);
   }
 
@@ -213,17 +240,17 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
   }
 
   // 🔥 통합된 교체 경로 관리 메서드들
-  
+
   /// 모든 교체 경로 설정 (통합)
   void setAvailablePaths(List<ExchangePath> paths) {
     state = state.copyWith(availablePaths: paths);
   }
-  
+
   /// 교체 경로 로딩 상태 설정
   void setPathsLoading(bool loading) {
     state = state.copyWith(isPathsLoading: loading);
   }
-  
+
   /// 로딩 진행률 설정
   void setLoadingProgress(double progress) {
     state = state.copyWith(loadingProgress: progress);
@@ -335,9 +362,12 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
       loadingProgress: loadingProgress,
       isSidebarVisible: isSidebarVisible,
       searchQuery: searchQuery,
-      selectedOneToOnePath: selectedOneToOnePath != null ? () => selectedOneToOnePath : null,
-      selectedCircularPath: selectedCircularPath != null ? () => selectedCircularPath : null,
-      selectedDualPath: selectedDualPath != null ? () => selectedDualPath : null,
+      selectedOneToOnePath:
+          selectedOneToOnePath != null ? () => selectedOneToOnePath : null,
+      selectedCircularPath:
+          selectedCircularPath != null ? () => selectedCircularPath : null,
+      selectedDualPath:
+          selectedDualPath != null ? () => selectedDualPath : null,
       availableSteps: availableSteps,
       selectedStep: selectedStep != null ? () => selectedStep : null,
       selectedDay: selectedDay != null ? () => selectedDay : null,
@@ -390,5 +420,5 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
 /// ExchangeScreen 상태 Provider
 final exchangeScreenProvider =
     StateNotifierProvider<ExchangeScreenNotifier, ExchangeScreenState>((ref) {
-  return ExchangeScreenNotifier();
-});
+      return ExchangeScreenNotifier();
+    });

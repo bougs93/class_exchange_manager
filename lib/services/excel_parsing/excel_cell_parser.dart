@@ -18,13 +18,15 @@ class ExcelCellParser {
   /// 반환값:
   /// - `List<String>`: 정리된 줄 목록 (빈 줄 제외)
   static List<String> _cleanCellLines(String cellValue) {
-    String cleanCellValue = cellValue
-        .replaceAll('\r', '')           // 캐리지 리턴 제거
-        .replaceAll('_x000D_', '')      // Excel 특수 문자 제거
-        .replaceAll('\n', '\n')          // 줄바꿈 정규화
-        .trim();
+    String cleanCellValue =
+        cellValue
+            .replaceAll('\r', '') // 캐리지 리턴 제거
+            .replaceAll('_x000D_', '') // Excel 특수 문자 제거
+            .replaceAll('\n', '\n') // 줄바꿈 정규화
+            .trim();
 
-    return cleanCellValue.split('\n')
+    return cleanCellValue
+        .split('\n')
         .map((line) => line.trim())
         .where((line) => line.isNotEmpty)
         .toList();
@@ -117,14 +119,14 @@ class ExcelCellParser {
   }
 
   /// 시간표 셀을 파싱하는 메서드
-  /// 
+  ///
   /// 셀 내용 예시:
   /// - 빈 셀 → TimeSlot 생성 (subject, className = null)
   /// - "103\n국어" → className: "103", subject: "국어" (정상 순서)
   /// - "국어\n103" → className: "103", subject: "국어" (바뀐 순서)
   /// - "1-3\n수학" → className: "1-3", subject: "수학"
   /// - "2-1" → className: "2-1", subject: null
-  /// 
+  ///
   /// 매개변수:
   /// - String cellValue: 셀 내용
   /// - Teacher teacher: 교사 정보
@@ -135,9 +137,9 @@ class ExcelCellParser {
     String cellValue,
     Teacher teacher,
     int dayOfWeek,
-    int period,
-    {CellOrderPattern? orderPattern}
-  ) {
+    int period, {
+    CellOrderPattern? orderPattern,
+  }) {
     try {
       String? className;
       String? subject;
@@ -149,10 +151,16 @@ class ExcelCellParser {
 
         if (lines.isNotEmpty) {
           // 2단계: 순서 패턴 감지
-          CellOrderPattern detectedPattern = _detectOrderPattern(lines, orderPattern);
+          CellOrderPattern detectedPattern = _detectOrderPattern(
+            lines,
+            orderPattern,
+          );
 
           // 3단계: 학급번호와 과목 추출
-          Map<String, String?> result = _extractClassAndSubject(lines, detectedPattern);
+          Map<String, String?> result = _extractClassAndSubject(
+            lines,
+            detectedPattern,
+          );
           className = result['className'];
           subject = result['subject'];
         }
@@ -181,4 +189,3 @@ class ExcelCellParser {
     }
   }
 }
-

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'exchange_screen.dart';
 import 'personal_schedule_screen.dart';
@@ -34,14 +34,14 @@ class _StartScreenState extends ConsumerState<StartScreen> {
   // 엑셀 파일 선택 관련 상태 관리
   ExchangeScreenStateProxy? _stateProxy;
   ExchangeOperationManager? _operationManager;
-  
+
   @override
   void initState() {
     super.initState();
-    
+
     // StateProxy 초기화
     _stateProxy = ExchangeScreenStateProxy(ref);
-    
+
     // Manager 초기화 (엑셀 파일 처리 및 상태 관리)
     _operationManager = ExchangeOperationManager(
       context: context,
@@ -57,11 +57,11 @@ class _StartScreenState extends ConsumerState<StartScreen> {
         if (mounted) setState(() {});
       },
     );
-    
+
     // 프로그램 시작 시 저장된 데이터 자동 로드
     _loadSavedData();
   }
-  
+
   /// 저장된 데이터 자동 로드
   ///
   /// 프로그램 시작 시 다음 데이터를 자동으로 로드합니다:
@@ -124,7 +124,9 @@ class _StartScreenState extends ConsumerState<StartScreen> {
 
       // 4. 결보강 계획서 날짜 정보 로드
       try {
-        final substitutionPlanNotifier = ref.read(substitutionPlanProvider.notifier);
+        final substitutionPlanNotifier = ref.read(
+          substitutionPlanProvider.notifier,
+        );
         await substitutionPlanNotifier.loadFromStorage();
       } catch (e) {
         AppLogger.error('결보강 계획서 날짜 정보 로드 중 오류: $e', e);
@@ -174,9 +176,9 @@ class _StartScreenState extends ConsumerState<StartScreen> {
         try {
           final timeSlot = timetableData.timeSlots.firstWhere(
             (slot) =>
-              slot.teacher == cell.teacher &&
-              slot.dayOfWeek == cell.dayOfWeek &&
-              slot.period == cell.period,
+                slot.teacher == cell.teacher &&
+                slot.dayOfWeek == cell.dayOfWeek &&
+                slot.period == cell.period,
           );
 
           // TimeSlot의 isExchangeable 설정
@@ -203,9 +205,6 @@ class _StartScreenState extends ConsumerState<StartScreen> {
     }
   }
 
-
-
-
   /// 상단 네비게이션 탭 1~5 (0은 StartContentScreen)
   List<Widget> _tabScreens() => const [
     ExchangeScreen(),
@@ -225,15 +224,12 @@ class _StartScreenState extends ConsumerState<StartScreen> {
         children: [
           // 통합 네비게이션 바 (모든 화면에서 표시)
           const UnifiedNavigationBar(),
-          
+
           // 본문 내용
           Expanded(
             child: IndexedStack(
               index: selectedIndex,
-              children: [
-                const StartContentScreen(),
-                ..._tabScreens(),
-              ],
+              children: [const StartContentScreen(), ..._tabScreens()],
             ),
           ),
         ],

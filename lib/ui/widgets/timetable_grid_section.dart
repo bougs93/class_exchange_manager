@@ -325,10 +325,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
           );
         }
 
-        return _buildUnifiedToolbarRow(
-          hideTeacherCount,
-          layout.modeLabelStyle,
-        );
+        return _buildUnifiedToolbarRow(hideTeacherCount, layout.modeLabelStyle);
       },
     );
   }
@@ -461,15 +458,11 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
   Future<void> _deleteExchangePath(ExchangePath exchangePath) async {
     if (!mounted) return;
 
-    await _exchangeExecutor.deleteFromExchangeList(
-      exchangePath,
-      context,
-      () {
-        ref.read(stateResetProvider.notifier).resetExchangeStates(
-              reason: '내부 경로 초기화',
-            );
-      },
-    );
+    await _exchangeExecutor.deleteFromExchangeList(exchangePath, context, () {
+      ref
+          .read(stateResetProvider.notifier)
+          .resetExchangeStates(reason: '내부 경로 초기화');
+    });
   }
 
   /// 되돌리기·다시 실행·삭제 버튼 그룹
@@ -563,12 +556,14 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
   /// 창 최대화/리사이즈로 인해 Syncfusion 내부 스크롤 오프셋이 조용히 보정되어
   /// scrollProvider 값과 어긋나는 경우, 실제 위치로 맞춰 화살표 좌표를 정정한다.
   void _syncScrollOffsetFromControllers() {
-    final horizontal = horizontalScrollController.hasClients
-        ? horizontalScrollController.offset
-        : 0.0;
-    final vertical = verticalScrollController.hasClients
-        ? verticalScrollController.offset
-        : 0.0;
+    final horizontal =
+        horizontalScrollController.hasClients
+            ? horizontalScrollController.offset
+            : 0.0;
+    final vertical =
+        verticalScrollController.hasClients
+            ? verticalScrollController.offset
+            : 0.0;
 
     final current = ref.read(scrollProvider);
     // 미세한 차이는 무시하여 불필요한 재빌드 방지
@@ -837,7 +832,10 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
 
       // 3. 요일과 교시로 열 인덱스 계산
       final dayOfWeekInt = DayUtils.getDayNumber(node.day);
-      final columnIndex = locator.calculateColumnIndex(dayOfWeekInt, node.period);
+      final columnIndex = locator.calculateColumnIndex(
+        dayOfWeekInt,
+        node.period,
+      );
       if (columnIndex == -1) {
         AppLogger.exchangeDebug(
           '❌ [노드 스크롤] 열 인덱스 계산 실패: 요일=${node.day}, 교시=${node.period}',
@@ -1167,58 +1165,59 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     }
 
     entry = OverlayEntry(
-      builder: (ctx) => Stack(
-        children: [
-          // 바깥 클릭 시 메뉴 닫기
-          Positioned.fill(
-            child: Listener(
-              behavior: HitTestBehavior.translucent,
-              onPointerDown: (_) => close(null),
-            ),
-          ),
-          Positioned(
-            left: localPosition.dx,
-            top: localPosition.dy,
-            child: Material(
-              elevation: 3,
-              shadowColor: Colors.black26,
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(6),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: () => close('delete_path'),
-                borderRadius: BorderRadius.circular(6),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 7,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.delete_outline,
-                        size: 16,
-                        color: Colors.red.shade700,
+      builder:
+          (ctx) => Stack(
+            children: [
+              // 바깥 클릭 시 메뉴 닫기
+              Positioned.fill(
+                child: Listener(
+                  behavior: HitTestBehavior.translucent,
+                  onPointerDown: (_) => close(null),
+                ),
+              ),
+              Positioned(
+                left: localPosition.dx,
+                top: localPosition.dy,
+                child: Material(
+                  elevation: 3,
+                  shadowColor: Colors.black26,
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(6),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () => close('delete_path'),
+                    borderRadius: BorderRadius.circular(6),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 7,
                       ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '삭제',
-                        style: TextStyle(
-                          fontSize: 13,
-                          height: 1.2,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.red.shade700,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.delete_outline,
+                            size: 16,
+                            color: Colors.red.shade700,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '삭제',
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 1.2,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.red.shade700,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
     );
 
     overlayState.insert(entry);

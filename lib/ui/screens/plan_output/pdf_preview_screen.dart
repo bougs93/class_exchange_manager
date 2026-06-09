@@ -13,10 +13,7 @@ import 'package:printing/printing.dart';
 class PdfPreviewScreen extends StatefulWidget {
   final String pdfPath;
 
-  const PdfPreviewScreen({
-    super.key,
-    required this.pdfPath,
-  });
+  const PdfPreviewScreen({super.key, required this.pdfPath});
 
   @override
   State<PdfPreviewScreen> createState() => _PdfPreviewScreenState();
@@ -56,7 +53,8 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
     try {
       super.dispose();
     } catch (e) {
-      if (e is MissingPluginException && e.toString().contains('closeDocument')) {
+      if (e is MissingPluginException &&
+          e.toString().contains('closeDocument')) {
         developer.log('PDF 뷰어 dispose 중 closeDocument 오류 발생 (무시됨)');
       } else {
         developer.log('PDF 뷰어 dispose 중 오류 발생 (무시됨): $e');
@@ -116,10 +114,7 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: _buildAppBar(),
-      body: _buildBody(),
-    );
+    return Scaffold(appBar: _buildAppBar(), body: _buildBody());
   }
 
   /// AppBar 생성
@@ -131,7 +126,10 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
           Center(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: Text('${(_currentZoomLevel * 100).toInt()}%', style: const TextStyle(fontSize: 14)),
+              child: Text(
+                '${(_currentZoomLevel * 100).toInt()}%',
+                style: const TextStyle(fontSize: 14),
+              ),
             ),
           ),
           IconButton(
@@ -204,7 +202,11 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
             const SizedBox(height: 16),
             Text(
               '출력 미리 보기 오류',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red.shade700),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.red.shade700,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -262,7 +264,11 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
             const SizedBox(height: 16),
             Text(
               '출력 미리 보기 사용 불가',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.orange.shade700),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.orange.shade700,
+              ),
             ),
             const SizedBox(height: 8),
             const Text(
@@ -296,7 +302,10 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
   void _handleZoomIn() {
     if (!_canZoomIn()) return;
     setState(() {
-      _currentZoomLevel = (_currentZoomLevel + _zoomStep).clamp(_minZoom, _maxZoom);
+      _currentZoomLevel = (_currentZoomLevel + _zoomStep).clamp(
+        _minZoom,
+        _maxZoom,
+      );
     });
     _applyZoomLevel();
   }
@@ -304,7 +313,10 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
   void _handleZoomOut() {
     if (!_canZoomOut()) return;
     setState(() {
-      _currentZoomLevel = (_currentZoomLevel - _zoomStep).clamp(_minZoom, _maxZoom);
+      _currentZoomLevel = (_currentZoomLevel - _zoomStep).clamp(
+        _minZoom,
+        _maxZoom,
+      );
     });
     _applyZoomLevel();
   }
@@ -342,7 +354,10 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
       } else {
         try {
           final pdfBytes = await file.readAsBytes();
-          await Printing.layoutPdf(onLayout: (format) async => pdfBytes, name: '결보강계획서');
+          await Printing.layoutPdf(
+            onLayout: (format) async => pdfBytes,
+            name: '결보강계획서',
+          );
           if (mounted) {
             _showSnackBar('인쇄 다이얼로그가 열렸습니다.', Colors.green);
           }
@@ -364,11 +379,14 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
   /// Windows 인쇄
   Future<void> _printWindows(File file) async {
     try {
-      final result = await Process.run(
-        'cmd',
-        ['/c', 'start', '/min', '""', '/p', file.path],
-        runInShell: true,
-      );
+      final result = await Process.run('cmd', [
+        '/c',
+        'start',
+        '/min',
+        '""',
+        '/p',
+        file.path,
+      ], runInShell: true);
 
       if (result.exitCode == 0) {
         if (mounted) {
@@ -380,9 +398,17 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
     } catch (e) {
       developer.log('Windows 인쇄 명령어 오류: $e');
       try {
-        await Process.run('cmd', ['/c', 'start', '""', file.path], runInShell: true);
+        await Process.run('cmd', [
+          '/c',
+          'start',
+          '""',
+          file.path,
+        ], runInShell: true);
         if (mounted) {
-          _showSnackBar('PDF 파일을 열었습니다.\n파일에서 직접 인쇄해주세요. (Ctrl+P)', Colors.orange);
+          _showSnackBar(
+            'PDF 파일을 열었습니다.\n파일에서 직접 인쇄해주세요. (Ctrl+P)',
+            Colors.orange,
+          );
         }
       } catch (e2) {
         developer.log('Windows 파일 열기 오류: $e2');

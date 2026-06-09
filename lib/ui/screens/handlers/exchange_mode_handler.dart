@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../../../utils/logger.dart';
 
 /// 교체 모드 전환 관련 핸들러
@@ -28,14 +28,15 @@ mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
   /// 1:1 교체 모드 토글
   void toggleExchangeMode() {
     bool wasEnabled = isExchangeModeEnabled;
-    bool hasOtherModesActive = isCircularExchangeModeEnabled || isDualExchangeModeEnabled;
+    bool hasOtherModesActive =
+        isCircularExchangeModeEnabled || isDualExchangeModeEnabled;
 
     // 다른 모드가 활성화되어 있다면 비활성화
     if (hasOtherModesActive) {
       setCircularExchangeModeEnabled(false);
       setDualExchangeModeEnabled(false);
     }
-    
+
     // 교체불가 편집 모드가 활성화되어 있다면 비활성화
     if (isNonExchangeableEditMode) {
       setNonExchangeableEditMode(false);
@@ -73,17 +74,20 @@ mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
 
   /// 순환교체 모드 토글
   void toggleCircularExchangeMode() {
-    AppLogger.exchangeDebug('순환교체 모드 토글 시작 - 현재 상태: $isCircularExchangeModeEnabled');
+    AppLogger.exchangeDebug(
+      '순환교체 모드 토글 시작 - 현재 상태: $isCircularExchangeModeEnabled',
+    );
 
     bool wasEnabled = isCircularExchangeModeEnabled;
-    bool hasOtherModesActive = isExchangeModeEnabled || isDualExchangeModeEnabled;
+    bool hasOtherModesActive =
+        isExchangeModeEnabled || isDualExchangeModeEnabled;
 
     // 다른 모드가 활성화되어 있다면 비활성화
     if (hasOtherModesActive) {
       setExchangeModeEnabled(false);
       setDualExchangeModeEnabled(false);
     }
-    
+
     // 교체불가 편집 모드가 활성화되어 있다면 비활성화
     if (isNonExchangeableEditMode) {
       setNonExchangeableEditMode(false);
@@ -121,17 +125,20 @@ mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
 
   /// 2중교체 모드 토글
   void toggleDualExchangeMode() {
-    AppLogger.exchangeDebug('2중교체 모드 토글 시작 - 현재 상태: $isDualExchangeModeEnabled');
+    AppLogger.exchangeDebug(
+      '2중교체 모드 토글 시작 - 현재 상태: $isDualExchangeModeEnabled',
+    );
 
     bool wasEnabled = isDualExchangeModeEnabled;
-    bool hasOtherModesActive = isExchangeModeEnabled || isCircularExchangeModeEnabled;
+    bool hasOtherModesActive =
+        isExchangeModeEnabled || isCircularExchangeModeEnabled;
 
     // 다른 모드가 활성화되어 있다면 비활성화
     if (hasOtherModesActive) {
       setExchangeModeEnabled(false);
       setCircularExchangeModeEnabled(false);
     }
-    
+
     // 교체불가 편집 모드가 활성화되어 있다면 비활성화
     if (isNonExchangeableEditMode) {
       setNonExchangeableEditMode(false);
@@ -171,7 +178,10 @@ mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
   void toggleSupplementExchangeMode() {
     AppLogger.exchangeDebug('보강 모드 토글 시작');
 
-    bool hasOtherModesActive = isExchangeModeEnabled || isCircularExchangeModeEnabled || isDualExchangeModeEnabled;
+    bool hasOtherModesActive =
+        isExchangeModeEnabled ||
+        isCircularExchangeModeEnabled ||
+        isDualExchangeModeEnabled;
 
     // 다른 모드가 활성화되어 있다면 비활성화
     if (hasOtherModesActive) {
@@ -179,7 +189,7 @@ mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
       setCircularExchangeModeEnabled(false);
       setDualExchangeModeEnabled(false);
     }
-    
+
     // 교체불가 편집 모드가 활성화되어 있다면 비활성화
     if (isNonExchangeableEditMode) {
       setNonExchangeableEditMode(false);

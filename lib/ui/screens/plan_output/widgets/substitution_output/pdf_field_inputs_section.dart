@@ -41,7 +41,8 @@ class _PdfFieldInputsSectionState extends State<PdfFieldInputsSection> {
     // 위젯이 업데이트될 때 Controller가 변경된 경우에만 리스너 재등록
     if (oldWidget.teacherNameController != widget.teacherNameController ||
         oldWidget.workStatusController != widget.workStatusController ||
-        oldWidget.reasonForAbsenceController != widget.reasonForAbsenceController ||
+        oldWidget.reasonForAbsenceController !=
+            widget.reasonForAbsenceController ||
         oldWidget.schoolNameController != widget.schoolNameController ||
         oldWidget.notesController != widget.notesController ||
         oldWidget.absencePeriodController != widget.absencePeriodController) {

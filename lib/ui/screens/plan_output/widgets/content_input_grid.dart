@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:calendar_date_picker2/calendar_date_picker2.dart';
@@ -28,42 +28,87 @@ class SubstitutionPlanDataSource extends DataGridSource {
   final Function(String, String)? onDateCellTap;
   final Function(String)? onSupplementSubjectTap;
 
-  SubstitutionPlanDataSource(this.planData, {this.onDateCellTap, this.onSupplementSubjectTap});
+  SubstitutionPlanDataSource(
+    this.planData, {
+    this.onDateCellTap,
+    this.onSupplementSubjectTap,
+  });
 
   @override
-  List<DataGridRow> get rows => planData.map<DataGridRow>((data) {
-    return DataGridRow(cells: [
-      // exchangeId를 첫 번째 숨김 컬럼으로 추가
-      DataGridCell<String>(columnName: '_exchangeId', value: data.exchangeId),
-      DataGridCell<String>(columnName: 'absenceDate', value: data.absenceDate),
-      DataGridCell<String>(columnName: 'absenceDay', value: data.absenceDay),
-      DataGridCell<String>(columnName: 'period', value: data.period),
-      DataGridCell<String>(columnName: 'grade', value: data.grade),
-      DataGridCell<String>(columnName: 'className', value: data.className),
-      DataGridCell<String>(columnName: 'subject', value: data.subject),
-      DataGridCell<String>(columnName: 'teacher', value: data.teacher),
-      DataGridCell<String>(columnName: 'supplementSubject', value: data.supplementSubject),
-      DataGridCell<String>(columnName: 'supplementTeacher', value: data.supplementTeacher),
-      DataGridCell<String>(columnName: 'substitutionDate', value: data.substitutionDate),
-      DataGridCell<String>(columnName: 'substitutionDay', value: data.substitutionDay),
-      DataGridCell<String>(columnName: 'substitutionPeriod', value: data.substitutionPeriod),
-      DataGridCell<String>(columnName: 'substitutionSubject', value: data.substitutionSubject),
-      DataGridCell<String>(columnName: 'substitutionTeacher', value: data.substitutionTeacher),
-      DataGridCell<String>(columnName: 'remarks', value: data.remarks),
-    ]);
-  }).toList();
+  List<DataGridRow> get rows =>
+      planData.map<DataGridRow>((data) {
+        return DataGridRow(
+          cells: [
+            // exchangeId를 첫 번째 숨김 컬럼으로 추가
+            DataGridCell<String>(
+              columnName: '_exchangeId',
+              value: data.exchangeId,
+            ),
+            DataGridCell<String>(
+              columnName: 'absenceDate',
+              value: data.absenceDate,
+            ),
+            DataGridCell<String>(
+              columnName: 'absenceDay',
+              value: data.absenceDay,
+            ),
+            DataGridCell<String>(columnName: 'period', value: data.period),
+            DataGridCell<String>(columnName: 'grade', value: data.grade),
+            DataGridCell<String>(
+              columnName: 'className',
+              value: data.className,
+            ),
+            DataGridCell<String>(columnName: 'subject', value: data.subject),
+            DataGridCell<String>(columnName: 'teacher', value: data.teacher),
+            DataGridCell<String>(
+              columnName: 'supplementSubject',
+              value: data.supplementSubject,
+            ),
+            DataGridCell<String>(
+              columnName: 'supplementTeacher',
+              value: data.supplementTeacher,
+            ),
+            DataGridCell<String>(
+              columnName: 'substitutionDate',
+              value: data.substitutionDate,
+            ),
+            DataGridCell<String>(
+              columnName: 'substitutionDay',
+              value: data.substitutionDay,
+            ),
+            DataGridCell<String>(
+              columnName: 'substitutionPeriod',
+              value: data.substitutionPeriod,
+            ),
+            DataGridCell<String>(
+              columnName: 'substitutionSubject',
+              value: data.substitutionSubject,
+            ),
+            DataGridCell<String>(
+              columnName: 'substitutionTeacher',
+              value: data.substitutionTeacher,
+            ),
+            DataGridCell<String>(columnName: 'remarks', value: data.remarks),
+          ],
+        );
+      }).toList();
 
   @override
   DataGridRowAdapter buildRow(DataGridRow row) {
     // exchangeId 컬럼을 제외한 나머지 셀들만 렌더링
-    final cells = row.getCells().where((cell) => cell.columnName != '_exchangeId').map<Widget>((cell) {
-      return CellRendererFactory.build(
-        cell,
-        row,
-        onDateCellTap: onDateCellTap,
-        onSupplementSubjectTap: onSupplementSubjectTap,
-      );
-    }).toList();
+    final cells =
+        row
+            .getCells()
+            .where((cell) => cell.columnName != '_exchangeId')
+            .map<Widget>((cell) {
+              return CellRendererFactory.build(
+                cell,
+                row,
+                onDateCellTap: onDateCellTap,
+                onSupplementSubjectTap: onSupplementSubjectTap,
+              );
+            })
+            .toList();
 
     return DataGridRowAdapter(cells: cells);
   }
@@ -79,7 +124,6 @@ class ContentInputGrid extends ConsumerStatefulWidget {
 
 class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     with ScrollManagementMixin {
-  
   @override
   void initState() {
     super.initState();
@@ -98,10 +142,10 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
   Widget build(BuildContext context) {
     // Riverpod select 패턴 사용 - 필요한 상태만 구독
     final planData = ref.watch(
-      substitutionPlanViewModelProvider.select((state) => state.planData)
+      substitutionPlanViewModelProvider.select((state) => state.planData),
     );
     final isLoading = ref.watch(
-      substitutionPlanViewModelProvider.select((state) => state.isLoading)
+      substitutionPlanViewModelProvider.select((state) => state.isLoading),
     );
     final viewModel = ref.read(substitutionPlanViewModelProvider.notifier);
 
@@ -123,7 +167,11 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     );
   }
 
-  Widget _buildActionButtons(BuildContext context, WidgetRef ref, SubstitutionPlanViewModel viewModel) {
+  Widget _buildActionButtons(
+    BuildContext context,
+    WidgetRef ref,
+    SubstitutionPlanViewModel viewModel,
+  ) {
     const buttonHeight = ContentToolbarLayout.buttonHeight;
 
     return Row(
@@ -138,7 +186,9 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
                   onPressed: () async {
                     await viewModel.loadPlanData();
                     final currentPlanData = ref.read(
-                      substitutionPlanViewModelProvider.select((state) => state.planData),
+                      substitutionPlanViewModelProvider.select(
+                        (state) => state.planData,
+                      ),
                     );
                     ContentInputGridDebugger.printTable(currentPlanData);
                   },
@@ -201,7 +251,10 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
   /// 삭제 확인 다이얼로그 표시
   ///
   /// 사용자에게 삭제 확인을 받고, 확인 시 교체 리스트를 삭제합니다.
-  Future<void> _showDeleteConfirmDialog(BuildContext context, WidgetRef ref) async {
+  Future<void> _showDeleteConfirmDialog(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final confirmed = await DialogHelper.showConfirmDialog(
       context,
       title: '결보강 전체 초기화',
@@ -234,9 +287,9 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
       ExchangeExecutor.restoreExchangedCells(ref);
 
       // 4. UI 상태 초기화 (선택된 경로, 캐시, 화살표 등)
-      ref.read(stateResetProvider.notifier).resetExchangeStates(
-        reason: '교체목록 전체 초기화',
-      );
+      ref
+          .read(stateResetProvider.notifier)
+          .resetExchangeStates(reason: '교체목록 전체 초기화');
 
       // 5. 보강계획서 데이터 자동 새로고침
       final viewModel = ref.read(substitutionPlanViewModelProvider.notifier);
@@ -267,8 +320,23 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
 
     final dataSource = SubstitutionPlanDataSource(
       planData,
-      onDateCellTap: (exchangeId, columnName) => _showDatePicker(context, ref, viewModel, exchangeId, columnName, planData),
-      onSupplementSubjectTap: (exchangeId) => _showSubjectPickerDialog(context, ref, viewModel, exchangeId, planData),
+      onDateCellTap:
+          (exchangeId, columnName) => _showDatePicker(
+            context,
+            ref,
+            viewModel,
+            exchangeId,
+            columnName,
+            planData,
+          ),
+      onSupplementSubjectTap:
+          (exchangeId) => _showSubjectPickerDialog(
+            context,
+            ref,
+            viewModel,
+            exchangeId,
+            planData,
+          ),
     );
 
     return Expanded(
@@ -300,9 +368,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
           border: Border.all(color: Colors.grey.shade300),
           borderRadius: BorderRadius.circular(4),
         ),
-        child: const Center(
-          child: CircularProgressIndicator(),
-        ),
+        child: const Center(child: CircularProgressIndicator()),
       ),
     );
   }
@@ -341,41 +407,43 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     // 1) 행 데이터에서 교사명 결정 (보강교사 우선, 없으면 원래 교사)
     final SubstitutionPlanData rowData = planData.firstWhere(
       (d) => d.exchangeId == exchangeId,
-      orElse: () => SubstitutionPlanData(
-        exchangeId: '',
-        absenceDate: '',
-        absenceDay: '',
-        period: '',
-        grade: '',
-        className: '',
-        subject: '',
-        teacher: '',
-        supplementSubject: '',
-        supplementTeacher: '',
-        substitutionDate: '',
-        substitutionDay: '',
-        substitutionPeriod: '',
-        substitutionSubject: '',
-        substitutionTeacher: '',
-        remarks: '',
-      ),
+      orElse:
+          () => SubstitutionPlanData(
+            exchangeId: '',
+            absenceDate: '',
+            absenceDay: '',
+            period: '',
+            grade: '',
+            className: '',
+            subject: '',
+            teacher: '',
+            supplementSubject: '',
+            supplementTeacher: '',
+            substitutionDate: '',
+            substitutionDay: '',
+            substitutionPeriod: '',
+            substitutionSubject: '',
+            substitutionTeacher: '',
+            remarks: '',
+          ),
     );
 
     if (rowData.exchangeId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('행 정보를 찾을 수 없습니다.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('행 정보를 찾을 수 없습니다.')));
       return;
     }
 
-    final String teacherName = (rowData.supplementTeacher.isNotEmpty)
-        ? rowData.supplementTeacher
-        : rowData.teacher;
+    final String teacherName =
+        (rowData.supplementTeacher.isNotEmpty)
+            ? rowData.supplementTeacher
+            : rowData.teacher;
 
     if (teacherName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('교사 정보를 찾을 수 없습니다.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('교사 정보를 찾을 수 없습니다.')));
       return;
     }
 
@@ -390,7 +458,9 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
 
     final Set<String> subjectSet = <String>{};
     for (final slot in timetableData.timeSlots) {
-      if (slot.teacher == teacherName && (slot.subject != null) && slot.subject!.trim().isNotEmpty) {
+      if (slot.teacher == teacherName &&
+          (slot.subject != null) &&
+          slot.subject!.trim().isNotEmpty) {
         subjectSet.add(slot.subject!.trim());
       }
     }
@@ -418,11 +488,12 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      ...subjects
-                          .map((s) => ListTile(
-                                title: Text(s),
-                                onTap: () => Navigator.of(ctx).pop(s),
-                              )),
+                      ...subjects.map(
+                        (s) => ListTile(
+                          title: Text(s),
+                          onTap: () => Navigator.of(ctx).pop(s),
+                        ),
+                      ),
                       const Divider(),
                       const Text('직접 입력'),
                       const SizedBox(height: 8),
@@ -448,9 +519,10 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
                   child: const Text('취소'),
                 ),
                 TextButton(
-                  onPressed: customInput.trim().isEmpty
-                      ? null
-                      : () => Navigator.of(ctx).pop(customInput.trim()),
+                  onPressed:
+                      customInput.trim().isEmpty
+                          ? null
+                          : () => Navigator.of(ctx).pop(customInput.trim()),
                   child: const Text('입력 적용'),
                 ),
               ],
@@ -477,7 +549,9 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     String columnName,
     List<SubstitutionPlanData> planData,
   ) async {
-    AppLogger.exchangeDebug('날짜 선택 시작 - exchangeId: $exchangeId, columnName: $columnName');
+    AppLogger.exchangeDebug(
+      '날짜 선택 시작 - exchangeId: $exchangeId, columnName: $columnName',
+    );
 
     // 해당 데이터 찾기
     try {
@@ -485,13 +559,17 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
       AppLogger.exchangeDebug('데이터 찾기 성공');
 
       // 요일 정보 추출
-      final targetWeekday = columnName == 'absenceDate' ? data.absenceDay : data.substitutionDay;
+      final targetWeekday =
+          columnName == 'absenceDate' ? data.absenceDay : data.substitutionDay;
       AppLogger.exchangeDebug('대상 요일: $targetWeekday');
 
       // 이미 입력된 날짜가 있으면 달력 기본값으로 사용 (없으면 오늘)
       final rawDate =
-          columnName == 'absenceDate' ? data.absenceDate : data.substitutionDate;
-      final initialDate = DateFormatUtils.parseYearMonthDay(
+          columnName == 'absenceDate'
+              ? data.absenceDate
+              : data.substitutionDate;
+      final initialDate =
+          DateFormatUtils.parseYearMonthDay(
             DateFormatUtils.normalizePlanDate(rawDate),
           ) ??
           DateTime.now();
@@ -505,9 +583,10 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
           lastDate: DateTime(2030),
           currentDate: initialDate,
           weekdayLabels: ['일', '월', '화', '수', '목', '금', '토'],
-          selectableDayPredicate: targetWeekday.isNotEmpty
-              ? (date) => _isTargetWeekday(date, targetWeekday)
-              : null,
+          selectableDayPredicate:
+              targetWeekday.isNotEmpty
+                  ? (date) => _isTargetWeekday(date, targetWeekday)
+                  : null,
           selectedDayHighlightColor: Colors.blue.shade600,
           okButton: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -533,11 +612,15 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
 
       AppLogger.exchangeDebug('선택 결과: $selectedDates');
 
-      final selectedDate = selectedDates?.isNotEmpty == true ? selectedDates!.first : null;
+      final selectedDate =
+          selectedDates?.isNotEmpty == true ? selectedDates!.first : null;
 
       if (selectedDate != null) {
-        if (targetWeekday.isNotEmpty && !_isTargetWeekday(selectedDate, targetWeekday)) {
-          AppLogger.warning('요일 불일치 - 선택: ${selectedDate.weekday}, 대상: $targetWeekday');
+        if (targetWeekday.isNotEmpty &&
+            !_isTargetWeekday(selectedDate, targetWeekday)) {
+          AppLogger.warning(
+            '요일 불일치 - 선택: ${selectedDate.weekday}, 대상: $targetWeekday',
+          );
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -579,7 +662,10 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     return dateWeekday == targetWeekdayNumber;
   }
 
-  Future<void> _clearAllDates(BuildContext context, SubstitutionPlanViewModel viewModel) async {
+  Future<void> _clearAllDates(
+    BuildContext context,
+    SubstitutionPlanViewModel viewModel,
+  ) async {
     final confirmed = await DialogHelper.showConfirmDialog(
       context,
       title: '날짜과목 초기화',
@@ -603,12 +689,15 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
   }
 
   /// 테이블 데이터를 엑셀 형식으로 클립보드에 복사
-  /// 
+  ///
   /// 탭(\t)으로 구분하여 엑셀에서 붙여넣기 시 각 셀에 데이터가 자동으로 분리됩니다.
-  Future<void> _copyTableToClipboard(BuildContext context, WidgetRef ref) async {
+  Future<void> _copyTableToClipboard(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     try {
       final planData = ref.read(
-        substitutionPlanViewModelProvider.select((state) => state.planData)
+        substitutionPlanViewModelProvider.select((state) => state.planData),
       );
 
       if (planData.isEmpty) {
@@ -654,7 +743,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
   }
 
   /// 테이블 내용을 탭 구분 텍스트로 변환
-  /// 
+  ///
   /// 엑셀에서 붙여넣기 시 각 셀에 자동으로 데이터가 분리됩니다.
   String _generateTableText(List<SubstitutionPlanData> data) {
     final buffer = StringBuffer();
@@ -680,19 +769,19 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     // 데이터 행
     for (final row in data) {
       final cells = [
-        '${DateFormatUtils.toMonthDay(row.absenceDate)}(${row.absenceDay})',  // 결강일(요일) - 월.일 형식
-        row.period,                 // 교시
-        row.grade,                  // 학년
-        row.className,              // 반
-        row.subject,                // 과목 (결강)
-        row.teacher,                // 교사 (결강)
-        row.supplementSubject,      // 보강/수업변경 과목
-        row.supplementTeacher,      // 보강/수업변경 성명
-        '${DateFormatUtils.toMonthDay(row.substitutionDate)}(${row.substitutionDay})',  // 교체일(교체 요일) - 월.일 형식
-        row.substitutionPeriod,     // 교체 교시
-        row.substitutionSubject,    // 교체 과목
-        row.substitutionTeacher,    // 교체 교사
-        row.remarks,                // 비고
+        '${DateFormatUtils.toMonthDay(row.absenceDate)}(${row.absenceDay})', // 결강일(요일) - 월.일 형식
+        row.period, // 교시
+        row.grade, // 학년
+        row.className, // 반
+        row.subject, // 과목 (결강)
+        row.teacher, // 교사 (결강)
+        row.supplementSubject, // 보강/수업변경 과목
+        row.supplementTeacher, // 보강/수업변경 성명
+        '${DateFormatUtils.toMonthDay(row.substitutionDate)}(${row.substitutionDay})', // 교체일(교체 요일) - 월.일 형식
+        row.substitutionPeriod, // 교체 교시
+        row.substitutionSubject, // 교체 과목
+        row.substitutionTeacher, // 교체 교사
+        row.remarks, // 비고
       ];
       buffer.writeln(cells.join('\t'));
     }

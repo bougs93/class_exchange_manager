@@ -204,8 +204,7 @@ class _SupplementSidebarContentState
     if (path is SupplementExchangePath) {
       return Consumer(
         builder: (context, ref, child) {
-          final timetableData =
-              ref.watch(exchangeScreenProvider).timetableData;
+          final timetableData = ref.watch(exchangeScreenProvider).timetableData;
           final target = path.targetNode;
           final label = _formatSupplementNodeLabel(
             target,
@@ -264,8 +263,9 @@ class _SupplementSidebarContentState
           subjectName: selectedSlot.subject ?? '',
         );
 
-        final colorScheme =
-            PathColorScheme.getScheme(ExchangePathType.supplement);
+        final colorScheme = PathColorScheme.getScheme(
+          ExchangePathType.supplement,
+        );
 
         return AnimatedSidebarNode(
           node: node,
@@ -274,9 +274,10 @@ class _SupplementSidebarContentState
           label: _formatSupplementNodeLabel(
             node,
             isSubstituteSlot: false,
-            subject: node.subjectName.isNotEmpty
-                ? node.subjectName
-                : widget.getSubjectName(node),
+            subject:
+                node.subjectName.isNotEmpty
+                    ? node.subjectName
+                    : widget.getSubjectName(node),
           ),
           onTap: () => widget.onSourceNodeTap(node),
         );
@@ -324,14 +325,16 @@ class _SupplementSidebarContentState
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
       decoration: BoxDecoration(
-        color: isPlaceholder
-            ? Colors.grey.shade100
-            : colorScheme.backgroundFor(isSelected, false, isHighlighted),
+        color:
+            isPlaceholder
+                ? Colors.grey.shade100
+                : colorScheme.backgroundFor(isSelected, false, isHighlighted),
         borderRadius: BorderRadius.circular(3),
         border: Border.all(
-          color: isPlaceholder
-              ? Colors.grey.shade300
-              : colorScheme.borderFor(isSelected, false, isHighlighted),
+          color:
+              isPlaceholder
+                  ? Colors.grey.shade300
+                  : colorScheme.borderFor(isSelected, false, isHighlighted),
           width: isSelected && !isPlaceholder ? 2 : 1,
         ),
         boxShadow: [
@@ -348,9 +351,10 @@ class _SupplementSidebarContentState
         style: TextStyle(
           fontSize: SidebarFontSizes.nodeText,
           fontWeight: FontWeight.w500,
-          color: isPlaceholder
-              ? Colors.grey.shade600
-              : colorScheme.textFor(isSelected, false, isHighlighted),
+          color:
+              isPlaceholder
+                  ? Colors.grey.shade600
+                  : colorScheme.textFor(isSelected, false, isHighlighted),
         ),
         textAlign: TextAlign.center,
       ),
@@ -400,15 +404,17 @@ class _SupplementSidebarContentState
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
         decoration: BoxDecoration(
-          color: !isEnabled
-              ? Colors.grey.shade100
-              : isSelected
+          color:
+              !isEnabled
+                  ? Colors.grey.shade100
+                  : isSelected
                   ? scheme.nodeBackground
                   : Colors.grey.shade100,
           border: Border.all(
-            color: !isEnabled
-                ? Colors.grey.shade300
-                : isSelected
+            color:
+                !isEnabled
+                    ? Colors.grey.shade300
+                    : isSelected
                     ? scheme.nodeBorder
                     : Colors.grey.shade300,
             width: 1,
@@ -420,9 +426,10 @@ class _SupplementSidebarContentState
           style: TextStyle(
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-            color: !isEnabled
-                ? Colors.grey.shade400
-                : isSelected
+            color:
+                !isEnabled
+                    ? Colors.grey.shade400
+                    : isSelected
                     ? scheme.nodeText
                     : Colors.grey.shade700,
           ),
@@ -449,21 +456,20 @@ class _SupplementSidebarContentState
         );
         final isEnabled = subject != null;
 
-        final matchCount = subject == null
-            ? 0
-            : exchangeService
-                .getSupplementTeachers(
-                  timetableData.timeSlots,
-                  timetableData.teachers,
-                  subjectFilter: subject,
-                )
-                .length;
+        final matchCount =
+            subject == null
+                ? 0
+                : exchangeService
+                    .getSupplementTeachers(
+                      timetableData.timeSlots,
+                      timetableData.teachers,
+                      subjectFilter: subject,
+                    )
+                    .length;
 
         // 필터 ON 상태는 셀 변경 후에도 유지 (과목 없는 셀에서는 비활성 표시만)
         final isFilterActive = _supplementSubjectFilterEnabled && isEnabled;
-        final subjectBadge = isEnabled
-            ? '$subject ($matchCount명)'
-            : '과목 없음';
+        final subjectBadge = isEnabled ? '$subject ($matchCount명)' : '과목 없음';
 
         // ExchangeFilterWidget 헤더와 동일한 컨테이너 스타일
         return Container(
@@ -471,20 +477,13 @@ class _SupplementSidebarContentState
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           decoration: BoxDecoration(
             color: Colors.grey.shade50,
-            border: Border.all(
-              color: Colors.grey.shade200,
-              width: 1,
-            ),
+            border: Border.all(color: Colors.grey.shade200, width: 1),
             borderRadius: BorderRadius.circular(6),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(
-                Icons.filter_list,
-                size: 14,
-                color: Colors.grey.shade600,
-              ),
+              Icon(Icons.filter_list, size: 14, color: Colors.grey.shade600),
               const SizedBox(width: 6),
               Text(
                 '필터',
@@ -500,14 +499,15 @@ class _SupplementSidebarContentState
                 label: subjectBadge,
                 isEnabled: isEnabled,
                 isSelected: isFilterActive,
-                onTap: isEnabled
-                    ? () {
-                        setState(() {
-                          _supplementSubjectFilterEnabled =
-                              !_supplementSubjectFilterEnabled;
-                        });
-                      }
-                    : null,
+                onTap:
+                    isEnabled
+                        ? () {
+                          setState(() {
+                            _supplementSubjectFilterEnabled =
+                                !_supplementSubjectFilterEnabled;
+                          });
+                        }
+                        : null,
               ),
             ],
           ),
@@ -537,8 +537,7 @@ class _SupplementSidebarContentState
         final teachersToShow = exchangeService.getSupplementTeachers(
           timetableData.timeSlots,
           timetableData.teachers,
-          subjectFilter:
-              _supplementSubjectFilterEnabled ? subject : null,
+          subjectFilter: _supplementSubjectFilterEnabled ? subject : null,
         );
 
         if (teachersToShow.isEmpty) {
@@ -613,7 +612,8 @@ class _SupplementSidebarContentState
       day,
       period,
     );
-    final accentColor = isSelected ? Colors.teal.shade700 : Colors.teal.shade600;
+    final accentColor =
+        isSelected ? Colors.teal.shade700 : Colors.teal.shade600;
     final nameColor = isSelected ? Colors.teal.shade800 : Colors.teal.shade700;
 
     return Container(
@@ -631,7 +631,9 @@ class _SupplementSidebarContentState
           decoration: BoxDecoration(
             color:
                 isSelected
-                    ? PathColorScheme.pathBackground(ExchangePathType.supplement)
+                    ? PathColorScheme.pathBackground(
+                      ExchangePathType.supplement,
+                    )
                     : Colors.white,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
@@ -644,7 +646,9 @@ class _SupplementSidebarContentState
             boxShadow: [
               if (isSelected)
                 BoxShadow(
-                  color: PathColorScheme.pathShadow(ExchangePathType.supplement),
+                  color: PathColorScheme.pathShadow(
+                    ExchangePathType.supplement,
+                  ),
                   blurRadius: 2,
                   offset: const Offset(0, 1),
                 )

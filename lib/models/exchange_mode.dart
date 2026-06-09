@@ -1,23 +1,23 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 /// 교체 모드 열거형
 /// 각 모드는 상호 배타적으로 동작합니다.
 enum ExchangeMode {
   /// 보기 모드 - 일반적인 시간표 조회
   view,
-  
+
   /// 교체불가 편집 모드 - 교체불가 셀 편집
   nonExchangeableEdit,
-  
+
   /// 1:1교체 모드 - 두 교사 간 직접 교체
   oneToOneExchange,
-  
+
   /// 2중교체 모드 - 2중으로 교체
   dualExchange,
-  
+
   /// 순환교체 모드 - 여러 교사가 순환하며 교체
   circularExchange,
-  
+
   /// 보강 모드 - 보강 수업 추가
   supplementExchange,
 }
@@ -76,7 +76,7 @@ extension ExchangeModeExtension on ExchangeMode {
         return '수업 교체가 불가능할 때, 해당 시간에 수업이 비어 있는 교사가 보강 수업을 진행합니다.';
     }
   }
-  
+
   /// 모드의 아이콘
   IconData get icon {
     switch (this) {
@@ -94,7 +94,7 @@ extension ExchangeModeExtension on ExchangeMode {
         return Icons.add_circle;
     }
   }
-  
+
   /// 모드의 색상
   Color get color {
     switch (this) {
@@ -112,12 +112,13 @@ extension ExchangeModeExtension on ExchangeMode {
         return Colors.teal;
     }
   }
-  
+
   /// 모드가 교체 관련 모드인지 확인
   bool get isExchangeMode {
-    return this != ExchangeMode.view && this != ExchangeMode.nonExchangeableEdit;
+    return this != ExchangeMode.view &&
+        this != ExchangeMode.nonExchangeableEdit;
   }
-  
+
   /// 모드가 편집 모드인지 확인
   bool get isEditMode {
     return this == ExchangeMode.nonExchangeableEdit;

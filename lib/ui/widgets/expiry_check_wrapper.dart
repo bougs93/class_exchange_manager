@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -19,7 +19,7 @@ class ExpiryCheckWrapper extends StatefulWidget {
 class _ExpiryCheckWrapperState extends State<ExpiryCheckWrapper> {
   // 주기적 만료일 체크를 위한 타이머
   Timer? _periodicCheckTimer;
-  
+
   @override
   void initState() {
     super.initState();
@@ -27,19 +27,19 @@ class _ExpiryCheckWrapperState extends State<ExpiryCheckWrapper> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAndHandleExpiry();
     });
-    
+
     // 주기적 만료일 체크 시작 (5분마다)
     // 프로그램 시작 후 날짜를 정상으로 복구한 경우를 감지하기 위함
     _startPeriodicExpiryCheck();
   }
-  
+
   @override
   void dispose() {
     // 타이머 정리
     _periodicCheckTimer?.cancel();
     super.dispose();
   }
-  
+
   /// 주기적 만료일 체크 시작
   ///
   /// 프로그램 실행 중에도 주기적으로 만료일을 체크하여,
@@ -49,21 +49,18 @@ class _ExpiryCheckWrapperState extends State<ExpiryCheckWrapper> {
     if (AppInfo.expiryDate == null) {
       return;
     }
-    
+
     // 5분마다 만료일 체크
-    _periodicCheckTimer = Timer.periodic(
-      const Duration(minutes: 5),
-      (_) {
-        // 만료일 체크
-        // 프로그램 시작 후 날짜를 정상으로 복구한 경우를 감지하기 위함
-        if (AppInfo.isExpired()) {
-          // 만료된 경우 경고 다이얼로그 표시
-          if (mounted) {
-            _showExpiryDialog();
-          }
+    _periodicCheckTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+      // 만료일 체크
+      // 프로그램 시작 후 날짜를 정상으로 복구한 경우를 감지하기 위함
+      if (AppInfo.isExpired()) {
+        // 만료된 경우 경고 다이얼로그 표시
+        if (mounted) {
+          _showExpiryDialog();
         }
-      },
-    );
+      }
+    });
   }
 
   /// 만료일 체크 및 처리
@@ -110,7 +107,7 @@ class _ExpiryCheckWrapperState extends State<ExpiryCheckWrapper> {
       if (daysUntilExpiry != null && daysUntilExpiry <= 30) {
         debugPrint('⚠️ 경고: 프로그램 사용 기간이 $daysUntilExpiry일 남았습니다.');
       }
-      
+
       // 정상 실행 시 마지막 실행 시간 저장
       await AppInfo.saveLastExecutionTime();
     }
@@ -163,10 +160,7 @@ class _ExpiryCheckWrapperState extends State<ExpiryCheckWrapper> {
                   const SizedBox(height: 12),
                   const Text(
                     '보안상의 이유로 프로그램을 종료합니다.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey),
                   ),
                 ],
               ),
@@ -189,10 +183,7 @@ class _ExpiryCheckWrapperState extends State<ExpiryCheckWrapper> {
                 ),
                 child: const Text(
                   '확인',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -216,11 +207,7 @@ class _ExpiryCheckWrapperState extends State<ExpiryCheckWrapper> {
           child: AlertDialog(
             title: Row(
               children: [
-                Icon(
-                  Icons.error_outline,
-                  color: Colors.red,
-                  size: 28,
-                ),
+                Icon(Icons.error_outline, color: Colors.red, size: 28),
                 const SizedBox(width: 8),
                 const Expanded(
                   child: Text(
@@ -241,18 +228,12 @@ class _ExpiryCheckWrapperState extends State<ExpiryCheckWrapper> {
                 children: [
                   const Text(
                     '프로그램 사용 기간이 만료되었습니다.',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 12),
                   Text(
                     '만료일: ${AppInfo.expiryDate}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade700,
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -284,10 +265,7 @@ class _ExpiryCheckWrapperState extends State<ExpiryCheckWrapper> {
                 ),
                 child: const Text(
                   '확인',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -320,9 +298,7 @@ class _ExpiryCheckWrapperState extends State<ExpiryCheckWrapper> {
       return Scaffold(
         body: Container(
           color: Colors.white,
-          child: const Center(
-            child: CircularProgressIndicator(),
-          ),
+          child: const Center(child: CircularProgressIndicator()),
         ),
       );
     } else {

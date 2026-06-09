@@ -76,8 +76,11 @@ class GridColumnLocator {
       } else {
         // 특수한 경우: 실제 열 구조를 분석
         AppLogger.exchangeDebug('🔍 [열 계산] 특수 구조 감지 - 실제 열 분석 시작');
-        columnIndex =
-            _analyzeActualColumnStructure(dayOfWeek, period, startColumnIndex);
+        columnIndex = _analyzeActualColumnStructure(
+          dayOfWeek,
+          period,
+          startColumnIndex,
+        );
       }
 
       // 범위 초과 시 대안 계산 시도

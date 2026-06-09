@@ -1,4 +1,4 @@
-﻿import '../../models/exchange_path.dart';
+import '../../models/exchange_path.dart';
 import '../../models/circular_exchange_path.dart';
 import '../../models/dual_exchange_path.dart';
 import '../../models/one_to_one_exchange_path.dart';
@@ -12,17 +12,17 @@ typedef FilterChangedCallback = void Function();
 /// 필터 변경 시 콜백을 통해 알립니다.
 class FilterStateManager {
   /// 순환교체에서 필터링할 노드 인덱스 상수
-  /// 
+  ///
   /// 순환교체 경로에서 요일 필터를 적용할 때 사용하는 노드의 인덱스입니다.
   /// 0-based index로 1은 두 번째 노드를 의미합니다.
   static const int circularExchangeFilterNodeIndex = 1;
-  
+
   /// 2중교체에서 필터링할 단계 번호 상수
-  /// 
+  ///
   /// 2중교체 경로에서 요일 필터를 적용할 때 사용하는 단계 번호입니다.
   /// 2단계의 toNode만 확인합니다.
   static const int dualExchangeFilterStepNumber = 2;
-  
+
   // 필터 상태
   int? _selectedStep;
   String? _selectedDayFilter;
@@ -67,9 +67,10 @@ class FilterStateManager {
 
   /// 모든 필터 초기화
   void clearAllFilters() {
-    bool changed = _selectedStep != null ||
-                   _selectedDayFilter != null ||
-                   _searchKeyword.isNotEmpty;
+    bool changed =
+        _selectedStep != null ||
+        _selectedDayFilter != null ||
+        _searchKeyword.isNotEmpty;
 
     _selectedStep = null;
     _selectedDayFilter = null;
@@ -83,8 +84,8 @@ class FilterStateManager {
   /// 필터가 활성화되어 있는지 확인
   bool get hasActiveFilters {
     return _selectedStep != null ||
-           _selectedDayFilter != null ||
-           _searchKeyword.isNotEmpty;
+        _selectedDayFilter != null ||
+        _searchKeyword.isNotEmpty;
   }
 
   /// 활성화된 필터 개수
@@ -139,7 +140,8 @@ class FilterStateManager {
       } else if (path is CircularExchangePath) {
         // 순환교체의 경우 2번째 노드만 확인
         if (path.nodes.length > circularExchangeFilterNodeIndex) {
-          return path.nodes[circularExchangeFilterNodeIndex].day == _selectedDayFilter;
+          return path.nodes[circularExchangeFilterNodeIndex].day ==
+              _selectedDayFilter;
         }
         return false;
       } else if (path is DualExchangePath) {
@@ -162,21 +164,27 @@ class FilterStateManager {
 
     return paths.where((path) {
       if (path is OneToOneExchangePath) {
-        return path.nodes.any((node) =>
-            node.teacherName.toLowerCase().contains(keyword) ||
-            node.className.toLowerCase().contains(keyword) ||
-            node.subjectName.toLowerCase().contains(keyword));
+        return path.nodes.any(
+          (node) =>
+              node.teacherName.toLowerCase().contains(keyword) ||
+              node.className.toLowerCase().contains(keyword) ||
+              node.subjectName.toLowerCase().contains(keyword),
+        );
       } else if (path is CircularExchangePath) {
-        return path.nodes.any((node) =>
-            node.teacherName.toLowerCase().contains(keyword) ||
-            node.className.toLowerCase().contains(keyword) ||
-            node.subjectName.toLowerCase().contains(keyword));
+        return path.nodes.any(
+          (node) =>
+              node.teacherName.toLowerCase().contains(keyword) ||
+              node.className.toLowerCase().contains(keyword) ||
+              node.subjectName.toLowerCase().contains(keyword),
+        );
       } else if (path is DualExchangePath) {
-        return path.steps.any((step) =>
-            step.fromNode.teacherName.toLowerCase().contains(keyword) ||
-            step.toNode.teacherName.toLowerCase().contains(keyword) ||
-            step.fromNode.className.toLowerCase().contains(keyword) ||
-            step.toNode.className.toLowerCase().contains(keyword));
+        return path.steps.any(
+          (step) =>
+              step.fromNode.teacherName.toLowerCase().contains(keyword) ||
+              step.toNode.teacherName.toLowerCase().contains(keyword) ||
+              step.fromNode.className.toLowerCase().contains(keyword) ||
+              step.toNode.className.toLowerCase().contains(keyword),
+        );
       }
       return false;
     }).toList();

@@ -1,30 +1,30 @@
 import '../utils/logger.dart';
 
 /// 시간표의 각 칸을 나타내는 모델 클래스
-/// 
+///
 /// 교체 불가 검사 방법:
-/// - 기본 검사: isExchangeable && isNotEmpty  
+/// - 기본 검사: isExchangeable && isNotEmpty
 /// - 교체 시 검증: 교사가 목적지 시간대에 교체 불가 셀이 있는지 확인
 /// - 모든 교체 유형(1:1, 순환, 2중)에서 동일하게 적용
 class TimeSlot {
-  String? teacher;    // 교사명: "김영희", null
-  String? subject;    // 과목명: "수학", null  
-  String? className;  // 학급명: "1-1", null
-  int? dayOfWeek;    // 요일: 1(월) ~ 5(금)
-  int? period;       // 교시: 1 ~ 7
+  String? teacher; // 교사명: "김영희", null
+  String? subject; // 과목명: "수학", null
+  String? className; // 학급명: "1-1", null
+  int? dayOfWeek; // 요일: 1(월) ~ 5(금)
+  int? period; // 교시: 1 ~ 7
   bool isExchangeable; // 교체 가능 여부: true(교체 가능), false(교체 불가능)
   String? exchangeReason; // 교체 불가능한 사유: "같은 학급", "같은 교사", "빈 시간" 등
-  
+
   TimeSlot({
-    this.teacher, 
-    this.subject, 
-    this.className, 
-    this.dayOfWeek, 
+    this.teacher,
+    this.subject,
+    this.className,
+    this.dayOfWeek,
     this.period,
     this.isExchangeable = true, // 기본값: 교체 가능
     this.exchangeReason, // 교체 불가능한 사유 (기본값: null)
   });
-  
+
   /// 빈 슬롯인지 확인 (과목·학급이 모두 없거나 공백뿐인 경우)
   bool get isEmpty {
     final hasSubject = subject != null && subject!.trim().isNotEmpty;
@@ -34,15 +34,15 @@ class TimeSlot {
 
   /// 비어있지 않은 슬롯인지 확인 (과목 또는 학급 정보가 있는 경우)
   bool get isNotEmpty => !isEmpty;
-  
+
   /// 빈 TimeSlot 생성
   static TimeSlot empty() {
     return TimeSlot();
   }
-  
+
   /// 교체 가능한 슬롯인지 확인
   bool get canExchange => isExchangeable && isNotEmpty;
-  
+
   /// 셀 표시용 2줄 문자열 (학급\n과목) — 시간표·교체 화면 공통
   static String formatDisplayText(String? className, String? subject) {
     final hasClass = className != null && className.trim().isNotEmpty;
@@ -65,7 +65,7 @@ class TimeSlot {
     exchangeReason = reason;
     isExchangeable = false; // 사유가 있으면 교체 불가능으로 설정
   }
-  
+
   /// TimeSlot을 비우기 (모든 정보를 null로 설정)
   void clear() {
     // teacher = null;
@@ -74,9 +74,9 @@ class TimeSlot {
     // dayOfWeek와 period는 유지 (시간 정보는 그대로)
     // isExchangeable과 exchangeReason도 유지
   }
-  
+
   /// 다른 TimeSlot의 정보를 복사하되 요일과 시간은 목적지의 것으로 설정
-  /// 
+  ///
   /// 매개변수:
   /// - `sourceSlot`: 복사할 원본 TimeSlot
   /// - `targetDayOfWeek`: 목적지 요일
@@ -90,7 +90,7 @@ class TimeSlot {
     isExchangeable = sourceSlot.isExchangeable;
     exchangeReason = sourceSlot.exchangeReason;
   }
-  
+
   /// TimeSlot 이동 함수
   ///
   /// 이동 방식:
@@ -125,12 +125,12 @@ class TimeSlot {
       return false;
     }
   }
-  
+
   /// TimeSlot의 정보를 문자열로 반환 (디버깅용)
   String get debugInfo {
     return 'TimeSlot(teacher: $teacher, subject: $subject, className: $className, dayOfWeek: $dayOfWeek, period: $period, isExchangeable: $isExchangeable)';
   }
-  
+
   /// TimeSlot의 복사본 생성 (교체 히스토리용)
   TimeSlot copy() {
     return TimeSlot(
@@ -143,7 +143,7 @@ class TimeSlot {
       exchangeReason: exchangeReason,
     );
   }
-  
+
   /// 다른 TimeSlot의 값으로 복원
   void restoreFrom(TimeSlot other) {
     teacher = other.teacher;
@@ -154,9 +154,9 @@ class TimeSlot {
     isExchangeable = other.isExchangeable;
     exchangeReason = other.exchangeReason;
   }
-  
+
   /// JSON 직렬화 (저장용)
-  /// 
+  ///
   /// TimeSlot을 Map 형태로 변환하여 JSON 파일에 저장할 수 있도록 합니다.
   Map<String, dynamic> toJson() {
     return {
@@ -169,9 +169,9 @@ class TimeSlot {
       'exchangeReason': exchangeReason,
     };
   }
-  
+
   /// JSON 역직렬화 (로드용)
-  /// 
+  ///
   /// JSON 파일에서 읽어온 Map 데이터를 TimeSlot 객체로 변환합니다.
   factory TimeSlot.fromJson(Map<String, dynamic> json) {
     return TimeSlot(

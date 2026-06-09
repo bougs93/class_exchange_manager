@@ -32,9 +32,7 @@ const double kModeRowFullLabelsMinWidth = 480.0;
 const double kToolbarFullModeLabelsMinWidth = 880.0;
 
 /// 툴바 [totalWidth] 기준으로 전체/축약 라벨 결정
-ExchangeModeLabelStyle resolveModeLabelStyle({
-  required double totalWidth,
-}) {
+ExchangeModeLabelStyle resolveModeLabelStyle({required double totalWidth}) {
   return totalWidth >= kModeRowFullLabelsMinWidth
       ? ExchangeModeLabelStyle.full
       : ExchangeModeLabelStyle.compact;
@@ -124,10 +122,7 @@ double estimateModeSelectorWidth({
   required bool isDualExchangeEnabled,
   required ExchangeModeLabelStyle labelStyle,
 }) {
-  const viewEditModes = [
-    ExchangeMode.view,
-    ExchangeMode.nonExchangeableEdit,
-  ];
+  const viewEditModes = [ExchangeMode.view, ExchangeMode.nonExchangeableEdit];
   final exchangeModes =
       isDualExchangeEnabled
           ? const [
@@ -292,15 +287,28 @@ class ExchangeModeSelector extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDualExchangeEnabled = ref.watch(dualExchangeEnabledProvider);
-    final isCircularExchangeEnabled = ref.watch(circularExchangeEnabledProvider);
-    final exchangeModes = _visibleExchangeModes(isDualExchangeEnabled, isCircularExchangeEnabled);
+    final isCircularExchangeEnabled = ref.watch(
+      circularExchangeEnabledProvider,
+    );
+    final exchangeModes = _visibleExchangeModes(
+      isDualExchangeEnabled,
+      isCircularExchangeEnabled,
+    );
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ..._buildModeGroup(_viewEditModes, isDualExchangeEnabled, isCircularExchangeEnabled),
+        ..._buildModeGroup(
+          _viewEditModes,
+          isDualExchangeEnabled,
+          isCircularExchangeEnabled,
+        ),
         const _ToolbarGroupDivider(),
-        ..._buildModeGroup(exchangeModes, isDualExchangeEnabled, isCircularExchangeEnabled),
+        ..._buildModeGroup(
+          exchangeModes,
+          isDualExchangeEnabled,
+          isCircularExchangeEnabled,
+        ),
       ],
     );
   }
@@ -318,7 +326,12 @@ class ExchangeModeSelector extends ConsumerWidget {
           mode: mode,
           isSelected: isSelected,
           labelStyle: labelStyle,
-          onPressed: () => _handleModeChanged(mode, isDualExchangeEnabled, isCircularExchangeEnabled),
+          onPressed:
+              () => _handleModeChanged(
+                mode,
+                isDualExchangeEnabled,
+                isCircularExchangeEnabled,
+              ),
         ),
       );
     }).toList();
@@ -350,9 +363,7 @@ class _ModeToolbarButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final backgroundColor =
-        isSelected
-            ? mode.color.withValues(alpha: 0.12)
-            : Colors.grey.shade100;
+        isSelected ? mode.color.withValues(alpha: 0.12) : Colors.grey.shade100;
     final foregroundColor = isSelected ? mode.color : Colors.grey.shade700;
     final borderColor = isSelected ? mode.color : Colors.grey.shade300;
     final visibleLabel = _visibleLabel;

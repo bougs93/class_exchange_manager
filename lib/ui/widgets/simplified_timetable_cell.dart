@@ -77,14 +77,14 @@ class SimplifiedTimetableCell extends ConsumerWidget {
         isHighlightedTeacher: isHighlightedTeacher, // 새로 추가
       ),
     );
-    
+
     // 디버깅을 위한 로그 (리빌드로 인한 중복 출력 방지를 위해 제거)
     // Flutter의 위젯 리빌드 메커니즘으로 인해 build() 메서드가 여러 번 호출되어
     // 로그가 반복 출력되는 것을 방지하기 위해 주석 처리
     // if (isSelected) {
     //   AppLogger.exchangeDebug('선택된 셀 렌더링: $content, 교사열=$isTeacherColumn, 선택됨=$isSelected');
     // }
-    
+
     // 셀 전체 영역에서 마우스 호버가 감지되도록 크기를 채웁니다.
     final cellBody = GestureDetector(
       onTap: onTap,

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import '../../../../models/exchange_path.dart';
 import '../../../../models/one_to_one_exchange_path.dart';
 import '../../../../models/circular_exchange_path.dart';
@@ -35,19 +35,23 @@ class ExchangePathManager {
   // ===== 경로 생성 =====
 
   /// 1:1 교체 경로 생성
-  void generateOneToOnePaths(List<dynamic> options, TimetableData? timetableData) {
+  void generateOneToOnePaths(
+    List<dynamic> options,
+    TimetableData? timetableData,
+  ) {
     if (!exchangeService.hasSelectedCell() || timetableData == null) {
       _clearPaths<OneToOneExchangePath>();
       return;
     }
 
     // 선택된 셀의 학급명 추출 및 경로 변환
-    final selectedClassName = ExchangePathConverter.extractClassNameFromTimeSlots(
-      timeSlots: timetableData.timeSlots,
-      teacherName: exchangeService.selectedTeacher!,
-      day: exchangeService.selectedDay!,
-      period: exchangeService.selectedPeriod!,
-    );
+    final selectedClassName =
+        ExchangePathConverter.extractClassNameFromTimeSlots(
+          timeSlots: timetableData.timeSlots,
+          teacherName: exchangeService.selectedTeacher!,
+          day: exchangeService.selectedDay!,
+          period: exchangeService.selectedPeriod!,
+        );
 
     final paths = ExchangePathConverter.convertToOneToOnePaths(
       selectedTeacher: exchangeService.selectedTeacher!,
@@ -67,7 +71,9 @@ class ExchangePathManager {
   }
 
   /// 순환교체 경로 탐색 (진행률 포함)
-  Future<void> findCircularPathsWithProgress(TimetableData? timetableData) async {
+  Future<void> findCircularPathsWithProgress(
+    TimetableData? timetableData,
+  ) async {
     try {
       AppLogger.exchangeDebug('순환교체 경로 탐색 시작');
 
@@ -118,7 +124,9 @@ class ExchangePathManager {
       );
 
       _updatePaths(paths);
-      AppLogger.exchangeInfo('2중교체: ${paths.isEmpty ? "경로 없음" : "${paths.length}개 경로 발견"}');
+      AppLogger.exchangeInfo(
+        '2중교체: ${paths.isEmpty ? "경로 없음" : "${paths.length}개 경로 발견"}',
+      );
     } catch (e) {
       AppLogger.error('2중교체 경로 탐색 오류: $e');
       _clearPaths<DualExchangePath>();
@@ -129,7 +137,10 @@ class ExchangePathManager {
 
   /// 경로 업데이트 (공통)
   void _updatePaths<T extends ExchangePath>(List<T> paths) {
-    final newPaths = ExchangePathUtils.replacePaths(stateProxy.availablePaths, paths);
+    final newPaths = ExchangePathUtils.replacePaths(
+      stateProxy.availablePaths,
+      paths,
+    );
     stateProxy.setAvailablePaths(newPaths);
     stateProxy.setSelectedOneToOnePath(null);
     onUpdateFilteredPaths();
@@ -138,14 +149,19 @@ class ExchangePathManager {
 
   /// 경로 제거 (공통)
   void _clearPaths<T extends ExchangePath>() {
-    final otherPaths = ExchangePathUtils.removePaths<T>(stateProxy.availablePaths);
+    final otherPaths = ExchangePathUtils.removePaths<T>(
+      stateProxy.availablePaths,
+    );
     stateProxy.setAvailablePaths(otherPaths);
     stateProxy.setSelectedOneToOnePath(null);
     stateProxy.setSidebarVisible(false);
   }
 
   /// 진행률 단계별 업데이트
-  Future<void> _updateProgressWithSteps(List<double> steps, List<int> delays) async {
+  Future<void> _updateProgressWithSteps(
+    List<double> steps,
+    List<int> delays,
+  ) async {
     for (int i = 0; i < steps.length; i++) {
       onUpdateProgressSmoothly(steps[i]);
       if (delays[i] > 0) {

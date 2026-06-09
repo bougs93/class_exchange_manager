@@ -1,4 +1,4 @@
-﻿import 'package:syncfusion_flutter_datagrid/datagrid.dart';
+import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../models/time_slot.dart';
 import '../models/teacher.dart';
 import '../models/exchange_node.dart';
@@ -18,13 +18,13 @@ import 'base_exchange_service.dart';
 class DualExchangeService extends BaseExchangeService {
   // 싱글톤 인스턴스
   static final DualExchangeService _instance = DualExchangeService._internal();
-  
+
   // 싱글톤 생성자
   factory DualExchangeService() => _instance;
-  
+
   // 내부 생성자
   DualExchangeService._internal();
-  
+
   // ==================== 상수 정의 ====================
 
   /// 2중교체 경로 디버그 콘솔 출력 여부
@@ -33,10 +33,11 @@ class DualExchangeService extends BaseExchangeService {
   // ==================== 인스턴스 변수 ====================
 
   // A 위치 (결강 수업) 학급 정보
-  String? _selectedClass;        // 선택된 학급 (2중 교체 전용)
+  String? _selectedClass; // 선택된 학급 (2중 교체 전용)
 
   // 교체 불가 관리자
-  final NonExchangeableManager _nonExchangeableManager = NonExchangeableManager();
+  final NonExchangeableManager _nonExchangeableManager =
+      NonExchangeableManager();
 
   // Getter: 선택된 학급 정보만 제공 (2중 교체 전용)
   String? get selectedClass => _selectedClass;
@@ -81,7 +82,12 @@ class DualExchangeService extends BaseExchangeService {
     String teacherName = getTeacherNameFromCell(details, dataSource);
 
     // 해당 시간의 학급 정보 찾기 (베이스 클래스 메서드 사용)
-    String className = getClassNameFromTimeSlot(teacherName, day, period, timeSlots);
+    String className = getClassNameFromTimeSlot(
+      teacherName,
+      day,
+      period,
+      timeSlots,
+    );
 
     // 동일한 셀을 다시 클릭했는지 확인 (베이스 클래스 메서드 사용)
     if (isSameCell(teacherName, day, period)) {
@@ -93,12 +99,13 @@ class DualExchangeService extends BaseExchangeService {
       selectCell(teacherName, day, period);
       _selectedClass = className;
 
-      AppLogger.exchangeInfo('2중교체: A 위치 선택 - $teacherName $day $period교시 $className');
+      AppLogger.exchangeInfo(
+        '2중교체: A 위치 선택 - $teacherName $day $period교시 $className',
+      );
 
       return DualExchangeResult.selected(teacherName, day, period);
     }
   }
-
 
   /// 2중 교체 가능한 경로들 찾기
   ///
@@ -119,12 +126,13 @@ class DualExchangeService extends BaseExchangeService {
 
     // 성능 최적화: 빈 셀과 교체불가능한 셀을 사전 필터링
     // canExchange는 이미 isNotEmpty를 포함하므로 중복 체크 제거
-    List<TimeSlot> validTimeSlots = timeSlots.where((slot) => 
-      slot.canExchange
-    ).toList();
-    
-    AppLogger.exchangeDebug('2중교체 최적화: 전체 ${timeSlots.length}개 → 유효한 ${validTimeSlots.length}개 TimeSlot');
-    
+    List<TimeSlot> validTimeSlots =
+        timeSlots.where((slot) => slot.canExchange).toList();
+
+    AppLogger.exchangeDebug(
+      '2중교체 최적화: 전체 ${timeSlots.length}개 → 유효한 ${validTimeSlots.length}개 TimeSlot',
+    );
+
     // 교체 불가 관리자에 TimeSlot 설정
     _nonExchangeableManager.setTimeSlots(timeSlots);
 
@@ -143,13 +151,20 @@ class DualExchangeService extends BaseExchangeService {
 
     if (enablePathDebugLogging) {
       AppLogger.exchangeDebug('2중교체 경로 탐색 시작');
-      AppLogger.exchangeDebug('A 위치: $selectedTeacher $selectedDay $selectedPeriod교시 $_selectedClass');
+      AppLogger.exchangeDebug(
+        'A 위치: $selectedTeacher $selectedDay $selectedPeriod교시 $_selectedClass',
+      );
     }
 
     List<DualExchangePath> paths = [];
 
     // A 위치 노드 생성 (과목명 포함)
-    String nodeASubject = getSubjectFromTimeSlot(selectedTeacher!, selectedDay!, selectedPeriod!, validTimeSlots);
+    String nodeASubject = getSubjectFromTimeSlot(
+      selectedTeacher!,
+      selectedDay!,
+      selectedPeriod!,
+      validTimeSlots,
+    );
     ExchangeNode nodeA = ExchangeNode(
       teacherName: selectedTeacher!,
       day: selectedDay!,
@@ -159,7 +174,10 @@ class DualExchangeService extends BaseExchangeService {
     );
 
     // B 위치 후보들 찾기 (A와 같은 학급, B 교사가 A 시간 비어있음)
-    List<ExchangeNode> nodeBCandidates = _findSameClassSlots(nodeA, validTimeSlots);
+    List<ExchangeNode> nodeBCandidates = _findSameClassSlots(
+      nodeA,
+      validTimeSlots,
+    );
 
     if (enablePathDebugLogging) {
       AppLogger.exchangeDebug('B 위치 후보: ${nodeBCandidates.length}개');
@@ -169,22 +187,33 @@ class DualExchangeService extends BaseExchangeService {
 
     for (ExchangeNode nodeB in nodeBCandidates) {
       // A 교사가 B 시간에 다른 수업(2번)이 있는지 확인
-      ExchangeNode? node2 = _findBlockingSlot(selectedTeacher!, nodeB, validTimeSlots);
+      ExchangeNode? node2 = _findBlockingSlot(
+        selectedTeacher!,
+        nodeB,
+        validTimeSlots,
+      );
 
       if (node2 == null) {
         // A와 B가 직접 교체 가능하면 2중교체 불필요
         if (enablePathDebugLogging) {
-          AppLogger.exchangeDebug('B=${nodeB.displayText}: 직접 교체 가능 (2중교체 불필요)');
+          AppLogger.exchangeDebug(
+            'B=${nodeB.displayText}: 직접 교체 가능 (2중교체 불필요)',
+          );
         }
         continue;
       }
 
       if (enablePathDebugLogging) {
-        AppLogger.exchangeDebug('B=${nodeB.displayText}, node2=${node2.displayText} 발견');
+        AppLogger.exchangeDebug(
+          'B=${nodeB.displayText}, node2=${node2.displayText} 발견',
+        );
       }
 
       // 2번 수업과 1:1 교체 가능한 같은 학급 수업(1번) 찾기
-      List<ExchangeNode> node1Candidates = _findSameClassSlots(node2, validTimeSlots);
+      List<ExchangeNode> node1Candidates = _findSameClassSlots(
+        node2,
+        validTimeSlots,
+      );
 
       for (ExchangeNode node1 in node1Candidates) {
         // 1단계: node1 ↔ node2 교체 가능한지 확인
@@ -221,18 +250,25 @@ class DualExchangeService extends BaseExchangeService {
 
   /// A와 같은 학급을 가르치는 교사들의 시간 찾기
   /// (해당 교사가 A 시간에 비어있어야 함)
-  List<ExchangeNode> _findSameClassSlots(ExchangeNode nodeA, List<TimeSlot> timeSlots) {
+  List<ExchangeNode> _findSameClassSlots(
+    ExchangeNode nodeA,
+    List<TimeSlot> timeSlots,
+  ) {
     List<ExchangeNode> nodes = [];
     Set<String> addedNodeIds = {};
     int nodeADayNumber = DayUtils.getDayNumber(nodeA.day);
 
     // 같은 학급을 가르치는 모든 시간표 슬롯 찾기
     // canExchange는 이미 isNotEmpty를 포함하므로 중복 체크 제거
-    List<TimeSlot> sameClassSlots = timeSlots.where((slot) =>
-      slot.className == nodeA.className &&
-      slot.canExchange && // isNotEmpty 포함
-      slot.teacher != nodeA.teacherName
-    ).toList();
+    List<TimeSlot> sameClassSlots =
+        timeSlots
+            .where(
+              (slot) =>
+                  slot.className == nodeA.className &&
+                  slot.canExchange && // isNotEmpty 포함
+                  slot.teacher != nodeA.teacherName,
+            )
+            .toList();
 
     for (TimeSlot slot in sameClassSlots) {
       // Early return: 유효하지 않은 슬롯 건너뛰기
@@ -251,7 +287,7 @@ class DualExchangeService extends BaseExchangeService {
   }
 
   /// 같은 학급 슬롯이 유효한지 검증
-  /// 
+  ///
   /// 공통 메서드 사용으로 중복 로직 제거
   bool _isValidSameClassSlot(
     TimeSlot slot,
@@ -286,7 +322,11 @@ class DualExchangeService extends BaseExchangeService {
   ///
   /// A 교사가 B 시간에 수업이 있으면 그 수업을 반환
   /// 없으면 null 반환 (직접 교체 가능)
-  ExchangeNode? _findBlockingSlot(String teacherA, ExchangeNode nodeB, List<TimeSlot> timeSlots) {
+  ExchangeNode? _findBlockingSlot(
+    String teacherA,
+    ExchangeNode nodeB,
+    List<TimeSlot> timeSlots,
+  ) {
     // BaseExchangeService의 공통 메서드 사용 (중복 로직 제거)
     TimeSlot? blockingSlot = findTimeSlot(
       teacherA,
@@ -294,7 +334,7 @@ class DualExchangeService extends BaseExchangeService {
       nodeB.period,
       timeSlots,
     );
-    
+
     // 교체 가능한 셀만 고려
     // canExchange는 이미 isNotEmpty를 포함하므로 중복 체크 제거
     if (blockingSlot != null && !blockingSlot.canExchange) {
@@ -324,33 +364,47 @@ class DualExchangeService extends BaseExchangeService {
     int node2DayNumber = DayUtils.getDayNumber(node2.day);
 
     // node1 교사가 node2 시간에 비어있는가?
-    bool teacher1EmptyAtNode2Time = !timeSlots.any((slot) =>
-      slot.teacher == node1.teacherName &&
-      slot.dayOfWeek == node2DayNumber &&
-      slot.period == node2.period &&
-      slot.isNotEmpty
-    );
+    bool teacher1EmptyAtNode2Time =
+        !timeSlots.any(
+          (slot) =>
+              slot.teacher == node1.teacherName &&
+              slot.dayOfWeek == node2DayNumber &&
+              slot.period == node2.period &&
+              slot.isNotEmpty,
+        );
 
     // node2 교사가 node1 시간에 비어있는가?
-    bool teacher2EmptyAtNode1Time = !timeSlots.any((slot) =>
-      slot.teacher == node2.teacherName &&
-      slot.dayOfWeek == node1DayNumber &&
-      slot.period == node1.period &&
-      slot.isNotEmpty
-    );
+    bool teacher2EmptyAtNode1Time =
+        !timeSlots.any(
+          (slot) =>
+              slot.teacher == node2.teacherName &&
+              slot.dayOfWeek == node1DayNumber &&
+              slot.period == node1.period &&
+              slot.isNotEmpty,
+        );
 
     // 같은 학급인가?
     bool sameClass = node1.className == node2.className;
 
     // 교체 불가 충돌 검증 추가
-    bool teacher1CanMoveToNode2 = !_nonExchangeableManager.isNonExchangeableTimeSlot(node1.teacherName, node2.day, node2.period);
-    bool teacher2CanMoveToNode1 = !_nonExchangeableManager.isNonExchangeableTimeSlot(node2.teacherName, node1.day, node1.period);
+    bool teacher1CanMoveToNode2 =
+        !_nonExchangeableManager.isNonExchangeableTimeSlot(
+          node1.teacherName,
+          node2.day,
+          node2.period,
+        );
+    bool teacher2CanMoveToNode1 =
+        !_nonExchangeableManager.isNonExchangeableTimeSlot(
+          node2.teacherName,
+          node1.day,
+          node1.period,
+        );
 
-    return teacher1EmptyAtNode2Time && 
-           teacher2EmptyAtNode1Time && 
-           sameClass && 
-           teacher1CanMoveToNode2 && 
-           teacher2CanMoveToNode1;
+    return teacher1EmptyAtNode2Time &&
+        teacher2EmptyAtNode1Time &&
+        sameClass &&
+        teacher1CanMoveToNode2 &&
+        teacher2CanMoveToNode1;
   }
 
   /// 2단계 검증: A와 B가 1:1 교체 가능한지 (node2 위치가 비워진 후)
@@ -366,34 +420,49 @@ class DualExchangeService extends BaseExchangeService {
 
     // A 교사(nodeA.teacher)가 B 시간(nodeB.time)에 비어있는가?
     // node2가 1단계에서 비워질 예정이으므로 node2 위치는 무시
-    bool teacherAEmptyAtBTime = !timeSlots.any((slot) =>
-      slot.teacher == nodeA.teacherName &&
-      slot.dayOfWeek == nodeBDayNumber &&
-      slot.period == nodeB.period &&
-      slot.isNotEmpty &&
-      !(slot.dayOfWeek == node2DayNumber && slot.period == node2.period) // node2 제외
-    );
+    bool teacherAEmptyAtBTime =
+        !timeSlots.any(
+          (slot) =>
+              slot.teacher == nodeA.teacherName &&
+              slot.dayOfWeek == nodeBDayNumber &&
+              slot.period == nodeB.period &&
+              slot.isNotEmpty &&
+              !(slot.dayOfWeek == node2DayNumber &&
+                  slot.period == node2.period), // node2 제외
+        );
 
     // B 교사(nodeB.teacher)가 A 시간(nodeA.time)에 비어있는가?
-    bool teacherBEmptyAtATime = !timeSlots.any((slot) =>
-      slot.teacher == nodeB.teacherName &&
-      slot.dayOfWeek == nodeADayNumber &&
-      slot.period == nodeA.period &&
-      slot.isNotEmpty
-    );
+    bool teacherBEmptyAtATime =
+        !timeSlots.any(
+          (slot) =>
+              slot.teacher == nodeB.teacherName &&
+              slot.dayOfWeek == nodeADayNumber &&
+              slot.period == nodeA.period &&
+              slot.isNotEmpty,
+        );
 
     // 같은 학급인가?
     bool sameClass = nodeA.className == nodeB.className;
 
     // 교체 불가 충돌 검증 추가
-    bool teacherACanMoveToB = !_nonExchangeableManager.isNonExchangeableTimeSlot(nodeA.teacherName, nodeB.day, nodeB.period);
-    bool teacherBCanMoveToA = !_nonExchangeableManager.isNonExchangeableTimeSlot(nodeB.teacherName, nodeA.day, nodeA.period);
+    bool teacherACanMoveToB =
+        !_nonExchangeableManager.isNonExchangeableTimeSlot(
+          nodeA.teacherName,
+          nodeB.day,
+          nodeB.period,
+        );
+    bool teacherBCanMoveToA =
+        !_nonExchangeableManager.isNonExchangeableTimeSlot(
+          nodeB.teacherName,
+          nodeA.day,
+          nodeA.period,
+        );
 
-    return teacherAEmptyAtBTime && 
-           teacherBEmptyAtATime && 
-           sameClass && 
-           teacherACanMoveToB && 
-           teacherBCanMoveToA;
+    return teacherAEmptyAtBTime &&
+        teacherBEmptyAtATime &&
+        sameClass &&
+        teacherACanMoveToB &&
+        teacherBCanMoveToA;
   }
 
   /// 모든 선택 상태 초기화
@@ -405,7 +474,6 @@ class DualExchangeService extends BaseExchangeService {
       AppLogger.exchangeDebug('2중교체: 모든 선택 초기화');
     }
   }
-
 
   /// 2중교체 가능한 교사 정보 가져오기 (UI 표시용)
   List<Map<String, dynamic>> getDualExchangeableTeachers(
@@ -427,12 +495,12 @@ class DualExchangeService extends BaseExchangeService {
 
 /// 2중교체 처리 결과를 나타내는 클래스
 class DualExchangeResult {
-  final bool isSelected;      // 교체 대상이 선택됨
-  final bool isDeselected;    // 교체 대상이 해제됨
-  final bool isNoAction;      // 아무 동작하지 않음
-  final String? teacherName;  // 교사명
-  final String? day;          // 요일
-  final int? period;          // 교시
+  final bool isSelected; // 교체 대상이 선택됨
+  final bool isDeselected; // 교체 대상이 해제됨
+  final bool isNoAction; // 아무 동작하지 않음
+  final String? teacherName; // 교사명
+  final String? day; // 요일
+  final int? period; // 교시
 
   DualExchangeResult._({
     required this.isSelected,
@@ -444,7 +512,11 @@ class DualExchangeResult {
   });
 
   /// 교체 대상이 선택됨
-  factory DualExchangeResult.selected(String teacherName, String day, int period) {
+  factory DualExchangeResult.selected(
+    String teacherName,
+    String day,
+    int period,
+  ) {
     return DualExchangeResult._(
       isSelected: true,
       isDeselected: false,

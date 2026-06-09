@@ -6,11 +6,12 @@ import '../../utils/logger.dart';
 
 /// 스크롤 관리 공통 믹신
 /// 교체 관리 시간표와 결보강 계획서에서 공통으로 사용하는 스크롤 관리 로직
-mixin ScrollManagementMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
+mixin ScrollManagementMixin<T extends ConsumerStatefulWidget>
+    on ConsumerState<T> {
   // 스크롤 컨트롤러들
   late final ScrollController horizontalScrollController;
   late final ScrollController verticalScrollController;
-  
+
   // 마우스 오른쪽 버튼 및 두 손가락 드래그 상태
   Offset? _rightClickDragStart;
   double? _rightClickScrollStartH;
@@ -20,11 +21,11 @@ mixin ScrollManagementMixin<T extends ConsumerStatefulWidget> on ConsumerState<T
   void initializeScrollControllers() {
     horizontalScrollController = ScrollController();
     verticalScrollController = ScrollController();
-    
+
     // 스크롤 리스너 등록
     horizontalScrollController.addListener(_onScrollChanged);
     verticalScrollController.addListener(_onScrollChanged);
-    
+
     AppLogger.exchangeDebug('🔄 [스크롤] 스크롤 컨트롤러 초기화 완료');
   }
 
@@ -33,36 +34,42 @@ mixin ScrollManagementMixin<T extends ConsumerStatefulWidget> on ConsumerState<T
     // 스크롤 리스너 해제
     horizontalScrollController.removeListener(_onScrollChanged);
     verticalScrollController.removeListener(_onScrollChanged);
-    
+
     // 컨트롤러 해제
     horizontalScrollController.dispose();
     verticalScrollController.dispose();
-    
+
     AppLogger.exchangeDebug('🔄 [스크롤] 스크롤 컨트롤러 해제 완료');
   }
 
   /// 스크롤 변경 시 호출되는 콜백
   void _onScrollChanged() {
-    final horizontalOffset = horizontalScrollController.hasClients 
-        ? horizontalScrollController.offset 
-        : 0.0;
-    final verticalOffset = verticalScrollController.hasClients 
-        ? verticalScrollController.offset 
-        : 0.0;
-    
+    final horizontalOffset =
+        horizontalScrollController.hasClients
+            ? horizontalScrollController.offset
+            : 0.0;
+    final verticalOffset =
+        verticalScrollController.hasClients
+            ? verticalScrollController.offset
+            : 0.0;
+
     // ScrollProvider를 통해 스크롤 상태 업데이트
-    ref.read(scrollProvider.notifier).updateOffset(horizontalOffset, verticalOffset);
+    ref
+        .read(scrollProvider.notifier)
+        .updateOffset(horizontalOffset, verticalOffset);
   }
 
   /// 현재 스크롤 오프셋 가져오기
   Map<String, double> getCurrentScrollOffset() {
     return {
-      'horizontal': horizontalScrollController.hasClients 
-          ? horizontalScrollController.offset 
-          : 0.0,
-      'vertical': verticalScrollController.hasClients 
-          ? verticalScrollController.offset 
-          : 0.0,
+      'horizontal':
+          horizontalScrollController.hasClients
+              ? horizontalScrollController.offset
+              : 0.0,
+      'vertical':
+          verticalScrollController.hasClients
+              ? verticalScrollController.offset
+              : 0.0,
     };
   }
 
@@ -70,16 +77,16 @@ mixin ScrollManagementMixin<T extends ConsumerStatefulWidget> on ConsumerState<T
   void scrollToPosition({double? horizontal, double? vertical}) {
     if (horizontal != null && horizontalScrollController.hasClients) {
       final clampedH = horizontal.clamp(
-        0.0, 
-        horizontalScrollController.position.maxScrollExtent
+        0.0,
+        horizontalScrollController.position.maxScrollExtent,
       );
       horizontalScrollController.jumpTo(clampedH);
     }
-    
+
     if (vertical != null && verticalScrollController.hasClients) {
       final clampedV = vertical.clamp(
-        0.0, 
-        verticalScrollController.position.maxScrollExtent
+        0.0,
+        verticalScrollController.position.maxScrollExtent,
       );
       verticalScrollController.jumpTo(clampedV);
     }
@@ -99,35 +106,46 @@ mixin ScrollManagementMixin<T extends ConsumerStatefulWidget> on ConsumerState<T
       onScaleStart: (details) {
         if (details.pointerCount == 2) {
           _rightClickDragStart = details.focalPoint;
-          _rightClickScrollStartH = horizontalScrollController.hasClients 
-              ? horizontalScrollController.offset : 0.0;
-          _rightClickScrollStartV = verticalScrollController.hasClients 
-              ? verticalScrollController.offset : 0.0;
+          _rightClickScrollStartH =
+              horizontalScrollController.hasClients
+                  ? horizontalScrollController.offset
+                  : 0.0;
+          _rightClickScrollStartV =
+              verticalScrollController.hasClients
+                  ? verticalScrollController.offset
+                  : 0.0;
           ref.read(scrollProvider.notifier).setScrolling(true);
         }
       },
       onScaleUpdate: (details) {
-        if (details.pointerCount == 2 && 
+        if (details.pointerCount == 2 &&
             _rightClickDragStart != null &&
             _rightClickScrollStartH != null &&
             _rightClickScrollStartV != null) {
-          
           final delta = details.focalPoint - _rightClickDragStart!;
-          
+
           // 수평 스크롤
           if (horizontalScrollController.hasClients) {
-            final newH = (_rightClickScrollStartH! - delta.dx)
-                .clamp(0.0, horizontalScrollController.position.maxScrollExtent);
+            final newH = (_rightClickScrollStartH! - delta.dx).clamp(
+              0.0,
+              horizontalScrollController.position.maxScrollExtent,
+            );
             horizontalScrollController.jumpTo(newH);
-            AppLogger.exchangeDebug('🖱️ [스크롤] 두 손가락 터치 수평 스크롤: ${_rightClickScrollStartH!.toStringAsFixed(1)} → ${newH.toStringAsFixed(1)} (델타: ${delta.dx.toStringAsFixed(1)})');
+            AppLogger.exchangeDebug(
+              '🖱️ [스크롤] 두 손가락 터치 수평 스크롤: ${_rightClickScrollStartH!.toStringAsFixed(1)} → ${newH.toStringAsFixed(1)} (델타: ${delta.dx.toStringAsFixed(1)})',
+            );
           }
-          
+
           // 수직 스크롤
           if (verticalScrollController.hasClients) {
-            final newV = (_rightClickScrollStartV! - delta.dy)
-                .clamp(0.0, verticalScrollController.position.maxScrollExtent);
+            final newV = (_rightClickScrollStartV! - delta.dy).clamp(
+              0.0,
+              verticalScrollController.position.maxScrollExtent,
+            );
             verticalScrollController.jumpTo(newV);
-            AppLogger.exchangeDebug('🖱️ [스크롤] 두 손가락 터치 수직 스크롤: ${_rightClickScrollStartV!.toStringAsFixed(1)} → ${newV.toStringAsFixed(1)} (델타: ${delta.dy.toStringAsFixed(1)})');
+            AppLogger.exchangeDebug(
+              '🖱️ [스크롤] 두 손가락 터치 수직 스크롤: ${_rightClickScrollStartV!.toStringAsFixed(1)} → ${newV.toStringAsFixed(1)} (델타: ${delta.dy.toStringAsFixed(1)})',
+            );
           }
         }
       },
@@ -142,32 +160,39 @@ mixin ScrollManagementMixin<T extends ConsumerStatefulWidget> on ConsumerState<T
         onPointerDown: (event) {
           if (event.buttons == kSecondaryMouseButton) {
             _rightClickDragStart = event.position;
-            _rightClickScrollStartH = horizontalScrollController.hasClients 
-                ? horizontalScrollController.offset : 0.0;
-            _rightClickScrollStartV = verticalScrollController.hasClients 
-                ? verticalScrollController.offset : 0.0;
+            _rightClickScrollStartH =
+                horizontalScrollController.hasClients
+                    ? horizontalScrollController.offset
+                    : 0.0;
+            _rightClickScrollStartV =
+                verticalScrollController.hasClients
+                    ? verticalScrollController.offset
+                    : 0.0;
             ref.read(scrollProvider.notifier).setScrolling(true);
           }
         },
         onPointerMove: (event) {
-          if (event.buttons == kSecondaryMouseButton && 
+          if (event.buttons == kSecondaryMouseButton &&
               _rightClickDragStart != null &&
               _rightClickScrollStartH != null &&
               _rightClickScrollStartV != null) {
-            
             final delta = event.position - _rightClickDragStart!;
-            
+
             // 수평 스크롤
             if (horizontalScrollController.hasClients) {
-              final newH = (_rightClickScrollStartH! - delta.dx)
-                  .clamp(0.0, horizontalScrollController.position.maxScrollExtent);
+              final newH = (_rightClickScrollStartH! - delta.dx).clamp(
+                0.0,
+                horizontalScrollController.position.maxScrollExtent,
+              );
               horizontalScrollController.jumpTo(newH);
             }
-            
+
             // 수직 스크롤
             if (verticalScrollController.hasClients) {
-              final newV = (_rightClickScrollStartV! - delta.dy)
-                  .clamp(0.0, verticalScrollController.position.maxScrollExtent);
+              final newV = (_rightClickScrollStartV! - delta.dy).clamp(
+                0.0,
+                verticalScrollController.position.maxScrollExtent,
+              );
               verticalScrollController.jumpTo(newV);
             }
           }

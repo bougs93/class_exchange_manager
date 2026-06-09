@@ -10,15 +10,15 @@ class KoreanFontConstants {
   /// - 굴림, 바탕, 돋움, 궁서 (Windows 기본 폰트)
   /// - 한바탕, 한돋움, 한산뜻돋움 (추가 폰트)
   static const List<String> fontFiles = [
-    'malgun.ttf',                      // 맑은 고딕
-    'malgunbd.ttf',                    // 맑은 고딕 Bold
-    'gulim.ttc',                       // 굴림
-    'batang.ttc',                      // 바탕
-    'dotum.ttc',                       // 돋움
-    'gungsuh.ttc',                     // 궁서
-    'hanbatang.ttf',                   // 한바탕
-    'handotum.ttf',                    // 한돋움
-    'hansantteutdotum-regular.ttf',    // 한산뜻돋움
+    'malgun.ttf', // 맑은 고딕
+    'malgunbd.ttf', // 맑은 고딕 Bold
+    'gulim.ttc', // 굴림
+    'batang.ttc', // 바탕
+    'dotum.ttc', // 돋움
+    'gungsuh.ttc', // 궁서
+    'hanbatang.ttf', // 한바탕
+    'handotum.ttf', // 한돋움
+    'hansantteutdotum-regular.ttf', // 한산뜻돋움
   ];
 
   /// UI 표시용 폰트 정보 (파일명 + 한글명)

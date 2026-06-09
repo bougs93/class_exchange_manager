@@ -7,10 +7,7 @@ import '../../utils/logger.dart';
 ///
 /// 기본적으로 접혀 있으며, 탭하면 경로·설명·복사 버튼을 표시합니다.
 class DataStorageLocationSection extends StatefulWidget {
-  const DataStorageLocationSection({
-    super.key,
-    this.compact = false,
-  });
+  const DataStorageLocationSection({super.key, this.compact = false});
 
   /// true: 홈 화면용 작은 글꼴·여백
   final bool compact;
@@ -117,26 +114,18 @@ class DataStorageLocationSectionState
           ),
           title: Text(
             '데이터 저장 위치',
-            style: TextStyle(
-              fontSize: titleSize,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: titleSize, fontWeight: FontWeight.bold),
           ),
-          subtitle: widget.compact
-              ? Text(
-                  '탭하여 경로 확인',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.grey.shade600,
+          subtitle:
+              widget.compact
+                  ? Text(
+                    '탭하여 경로 확인',
+                    style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                  )
+                  : Text(
+                    '탭하여 JSON 저장 폴더 경로 확인',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
-                )
-              : Text(
-                  '탭하여 JSON 저장 폴더 경로 확인',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
           children: [_buildExpandedContent(bodySize, pathSize)],
         ),
       ),

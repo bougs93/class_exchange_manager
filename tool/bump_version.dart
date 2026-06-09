@@ -61,9 +61,9 @@ String _readVersionFromAppInfo() {
 void _writeVersionToAppInfo(String version) {
   final appInfo = File(_appInfoPath);
   final updated = appInfo.readAsStringSync().replaceFirst(
-        _versionInAppInfo,
-        "static const String version = '$version';",
-      );
+    _versionInAppInfo,
+    "static const String version = '$version';",
+  );
   appInfo.writeAsStringSync(updated);
 }
 
@@ -75,8 +75,8 @@ void _writeVersionToPubspec(String version) {
   }
 
   final updated = pubspec.readAsStringSync().replaceFirst(
-        RegExp(r'^version:\s*.+$', multiLine: true),
-        'version: $version',
-      );
+    RegExp(r'^version:\s*.+$', multiLine: true),
+    'version: $version',
+  );
   pubspec.writeAsStringSync(updated);
 }

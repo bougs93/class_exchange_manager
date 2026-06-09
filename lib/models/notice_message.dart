@@ -5,10 +5,10 @@ library;
 enum ExchangeType {
   /// 수업교체 (substitutionDate가 비어있지 않음)
   substitution,
-  
+
   /// 보강 (substitutionDate가 비어있음)
   supplement,
-  
+
   /// 순환교체 (4단계 이상)
   circular,
 }
@@ -16,9 +16,9 @@ enum ExchangeType {
 /// 교체 유형 조합 클래스
 class ExchangeTypeCombination {
   final List<ExchangeType> types;
-  
+
   const ExchangeTypeCombination(this.types);
-  
+
   /// 교체 유형별 개수 계산
   Map<ExchangeType, int> get typeCounts {
     Map<ExchangeType, int> counts = {};
@@ -27,17 +27,17 @@ class ExchangeTypeCombination {
     }
     return counts;
   }
-  
+
   /// 표시용 텍스트 생성
   String get displayText {
     if (types.length == 1) {
       return types.first.displayName;
     }
-    
+
     // 여러 유형이 있는 경우
     final counts = typeCounts;
     List<String> parts = [];
-    
+
     if (counts.containsKey(ExchangeType.supplement)) {
       parts.add('보강 ${counts[ExchangeType.supplement]}건');
     }
@@ -47,10 +47,10 @@ class ExchangeTypeCombination {
     if (counts.containsKey(ExchangeType.substitution)) {
       parts.add('수업교체 ${counts[ExchangeType.substitution]}건');
     }
-    
+
     return parts.join(', ');
   }
-  
+
   /// 우선순위 기반 메인 타입 (기존 호환성)
   ExchangeType get primaryType {
     if (types.contains(ExchangeType.supplement)) {
@@ -121,19 +121,19 @@ extension MessageOptionExtension on MessageOption {
 class NoticeMessage {
   /// 메시지 식별자 (학급명 또는 교사명)
   final String identifier;
-  
+
   /// 메시지 내용
   final String content;
-  
+
   /// 교체 유형
   final ExchangeType exchangeType;
-  
+
   /// 교체 유형 조합 (다중 유형 지원)
   final ExchangeTypeCombination? exchangeTypeCombination;
-  
+
   /// 메시지 옵션
   final MessageOption messageOption;
-  
+
   /// 원본 데이터의 교체 ID (참조용)
   final String exchangeId;
 
@@ -159,7 +159,8 @@ class NoticeMessage {
       identifier: identifier ?? this.identifier,
       content: content ?? this.content,
       exchangeType: exchangeType ?? this.exchangeType,
-      exchangeTypeCombination: exchangeTypeCombination ?? this.exchangeTypeCombination,
+      exchangeTypeCombination:
+          exchangeTypeCombination ?? this.exchangeTypeCombination,
       messageOption: messageOption ?? this.messageOption,
       exchangeId: exchangeId ?? this.exchangeId,
     );
@@ -183,7 +184,13 @@ class NoticeMessage {
 
   @override
   int get hashCode {
-    return Object.hash(identifier, content, exchangeType, messageOption, exchangeId);
+    return Object.hash(
+      identifier,
+      content,
+      exchangeType,
+      messageOption,
+      exchangeId,
+    );
   }
 }
 
@@ -191,10 +198,10 @@ class NoticeMessage {
 class NoticeMessageGroup {
   /// 그룹 식별자 (학급명 또는 교사명)
   final String groupIdentifier;
-  
+
   /// 그룹에 속한 메시지 리스트
   final List<NoticeMessage> messages;
-  
+
   /// 그룹 타입 (학급 또는 교사)
   final GroupType groupType;
 
@@ -255,7 +262,7 @@ class NoticeMessageGroup {
 enum GroupType {
   /// 학급별 그룹
   classGroup,
-  
+
   /// 교사별 그룹
   teacherGroup,
 }

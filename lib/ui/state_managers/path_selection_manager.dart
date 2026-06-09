@@ -1,4 +1,4 @@
-﻿import '../../models/exchange_path.dart';
+import '../../models/exchange_path.dart';
 import '../../models/one_to_one_exchange_path.dart';
 import '../../models/circular_exchange_path.dart';
 import '../../models/dual_exchange_path.dart';
@@ -71,8 +71,8 @@ class PathSelectionManager {
   /// 현재 선택된 경로가 있는지 확인
   bool hasAnySelection() {
     return _selectedOneToOnePath != null ||
-           _selectedCircularPath != null ||
-           _selectedDualPath != null;
+        _selectedCircularPath != null ||
+        _selectedDualPath != null;
   }
 
   /// 특정 경로가 현재 선택되어 있는지 확인
@@ -104,12 +104,9 @@ class PathSelectionManager {
     }
   }
 
-
   /// 현재 선택된 경로 가져오기 (타입과 무관)
   ExchangePath? get currentSelectedPath {
-    return _selectedOneToOnePath ??
-           _selectedCircularPath ??
-           _selectedDualPath;
+    return _selectedOneToOnePath ?? _selectedCircularPath ?? _selectedDualPath;
   }
 
   /// 경로 타입별 이름 가져오기

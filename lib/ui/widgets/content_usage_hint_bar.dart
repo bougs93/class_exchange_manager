@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'content_toolbar_layout.dart';
 
 /// 화면 상단 사용 안내 바
@@ -64,9 +64,6 @@ class ContentUsageHintBar extends StatelessWidget {
       return bar;
     }
 
-    return Padding(
-      padding: ContentToolbarLayout.hintPadding,
-      child: bar,
-    );
+    return Padding(padding: ContentToolbarLayout.hintPadding, child: bar);
   }
 }

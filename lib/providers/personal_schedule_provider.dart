@@ -52,11 +52,11 @@ class PersonalScheduleState {
 /// - 교체 주 없음 → 이번 주
 class PersonalScheduleNotifier extends StateNotifier<PersonalScheduleState> {
   PersonalScheduleNotifier(this._ref)
-      : super(
-          PersonalScheduleState(
-            currentWeekMonday: WeekDateCalculator.getThisWeekMonday(),
-          ),
-        ) {
+    : super(
+        PersonalScheduleState(
+          currentWeekMonday: WeekDateCalculator.getThisWeekMonday(),
+        ),
+      ) {
     _ref.listen<String>(
       substitutionPlanViewModelProvider.select(
         (vm) => ExchangeWeekCollector.planDatesFingerprint(vm.planData),
@@ -122,8 +122,8 @@ class PersonalScheduleNotifier extends StateNotifier<PersonalScheduleState> {
 /// 개인 시간표 상태 Provider
 final personalScheduleProvider =
     StateNotifierProvider<PersonalScheduleNotifier, PersonalScheduleState>(
-  (ref) => PersonalScheduleNotifier(ref),
-);
+      (ref) => PersonalScheduleNotifier(ref),
+    );
 
 /// 개인 시간표 데이터 Provider
 ///

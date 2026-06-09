@@ -39,14 +39,18 @@ class PersonalScheduleScreen extends ConsumerStatefulWidget {
   const PersonalScheduleScreen({super.key});
 
   @override
-  ConsumerState<PersonalScheduleScreen> createState() => _PersonalScheduleScreenState();
+  ConsumerState<PersonalScheduleScreen> createState() =>
+      _PersonalScheduleScreenState();
 }
 
-class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen> {
+class _PersonalScheduleScreenState
+    extends ConsumerState<PersonalScheduleScreen> {
   bool _isLoadingTeacherName = true;
+
   /// 시간표 화면 기본값: 교체 뷰 활성화
   bool _isExchangeViewEnabled = true;
   bool _hasInitializedExchangeView = false;
+
   /// Excel 파싱 원본 슬롯 (교체 관리 화면의 요일 기준 변경과 분리)
   List<TimeSlot>? _originalTimeSlots;
   int? _lastFileLoadId;
@@ -87,7 +91,8 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
 
       final source = stored ?? fallbackTimetableData;
       setState(() {
-        _originalTimeSlots = source.timeSlots.map((slot) => slot.copy()).toList();
+        _originalTimeSlots =
+            source.timeSlots.map((slot) => slot.copy()).toList();
         _lastFileLoadId = fileLoadId;
       });
     } catch (e) {
@@ -176,27 +181,23 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
   }
 
   /// 교사 선택 팝업 표시
-  /// 
+  ///
   /// 전체 교사 목록을 표시하고 선택할 수 있는 다이얼로그를 보여줍니다.
   Future<void> _showTeacherSelectionDialog() async {
     final timetableData = ref.read(exchangeScreenProvider).timetableData;
     if (timetableData == null || timetableData.teachers.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('시간표 데이터가 없거나 교사 목록이 비어있습니다.'),
-          ),
+          const SnackBar(content: Text('시간표 데이터가 없거나 교사 목록이 비어있습니다.')),
         );
       }
       return;
     }
 
     // 교사명 목록 생성 (중복 제거 후 정렬)
-    final teacherNames = timetableData.teachers
-        .map((teacher) => teacher.name)
-        .toSet()
-        .toList()
-      ..sort();
+    final teacherNames =
+        timetableData.teachers.map((teacher) => teacher.name).toSet().toList()
+          ..sort();
 
     // 현재 선택된 교사명 가져오기
     final currentTeacherName = ref.read(personalScheduleProvider).teacherName;
@@ -204,10 +205,11 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
     // 다이얼로그 표시
     final selectedTeacherName = await showDialog<String>(
       context: context,
-      builder: (context) => TeacherSelectionDialog(
-        teacherNames: teacherNames,
-        currentTeacherName: currentTeacherName,
-      ),
+      builder:
+          (context) => TeacherSelectionDialog(
+            teacherNames: teacherNames,
+            currentTeacherName: currentTeacherName,
+          ),
     );
 
     // 교사 선택 시 Provider 업데이트 및 설정 파일에 저장
@@ -221,10 +223,12 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
         teacherName: selectedTeacherName,
         schoolName: currentSchoolName,
       );
-      
+
       // Provider 업데이트
-      ref.read(personalScheduleProvider.notifier).setTeacherName(selectedTeacherName);
-      
+      ref
+          .read(personalScheduleProvider.notifier)
+          .setTeacherName(selectedTeacherName);
+
       // 원본 데이터 초기화 (새 교사로 시간표 재생성)
       setState(() {
         _originalTimeSlots = null;
@@ -252,7 +256,8 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
     // 화면이 표시될 때마다 교사명 확인 (중복 호출 방지)
     final now = DateTime.now();
     if (_lastCheckTime == null ||
-        now.difference(_lastCheckTime!).inMilliseconds > PersonalScheduleConstants.teacherNameCheckThrottleMs) {
+        now.difference(_lastCheckTime!).inMilliseconds >
+            PersonalScheduleConstants.teacherNameCheckThrottleMs) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _checkAndLoadTeacherName(isInitialLoad: false);
@@ -262,11 +267,7 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
 
     // 로딩 중인 경우 처리
     if (_isLoadingTeacherName) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     // 교사명이 없거나 시간표 데이터가 없는 경우 처리
@@ -287,27 +288,17 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.person_outline,
-                size: 64,
-                color: Colors.grey,
-              ),
+              const Icon(Icons.person_outline, size: 64, color: Colors.grey),
               const SizedBox(height: 16),
               const Text(
                 '교사명이 설정되지 않았습니다.',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
-                ),
+                style: TextStyle(fontSize: 16, color: Colors.grey),
               ),
               const SizedBox(height: 8),
               const Text(
                 '우측 상단 버튼을 눌러 교사를 선택하거나,\n설정 화면에서 교사명을 입력해주세요.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey,
-                ),
+                style: TextStyle(fontSize: 14, color: Colors.grey),
               ),
             ],
           ),
@@ -317,9 +308,7 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
 
     if (timetableData == null) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('시간표'),
-        ),
+        appBar: AppBar(title: const Text('시간표')),
         body: const EmptyStateMessage(
           icon: Icons.table_chart_outlined,
           iconColor: Colors.grey,
@@ -331,7 +320,9 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
       );
     }
 
-    final fileLoadId = ref.watch(exchangeScreenProvider.select((s) => s.fileLoadId));
+    final fileLoadId = ref.watch(
+      exchangeScreenProvider.select((s) => s.fileLoadId),
+    );
     if (_lastFileLoadId != fileLoadId || _originalTimeSlots == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _refreshPristineTimeSlots(fileLoadId, timetableData);
@@ -340,12 +331,8 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
 
     if (_originalTimeSlots == null) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('시간표'),
-        ),
-        body: const Center(
-          child: CircularProgressIndicator(),
-        ),
+        appBar: AppBar(title: const Text('시간표')),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -393,19 +380,25 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
       AppLogger.info('교사명: $teacherName');
 
       // 현재 주 표시: "11.10(월), 11.11(화), ..." 형식
-      final weekDisplay = weekDates.map((d) {
-        final dayOfWeek = d.weekday; // 1=월요일, 7=일요일
-        final dayName = DayUtils.getDayName(dayOfWeek); // DayUtils 사용
-        return '${d.month}.${d.day}($dayName)';
-      }).join(', ');
+      final weekDisplay = weekDates
+          .map((d) {
+            final dayOfWeek = d.weekday; // 1=월요일, 7=일요일
+            final dayName = DayUtils.getDayName(dayOfWeek); // DayUtils 사용
+            return '${d.month}.${d.day}($dayName)';
+          })
+          .join(', ');
       AppLogger.info('현재 주: $weekDisplay');
       AppLogger.info('추출된 교체 정보: ${exchangeInfoList.length}개');
 
       if (exchangeInfoList.isNotEmpty) {
         // 현재 주의 날짜 문자열 리스트 생성 (YYYY.MM.DD 형식)
-        final weekDateStrings = weekDates.map((d) =>
-          '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}'
-        ).toList();
+        final weekDateStrings =
+            weekDates
+                .map(
+                  (d) =>
+                      '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}',
+                )
+                .toList();
 
         // 시간표에 실제로 존재하는 셀 정보 수집 (columnName 기준)
         final existingCells = <String>{};
@@ -423,9 +416,15 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
           final absenceOrClass = info.isAbsence ? '결강' : '수업';
 
           // 적용 여부 확인
-          final applyStatus = _getExchangeApplyStatus(info, weekDateStrings, existingCells);
+          final applyStatus = _getExchangeApplyStatus(
+            info,
+            weekDateStrings,
+            existingCells,
+          );
 
-          AppLogger.info('  [$i] $absenceOrClass - ${info.date} ${info.day} ${info.period}교시 ${info.subject ?? ''} ${info.className ?? ''}$applyStatus');
+          AppLogger.info(
+            '  [$i] $absenceOrClass - ${info.date} ${info.day} ${info.period}교시 ${info.subject ?? ''} ${info.className ?? ''}$applyStatus',
+          );
         }
       } else {
         AppLogger.info('  (교체 정보 없음)');
@@ -454,7 +453,8 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
         titleSpacing: 8,
         title: LayoutBuilder(
           builder: (context, constraints) {
-            final showDateRange = constraints.maxWidth >=
+            final showDateRange =
+                constraints.maxWidth >=
                 TeacherCardGridConstants.scheduleAppBarDateRangeMinWidth;
 
             return Row(
@@ -465,15 +465,14 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
                   onTap: _showTeacherSelectionDialog,
                   borderRadius: BorderRadius.circular(8),
                   child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
-                          Icons.person_search,
-                          size: 18,
-                        ),
+                        const Icon(Icons.person_search, size: 18),
                         const SizedBox(width: 4),
                         Text(
                           teacherName,
@@ -489,20 +488,24 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
                 // 현재 주차로 이동 (교사명 바로 옆)
                 IconButton(
                   icon: const Icon(Icons.today, size: 20),
-                  onPressed: _isCurrentWeek(scheduleState.currentWeekMonday)
-                      ? null
-                      : () {
-                          ref
-                              .read(personalScheduleProvider.notifier)
-                              .moveToThisWeek();
-                        },
+                  onPressed:
+                      _isCurrentWeek(scheduleState.currentWeekMonday)
+                          ? null
+                          : () {
+                            ref
+                                .read(personalScheduleProvider.notifier)
+                                .moveToThisWeek();
+                          },
                   tooltip: '현재 주차로 이동',
                   padding: EdgeInsets.zero,
-                  constraints:
-                      const BoxConstraints(minWidth: 28, minHeight: 28),
-                  color: _isCurrentWeek(scheduleState.currentWeekMonday)
-                      ? Colors.grey
-                      : null,
+                  constraints: const BoxConstraints(
+                    minWidth: 28,
+                    minHeight: 28,
+                  ),
+                  color:
+                      _isCurrentWeek(scheduleState.currentWeekMonday)
+                          ? Colors.grey
+                          : null,
                 ),
                 if (showDateRange) ...[
                   const SizedBox(width: 8),
@@ -585,14 +588,14 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
   }
 
   /// 현재 주차인지 확인
-  /// 
+  ///
   /// 현재 표시 중인 주가 오늘 날짜가 속한 주인지 확인합니다.
   bool _isCurrentWeek(DateTime currentWeekMonday) {
     final thisWeekMonday = WeekDateCalculator.getThisWeekMonday();
     // 날짜만 비교 (시간 제외)
     return currentWeekMonday.year == thisWeekMonday.year &&
-           currentWeekMonday.month == thisWeekMonday.month &&
-           currentWeekMonday.day == thisWeekMonday.day;
+        currentWeekMonday.month == thisWeekMonday.month &&
+        currentWeekMonday.day == thisWeekMonday.day;
   }
 
   /// AppBar — ◀ yyyy.mm.dd ~ yyyy.mm.dd ▶ 주간 이동
@@ -611,13 +614,8 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
           constraints: const BoxConstraints(minWidth: 20, minHeight: 28),
         ),
         Text(
-          WeekDateCalculator.formatWeekRange(
-            scheduleState.currentWeekMonday,
-          ),
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
+          WeekDateCalculator.formatWeekRange(scheduleState.currentWeekMonday),
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
           maxLines: 1,
         ),
         IconButton(
@@ -654,7 +652,8 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
           ),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final useSingleRow = !hasChips ||
+              final useSingleRow =
+                  !hasChips ||
                   constraints.maxWidth >=
                       TeacherCardGridConstants.scheduleToolbarSingleRowMinWidth;
 
@@ -670,8 +669,7 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
                         Expanded(
                           child: ExchangeWeekChipRow(
                             exchangeWeeks: exchangeWeeks,
-                            currentWeekMonday:
-                                scheduleState.currentWeekMonday,
+                            currentWeekMonday: scheduleState.currentWeekMonday,
                             inline: true,
                           ),
                         ),
@@ -714,21 +712,24 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
   }
 
   /// 컨트롤 패널 위젯 (줌 컨트롤 + 교체 뷰 스위치)
-  /// 
+  ///
   /// 교체 관리 페이지와 동일한 헤더 스타일로 표시
   /// 레이아웃 순서: 줌 컨트롤 → 교체 뷰 스위치
   /// 기간선택은 AppBar로 이동됨
-  Widget _buildControlPanel(PersonalScheduleState scheduleState, List<DateTime> weekDates) {
+  Widget _buildControlPanel(
+    PersonalScheduleState scheduleState,
+    List<DateTime> weekDates,
+  ) {
     return Row(
       children: [
         const SizedBox(width: 8),
-        
+
         // 확대/축소 컨트롤
         Consumer(
           builder: (context, ref, child) {
             final zoomState = ref.watch(zoomProvider);
             final zoomNotifier = ref.read(zoomProvider.notifier);
-            
+
             return ZoomControlWidget(
               zoomPercentage: zoomState.zoomPercentage,
               zoomFactor: zoomState.zoomFactor,
@@ -740,9 +741,9 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
             );
           },
         ),
-        
+
         const SizedBox(width: 8),
-        
+
         // 교체 뷰 스위치
         ExchangeViewCheckbox(
           isEnabled: _isExchangeViewEnabled,
@@ -778,7 +779,10 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
   }
 
   /// 교체 뷰 스위치 토글 처리
-  Future<void> _handleExchangeViewToggle(bool enabled, List<DateTime> weekDates) async {
+  Future<void> _handleExchangeViewToggle(
+    bool enabled,
+    List<DateTime> weekDates,
+  ) async {
     final timetableData = ref.read(exchangeScreenProvider).timetableData;
     final teacherName = ref.read(personalScheduleProvider).teacherName;
     if (timetableData == null || teacherName == null) return;
@@ -807,16 +811,18 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
       if (teacherName == null) return;
 
       final planData = ref.read(substitutionPlanViewModelProvider).planData;
-      final exchangeInfoList = PersonalExchangeInfoExtractor.extractExchangeInfo(
-        planData: planData,
-        teacherName: teacherName,
-        weekDates: weekDates,
-      );
+      final exchangeInfoList =
+          PersonalExchangeInfoExtractor.extractExchangeInfo(
+            planData: planData,
+            teacherName: teacherName,
+            weekDates: weekDates,
+          );
 
-      final unassignedCount = PersonalExchangeInfoExtractor.countUnassignedPlansForTeacher(
-        planData,
-        teacherName,
-      );
+      final unassignedCount =
+          PersonalExchangeInfoExtractor.countUnassignedPlansForTeacher(
+            planData,
+            teacherName,
+          );
 
       if (unassignedCount > 0 && exchangeInfoList.isEmpty) {
         if (context.mounted) {

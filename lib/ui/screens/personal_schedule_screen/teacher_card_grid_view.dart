@@ -34,7 +34,8 @@ class TeacherCardGridView extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<TeacherCardGridView> createState() => _TeacherCardGridViewState();
+  ConsumerState<TeacherCardGridView> createState() =>
+      _TeacherCardGridViewState();
 }
 
 class _TeacherCardGridViewState extends ConsumerState<TeacherCardGridView>
@@ -56,16 +57,14 @@ class _TeacherCardGridViewState extends ConsumerState<TeacherCardGridView>
   Widget build(BuildContext context) {
     if (widget.targets.isEmpty) {
       return const Center(
-        child: Text(
-          '표시할 교사가 없습니다.',
-          style: TextStyle(color: Colors.grey),
-        ),
+        child: Text('표시할 교사가 없습니다.', style: TextStyle(color: Colors.grey)),
       );
     }
 
     final zoomFactor = ref.watch(zoomProvider.select((s) => s.zoomFactor));
-    final planData =
-        ref.read(substitutionPlanViewModelProvider.select((s) => s.planData));
+    final planData = ref.read(
+      substitutionPlanViewModelProvider.select((s) => s.planData),
+    );
 
     // 오른쪽 버튼 드래그로 스크롤 가능하도록 믹신으로 감쌉니다.
     return wrapWithDragScroll(
@@ -81,27 +80,32 @@ class _TeacherCardGridViewState extends ConsumerState<TeacherCardGridView>
           spacing: TeacherCardGridConstants.cardOuterPadding,
           runSpacing: TeacherCardGridConstants.cardOuterPadding,
           alignment: WrapAlignment.start,
-          children: widget.targets.map((target) {
-            final exchangeInfoList = PersonalExchangeInfoExtractor.extractExchangeInfo(
-              planData: planData,
-              teacherName: target.name,
-              weekDates: widget.weekDates,
-            );
+          children:
+              widget.targets.map((target) {
+                final exchangeInfoList =
+                    PersonalExchangeInfoExtractor.extractExchangeInfo(
+                      planData: planData,
+                      teacherName: target.name,
+                      weekDates: widget.weekDates,
+                    );
 
-            return TeacherTimetableCard(
-              key: ValueKey(target.name),
-              teacherName: target.name,
-              subject: _findTeacherSubject(widget.timetableData, target.name),
-              roleLabel: target.roleLabel,
-              dateStatusMessage: target.dateStatusMessage,
-              timeSlots: widget.timeSlots,
-              weekDates: widget.weekDates,
-              zoomFactor: zoomFactor,
-              exchangeInfoList: exchangeInfoList,
-              isExchangeViewEnabled: widget.isExchangeViewEnabled,
-              isHighlighted: target.isSaved,
-            );
-          }).toList(),
+                return TeacherTimetableCard(
+                  key: ValueKey(target.name),
+                  teacherName: target.name,
+                  subject: _findTeacherSubject(
+                    widget.timetableData,
+                    target.name,
+                  ),
+                  roleLabel: target.roleLabel,
+                  dateStatusMessage: target.dateStatusMessage,
+                  timeSlots: widget.timeSlots,
+                  weekDates: widget.weekDates,
+                  zoomFactor: zoomFactor,
+                  exchangeInfoList: exchangeInfoList,
+                  isExchangeViewEnabled: widget.isExchangeViewEnabled,
+                  isHighlighted: target.isSaved,
+                );
+              }).toList(),
         ),
       ),
     );

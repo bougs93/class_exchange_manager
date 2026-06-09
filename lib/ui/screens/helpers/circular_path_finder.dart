@@ -37,23 +37,29 @@ class CircularPathFinder {
       // 4단계: DFS 경로 탐색 시작 (80%)
       updateProgress(0.8);
 
-      AppLogger.exchangeDebug('경로 탐색 실행 시작 - 선택된 셀: ${circularExchangeService.selectedTeacher}, ${circularExchangeService.selectedDay}, ${circularExchangeService.selectedPeriod}');
+      AppLogger.exchangeDebug(
+        '경로 탐색 실행 시작 - 선택된 셀: ${circularExchangeService.selectedTeacher}, ${circularExchangeService.selectedDay}, ${circularExchangeService.selectedPeriod}',
+      );
 
       // 백그라운드에서 경로 탐색 실행 (compute 사용)
       // null 체크 강화
       final selectedTeacher = circularExchangeService.selectedTeacher;
       final selectedDay = circularExchangeService.selectedDay;
       final selectedPeriod = circularExchangeService.selectedPeriod;
-      
-      if (selectedTeacher == null || selectedDay == null || selectedPeriod == null) {
-        AppLogger.exchangeDebug('순환교체: 백그라운드 탐색 취소 - 셀 정보 누락 (teacher=$selectedTeacher, day=$selectedDay, period=$selectedPeriod)');
+
+      if (selectedTeacher == null ||
+          selectedDay == null ||
+          selectedPeriod == null) {
+        AppLogger.exchangeDebug(
+          '순환교체: 백그라운드 탐색 취소 - 셀 정보 누락 (teacher=$selectedTeacher, day=$selectedDay, period=$selectedPeriod)',
+        );
         return CircularPathResult(
           paths: [],
           shouldShowSidebar: false,
           error: '선택된 셀 정보가 없습니다.',
         );
       }
-      
+
       Map<String, dynamic> data = {
         'timeSlots': timetableData!.timeSlots,
         'teachers': timetableData.teachers,
@@ -62,7 +68,10 @@ class CircularPathFinder {
         'selectedPeriod': selectedPeriod,
       };
 
-      List<CircularExchangePath> paths = await compute(_findCircularExchangePathsInBackground, data);
+      List<CircularExchangePath> paths = await compute(
+        _findCircularExchangePathsInBackground,
+        data,
+      );
 
       AppLogger.exchangeDebug('경로 탐색 완료 - 발견된 경로 수: ${paths.length}');
 
@@ -90,14 +99,19 @@ class CircularPathFinder {
 
       // 디버그 콘솔에 출력
       AppLogger.exchangeDebug('순환교체 경로 ${paths.length}개 발견');
-      circularExchangeService.logCircularExchangeInfo(paths, timetableData.timeSlots);
+      circularExchangeService.logCircularExchangeInfo(
+        paths,
+        timetableData.timeSlots,
+      );
 
       // 경로에 따른 사이드바 표시 설정
       bool shouldShowSidebar = paths.isNotEmpty;
       if (paths.isEmpty) {
         AppLogger.exchangeDebug('순환교체 경로가 없어서 사이드바를 숨김니다.');
       } else {
-        AppLogger.exchangeDebug('순환교체 경로 ${paths.length}개를 찾았습니다. 사이드바를 표시합니다.');
+        AppLogger.exchangeDebug(
+          '순환교체 경로 ${paths.length}개를 찾았습니다. 사이드바를 표시합니다.',
+        );
       }
 
       return CircularPathResult(
@@ -105,7 +119,6 @@ class CircularPathFinder {
         shouldShowSidebar: shouldShowSidebar,
         error: null,
       );
-
     } catch (e, stackTrace) {
       // 오류 처리
       AppLogger.exchangeDebug('순환교체 경로 탐색 중 오류 발생: $e');
@@ -132,7 +145,9 @@ class CircularPathFinder {
 
 /// 백그라운드에서 순환교체 경로 탐색을 실행하는 함수
 /// compute 함수에서 사용하기 위해 클래스 외부에 정의
-List<CircularExchangePath> _findCircularExchangePathsInBackground(Map<String, dynamic> data) {
+List<CircularExchangePath> _findCircularExchangePathsInBackground(
+  Map<String, dynamic> data,
+) {
   // 백그라운드에서 새로운 CircularExchangeService 인스턴스 생성
   CircularExchangeService service = CircularExchangeService();
 
@@ -141,8 +156,12 @@ List<CircularExchangePath> _findCircularExchangePathsInBackground(Map<String, dy
   final selectedDay = data['selectedDay'];
   final selectedPeriod = data['selectedPeriod'];
 
-  if (selectedTeacher == null || selectedDay == null || selectedPeriod == null) {
-    AppLogger.exchangeDebug('순환교체: 백그라운드 탐색 - 셀 정보 누락 (teacher=$selectedTeacher, day=$selectedDay, period=$selectedPeriod)');
+  if (selectedTeacher == null ||
+      selectedDay == null ||
+      selectedPeriod == null) {
+    AppLogger.exchangeDebug(
+      '순환교체: 백그라운드 탐색 - 셀 정보 누락 (teacher=$selectedTeacher, day=$selectedDay, period=$selectedPeriod)',
+    );
     return [];
   }
 

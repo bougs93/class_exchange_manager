@@ -25,13 +25,14 @@ class ExchangeWeekCollector {
       }
     }
 
-    final sorted = mondayKeys.values.toList()
-      ..sort((a, b) => a.compareTo(b));
+    final sorted = mondayKeys.values.toList()..sort((a, b) => a.compareTo(b));
     return sorted;
   }
 
   /// 칩 라벨 맵 생성 — 해당 월의 몇 번째 월요일 주인지 표시 (예: 6월1주, 6월5주)
-  static Map<String, String> buildChipLabels(List<DateTime> sortedExchangeWeeks) {
+  static Map<String, String> buildChipLabels(
+    List<DateTime> sortedExchangeWeeks,
+  ) {
     final labels = <String, String>{};
     for (final week in sortedExchangeWeeks) {
       final normalized = _normalizeDate(week);
@@ -102,13 +103,14 @@ class ExchangeWeekCollector {
   static String planDatesFingerprint(List<SubstitutionPlanData> planData) {
     if (planData.isEmpty) return '';
 
-    final parts = planData
-        .map(
-          (plan) =>
-              '${plan.exchangeId}|${plan.absenceDate}|${plan.substitutionDate}',
-        )
-        .toList()
-      ..sort();
+    final parts =
+        planData
+            .map(
+              (plan) =>
+                  '${plan.exchangeId}|${plan.absenceDate}|${plan.substitutionDate}',
+            )
+            .toList()
+          ..sort();
     return parts.join(';');
   }
 
@@ -117,10 +119,7 @@ class ExchangeWeekCollector {
     List<SubstitutionPlanData> planData, {
     DateTime? referenceDate,
   }) {
-    final weeks = collectWeekMondays(
-      planData,
-      referenceDate: referenceDate,
-    );
+    final weeks = collectWeekMondays(planData, referenceDate: referenceDate);
     if (weeks.isNotEmpty) {
       final first = weeks.first;
       return DateTime(first.year, first.month, first.day);

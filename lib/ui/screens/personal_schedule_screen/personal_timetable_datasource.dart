@@ -14,9 +14,9 @@ class PersonalTimetableDataSource extends DataGridSource {
     required List<DataGridRow> rows,
     List<ExchangeCellInfo>? exchangeInfoList,
     bool isExchangeViewEnabled = false,
-  })  : _rows = rows,
-        _exchangeInfoList = exchangeInfoList ?? [],
-        _isExchangeViewEnabled = isExchangeViewEnabled;
+  }) : _rows = rows,
+       _exchangeInfoList = exchangeInfoList ?? [],
+       _isExchangeViewEnabled = isExchangeViewEnabled;
 
   List<DataGridRow> _rows;
   List<ExchangeCellInfo> _exchangeInfoList;
@@ -43,117 +43,130 @@ class PersonalTimetableDataSource extends DataGridSource {
   @override
   DataGridRowAdapter? buildRow(DataGridRow row) {
     return DataGridRowAdapter(
-      cells: row.getCells().asMap().entries.map<Widget>((entry) {
-        final dataGridCell = entry.value;
-        final isPeriodColumn = dataGridCell.columnName == 'period';
+      cells:
+          row.getCells().asMap().entries.map<Widget>((entry) {
+            final dataGridCell = entry.value;
+            final isPeriodColumn = dataGridCell.columnName == 'period';
 
-        // 교시 헤더 열인 경우
-        if (isPeriodColumn) {
-          return SimplifiedTimetableCell(
-            content: dataGridCell.value.toString(),
-            isTeacherColumn: true,
-            isSelected: false,
-            isExchangeable: false,
-            isLastColumnOfDay: false,
-            isFirstColumnOfDay: false,
-            isHeader: true,
-          );
-        }
-
-        // 시간표 셀
-        final timeSlot = dataGridCell.value as TimeSlot?;
-        final columnName = dataGridCell.columnName;
-
-        // columnName 파싱: "월_5_2026.06.10" (요일_교시_YYYY.MM.DD)
-        final columnNameParts = columnName.split('_');
-        if (columnNameParts.length < 3) {
-          // 형식이 맞지 않으면 기본 처리 (교시 헤더 열인 경우)
-          if (columnName == 'period') {
-            // 교시 헤더는 이미 위에서 처리됨
-          } else {
-            // 날짜가 없는 구형식인 경우 (조건부 로그)
-            if (DebugConfig.enableCellThemeDebugLogs) {
-              AppLogger.info('[셀 파싱] 날짜 없는 형식: $columnName');
+            // 교시 헤더 열인 경우
+            if (isPeriodColumn) {
+              return SimplifiedTimetableCell(
+                content: dataGridCell.value.toString(),
+                isTeacherColumn: true,
+                isSelected: false,
+                isExchangeable: false,
+                isLastColumnOfDay: false,
+                isFirstColumnOfDay: false,
+                isHeader: true,
+              );
             }
-          }
-          final content = timeSlot?.displayText ?? '';
-          return SimplifiedTimetableCell(
-            content: content,
-            isTeacherColumn: false,
-            isSelected: false,
-            isExchangeable: false,
-            isLastColumnOfDay: false,
-            isFirstColumnOfDay: false,
-            isHeader: false,
-          );
-        }
 
-        final day = columnNameParts[0];
-        final period = int.tryParse(columnNameParts[1]) ?? 0;
-        final date = columnNameParts[2];
+            // 시간표 셀
+            final timeSlot = dataGridCell.value as TimeSlot?;
+            final columnName = dataGridCell.columnName;
 
-        // 교체 정보와 매칭하여 테마 결정 (날짜+교시 — 해당 날짜 열에만 표시)
-        bool isExchangedSourceCell = false;
-        bool isExchangedDestinationCell = false;
-        String content = timeSlot?.displayText ?? '';
-
-        bool matched = false;
-        for (final exchangeInfo in _exchangeInfoList) {
-          if (exchangeInfo.period == period && exchangeInfo.date == date) {
-            matched = true;
-            if (exchangeInfo.isAbsence) {
-              // 결강 셀
-              isExchangedSourceCell = true;
-              if (DebugConfig.enableCellThemeDebugLogs) {
-                AppLogger.info('[셀 테마] 결강 셀 발견 - $date $day $period교시 (원본: "$content")');
-              }
-              // 교체 뷰 활성화 시 내용 삭제
-              if (_isExchangeViewEnabled) {
-                content = '';
+            // columnName 파싱: "월_5_2026.06.10" (요일_교시_YYYY.MM.DD)
+            final columnNameParts = columnName.split('_');
+            if (columnNameParts.length < 3) {
+              // 형식이 맞지 않으면 기본 처리 (교시 헤더 열인 경우)
+              if (columnName == 'period') {
+                // 교시 헤더는 이미 위에서 처리됨
+              } else {
+                // 날짜가 없는 구형식인 경우 (조건부 로그)
                 if (DebugConfig.enableCellThemeDebugLogs) {
-                  AppLogger.info('[셀 테마] 교체 뷰 활성화 - 내용 삭제됨');
+                  AppLogger.info('[셀 파싱] 날짜 없는 형식: $columnName');
                 }
               }
-            } else {
-              // 수업 셀 — TimeSlot.displayText 와 동일한 2줄 형식(학급\n과목)
-              isExchangedDestinationCell = true;
-              final newContent = exchangeInfo.displayText;
-              if (DebugConfig.enableCellThemeDebugLogs) {
-                AppLogger.info('[셀 테마] 수업 셀 발견 - $date $day $period교시 (원본: "$content")');
-              }
-              // 교체 뷰 활성화 시 수업 내용 표시
-              if (_isExchangeViewEnabled) {
-                content = newContent;
-                if (DebugConfig.enableCellThemeDebugLogs) {
-                  AppLogger.info('[셀 테마] 교체 뷰 활성화 - 내용 변경: "$newContent"');
+              final content = timeSlot?.displayText ?? '';
+              return SimplifiedTimetableCell(
+                content: content,
+                isTeacherColumn: false,
+                isSelected: false,
+                isExchangeable: false,
+                isLastColumnOfDay: false,
+                isFirstColumnOfDay: false,
+                isHeader: false,
+              );
+            }
+
+            final day = columnNameParts[0];
+            final period = int.tryParse(columnNameParts[1]) ?? 0;
+            final date = columnNameParts[2];
+
+            // 교체 정보와 매칭하여 테마 결정 (날짜+교시 — 해당 날짜 열에만 표시)
+            bool isExchangedSourceCell = false;
+            bool isExchangedDestinationCell = false;
+            String content = timeSlot?.displayText ?? '';
+
+            bool matched = false;
+            for (final exchangeInfo in _exchangeInfoList) {
+              if (exchangeInfo.period == period && exchangeInfo.date == date) {
+                matched = true;
+                if (exchangeInfo.isAbsence) {
+                  // 결강 셀
+                  isExchangedSourceCell = true;
+                  if (DebugConfig.enableCellThemeDebugLogs) {
+                    AppLogger.info(
+                      '[셀 테마] 결강 셀 발견 - $date $day $period교시 (원본: "$content")',
+                    );
+                  }
+                  // 교체 뷰 활성화 시 내용 삭제
+                  if (_isExchangeViewEnabled) {
+                    content = '';
+                    if (DebugConfig.enableCellThemeDebugLogs) {
+                      AppLogger.info('[셀 테마] 교체 뷰 활성화 - 내용 삭제됨');
+                    }
+                  }
+                } else {
+                  // 수업 셀 — TimeSlot.displayText 와 동일한 2줄 형식(학급\n과목)
+                  isExchangedDestinationCell = true;
+                  final newContent = exchangeInfo.displayText;
+                  if (DebugConfig.enableCellThemeDebugLogs) {
+                    AppLogger.info(
+                      '[셀 테마] 수업 셀 발견 - $date $day $period교시 (원본: "$content")',
+                    );
+                  }
+                  // 교체 뷰 활성화 시 수업 내용 표시
+                  if (_isExchangeViewEnabled) {
+                    content = newContent;
+                    if (DebugConfig.enableCellThemeDebugLogs) {
+                      AppLogger.info('[셀 테마] 교체 뷰 활성화 - 내용 변경: "$newContent"');
+                    }
+                  }
                 }
+                break; // 첫 번째 매칭 항목만 사용
               }
             }
-            break; // 첫 번째 매칭 항목만 사용
-          }
-        }
 
-        // 매칭 실패 시 디버그 로그 (첫 번째 셀에 대해서만, 조건부)
-        if (DebugConfig.enableCellMatchingDebugLogs && !matched && _exchangeInfoList.isNotEmpty && columnName.contains('월') && period == 1) {
-          AppLogger.info('[셀 매칭] 실패 - columnName: $columnName, 파싱: day=$day, period=$period, date=$date');
-          AppLogger.info('[셀 매칭] 교체 정보 리스트:');
-          for (final info in _exchangeInfoList) {
-            AppLogger.info('  - day=${info.day}, period=${info.period}, date=${info.date}');
-          }
-        }
+            // 매칭 실패 시 디버그 로그 (첫 번째 셀에 대해서만, 조건부)
+            if (DebugConfig.enableCellMatchingDebugLogs &&
+                !matched &&
+                _exchangeInfoList.isNotEmpty &&
+                columnName.contains('월') &&
+                period == 1) {
+              AppLogger.info(
+                '[셀 매칭] 실패 - columnName: $columnName, 파싱: day=$day, period=$period, date=$date',
+              );
+              AppLogger.info('[셀 매칭] 교체 정보 리스트:');
+              for (final info in _exchangeInfoList) {
+                AppLogger.info(
+                  '  - day=${info.day}, period=${info.period}, date=${info.date}',
+                );
+              }
+            }
 
-        return SimplifiedTimetableCell(
-          content: content,
-          isTeacherColumn: false,
-          isSelected: false,
-          isExchangeable: false,
-          isExchangedSourceCell: isExchangedSourceCell,
-          isExchangedDestinationCell: isExchangedDestinationCell,
-          isLastColumnOfDay: false,
-          isFirstColumnOfDay: false,
-          isHeader: false,
-        );
-      }).toList(),
+            return SimplifiedTimetableCell(
+              content: content,
+              isTeacherColumn: false,
+              isSelected: false,
+              isExchangeable: false,
+              isExchangedSourceCell: isExchangedSourceCell,
+              isExchangedDestinationCell: isExchangedDestinationCell,
+              isLastColumnOfDay: false,
+              isFirstColumnOfDay: false,
+              isHeader: false,
+            );
+          }).toList(),
     );
   }
 }

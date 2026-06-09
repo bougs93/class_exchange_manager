@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';import '../../../providers/personal_schedule_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../providers/personal_schedule_provider.dart';
 import '../../../utils/week_date_calculator.dart';
 import 'exchange_week_collector.dart';
 import 'teacher_card_grid_constants.dart';
@@ -21,15 +22,20 @@ class ExchangeWeekToolbar extends ConsumerWidget {
     final theme = Theme.of(context);
     final hasWeeks = exchangeWeeks.isNotEmpty;
 
-    final previousWeek = hasWeeks
-        ? ExchangeWeekCollector.findPreviousWeek(
-            currentWeekMonday,
-            exchangeWeeks,
-          )
-        : null;
-    final nextWeek = hasWeeks
-        ? ExchangeWeekCollector.findNextWeek(currentWeekMonday, exchangeWeeks)
-        : null;
+    final previousWeek =
+        hasWeeks
+            ? ExchangeWeekCollector.findPreviousWeek(
+              currentWeekMonday,
+              exchangeWeeks,
+            )
+            : null;
+    final nextWeek =
+        hasWeeks
+            ? ExchangeWeekCollector.findNextWeek(
+              currentWeekMonday,
+              exchangeWeeks,
+            )
+            : null;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -50,7 +56,11 @@ class ExchangeWeekToolbar extends ConsumerWidget {
                 child: Row(
                   children: [
                     if (selected)
-                      Icon(Icons.check, size: 16, color: theme.colorScheme.primary)
+                      Icon(
+                        Icons.check,
+                        size: 16,
+                        color: theme.colorScheme.primary,
+                      )
                     else
                       const SizedBox(width: 16),
                     const SizedBox(width: 8),
@@ -77,9 +87,10 @@ class ExchangeWeekToolbar extends ConsumerWidget {
                 Icon(
                   Icons.event_available,
                   size: 16,
-                  color: hasWeeks
-                      ? theme.colorScheme.primary
-                      : Colors.grey.shade400,
+                  color:
+                      hasWeeks
+                          ? theme.colorScheme.primary
+                          : Colors.grey.shade400,
                 ),
                 const SizedBox(width: 4),
                 Text(
@@ -87,17 +98,19 @@ class ExchangeWeekToolbar extends ConsumerWidget {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
-                    color: hasWeeks
-                        ? theme.colorScheme.primary
-                        : Colors.grey.shade500,
+                    color:
+                        hasWeeks
+                            ? theme.colorScheme.primary
+                            : Colors.grey.shade500,
                   ),
                 ),
                 Icon(
                   Icons.arrow_drop_down,
                   size: 18,
-                  color: hasWeeks
-                      ? theme.colorScheme.primary
-                      : Colors.grey.shade400,
+                  color:
+                      hasWeeks
+                          ? theme.colorScheme.primary
+                          : Colors.grey.shade400,
                 ),
               ],
             ),
@@ -107,9 +120,10 @@ class ExchangeWeekToolbar extends ConsumerWidget {
         // 이전 교체 주
         IconButton(
           icon: const Icon(Icons.skip_previous, size: 18),
-          onPressed: previousWeek != null
-              ? () => notifier.moveToWeek(previousWeek)
-              : null,
+          onPressed:
+              previousWeek != null
+                  ? () => notifier.moveToWeek(previousWeek)
+                  : null,
           tooltip: '이전 교체 주',
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
@@ -156,49 +170,53 @@ class ExchangeWeekChipRow extends ConsumerWidget {
     final chipRow = SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
-        children: exchangeWeeks.map((weekMonday) {
-          final selected = ExchangeWeekCollector.isSameWeek(
-            weekMonday,
-            currentWeekMonday,
-          );
-          final label =
-              chipLabels[ExchangeWeekCollector.weekKey(weekMonday)] ??
-              ExchangeWeekCollector.monthWeekLabel(weekMonday);
+        children:
+            exchangeWeeks.map((weekMonday) {
+              final selected = ExchangeWeekCollector.isSameWeek(
+                weekMonday,
+                currentWeekMonday,
+              );
+              final label =
+                  chipLabels[ExchangeWeekCollector.weekKey(weekMonday)] ??
+                  ExchangeWeekCollector.monthWeekLabel(weekMonday);
 
-          return Padding(
-            padding: const EdgeInsets.only(
-              right: TeacherCardGridConstants.weekChipSpacing,
-            ),
-            child: ChoiceChip(
-              label: Text(label),
-              selected: selected,
-              showCheckmark: false,
-              onSelected: (_) => notifier.moveToWeek(weekMonday),
-              labelStyle: TextStyle(
-                fontSize: 12,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                color: selected ? theme.colorScheme.onPrimaryContainer : null,
-              ),
-              selectedColor: theme.colorScheme.primaryContainer,
-              side: BorderSide(
-                color: selected
-                    ? theme.colorScheme.primary
-                    : Colors.grey.shade300,
-              ),
-              visualDensity: VisualDensity.compact,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              padding: const EdgeInsets.symmetric(
-                horizontal: TeacherCardGridConstants.weekChipPaddingHorizontal,
-                vertical: 0,
-              ),
-              labelPadding: const EdgeInsets.symmetric(
-                horizontal:
-                    TeacherCardGridConstants.weekChipLabelPaddingHorizontal,
-                vertical: 0,
-              ),
-            ),
-          );
-        }).toList(),
+              return Padding(
+                padding: const EdgeInsets.only(
+                  right: TeacherCardGridConstants.weekChipSpacing,
+                ),
+                child: ChoiceChip(
+                  label: Text(label),
+                  selected: selected,
+                  showCheckmark: false,
+                  onSelected: (_) => notifier.moveToWeek(weekMonday),
+                  labelStyle: TextStyle(
+                    fontSize: 12,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                    color:
+                        selected ? theme.colorScheme.onPrimaryContainer : null,
+                  ),
+                  selectedColor: theme.colorScheme.primaryContainer,
+                  side: BorderSide(
+                    color:
+                        selected
+                            ? theme.colorScheme.primary
+                            : Colors.grey.shade300,
+                  ),
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal:
+                        TeacherCardGridConstants.weekChipPaddingHorizontal,
+                    vertical: 0,
+                  ),
+                  labelPadding: const EdgeInsets.symmetric(
+                    horizontal:
+                        TeacherCardGridConstants.weekChipLabelPaddingHorizontal,
+                    vertical: 0,
+                  ),
+                ),
+              );
+            }).toList(),
       ),
     );
 

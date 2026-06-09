@@ -72,20 +72,34 @@ class PdfSettingsSection extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: () => _pickPdfTemplate(context),
               icon: const Icon(Icons.folder_open, size: 18),
-              label: const Text('내 컴퓨터에서 PDF 선택', style: TextStyle(fontSize: 13)),
+              label: const Text(
+                '내 컴퓨터에서 PDF 선택',
+                style: TextStyle(fontSize: 13),
+              ),
               style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 minimumSize: const Size(0, 45),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
             ),
           ],
         ),
         if (selectedTemplateFilePath != null) ...[
           const SizedBox(height: 2),
-          Text(selectedTemplateFilePath!, style: TextStyle(fontSize: 12, color: Colors.blue.shade700)),
+          Text(
+            selectedTemplateFilePath!,
+            style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
+          ),
           const SizedBox(height: 2),
-          Text('사용자 선택 파일이 우선 적용됩니다.', style: TextStyle(fontSize: 12, color: Colors.green.shade700)),
+          Text(
+            '사용자 선택 파일이 우선 적용됩니다.',
+            style: TextStyle(fontSize: 12, color: Colors.green.shade700),
+          ),
         ],
       ],
     );
@@ -95,24 +109,41 @@ class PdfSettingsSection extends StatelessWidget {
   List<DropdownMenuItem<int>> _buildDropdownItems() {
     final items = <DropdownMenuItem<int>>[];
     for (int i = 0; i < kPdfTemplates.length; i++) {
-      items.add(DropdownMenuItem<int>(
-        value: i,
-        child: Text(kPdfTemplates[i].name, style: const TextStyle(color: Colors.black, fontSize: 13)),
-      ));
+      items.add(
+        DropdownMenuItem<int>(
+          value: i,
+          child: Text(
+            kPdfTemplates[i].name,
+            style: const TextStyle(color: Colors.black, fontSize: 13),
+          ),
+        ),
+      );
     }
     if (selectedTemplateFilePath != null) {
-      final fileName = selectedTemplateFilePath!.split(Platform.pathSeparator).last;
-      items.add(DropdownMenuItem<int>(
-        value: kPdfTemplates.length,
-        child: Text(fileName, style: const TextStyle(color: Colors.black, fontSize: 13, fontWeight: FontWeight.w500)),
-      ));
+      final fileName =
+          selectedTemplateFilePath!.split(Platform.pathSeparator).last;
+      items.add(
+        DropdownMenuItem<int>(
+          value: kPdfTemplates.length,
+          child: Text(
+            fileName,
+            style: const TextStyle(
+              color: Colors.black,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      );
     }
     return items;
   }
 
   /// 현재 선택된 인덱스
   int _getCurrentSelectedIndex() {
-    return selectedTemplateFilePath != null ? kPdfTemplates.length : selectedTemplateIndex;
+    return selectedTemplateFilePath != null
+        ? kPdfTemplates.length
+        : selectedTemplateIndex;
   }
 
   /// PDF 템플릿 파일 선택
@@ -210,7 +241,10 @@ class PdfFontSettingsSection extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('폰트 종류', style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+              Text(
+                '폰트 종류',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+              ),
               const SizedBox(height: 8),
               SizedBox(width: _kFontTypeDropdownWidth, child: dropdown),
             ],
@@ -220,7 +254,10 @@ class PdfFontSettingsSection extends StatelessWidget {
           children: [
             SizedBox(
               width: 64,
-              child: Text('폰트 종류', style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+              child: Text(
+                '폰트 종류',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+              ),
             ),
             const SizedBox(width: 12),
             SizedBox(width: _kFontTypeDropdownWidth, child: dropdown),
@@ -243,12 +280,16 @@ class PdfFontSettingsSection extends StatelessWidget {
         isExpanded: true,
         isDense: true,
         style: const TextStyle(color: Colors.black, fontSize: 13),
-        items: KoreanFontConstants.fontListWithNames.map((font) {
-          return DropdownMenuItem(
-            value: font['file']!,
-            child: Text(font['name']!, style: const TextStyle(color: Colors.black)),
-          );
-        }).toList(),
+        items:
+            KoreanFontConstants.fontListWithNames.map((font) {
+              return DropdownMenuItem(
+                value: font['file']!,
+                child: Text(
+                  font['name']!,
+                  style: const TextStyle(color: Colors.black),
+                ),
+              );
+            }).toList(),
         onChanged: (String? newFont) {
           if (newFont != null) onFontChanged(newFont);
         },
@@ -264,7 +305,12 @@ class PdfFontSettingsSection extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildFontSizeDropdown('일반', fontSize, fontSizeOptions, onFontSizeChanged),
+              _buildFontSizeDropdown(
+                '일반',
+                fontSize,
+                fontSizeOptions,
+                onFontSizeChanged,
+              ),
               const SizedBox(height: 12),
               _buildFontSizeDropdown(
                 '비고',
@@ -281,7 +327,12 @@ class PdfFontSettingsSection extends StatelessWidget {
         return Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            _buildFontSizeDropdown('일반', fontSize, fontSizeOptions, onFontSizeChanged),
+            _buildFontSizeDropdown(
+              '일반',
+              fontSize,
+              fontSizeOptions,
+              onFontSizeChanged,
+            ),
             Container(
               width: 1,
               height: 25,
@@ -317,7 +368,10 @@ class PdfFontSettingsSection extends StatelessWidget {
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           visualDensity: VisualDensity.compact,
         ),
-        Text('비고 출력', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+        Text(
+          '비고 출력',
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+        ),
       ],
     );
   }
@@ -334,7 +388,10 @@ class PdfFontSettingsSection extends StatelessWidget {
       children: [
         SizedBox(
           width: 40,
-          child: Text(label, style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+          child: Text(
+            label,
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+          ),
         ),
         const SizedBox(width: 8),
         SizedBox(
@@ -351,12 +408,16 @@ class PdfFontSettingsSection extends StatelessWidget {
               isDense: true,
               isExpanded: true,
               style: const TextStyle(color: Colors.black, fontSize: 13),
-              items: options.map((size) {
-                return DropdownMenuItem(
-                  value: size,
-                  child: Text('${size.toInt()}pt', style: const TextStyle(color: Colors.black)),
-                );
-              }).toList(),
+              items:
+                  options.map((size) {
+                    return DropdownMenuItem(
+                      value: size,
+                      child: Text(
+                        '${size.toInt()}pt',
+                        style: const TextStyle(color: Colors.black),
+                      ),
+                    );
+                  }).toList(),
               onChanged: (double? newSize) {
                 if (newSize != null) onChanged(newSize);
               },

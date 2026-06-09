@@ -33,7 +33,9 @@ class _TeacherSelectionDialogState extends State<TeacherSelectionDialog> {
 
     // 검색어가 포함된 교사명만 필터링 (대소문자 구분 없음)
     return widget.teacherNames
-        .where((name) => name.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .where(
+          (name) => name.toLowerCase().contains(_searchQuery.toLowerCase()),
+        )
         .toList();
   }
 
@@ -52,10 +54,7 @@ class _TeacherSelectionDialogState extends State<TeacherSelectionDialog> {
                 const Expanded(
                   child: Text(
                     '교사 선택',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                 ),
                 IconButton(
@@ -90,55 +89,61 @@ class _TeacherSelectionDialogState extends State<TeacherSelectionDialog> {
 
             // 교사 목록
             Expanded(
-              child: _filteredTeacherNames.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.search_off,
-                            size: 48,
-                            color: Colors.grey.shade400,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            _searchQuery.isEmpty
-                                ? '교사 목록이 비어있습니다'
-                                : '검색 결과가 없습니다',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 14,
+              child:
+                  _filteredTeacherNames.isEmpty
+                      ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.search_off,
+                              size: 48,
+                              color: Colors.grey.shade400,
                             ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: _filteredTeacherNames.length,
-                      itemBuilder: (context, index) {
-                        final teacherName = _filteredTeacherNames[index];
-                        final isSelected = teacherName == widget.currentTeacherName;
+                            const SizedBox(height: 16),
+                            Text(
+                              _searchQuery.isEmpty
+                                  ? '교사 목록이 비어있습니다'
+                                  : '검색 결과가 없습니다',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                      : ListView.builder(
+                        itemCount: _filteredTeacherNames.length,
+                        itemBuilder: (context, index) {
+                          final teacherName = _filteredTeacherNames[index];
+                          final isSelected =
+                              teacherName == widget.currentTeacherName;
 
-                        return ListTile(
-                          // 현재 선택된 교사는 체크 아이콘 표시
-                          leading: isSelected
-                              ? Icon(
-                                  Icons.check_circle,
-                                  color: Theme.of(context).primaryColor,
-                                )
-                              : const Icon(Icons.person_outline),
-                          title: Text(teacherName),
-                          // 현재 선택된 교사는 배경색 변경
-                          tileColor: isSelected
-                              ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
-                              : null,
-                          onTap: () {
-                            // 선택한 교사명 반환하고 다이얼로그 닫기
-                            Navigator.of(context).pop(teacherName);
-                          },
-                        );
-                      },
-                    ),
+                          return ListTile(
+                            // 현재 선택된 교사는 체크 아이콘 표시
+                            leading:
+                                isSelected
+                                    ? Icon(
+                                      Icons.check_circle,
+                                      color: Theme.of(context).primaryColor,
+                                    )
+                                    : const Icon(Icons.person_outline),
+                            title: Text(teacherName),
+                            // 현재 선택된 교사는 배경색 변경
+                            tileColor:
+                                isSelected
+                                    ? Theme.of(
+                                      context,
+                                    ).primaryColor.withValues(alpha: 0.1)
+                                    : null,
+                            onTap: () {
+                              // 선택한 교사명 반환하고 다이얼로그 닫기
+                              Navigator.of(context).pop(teacherName);
+                            },
+                          );
+                        },
+                      ),
             ),
 
             // 하단 정보
@@ -147,10 +152,7 @@ class _TeacherSelectionDialogState extends State<TeacherSelectionDialog> {
                 padding: const EdgeInsets.only(top: 8.0),
                 child: Text(
                   '총 ${widget.teacherNames.length}명의 교사',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
               ),
           ],

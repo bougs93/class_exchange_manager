@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../constants/screen_usage_hints.dart';
@@ -41,7 +41,8 @@ class NoticeControlPanel extends ConsumerWidget {
   final Color? refreshButtonColor;
 
   /// 안내 방식 선택 버튼 정의
-  static const List<({MessageOption option, IconData icon})> _messageOptionButtons = [
+  static const List<({MessageOption option, IconData icon})>
+  _messageOptionButtons = [
     (option: MessageOption.option1, icon: Icons.help_outline),
     (option: MessageOption.option2, icon: Icons.swap_horiz),
     (option: MessageOption.option3, icon: Icons.menu_book_outlined),
@@ -112,12 +113,17 @@ class NoticeControlPanel extends ConsumerWidget {
                                 currentOption: currentOption,
                                 buttonHeight: buttonHeight,
                                 showLabel: showLabels,
-                                onSelected: (option) =>
-                                    _setMessageOption(noticeNotifier, option),
+                                onSelected:
+                                    (option) => _setMessageOption(
+                                      noticeNotifier,
+                                      option,
+                                    ),
                               ),
                               if (i < optionButtons.length - 1)
                                 const SizedBox(
-                                  width: NoticeControlPanelConfig.messageOptionButtonGap,
+                                  width:
+                                      NoticeControlPanelConfig
+                                          .messageOptionButtonGap,
                                 ),
                             ],
                           ],
@@ -152,7 +158,8 @@ class NoticeControlPanel extends ConsumerWidget {
           : ScreenUsageHints.teacherNotice;
 
   /// 메시지 타입별 표시할 안내 방식 버튼 (학급안내는 질문 제외)
-  List<({MessageOption option, IconData icon})> _availableMessageOptionButtons() {
+  List<({MessageOption option, IconData icon})>
+  _availableMessageOptionButtons() {
     if (messageType == NoticeMessageType.classNotice) {
       return _messageOptionButtons
           .where((item) => item.option != MessageOption.option1)
@@ -210,11 +217,12 @@ class NoticeControlPanel extends ConsumerWidget {
   }
 
   /// 일반 동작 버튼(새로고침·복사) — 문서 툴바와 동일한 중립 색
-  ({Color background, Color foreground, Color border}) get _neutralActionColors => (
-        background: ContentToolbarLayout.neutralButtonBackground,
-        foreground: ContentToolbarLayout.neutralButtonForeground,
-        border: ContentToolbarLayout.neutralButtonBorder,
-      );
+  ({Color background, Color foreground, Color border})
+  get _neutralActionColors => (
+    background: ContentToolbarLayout.neutralButtonBackground,
+    foreground: ContentToolbarLayout.neutralButtonForeground,
+    border: ContentToolbarLayout.neutralButtonBorder,
+  );
 
   /// 선택된 안내 방식 버튼 강조 색 (탭별 주황·초록 등)
   ({Color background, Color foreground, Color border}) get _refreshColors {
@@ -256,18 +264,25 @@ class NoticeControlPanel extends ConsumerWidget {
   }
 
   /// 메시지 옵션 설정하기
-  void _setMessageOption(NoticeMessageNotifier noticeNotifier, MessageOption option) =>
+  void _setMessageOption(
+    NoticeMessageNotifier noticeNotifier,
+    MessageOption option,
+  ) =>
       messageType == NoticeMessageType.classNotice
           ? noticeNotifier.setClassMessageOption(option)
           : noticeNotifier.setTeacherMessageOption(option);
 
   /// 전체 메시지를 클립보드에 복사
-  Future<void> _copyAllMessages(BuildContext context, NoticeMessageState noticeState) async {
+  Future<void> _copyAllMessages(
+    BuildContext context,
+    NoticeMessageState noticeState,
+  ) async {
     try {
       // 메시지 타입에 따라 메시지 그룹 선택
-      final messageGroups = messageType == NoticeMessageType.classNotice
-          ? noticeState.classMessageGroups
-          : noticeState.teacherMessageGroups;
+      final messageGroups =
+          messageType == NoticeMessageType.classNotice
+              ? noticeState.classMessageGroups
+              : noticeState.teacherMessageGroups;
 
       if (messageGroups.isEmpty) {
         if (context.mounted) {
@@ -323,7 +338,7 @@ class NoticeControlPanel extends ConsumerWidget {
 enum NoticeMessageType {
   /// 학급안내
   classNotice,
-  
+
   /// 교사안내
   teacherNotice,
 }

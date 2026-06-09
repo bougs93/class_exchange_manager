@@ -35,7 +35,11 @@ class SnackBarHelper {
   /// ```dart
   /// SnackBarHelper.showError(context, '저장에 실패했습니다.');
   /// ```
-  static void showError(BuildContext context, String message, {Duration? duration}) {
+  static void showError(
+    BuildContext context,
+    String message, {
+    Duration? duration,
+  }) {
     if (!context.mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -57,7 +61,11 @@ class SnackBarHelper {
   /// SnackBarHelper.showInfo(context, '파일을 선택해주세요.');
   /// SnackBarHelper.showInfo(context, '경고 메시지', backgroundColor: Colors.orange);
   /// ```
-  static void showInfo(BuildContext context, String message, {Color? backgroundColor}) {
+  static void showInfo(
+    BuildContext context,
+    String message, {
+    Color? backgroundColor,
+  }) {
     if (!context.mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(

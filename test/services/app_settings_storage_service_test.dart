@@ -1,4 +1,4 @@
-﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:class_exchange_manager/services/app_settings_storage_service.dart';
 
 /// 테스트용 in-memory 저장소
@@ -36,8 +36,9 @@ void main() {
     });
 
     test('null 값은 true로 처리', () async {
-      final storage = FakeDualExchangeSettingsStorage()
-        ..settings['dualExchangeEnabled'] = null;
+      final storage =
+          FakeDualExchangeSettingsStorage()
+            ..settings['dualExchangeEnabled'] = null;
 
       expect(await storage.getDualExchangeEnabled(), isTrue);
     });

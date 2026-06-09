@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:class_exchange_manager/models/exchange_mode.dart';
@@ -78,10 +78,7 @@ Widget _buildSelector({
 void main() {
   testWidgets('2중 교체 OFF → 2중교체 버튼 숨김', (tester) async {
     await tester.pumpWidget(
-      _buildSelector(
-        dualExchangeEnabled: false,
-        circularExchangeEnabled: true,
-      ),
+      _buildSelector(dualExchangeEnabled: false, circularExchangeEnabled: true),
     );
 
     expect(find.text('1:1교체'), findsOneWidget);

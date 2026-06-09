@@ -1,4 +1,4 @@
-﻿import '../models/exchange_history_item.dart';
+import '../models/exchange_history_item.dart';
 import '../models/exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
 import '../models/circular_exchange_path.dart';
@@ -13,35 +13,36 @@ import 'dart:developer' as developer;
 /// 교체 실행, 되돌리기, 교체 리스트 관리를 담당
 class ExchangeHistoryService {
   // 싱글톤 인스턴스
-  static final ExchangeHistoryService _instance = ExchangeHistoryService._internal();
-  
+  static final ExchangeHistoryService _instance =
+      ExchangeHistoryService._internal();
+
   // 싱글톤 생성자
   factory ExchangeHistoryService() => _instance;
-  
+
   // 내부 생성자
   ExchangeHistoryService._internal();
-  
+
   // 되돌리기용 스택 (메모리 저장, 최근 10개)
   final List<ExchangeHistoryItem> _undoStack = [];
 
   // 다시 실행용 스택 (되돌리기 후 1단계씩 복구)
   final List<ExchangeHistoryItem> _redoStack = [];
-  
+
   // 교체 리스트용 아카이브 (로컬 저장소, 모든 교체 보관)
   final List<ExchangeHistoryItem> _exchangeList = [];
-  
+
   // 교체된 셀 관리는 _exchangeList를 통해 직접 확인
-  
+
   // 최대 되돌리기 항목 수
   static const int maxUndoItems = 10;
-  
+
   // 교체 리스트 변경 추적을 위한 버전 카운터
   // 이 값이 변경되면 교체 리스트가 변경된 것으로 간주합니다.
   int _exchangeListVersion = 0;
-  
+
   // 버전 변경 콜백 (외부에서 설정하여 버전 변경 시 알림을 받을 수 있음)
   void Function()? _onVersionChanged;
-  
+
   /// 버전 변경 콜백 설정 (Provider에서 호출)
   void setVersionChangedCallback(void Function()? callback) {
     _onVersionChanged = callback;
@@ -56,7 +57,8 @@ class ExchangeHistoryService {
 
   /// 교체 실행 및 히스토리에 추가 (통합 메서드)
   /// 교체 버튼 클릭 시 호출
-  void executeExchange(ExchangePath path, {
+  void executeExchange(
+    ExchangePath path, {
     String? customDescription,
     Map<String, dynamic>? additionalMetadata,
     String? notes,
@@ -78,7 +80,8 @@ class ExchangeHistoryService {
   }
 
   /// 교체 실행 시 히스토리에 추가 (내부 메서드)
-  void addExchange(ExchangePath path, {
+  void addExchange(
+    ExchangePath path, {
     String? customDescription,
     Map<String, dynamic>? additionalMetadata,
     String? notes,
@@ -148,7 +151,7 @@ class ExchangeHistoryService {
     _undoStack.clear();
     _redoStack.clear();
     _clearLocalStorage();
-    
+
     // 🔥 교체 리스트 변경 추적: 버전 증가
     _exchangeListVersion++;
     _notifyVersionChanged();
@@ -260,17 +263,23 @@ class ExchangeHistoryService {
   /// 교체 리스트에서 설명으로 검색
   List<ExchangeHistoryItem> searchByDescription(String query) {
     if (query.isEmpty) return getExchangeList();
-    
-    return _exchangeList.where((item) => 
-      item.description.toLowerCase().contains(query.toLowerCase())
-    ).toList();
+
+    return _exchangeList
+        .where(
+          (item) =>
+              item.description.toLowerCase().contains(query.toLowerCase()),
+        )
+        .toList();
   }
 
   /// 교체 리스트에서 날짜별 필터링
   List<ExchangeHistoryItem> filterByDate(DateTime start, DateTime end) {
-    return _exchangeList.where((item) => 
-      item.timestamp.isAfter(start) && item.timestamp.isBefore(end)
-    ).toList();
+    return _exchangeList
+        .where(
+          (item) =>
+              item.timestamp.isAfter(start) && item.timestamp.isBefore(end),
+        )
+        .toList();
   }
 
   /// 교체 리스트에서 타입별 필터링
@@ -280,13 +289,14 @@ class ExchangeHistoryService {
 
   /// 교체 리스트에서 태그별 필터링
   List<ExchangeHistoryItem> filterByTags(List<String> tags) {
-    return _exchangeList.where((item) => 
-      tags.any((tag) => item.tags.contains(tag))
-    ).toList();
+    return _exchangeList
+        .where((item) => tags.any((tag) => item.tags.contains(tag)))
+        .toList();
   }
 
   /// 교체 리스트 항목 수정 (메모, 태그)
-  void updateExchangeItem(String itemId, {
+  void updateExchangeItem(
+    String itemId, {
     String? notes,
     List<String>? tags,
     Map<String, dynamic>? additionalMetadata,
@@ -295,15 +305,15 @@ class ExchangeHistoryService {
     if (index == -1) return;
 
     ExchangeHistoryItem updatedItem = _exchangeList[index];
-    
+
     if (notes != null) {
       updatedItem = updatedItem.copyWithNotes(notes);
     }
-    
+
     if (tags != null) {
       updatedItem = updatedItem.copyWithTags(tags);
     }
-    
+
     if (additionalMetadata != null) {
       updatedItem = updatedItem.copyWithMetadata(additionalMetadata);
     }
@@ -317,7 +327,7 @@ class ExchangeHistoryService {
     final total = _exchangeList.length;
     final reverted = _exchangeList.where((item) => item.isReverted).length;
     final active = total - reverted;
-    
+
     final typeStats = <ExchangePathType, int>{};
     for (final item in _exchangeList) {
       typeStats[item.type] = (typeStats[item.type] ?? 0) + 1;
@@ -328,17 +338,19 @@ class ExchangeHistoryService {
       'active': active,
       'reverted': reverted,
       'typeStats': typeStats,
-      'lastExchange': _exchangeList.isNotEmpty ? _exchangeList.last.timestamp : null,
+      'lastExchange':
+          _exchangeList.isNotEmpty ? _exchangeList.last.timestamp : null,
     };
   }
 
   // ========== 로컬 저장소 관련 메서드들 ==========
-  
+
   // 교체 리스트 저장 서비스
-  final ExchangeListStorageService _storageService = ExchangeListStorageService();
+  final ExchangeListStorageService _storageService =
+      ExchangeListStorageService();
 
   /// 교체 항목을 로컬 저장소에 저장
-  /// 
+  ///
   /// 교체 리스트 전체를 다시 저장합니다.
   void _saveToLocalStorage(ExchangeHistoryItem item) async {
     try {
@@ -350,7 +362,7 @@ class ExchangeHistoryService {
   }
 
   /// 교체 항목을 로컬 저장소에서 삭제
-  /// 
+  ///
   /// 교체 리스트 전체를 다시 저장합니다.
   void _removeFromLocalStorage(String itemId) async {
     try {
@@ -362,7 +374,7 @@ class ExchangeHistoryService {
   }
 
   /// 교체 항목을 로컬 저장소에서 업데이트
-  /// 
+  ///
   /// 교체 리스트 전체를 다시 저장합니다.
   void _updateInLocalStorage(ExchangeHistoryItem item) async {
     try {
@@ -383,20 +395,20 @@ class ExchangeHistoryService {
   }
 
   /// 로컬 저장소에서 교체 리스트 로드
-  /// 
+  ///
   /// 프로그램 시작 시 호출되어 저장된 교체 리스트를 메모리로 로드합니다.
   Future<void> loadFromLocalStorage() async {
     try {
       final loadedList = await _storageService.loadExchangeList();
-      
+
       // 메모리 교체 리스트를 로드된 데이터로 교체
       _exchangeList.clear();
       _exchangeList.addAll(loadedList);
-      
+
       // 버전 증가 (UI 업데이트 트리거)
       _exchangeListVersion++;
       _notifyVersionChanged();
-      
+
       AppLogger.info('교체 리스트 로드 완료: ${_exchangeList.length}개 항목');
     } catch (e) {
       AppLogger.error('교체 리스트 로드 실패: $e', e);
@@ -428,7 +440,9 @@ class ExchangeHistoryService {
     } else {
       for (int i = 0; i < list.length; i++) {
         final item = list[i];
-        AppLogger.exchangeInfo('  ${i + 1} Type: ${item.type.displayName} - ${_getNodeInfo(item.originalPath)}');
+        AppLogger.exchangeInfo(
+          '  ${i + 1} Type: ${item.type.displayName} - ${_getNodeInfo(item.originalPath)}',
+        );
       }
     }
   }
@@ -442,13 +456,13 @@ class ExchangeHistoryService {
     AppLogger.exchangeInfo('되돌린 교체: ${stats['reverted']}개');
     AppLogger.exchangeInfo('되돌리기 가능: ${_undoStack.length}개');
     AppLogger.exchangeInfo('다시 실행 가능: ${_redoStack.length}개');
-    
+
     final typeStats = stats['typeStats'] as Map<ExchangePathType, int>;
     AppLogger.exchangeInfo('\n교체 타입별 통계:');
     typeStats.forEach((type, count) {
       AppLogger.exchangeInfo('  ${type.displayName}: $count개');
     });
-    
+
     if (stats['lastExchange'] != null) {
       AppLogger.exchangeInfo('\n마지막 교체: ${stats['lastExchange']}');
     }
@@ -476,12 +490,16 @@ class ExchangeHistoryService {
 
   /// 노드 리스트를 포맷팅
   String _formatNodes(List<dynamic> nodes) {
-    return nodes.asMap().entries.map((entry) {
-      final node = entry.value;
-      return '[${entry.key}]${node.day}|${node.period}|${node.className}|${node.teacherName}|${node.subjectName}';
-    }).join(', ');
+    return nodes
+        .asMap()
+        .entries
+        .map((entry) {
+          final node = entry.value;
+          return '[${entry.key}]${node.day}|${node.period}|${node.className}|${node.teacherName}|${node.subjectName}';
+        })
+        .join(', ');
   }
-  
+
   /// 특정 셀이 교체된 셀인지 확인 (활성 교체만)
   bool isCellExchanged(String teacherName, String day, int period) {
     for (final item in _exchangeList) {
@@ -494,7 +512,11 @@ class ExchangeHistoryService {
   }
 
   /// 교체된 셀에 해당하는 교체 경로 찾기 (활성 교체만)
-  ExchangePath? findExchangePathByCell(String teacherName, String day, int period) {
+  ExchangePath? findExchangePathByCell(
+    String teacherName,
+    String day,
+    int period,
+  ) {
     for (final item in _exchangeList) {
       if (item.isReverted) continue;
       if (_isCellInExchangePath(item.originalPath, teacherName, day, period)) {
@@ -503,15 +525,21 @@ class ExchangeHistoryService {
     }
     return null;
   }
-  
+
   /// ExchangePath에서 특정 셀이 포함되어 있는지 확인
-  bool _isCellInExchangePath(ExchangePath path, String teacherName, String day, int period) {
+  bool _isCellInExchangePath(
+    ExchangePath path,
+    String teacherName,
+    String day,
+    int period,
+  ) {
     try {
       final nodes = _getNodesFromPath(path);
-      return nodes.any((node) =>
-        node.teacherName == teacherName &&
-        node.day == day &&
-        node.period == period
+      return nodes.any(
+        (node) =>
+            node.teacherName == teacherName &&
+            node.day == day &&
+            node.period == period,
       );
     } catch (e) {
       developer.log('셀 확인 중 오류 발생: $e');

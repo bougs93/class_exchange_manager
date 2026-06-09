@@ -8,17 +8,17 @@ class NodeScrollNotifier extends StateNotifier<ExchangeNode?> {
   NodeScrollNotifier() : super(null);
 
   /// 특정 노드로 스크롤 요청
-  /// 
+  ///
   /// [node] 스크롤할 교체 경로의 노드
   void requestScrollToNode(ExchangeNode node) {
     try {
       AppLogger.exchangeDebug(
-        '🎯 [노드 스크롤] 스크롤 요청: ${node.teacherName} | ${node.day}요일 ${node.period}교시'
+        '🎯 [노드 스크롤] 스크롤 요청: ${node.teacherName} | ${node.day}요일 ${node.period}교시',
       );
-      
+
       // 상태 업데이트로 스크롤 요청 전달
       state = node;
-      
+
       AppLogger.exchangeDebug('✅ [노드 스크롤] 스크롤 요청 상태 업데이트 완료');
     } catch (e) {
       AppLogger.exchangeDebug('❌ [노드 스크롤] 스크롤 요청 실패: $e');
@@ -34,6 +34,7 @@ class NodeScrollNotifier extends StateNotifier<ExchangeNode?> {
 }
 
 /// 노드 스크롤 Provider
-final nodeScrollProvider = StateNotifierProvider<NodeScrollNotifier, ExchangeNode?>((ref) {
-  return NodeScrollNotifier();
-});
+final nodeScrollProvider =
+    StateNotifierProvider<NodeScrollNotifier, ExchangeNode?>((ref) {
+      return NodeScrollNotifier();
+    });

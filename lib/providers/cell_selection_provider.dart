@@ -1,4 +1,4 @@
-﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/exchange_path.dart';
 import '../models/circular_exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
@@ -15,49 +15,49 @@ class CellSelectionState {
   final String? selectedTeacher;
   final String? selectedDay;
   final int? selectedPeriod;
-  
+
   /// 타겟 셀 (교체 대상)
   final String? targetTeacher;
   final String? targetDay;
   final int? targetPeriod;
-  
+
   /// 교사 이름 선택 상태
   final String? selectedTeacherName;
-  
+
   // ==================== 교체 경로 관리 ====================
   /// 현재 교체 모드
   final ExchangeMode currentMode;
-  
+
   /// 선택된 교체 경로들 (타입별)
   final OneToOneExchangePath? selectedOneToOnePath;
   final CircularExchangePath? selectedCircularPath;
   final DualExchangePath? selectedDualPath;
   final SupplementExchangePath? selectedSupplementPath;
-  
+
   /// 교체 가능한 교사 정보
   final List<Map<String, dynamic>> exchangeableTeachers;
-  
+
   // ==================== 교체된 셀 관리 ====================
   /// 교체된 소스 셀들
   final Set<String> exchangedCells;
-  
+
   /// 교체된 목적지 셀들
   final Set<String> exchangedDestinationCells;
-  
+
   // ==================== 화살표 표시 관리 ====================
   /// 화살표 표시 여부
   final bool isArrowVisible;
-  
+
   /// 화살표 표시 이유
   final ArrowDisplayReason arrowReason;
-  
+
   /// 교체된 셀에서 선택된 경로인지 여부
   final bool isFromExchangedCell;
-  
+
   // ==================== UI 상태 ====================
   /// 캐시 무효화 플래그
   final bool cacheInvalidated;
-  
+
   /// 마지막 업데이트 시간
   final DateTime lastUpdated;
 
@@ -118,10 +118,12 @@ class CellSelectionState {
       selectedOneToOnePath: selectedOneToOnePath ?? this.selectedOneToOnePath,
       selectedCircularPath: selectedCircularPath ?? this.selectedCircularPath,
       selectedDualPath: selectedDualPath ?? this.selectedDualPath,
-      selectedSupplementPath: selectedSupplementPath ?? this.selectedSupplementPath,
+      selectedSupplementPath:
+          selectedSupplementPath ?? this.selectedSupplementPath,
       exchangeableTeachers: exchangeableTeachers ?? this.exchangeableTeachers,
       exchangedCells: exchangedCells ?? this.exchangedCells,
-      exchangedDestinationCells: exchangedDestinationCells ?? this.exchangedDestinationCells,
+      exchangedDestinationCells:
+          exchangedDestinationCells ?? this.exchangedDestinationCells,
       isArrowVisible: isArrowVisible ?? this.isArrowVisible,
       arrowReason: arrowReason ?? this.arrowReason,
       isFromExchangedCell: isFromExchangedCell ?? this.isFromExchangedCell,
@@ -143,18 +145,15 @@ class CellSelectionState {
 }
 
 /// 화살표 표시 이유 열거형
-enum ArrowDisplayReason {
-  pathSelected,
-  exchangedCellClicked,
-  manualHide,
-}
+enum ArrowDisplayReason { pathSelected, exchangedCellClicked, manualHide }
 
 /// 통합된 셀 선택 상태를 관리하는 Notifier
 class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
-  CellSelectionNotifier() : super(CellSelectionState(lastUpdated: DateTime.now()));
+  CellSelectionNotifier()
+    : super(CellSelectionState(lastUpdated: DateTime.now()));
 
   // ==================== 기본 셀 선택 관리 ====================
-  
+
   /// 셀 선택 상태 업데이트
   void selectCell(String teacher, String day, int period) {
     state = state.copyWith(
@@ -184,13 +183,10 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
   }
 
   // ==================== 교체 모드 관리 ====================
-  
+
   /// 교체 모드 설정
   void setExchangeMode(ExchangeMode mode) {
-    state = state.copyWith(
-      currentMode: mode,
-      lastUpdated: DateTime.now(),
-    );
+    state = state.copyWith(currentMode: mode, lastUpdated: DateTime.now());
   }
 
   /// 교체 모드 토글
@@ -203,7 +199,7 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
   }
 
   // ==================== 교체 경로 관리 ====================
-  
+
   /// 1:1 교체 경로 설정
   void setOneToOnePath(OneToOneExchangePath? path) {
     state = state.copyWith(
@@ -222,10 +218,7 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
 
   /// 2중 교체 경로 설정
   void setDualPath(DualExchangePath? path) {
-    state = state.copyWith(
-      selectedDualPath: path,
-      lastUpdated: DateTime.now(),
-    );
+    state = state.copyWith(selectedDualPath: path, lastUpdated: DateTime.now());
   }
 
   /// 보강 경로 설정
@@ -249,7 +242,7 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
   }
 
   // ==================== 교체된 셀 관리 ====================
-  
+
   /// 교체된 셀 상태 업데이트
   void updateExchangedCells(List<String> cellKeys) {
     state = state.copyWith(
@@ -267,14 +260,15 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
   }
 
   // ==================== 화살표 표시 관리 ====================
-  
+
   /// 경로 선택 시 화살표 표시
   void showArrowForPath(ExchangePath path, {bool isFromExchangedCell = false}) {
     state = state.copyWith(
       isArrowVisible: true,
-      arrowReason: isFromExchangedCell 
-          ? ArrowDisplayReason.exchangedCellClicked 
-          : ArrowDisplayReason.pathSelected,
+      arrowReason:
+          isFromExchangedCell
+              ? ArrowDisplayReason.exchangedCellClicked
+              : ArrowDisplayReason.pathSelected,
       isFromExchangedCell: isFromExchangedCell,
       lastUpdated: DateTime.now(),
     );
@@ -283,7 +277,7 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
   /// 교체된 셀 클릭 시 화살표 표시
   void showArrowForExchangedCell(ExchangePath path) {
     AppLogger.debug('🔍 [CellSelectionProvider] 교체된 셀 화살표 표시 요청: ${path.type}');
-    
+
     // 경로 타입에 따라 적절한 경로 설정
     if (path is OneToOneExchangePath) {
       AppLogger.debug('🔍 [CellSelectionProvider] 1:1 교체 경로 설정');
@@ -322,8 +316,10 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
         lastUpdated: DateTime.now(),
       );
     }
-    
-    AppLogger.debug('🔍 [CellSelectionProvider] 화살표 상태 업데이트 완료: isVisible=${state.isArrowVisible}');
+
+    AppLogger.debug(
+      '🔍 [CellSelectionProvider] 화살표 상태 업데이트 완료: isVisible=${state.isArrowVisible}',
+    );
   }
 
   /// 화살표 숨기기
@@ -337,13 +333,10 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
   }
 
   // ==================== 캐시 관리 ====================
-  
+
   /// 캐시 무효화
   void invalidateCache() {
-    state = state.copyWith(
-      cacheInvalidated: true,
-      lastUpdated: DateTime.now(),
-    );
+    state = state.copyWith(cacheInvalidated: true, lastUpdated: DateTime.now());
   }
 
   // ==================== 상태 초기화 ====================
@@ -353,12 +346,13 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
     state = CellSelectionState(
       currentMode: state.currentMode,
       exchangeableTeachers: const [],
-      exchangedCells: state.exchangedCells,              // ✅ 보존: 교체된 셀 정보 유지
-      exchangedDestinationCells: state.exchangedDestinationCells,   // ✅ 보존: 교체된 목적지 셀 정보 유지
-      isArrowVisible: false,                // ✅ 초기화: 화살표 숨김
+      exchangedCells: state.exchangedCells, // ✅ 보존: 교체된 셀 정보 유지
+      exchangedDestinationCells:
+          state.exchangedDestinationCells, // ✅ 보존: 교체된 목적지 셀 정보 유지
+      isArrowVisible: false, // ✅ 초기화: 화살표 숨김
       arrowReason: ArrowDisplayReason.manualHide, // ✅ 초기화: 화살표 이유 초기화
-      isFromExchangedCell: false,           // ✅ 초기화: 교체된 셀에서 온 화살표 아님
-      cacheInvalidated: false,              // ✅ 초기화: 캐시 무효화 상태 초기화
+      isFromExchangedCell: false, // ✅ 초기화: 교체된 셀에서 온 화살표 아님
+      cacheInvalidated: false, // ✅ 초기화: 캐시 무효화 상태 초기화
       lastUpdated: DateTime.now(),
     );
   }
@@ -396,12 +390,12 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
     state = CellSelectionState(
       currentMode: state.currentMode,
       exchangeableTeachers: const [],
-      exchangedCells: const {},              // ✅ 초기화: 교체된 셀 정보 제거
-      exchangedDestinationCells: const {},   // ✅ 초기화: 교체된 목적지 셀 정보 제거
-      isArrowVisible: false,                // ✅ 초기화: 화살표 숨김
+      exchangedCells: const {}, // ✅ 초기화: 교체된 셀 정보 제거
+      exchangedDestinationCells: const {}, // ✅ 초기화: 교체된 목적지 셀 정보 제거
+      isArrowVisible: false, // ✅ 초기화: 화살표 숨김
       arrowReason: ArrowDisplayReason.manualHide, // ✅ 초기화: 화살표 이유 초기화
-      isFromExchangedCell: false,           // ✅ 초기화: 교체된 셀에서 온 화살표 아님
-      cacheInvalidated: false,              // ✅ 초기화: 캐시 무효화 상태 초기화
+      isFromExchangedCell: false, // ✅ 초기화: 교체된 셀에서 온 화살표 아님
+      cacheInvalidated: false, // ✅ 초기화: 캐시 무효화 상태 초기화
       lastUpdated: DateTime.now(),
     );
   }
@@ -412,19 +406,19 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
   }
 
   // ==================== 상태 확인 메서드 ====================
-  
+
   /// 특정 셀이 선택된 상태인지 확인
   bool isCellSelected(String teacherName, String day, int period) {
-    return state.selectedTeacher == teacherName && 
-           state.selectedDay == day && 
-           state.selectedPeriod == period;
+    return state.selectedTeacher == teacherName &&
+        state.selectedDay == day &&
+        state.selectedPeriod == period;
   }
 
   /// 특정 셀이 타겟 셀인지 확인
   bool isCellTarget(String teacherName, String day, int period) {
-    return state.targetTeacher == teacherName && 
-           state.targetDay == day && 
-           state.targetPeriod == period;
+    return state.targetTeacher == teacherName &&
+        state.targetDay == day &&
+        state.targetPeriod == period;
   }
 
   /// 특정 셀이 교체된 소스 셀인지 확인
@@ -441,25 +435,27 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
 
   /// 교체 가능한 교사인지 확인
   bool isExchangeableTeacher(String teacherName, String day, int period) {
-    return state.exchangeableTeachers.any((teacher) => 
-        teacher['name'] == teacherName && 
-        teacher['day'] == day && 
-        teacher['period'] == period);
+    return state.exchangeableTeachers.any(
+      (teacher) =>
+          teacher['name'] == teacherName &&
+          teacher['day'] == day &&
+          teacher['period'] == period,
+    );
   }
 
   /// 현재 선택된 경로가 있는지 확인
   bool get hasSelectedPath {
     return state.selectedOneToOnePath != null ||
-           state.selectedCircularPath != null ||
-           state.selectedDualPath != null ||
-           state.selectedSupplementPath != null;
+        state.selectedCircularPath != null ||
+        state.selectedDualPath != null ||
+        state.selectedSupplementPath != null;
   }
 
   /// 현재 선택된 셀이 있는지 확인
   bool get hasSelectedCell {
     return state.selectedTeacher != null &&
-           state.selectedDay != null &&
-           state.selectedPeriod != null;
+        state.selectedDay != null &&
+        state.selectedPeriod != null;
   }
 
   /// 화살표가 표시 중인지 확인
@@ -469,15 +465,15 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
   bool get isExchangeModeActive => state.currentMode != ExchangeMode.view;
 
   // ==================== 경로 확인 메서드들 ====================
-  
+
   /// 특정 셀이 순환 교체 경로에 포함되어 있는지 확인
   bool isInCircularPath(String teacherName, String day, int period) {
     if (state.selectedCircularPath == null) return false;
-    
+
     final path = state.selectedCircularPath!;
     for (final node in path.nodes) {
-      if (node.teacherName == teacherName && 
-          node.day == day && 
+      if (node.teacherName == teacherName &&
+          node.day == day &&
           node.period == period) {
         return true;
       }
@@ -488,14 +484,14 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
   /// 특정 셀이 2중 교체 경로에 포함되어 있는지 확인
   bool isInDualPath(String teacherName, String day, int period) {
     if (state.selectedDualPath == null) return false;
-    
+
     final path = state.selectedDualPath!;
     // node1, node2, nodeA, nodeB 모두 확인
     final nodes = [path.node1, path.node2, path.nodeA, path.nodeB];
-    
+
     for (final node in nodes) {
-      if (node.teacherName == teacherName && 
-          node.day == day && 
+      if (node.teacherName == teacherName &&
+          node.day == day &&
           node.period == period) {
         return true;
       }
@@ -506,26 +502,26 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
   /// 특정 셀이 선택된 1:1 교체 경로에 포함되어 있는지 확인
   bool isInSelectedOneToOnePath(String teacherName, String day, int period) {
     if (state.selectedOneToOnePath == null) return false;
-    
+
     final path = state.selectedOneToOnePath!;
-    return (path.sourceNode.teacherName == teacherName && 
-            path.sourceNode.day == day && 
+    return (path.sourceNode.teacherName == teacherName &&
+            path.sourceNode.day == day &&
             path.sourceNode.period == period) ||
-           (path.targetNode.teacherName == teacherName && 
-            path.targetNode.day == day && 
+        (path.targetNode.teacherName == teacherName &&
+            path.targetNode.day == day &&
             path.targetNode.period == period);
   }
 
   /// 특정 셀이 선택된 보강 경로에 포함되어 있는지 확인
   bool isInSelectedSupplementPath(String teacherName, String day, int period) {
     if (state.selectedSupplementPath == null) return false;
-    
+
     final path = state.selectedSupplementPath!;
-    return (path.sourceNode.teacherName == teacherName && 
-            path.sourceNode.day == day && 
+    return (path.sourceNode.teacherName == teacherName &&
+            path.sourceNode.day == day &&
             path.sourceNode.period == period) ||
-           (path.targetNode.teacherName == teacherName && 
-            path.targetNode.day == day && 
+        (path.targetNode.teacherName == teacherName &&
+            path.targetNode.day == day &&
             path.targetNode.period == period);
   }
 }
@@ -544,6 +540,7 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
 /// final isArrowVisible = ref.watch(cellSelectionProvider.select((s) => s.isArrowVisible));
 /// final currentMode = ref.watch(cellSelectionProvider.select((s) => s.currentMode));
 /// ```
-final cellSelectionProvider = StateNotifierProvider<CellSelectionNotifier, CellSelectionState>(
-  (ref) => CellSelectionNotifier(),
-);
+final cellSelectionProvider =
+    StateNotifierProvider<CellSelectionNotifier, CellSelectionState>(
+      (ref) => CellSelectionNotifier(),
+    );

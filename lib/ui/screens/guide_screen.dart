@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'guide/program_info_content.dart';
@@ -28,16 +28,8 @@ class _GuideScreenState extends State<GuideScreen> {
 
   /// 서브 메뉴 정의 (아이콘·라벨·선택 색상)
   static const _menuItems = [
-    (
-      icon: Icons.info_outline,
-      label: '프로그램 정보',
-      color: Colors.teal,
-    ),
-    (
-      icon: Icons.help_outline,
-      label: '기본 사용법',
-      color: Colors.blue,
-    ),
+    (icon: Icons.info_outline, label: '프로그램 정보', color: Colors.teal),
+    (icon: Icons.help_outline, label: '기본 사용법', color: Colors.blue),
     (
       icon: Icons.description_outlined,
       label: 'PDF 양식 제작',
@@ -50,7 +42,7 @@ class _GuideScreenState extends State<GuideScreen> {
     super.initState();
     _loadMarkdownFiles();
   }
-  
+
   /// 마크다운 파일 로드
   Future<void> _loadMarkdownFiles() async {
     try {
@@ -59,7 +51,7 @@ class _GuideScreenState extends State<GuideScreen> {
         rootBundle.loadString('lib/assets/docs/basic_usage.md'),
         rootBundle.loadString('lib/assets/docs/pdf_form_guide.md'),
       ]);
-      
+
       if (mounted) {
         setState(() {
           _basicUsageMarkdown = results[0];
@@ -71,8 +63,10 @@ class _GuideScreenState extends State<GuideScreen> {
       debugPrint('마크다운 파일 로드 오류: $e');
       if (mounted) {
         setState(() {
-          _basicUsageMarkdown = '# 오류\n\n마크다운 파일을 불러오는 중 오류가 발생했습니다.\n\n오류 내용: $e';
-          _pdfFormGuideMarkdown = '# 오류\n\n마크다운 파일을 불러오는 중 오류가 발생했습니다.\n\n오류 내용: $e';
+          _basicUsageMarkdown =
+              '# 오류\n\n마크다운 파일을 불러오는 중 오류가 발생했습니다.\n\n오류 내용: $e';
+          _pdfFormGuideMarkdown =
+              '# 오류\n\n마크다운 파일을 불러오는 중 오류가 발생했습니다.\n\n오류 내용: $e';
           _isLoading = false;
         });
       }
@@ -132,11 +126,11 @@ class _GuideScreenState extends State<GuideScreen> {
               icon: item.icon,
               label: item.label,
               tooltip: item.label,
-              backgroundColor: isSelected
-                  ? item.color.withValues(alpha: 0.12)
-                  : Colors.grey.shade100,
-              foregroundColor:
-                  isSelected ? item.color : Colors.grey.shade700,
+              backgroundColor:
+                  isSelected
+                      ? item.color.withValues(alpha: 0.12)
+                      : Colors.grey.shade100,
+              foregroundColor: isSelected ? item.color : Colors.grey.shade700,
               borderColor: isSelected ? item.color : Colors.grey.shade300,
               height: kExchangeUnifiedToolbarHeight - 8,
               fontSize: kModeButtonFontSize,
@@ -189,24 +183,24 @@ class _GuideScreenState extends State<GuideScreen> {
           children: [
             AppContentCard(
               child: MarkdownBody(
-                  data: _processMarkdownWithYoutubeThumbnails(markdownContent),
-                  selectable: false,
-                  styleSheet: _buildMarkdownStyleSheet(theme),
-                  imageBuilder: (uri, title, alt) {
+                data: _processMarkdownWithYoutubeThumbnails(markdownContent),
+                selectable: false,
+                styleSheet: _buildMarkdownStyleSheet(theme),
+                imageBuilder: (uri, title, alt) {
                   // URI에서 경로 추출
                   // flutter_markdown이 마크다운의 이미지 경로를 파싱할 때
                   // 공백이 있는 파일명의 경우 path에서 일부만 추출될 수 있음
                   // 따라서 전체 URI 문자열에서 직접 추출하는 것이 더 안전함
-                  
+
                   String imagePath = '';
                   final uriString = uri.toString();
-                  
+
                   // 디버그 로그
                   debugPrint('🖼️ 이미지 URI 전체: $uriString');
                   debugPrint('🖼️ URI scheme: ${uri.scheme}');
                   debugPrint('🖼️ URI path: ${uri.path}');
                   debugPrint('🖼️ URI fragment: ${uri.fragment}');
-                  
+
                   // URI가 상대 경로인 경우 (scheme이 없음)
                   if (uri.scheme.isEmpty) {
                     // 상대 경로는 전체 URI 문자열을 사용
@@ -218,12 +212,12 @@ class _GuideScreenState extends State<GuideScreen> {
                     // 그 외의 경우 path 사용
                     imagePath = uri.path;
                   }
-                  
+
                   // URL 디코딩 (공백이 %20으로 인코딩된 경우 처리)
                   imagePath = Uri.decodeComponent(imagePath);
-                  
+
                   debugPrint('🖼️ 디코딩된 이미지 경로: $imagePath');
-                  
+
                   // 유튜브 썸네일 이미지인 경우 특별 처리
                   if (uriString.contains('img.youtube.com')) {
                     final videoId = _extractVideoIdFromThumbnailUrl(uriString);
@@ -231,9 +225,10 @@ class _GuideScreenState extends State<GuideScreen> {
                       return _buildYouTubeThumbnail(videoId, alt ?? '');
                     }
                   }
-                  
+
                   // 네트워크 이미지 처리 (http:// 또는 https://로 시작)
-                  if (uriString.startsWith('http://') || uriString.startsWith('https://')) {
+                  if (uriString.startsWith('http://') ||
+                      uriString.startsWith('https://')) {
                     return Image.network(
                       uriString,
                       fit: BoxFit.contain,
@@ -245,7 +240,10 @@ class _GuideScreenState extends State<GuideScreen> {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.broken_image, color: Colors.grey.shade400),
+                              Icon(
+                                Icons.broken_image,
+                                color: Colors.grey.shade400,
+                              ),
                               const SizedBox(height: 4),
                               Text(
                                 '이미지를 불러올 수 없습니다',
@@ -260,30 +258,30 @@ class _GuideScreenState extends State<GuideScreen> {
                       },
                     );
                   }
-                  
+
                   // 로컬 이미지 (assets) 처리
                   // file:// 프로토콜 제거 (있는 경우)
                   if (imagePath.startsWith('file://')) {
                     imagePath = imagePath.substring(7);
                   }
-                  
+
                   // ./ 또는 ../ 제거
                   if (imagePath.startsWith('./')) {
                     imagePath = imagePath.substring(2);
                   } else if (imagePath.startsWith('../')) {
                     imagePath = imagePath.substring(3);
                   }
-                  
+
                   // 앞뒤 공백 제거
                   imagePath = imagePath.trim();
-                  
+
                   // lib/assets/docs/ 경로로 변환 (이미 해당 경로에 있으면 그대로 사용)
                   if (!imagePath.startsWith('lib/assets/docs/')) {
                     imagePath = 'lib/assets/docs/$imagePath';
                   }
-                  
+
                   debugPrint('🖼️ 최종 assets 경로: $imagePath');
-                  
+
                   // Image.asset을 사용하여 이미지 로드
                   // pubspec.yaml에 lib/assets/docs/가 등록되어 있으므로
                   // lib/assets/docs/파일명 형식으로 경로를 지정해야 함
@@ -295,22 +293,26 @@ class _GuideScreenState extends State<GuideScreen> {
                       debugPrint('   경로: $imagePath');
                       debugPrint('   오류: $error');
                       debugPrint('   스택 트레이스: $stackTrace');
-                      
+
                       // 오류 상세 정보 표시
                       String errorMessage = '이미지를 불러올 수 없습니다';
                       if (error.toString().contains('Asset not found')) {
-                        errorMessage = '파일을 찾을 수 없습니다\n경로: $imagePath\n\n앱을 재시작해주세요';
+                        errorMessage =
+                            '파일을 찾을 수 없습니다\n경로: $imagePath\n\n앱을 재시작해주세요';
                       } else {
                         errorMessage = '이미지 로드 오류\n$error';
                       }
-                      
+
                       return Container(
                         padding: const EdgeInsets.all(8),
                         color: Colors.grey.shade200,
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.broken_image, color: Colors.grey.shade400),
+                            Icon(
+                              Icons.broken_image,
+                              color: Colors.grey.shade400,
+                            ),
                             const SizedBox(height: 4),
                             Text(
                               errorMessage,
@@ -326,12 +328,12 @@ class _GuideScreenState extends State<GuideScreen> {
                     },
                   );
                 },
-                  onTapLink: (text, href, title) {
-                    if (href != null) {
-                      UrlLauncherHelper.launchURL(href, context: context);
-                    }
-                  },
-                ),
+                onTapLink: (text, href, title) {
+                  if (href != null) {
+                    UrlLauncherHelper.launchURL(href, context: context);
+                  }
+                },
+              ),
             ),
           ],
         ),
@@ -376,11 +378,7 @@ class _GuideScreenState extends State<GuideScreen> {
         height: 1.4,
       ),
       // 본문 스타일
-      p: TextStyle(
-        fontSize: 14,
-        height: 1.6,
-        color: Colors.grey.shade700,
-      ),
+      p: TextStyle(fontSize: 14, height: 1.6, color: Colors.grey.shade700),
       // 리스트 스타일
       listBullet: TextStyle(
         fontSize: 14,
@@ -423,12 +421,7 @@ class _GuideScreenState extends State<GuideScreen> {
       ),
       blockquoteDecoration: BoxDecoration(
         color: Colors.grey.shade50,
-        border: Border(
-          left: BorderSide(
-            color: theme.primaryColor,
-            width: 4,
-          ),
-        ),
+        border: Border(left: BorderSide(color: theme.primaryColor, width: 4)),
       ),
     );
   }
@@ -438,12 +431,12 @@ class _GuideScreenState extends State<GuideScreen> {
   // ============================================================================
 
   /// 마크다운 텍스트 전처리
-  /// 
+  ///
   /// 1. HTML <img> 태그를 마크다운 이미지 문법으로 변환
   /// 2. 유튜브 링크를 썸네일 이미지로 변환
   String _processMarkdownWithYoutubeThumbnails(String markdown) {
     String processed = markdown;
-    
+
     // 1. HTML <img> 태그를 마크다운 이미지 문법으로 변환
     // <img src="image.png" style="width: 100%; max-width: 600px;" /> 형식 처리
     // src 속성에서 이미지 경로 추출
@@ -458,19 +451,19 @@ class _GuideScreenState extends State<GuideScreen> {
       caseSensitive: false,
       multiLine: true,
     );
-    
+
     processed = processed.replaceAllMapped(htmlImgPattern1, (match) {
       final imageSrc = match.group(1) ?? '';
       // HTML 태그를 마크다운 이미지 문법으로 변환
       return '![]($imageSrc)';
     });
-    
+
     processed = processed.replaceAllMapped(htmlImgPattern2, (match) {
       final imageSrc = match.group(1) ?? '';
       // HTML 태그를 마크다운 이미지 문법으로 변환
       return '![]($imageSrc)';
     });
-    
+
     // 2. 유튜브 링크 패턴
     final youtubePattern = RegExp(
       r'\[([^\]]+)\]\(https?://(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]+)\)',
@@ -480,15 +473,16 @@ class _GuideScreenState extends State<GuideScreen> {
     processed = processed.replaceAllMapped(youtubePattern, (match) {
       final linkText = match.group(1) ?? '';
       final videoId = match.group(2) ?? '';
-      
+
       // 유튜브 썸네일 이미지 URL
-      final thumbnailUrl = 'https://img.youtube.com/vi/$videoId/maxresdefault.jpg';
+      final thumbnailUrl =
+          'https://img.youtube.com/vi/$videoId/maxresdefault.jpg';
       final videoUrl = 'https://www.youtube.com/watch?v=$videoId';
-      
+
       // 이미지와 링크를 결합한 마크다운 형식으로 변환
       return '[![$linkText]($thumbnailUrl "$linkText")]($videoUrl)';
     });
-    
+
     return processed;
   }
 
@@ -501,9 +495,10 @@ class _GuideScreenState extends State<GuideScreen> {
 
   /// 유튜브 썸네일 위젯 생성
   Widget _buildYouTubeThumbnail(String videoId, String alt) {
-    final thumbnailUrl = 'https://img.youtube.com/vi/$videoId/maxresdefault.jpg';
+    final thumbnailUrl =
+        'https://img.youtube.com/vi/$videoId/maxresdefault.jpg';
     final videoUrl = 'https://www.youtube.com/watch?v=$videoId';
-    
+
     return GestureDetector(
       onTap: () => UrlLauncherHelper.launchURL(videoUrl, context: context),
       child: Container(
@@ -549,10 +544,11 @@ class _GuideScreenState extends State<GuideScreen> {
                     color: Colors.grey.shade200,
                     child: Center(
                       child: CircularProgressIndicator(
-                        value: loadingProgress.expectedTotalBytes != null
-                            ? loadingProgress.cumulativeBytesLoaded /
-                                loadingProgress.expectedTotalBytes!
-                            : null,
+                        value:
+                            loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded /
+                                    loadingProgress.expectedTotalBytes!
+                                : null,
                       ),
                     ),
                   );
@@ -583,4 +579,3 @@ class _GuideScreenState extends State<GuideScreen> {
   // ============================================================================
   // (URL 실행 유틸리티는 UrlLauncherHelper로 이동)
 }
-

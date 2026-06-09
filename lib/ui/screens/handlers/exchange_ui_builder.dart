@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 /// UI 빌드 관련 헬퍼 메서드들
 mixin ExchangeUIBuilder {
   /// 에러 메시지 섹션 빌드
-  Widget buildErrorMessageSection(String? errorMessage, VoidCallback onClearError) {
+  Widget buildErrorMessageSection(
+    String? errorMessage,
+    VoidCallback onClearError,
+  ) {
     if (errorMessage == null) return const SizedBox.shrink();
 
     return Container(
@@ -53,9 +56,7 @@ mixin ExchangeUIBuilder {
           size: 16,
         ),
         label: Text(
-          isLoading
-            ? '${(loadingProgress * 100).round()}%'
-            : '$pathCount개'
+          isLoading ? '${(loadingProgress * 100).round()}%' : '$pathCount개',
         ),
         style: TextButton.styleFrom(foregroundColor: color),
       ),

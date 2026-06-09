@@ -80,10 +80,7 @@ class TeacherCardTeacherCollector {
           (name) => TeacherCardTarget(
             name: name,
             roles: Set.unmodifiable(roleMap[name] ?? {}),
-            hasUnspecifiedDate: _hasUnspecifiedDate(
-              name,
-              planData,
-            ),
+            hasUnspecifiedDate: _hasUnspecifiedDate(name, planData),
           ),
         )
         .toList();
@@ -102,8 +99,7 @@ class TeacherCardTeacherCollector {
   ) {
     for (final plan in planData) {
       // 결강 교사 — 결강일
-      if (plan.teacher == teacherName &&
-          _isUnspecifiedDate(plan.absenceDate)) {
+      if (plan.teacher == teacherName && _isUnspecifiedDate(plan.absenceDate)) {
         return true;
       }
 

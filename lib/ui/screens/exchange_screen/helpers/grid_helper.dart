@@ -1,4 +1,4 @@
-﻿import 'package:syncfusion_flutter_datagrid/datagrid.dart';
+import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../../../services/excel_service.dart';
 import '../../../../utils/syncfusion_timetable_helper.dart';
 import '../../../../models/circular_exchange_path.dart';
@@ -41,8 +41,5 @@ class GridData {
   final List<GridColumn> columns;
   final List<StackedHeaderRow> stackedHeaders;
 
-  GridData({
-    required this.columns,
-    required this.stackedHeaders,
-  });
+  GridData({required this.columns, required this.stackedHeaders});
 }

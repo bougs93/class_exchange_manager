@@ -10,8 +10,9 @@ const double kCompactToolbarHeight = 28.0;
 const double _kCompactToolbarHeight = kCompactToolbarHeight;
 
 /// 탭 후 활성화처럼 보이는 하이라이트 유지 시간
-const Duration kCompactToolbarPressHighlightDuration =
-    Duration(milliseconds: 250);
+const Duration kCompactToolbarPressHighlightDuration = Duration(
+  milliseconds: 250,
+);
 
 /// 탭 하이라이트 배경색 (기본색보다 약간 진하게)
 Color compactToolbarPressedBackground(Color normal) =>
@@ -78,15 +79,18 @@ class _CompactToolbarIconButtonState extends State<CompactToolbarIconButton> {
         isEnabled ? widget.foregroundColor : Colors.grey.shade400;
     final baseBorder = isEnabled ? widget.borderColor : Colors.grey.shade300;
 
-    final effectiveBackground = _pressHighlighted
-        ? compactToolbarPressedBackground(baseBackground)
-        : baseBackground;
-    final effectiveForeground = _pressHighlighted
-        ? compactToolbarPressedForeground(baseForeground)
-        : baseForeground;
-    final effectiveBorder = _pressHighlighted
-        ? compactToolbarPressedBorder(baseBorder)
-        : baseBorder;
+    final effectiveBackground =
+        _pressHighlighted
+            ? compactToolbarPressedBackground(baseBackground)
+            : baseBackground;
+    final effectiveForeground =
+        _pressHighlighted
+            ? compactToolbarPressedForeground(baseForeground)
+            : baseForeground;
+    final effectiveBorder =
+        _pressHighlighted
+            ? compactToolbarPressedBorder(baseBorder)
+            : baseBorder;
 
     return Tooltip(
       message: widget.tooltip,
@@ -184,15 +188,18 @@ class _CompactToolbarLabelButtonState extends State<CompactToolbarLabelButton> {
         isEnabled ? widget.foregroundColor : Colors.grey.shade400;
     final baseBorder = isEnabled ? widget.borderColor : Colors.grey.shade300;
 
-    final effectiveBackground = _pressHighlighted
-        ? compactToolbarPressedBackground(baseBackground)
-        : baseBackground;
-    final effectiveForeground = _pressHighlighted
-        ? compactToolbarPressedForeground(baseForeground)
-        : baseForeground;
-    final effectiveBorder = _pressHighlighted
-        ? compactToolbarPressedBorder(baseBorder)
-        : baseBorder;
+    final effectiveBackground =
+        _pressHighlighted
+            ? compactToolbarPressedBackground(baseBackground)
+            : baseBackground;
+    final effectiveForeground =
+        _pressHighlighted
+            ? compactToolbarPressedForeground(baseForeground)
+            : baseForeground;
+    final effectiveBorder =
+        _pressHighlighted
+            ? compactToolbarPressedBorder(baseBorder)
+            : baseBorder;
 
     return Tooltip(
       message: isEnabled ? widget.tooltip : '${widget.tooltip} (경로를 선택하세요)',
@@ -213,12 +220,15 @@ class _CompactToolbarLabelButtonState extends State<CompactToolbarLabelButton> {
               child: Padding(
                 padding: EdgeInsets.symmetric(
                   horizontal:
-                      (widget.minWidth != null || widget.width != null) ? 10 : 6,
+                      (widget.minWidth != null || widget.width != null)
+                          ? 10
+                          : 6,
                 ),
                 child: Row(
-                  mainAxisSize: widget.width != null
-                      ? MainAxisSize.max
-                      : MainAxisSize.min,
+                  mainAxisSize:
+                      widget.width != null
+                          ? MainAxisSize.max
+                          : MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(

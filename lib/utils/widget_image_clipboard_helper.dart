@@ -30,10 +30,7 @@ class WidgetImageClipboardHelper {
     GlobalKey boundaryKey, {
     double pixelRatio = 2.0,
   }) async {
-    final pngBytes = await capturePng(
-      boundaryKey,
-      pixelRatio: pixelRatio,
-    );
+    final pngBytes = await capturePng(boundaryKey, pixelRatio: pixelRatio);
     if (pngBytes == null || pngBytes.isEmpty) {
       return false;
     }

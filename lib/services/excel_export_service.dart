@@ -6,11 +6,11 @@ import '../utils/logger.dart';
 import '../utils/date_format_utils.dart';
 
 /// 엑셀 내보내기 서비스
-/// 
+///
 /// 동적으로 결보강 계획서 엑셀 파일을 생성합니다.
 class ExcelExportService {
   /// 결보강 계획서 내보내기
-  /// 
+  ///
   /// [planData]: 내보낼 데이터 리스트
   /// [outputPath]: 저장할 파일 경로
   static Future<bool> exportSubstitutionPlan({
@@ -24,7 +24,7 @@ class ExcelExportService {
       // 새로운 엑셀 파일 생성
       final excel = Excel.createExcel();
       final sheetName = '결보강계획서';
-      
+
       // 기본 시트 제거 후 새로운 시트 생성
       excel.delete('Sheet1');
       final sheet = excel[sheetName];
@@ -39,7 +39,7 @@ class ExcelExportService {
       // 파일 저장
       final outputFile = File(outputPath);
       await outputFile.parent.create(recursive: true);
-      
+
       final encodedBytes = excel.encode();
       if (encodedBytes == null) {
         throw Exception('엑셀 파일 인코딩 실패');
@@ -56,7 +56,7 @@ class ExcelExportService {
   }
 
   /// 엑셀 레이아웃 생성
-  /// 
+  ///
   /// 결보강 계획서 양식에 맞게 시트를 구성합니다.
   static void _createLayout(Sheet sheet, List<SubstitutionPlanData> planData) {
     int rowIndex = 0;
@@ -79,17 +79,13 @@ class ExcelExportService {
 
   /// 제목 설정
   static void _setTitle(Sheet sheet, int rowIndex) {
-    final cell = sheet.cell(CellIndex.indexByColumnRow(
-      columnIndex: 0,
-      rowIndex: rowIndex,
-    ));
-    cell.value = TextCellValue('결·보강 계획서');
-    
-    // 제목 스타일
-    cell.cellStyle = CellStyle(
-      fontSize: 16,
-      bold: true,
+    final cell = sheet.cell(
+      CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex),
     );
+    cell.value = TextCellValue('결·보강 계획서');
+
+    // 제목 스타일
+    cell.cellStyle = CellStyle(fontSize: 16, bold: true);
 
     // 열 병합
     sheet.merge(
@@ -99,9 +95,13 @@ class ExcelExportService {
   }
 
   /// 정보 입력 섹션 설정
-  /// 
+  ///
   /// 결강교사, 결강기간, 근무상황, 결강사유, 질보강 조치 사항
-  static int _setInfoSection(Sheet sheet, int startRowIndex, List<SubstitutionPlanData> planData) {
+  static int _setInfoSection(
+    Sheet sheet,
+    int startRowIndex,
+    List<SubstitutionPlanData> planData,
+  ) {
     int rowIndex = startRowIndex;
     const infoLabels = [
       '1. 결강교사 :',
@@ -112,44 +112,36 @@ class ExcelExportService {
     ];
 
     for (int i = 0; i < infoLabels.length; i++) {
-      final cell = sheet.cell(CellIndex.indexByColumnRow(
-        columnIndex: 0,
-        rowIndex: rowIndex + i,
-      ));
-      cell.value = TextCellValue(infoLabels[i]);
-      cell.cellStyle = CellStyle(
-        fontSize: 11,
-        bold: true,
+      final cell = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex + i),
       );
+      cell.value = TextCellValue(infoLabels[i]);
+      cell.cellStyle = CellStyle(fontSize: 11, bold: true);
     }
 
     // 🔥 결강기간 자동 계산 및 입력 (옆 셀에 입력)
     final absenceDates = planData.map((data) => data.absenceDate).toList();
     final absencePeriod = DateFormatUtils.calculateAbsencePeriod(absenceDates);
     if (absencePeriod.isNotEmpty) {
-      final periodCell = sheet.cell(CellIndex.indexByColumnRow(
-        columnIndex: 1,
-        rowIndex: startRowIndex + 1, // "2. 결강기간 :" 행
-      ));
-      periodCell.value = TextCellValue(absencePeriod);
-      periodCell.cellStyle = CellStyle(
-        fontSize: 11,
+      final periodCell = sheet.cell(
+        CellIndex.indexByColumnRow(
+          columnIndex: 1,
+          rowIndex: startRowIndex + 1, // "2. 결강기간 :" 행
+        ),
       );
+      periodCell.value = TextCellValue(absencePeriod);
+      periodCell.cellStyle = CellStyle(fontSize: 11);
     }
 
     // 우측 정보 박스 (조업계, 교감)
     final rightBoxRow = startRowIndex;
     final labels = ['수업계', '교감'];
     for (int i = 0; i < labels.length; i++) {
-      final labelCell = sheet.cell(CellIndex.indexByColumnRow(
-        columnIndex: 7,
-        rowIndex: rightBoxRow + i,
-      ));
-      labelCell.value = TextCellValue(labels[i]);
-      labelCell.cellStyle = CellStyle(
-        fontSize: 11,
-        bold: true,
+      final labelCell = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: rightBoxRow + i),
       );
+      labelCell.value = TextCellValue(labels[i]);
+      labelCell.cellStyle = CellStyle(fontSize: 11, bold: true);
     }
 
     return startRowIndex + 5;
@@ -159,25 +151,33 @@ class ExcelExportService {
   static int _setTableHeader(Sheet sheet, int startRowIndex) {
     // 큰 헤더 (결강, 보강/수업변경, 수업 교체, 비고)
     const mainHeaders = [
-      ('결강', 0, 6),      // 열 0-6
-      ('보강/수업변경', 7, 8),  // 열 7-8
-      ('수업 교체', 9, 12,),  // 열 9-11
-      ('비고', 13, 13),    // 열 12
+      ('결강', 0, 6), // 열 0-6
+      ('보강/수업변경', 7, 8), // 열 7-8
+      ('수업 교체', 9, 12), // 열 9-11
+      ('비고', 13, 13), // 열 12
     ];
 
     for (final (title, startCol, endCol) in mainHeaders) {
-      final cell = sheet.cell(CellIndex.indexByColumnRow(
-        columnIndex: startCol,
-        rowIndex: startRowIndex,
-      ));
+      final cell = sheet.cell(
+        CellIndex.indexByColumnRow(
+          columnIndex: startCol,
+          rowIndex: startRowIndex,
+        ),
+      );
       cell.value = TextCellValue(title);
       _applyHeaderStyle(cell);
 
       // 열 병합
       if (startCol != endCol) {
         sheet.merge(
-          CellIndex.indexByColumnRow(columnIndex: startCol, rowIndex: startRowIndex),
-          CellIndex.indexByColumnRow(columnIndex: endCol, rowIndex: startRowIndex),
+          CellIndex.indexByColumnRow(
+            columnIndex: startCol,
+            rowIndex: startRowIndex,
+          ),
+          CellIndex.indexByColumnRow(
+            columnIndex: endCol,
+            rowIndex: startRowIndex,
+          ),
         );
       }
     }
@@ -200,10 +200,9 @@ class ExcelExportService {
     ];
 
     for (int i = 0; i < subHeaders.length; i++) {
-      final cell = sheet.cell(CellIndex.indexByColumnRow(
-        columnIndex: i,
-        rowIndex: startRowIndex + 1,
-      ));
+      final cell = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: i, rowIndex: startRowIndex + 1),
+      );
       cell.value = TextCellValue(subHeaders[i]);
       _applyHeaderStyle(cell);
     }
@@ -213,40 +212,40 @@ class ExcelExportService {
 
   /// 헤더 셀 스타일 적용
   static void _applyHeaderStyle(Data cell) {
-    cell.cellStyle = CellStyle(
-      fontSize: 10,
-      bold: true,
-    );
+    cell.cellStyle = CellStyle(fontSize: 10, bold: true);
   }
 
   /// 데이터 행 설정
-  static void _setDataRows(Sheet sheet, int startRowIndex, List<SubstitutionPlanData> planData) {
+  static void _setDataRows(
+    Sheet sheet,
+    int startRowIndex,
+    List<SubstitutionPlanData> planData,
+  ) {
     for (int i = 0; i < planData.length; i++) {
       final data = planData[i];
       final rowIndex = startRowIndex + i;
 
       final rowData = [
-        DateFormatUtils.toMonthDay(data.absenceDate),            // 결강일 (월.일 형식으로 변환)
-        data.period,                 // 교시
-        data.grade,                  // 학년
-        data.className,              // 반
-        data.subject,                // 과목 (결강)
-        data.teacher,                // 성명 (결강)
-        '',                          // 명
-        data.supplementSubject,      // 과목 (보강)
-        data.supplementTeacher,      // 성명 (보강)
-        DateFormatUtils.toMonthDay(data.substitutionDate),       // 교체일 (월.일 형식으로 변환)
-        data.substitutionPeriod,     // 교치
-        data.substitutionSubject,    // 과목 (교체)
-        data.substitutionTeacher,    // 성명 (교체)
-        data.remarks,                // 비고
+        DateFormatUtils.toMonthDay(data.absenceDate), // 결강일 (월.일 형식으로 변환)
+        data.period, // 교시
+        data.grade, // 학년
+        data.className, // 반
+        data.subject, // 과목 (결강)
+        data.teacher, // 성명 (결강)
+        '', // 명
+        data.supplementSubject, // 과목 (보강)
+        data.supplementTeacher, // 성명 (보강)
+        DateFormatUtils.toMonthDay(data.substitutionDate), // 교체일 (월.일 형식으로 변환)
+        data.substitutionPeriod, // 교치
+        data.substitutionSubject, // 과목 (교체)
+        data.substitutionTeacher, // 성명 (교체)
+        data.remarks, // 비고
       ];
 
       for (int col = 0; col < rowData.length; col++) {
-        final cell = sheet.cell(CellIndex.indexByColumnRow(
-          columnIndex: col,
-          rowIndex: rowIndex,
-        ));
+        final cell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: col, rowIndex: rowIndex),
+        );
         cell.value = TextCellValue(rowData[col]);
         _applyDataCellStyle(cell);
       }
@@ -255,8 +254,6 @@ class ExcelExportService {
 
   /// 데이터 셀 스타일 적용
   static void _applyDataCellStyle(Data cell) {
-    cell.cellStyle = CellStyle(
-      fontSize: 10,
-    );
+    cell.cellStyle = CellStyle(fontSize: 10);
   }
 }

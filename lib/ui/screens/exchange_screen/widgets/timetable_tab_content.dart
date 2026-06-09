@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../../../models/exchange_path.dart';
@@ -52,14 +52,19 @@ class TimetableTabContent extends ConsumerWidget {
         if (timetableData != null)
           Expanded(
             child: TimetableGridSection(
-              key: ValueKey('timetable_grid_${timetableData?.teachers.length ?? 0}'),
+              key: ValueKey(
+                'timetable_grid_${timetableData?.teachers.length ?? 0}',
+              ),
               timetableData: timetableData,
               dataSource: dataSource,
               columns: columns,
               stackedHeaders: stackedHeaders,
-              isExchangeModeEnabled: state.currentMode == ExchangeMode.oneToOneExchange,
-              isCircularExchangeModeEnabled: state.currentMode == ExchangeMode.circularExchange,
-              isDualExchangeModeEnabled: state.currentMode == ExchangeMode.dualExchange,
+              isExchangeModeEnabled:
+                  state.currentMode == ExchangeMode.oneToOneExchange,
+              isCircularExchangeModeEnabled:
+                  state.currentMode == ExchangeMode.circularExchange,
+              isDualExchangeModeEnabled:
+                  state.currentMode == ExchangeMode.dualExchange,
               exchangeableCount: getActualExchangeableCount(),
               onCellTap: onCellTap,
               selectedExchangePath: getCurrentSelectedPath(),
@@ -86,5 +91,4 @@ class TimetableTabContent extends ConsumerWidget {
       ],
     );
   }
-
 }

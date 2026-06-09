@@ -1,4 +1,4 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:flutter/material.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
@@ -46,21 +46,81 @@ class ContentInputGridConfig {
   /// 컬럼 정의
   static List<GridColumn> getColumns() {
     return [
-      GridColumn(columnName: 'absenceDate', label: _buildHeaderLabel('결강일'), width: 60),
-      GridColumn(columnName: 'absenceDay', label: _buildHeaderLabel('요일'), width: 35),
-      GridColumn(columnName: 'period', label: _buildHeaderLabel('교시'), width: 35),
-      GridColumn(columnName: 'grade', label: _buildHeaderLabel('학년'), width: 35),
-      GridColumn(columnName: 'className', label: _buildHeaderLabel('반'), width: 35),
-      GridColumn(columnName: 'subject', label: _buildHeaderLabel('과목'), width: 60),
-      GridColumn(columnName: 'teacher', label: _buildHeaderLabel('교사'), width: 60),
-      GridColumn(columnName: 'supplementSubject', label: _buildHeaderLabel('과목'), width: 60),
-      GridColumn(columnName: 'supplementTeacher', label: _buildHeaderLabel('성명'), width: 70),
-      GridColumn(columnName: 'substitutionDate', label: _buildHeaderLabel('교체일'), width: 60),
-      GridColumn(columnName: 'substitutionDay', label: _buildHeaderLabel('요일'), width: 35),
-      GridColumn(columnName: 'substitutionPeriod', label: _buildHeaderLabel('교시'), width: 35),
-      GridColumn(columnName: 'substitutionSubject', label: _buildHeaderLabel('과목'), width: 60),
-      GridColumn(columnName: 'substitutionTeacher', label: _buildHeaderLabel('교사'), width: 70),
-      GridColumn(columnName: 'remarks', label: _buildHeaderLabel('비고'), width: 100),
+      GridColumn(
+        columnName: 'absenceDate',
+        label: _buildHeaderLabel('결강일'),
+        width: 60,
+      ),
+      GridColumn(
+        columnName: 'absenceDay',
+        label: _buildHeaderLabel('요일'),
+        width: 35,
+      ),
+      GridColumn(
+        columnName: 'period',
+        label: _buildHeaderLabel('교시'),
+        width: 35,
+      ),
+      GridColumn(
+        columnName: 'grade',
+        label: _buildHeaderLabel('학년'),
+        width: 35,
+      ),
+      GridColumn(
+        columnName: 'className',
+        label: _buildHeaderLabel('반'),
+        width: 35,
+      ),
+      GridColumn(
+        columnName: 'subject',
+        label: _buildHeaderLabel('과목'),
+        width: 60,
+      ),
+      GridColumn(
+        columnName: 'teacher',
+        label: _buildHeaderLabel('교사'),
+        width: 60,
+      ),
+      GridColumn(
+        columnName: 'supplementSubject',
+        label: _buildHeaderLabel('과목'),
+        width: 60,
+      ),
+      GridColumn(
+        columnName: 'supplementTeacher',
+        label: _buildHeaderLabel('성명'),
+        width: 70,
+      ),
+      GridColumn(
+        columnName: 'substitutionDate',
+        label: _buildHeaderLabel('교체일'),
+        width: 60,
+      ),
+      GridColumn(
+        columnName: 'substitutionDay',
+        label: _buildHeaderLabel('요일'),
+        width: 35,
+      ),
+      GridColumn(
+        columnName: 'substitutionPeriod',
+        label: _buildHeaderLabel('교시'),
+        width: 35,
+      ),
+      GridColumn(
+        columnName: 'substitutionSubject',
+        label: _buildHeaderLabel('과목'),
+        width: 60,
+      ),
+      GridColumn(
+        columnName: 'substitutionTeacher',
+        label: _buildHeaderLabel('교사'),
+        width: 70,
+      ),
+      GridColumn(
+        columnName: 'remarks',
+        label: _buildHeaderLabel('비고'),
+        width: 100,
+      ),
     ];
   }
 
@@ -69,9 +129,26 @@ class ContentInputGridConfig {
     return [
       StackedHeaderRow(
         cells: [
-          _buildStackedHeaderCell(['absenceDate', 'absenceDay', 'period', 'grade', 'className', 'subject', 'teacher'], '결강'),
-          _buildStackedHeaderCell(['supplementSubject', 'supplementTeacher'], '보강/수업변경'),
-          _buildStackedHeaderCell(['substitutionDate', 'substitutionDay', 'substitutionPeriod', 'substitutionSubject', 'substitutionTeacher'], '수업 교체'),
+          _buildStackedHeaderCell([
+            'absenceDate',
+            'absenceDay',
+            'period',
+            'grade',
+            'className',
+            'subject',
+            'teacher',
+          ], '결강'),
+          _buildStackedHeaderCell([
+            'supplementSubject',
+            'supplementTeacher',
+          ], '보강/수업변경'),
+          _buildStackedHeaderCell([
+            'substitutionDate',
+            'substitutionDay',
+            'substitutionPeriod',
+            'substitutionSubject',
+            'substitutionTeacher',
+          ], '수업 교체'),
           _buildStackedHeaderCell(['remarks'], '비고'),
         ],
       ),
@@ -99,7 +176,10 @@ class ContentInputGridConfig {
   }
 
   /// 스택 헤더 셀 위젯 생성
-  static StackedHeaderCell _buildStackedHeaderCell(List<String> columnNames, String text) {
+  static StackedHeaderCell _buildStackedHeaderCell(
+    List<String> columnNames,
+    String text,
+  ) {
     return StackedHeaderCell(
       columnNames: columnNames,
       child: Container(
@@ -132,8 +212,13 @@ class CellRendererFactory {
     Function(String)? onSupplementSubjectTap,
   }) {
     return switch (cell.columnName) {
-      'absenceDate' || 'substitutionDate' => DateCellRenderer.build(cell, row, onDateCellTap),
-      'supplementSubject' => SupplementSubjectCellRenderer.build(cell, row, onSupplementSubjectTap),
+      'absenceDate' ||
+      'substitutionDate' => DateCellRenderer.build(cell, row, onDateCellTap),
+      'supplementSubject' => SupplementSubjectCellRenderer.build(
+        cell,
+        row,
+        onSupplementSubjectTap,
+      ),
       _ => NormalCellRenderer.build(cell),
     };
   }
@@ -141,7 +226,11 @@ class CellRendererFactory {
 
 /// 날짜 셀 렌더러
 class DateCellRenderer {
-  static Widget build(DataGridCell cell, DataGridRow row, Function(String, String)? onDateCellTap) {
+  static Widget build(
+    DataGridCell cell,
+    DataGridRow row,
+    Function(String, String)? onDateCellTap,
+  ) {
     // 날짜 값을 월.일 형식으로 변환하여 표시
     final rawDate = cell.value?.toString() ?? '';
     final displayText = DateFormatUtils.toMonthDay(rawDate);
@@ -163,7 +252,9 @@ class DateCellRenderer {
       isEmpty: isEmpty,
       displayText: displayText,
       onTap: () {
-        AppLogger.exchangeDebug('셀 클릭 - 컬럼: ${cell.columnName}, 값: ${cell.value}, 선택가능: $isSelectable');
+        AppLogger.exchangeDebug(
+          '셀 클릭 - 컬럼: ${cell.columnName}, 값: ${cell.value}, 선택가능: $isSelectable',
+        );
 
         if (!isSelectable) {
           AppLogger.exchangeDebug('교체일 선택 불가: 교체 교사가 없거나 이미 날짜가 설정됨');
@@ -191,7 +282,11 @@ class DateCellRenderer {
 
 /// 보강 과목 셀 렌더러
 class SupplementSubjectCellRenderer {
-  static Widget build(DataGridCell cell, DataGridRow row, Function(String)? onSupplementSubjectTap) {
+  static Widget build(
+    DataGridCell cell,
+    DataGridRow row,
+    Function(String)? onSupplementSubjectTap,
+  ) {
     final value = (cell.value?.toString() ?? '').trim();
     final isEmpty = value.isEmpty;
 
@@ -274,9 +369,22 @@ class ContentInputGridDebugger {
 
     // 출력할 컬럼 순서 정의 (exchangeId는 제외)
     final List<String> displayColumns = [
-      'absenceDate', 'absenceDay', 'period', 'grade', 'className', 'subject', 'teacher',
-      'supplementSubject', 'supplementTeacher', 'substitutionDate', 'substitutionDay',
-      'substitutionPeriod', 'substitutionSubject', 'substitutionTeacher', 'remarks', 'groupId'
+      'absenceDate',
+      'absenceDay',
+      'period',
+      'grade',
+      'className',
+      'subject',
+      'teacher',
+      'supplementSubject',
+      'supplementTeacher',
+      'substitutionDate',
+      'substitutionDay',
+      'substitutionPeriod',
+      'substitutionSubject',
+      'substitutionTeacher',
+      'remarks',
+      'groupId',
     ];
 
     // 각 컬럼의 최대 너비 계산

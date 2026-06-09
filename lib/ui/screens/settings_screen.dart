@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../constants/teacher_row_highlight_colors.dart';
 import '../../services/app_settings_storage_service.dart';
@@ -9,7 +9,7 @@ import '../../providers/exchange_screen_provider.dart';
 import '../widgets/data_storage_location_section.dart';
 
 /// 설정 화면
-/// 
+///
 /// 앱의 전역 설정을 관리하는 화면입니다.
 /// - 언어 설정: 앱 언어 선택
 /// - 데이터 초기화: PDF 출력 설정의 교사명과 학교명 초기화
@@ -24,16 +24,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   // 언어 설정 관련
   String _selectedLanguage = 'ko'; // 기본값: 한국어
   bool _isLoadingLanguage = true;
-  
+
   // 데이터 초기화 관련
   bool _isResetting = false;
-  
+
   // 교사명, 학교명 입력 필드
   final TextEditingController _teacherNameController = TextEditingController();
   final TextEditingController _schoolNameController = TextEditingController();
   bool _isLoadingNames = true;
   bool _isSavingNames = false;
-  
+
   // 하이라이트 색상 관련
   Color _highlightedTeacherColor = TeacherRowHighlightColors.defaultColor;
   bool _isLoadingHighlightColor = true;
@@ -49,7 +49,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _loadTeacherAndSchoolName();
     _loadHighlightColor();
   }
-  
+
   @override
   void dispose() {
     _teacherNameController.dispose();
@@ -62,7 +62,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       final appSettings = AppSettingsStorageService();
       final languageCode = await appSettings.getLanguageCode();
-      
+
       setState(() {
         _selectedLanguage = languageCode;
         _isLoadingLanguage = false;
@@ -74,13 +74,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       });
     }
   }
-  
+
   /// 저장된 교사명과 학교명 로드 (기본값)
   Future<void> _loadTeacherAndSchoolName() async {
     try {
       final appSettings = AppSettingsStorageService();
       final defaults = await appSettings.loadTeacherAndSchoolName();
-      
+
       setState(() {
         _teacherNameController.text = defaults['defaultTeacherName'] ?? '';
         _schoolNameController.text = defaults['defaultSchoolName'] ?? '';
@@ -93,15 +93,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       });
     }
   }
-  
+
   /// 하이라이트 색상 로드
   Future<void> _loadHighlightColor() async {
     try {
       final appSettings = AppSettingsStorageService();
       final colorValue = await appSettings.getHighlightedTeacherColor();
-      
-      final resolvedColor =
-          TeacherRowHighlightColors.resolveSavedColor(colorValue);
+
+      final resolvedColor = TeacherRowHighlightColors.resolveSavedColor(
+        colorValue,
+      );
       setState(() {
         _highlightedTeacherColor = resolvedColor;
         if (colorValue != null && resolvedColor.toARGB32() != colorValue) {
@@ -116,19 +117,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       });
     }
   }
-  
+
   /// 하이라이트 색상 저장
   Future<void> _saveHighlightColor(Color color) async {
     setState(() {
       _isSavingHighlightColor = true;
     });
-    
+
     try {
       await SimplifiedTimetableTheme.setHighlightedTeacherColor(color);
-      
+
       // 테마 설정 다시 로드하여 즉시 반영
       await SimplifiedTimetableTheme.loadThemeSettings();
-      
+
       if (mounted) {
         setState(() {
           _highlightedTeacherColor = color;
@@ -141,7 +142,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         setState(() {
           _isSavingHighlightColor = false;
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('색상 저장에 실패했습니다: $e'),
@@ -152,13 +153,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       }
     }
   }
-  
+
   /// 교사명과 학교명 저장 (기본값으로 저장)
   Future<void> _saveTeacherAndSchoolName() async {
     setState(() {
       _isSavingNames = true;
     });
-    
+
     try {
       final appSettings = AppSettingsStorageService();
       // 기본값으로 저장 (PDF 출력 화면에서 입력 필드가 비어있을 때 사용)
@@ -166,7 +167,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         teacherName: _teacherNameController.text.trim(),
         schoolName: _schoolNameController.text.trim(),
       );
-      
+
       if (mounted) {
         if (success) {
           // 교체관리 화면의 테마 업데이트 (교사 행 하이라이트 적용)
@@ -177,7 +178,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             // DataSource가 아직 생성되지 않았을 수 있음 (정상적인 경우)
             AppLogger.debug('교체관리 화면 DataSource가 아직 없습니다: $e');
           }
-          
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('교사명과 학교명이 저장되었습니다.'),
@@ -218,13 +219,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _saveLanguage(String languageCode) async {
     try {
       final appSettings = AppSettingsStorageService();
-      final success = await appSettings.saveAppSettings(languageCode: languageCode);
-      
+      final success = await appSettings.saveAppSettings(
+        languageCode: languageCode,
+      );
+
       if (success) {
         setState(() {
           _selectedLanguage = languageCode;
         });
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -263,37 +266,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     // 확인 대화상자 표시 (경고 메시지)
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text(
-          '데이터 초기화',
-          style: TextStyle(color: Colors.red),
-        ),
-        content: const Text(
-          '모든 저장된 데이터를 삭제하시겠습니까?\n\n'
-          '다음 데이터가 삭제됩니다:\n'
-          '• 시간표 데이터\n'
-          '• 교체 리스트\n'
-          '• 교체불가 셀 데이터\n'
-          '• 결보강 계획서 데이터\n'
-          '• PDF 출력 설정\n'
-          '• 시간표 테마 설정\n'
-          '• 앱 설정\n\n'
-          '이 작업은 되돌릴 수 없습니다!',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.red,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('데이터 초기화', style: TextStyle(color: Colors.red)),
+            content: const Text(
+              '모든 저장된 데이터를 삭제하시겠습니까?\n\n'
+              '다음 데이터가 삭제됩니다:\n'
+              '• 시간표 데이터\n'
+              '• 교체 리스트\n'
+              '• 교체불가 셀 데이터\n'
+              '• 결보강 계획서 데이터\n'
+              '• PDF 출력 설정\n'
+              '• 시간표 테마 설정\n'
+              '• 앱 설정\n\n'
+              '이 작업은 되돌릴 수 없습니다!',
             ),
-            child: const Text('모두 삭제'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('취소'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('모두 삭제'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
 
     if (confirmed != true) {
@@ -307,14 +306,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       final storageService = StorageService();
       final results = await storageService.deleteAllJsonFiles();
-      
+
       // 삭제 결과 확인
       final successCount = results.values.where((v) => v).length;
       final totalCount = results.length;
-      final failedFiles = results.entries
-          .where((e) => !e.value)
-          .map((e) => e.key)
-          .toList();
+      final failedFiles =
+          results.entries.where((e) => !e.value).map((e) => e.key).toList();
 
       if (mounted) {
         if (failedFiles.isEmpty && totalCount > 0) {
@@ -325,7 +322,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               duration: const Duration(seconds: 3),
             ),
           );
-          
+
           // 교사명과 학교명 필드도 초기화
           setState(() {
             _teacherNameController.clear();
@@ -385,11 +382,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // 언어 설정 섹션
           _buildLanguageSection(),
           const SizedBox(height: 32),
-          
+
           // 교사명, 학교명 입력 섹션
           _buildTeacherAndSchoolNameSection(),
           const SizedBox(height: 32),
-          
+
           // 하이라이트 색상 설정 섹션
           _buildHighlightColorSection(),
           const SizedBox(height: 32),
@@ -397,7 +394,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // 데이터 저장 위치
           DataStorageLocationSection(key: _dataStorageLocationKey),
           const SizedBox(height: 32),
-          
+
           // 데이터 초기화 섹션
           _buildDataResetSection(),
         ],
@@ -416,23 +413,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
       );
     }
-    
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        const Text(
-          '언어 설정',
-          style: TextStyle(
-            fontSize: 16,
-          ),
-        ),
+        const Text('언어 설정', style: TextStyle(fontSize: 16)),
         DropdownButton<String>(
           value: _selectedLanguage,
           underline: const SizedBox.shrink(),
-          items: const [
-            DropdownMenuItem(value: 'ko', child: Text('한국어')),
-          ],
-          onChanged: (newValue) => newValue != null && newValue != _selectedLanguage ? _saveLanguage(newValue) : null,
+          items: const [DropdownMenuItem(value: 'ko', child: Text('한국어'))],
+          onChanged:
+              (newValue) =>
+                  newValue != null && newValue != _selectedLanguage
+                      ? _saveLanguage(newValue)
+                      : null,
         ),
       ],
     );
@@ -445,13 +439,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       children: [
         const Text(
           '기본 정보',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
-        
+
         if (_isLoadingNames)
           const Center(
             child: Padding(
@@ -466,12 +457,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const Text(
-                    '교사명 :',
-                    style: TextStyle(
-                      fontSize: 16,
-                    ),
-                  ),
+                  const Text('교사명 :', style: TextStyle(fontSize: 16)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: TextField(
@@ -481,7 +467,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.person),
                         isDense: true,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
                       ),
                       textInputAction: TextInputAction.next,
                     ),
@@ -489,17 +478,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              
+
               // 학교명 입력 필드 (레이블과 입력 필드를 한 행에)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const Text(
-                    '학교명 :',
-                    style: TextStyle(
-                      fontSize: 16,
-                    ),
-                  ),
+                  const Text('학교명 :', style: TextStyle(fontSize: 16)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: TextField(
@@ -509,7 +493,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.school),
                         isDense: true,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
                       ),
                       textInputAction: TextInputAction.done,
                       onSubmitted: (_) => _saveTeacherAndSchoolName(),
@@ -518,7 +505,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              
+
               // 저장 버튼
               SizedBox(
                 width: double.infinity,
@@ -527,18 +514,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
-                  child: _isSavingNames
-                      ? const SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Text(
-                          '저장',
-                          style: TextStyle(fontSize: 15),
-                        ),
+                  child:
+                      _isSavingNames
+                          ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                          : const Text('저장', style: TextStyle(fontSize: 15)),
                 ),
               ),
             ],
@@ -546,7 +529,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ],
     );
   }
-  
+
   /// 하이라이트 색상 설정 섹션
   Widget _buildHighlightColorSection() {
     if (_isLoadingHighlightColor) {
@@ -557,7 +540,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
       );
     }
-    
+
     // 색상 선택 영역을 하나의 컨테이너로 묶음 (제목과 설명 포함)
     return Container(
       padding: const EdgeInsets.all(16),
@@ -572,23 +555,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // 제목
           const Text(
             '교사 행 하이라이트',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           // 설명
           const Text(
             '교체관리에서 내 교사 행을 표시합니다. '
             '범례(선택·채움·교체불가 등)와 구분되는 색상만 제공합니다.',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey,
-            ),
+            style: TextStyle(fontSize: 14, color: Colors.grey),
           ),
           const SizedBox(height: 16),
-          
+
           // 현재 선택된 색상 표시
           Container(
             padding: const EdgeInsets.all(12),
@@ -622,11 +599,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          
+
           // 색상 옵션들 (한 줄로 배치)
           Row(
             children: [
-              for (int i = 0; i < TeacherRowHighlightColors.presets.length; i++) ...[
+              for (
+                int i = 0;
+                i < TeacherRowHighlightColors.presets.length;
+                i++
+              ) ...[
                 if (i > 0) const SizedBox(width: 12),
                 _buildColorOption(TeacherRowHighlightColors.presets[i]),
               ],
@@ -636,11 +617,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
   }
-  
+
   /// 색상 옵션 버튼 위젯
   Widget _buildColorOption(Color color) {
     final isSelected = _highlightedTeacherColor.toARGB32() == color.toARGB32();
-    
+
     return InkWell(
       onTap: _isSavingHighlightColor ? null : () => _saveHighlightColor(color),
       borderRadius: BorderRadius.circular(8),
@@ -666,22 +647,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       children: [
         const Text(
           '데이터 초기화',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         const Text(
           '모든 저장된 데이터를 삭제합니다.\n'
           '시간표, 교체 리스트, 교체불가 셀 데이터, 결보강 계획서, 설정 등 모든 데이터 파일이 삭제됩니다.',
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey,
-          ),
+          style: TextStyle(fontSize: 14, color: Colors.grey),
         ),
         const SizedBox(height: 16),
-        
+
         // 초기화 버튼
         SizedBox(
           width: double.infinity,
@@ -692,19 +667,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
-            child: _isResetting
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : const Text(
-                    '모든 데이터 삭제',
-                    style: TextStyle(fontSize: 16),
-                  ),
+            child:
+                _isResetting
+                    ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                    : const Text('모든 데이터 삭제', style: TextStyle(fontSize: 16)),
           ),
         ),
       ],

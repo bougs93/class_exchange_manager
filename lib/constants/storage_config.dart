@@ -4,5 +4,6 @@ class StorageConfig {
   static const String windowsDataSubfolder = 'data';
 
   /// AppData → exe/data 마이그레이션 완료 표시 파일 (data 폴더 안)
-  static const String migrationMarkerFileName = '.storage_migrated_from_appdata';
+  static const String migrationMarkerFileName =
+      '.storage_migrated_from_appdata';
 }

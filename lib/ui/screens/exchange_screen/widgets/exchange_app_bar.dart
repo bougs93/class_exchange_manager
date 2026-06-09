@@ -38,7 +38,9 @@ class ExchangeAppBar extends ConsumerWidget implements PreferredSizeWidget {
           _buildSidebarToggleButton(
             isLoading: state.isPathsLoading,
             loadingProgress: state.loadingProgress,
-            pathCount: ExchangePathUtils.countPathsOfType<CircularExchangePath>(state.availablePaths),
+            pathCount: ExchangePathUtils.countPathsOfType<CircularExchangePath>(
+              state.availablePaths,
+            ),
             color: Colors.purple.shade600,
           ),
 
@@ -46,7 +48,9 @@ class ExchangeAppBar extends ConsumerWidget implements PreferredSizeWidget {
         if (_shouldShowOneToOneButton())
           _buildSidebarToggleButton(
             isLoading: false,
-            pathCount: ExchangePathUtils.countPathsOfType<OneToOneExchangePath>(state.availablePaths),
+            pathCount: ExchangePathUtils.countPathsOfType<OneToOneExchangePath>(
+              state.availablePaths,
+            ),
             color: Colors.blue.shade600,
           ),
       ],
@@ -56,13 +60,18 @@ class ExchangeAppBar extends ConsumerWidget implements PreferredSizeWidget {
   /// 순환교체 버튼 표시 여부
   bool _shouldShowCircularButton() {
     return state.currentMode == ExchangeMode.circularExchange &&
-        (ExchangePathUtils.hasPathsOfType<CircularExchangePath>(state.availablePaths) || state.isPathsLoading);
+        (ExchangePathUtils.hasPathsOfType<CircularExchangePath>(
+              state.availablePaths,
+            ) ||
+            state.isPathsLoading);
   }
 
   /// 1:1 교체 버튼 표시 여부
   bool _shouldShowOneToOneButton() {
     return state.currentMode.isExchangeMode &&
-        ExchangePathUtils.hasPathsOfType<OneToOneExchangePath>(state.availablePaths);
+        ExchangePathUtils.hasPathsOfType<OneToOneExchangePath>(
+          state.availablePaths,
+        );
   }
 
   /// 🧪 테스트 버튼 생성 (개발용)
@@ -73,48 +82,49 @@ class ExchangeAppBar extends ConsumerWidget implements PreferredSizeWidget {
         icon: const Icon(Icons.science, color: Colors.orange),
         tooltip: '초기화 테스트',
         onSelected: (String value) => _handleTestAction(context, ref, value),
-        itemBuilder: (BuildContext context) => [
-          const PopupMenuItem<String>(
-            value: 'level1',
-            child: Row(
-              children: [
-                Icon(Icons.refresh, color: Colors.green, size: 16),
-                SizedBox(width: 8),
-                Text('Level 1 초기화'),
-              ],
-            ),
-          ),
-          const PopupMenuItem<String>(
-            value: 'level2',
-            child: Row(
-              children: [
-                Icon(Icons.refresh, color: Colors.orange, size: 16),
-                SizedBox(width: 8),
-                Text('Level 2 초기화'),
-              ],
-            ),
-          ),
-          const PopupMenuItem<String>(
-            value: 'level3',
-            child: Row(
-              children: [
-                Icon(Icons.refresh, color: Colors.red, size: 16),
-                SizedBox(width: 8),
-                Text('Level 3 초기화'),
-              ],
-            ),
-          ),
-          const PopupMenuItem<String>(
-            value: 'info',
-            child: Row(
-              children: [
-                Icon(Icons.info, color: Colors.blue, size: 16),
-                SizedBox(width: 8),
-                Text('현재 상태 정보'),
-              ],
-            ),
-          ),
-        ],
+        itemBuilder:
+            (BuildContext context) => [
+              const PopupMenuItem<String>(
+                value: 'level1',
+                child: Row(
+                  children: [
+                    Icon(Icons.refresh, color: Colors.green, size: 16),
+                    SizedBox(width: 8),
+                    Text('Level 1 초기화'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'level2',
+                child: Row(
+                  children: [
+                    Icon(Icons.refresh, color: Colors.orange, size: 16),
+                    SizedBox(width: 8),
+                    Text('Level 2 초기화'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'level3',
+                child: Row(
+                  children: [
+                    Icon(Icons.refresh, color: Colors.red, size: 16),
+                    SizedBox(width: 8),
+                    Text('Level 3 초기화'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'info',
+                child: Row(
+                  children: [
+                    Icon(Icons.info, color: Colors.blue, size: 16),
+                    SizedBox(width: 8),
+                    Text('현재 상태 정보'),
+                  ],
+                ),
+              ),
+            ],
       ),
     );
   }
@@ -122,7 +132,7 @@ class ExchangeAppBar extends ConsumerWidget implements PreferredSizeWidget {
   /// 🧪 테스트 액션 처리
   void _handleTestAction(BuildContext context, WidgetRef ref, String action) {
     final stateResetNotifier = ref.read(stateResetProvider.notifier);
-    
+
     switch (action) {
       case 'level1':
         if (kDebugMode) {
@@ -138,7 +148,7 @@ class ExchangeAppBar extends ConsumerWidget implements PreferredSizeWidget {
           final beforeState = ref.read(cellSelectionProvider);
           AppLogger.exchangeDebug(
             '🧪 [Level 2] 초기화: ${beforeState.selectedTeacher} '
-            '${beforeState.selectedDay}${beforeState.selectedPeriod} → 초기화됨'
+            '${beforeState.selectedDay}${beforeState.selectedPeriod} → 초기화됨',
           );
         }
         stateResetNotifier.resetExchangeStates(reason: '테스트 - Level 2 초기화');
@@ -152,7 +162,7 @@ class ExchangeAppBar extends ConsumerWidget implements PreferredSizeWidget {
         stateResetNotifier.resetAllStates(reason: '테스트 - Level 3 초기화');
         _showTestResult(context, 'Level 3 초기화 완료', Colors.red);
         break;
-        
+
       case 'info':
         _showCurrentStateInfo(context, ref);
         break;
@@ -163,7 +173,7 @@ class ExchangeAppBar extends ConsumerWidget implements PreferredSizeWidget {
   void _showCurrentStateInfo(BuildContext context, WidgetRef ref) {
     final currentState = ref.read(exchangeScreenProvider);
     final cellState = ref.read(cellSelectionProvider);
-    
+
     final info = '''
 현재 상태 정보:
 
@@ -190,27 +200,28 @@ class ExchangeAppBar extends ConsumerWidget implements PreferredSizeWidget {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.info, color: Colors.blue),
-            SizedBox(width: 8),
-            Text('현재 상태 정보'),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Text(
-            info,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+      builder:
+          (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.info, color: Colors.blue),
+                SizedBox(width: 8),
+                Text('현재 상태 정보'),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Text(
+                info,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('닫기'),
+              ),
+            ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('닫기'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -247,13 +258,9 @@ class ExchangeAppBar extends ConsumerWidget implements PreferredSizeWidget {
           size: 16,
         ),
         label: Text(
-          isLoading
-            ? '${(loadingProgress * 100).round()}%'
-            : '$pathCount개'
+          isLoading ? '${(loadingProgress * 100).round()}%' : '$pathCount개',
         ),
-        style: TextButton.styleFrom(
-          foregroundColor: color,
-        ),
+        style: TextButton.styleFrom(foregroundColor: color),
       ),
     );
   }

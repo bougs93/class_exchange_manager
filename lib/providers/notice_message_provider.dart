@@ -8,19 +8,19 @@ import '../utils/logger.dart';
 class NoticeMessageState {
   /// 학급별 메시지 그룹 리스트
   final List<NoticeMessageGroup> classMessageGroups;
-  
+
   /// 교사별 메시지 그룹 리스트
   final List<NoticeMessageGroup> teacherMessageGroups;
-  
+
   /// 학급 메시지 옵션
   final MessageOption classMessageOption;
-  
+
   /// 교사 메시지 옵션
   final MessageOption teacherMessageOption;
-  
+
   /// 로딩 상태
   final bool isLoading;
-  
+
   /// 에러 메시지
   final String? errorMessage;
 
@@ -85,7 +85,7 @@ class NoticeMessageNotifier extends StateNotifier<NoticeMessageState> {
     try {
       // 교체 계획 데이터 가져오기
       final planData = _ref.read(substitutionPlanViewModelProvider).planData;
-      
+
       if (planData.isEmpty) {
         AppLogger.exchangeDebug('교체 계획 데이터가 없어서 빈 메시지로 설정');
         state = state.copyWith(
@@ -114,7 +114,9 @@ class NoticeMessageNotifier extends StateNotifier<NoticeMessageState> {
         isLoading: false,
       );
 
-      AppLogger.exchangeDebug('메시지 새로고침 완료 - 학급: ${classGroups.length}개, 교사: ${teacherGroups.length}개');
+      AppLogger.exchangeDebug(
+        '메시지 새로고침 완료 - 학급: ${classGroups.length}개, 교사: ${teacherGroups.length}개',
+      );
     } catch (e) {
       AppLogger.error('메시지 새로고침 중 오류 발생', e);
       state = state.copyWith(
@@ -128,7 +130,7 @@ class NoticeMessageNotifier extends StateNotifier<NoticeMessageState> {
   void _regenerateClassMessages() {
     try {
       final planData = _ref.read(substitutionPlanViewModelProvider).planData;
-      
+
       if (planData.isEmpty) {
         state = state.copyWith(classMessageGroups: []);
         return;
@@ -151,7 +153,7 @@ class NoticeMessageNotifier extends StateNotifier<NoticeMessageState> {
   void _regenerateTeacherMessages() {
     try {
       final planData = _ref.read(substitutionPlanViewModelProvider).planData;
-      
+
       if (planData.isEmpty) {
         state = state.copyWith(teacherMessageGroups: []);
         return;
@@ -219,8 +221,14 @@ class NoticeMessageNotifier extends StateNotifier<NoticeMessageState> {
   }
 
   /// 전체 메시지 개수
-  int get totalClassMessages => state.classMessageGroups.fold(0, (sum, group) => sum + group.messages.length);
-  int get totalTeacherMessages => state.teacherMessageGroups.fold(0, (sum, group) => sum + group.messages.length);
+  int get totalClassMessages => state.classMessageGroups.fold(
+    0,
+    (sum, group) => sum + group.messages.length,
+  );
+  int get totalTeacherMessages => state.teacherMessageGroups.fold(
+    0,
+    (sum, group) => sum + group.messages.length,
+  );
 
   /// 교체 유형별 메시지 개수 (학급)
   Map<ExchangeType, int> get classExchangeTypeStats {
@@ -246,6 +254,7 @@ class NoticeMessageNotifier extends StateNotifier<NoticeMessageState> {
 }
 
 /// 안내 메시지 Provider
-final noticeMessageProvider = StateNotifierProvider<NoticeMessageNotifier, NoticeMessageState>((ref) {
-  return NoticeMessageNotifier(ref);
-});
+final noticeMessageProvider =
+    StateNotifierProvider<NoticeMessageNotifier, NoticeMessageState>((ref) {
+      return NoticeMessageNotifier(ref);
+    });

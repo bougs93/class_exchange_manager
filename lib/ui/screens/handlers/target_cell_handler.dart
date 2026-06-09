@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../../../models/one_to_one_exchange_path.dart';
 import '../../../models/circular_exchange_path.dart';
 import '../../../models/dual_exchange_path.dart';
@@ -18,7 +18,8 @@ mixin TargetCellHandler<T extends StatefulWidget> on State<T> {
   CircularExchangeService get circularExchangeService;
   DualExchangeService get dualExchangeService;
   TimetableData? get timetableData;
-  TimetableDataSource? get dataSource; // TimetableDataSource - ExchangeLogicMixin에서 제공
+  TimetableDataSource?
+  get dataSource; // TimetableDataSource - ExchangeLogicMixin에서 제공
 
   // dataSource는 ExchangeLogicMixin에서 상속받음
 
@@ -42,13 +43,17 @@ mixin TargetCellHandler<T extends StatefulWidget> on State<T> {
     // 데이터 소스에 타겟 셀 정보 전달
     dataSource?.updateTargetCell(selectedTeacher, targetDay, targetPeriod);
 
-    AppLogger.exchangeDebug('타겟 셀 설정: $selectedTeacher $targetDay $targetPeriod교시');
+    AppLogger.exchangeDebug(
+      '타겟 셀 설정: $selectedTeacher $targetDay $targetPeriod교시',
+    );
   }
 
   /// 순환교체 경로에서 타겟 셀 설정 (교체 대상의 같은 행 셀)
   /// 교체 대상이 월1교시라면, 선택된 셀의 같은 행의 월1교시를 타겟으로 설정
   void setTargetCellFromCircularPath(CircularExchangePath path) {
-    if (!circularExchangeService.hasSelectedCell() || timetableData == null || path.nodes.length < 2) {
+    if (!circularExchangeService.hasSelectedCell() ||
+        timetableData == null ||
+        path.nodes.length < 2) {
       AppLogger.exchangeDebug('순환교체 타겟 셀 설정 실패: 조건 불충족');
       return;
     }
@@ -70,7 +75,9 @@ mixin TargetCellHandler<T extends StatefulWidget> on State<T> {
     // 데이터 소스에 타겟 셀 정보 전달
     dataSource?.updateTargetCell(selectedTeacher, targetDay, targetPeriod);
 
-    AppLogger.exchangeDebug('순환교체 타겟 셀 설정: $selectedTeacher $targetDay $targetPeriod교시');
+    AppLogger.exchangeDebug(
+      '순환교체 타겟 셀 설정: $selectedTeacher $targetDay $targetPeriod교시',
+    );
   }
 
   /// 2중교체 경로에서 타겟 셀 설정 (마지막 교체 대상의 같은 행 셀)
@@ -97,7 +104,9 @@ mixin TargetCellHandler<T extends StatefulWidget> on State<T> {
     // 데이터 소스에 타겟 셀 정보 전달
     dataSource?.updateTargetCell(selectedTeacher, targetDay, targetPeriod);
 
-    AppLogger.exchangeDebug('2중교체 타겟 셀 설정: $selectedTeacher $targetDay $targetPeriod교시 (마지막 교체 대상)');
+    AppLogger.exchangeDebug(
+      '2중교체 타겟 셀 설정: $selectedTeacher $targetDay $targetPeriod교시 (마지막 교체 대상)',
+    );
   }
 
   /// 보강 경로에서 타겟 셀 설정 (보강 대상의 같은 행 셀)
@@ -124,7 +133,9 @@ mixin TargetCellHandler<T extends StatefulWidget> on State<T> {
     // 데이터 소스에 타겟 셀 정보 전달
     dataSource?.updateTargetCell(selectedTeacher, targetDay, targetPeriod);
 
-    AppLogger.exchangeDebug('보강 타겟 셀 설정: $selectedTeacher $targetDay $targetPeriod교시');
+    AppLogger.exchangeDebug(
+      '보강 타겟 셀 설정: $selectedTeacher $targetDay $targetPeriod교시',
+    );
   }
 
   /// 타겟 셀 해제

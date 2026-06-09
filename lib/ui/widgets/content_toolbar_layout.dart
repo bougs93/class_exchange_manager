@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'exchange_control_panel.dart';
 
 /// 계획서 출력·안내 등 공통 툴바 레이아웃 (안내 바 · 버튼 줄)
@@ -26,13 +26,16 @@ class ContentToolbarLayout {
   /// 버튼 사이 간격
   static const double buttonGap = 4.0;
 
-  static const EdgeInsets hintPadding =
-      EdgeInsets.fromLTRB(hintInset, hintInset, hintInset, 0);
+  static const EdgeInsets hintPadding = EdgeInsets.fromLTRB(
+    hintInset,
+    hintInset,
+    hintInset,
+    0,
+  );
 
   static const EdgeInsets toolbarPadding = EdgeInsets.all(toolbarInset);
 
-  static const Widget hintToToolbarSpacer =
-      SizedBox(height: hintToToolbarGap);
+  static const Widget hintToToolbarSpacer = SizedBox(height: hintToToolbarGap);
 
   /// 일반 동작 버튼(새로고침·복사 등) — 선택·눌림 상태처럼 보이지 않는 중립 색
   static Color get neutralButtonBackground => Colors.grey.shade100;

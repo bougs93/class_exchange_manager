@@ -10,7 +10,7 @@ import 'logger.dart';
 ///
 /// 기존에 여러 파일에 분산되어 있던 헤더 스타일 로직을 통합하여
 /// 새로운 기능 추가 시 일관성 유지 및 유지보수성 향상
-/// 
+///
 /// 성능 최적화:
 /// - 위젯 캐싱을 통한 불필요한 재생성 방지
 /// - Syncfusion DataGrid의 효율적인 헤더 업데이트 지원
@@ -19,19 +19,23 @@ class FixedHeaderStyleManager {
   static final Map<String, Widget> _widgetCache = {};
   // ==================== 색상 상수 ====================
   /// 요일 행(1행) 배경색 (SimplifiedTimetableTheme 사용)
-  static const Color dayHeaderBackgroundColor = SimplifiedTimetableTheme.teacherHeaderColor;
+  static const Color dayHeaderBackgroundColor =
+      SimplifiedTimetableTheme.teacherHeaderColor;
 
   /// 교시 행(2행) 배경색 (기본 - 선택되지 않은 상태)
-  static const Color periodHeaderBackgroundColor = SimplifiedTimetableTheme.defaultColor;
-  
+  static const Color periodHeaderBackgroundColor =
+      SimplifiedTimetableTheme.defaultColor;
+
   /// 캐시 강제 초기화 (교시 헤더 색상 변경 후 호출)
   static void clearCacheForPeriodHeaderColorChange() {
     final cacheSize = _widgetCache.length;
     _widgetCache.clear();
-    
+
     // 캐시에 실제로 데이터가 있었을 때만 로그 출력
     if (cacheSize > 0) {
-      AppLogger.exchangeDebug('FixedHeaderStyleManager: 교시 헤더 색상 변경을 위한 캐시 초기화 완료 ($cacheSize개 항목)');
+      AppLogger.exchangeDebug(
+        'FixedHeaderStyleManager: 교시 헤더 색상 변경을 위한 캐시 초기화 완료 ($cacheSize개 항목)',
+      );
     }
   }
 
@@ -57,15 +61,14 @@ class FixedHeaderStyleManager {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: dayHeaderBackgroundColor,
-        border: Border(
-          right: normalBorder,
-          bottom: normalBorder,
-        ),
+        border: Border(right: normalBorder, bottom: normalBorder),
       ),
       child: Text(
         '',
         style: TextStyle(
-          fontSize: AppConstants.headerFontSize * SimplifiedTimetableTheme.fontScaleFactor,
+          fontSize:
+              AppConstants.headerFontSize *
+              SimplifiedTimetableTheme.fontScaleFactor,
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -88,7 +91,9 @@ class FixedHeaderStyleManager {
       child: Text(
         dayName,
         style: TextStyle(
-          fontSize: AppConstants.headerFontSize * SimplifiedTimetableTheme.fontScaleFactor,
+          fontSize:
+              AppConstants.headerFontSize *
+              SimplifiedTimetableTheme.fontScaleFactor,
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -104,15 +109,14 @@ class FixedHeaderStyleManager {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: SimplifiedTimetableTheme.teacherHeaderColor,
-        border: Border(
-          right: normalBorder,
-          bottom: normalBorder,
-        ),
+        border: Border(right: normalBorder, bottom: normalBorder),
       ),
       child: Text(
         '교시',
         style: TextStyle(
-          fontSize: AppConstants.headerFontSize * SimplifiedTimetableTheme.fontScaleFactor,
+          fontSize:
+              AppConstants.headerFontSize *
+              SimplifiedTimetableTheme.fontScaleFactor,
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -131,14 +135,15 @@ class FixedHeaderStyleManager {
   }) {
     // 캐시 키 생성 (성능 최적화)
     final cacheKey = _generateCacheKey(period, isFirstPeriod, config);
-    
+
     // 캐시된 위젯이 있으면 반환 (불필요한 재생성 방지)
     if (_widgetCache.containsKey(cacheKey)) {
       return _widgetCache[cacheKey]!;
     }
 
     // SimplifiedTimetableTheme의 통합 스타일 사용
-    final CellStyle headerStyles = SimplifiedTimetableTheme.getCellStyleFromConfig(config);
+    final CellStyle headerStyles =
+        SimplifiedTimetableTheme.getCellStyleFromConfig(config);
 
     // 새로운 위젯 생성 및 캐시에 저장
     final widget = Container(
@@ -206,7 +211,8 @@ class FixedHeaderStyleManager {
     // 요일별 헤더 셀
     for (String day in days) {
       List<int> dayPeriods = (groupedData[day]?.keys.toList() ?? [])..sort();
-      List<String> dayColumnNames = dayPeriods.map((period) => '${day}_$period').toList();
+      List<String> dayColumnNames =
+          dayPeriods.map((period) => '${day}_$period').toList();
 
       headerCells.add(
         StackedHeaderCell(
@@ -269,26 +275,42 @@ class FixedHeaderStyleManager {
 
         // 선택 상태 및 교체 가능 여부 확인
         bool isSelected = SimplifiedTimetableTheme.isPeriodSelected(
-          day, period, selectedDay, selectedPeriod,
+          day,
+          period,
+          selectedDay,
+          selectedPeriod,
         );
         bool isTargetCell = SimplifiedTimetableTheme.isPeriodTarget(
-          day, period, targetDay, targetPeriod,
+          day,
+          period,
+          targetDay,
+          targetPeriod,
         );
-        
+
         bool isExchangeablePeriod = _isExchangeablePeriod(
-          day, period, exchangeableTeachers,
+          day,
+          period,
+          exchangeableTeachers,
         );
         bool isInCircularPath = _isPeriodInPath(
-          day, period, selectedCircularPath?.nodes,
+          day,
+          period,
+          selectedCircularPath?.nodes,
         );
         bool isInSelectedOneToOnePath = _isPeriodInPath(
-          day, period, selectedOneToOnePath?.nodes,
+          day,
+          period,
+          selectedOneToOnePath?.nodes,
         );
         bool isInDualPath = _isPeriodInPath(
-          day, period, selectedDualPath?.nodes,
+          day,
+          period,
+          selectedDualPath?.nodes,
         );
         bool isInSupplementPath = _isPeriodInPath(
-          day, period, selectedSupplementPath?.nodes,
+          day,
+          period,
+          selectedSupplementPath?.nodes,
         );
 
         // CellStyleConfig로 통합 관리
@@ -347,7 +369,11 @@ class FixedHeaderStyleManager {
   // ==================== 캐시 관리 메서드 ====================
 
   /// 캐시 키 생성 (성능 최적화용) - 간소화된 버전
-  static String _generateCacheKey(int period, bool isFirstPeriod, CellStyleConfig config) {
+  static String _generateCacheKey(
+    int period,
+    bool isFirstPeriod,
+    CellStyleConfig config,
+  ) {
     // 간소화된 캐시 키로 메모리 사용량 최적화
     final key = StringBuffer();
     key.write('${period}_${isFirstPeriod ? 'F' : 'N'}');
@@ -382,7 +408,7 @@ class FixedHeaderStyleManager {
   static void resetHeaderStyles() {
     // 캐시 초기화로 불필요한 위젯 재생성 방지
     clearCache();
-    
+
     // SimplifiedTimetableTheme의 기본 상태로 초기화
     // 이는 getCellStyleFromConfig를 기본 상태로 호출하여 초기화
   }
@@ -394,7 +420,7 @@ class FixedHeaderStyleManager {
   static void forceHeaderUpdate() {
     // 캐시 초기화로 새로운 상태 반영
     clearCache();
-    
+
     // 다음 프레임에서 업데이트 강제 실행
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // 헤더 업데이트가 완료되었음을 로그로 확인
@@ -418,7 +444,7 @@ class FixedHeaderStyleManager {
       // 선택 해제 시 전체 캐시 무효화
       clearCache();
     }
-    
+
     // 다음 프레임에서 업데이트 강제 실행
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // 헤더 업데이트 완료
@@ -433,11 +459,13 @@ class FixedHeaderStyleManager {
     required String day,
     required int period,
   }) {
-    AppLogger.exchangeDebug('FixedHeaderStyleManager: 교체된 셀 헤더 업데이트 - 요일: $day, 교시: $period');
-    
+    AppLogger.exchangeDebug(
+      'FixedHeaderStyleManager: 교체된 셀 헤더 업데이트 - 요일: $day, 교시: $period',
+    );
+
     // 교체된 셀과 관련된 캐시 무효화
     _invalidateCacheForPeriod(day, period);
-    
+
     // 다음 프레임에서 업데이트 강제 실행
     WidgetsBinding.instance.addPostFrameCallback((_) {
       AppLogger.exchangeDebug('FixedHeaderStyleManager: 교체된 셀 헤더 업데이트 완료');
@@ -447,15 +475,20 @@ class FixedHeaderStyleManager {
   /// 특정 교시와 관련된 캐시 무효화 (성능 최적화)
   static void _invalidateCacheForPeriod(String day, int period) {
     // 해당 교시와 관련된 캐시 키들을 찾아서 제거
-    final keysToRemove = _widgetCache.keys.where((key) => 
-      key.contains('$day$period') || 
-      key.contains('${day}_$period')
-    ).toList();
-    
+    final keysToRemove =
+        _widgetCache.keys
+            .where(
+              (key) =>
+                  key.contains('$day$period') || key.contains('${day}_$period'),
+            )
+            .toList();
+
     for (final key in keysToRemove) {
       _widgetCache.remove(key);
     }
-    
-    AppLogger.exchangeDebug('FixedHeaderStyleManager: 교시 $day$period 관련 캐시 ${keysToRemove.length}개 무효화');
+
+    AppLogger.exchangeDebug(
+      'FixedHeaderStyleManager: 교시 $day$period 관련 캐시 ${keysToRemove.length}개 무효화',
+    );
   }
 }

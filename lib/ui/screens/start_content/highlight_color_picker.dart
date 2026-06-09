@@ -80,7 +80,9 @@ class HighlightColorPicker extends StatelessWidget {
             spacing: 4,
             runSpacing: 4,
             children:
-                TeacherRowHighlightColors.presets.map(_buildColorOption).toList(),
+                TeacherRowHighlightColors.presets
+                    .map(_buildColorOption)
+                    .toList(),
           ),
         ],
       ),

@@ -5,8 +5,10 @@ import '../utils/date_format_utils.dart';
 /// 교체 정보를 셀 테마에 적용하기 위한 데이터 구조
 class ExchangeCellInfo {
   final String teacherName;
+
   /// 내부 비교용 전체 날짜 (YYYY.MM.DD). UI 헤더는 월.일(6.10)만 표시.
   final String date;
+
   /// [date]에서 파생한 달력 요일 (월, 화, …)
   final String day;
   final int period;
@@ -38,8 +40,7 @@ class ExchangeCellInfo {
   int get hashCode => Object.hash(teacherName, date, period, isAbsence);
 
   /// TimeSlot.displayText 와 동일 — 학급(윗줄)\n과목(아랫줄)
-  String get displayText =>
-      TimeSlot.formatDisplayText(className, subject);
+  String get displayText => TimeSlot.formatDisplayText(className, subject);
 
   @override
   String toString() {
@@ -68,9 +69,7 @@ class PersonalExchangeInfoExtractor {
       result.addAll(_cellsForPlan(plan, teacherName, referenceDate));
     }
 
-    return result
-        .where((info) => weekDateStrings.contains(info.date))
-        .toList();
+    return result.where((info) => weekDateStrings.contains(info.date)).toList();
   }
 
   /// 교사와 연결된 plan 중 날짜가 하나도 지정되지 않은 항목 수
@@ -114,8 +113,8 @@ class PersonalExchangeInfoExtractor {
 
     final classLabel = plan.fullClassName;
     final cells = <ExchangeCellInfo>[];
-    final isSupplement = plan.substitutionTeacher.isEmpty &&
-        plan.supplementTeacher.isNotEmpty;
+    final isSupplement =
+        plan.substitutionTeacher.isEmpty && plan.supplementTeacher.isNotEmpty;
 
     if (isSupplement) {
       if (plan.teacher == teacherName) {
@@ -131,9 +130,10 @@ class PersonalExchangeInfoExtractor {
         );
       }
       if (plan.supplementTeacher == teacherName) {
-        final subject = plan.supplementSubject.isNotEmpty
-            ? plan.supplementSubject
-            : plan.subject;
+        final subject =
+            plan.supplementSubject.isNotEmpty
+                ? plan.supplementSubject
+                : plan.subject;
         _addCell(
           cells,
           teacherName: plan.supplementTeacher,
@@ -149,9 +149,10 @@ class PersonalExchangeInfoExtractor {
     }
 
     final subPeriod = int.tryParse(plan.substitutionPeriod) ?? 0;
-    final subSubject = plan.substitutionSubject.isNotEmpty
-        ? plan.substitutionSubject
-        : plan.subject;
+    final subSubject =
+        plan.substitutionSubject.isNotEmpty
+            ? plan.substitutionSubject
+            : plan.subject;
 
     // 결강 교사
     if (plan.teacher == teacherName) {
@@ -237,8 +238,10 @@ class PersonalExchangeInfoExtractor {
     String? subject,
     String? className,
   }) {
-    final date =
-        DateFormatUtils.normalizePlanDate(rawDate, referenceDate: referenceDate);
+    final date = DateFormatUtils.normalizePlanDate(
+      rawDate,
+      referenceDate: referenceDate,
+    );
     if (date.isEmpty) return null;
 
     return ExchangeCellInfo(

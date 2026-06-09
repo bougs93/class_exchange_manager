@@ -6,14 +6,15 @@ import '../../../widgets/notice_message_card.dart';
 import '../../../widgets/notice_control_panel.dart';
 
 /// 교사안내 위젯
-/// 
+///
 /// 교사별로 그룹화된 교체 안내 메시지를 표시합니다.
 /// 라디오 버튼으로 메시지 옵션(옵션1/옵션2)을 선택할 수 있습니다.
 class TeacherNoticeWidget extends ConsumerStatefulWidget {
   const TeacherNoticeWidget({super.key});
 
   @override
-  ConsumerState<TeacherNoticeWidget> createState() => _TeacherNoticeWidgetState();
+  ConsumerState<TeacherNoticeWidget> createState() =>
+      _TeacherNoticeWidgetState();
 }
 
 class _TeacherNoticeWidgetState extends ConsumerState<TeacherNoticeWidget> {
@@ -40,24 +41,18 @@ class _TeacherNoticeWidgetState extends ConsumerState<TeacherNoticeWidget> {
             messageType: NoticeMessageType.teacherNotice,
             refreshButtonColor: Colors.orange.shade600,
           ),
-          
+
           // 메시지 카드 리스트
-          Expanded(
-            child: _buildMessageList(noticeState),
-          ),
+          Expanded(child: _buildMessageList(noticeState)),
         ],
       ),
     );
   }
 
-
-
   /// 메시지 리스트 위젯 생성
   Widget _buildMessageList(NoticeMessageState noticeState) {
     if (noticeState.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (noticeState.errorMessage != null) {
@@ -84,11 +79,7 @@ class _TeacherNoticeWidgetState extends ConsumerState<TeacherNoticeWidget> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.error_outline,
-            size: 64,
-            color: Colors.red.shade400,
-          ),
+          Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
           const SizedBox(height: 16),
           Text(
             '오류가 발생했습니다',
@@ -103,10 +94,7 @@ class _TeacherNoticeWidgetState extends ConsumerState<TeacherNoticeWidget> {
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Text(
               errorMessage,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.red.shade500,
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.red.shade500),
               textAlign: TextAlign.center,
             ),
           ),
@@ -129,7 +117,7 @@ class _TeacherNoticeWidgetState extends ConsumerState<TeacherNoticeWidget> {
 }
 
 /// 교사안내 통계 위젯
-/// 
+///
 /// 교사별 메시지 통계를 표시하는 위젯입니다.
 class TeacherNoticeStatsWidget extends ConsumerWidget {
   const TeacherNoticeStatsWidget({super.key});
@@ -137,7 +125,7 @@ class TeacherNoticeStatsWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final noticeState = ref.watch(noticeMessageProvider);
-    
+
     if (noticeState.teacherMessageGroups.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -173,11 +161,15 @@ class TeacherNoticeStatsWidget extends ConsumerWidget {
                 return Padding(
                   padding: const EdgeInsets.only(left: 8),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
-                      color: entry.key == ExchangeType.substitution 
-                          ? Colors.blue.shade100 
-                          : Colors.orange.shade100,
+                      color:
+                          entry.key == ExchangeType.substitution
+                              ? Colors.blue.shade100
+                              : Colors.orange.shade100,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -185,9 +177,10 @@ class TeacherNoticeStatsWidget extends ConsumerWidget {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: entry.key == ExchangeType.substitution 
-                            ? Colors.blue.shade800 
-                            : Colors.orange.shade800,
+                        color:
+                            entry.key == ExchangeType.substitution
+                                ? Colors.blue.shade800
+                                : Colors.orange.shade800,
                       ),
                     ),
                   ),

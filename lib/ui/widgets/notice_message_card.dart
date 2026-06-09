@@ -1,20 +1,20 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/notice_message.dart';
 import 'content_toolbar_layout.dart';
 import 'timetable_grid/grid_header_widgets.dart';
 
 /// 안내 메시지 카드 위젯
-/// 
+///
 /// 학급안내와 교사안내에서 공통으로 사용되는 메시지 카드입니다.
 /// 제목, 메시지 내용, 복사 버튼을 포함합니다.
 class NoticeMessageCard extends StatelessWidget {
   /// 메시지 그룹
   final NoticeMessageGroup messageGroup;
-  
+
   /// 카드 색상 테마
   final Color? cardColor;
-  
+
   /// 복사 성공 시 표시할 스낵바 메시지
   final String? copySuccessMessage;
 
@@ -39,7 +39,7 @@ class NoticeMessageCard extends StatelessWidget {
             // 헤더 (제목 + 복사 버튼)
             _buildHeader(context),
             const SizedBox(height: 4),
-            
+
             // 메시지 내용
             _buildMessageContent(),
           ],
@@ -62,24 +62,27 @@ class NoticeMessageCard extends StatelessWidget {
             color: Colors.black87,
           ),
         ),
-        
+
         const SizedBox(width: 8),
-        
+
         // 교체 유형 칩들 (다중 유형인 경우 개별 칩으로 표시)
         if (messageGroup.messages.isNotEmpty) ...[
           Builder(
             builder: (context) {
               final firstMessage = messageGroup.messages.first;
-              if (firstMessage.exchangeTypeCombination != null && 
+              if (firstMessage.exchangeTypeCombination != null &&
                   firstMessage.exchangeTypeCombination!.types.length > 1) {
                 // 다중 유형: 개별 칩으로 표시
                 return Row(
-                  children: firstMessage.exchangeTypeCombination!.types.map((type) => 
-                    Padding(
-                      padding: const EdgeInsets.only(right: 4),
-                      child: _buildSingleExchangeTypeChip(type),
-                    )
-                  ).toList(),
+                  children:
+                      firstMessage.exchangeTypeCombination!.types
+                          .map(
+                            (type) => Padding(
+                              padding: const EdgeInsets.only(right: 4),
+                              child: _buildSingleExchangeTypeChip(type),
+                            ),
+                          )
+                          .toList(),
                 );
               } else {
                 // 단일 유형: 기존 로직
@@ -88,9 +91,9 @@ class NoticeMessageCard extends StatelessWidget {
             },
           ),
         ],
-        
+
         const Spacer(),
-        
+
         // 복사 버튼 — 툴바와 동일한 중립 스타일 + 탭 하이라이트
         CompactToolbarIconButton(
           onPressed: () => _copyToClipboard(context),
@@ -118,34 +121,32 @@ class NoticeMessageCard extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: messageGroup.messages.map((message) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 메시지 내용
-                Text(
-                  message.content,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    height: 1.4,
-                    color: Colors.black87,
-                  ),
+        children:
+            messageGroup.messages.map((message) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 메시지 내용
+                    Text(
+                      message.content,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        height: 1.4,
+                        color: Colors.black87,
+                      ),
+                    ),
+
+                    // 마지막 메시지가 아니면 구분선 추가
+                    if (message != messageGroup.messages.last) ...[
+                      const SizedBox(height: 8),
+                      Divider(height: 1, color: Colors.grey.shade300),
+                    ],
+                  ],
                 ),
-                
-                // 마지막 메시지가 아니면 구분선 추가
-                if (message != messageGroup.messages.last) ...[
-                  const SizedBox(height: 8),
-                  Divider(
-                    height: 1,
-                    color: Colors.grey.shade300,
-                  ),
-                ],
-              ],
-            ),
-          );
-        }).toList(),
+              );
+            }).toList(),
       ),
     );
   }
@@ -154,7 +155,7 @@ class NoticeMessageCard extends StatelessWidget {
   Widget _buildSingleExchangeTypeChip(ExchangeType exchangeType) {
     Color chipColor;
     String chipText;
-    
+
     switch (exchangeType) {
       case ExchangeType.substitution:
         chipColor = Colors.blue.shade100;
@@ -169,7 +170,7 @@ class NoticeMessageCard extends StatelessWidget {
         chipText = '순환교체';
         break;
     }
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
@@ -181,32 +182,32 @@ class NoticeMessageCard extends StatelessWidget {
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,
-          color: chipColor == Colors.blue.shade100 
-              ? Colors.blue.shade800 
-              : chipColor == Colors.orange.shade100 
-                  ? Colors.orange.shade800 
+          color:
+              chipColor == Colors.blue.shade100
+                  ? Colors.blue.shade800
+                  : chipColor == Colors.orange.shade100
+                  ? Colors.orange.shade800
                   : Colors.purple.shade800,
         ),
       ),
     );
   }
 
-
   /// 클립보드에 복사
   Future<void> _copyToClipboard(BuildContext context) async {
     try {
       // 모든 메시지를 하나의 문자열로 합치기
       final combinedContent = messageGroup.combinedContent;
-      
+
       await Clipboard.setData(ClipboardData(text: combinedContent));
-      
+
       // 성공 메시지 표시
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              copySuccessMessage ?? 
-              '${messageGroup.groupIdentifier} 메시지가 클립보드에 복사되었습니다.',
+              copySuccessMessage ??
+                  '${messageGroup.groupIdentifier} 메시지가 클립보드에 복사되었습니다.',
             ),
             backgroundColor: Colors.green.shade600,
             duration: const Duration(seconds: 2),
@@ -241,18 +242,18 @@ class NoticeMessageCard extends StatelessWidget {
 }
 
 /// 안내 메시지 카드 리스트 위젯
-/// 
+///
 /// 여러 개의 NoticeMessageCard를 스크롤 가능한 리스트로 표시합니다.
 class NoticeMessageCardList extends StatelessWidget {
   /// 메시지 그룹 리스트
   final List<NoticeMessageGroup> messageGroups;
-  
+
   /// 빈 상태일 때 표시할 메시지
   final String emptyMessage;
-  
+
   /// 빈 상태일 때 표시할 아이콘
   final IconData emptyIcon;
-  
+
   /// 카드 색상 테마
   final Color? cardColor;
 
@@ -289,11 +290,7 @@ class NoticeMessageCardList extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            emptyIcon,
-            size: 64,
-            color: Colors.grey.shade400,
-          ),
+          Icon(emptyIcon, size: 64, color: Colors.grey.shade400),
           const SizedBox(height: 16),
           Text(
             emptyMessage,
@@ -306,10 +303,7 @@ class NoticeMessageCardList extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             '교체를 실행하면 여기에 안내 메시지가 표시됩니다.',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade500,
-            ),
+            style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
             textAlign: TextAlign.center,
           ),
         ],

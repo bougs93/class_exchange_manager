@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../../services/excel_service.dart';
@@ -74,8 +74,7 @@ class ExchangeScreenViewModel {
     // DataSource에 편집 모드 상태 전달
     dataSource?.setNonExchangeableEditMode(!currentMode);
 
-    AppLogger.exchangeDebug(
-        '교체불가 편집 모드 토글: ${!currentMode ? "활성화" : "비활성화"}');
+    AppLogger.exchangeDebug('교체불가 편집 모드 토글: ${!currentMode ? "활성화" : "비활성화"}');
   }
 
   /// 셀을 교체불가로 설정 또는 해제 (토글 방식)
@@ -94,7 +93,10 @@ class ExchangeScreenViewModel {
     // DataSource의 메서드를 사용하여 일관성 유지
     // (NonExchangeableManager를 통해 처리되며, 캐시 무효화 및 UI 업데이트 포함)
     dataSource.setCellAsNonExchangeable(
-        teacherName, dayPeriodInfo.day, dayPeriodInfo.period);
+      teacherName,
+      dayPeriodInfo.day,
+      dayPeriodInfo.period,
+    );
   }
 
   /// 교사명 클릭 시 해당 교사의 모든 시간을 교체가능/교체불가능으로 토글
@@ -134,7 +136,9 @@ class ExchangeScreenViewModel {
   }
 
   /// 컬럼명에서 요일과 교시 정보 추출
-  DayPeriodInfo? extractDayPeriodFromColumnName(DataGridCellTapDetails details) {
+  DayPeriodInfo? extractDayPeriodFromColumnName(
+    DataGridCellTapDetails details,
+  ) {
     if (details.column.columnName == 'teacher') {
       return null;
     }
@@ -152,7 +156,7 @@ class ExchangeScreenViewModel {
   }
 
   /// 교사명, 요일, 교시로 TimeSlot 찾기
-  /// 
+  ///
   /// DayUtils를 사용하여 중복 로직 제거
   TimeSlot? findTimeSlot(
     String teacherName,
@@ -162,7 +166,7 @@ class ExchangeScreenViewModel {
   ) {
     // DayUtils를 사용하여 중복 로직 제거 (BaseExchangeService.findTimeSlot과 동일한 패턴)
     final dayNumber = DayUtils.getDayNumber(day);
-    
+
     try {
       return timetableData.timeSlots.firstWhere(
         (slot) =>
@@ -174,7 +178,6 @@ class ExchangeScreenViewModel {
       return null;
     }
   }
-
 
   // ==================== Grid Helper 위임 ====================
 
@@ -221,7 +224,9 @@ class ExchangeScreenViewModel {
 }
 
 /// ViewModel Provider
-final exchangeScreenViewModelProvider = Provider<ExchangeScreenViewModel>((ref) {
+final exchangeScreenViewModelProvider = Provider<ExchangeScreenViewModel>((
+  ref,
+) {
   return ExchangeScreenViewModel(
     ref: ref,
     exchangeService: ref.read(exchangeServiceProvider),

@@ -1,4 +1,4 @@
-﻿import 'package:syncfusion_flutter_datagrid/datagrid.dart';
+import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../models/time_slot.dart';
 import '../models/teacher.dart';
 import '../models/circular_exchange_path.dart';
@@ -11,26 +11,27 @@ import 'fixed_header_style_manager.dart';
 /// Syncfusion DataGrid를 사용한 시간표 데이터 변환 헬퍼 클래스
 class SyncfusionTimetableHelper {
   /// TimeSlot 리스트를 Syncfusion DataGrid 데이터로 변환
-  /// 
+  ///
   /// 매개변수:
   /// - `List<TimeSlot>` timeSlots: 변환할 시간표 슬롯 리스트
   /// - `List<Teacher>` teachers: 교사 리스트 (행 헤더용)
-  /// 
+  ///
   /// 반환값:
   /// - `List<DataGridRow>`: Syncfusion DataGrid에서 사용할 행 데이터
   /// - `List<GridColumn>`: Syncfusion DataGrid에서 사용할 열 데이터
   /// - `List<StackedHeaderRow>`: 스택된 헤더 행 데이터
   static ({
-    List<DataGridRow> rows, 
-    List<GridColumn> columns, 
-    List<StackedHeaderRow> stackedHeaders
-  }) convertToSyncfusionData(
+    List<DataGridRow> rows,
+    List<GridColumn> columns,
+    List<StackedHeaderRow> stackedHeaders,
+  })
+  convertToSyncfusionData(
     List<TimeSlot> timeSlots,
     List<Teacher> teachers, {
-    String? selectedDay,      // 선택된 요일
-    int? selectedPeriod,      // 선택된 교시
-    String? targetDay,        // 타겟 셀의 요일 (보기 모드)
-    int? targetPeriod,        // 타겟 셀의 교시 (보기 모드)
+    String? selectedDay, // 선택된 요일
+    int? selectedPeriod, // 선택된 교시
+    String? targetDay, // 타겟 셀의 요일 (보기 모드)
+    int? targetPeriod, // 타겟 셀의 교시 (보기 모드)
     List<Map<String, dynamic>>? exchangeableTeachers, // 교체 가능한 교사 정보
     CircularExchangePath? selectedCircularPath, // 선택된 순환교체 경로
     OneToOneExchangePath? selectedOneToOnePath, // 선택된 1:1 교체 경로
@@ -38,19 +39,20 @@ class SyncfusionTimetableHelper {
     SupplementExchangePath? selectedSupplementPath, // 선택된 보강 경로
   }) {
     // 요일별로 데이터 그룹화
-    Map<String, Map<int, Map<String, TimeSlot?>>> groupedData = _groupTimeSlotsByDayAndPeriod(timeSlots);
-    
+    Map<String, Map<int, Map<String, TimeSlot?>>> groupedData =
+        _groupTimeSlotsByDayAndPeriod(timeSlots);
+
     // 요일 목록 추출 및 정렬
     List<String> days = groupedData.keys.toList()..sort(DayUtils.compareDays);
-    
+
     // 행 데이터 생성
     List<DataGridRow> rows = [];
     for (Teacher teacher in teachers) {
       List<DataGridCell> cells = [];
-      
+
       // 교사명 셀 (첫 번째 컬럼)
       cells.add(DataGridCell(columnName: 'teacher', value: teacher.name));
-      
+
       // 각 요일의 실제 존재하는 교시에 대한 셀 생성
       for (String day in days) {
         // 해당 요일에 실제 존재하는 교시만 가져오기
@@ -61,10 +63,10 @@ class SyncfusionTimetableHelper {
           cells.add(DataGridCell(columnName: columnName, value: timeSlot));
         }
       }
-      
+
       rows.add(DataGridRow(cells: cells));
     }
-    
+
     // 컬럼 데이터 생성 (FixedHeaderStyleManager 사용)
     List<GridColumn> columns = FixedHeaderStyleManager.buildGridColumns(
       days: days,
@@ -79,7 +81,7 @@ class SyncfusionTimetableHelper {
       selectedDualPath: selectedDualPath,
       selectedSupplementPath: selectedSupplementPath,
     );
-    
+
     // 스택된 헤더 생성 (FixedHeaderStyleManager 사용)
     List<StackedHeaderRow> stackedHeaders = [
       FixedHeaderStyleManager.buildStackedHeaderRow(
@@ -87,27 +89,24 @@ class SyncfusionTimetableHelper {
         groupedData: groupedData,
       ),
     ];
-    
-    return (
-      rows: rows,
-      columns: columns,
-      stackedHeaders: stackedHeaders,
-    );
+
+    return (rows: rows, columns: columns, stackedHeaders: stackedHeaders);
   }
-  
+
   /// TimeSlot 리스트를 요일과 교시별로 그룹화
-  static Map<String, Map<int, Map<String, TimeSlot?>>> _groupTimeSlotsByDayAndPeriod(List<TimeSlot> timeSlots) {
+  static Map<String, Map<int, Map<String, TimeSlot?>>>
+  _groupTimeSlotsByDayAndPeriod(List<TimeSlot> timeSlots) {
     Map<String, Map<int, Map<String, TimeSlot?>>> groupedData = {};
-    
+
     for (TimeSlot timeSlot in timeSlots) {
       int? dayOfWeek = timeSlot.dayOfWeek;
       int period = timeSlot.period ?? 0;
       String teacherName = timeSlot.teacher ?? '';
-      
+
       if (dayOfWeek == null) continue; // 요일이 없으면 건너뛰기
-      
+
       String day = DayUtils.getDayName(dayOfWeek);
-      
+
       if (!groupedData.containsKey(day)) {
         groupedData[day] = {};
       }
@@ -116,7 +115,7 @@ class SyncfusionTimetableHelper {
       }
       groupedData[day]![period]![teacherName] = timeSlot;
     }
-    
+
     return groupedData;
   }
 }

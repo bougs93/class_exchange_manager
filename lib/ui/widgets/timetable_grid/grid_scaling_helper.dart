@@ -41,12 +41,13 @@ class GridScalingHelper {
   ) {
     return stackedHeaders.map((headerRow) {
       return StackedHeaderRow(
-        cells: headerRow.cells.map((cell) {
-          return StackedHeaderCell(
-            child: cell.child,
-            columnNames: cell.columnNames,
-          );
-        }).toList(),
+        cells:
+            headerRow.cells.map((cell) {
+              return StackedHeaderCell(
+                child: cell.child,
+                columnNames: cell.columnNames,
+              );
+            }).toList(),
       );
     }).toList();
   }

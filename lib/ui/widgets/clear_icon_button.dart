@@ -6,10 +6,7 @@ import 'package:flutter/material.dart';
 class ClearIconButton extends StatelessWidget {
   final TextEditingController controller;
 
-  const ClearIconButton({
-    super.key,
-    required this.controller,
-  });
+  const ClearIconButton({super.key, required this.controller});
 
   @override
   Widget build(BuildContext context) {
@@ -21,10 +18,7 @@ class ClearIconButton extends StatelessWidget {
     return IconButton(
       icon: Icon(Icons.clear, size: 16, color: Colors.grey.shade600),
       onPressed: controller.clear,
-      constraints: const BoxConstraints(
-        minWidth: 20,
-        minHeight: 20,
-      ),
+      constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
       visualDensity: VisualDensity.compact,
       iconSize: 16,
     );

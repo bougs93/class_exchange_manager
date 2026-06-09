@@ -92,12 +92,8 @@ class StorageService {
 
       int copied = 0;
       for (final name in legacyJsonNames) {
-        final source = File(
-          '${legacyDir.path}${Platform.pathSeparator}$name',
-        );
-        final dest = File(
-          '${targetDir.path}${Platform.pathSeparator}$name',
-        );
+        final source = File('${legacyDir.path}${Platform.pathSeparator}$name');
+        final dest = File('${targetDir.path}${Platform.pathSeparator}$name');
         if (!await dest.exists()) {
           await source.copy(dest.path);
           copied++;

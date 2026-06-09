@@ -1,4 +1,4 @@
-﻿import 'exchange_node.dart';
+import 'exchange_node.dart';
 
 /// 2중교체의 각 단계를 나타내는 모델 클래스
 ///
@@ -6,11 +6,11 @@
 /// - 1단계: 1번 ↔ 2번 교체 (A 교사의 B 시간을 비우기)
 /// - 2단계: A ↔ B 교체 (결강 해결)
 class DualStep {
-  final int stepNumber;           // 단계 번호 (1, 2)
-  final String stepType;          // 단계 타입 ('exchange')
-  final ExchangeNode fromNode;    // 교환 시작 노드
-  final ExchangeNode toNode;      // 교환 대상 노드
-  final String description;       // 단계 설명
+  final int stepNumber; // 단계 번호 (1, 2)
+  final String stepType; // 단계 타입 ('exchange')
+  final ExchangeNode fromNode; // 교환 시작 노드
+  final ExchangeNode toNode; // 교환 대상 노드
+  final String description; // 단계 설명
 
   DualStep({
     required this.stepNumber,
@@ -27,7 +27,8 @@ class DualStep {
     required ExchangeNode toNode,
   }) {
     // 새로운 형식: [단계번호] 요일교시|학급|교사명|과목명↔요일교시|학급|교사명|과목명
-    String description = '[$stepNumber] ${fromNode.day}${fromNode.period}|${fromNode.className}|${fromNode.teacherName}|${fromNode.subjectName}↔${toNode.day}${toNode.period}|${toNode.className}|${toNode.teacherName}|${toNode.subjectName}';
+    String description =
+        '[$stepNumber] ${fromNode.day}${fromNode.period}|${fromNode.className}|${fromNode.teacherName}|${fromNode.subjectName}↔${toNode.day}${toNode.period}|${toNode.className}|${toNode.teacherName}|${toNode.subjectName}';
 
     return DualStep(
       stepNumber: stepNumber,
@@ -63,7 +64,7 @@ class DualStep {
   String toString() {
     return 'DualStep($stepNumber: $description)';
   }
-  
+
   /// JSON 직렬화 (저장용)
   Map<String, dynamic> toJson() {
     return {
@@ -74,7 +75,7 @@ class DualStep {
       'description': description,
     };
   }
-  
+
   /// JSON 역직렬화 (로드용)
   factory DualStep.fromJson(Map<String, dynamic> json) {
     return DualStep(

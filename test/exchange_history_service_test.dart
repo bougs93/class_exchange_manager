@@ -79,8 +79,11 @@ void main() {
       expect(_activeDescriptions(service), isEmpty);
       expect(service.canUndo, isFalse);
       expect(service.canRedo, isTrue);
-      expect(service.getRedoStack().map((e) => e.description).toList(),
-          ['C', 'B', 'A']);
+      expect(service.getRedoStack().map((e) => e.description).toList(), [
+        'C',
+        'B',
+        'A',
+      ]);
     });
 
     test('undo 3회 후 redo 3회 → 원래 상태 복구', () {
@@ -160,10 +163,7 @@ void main() {
 
     test('maxUndoItems(10) 초과 시 스택은 10개만 유지', () {
       for (var i = 1; i <= 11; i++) {
-        service.addExchange(
-          _createTestPath('$i'),
-          customDescription: 'E$i',
-        );
+        service.addExchange(_createTestPath('$i'), customDescription: 'E$i');
       }
 
       expect(service.getExchangeList().length, 11);

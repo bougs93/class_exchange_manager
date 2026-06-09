@@ -1,4 +1,3 @@
-﻿
 /// 캐시 타입 열거형
 enum CacheType {
   cellSelection,
@@ -46,41 +45,95 @@ class CellCacheManager {
     // 캐시 미스 - 실제 계산 수행
     bool result = checker();
     cache[key] = result;
-    
+
     // 캐시 미스 로그 (디버깅용, 필요시 제거)
     // print('[CellCacheManager] 캐시 미스: ${cacheType.name} - $key = $result');
-    
+
     return result;
   }
 
   /// 셀 선택 상태 캐시 확인
-  bool getCellSelectionCached(String teacherName, String day, int period, bool Function() checker) {
-    return _getCached(CacheType.cellSelection, teacherName, day, period, checker);
+  bool getCellSelectionCached(
+    String teacherName,
+    String day,
+    int period,
+    bool Function() checker,
+  ) {
+    return _getCached(
+      CacheType.cellSelection,
+      teacherName,
+      day,
+      period,
+      checker,
+    );
   }
 
   /// 타겟 셀 상태 캐시 확인
-  bool getCellTargetCached(String teacherName, String day, int period, bool Function() checker) {
+  bool getCellTargetCached(
+    String teacherName,
+    String day,
+    int period,
+    bool Function() checker,
+  ) {
     return _getCached(CacheType.cellTarget, teacherName, day, period, checker);
   }
 
   /// 교체 가능 여부 캐시 확인
-  bool getExchangeableCached(String teacherName, String day, int period, bool Function() checker) {
-    return _getCached(CacheType.exchangeable, teacherName, day, period, checker);
+  bool getExchangeableCached(
+    String teacherName,
+    String day,
+    int period,
+    bool Function() checker,
+  ) {
+    return _getCached(
+      CacheType.exchangeable,
+      teacherName,
+      day,
+      period,
+      checker,
+    );
   }
 
   /// 순환교체 경로 포함 여부 캐시 확인
-  bool getCircularPathCached(String teacherName, String day, int period, bool Function() checker) {
-    return _getCached(CacheType.circularPath, teacherName, day, period, checker);
+  bool getCircularPathCached(
+    String teacherName,
+    String day,
+    int period,
+    bool Function() checker,
+  ) {
+    return _getCached(
+      CacheType.circularPath,
+      teacherName,
+      day,
+      period,
+      checker,
+    );
   }
 
   /// 2중교체 경로 포함 여부 캐시 확인
-  bool getDualPathCached(String teacherName, String day, int period, bool Function() checker) {
+  bool getDualPathCached(
+    String teacherName,
+    String day,
+    int period,
+    bool Function() checker,
+  ) {
     return _getCached(CacheType.dualPath, teacherName, day, period, checker);
   }
 
   /// 교체불가 여부 캐시 확인
-  bool getNonExchangeableCached(String teacherName, String day, int period, bool Function() checker) {
-    return _getCached(CacheType.nonExchangeable, teacherName, day, period, checker);
+  bool getNonExchangeableCached(
+    String teacherName,
+    String day,
+    int period,
+    bool Function() checker,
+  ) {
+    return _getCached(
+      CacheType.nonExchangeable,
+      teacherName,
+      day,
+      period,
+      checker,
+    );
   }
 
   /// 모든 캐시 초기화

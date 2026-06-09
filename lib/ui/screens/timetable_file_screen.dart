@@ -17,7 +17,8 @@ class TimetableFileScreen extends ConsumerStatefulWidget {
   const TimetableFileScreen({super.key});
 
   @override
-  ConsumerState<TimetableFileScreen> createState() => _TimetableFileScreenState();
+  ConsumerState<TimetableFileScreen> createState() =>
+      _TimetableFileScreenState();
 }
 
 class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
@@ -28,10 +29,10 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
   @override
   void initState() {
     super.initState();
-    
+
     // StateProxy 초기화
     _stateProxy = ExchangeScreenStateProxy(ref);
-    
+
     // Manager 초기화 (엑셀 파일 처리 및 상태 관리)
     _operationManager = ExchangeOperationManager(
       context: context,
@@ -54,7 +55,7 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
     if (_operationManager != null) {
       // 파일 선택 시도
       bool fileSelected = await _operationManager!.selectExcelFile();
-      
+
       // 파일 선택이 성공한 경우에만 초기화 수행
       if (fileSelected) {
         // 파일 선택 후 보기 모드로 전환
@@ -62,10 +63,10 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
         globalNotifier.setCurrentMode(ExchangeMode.view);
 
         // 파일 선택 후 Level 3 초기화
-        ref.read(stateResetProvider.notifier).resetAllStates(
-          reason: '파일 선택 후 전체 상태 초기화',
-        );
-        
+        ref
+            .read(stateResetProvider.notifier)
+            .resetAllStates(reason: '파일 선택 후 전체 상태 초기화');
+
         if (mounted) {
           setState(() {});
         }
@@ -89,9 +90,7 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
                 size: 28,
               ),
               const SizedBox(width: 12),
-              const Expanded(
-                child: Text('파일 선택 해제'),
-              ),
+              const Expanded(child: Text('파일 선택 해제')),
             ],
           ),
           content: const Text(
@@ -104,9 +103,7 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
             ),
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.red,
-              ),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
               child: const Text('해제'),
             ),
           ],
@@ -137,9 +134,9 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
           children: [
             // 현재 파일 정보 카드
             _buildFileInfoCard(context, theme, selectedFile),
-            
+
             const SizedBox(height: 24),
-            
+
             // 파일 관리 버튼들
             _buildActionButtons(context, theme, selectedFile, isLoading),
           ],
@@ -237,24 +234,22 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
         // 다른 파일 선택 버튼
         ElevatedButton.icon(
           onPressed: isLoading ? null : _selectExcelFile,
-          icon: isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          icon:
+              isLoading
+                  ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                  : Icon(
+                    selectedFile == null ? Icons.upload_file : Icons.refresh,
                   ),
-                )
-              : Icon(
-                  selectedFile == null ? Icons.upload_file : Icons.refresh,
-                ),
           label: Text(
             selectedFile == null ? '엑셀 파일 선택' : '다른 파일 선택',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: theme.primaryColor,
@@ -266,28 +261,24 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
             elevation: 2,
           ),
         ),
-        
+
         const SizedBox(height: 12),
-        
+
         // 파일 선택 해제 버튼 (파일이 선택된 경우에만 표시)
         if (selectedFile != null)
           OutlinedButton.icon(
             onPressed: isLoading ? null : _clearSelectedFile,
-            icon: isLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                    ),
-                  )
-                : const Icon(Icons.delete_outline),
+            icon:
+                isLoading
+                    ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                    : const Icon(Icons.delete_outline),
             label: const Text(
               '파일 선택 해제',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.red,
@@ -302,4 +293,3 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
     );
   }
 }
-

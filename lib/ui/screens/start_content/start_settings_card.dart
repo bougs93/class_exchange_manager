@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../constants/teacher_row_highlight_colors.dart';
 import '../../../providers/app_settings_provider.dart';
@@ -21,10 +21,7 @@ import 'setting_save_mixin.dart';
 class StartSettingsCard extends ConsumerStatefulWidget {
   final VoidCallback onDataReset;
 
-  const StartSettingsCard({
-    super.key,
-    required this.onDataReset,
-  });
+  const StartSettingsCard({super.key, required this.onDataReset});
 
   @override
   ConsumerState<StartSettingsCard> createState() => _StartSettingsCardState();
@@ -70,8 +67,9 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
 
         // 구 프리셋은 교체 범례와 유사하여 자동 교체
         final colorValue = results[1] as int?;
-        final resolvedColor =
-            TeacherRowHighlightColors.resolveSavedColor(colorValue);
+        final resolvedColor = TeacherRowHighlightColors.resolveSavedColor(
+          colorValue,
+        );
         _highlightedTeacherColor = resolvedColor;
         if (colorValue != null && resolvedColor.toARGB32() != colorValue) {
           SimplifiedTimetableTheme.setHighlightedTeacherColor(resolvedColor);
@@ -102,20 +100,22 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
   /// 2중 교체 설정 저장
   Future<void> _saveDualExchangeEnabled(bool enabled) async {
     await saveSetting(
-      saver: () =>
-          ref.read(dualExchangeEnabledProvider.notifier).setEnabled(enabled),
-      successMessage:
-          enabled ? '2중 교체 기능이 활성화되었습니다.' : '2중 교체 기능이 비활성화되었습니다.',
+      saver:
+          () => ref
+              .read(dualExchangeEnabledProvider.notifier)
+              .setEnabled(enabled),
+      successMessage: enabled ? '2중 교체 기능이 활성화되었습니다.' : '2중 교체 기능이 비활성화되었습니다.',
     );
   }
 
   /// 순환 교체 설정 저장
   Future<void> _saveCircularExchangeEnabled(bool enabled) async {
     await saveSetting(
-      saver: () =>
-          ref.read(circularExchangeEnabledProvider.notifier).setEnabled(enabled),
-      successMessage:
-          enabled ? '순환 교체 기능이 활성화되었습니다.' : '순환 교체 기능이 비활성화되었습니다.',
+      saver:
+          () => ref
+              .read(circularExchangeEnabledProvider.notifier)
+              .setEnabled(enabled),
+      successMessage: enabled ? '순환 교체 기능이 활성화되었습니다.' : '순환 교체 기능이 비활성화되었습니다.',
     );
   }
 
@@ -137,32 +137,33 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
   Future<void> _resetAllData() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('데이터 초기화', style: TextStyle(color: Colors.red)),
-        content: const Text(
-          '모든 저장된 데이터를 삭제하시겠습니까?\n\n'
-          '다음 데이터가 삭제됩니다:\n'
-          '• 시간표 데이터\n'
-          '• 교체 리스트\n'
-          '• 교체불가 셀 데이터\n'
-          '• 결보강 계획서 데이터\n'
-          '• PDF 출력 설정\n'
-          '• 시간표 테마 설정\n'
-          '• 앱 설정\n\n'
-          '이 작업은 되돌릴 수 없습니다!',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('취소'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('데이터 초기화', style: TextStyle(color: Colors.red)),
+            content: const Text(
+              '모든 저장된 데이터를 삭제하시겠습니까?\n\n'
+              '다음 데이터가 삭제됩니다:\n'
+              '• 시간표 데이터\n'
+              '• 교체 리스트\n'
+              '• 교체불가 셀 데이터\n'
+              '• 결보강 계획서 데이터\n'
+              '• PDF 출력 설정\n'
+              '• 시간표 테마 설정\n'
+              '• 앱 설정\n\n'
+              '이 작업은 되돌릴 수 없습니다!',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('취소'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('모두 삭제'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('모두 삭제'),
-          ),
-        ],
-      ),
     );
 
     if (confirmed != true) return;
@@ -235,7 +236,10 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
         ),
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 4.0,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -286,10 +290,11 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
               child: Text('한국어', style: TextStyle(fontSize: 12)),
             ),
           ],
-          onChanged: (newValue) =>
-              newValue != null && newValue != _selectedLanguage
-                  ? _saveLanguage(newValue)
-                  : null,
+          onChanged:
+              (newValue) =>
+                  newValue != null && newValue != _selectedLanguage
+                      ? _saveLanguage(newValue)
+                      : null,
         ),
       ],
     );
@@ -470,16 +475,17 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
-            child: _isResetting
-                ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : const Text('모든 데이터 삭제', style: TextStyle(fontSize: 14)),
+            child:
+                _isResetting
+                    ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                    : const Text('모든 데이터 삭제', style: TextStyle(fontSize: 14)),
           ),
         ),
       ],

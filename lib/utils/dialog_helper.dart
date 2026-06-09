@@ -39,28 +39,32 @@ class DialogHelper {
   }) {
     return showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              cancelText,
-              style: TextStyle(color: Colors.grey.shade600),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(
-              confirmText,
-              style: TextStyle(
-                color: isDangerous ? Colors.red.shade600 : Colors.blue.shade600,
+      builder:
+          (context) => AlertDialog(
+            title: Text(title),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(
+                  cancelText,
+                  style: TextStyle(color: Colors.grey.shade600),
+                ),
               ),
-            ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(
+                  confirmText,
+                  style: TextStyle(
+                    color:
+                        isDangerous
+                            ? Colors.red.shade600
+                            : Colors.blue.shade600,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -85,19 +89,20 @@ class DialogHelper {
   }) {
     return showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              buttonText,
-              style: TextStyle(color: Colors.blue.shade600),
-            ),
+      builder:
+          (context) => AlertDialog(
+            title: Text(title),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  buttonText,
+                  style: TextStyle(color: Colors.blue.shade600),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -128,19 +133,20 @@ class DialogHelper {
   }) {
     return showDialog<int>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: List.generate(
-            choices.length,
-            (index) => ListTile(
-              title: Text(choices[index]),
-              onTap: () => Navigator.pop(context, index),
+      builder:
+          (context) => AlertDialog(
+            title: Text(title),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(
+                choices.length,
+                (index) => ListTile(
+                  title: Text(choices[index]),
+                  onTap: () => Navigator.pop(context, index),
+                ),
+              ),
             ),
           ),
-        ),
-      ),
     );
   }
 }

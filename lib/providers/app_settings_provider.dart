@@ -1,4 +1,4 @@
-﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/app_settings_storage_service.dart';
 import '../utils/logger.dart';
 
@@ -8,8 +8,8 @@ class DualExchangeEnabledNotifier extends StateNotifier<bool> {
     DualExchangeSettingsStorage? storageService,
     bool skipInitialLoad = false,
     bool? initialValue,
-  })  : _storageService = storageService ?? AppSettingsStorageService(),
-        super(initialValue ?? true) {
+  }) : _storageService = storageService ?? AppSettingsStorageService(),
+       super(initialValue ?? true) {
     if (!skipInitialLoad && initialValue == null) {
       _loadInitial();
     }
@@ -50,8 +50,8 @@ class DualExchangeEnabledNotifier extends StateNotifier<bool> {
 /// 2중 교체 기능 활성화 여부 Provider
 final dualExchangeEnabledProvider =
     StateNotifierProvider<DualExchangeEnabledNotifier, bool>((ref) {
-  return DualExchangeEnabledNotifier();
-});
+      return DualExchangeEnabledNotifier();
+    });
 
 /// 순환 교체 기능 활성화 여부를 관리하는 Notifier
 class CircularExchangeEnabledNotifier extends StateNotifier<bool> {
@@ -59,8 +59,8 @@ class CircularExchangeEnabledNotifier extends StateNotifier<bool> {
     CircularExchangeSettingsStorage? storageService,
     bool skipInitialLoad = false,
     bool? initialValue,
-  })  : _storageService = storageService ?? AppSettingsStorageService(),
-        super(initialValue ?? false) {
+  }) : _storageService = storageService ?? AppSettingsStorageService(),
+       super(initialValue ?? false) {
     if (!skipInitialLoad && initialValue == null) {
       _loadInitial();
     }
@@ -84,7 +84,9 @@ class CircularExchangeEnabledNotifier extends StateNotifier<bool> {
     }
 
     try {
-      final success = await _storageService.saveCircularExchangeEnabled(enabled);
+      final success = await _storageService.saveCircularExchangeEnabled(
+        enabled,
+      );
       if (success) {
         state = enabled;
       }
@@ -99,5 +101,5 @@ class CircularExchangeEnabledNotifier extends StateNotifier<bool> {
 /// 순환 교체 기능 활성화 여부 Provider
 final circularExchangeEnabledProvider =
     StateNotifierProvider<CircularExchangeEnabledNotifier, bool>((ref) {
-  return CircularExchangeEnabledNotifier();
-});
+      return CircularExchangeEnabledNotifier();
+    });

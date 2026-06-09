@@ -16,15 +16,13 @@ class InputDecorationHelper {
   }) {
     return InputDecoration(
       hintText: hintText,
-      hintStyle: TextStyle(
-        fontSize: 12,
-        color: Colors.grey.shade400,
-      ),
+      hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
       filled: true,
       fillColor: Colors.white,
-      contentPadding: isDense
-          ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
-          : const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      contentPadding:
+          isDense
+              ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
+              : const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       isDense: isDense,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),

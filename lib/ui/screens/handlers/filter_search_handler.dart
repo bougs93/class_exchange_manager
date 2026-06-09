@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../../../models/circular_exchange_path.dart';
 import '../../../utils/logger.dart';
 import '../../state_managers/filter_state_manager.dart';
@@ -44,8 +44,12 @@ mixin FilterSearchHandler<T extends StatefulWidget> on State<T> {
     setSelectedDay(day);
     filterStateManager.setDayFilter(day);
 
-    String mode = isExchangeModeEnabled ? '1:1교체' :
-                  isCircularExchangeModeEnabled ? '순환교체' : '2중교체';
+    String mode =
+        isExchangeModeEnabled
+            ? '1:1교체'
+            : isCircularExchangeModeEnabled
+            ? '순환교체'
+            : '2중교체';
     AppLogger.exchangeDebug('$mode 요일 필터 변경: ${day ?? "전체"}');
   }
 
@@ -87,9 +91,13 @@ mixin FilterSearchHandler<T extends StatefulWidget> on State<T> {
     setAvailableSteps(newAvailableSteps);
 
     // 순환교체: 가장 높은 단계를 기본 선택으로 설정
-    setSelectedStep(newAvailableSteps.isNotEmpty ? newAvailableSteps.last : null);
+    setSelectedStep(
+      newAvailableSteps.isNotEmpty ? newAvailableSteps.last : null,
+    );
 
-    AppLogger.exchangeDebug('사용 가능한 단계들: $newAvailableSteps, 선택된 단계: $selectedStep');
+    AppLogger.exchangeDebug(
+      '사용 가능한 단계들: $newAvailableSteps, 선택된 단계: $selectedStep',
+    );
   }
 
   /// 검색 쿼리 업데이트 및 필터링

@@ -41,13 +41,10 @@ const List<String> kPdfTableColumns = [
 
 /// PDF 템플릿 정보(간단한 이름과 에셋 경로)
 class PdfTemplateInfo {
-  final String name;      // UI에 표시할 이름
+  final String name; // UI에 표시할 이름
   final String assetPath; // Flutter 에셋 경로
 
-  const PdfTemplateInfo({
-    required this.name,
-    required this.assetPath,
-  });
+  const PdfTemplateInfo({required this.name, required this.assetPath});
 }
 
 /// 선택 가능한 PDF 템플릿 목록
@@ -66,15 +63,12 @@ const List<PdfTemplateInfo> kPdfTemplates = [
 
 /// 복합 필드 베이스 이름 허용 목록
 /// 예: 'date(day)' → 1행은 'date(day).0'
-const List<String> kPdfCompositeFieldBases = [
-  'date(day)',
-  '3date(3day)',
-];
+const List<String> kPdfCompositeFieldBases = ['date(day)', '3date(3day)'];
 
 /// 컬럼 키 → 1 기반 인덱스 매핑
 /// PDF 템플릿이 행·열 규칙으로 필드명을 가지는 경우에 사용합니다.
 final Map<String, int> kPdfColumnIndex = {
-  for (int i = 0; i < kPdfTableColumns.length; i++) kPdfTableColumns[i]: i + 1
+  for (int i = 0; i < kPdfTableColumns.length; i++) kPdfTableColumns[i]: i + 1,
 };
 
 /// 표 셀의 PDF 필드명 생성 함수
@@ -123,7 +117,7 @@ String formatCompositeFieldValue(String compositeField, List<String> values) {
   // 복합 필드 이름에서 괄호 형식 추출
   // 예: 'date(day)' → primary='date', secondary='day'
   final match = _compositeFieldRegex.firstMatch(compositeField);
-  
+
   if (match != null) {
     // 값의 개수에 맞춰 포맷팅
     if (values.length == 2) {
@@ -133,7 +127,7 @@ String formatCompositeFieldValue(String compositeField, List<String> values) {
       return '${values[0]}(${values.sublist(1).join(',')})';
     }
   }
-  
+
   // 기본: 공백으로 구분
   return values.join(' ');
 }
@@ -142,7 +136,7 @@ String formatCompositeFieldValue(String compositeField, List<String> values) {
 /// 예: 'date(day)' → ['date', 'day']
 final Map<String, List<String>> kPdfCompositeFieldMapping = {
   for (String composite in kPdfCompositeFieldBases)
-    composite: parseCompositeField(composite)
+    composite: parseCompositeField(composite),
 };
 
 /// (옵션) 헤더/메타 필드가 필요한 경우 여기에 정의하세요.
@@ -151,5 +145,3 @@ const Map<String, String> kPdfHeaderFields = {
   // 'date': 'H_DATE',
   // 'writer': 'H_WRITER',
 };
-
-

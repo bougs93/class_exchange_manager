@@ -6,25 +6,25 @@ import '../utils/fixed_header_style_manager.dart';
 import '../utils/logger.dart';
 
 /// 줌 상태를 관리하는 클래스
-/// 
+///
 /// 확대/축소 비율과 관련된 모든 상태를 중앙에서 관리하며,
 /// UI 반응성을 개선하기 위해 Riverpod을 사용합니다.
 class ZoomState {
   /// 현재 확대 비율 (1.0 = 100%)
   final double zoomFactor;
-  
+
   /// 확대 비율을 퍼센트로 변환한 값
   final int zoomPercentage;
-  
+
   /// 최소 확대 비율
   final double minZoom;
-  
+
   /// 최대 확대 비율
   final double maxZoom;
-  
+
   /// 확대/축소 단계
   final double zoomStep;
-  
+
   /// 기본 확대 비율
   final double defaultZoomFactor;
 
@@ -58,10 +58,10 @@ class ZoomState {
 
   /// 줌이 가능한지 확인 (확대)
   bool get canZoomIn => zoomFactor < maxZoom;
-  
+
   /// 줌이 가능한지 확인 (축소)
   bool get canZoomOut => zoomFactor > minZoom;
-  
+
   /// 기본 줌 상태인지 확인
   bool get isDefaultZoom => zoomFactor == defaultZoomFactor;
 
@@ -96,7 +96,7 @@ class ZoomState {
 }
 
 /// 줌 상태를 관리하는 Notifier 클래스
-/// 
+///
 /// 확대/축소 기능과 관련된 모든 비즈니스 로직을 담당하며,
 /// 상태 변경 시 자동으로 UI가 업데이트됩니다.
 class ZoomNotifier extends StateNotifier<ZoomState> {
@@ -123,8 +123,10 @@ class ZoomNotifier extends StateNotifier<ZoomState> {
   void zoomIn() {
     if (!state.canZoomIn) return;
 
-    final newZoomFactor = (state.zoomFactor + state.zoomStep)
-        .clamp(state.minZoom, state.maxZoom);
+    final newZoomFactor = (state.zoomFactor + state.zoomStep).clamp(
+      state.minZoom,
+      state.maxZoom,
+    );
 
     _updateZoomFactor(newZoomFactor);
   }
@@ -135,8 +137,10 @@ class ZoomNotifier extends StateNotifier<ZoomState> {
   void zoomOut() {
     if (!state.canZoomOut) return;
 
-    final newZoomFactor = (state.zoomFactor - state.zoomStep)
-        .clamp(state.minZoom, state.maxZoom);
+    final newZoomFactor = (state.zoomFactor - state.zoomStep).clamp(
+      state.minZoom,
+      state.maxZoom,
+    );
 
     _updateZoomFactor(newZoomFactor);
   }
@@ -162,16 +166,16 @@ class ZoomNotifier extends StateNotifier<ZoomState> {
   }
 
   /// 확대 비율 업데이트 (내부 메서드)
-  /// 
+  ///
   /// [newZoomFactor] 새로운 확대 비율
   void _updateZoomFactor(double newZoomFactor) {
     final newZoomPercentage = (newZoomFactor * 100).round();
-    
+
     state = state.copyWith(
       zoomFactor: newZoomFactor,
       zoomPercentage: newZoomPercentage,
     );
-    
+
     // 폰트 스케일 팩터 업데이트
     _updateFontScaleFactor();
   }
@@ -182,10 +186,10 @@ class ZoomNotifier extends StateNotifier<ZoomState> {
   /// 헤더 캐시도 무효화하여 새로운 폰트 크기가 반영되도록 합니다.
   void _updateFontScaleFactor() {
     SimplifiedTimetableTheme.setFontScaleFactor(state.zoomFactor);
-    
+
     // 헤더 캐시 무효화 (줌 팩터 변경 시 헤더 폰트 크기도 업데이트되도록)
     FixedHeaderStyleManager.clearCache();
-    
+
     if (kDebugMode) {
       AppLogger.exchangeDebug('폰트 스케일 팩터 업데이트: ${state.zoomFactor}');
     }
@@ -203,7 +207,7 @@ class ZoomNotifier extends StateNotifier<ZoomState> {
   }
 
   /// 줌 설정 정보 조회
-  /// 
+  ///
   /// 현재 줌 상태와 설정 가능한 범위를 반환합니다.
   Map<String, dynamic> getZoomInfo() {
     return {

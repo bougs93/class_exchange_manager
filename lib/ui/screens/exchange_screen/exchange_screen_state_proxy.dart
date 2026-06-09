@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/circular_exchange_path.dart';
 import '../../../models/dual_exchange_path.dart';
@@ -20,7 +20,8 @@ class ExchangeScreenStateProxy {
   ExchangeScreenStateProxy(this.ref);
 
   // Private helpers
-  ExchangeScreenNotifier get _notifier => ref.read(exchangeScreenProvider.notifier);
+  ExchangeScreenNotifier get _notifier =>
+      ref.read(exchangeScreenProvider.notifier);
   ExchangeScreenState _getState() => ref.read(exchangeScreenProvider);
 
   // ===== ExchangeLogicMixin 관련 상태 =====
@@ -29,18 +30,28 @@ class ExchangeScreenStateProxy {
   void setCurrentMode(ExchangeMode value) => _notifier.setCurrentMode(value);
 
   // 편의 getter들 (기존 코드와의 호환성을 위해 유지)
-  bool get isExchangeModeEnabled => _getState().currentMode == ExchangeMode.oneToOneExchange;
-  bool get isCircularExchangeModeEnabled => _getState().currentMode == ExchangeMode.circularExchange;
-  bool get isDualExchangeModeEnabled => _getState().currentMode == ExchangeMode.dualExchange;
-  bool get isSupplementExchangeModeEnabled => _getState().currentMode == ExchangeMode.supplementExchange;
-  bool get isNonExchangeableEditMode => _getState().currentMode == ExchangeMode.nonExchangeableEdit;
+  bool get isExchangeModeEnabled =>
+      _getState().currentMode == ExchangeMode.oneToOneExchange;
+  bool get isCircularExchangeModeEnabled =>
+      _getState().currentMode == ExchangeMode.circularExchange;
+  bool get isDualExchangeModeEnabled =>
+      _getState().currentMode == ExchangeMode.dualExchange;
+  bool get isSupplementExchangeModeEnabled =>
+      _getState().currentMode == ExchangeMode.supplementExchange;
+  bool get isNonExchangeableEditMode =>
+      _getState().currentMode == ExchangeMode.nonExchangeableEdit;
 
   // 편의 setter들 (기존 코드와의 호환성을 위해 유지)
-  void setExchangeModeEnabled(bool enabled) => _setModeEnabled(ExchangeMode.oneToOneExchange, enabled);
-  void setCircularExchangeModeEnabled(bool enabled) => _setModeEnabled(ExchangeMode.circularExchange, enabled);
-  void setDualExchangeModeEnabled(bool enabled) => _setModeEnabled(ExchangeMode.dualExchange, enabled);
-  void setSupplementExchangeModeEnabled(bool enabled) => _setModeEnabled(ExchangeMode.supplementExchange, enabled);
-  void setNonExchangeableEditMode(bool enabled) => _setModeEnabled(ExchangeMode.nonExchangeableEdit, enabled);
+  void setExchangeModeEnabled(bool enabled) =>
+      _setModeEnabled(ExchangeMode.oneToOneExchange, enabled);
+  void setCircularExchangeModeEnabled(bool enabled) =>
+      _setModeEnabled(ExchangeMode.circularExchange, enabled);
+  void setDualExchangeModeEnabled(bool enabled) =>
+      _setModeEnabled(ExchangeMode.dualExchange, enabled);
+  void setSupplementExchangeModeEnabled(bool enabled) =>
+      _setModeEnabled(ExchangeMode.supplementExchange, enabled);
+  void setNonExchangeableEditMode(bool enabled) =>
+      _setModeEnabled(ExchangeMode.nonExchangeableEdit, enabled);
 
   /// 내부 헬퍼: 모드 활성화/비활성화 공통 로직
   void _setModeEnabled(ExchangeMode mode, bool enabled) {
@@ -50,7 +61,8 @@ class ExchangeScreenStateProxy {
   // ===== ExchangeFileHandler 관련 상태 =====
 
   TimetableData? get timetableData => _getState().timetableData;
-  void setTimetableData(TimetableData? value) => _notifier.setTimetableData(value);
+  void setTimetableData(TimetableData? value) =>
+      _notifier.setTimetableData(value);
 
   File? get selectedFile => _getState().selectedFile;
   void setSelectedFile(File? value) => _notifier.setSelectedFile(value);
@@ -71,20 +83,28 @@ class ExchangeScreenStateProxy {
 
   // 통합된 경로 접근
   List<ExchangePath> get availablePaths => _getState().availablePaths;
-  void setAvailablePaths(List<ExchangePath> value) => _notifier.setAvailablePaths(value);
+  void setAvailablePaths(List<ExchangePath> value) =>
+      _notifier.setAvailablePaths(value);
 
   // 선택된 경로들
-  OneToOneExchangePath? get selectedOneToOnePath => _getState().selectedOneToOnePath;
-  void setSelectedOneToOnePath(OneToOneExchangePath? value) => _notifier.setSelectedOneToOnePath(value);
+  OneToOneExchangePath? get selectedOneToOnePath =>
+      _getState().selectedOneToOnePath;
+  void setSelectedOneToOnePath(OneToOneExchangePath? value) =>
+      _notifier.setSelectedOneToOnePath(value);
 
-  CircularExchangePath? get selectedCircularPath => _getState().selectedCircularPath;
-  void setSelectedCircularPath(CircularExchangePath? value) => _notifier.setSelectedCircularPath(value);
+  CircularExchangePath? get selectedCircularPath =>
+      _getState().selectedCircularPath;
+  void setSelectedCircularPath(CircularExchangePath? value) =>
+      _notifier.setSelectedCircularPath(value);
 
   DualExchangePath? get selectedDualPath => _getState().selectedDualPath;
-  void setSelectedDualPath(DualExchangePath? value) => _notifier.setSelectedDualPath(value);
+  void setSelectedDualPath(DualExchangePath? value) =>
+      _notifier.setSelectedDualPath(value);
 
-  SupplementExchangePath? get selectedSupplementPath => _getState().selectedSupplementPath;
-  void setSelectedSupplementPath(SupplementExchangePath? value) => _notifier.setSelectedSupplementPath(value);
+  SupplementExchangePath? get selectedSupplementPath =>
+      _getState().selectedSupplementPath;
+  void setSelectedSupplementPath(SupplementExchangePath? value) =>
+      _notifier.setSelectedSupplementPath(value);
 
   bool get isSidebarVisible => _getState().isSidebarVisible;
   void setSidebarVisible(bool value) => _notifier.setSidebarVisible(value);

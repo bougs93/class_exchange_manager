@@ -16,10 +16,7 @@ class PngClipboardUtils {
       return pngBytes;
     }
 
-    final flattened = img.Image(
-      width: decoded.width,
-      height: decoded.height,
-    );
+    final flattened = img.Image(width: decoded.width, height: decoded.height);
     img.fill(flattened, color: img.ColorRgba8(255, 255, 255, 255));
     img.compositeImage(flattened, decoded);
 

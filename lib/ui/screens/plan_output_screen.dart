@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/plan_output_menu.dart';
 import '../../ui/widgets/unified_navigation_bar.dart';
@@ -46,7 +46,9 @@ class _PlanOutputScreenState extends ConsumerState<PlanOutputScreen> {
 
       // 파일 출력 탭으로 전환된 경우 결강기간 업데이트
       final substitutionOutputIndex = PlanOutputMenu.substitutionOutput.index;
-      AppLogger.exchangeDebug('메뉴 변경 감지: 인덱스 $index (파일 출력: $substitutionOutputIndex)');
+      AppLogger.exchangeDebug(
+        '메뉴 변경 감지: 인덱스 $index (파일 출력: $substitutionOutputIndex)',
+      );
 
       if (index == substitutionOutputIndex) {
         AppLogger.info('📄 파일 출력 메뉴 진입: 결강기간 업데이트 및 입력란 자동 채우기 요청');
@@ -116,7 +118,10 @@ class _PlanOutputScreenState extends ConsumerState<PlanOutputScreen> {
                 final isSelected = _selectedIndex == index;
 
                 return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
@@ -143,7 +148,9 @@ class _PlanOutputScreenState extends ConsumerState<PlanOutputScreen> {
                               type.icon,
                               size: 18,
                               color:
-                                  isSelected ? type.color : Colors.grey.shade600,
+                                  isSelected
+                                      ? type.color
+                                      : Colors.grey.shade600,
                             ),
                             const SizedBox(width: 4),
                             Expanded(
