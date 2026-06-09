@@ -23,7 +23,7 @@ class KoreanFontConstants {
 
   /// UI 표시용 폰트 정보 (파일명 + 한글명)
   ///
-  /// file_export_widget에서 드롭다운 표시용으로 사용됩니다.
+  /// substitution_output_widget에서 드롭다운 표시용으로 사용됩니다.
   static const List<Map<String, String>> fontListWithNames = [
     {'file': 'malgun.ttf', 'name': '맑은 고딕'},
     {'file': 'malgunbd.ttf', 'name': '맑은 고딕 Bold'},

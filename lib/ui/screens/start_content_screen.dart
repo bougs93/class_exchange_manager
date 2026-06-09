@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/exchange_screen_provider.dart';
@@ -12,22 +12,22 @@ import 'exchange_screen/managers/exchange_operation_manager.dart';
 import '../widgets/app_branding_header.dart';
 import '../widgets/app_content_card.dart';
 import '../widgets/selected_timetable_file_banner.dart';
-import 'home_content/home_settings_card.dart';
-import 'home_content/setting_save_mixin.dart';
+import 'start_content/start_settings_card.dart';
+import 'start_content/setting_save_mixin.dart';
 
-/// 홈 콘텐츠 화면
+/// 시작 화면 콘텐츠
 ///
-/// 메인 홈 화면의 내용을 표시합니다.
+/// 엑셀 불러오기·기본 정보·설정을 표시합니다.
 /// - 시간표 파일 선택 카드 / 기본 정보 카드
 /// - 설정 (언어, 하이라이트 색상, 저장 위치 등) — 기본 정보는 별도 카드에서 편집
-class HomeContentScreen extends ConsumerStatefulWidget {
-  const HomeContentScreen({super.key});
+class StartContentScreen extends ConsumerStatefulWidget {
+  const StartContentScreen({super.key});
 
   @override
-  ConsumerState<HomeContentScreen> createState() => _HomeContentScreenState();
+  ConsumerState<StartContentScreen> createState() => _StartContentScreenState();
 }
 
-class _HomeContentScreenState extends ConsumerState<HomeContentScreen>
+class _StartContentScreenState extends ConsumerState<StartContentScreen>
     with SettingSaveMixin {
   // 엑셀 파일 선택 관련 상태 관리
   ExchangeScreenStateProxy? _stateProxy;
@@ -65,7 +65,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen>
     if (mounted) setState(() {});
   }
 
-  /// 교사명·학교명 로드 (언어·색상 등 설정은 HomeSettingsCard가 자체 로드)
+  /// 교사명·학교명 로드 (언어·색상 등 설정은 StartSettingsCard가 자체 로드)
   Future<void> _loadSettings() async {
     try {
       final appSettings = AppSettingsStorageService();
@@ -257,7 +257,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen>
             const SizedBox(height: 24),
 
             // 설정 카드 (접을 수 있음) — 언어·색상·초기화 등은 카드가 자체 관리
-            HomeSettingsCard(
+            StartSettingsCard(
               onDataReset: () {
                 _teacherNameController.clear();
                 _schoolNameController.clear();

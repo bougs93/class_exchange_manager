@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
-import 'document_screen/widgets/class_notice_widget.dart';
-import 'document_screen/widgets/teacher_notice_widget.dart';
+﻿import 'package:flutter/material.dart';
+import 'notice/widgets/class_notice_widget.dart';
+import 'notice/widgets/teacher_notice_widget.dart';
 import '../widgets/unified_navigation_bar.dart';
 
 /// 안내 화면

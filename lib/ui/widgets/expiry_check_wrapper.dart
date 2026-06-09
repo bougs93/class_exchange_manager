@@ -1,9 +1,9 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../constants/app_info.dart';
-import '../screens/home_screen.dart';
+import '../screens/start_screen.dart';
 
 /// 만료일 체크 래퍼 위젯
 ///
@@ -314,7 +314,7 @@ class _ExpiryCheckWrapperState extends State<ExpiryCheckWrapper> {
   @override
   Widget build(BuildContext context) {
     // 만료 여부와 관계없이 일단 로딩 화면을 표시
-    // 만료된 경우 다이얼로그가 표시되고, 만료되지 않은 경우 HomeScreen으로 전환
+    // 만료된 경우 다이얼로그가 표시되고, 만료되지 않은 경우 StartScreen으로 전환
     if (AppInfo.expiryDate != null && AppInfo.isExpired()) {
       // 만료된 경우 빈 화면 (다이얼로그가 표시됨)
       return Scaffold(
@@ -327,7 +327,7 @@ class _ExpiryCheckWrapperState extends State<ExpiryCheckWrapper> {
       );
     } else {
       // 만료되지 않은 경우 정상적으로 홈 화면 표시
-      return const HomeScreen();
+      return const StartScreen();
     }
   }
 }

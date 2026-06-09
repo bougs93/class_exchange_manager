@@ -1,7 +1,7 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/notice_message.dart';
-import 'document_toolbar_layout.dart';
+import 'content_toolbar_layout.dart';
 import 'timetable_grid/grid_header_widgets.dart';
 
 /// 안내 메시지 카드 위젯
@@ -96,9 +96,9 @@ class NoticeMessageCard extends StatelessWidget {
           onPressed: () => _copyToClipboard(context),
           icon: Icons.copy,
           tooltip: '클립보드에 복사',
-          backgroundColor: DocumentToolbarLayout.neutralButtonBackground,
-          foregroundColor: DocumentToolbarLayout.neutralButtonForeground,
-          borderColor: DocumentToolbarLayout.neutralButtonBorder,
+          backgroundColor: ContentToolbarLayout.neutralButtonBackground,
+          foregroundColor: ContentToolbarLayout.neutralButtonForeground,
+          borderColor: ContentToolbarLayout.neutralButtonBorder,
           iconSize: 20,
           size: 36,
         ),

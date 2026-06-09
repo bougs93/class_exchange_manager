@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
-import '../screens/document_screen/widgets/substitution_plan_grid_helpers.dart';
+﻿import 'package:flutter/material.dart';
+import '../screens/plan_output/widgets/content_input_grid_helpers.dart';
 
 /// 선택 가능한 셀의 UI 스타일을 일관되게 생성하는 Builder 클래스
 ///
@@ -47,7 +47,7 @@ class SelectableCellBuilder {
   /// Returns: TextStyle 객체
   static TextStyle buildTextStyle(bool isSelectable, bool isEmpty) {
     return TextStyle(
-      fontSize: SubstitutionPlanGridConfig.cellFontSize,
+      fontSize: ContentInputGridConfig.cellFontSize,
       height: 1.0,
       color: isSelectable && isEmpty ? selectableTextColor : normalTextColor,
       fontWeight: isSelectable && isEmpty ? FontWeight.w500 : FontWeight.normal,
@@ -73,7 +73,7 @@ class SelectableCellBuilder {
       onTap: (isSelectable && onTap != null) ? onTap : null,
       child: Container(
         alignment: Alignment.center,
-        padding: SubstitutionPlanGridConfig.cellPadding,
+        padding: ContentInputGridConfig.cellPadding,
         decoration: buildDecoration(isSelectable, isEmpty),
         child: Text(
           displayText,

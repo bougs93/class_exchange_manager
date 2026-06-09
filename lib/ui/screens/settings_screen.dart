@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../constants/teacher_row_highlight_colors.dart';
 import '../../services/app_settings_storage_service.dart';
@@ -378,7 +378,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // AppBar 제거 - HomeScreen의 공통 AppBar 사용
+      // AppBar 제거 - StartScreen의 공통 AppBar 사용
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [

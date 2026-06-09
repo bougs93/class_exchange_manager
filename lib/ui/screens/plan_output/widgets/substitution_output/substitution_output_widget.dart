@@ -1,12 +1,12 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
-import '../../../../../constants/document_usage_hints.dart';
-import '../../../../../models/document_type.dart';
+import '../../../../../constants/screen_usage_hints.dart';
+import '../../../../../models/plan_output_menu.dart';
 import '../../../../../providers/substitution_plan_viewmodel.dart';
-import '../../../../widgets/document_toolbar_layout.dart';
-import '../../../../widgets/document_usage_hint_bar.dart';
+import '../../../../widgets/content_toolbar_layout.dart';
+import '../../../../widgets/content_usage_hint_bar.dart';
 import '../../../../widgets/timetable_grid/grid_header_widgets.dart';
 import '../../../../../utils/pdf_field_config.dart';
 import '../../../../../utils/date_format_utils.dart';
@@ -36,15 +36,15 @@ enum AbsencePeriodUpdateMode {
 ///
 /// 결보강 계획서를 PDF 형식으로 미리보고 저장할 수 있는 위젯입니다.
 /// 설정 및 입력 섹션은 별도 위젯으로 분리되어 있습니다.
-class FileExportWidget extends ConsumerStatefulWidget {
-  const FileExportWidget({super.key});
+class SubstitutionOutputWidget extends ConsumerStatefulWidget {
+  const SubstitutionOutputWidget({super.key});
 
   @override
-  ConsumerState<FileExportWidget> createState() => FileExportWidgetState();
+  ConsumerState<SubstitutionOutputWidget> createState() => SubstitutionOutputWidgetState();
 }
 
-/// FileExportWidget의 State 클래스 (외부에서 접근 가능하도록 public)
-class FileExportWidgetState extends ConsumerState<FileExportWidget> {
+/// SubstitutionOutputWidget의 State 클래스 (외부에서 접근 가능하도록 public)
+class SubstitutionOutputWidgetState extends ConsumerState<SubstitutionOutputWidget> {
   // PDF 템플릿 설정
   int _selectedTemplateIndex = 0;
   String? _selectedTemplateFilePath;
@@ -69,7 +69,7 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
   @override
   void initState() {
     super.initState();
-    AppLogger.info('📄 [결강기간] FileExportWidget 초기화');
+    AppLogger.info('📄 [결강기간] SubstitutionOutputWidget 초기화');
     
     // 결강기간 필드 변경 감지 (사용자가 직접 수정한 경우 플래그 설정)
     _absencePeriodController.addListener(_onAbsencePeriodChanged);
@@ -165,7 +165,7 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
   }
 
   /// 결강기간 자동 계산 및 업데이트 (외부에서 호출 가능한 public 메서드)
-  /// 탭 진입 시 DocumentScreen에서 호출됩니다.
+  /// 탭 진입 시 PlanOutputScreen에서 호출됩니다.
   void updateAbsencePeriod() {
     AppLogger.info('📅 [결강기간] updateAbsencePeriod() 호출됨');
     final planData = ref.read(substitutionPlanViewModelProvider).planData;
@@ -431,13 +431,13 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // build는 DocumentScreen의 TabController 리스너에서 호출되는 updateAbsencePeriod()로 처리
+    // build는 PlanOutputScreen의 TabController 리스너에서 호출되는 updateAbsencePeriod()로 처리
     // 여기서는 UI만 렌더링
 
     // SingleChildScrollView로 감싸서 작은 창에서 스크롤 가능하도록 함
     return Container(
       width: double.infinity,
-      // 내용 입력(SubstitutionPlanGrid) 등 다른 문서 탭과 동일한 16px 여백
+      // 내용 입력(ContentInputGrid) 등 다른 문서 탭과 동일한 16px 여백
       padding: const EdgeInsets.all(16),
       alignment: Alignment.topLeft,
       // SingleChildScrollView를 사용하여 내용이 화면 높이를 초과할 때 스크롤 가능하게 함
@@ -450,11 +450,11 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            DocumentUsageHintBar(
-              message: DocumentUsageHints.fileExport,
-              accentColor: DocumentType.fileExport.color,
+            ContentUsageHintBar(
+              message: ScreenUsageHints.substitutionOutput,
+              accentColor: PlanOutputMenu.substitutionOutput.color,
             ),
-            DocumentToolbarLayout.hintToToolbarSpacer,
+            ContentToolbarLayout.hintToToolbarSpacer,
             // PDF 출력 버튼 (콘텐츠 영역 최상단)
             _buildPdfOutputButton(),
 
@@ -547,9 +547,9 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
         foregroundColor: accentColor.shade600,
         borderColor: accentColor.shade600,
         width: double.infinity,
-        height: DocumentToolbarLayout.buttonHeight,
-        fontSize: DocumentToolbarLayout.buttonFontSize,
-        iconSize: DocumentToolbarLayout.buttonIconSize,
+        height: ContentToolbarLayout.buttonHeight,
+        fontSize: ContentToolbarLayout.buttonFontSize,
+        iconSize: ContentToolbarLayout.buttonIconSize,
       ),
     );
   }

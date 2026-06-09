@@ -1,17 +1,17 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:calendar_date_picker2/calendar_date_picker2.dart';
 import 'package:flutter/services.dart';
-import '../../../../constants/document_usage_hints.dart';
-import '../../../../models/document_type.dart';
+import '../../../../constants/screen_usage_hints.dart';
+import '../../../../models/plan_output_menu.dart';
 import '../../../../providers/substitution_plan_provider.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../../providers/exchange_screen_provider.dart';
 import '../../../../providers/services_provider.dart';
 import '../../../../providers/state_reset_provider.dart';
-import '../../../../ui/widgets/document_toolbar_layout.dart';
-import '../../../../ui/widgets/document_usage_hint_bar.dart';
+import '../../../../ui/widgets/content_toolbar_layout.dart';
+import '../../../../ui/widgets/content_usage_hint_bar.dart';
 import '../../../../ui/widgets/empty_state_message.dart';
 import '../../../../ui/widgets/timetable_grid/exchange_executor.dart';
 import '../../../../ui/widgets/timetable_grid/grid_header_widgets.dart';
@@ -20,7 +20,7 @@ import '../../../../utils/date_format_utils.dart';
 import '../../../../utils/snackbar_helper.dart';
 import '../../../../utils/dialog_helper.dart';
 import '../../../mixins/scroll_management_mixin.dart';
-import 'substitution_plan_grid_helpers.dart';
+import 'content_input_grid_helpers.dart';
 
 /// 보강계획서 데이터 소스
 class SubstitutionPlanDataSource extends DataGridSource {
@@ -70,14 +70,14 @@ class SubstitutionPlanDataSource extends DataGridSource {
 }
 
 /// 보강계획서 그리드 위젯 (리팩토링 버전)
-class SubstitutionPlanGrid extends ConsumerStatefulWidget {
-  const SubstitutionPlanGrid({super.key});
+class ContentInputGrid extends ConsumerStatefulWidget {
+  const ContentInputGrid({super.key});
 
   @override
-  ConsumerState<SubstitutionPlanGrid> createState() => _SubstitutionPlanGridState();
+  ConsumerState<ContentInputGrid> createState() => _ContentInputGridState();
 }
 
-class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
+class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     with ScrollManagementMixin {
   
   @override
@@ -110,11 +110,11 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          DocumentUsageHintBar(
-            message: DocumentUsageHints.substitutionPlan,
-            accentColor: DocumentType.substitutionPlan.color,
+          ContentUsageHintBar(
+            message: ScreenUsageHints.contentInput,
+            accentColor: PlanOutputMenu.contentInput.color,
           ),
-          DocumentToolbarLayout.hintToToolbarSpacer,
+          ContentToolbarLayout.hintToToolbarSpacer,
           _buildActionButtons(context, ref, viewModel),
           const SizedBox(height: 10),
           _buildDataGrid(context, ref, planData, isLoading, viewModel),
@@ -124,7 +124,7 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
   }
 
   Widget _buildActionButtons(BuildContext context, WidgetRef ref, SubstitutionPlanViewModel viewModel) {
-    const buttonHeight = DocumentToolbarLayout.buttonHeight;
+    const buttonHeight = ContentToolbarLayout.buttonHeight;
 
     return Row(
       children: [
@@ -140,59 +140,59 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
                     final currentPlanData = ref.read(
                       substitutionPlanViewModelProvider.select((state) => state.planData),
                     );
-                    SubstitutionPlanDebugger.printTable(currentPlanData);
+                    ContentInputGridDebugger.printTable(currentPlanData);
                   },
                   icon: Icons.refresh,
                   tooltip: '새로고침',
-                  backgroundColor: DocumentToolbarLayout.neutralButtonBackground,
-                  foregroundColor: DocumentToolbarLayout.neutralButtonForeground,
-                  borderColor: DocumentToolbarLayout.neutralButtonBorder,
-                  iconSize: DocumentToolbarLayout.buttonIconSize,
+                  backgroundColor: ContentToolbarLayout.neutralButtonBackground,
+                  foregroundColor: ContentToolbarLayout.neutralButtonForeground,
+                  borderColor: ContentToolbarLayout.neutralButtonBorder,
+                  iconSize: ContentToolbarLayout.buttonIconSize,
                   size: buttonHeight,
                 ),
-                const SizedBox(width: DocumentToolbarLayout.buttonGap),
+                const SizedBox(width: ContentToolbarLayout.buttonGap),
                 CompactToolbarLabelButton(
                   onPressed: () => _clearAllDates(context, viewModel),
                   icon: Icons.clear,
                   label: '날짜과목 초기화',
                   tooltip: '날짜과목 초기화',
-                  backgroundColor: DocumentToolbarLayout.neutralButtonBackground,
-                  foregroundColor: DocumentToolbarLayout.neutralButtonForeground,
-                  borderColor: DocumentToolbarLayout.neutralButtonBorder,
+                  backgroundColor: ContentToolbarLayout.neutralButtonBackground,
+                  foregroundColor: ContentToolbarLayout.neutralButtonForeground,
+                  borderColor: ContentToolbarLayout.neutralButtonBorder,
                   height: buttonHeight,
-                  fontSize: DocumentToolbarLayout.buttonFontSize,
-                  iconSize: DocumentToolbarLayout.buttonIconSize,
+                  fontSize: ContentToolbarLayout.buttonFontSize,
+                  iconSize: ContentToolbarLayout.buttonIconSize,
                 ),
-                const SizedBox(width: DocumentToolbarLayout.buttonGap),
+                const SizedBox(width: ContentToolbarLayout.buttonGap),
                 CompactToolbarLabelButton(
                   onPressed: () => _showDeleteConfirmDialog(context, ref),
                   icon: Icons.delete_forever,
                   label: '결보강 초기화',
                   tooltip: '결보강 초기화',
-                  backgroundColor: DocumentToolbarLayout.neutralButtonBackground,
-                  foregroundColor: DocumentToolbarLayout.neutralButtonForeground,
-                  borderColor: DocumentToolbarLayout.neutralButtonBorder,
+                  backgroundColor: ContentToolbarLayout.neutralButtonBackground,
+                  foregroundColor: ContentToolbarLayout.neutralButtonForeground,
+                  borderColor: ContentToolbarLayout.neutralButtonBorder,
                   height: buttonHeight,
-                  fontSize: DocumentToolbarLayout.buttonFontSize,
-                  iconSize: DocumentToolbarLayout.buttonIconSize,
+                  fontSize: ContentToolbarLayout.buttonFontSize,
+                  iconSize: ContentToolbarLayout.buttonIconSize,
                 ),
               ],
             ),
           ),
         ),
-        const SizedBox(width: DocumentToolbarLayout.buttonGap),
+        const SizedBox(width: ContentToolbarLayout.buttonGap),
         // 오른쪽: 엑셀서식 복사
         CompactToolbarLabelButton(
           onPressed: () => _copyTableToClipboard(context, ref),
           icon: Icons.copy,
           label: '엑셀서식 복사',
           tooltip: '엑셀서식 복사',
-          backgroundColor: DocumentToolbarLayout.neutralButtonBackground,
-          foregroundColor: DocumentToolbarLayout.neutralButtonForeground,
-          borderColor: DocumentToolbarLayout.neutralButtonBorder,
+          backgroundColor: ContentToolbarLayout.neutralButtonBackground,
+          foregroundColor: ContentToolbarLayout.neutralButtonForeground,
+          borderColor: ContentToolbarLayout.neutralButtonBorder,
           height: buttonHeight,
-          fontSize: DocumentToolbarLayout.buttonFontSize,
-          iconSize: DocumentToolbarLayout.buttonIconSize,
+          fontSize: ContentToolbarLayout.buttonFontSize,
+          iconSize: ContentToolbarLayout.buttonIconSize,
         ),
       ],
     );
@@ -275,8 +275,8 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
       child: wrapWithDragScroll(
         SfDataGrid(
           source: dataSource,
-          columns: SubstitutionPlanGridConfig.getColumns(),
-          stackedHeaderRows: SubstitutionPlanGridConfig.getStackedHeaders(),
+          columns: ContentInputGridConfig.getColumns(),
+          stackedHeaderRows: ContentInputGridConfig.getStackedHeaders(),
           allowColumnsResizing: true,
           columnResizeMode: ColumnResizeMode.onResize,
           gridLinesVisibility: GridLinesVisibility.both,

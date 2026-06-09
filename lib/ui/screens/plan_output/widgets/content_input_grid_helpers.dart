@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:flutter/material.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
@@ -34,7 +34,7 @@ extension SubstitutionPlanDataAccessor on SubstitutionPlanData {
 }
 
 /// 그리드 설정 클래스
-class SubstitutionPlanGridConfig {
+class ContentInputGridConfig {
   /// 여백 및 스타일 상수
   static const EdgeInsets headerPadding = EdgeInsets.zero;
   static const EdgeInsets cellPadding = EdgeInsets.zero;
@@ -225,11 +225,11 @@ class NormalCellRenderer {
   static Widget build(DataGridCell cell) {
     return Container(
       alignment: Alignment.center,
-      padding: SubstitutionPlanGridConfig.cellPadding,
+      padding: ContentInputGridConfig.cellPadding,
       child: Text(
         cell.value?.toString() ?? '',
         style: const TextStyle(
-          fontSize: SubstitutionPlanGridConfig.cellFontSize,
+          fontSize: ContentInputGridConfig.cellFontSize,
           height: 1.0,
         ),
         textAlign: TextAlign.center,
@@ -241,7 +241,7 @@ class NormalCellRenderer {
 }
 
 /// 디버그 유틸리티 클래스 (production 빌드에서 제거 가능)
-class SubstitutionPlanDebugger {
+class ContentInputGridDebugger {
   /// planData 테이블을 디버그 콘솔에 표 형태로 출력
   static void printTable(List<SubstitutionPlanData> planData) {
     if (!kDebugMode) return; // production에서 완전히 제거

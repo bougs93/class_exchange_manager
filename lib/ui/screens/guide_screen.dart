@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'guide/program_info_content.dart';
@@ -87,7 +87,7 @@ class _GuideScreenState extends State<GuideScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // AppBar 없음 — HomeScreen 상단 UnifiedNavigationBar 사용
+    // AppBar 없음 — StartScreen 상단 UnifiedNavigationBar 사용
     // 서브 메뉴는 1차 메뉴 바로 아래 2번째 줄(가로 툴바)
     return Scaffold(
       body: Column(

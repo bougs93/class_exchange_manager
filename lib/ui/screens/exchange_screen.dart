@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../services/excel_service.dart';
@@ -816,7 +816,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     final isPathsLoading = screenState.isPathsLoading;
 
     return Scaffold(
-      // ExchangeAppBar 제거 - HomeScreen의 공통 AppBar 사용
+      // ExchangeAppBar 제거 - StartScreen의 공통 AppBar 사용
       body: Row(
         children: [
           // 시간표 영역
@@ -856,7 +856,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   void _createSyncfusionGridData() {
     AppLogger.exchangeDebug('🔄 [ExchangeScreen] _createSyncfusionGridData() 호출됨');
     
-    // 글로벌 Provider에서 시간표 데이터 확인 (HomeScreen에서 설정한 데이터)
+    // 글로벌 Provider에서 시간표 데이터 확인 (StartScreen에서 설정한 데이터)
     final globalTimetableData = ref.read(exchangeScreenProvider).timetableData;
     
     if (globalTimetableData == null) {

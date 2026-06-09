@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../constants/nav_indices.dart';
 import '../../providers/navigation_provider.dart';
@@ -18,7 +18,7 @@ class UnifiedNavigationBar extends ConsumerWidget {
   // 네비게이션 항목 정의 (상수로 캐싱)
   static const _navItems = [
     {
-      'index': NavIndices.home,
+      'index': NavIndices.start,
       'icon': Icons.play_circle_outline,
       'label': '시작',
       'tooltip': '시작',
@@ -30,7 +30,7 @@ class UnifiedNavigationBar extends ConsumerWidget {
       'tooltip': '교체',
     },
     {
-      'index': NavIndices.document,
+      'index': NavIndices.planOutput,
       'icon': Icons.description,
       'label': '계획서 출력',
       'tooltip': '결보강 계획서 출력',

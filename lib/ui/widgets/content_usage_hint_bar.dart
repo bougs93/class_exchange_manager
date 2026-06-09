@@ -1,21 +1,21 @@
-import 'package:flutter/material.dart';
-import 'document_toolbar_layout.dart';
+﻿import 'package:flutter/material.dart';
+import 'content_toolbar_layout.dart';
 
-/// 문서 출력 탭 상단 사용 안내 바
+/// 화면 상단 사용 안내 바
 ///
 /// 안내 문구가 비어 있으면 레이아웃에 영향을 주지 않습니다.
 /// 내용 입력·결보강 출력·교사안내·학급안내에서 동일한 형식으로 사용합니다.
-class DocumentUsageHintBar extends StatelessWidget {
+class ContentUsageHintBar extends StatelessWidget {
   /// 표시할 안내 문구 (비어 있으면 숨김)
   final String message;
 
   /// 탭 테마 색상 (아이콘·테두리·배경)
   final Color accentColor;
 
-  /// [true]이면 [DocumentToolbarLayout.hintPadding] 적용 (카드 내부 등)
+  /// [true]이면 [ContentToolbarLayout.hintPadding] 적용 (카드 내부 등)
   final bool padded;
 
-  const DocumentUsageHintBar({
+  const ContentUsageHintBar({
     super.key,
     required this.message,
     required this.accentColor,
@@ -42,7 +42,7 @@ class DocumentUsageHintBar extends StatelessWidget {
         children: [
           Icon(
             Icons.info_outline,
-            size: DocumentToolbarLayout.buttonIconSize,
+            size: ContentToolbarLayout.buttonIconSize,
             color: accentColor,
           ),
           const SizedBox(width: 8),
@@ -65,7 +65,7 @@ class DocumentUsageHintBar extends StatelessWidget {
     }
 
     return Padding(
-      padding: DocumentToolbarLayout.hintPadding,
+      padding: ContentToolbarLayout.hintPadding,
       child: bar,
     );
   }

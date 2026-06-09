@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'exchange_screen.dart';
 import 'personal_schedule_screen.dart';
-import 'document_screen.dart';
-import 'home_content_screen.dart';
+import 'plan_output_screen.dart';
+import 'start_content_screen.dart';
 import 'guide_screen.dart';
 import 'notice_screen.dart';
 import '../../providers/navigation_provider.dart';
@@ -22,15 +22,15 @@ import '../../services/excel_service.dart';
 import '../../models/time_slot.dart';
 import 'dart:io';
 
-/// 메인 홈 화면 - Drawer 메뉴가 있는 Scaffold
-class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({super.key});
+/// 메인 셸 — 상단 네비게이션과 각 탭 화면(IndexedStack)
+class StartScreen extends ConsumerStatefulWidget {
+  const StartScreen({super.key});
 
   @override
-  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<StartScreen> createState() => _StartScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
+class _StartScreenState extends ConsumerState<StartScreen> {
   // 엑셀 파일 선택 관련 상태 관리
   ExchangeScreenStateProxy? _stateProxy;
   ExchangeOperationManager? _operationManager;
@@ -69,7 +69,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// - 교체 리스트
   /// - 시간표 테마 설정
   /// - 결보강 계획서 날짜 정보 (absenceDate, substitutionDate, 보강 과목)
-  /// (PDF 출력 설정은 FileExportWidget에서 로드)
+  /// (PDF 출력 설정은 SubstitutionOutputWidget에서 로드)
   Future<void> _loadSavedData() async {
     try {
       AppLogger.info('프로그램 시작: 저장된 데이터 로드 중...');
@@ -206,10 +206,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
 
 
-  /// 상단 네비게이션 탭 1~5 (0은 HomeContentScreen)
+  /// 상단 네비게이션 탭 1~5 (0은 StartContentScreen)
   List<Widget> _tabScreens() => const [
     ExchangeScreen(),
-    DocumentScreen(),
+    PlanOutputScreen(),
     NoticeScreen(),
     PersonalScheduleScreen(),
     GuideScreen(),
@@ -231,7 +231,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: IndexedStack(
               index: selectedIndex,
               children: [
-                const HomeContentScreen(),
+                const StartContentScreen(),
                 ..._tabScreens(),
               ],
             ),

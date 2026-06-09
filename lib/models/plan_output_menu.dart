@@ -1,42 +1,39 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
-/// 문서 타입 열거형
-enum DocumentType {
-  /// 결보강 내용 입력
-  substitutionPlan,
+/// 계획서 출력 화면 왼쪽 서브 메뉴
+enum PlanOutputMenu {
+  /// 내용 입력 (결강일·교체일·보강 과목 등)
+  contentInput,
 
-  /// 결보강 출력(PDF)
-  fileExport,
+  /// 결보강 출력 (PDF 저장·인쇄)
+  substitutionOutput,
 }
 
-/// DocumentType 확장 메서드들
-extension DocumentTypeExtension on DocumentType {
-  /// 문서 타입별 표시 이름
+/// [PlanOutputMenu] 표시 이름·아이콘·색상
+extension PlanOutputMenuExtension on PlanOutputMenu {
   String get displayName {
     switch (this) {
-      case DocumentType.substitutionPlan:
+      case PlanOutputMenu.contentInput:
         return '내용 입력';
-      case DocumentType.fileExport:
+      case PlanOutputMenu.substitutionOutput:
         return '결보강 출력';
     }
   }
 
-  /// 문서 타입별 아이콘
   IconData get icon {
     switch (this) {
-      case DocumentType.substitutionPlan:
+      case PlanOutputMenu.contentInput:
         return Icons.description;
-      case DocumentType.fileExport:
+      case PlanOutputMenu.substitutionOutput:
         return Icons.file_present;
     }
   }
 
-  /// 문서 타입별 색상
   Color get color {
     switch (this) {
-      case DocumentType.substitutionPlan:
+      case PlanOutputMenu.contentInput:
         return Colors.blue;
-      case DocumentType.fileExport:
+      case PlanOutputMenu.substitutionOutput:
         return Colors.purple;
     }
   }

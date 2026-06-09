@@ -10,27 +10,27 @@ import '../../widgets/data_storage_location_section.dart';
 import 'highlight_color_picker.dart';
 import 'setting_save_mixin.dart';
 
-/// 홈 화면 설정 카드 (언어 · 2중 교체 · 하이라이트 색상 · 저장 위치 · 데이터 초기화)
+/// 시작 화면 설정 카드 (언어 · 2중 교체 · 하이라이트 색상 · 저장 위치 · 데이터 초기화)
 ///
-/// 설정 관련 상태(언어·색상·초기화)를 스스로 로드/저장하여 홈 화면 본체의
+/// 설정 관련 상태(언어·색상·초기화)를 스스로 로드/저장하여 시작 화면 본체의
 /// 기본 정보(교사명·학교명) 관리와 책임을 분리한다.
 ///
 /// 펼침 상태는 부모가 제어한다([expanded]/[onExpansionChanged]) — 교사명이
 /// 비어 있을 때 자동으로 펼치는 등의 판단을 부모(기본 정보 로더)가 담당하기 때문이다.
 /// 데이터 초기화 성공 시 [onDataReset]으로 부모에 알려 교사명/학교명을 비우게 한다.
-class HomeSettingsCard extends ConsumerStatefulWidget {
+class StartSettingsCard extends ConsumerStatefulWidget {
   final VoidCallback onDataReset;
 
-  const HomeSettingsCard({
+  const StartSettingsCard({
     super.key,
     required this.onDataReset,
   });
 
   @override
-  ConsumerState<HomeSettingsCard> createState() => _HomeSettingsCardState();
+  ConsumerState<StartSettingsCard> createState() => _StartSettingsCardState();
 }
 
-class _HomeSettingsCardState extends ConsumerState<HomeSettingsCard>
+class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
     with SettingSaveMixin {
   // 언어 설정
   String _selectedLanguage = 'ko';

@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'exchange_control_panel.dart';
 
-/// 문서 출력 탭 공통 레이아웃 (안내 바 · 툴바 버튼)
-class DocumentToolbarLayout {
-  DocumentToolbarLayout._();
+/// 계획서 출력·안내 등 공통 툴바 레이아웃 (안내 바 · 버튼 줄)
+class ContentToolbarLayout {
+  ContentToolbarLayout._();
 
   /// 안내 바 좌·우·상 여백 (하단은 [hintToToolbarGap]으로 분리)
   static const double hintInset = 5.0;
