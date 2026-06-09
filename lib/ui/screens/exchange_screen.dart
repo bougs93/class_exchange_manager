@@ -20,7 +20,6 @@ import '../../models/exchange_path.dart';
 import '../../models/exchange_mode.dart';
 import '../../models/one_to_one_exchange_path.dart';
 import '../../models/supplement_exchange_path.dart';
-import '../../utils/exchange_path_converter.dart';
 import '../../utils/exchange_path_utils.dart';
 import '../../models/time_slot.dart';
 import '../../constants/nav_indices.dart';
@@ -41,6 +40,7 @@ import '../../providers/teacher_scroll_provider.dart';
 import '../../services/app_settings_storage_service.dart';
 import 'helpers/circular_path_finder.dart';
 import 'helpers/dual_path_finder.dart';
+import 'helpers/one_to_one_path_generator.dart';
 
 // 새로 분리된 위젯, ViewModel, Managers
 import 'exchange_screen/widgets/timetable_tab_content.dart';
@@ -1268,15 +1268,10 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
   @override
   void generateOneToOnePaths(List<dynamic> options) {
-    AppLogger.exchangeDebug(
-      '1:1 교체: generateOneToOnePaths 시작 (options=${options.length})',
-    );
+    final notifier = ref.read(exchangeScreenProvider.notifier);
 
     if (!exchangeService.hasSelectedCell() || timetableData == null) {
-      AppLogger.exchangeDebug('1:1 교체: 셀 미선택 또는 시간표 없음 - 사이드바 숨김');
-      final notifier = ref.read(exchangeScreenProvider.notifier);
-
-      // 기존 경로들에서 1:1교체 경로 제거
+      // 기존 경로들에서 1:1교체 경로 제거 후 사이드바 숨김
       List<ExchangePath> otherPaths =
           ExchangePathUtils.removePaths<OneToOneExchangePath>(
             _stateProxy.availablePaths,
@@ -1288,34 +1283,14 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       return;
     }
 
-    // 선택된 셀의 학급명 추출
-    String selectedClassName =
-        ExchangePathConverter.extractClassNameFromTimeSlots(
-          timeSlots: timetableData!.timeSlots,
-          teacherName: exchangeService.selectedTeacher!,
-          day: exchangeService.selectedDay!,
-          period: exchangeService.selectedPeriod!,
-        );
-
-    // ExchangeOption을 OneToOneExchangePath로 변환
-    List<OneToOneExchangePath> paths =
-        ExchangePathConverter.convertToOneToOnePaths(
-          selectedTeacher: exchangeService.selectedTeacher!,
-          selectedDay: exchangeService.selectedDay!,
-          selectedPeriod: exchangeService.selectedPeriod!,
-          selectedClassName: selectedClassName,
-          options: options.cast(), // dynamic을 ExchangeOption으로 캐스팅
-          timeSlots: timetableData!.timeSlots, // 시간표 데이터 추가
-        );
-
-    // 순차적인 ID 부여
-    for (int i = 0; i < paths.length; i++) {
-      paths[i].setCustomId('onetoone_path_${i + 1}');
-    }
-
-    final notifier = ref.read(exchangeScreenProvider.notifier);
-
-    AppLogger.exchangeDebug('1:1 교체: 생성된 경로 수 = ${paths.length}');
+    // 1:1 교체 경로 생성 (OneToOnePathGenerator 위임)
+    final List<OneToOneExchangePath> paths = OneToOnePathGenerator.generate(
+      selectedTeacher: exchangeService.selectedTeacher!,
+      selectedDay: exchangeService.selectedDay!,
+      selectedPeriod: exchangeService.selectedPeriod!,
+      timeSlots: timetableData!.timeSlots,
+      options: options.cast(), // dynamic을 ExchangeOption으로 캐스팅
+    );
 
     // 기존 경로들에서 1:1교체 경로 제거 후 새로운 경로들 추가
     List<ExchangePath> newPaths = ExchangePathUtils.replacePaths(
@@ -1324,19 +1299,13 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     );
     notifier.setAvailablePaths(newPaths);
 
-    AppLogger.exchangeDebug('1:1 교체: 전체 경로 수 = ${newPaths.length}');
-
     notifier.setSelectedOneToOnePath(null);
 
     // 필터링된 경로 업데이트
     _updateFilteredPaths();
 
     // 경로가 있으면 사이드바 표시
-    final shouldShowSidebar = paths.isNotEmpty;
-    AppLogger.exchangeDebug(
-      '1:1 교체: 사이드바 표시 = $shouldShowSidebar (paths=${paths.length})',
-    );
-    notifier.setSidebarVisible(shouldShowSidebar);
+    notifier.setSidebarVisible(paths.isNotEmpty);
   }
 
   /// 필터링된 경로 업데이트 (통합)
