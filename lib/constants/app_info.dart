@@ -1,5 +1,14 @@
 import '../services/storage_service.dart';
 
+/// 남은 사용 기간 UI 색상 구분용 상태
+enum RemainingPeriodStatus {
+  unlimited,
+  expired,
+  urgent,
+  normal,
+  unknown,
+}
+
 /// 앱 정보 상수
 ///
 /// 프로그램 정보를 중앙에서 관리합니다.
@@ -20,13 +29,13 @@ class AppInfo {
   static const String programName = '수업 교체 도우미';
 
   /// 앱 버전 (이 값만 수정 — pubspec.yaml은 tool/bump_version.dart가 자동 동기화)
-  static const String version = '0.9.22';
+  static const String version = '0.9.24';
 
   // 소속
-  static const String affiliation = 'Noah Lab 후원';
+  static const String affiliation = '기술쿠키 & Noah Lab 후원';
 
   // 제작자 정보
-  static const String developer = '정원길';
+  static const String developer = '정원길, 김진규';
 
   // 프로그램 소개
   static const String description = '''
@@ -44,20 +53,13 @@ class AppInfo {
     return value.isEmpty ? null : value;
   }
 
-  // 프로그램 실행 제한 정보
-  static String get usageRestriction {
-    final baseMessage = '''
-본 프로그램은 기능 구현을 위해 상용 라이브러리를 사용하고 있습니다.
-이에 따라 정식 배포 시 라이선스 비용이 발생하며, 이는 향후 일부 광고 또는 유료 구매를 통해 충당될 예정입니다.
-현재 제공되는 버전은 정식 출시 전 '베타 테스트 버전'으로, 테스트 기간 동안 무료로 이용 가능합니다.
-베타 기간 종료 후에는 정식 버전으로의 업그레이드가 필요할 수 있으니 이용에 참고 바랍니다.''';
-
-    if (expiryDate == null) {
-      return baseMessage;
-    } else {
-      return '$baseMessage\n\n사용 가능 기간 : ~ $expiryDate';
-    }
-  }
+  // 프로그램 실행 제한 정보 (베타 버전 이용 안내 본문)
+  static const String usageRestriction = '''
+수업 교체 도우미는 시간표·PDF 출력 등에 일부 상용 소프트웨어 라이브러리를 포함하고 있습니다.
+정식 서비스를 위해서는 라이브러리 제작사에 대한 라이선스 비용 지불 및 사용 허가가 필요합니다.
+현재는 해당 비용을 아직 납부하지 않았으므로, 베타 버전에 사용 기한이 설정되어 있습니다.
+사용 기한이 지난 후에는 프로그램 실행이 중지됩니다.
+정식 출시 시 라이선스 비용이 발생하며, 이는 향후 일부 광고 또는 유료 구매를 통해 충당될 예정입니다.''';
 
   /// 프로그램 실행 가능 여부 확인
   ///
@@ -98,6 +100,60 @@ class AppInfo {
     } catch (e) {
       return null;
     }
+  }
+
+  /// 사용 가능 기간 표시 문자열 (홈·정보 화면 공통)
+  static String get availablePeriodDisplay {
+    final date = expiryDate;
+    if (date == null) {
+      return '제한 없음';
+    }
+
+    try {
+      final expiry = DateTime.parse(date);
+      return '${expiry.year}년 ${expiry.month}월 ${expiry.day}일까지';
+    } catch (e) {
+      return date;
+    }
+  }
+
+  /// 남은 사용 기간 표시 문자열 (홈·정보 화면 공통)
+  static String get remainingPeriodDisplay {
+    final date = expiryDate;
+    if (date == null) {
+      return '제한 없음';
+    }
+    if (isExpired()) {
+      return '만료됨';
+    }
+
+    final daysUntilExpiry = getDaysUntilExpiry();
+    if (daysUntilExpiry == null) {
+      return '계산 불가';
+    }
+    if (daysUntilExpiry == 0) {
+      return '오늘까지';
+    }
+    return '$daysUntilExpiry일 남음';
+  }
+
+  /// 남은 사용 기간 상태 (UI 색상 결정용)
+  static RemainingPeriodStatus get remainingPeriodStatus {
+    if (expiryDate == null) {
+      return RemainingPeriodStatus.unlimited;
+    }
+    if (isExpired()) {
+      return RemainingPeriodStatus.expired;
+    }
+
+    final daysUntilExpiry = getDaysUntilExpiry();
+    if (daysUntilExpiry == null) {
+      return RemainingPeriodStatus.unknown;
+    }
+    if (daysUntilExpiry <= 30) {
+      return RemainingPeriodStatus.urgent;
+    }
+    return RemainingPeriodStatus.normal;
   }
 
   /// 마지막 실행 시간 저장
@@ -229,6 +285,10 @@ e-mail : happyreportr@gmail.com
   // 홈페이지 링크 (여러 개 지원)
   // name: 링크 이름, url: 링크 주소
   static const List<Map<String, String>> homepageLinks = [
+    {
+      'name': '기술쿠키(https://techclass.tistory.com/)',
+      'url': 'https://techclass.tistory.com/',
+    },
     {
       'name': '노아랩 카페(https://icmake.com/)',
       'url': 'https://cafe.naver.com/partnara',

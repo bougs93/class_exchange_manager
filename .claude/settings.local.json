@@ -45,7 +45,8 @@
       "Bash(printf '}\\\\n')",
       "Bash(cat /tmp/supp_header.dart /tmp/supp_body.dart /tmp/supp_footer.dart)",
       "Bash(grep -nE \"^  \\(\\\\/\\\\/\\\\/|[A-Za-z<].*\\\\\\(.*\\\\\\)? ?\\\\{?$|[A-Za-z].* [a-zA-Z_]+\\\\\\(\\)\" lib/services/exchange_service.dart)",
-      "Bash(grep -vE \"if |for |return |throw |//\")"
+      "Bash(grep -vE \"if |for |return |throw |//\")",
+      "Bash(git commit *)"
     ],
     "deny": [],
     "ask": []
