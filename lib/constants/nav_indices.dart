@@ -5,7 +5,7 @@ class NavIndices {
 
   static const int exchange = 1;
 
-  /// 계획서 출력
+  /// 계획서
   static const int planOutput = 2;
 
   /// 안내 (교사·학급)

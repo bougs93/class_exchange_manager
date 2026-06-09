@@ -488,6 +488,14 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
       final targetWeekday = columnName == 'absenceDate' ? data.absenceDay : data.substitutionDay;
       AppLogger.exchangeDebug('대상 요일: $targetWeekday');
 
+      // 이미 입력된 날짜가 있으면 달력 기본값으로 사용 (없으면 오늘)
+      final rawDate =
+          columnName == 'absenceDate' ? data.absenceDate : data.substitutionDate;
+      final initialDate = DateFormatUtils.parseYearMonthDay(
+            DateFormatUtils.normalizePlanDate(rawDate),
+          ) ??
+          DateTime.now();
+
       // 날짜 선택기 표시
       final selectedDates = await showCalendarDatePicker2Dialog(
         context: context,
@@ -495,6 +503,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
           calendarType: CalendarDatePicker2Type.single,
           firstDate: DateTime(2020),
           lastDate: DateTime(2030),
+          currentDate: initialDate,
           weekdayLabels: ['일', '월', '화', '수', '목', '금', '토'],
           selectableDayPredicate: targetWeekday.isNotEmpty
               ? (date) => _isTargetWeekday(date, targetWeekday)
@@ -519,7 +528,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
         ),
         dialogSize: const Size(350, 360),
         borderRadius: BorderRadius.circular(5),
-        value: [DateTime.now()],
+        value: [initialDate],
       );
 
       AppLogger.exchangeDebug('선택 결과: $selectedDates');
