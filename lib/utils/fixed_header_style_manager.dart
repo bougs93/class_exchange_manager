@@ -1,5 +1,6 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
+import '../ui/widgets/cell_status_border_overlay.dart';
 import 'simplified_timetable_theme.dart';
 import 'constants.dart';
 import 'cell_style_config.dart';
@@ -147,13 +148,24 @@ class FixedHeaderStyleManager {
         color: headerStyles.backgroundColor,
         border: headerStyles.border,
       ),
-      child: Text(
-        '$period',
-        style: TextStyle(
-          fontSize: AppConstants.headerFontSize * SimplifiedTimetableTheme.fontScaleFactor,
-          fontWeight: FontWeight.bold,
-          color: headerStyles.textStyle.color ?? Colors.black,
-        ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Center(
+            child: Text(
+              '$period',
+              style: TextStyle(
+                fontSize:
+                    AppConstants.headerFontSize *
+                    SimplifiedTimetableTheme.fontScaleFactor,
+                fontWeight: FontWeight.bold,
+                color: headerStyles.textStyle.color ?? Colors.black,
+              ),
+            ),
+          ),
+          if (headerStyles.statusBorder != null)
+            CellStatusBorderOverlay(border: headerStyles.statusBorder!),
+        ],
       ),
     );
 

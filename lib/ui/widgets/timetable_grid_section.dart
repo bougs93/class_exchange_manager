@@ -24,6 +24,7 @@ import '../../providers/zoom_provider.dart';
 import '../../providers/scroll_provider.dart';
 import '../../providers/node_scroll_provider.dart'; // 🆕 노드 스크롤 Provider 추가
 import '../../providers/teacher_scroll_provider.dart';
+import '../../providers/cell_status_symbol_visibility_provider.dart';
 import '../../utils/simplified_timetable_theme.dart';
 import 'timetable_grid/timetable_grid_constants.dart';
 import 'timetable_grid/exchange_arrow_style.dart';
@@ -249,6 +250,13 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       if (next != null) {
         scrollToTeacher(next);
         ref.read(teacherScrollProvider.notifier).clearScrollRequest();
+      }
+    });
+
+    // X·O 오버레이 토글 시 DataGrid 셀 갱신
+    ref.listen<bool>(cellStatusSymbolVisibilityProvider, (previous, next) {
+      if (previous != next) {
+        widget.dataSource?.notifyDataChanged();
       }
     });
 

@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import '../ui/widgets/cell_status_border_overlay.dart';
 import 'cell_style_config.dart';
 import 'constants.dart';
 import '../services/timetable_theme_storage_service.dart';
@@ -265,16 +266,13 @@ class SimplifiedTimetableTheme {
         isHeader: config.isHeader,
         isInCircularPath: config.isInCircularPath,
       ),
-      border: _getBorder(
-        isTeacherColumn: config.isTeacherColumn,
+      border: _getBorder(isFirstColumnOfDay: config.isFirstColumnOfDay),
+      statusBorder: _getStatusBorder(
         isSelected: config.isSelected,
-        isLastColumnOfDay: config.isLastColumnOfDay,
-        isFirstColumnOfDay: config.isFirstColumnOfDay,
-        isInCircularPath: config.isInCircularPath,
         isHeader: config.isHeader,
         isTargetCell: config.isTargetCell,
         isExchangedSourceCell: config.isExchangedSourceCell,
-        isTeacherNameSelected: config.isTeacherNameSelected, // 새로 추가
+        isTeacherNameSelected: config.isTeacherNameSelected,
       ),
       overlayWidget: _getOverlayWidget(
         isExchangeable: config.isExchangeable,
@@ -369,99 +367,62 @@ class SimplifiedTimetableTheme {
     );
   }
 
-  /// 테두리 스타일 결정
-  static Border _getBorder({
-    required bool isTeacherColumn,
+  /// 그리드 구분용 얇은 테두리 (레이아웃용 — 두꺼운 상태 테두리는 오버레이로 그림)
+  static Border _getBorder({required bool isFirstColumnOfDay}) {
+    return _getGridBorder(isFirstColumnOfDay: isFirstColumnOfDay);
+  }
+
+  /// 상태 강조 테두리 — BoxDecoration 대신 오버레이로 그려 텍스트 영역을 유지
+  static CellStatusBorder? _getStatusBorder({
     required bool isSelected,
-    required bool isLastColumnOfDay,
-    required bool isFirstColumnOfDay,
-    required bool isInCircularPath,
     required bool isHeader,
     required bool isTargetCell,
     required bool isExchangedSourceCell,
-    required bool isTeacherNameSelected, // 새로 추가
+    required bool isTeacherNameSelected,
   }) {
-    // 교사 이름 선택 상태인 경우 빨간색 테두리 사용 (최우선순위)
     if (isTeacherNameSelected) {
-      return Border.all(
+      return CellStatusBorder(
         color: selectedCellBorderColor,
         width: selectedCellBorderWidth,
-        style: selectedCellBorderStyle, // 점선 또는 실선 스타일 적용
       );
     }
 
-    // 교체된 소스 셀의 경우 파란색 테두리 (표시 여부 설정에 따라)
-    // 헤더 셀과 일반 셀 모두에 적용 (최우선순위)
     if (isExchangedSourceCell && showExchangedSourceCellBorder) {
-      return Border.all(
+      return CellStatusBorder(
         color: exchangedSourceCellBorderColor,
         width: exchangedSourceCellBorderWidth,
-        style: exchangedSourceCellBorderStyle, // 점선 또는 실선 스타일 적용
       );
     }
 
-    // 선택된 교사가 이동할 목적지 셀의 경우 빨간색 테두리 (표시 여부 설정에 따라)
-    // 헤더 셀과 일반 셀 모두에 적용
     if (isTargetCell && showSelectedTeacherDestinationBorder) {
-      return Border.all(
+      return CellStatusBorder(
         color: selectedTeacherDestinationBorderColor,
         width: selectedTeacherDestinationBorderWidth,
-        style: selectedTeacherDestinationBorderStyle, // 점선 또는 실선 스타일 적용
       );
     }
 
-    // 선택된 셀의 경우 빨간색 테두리 (표시 여부 설정에 따라)
-    // 교체된 셀 선택 시 헤더의 빨간색 테두리 비활성화
     if (isSelected &&
         showSelectedCellBorder &&
         !(isHeader && _isExchangedCellSelectedHeaderDisabled)) {
-      return Border.all(
+      return CellStatusBorder(
         color: selectedCellBorderColor,
         width: selectedCellBorderWidth,
-        style: selectedCellBorderStyle, // 점선 또는 실선 스타일 적용
       );
     }
 
-    // 순환교체 경로에 포함된 셀의 경우 일반 테두리 (보라색 테두리 제거)
-    if (isInCircularPath) {
-      return Border(
-        left: BorderSide(
-          color:
-              isFirstColumnOfDay
-                  ? dayBorderColor
-                  : normalBorderColor, // 요일별 첫 번째 교시에 더 진한 색상
-          width:
-              isFirstColumnOfDay
-                  ? dayBorderWidth
-                  : normalBorderWidth, // 요일별 첫 번째 교시에 두꺼운 경계선
-        ),
-        right: const BorderSide(
-          color: normalBorderColor,
-          width: normalBorderWidth,
-        ), // 모든 교시에 얇은 경계선
-        bottom: const BorderSide(
-          color: normalBorderColor,
-          width: normalBorderWidth,
-        ),
-      );
-    }
+    return null;
+  }
 
-    // 일반 셀의 경우 기존 테두리 스타일
+  static Border _getGridBorder({required bool isFirstColumnOfDay}) {
     return Border(
       left: BorderSide(
-        color:
-            isFirstColumnOfDay
-                ? dayBorderColor
-                : normalBorderColor, // 요일별 첫 번째 교시에 더 진한 색상
-        width:
-            isFirstColumnOfDay
-                ? dayBorderWidth
-                : normalBorderWidth, // 요일별 첫 번째 교시에 두꺼운 경계선
+        color: isFirstColumnOfDay ? dayBorderColor : normalBorderColor,
+        width: isFirstColumnOfDay ? dayBorderWidth : normalBorderWidth,
       ),
       right: const BorderSide(
         color: normalBorderColor,
         width: normalBorderWidth,
-      ), // 모든 교시에 얇은 경계선
+      ),
       bottom: const BorderSide(
         color: normalBorderColor,
         width: normalBorderWidth,
@@ -604,12 +565,14 @@ class CellStyle {
   final Color backgroundColor;
   final TextStyle textStyle;
   final Border border;
+  final CellStatusBorder? statusBorder;
   final Widget? overlayWidget; // 교체 가능한 셀에 표시할 오버레이 위젯
 
   CellStyle({
     required this.backgroundColor,
     required this.textStyle,
     required this.border,
+    this.statusBorder,
     this.overlayWidget,
   });
 }

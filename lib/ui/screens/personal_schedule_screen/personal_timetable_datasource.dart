@@ -115,9 +115,9 @@ class PersonalTimetableDataSource extends DataGridSource {
                 }
               }
             } else {
-              // 수업 셀
+              // 수업 셀 — TimeSlot.displayText 와 동일한 2줄 형식(학급\n과목)
               isExchangedDestinationCell = true;
-              final newContent = '${exchangeInfo.subject ?? ''} ${exchangeInfo.className ?? ''}'.trim();
+              final newContent = exchangeInfo.displayText;
               if (DebugConfig.enableCellThemeDebugLogs) {
                 AppLogger.info('[셀 테마] 수업 셀 발견 - $date $day $period교시 (원본: "$content")');
               }

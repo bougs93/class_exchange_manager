@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../utils/simplified_timetable_theme.dart';
+import '../cell_status_legend_item.dart';
+import '../exchanged_cell_status_overlay.dart';
 
 /// 컴팩트 툴바 공통 높이 (모드 선택·실행 도구·줌 컨트롤 공통)
 const double kCompactToolbarHeight = 28.0;
@@ -419,26 +421,29 @@ class CellThemeLegend extends StatelessWidget {
           label: '교체후 수업',
         ),
         const SizedBox(width: 8),
-        _buildLegendItem(
+        const ToggleableStatusLegendItem(
           backgroundColor: SimplifiedTimetableTheme.defaultColor,
           borderColor: SimplifiedTimetableTheme.exchangedSourceCellBorderColor,
           borderWidth: SimplifiedTimetableTheme.exchangedSourceCellBorderWidth,
           label: '빠진 수업',
+          symbolType: CellStatusSymbolType.missedClass,
         ),
         const SizedBox(width: 8),
-        _buildLegendItem(
+        const ToggleableStatusLegendItem(
           backgroundColor:
               SimplifiedTimetableTheme.exchangedDestinationCellBackgroundColor,
           borderColor: Colors.transparent,
           borderWidth: 0,
           label: '맡은 수업',
+          symbolType: CellStatusSymbolType.takenClass,
         ),
         const SizedBox(width: 8),
-        _buildLegendItem(
+        ToggleableStatusLegendItem(
           backgroundColor: SimplifiedTimetableTheme.nonExchangeableColor,
           borderColor: Colors.transparent,
           borderWidth: 0,
           label: '교체불가 수업',
+          symbolType: CellStatusSymbolType.nonExchangeable,
         ),
       ],
     );

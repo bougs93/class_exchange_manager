@@ -43,11 +43,16 @@ class TimeSlot {
   /// 교체 가능한 슬롯인지 확인
   bool get canExchange => isExchangeable && isNotEmpty;
   
-  /// 표시용 문자열 생성 (UI에서 사용)
-  String get displayText {
-    if (isEmpty) return '';
+  /// 셀 표시용 2줄 문자열 (학급\n과목) — 시간표·교체 화면 공통
+  static String formatDisplayText(String? className, String? subject) {
+    final hasClass = className != null && className.trim().isNotEmpty;
+    final hasSubject = subject != null && subject.trim().isNotEmpty;
+    if (!hasClass && !hasSubject) return '';
     return '${className ?? ''}\n${subject ?? ''}';
   }
+
+  /// 표시용 문자열 생성 (UI에서 사용)
+  String get displayText => formatDisplayText(className, subject);
 
   /// 교체 불가능한 사유를 반환하는 메서드
   String? get exchangeBlockReason {

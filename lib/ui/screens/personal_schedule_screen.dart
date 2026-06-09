@@ -15,8 +15,11 @@ import '../../providers/services_provider.dart';
 import '../../providers/substitution_plan_viewmodel.dart';
 import '../../services/excel_service.dart';
 import '../../utils/personal_exchange_info_extractor.dart';
+import '../../providers/cell_status_symbol_visibility_provider.dart';
 import '../../providers/zoom_provider.dart';
 import '../../utils/simplified_timetable_theme.dart';
+import '../widgets/cell_status_legend_item.dart';
+import '../widgets/exchanged_cell_status_overlay.dart';
 import '../../config/debug_config.dart';
 import 'personal_schedule_screen/teacher_selection_dialog.dart';
 import 'personal_schedule_screen/personal_schedule_constants.dart';
@@ -239,6 +242,9 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
 
   @override
   Widget build(BuildContext context) {
+    // X·O 오버레이 토글 시 개인 시간표 카드 그리드 갱신
+    ref.watch(cellStatusSymbolVisibilityProvider);
+
     final scheduleState = ref.watch(personalScheduleProvider);
     final timetableData = ref.watch(exchangeScreenProvider).timetableData;
     final teacherName = scheduleState.teacherName;
@@ -558,56 +564,21 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // 빠진 수업(결강) 범례
-        _buildLegendItem(
+        const ToggleableStatusLegendItem(
           backgroundColor: SimplifiedTimetableTheme.defaultColor,
           borderColor: SimplifiedTimetableTheme.exchangedSourceCellBorderColor,
           borderWidth: SimplifiedTimetableTheme.exchangedSourceCellBorderWidth,
           label: '빠진 수업(결강)',
+          symbolType: CellStatusSymbolType.missedClass,
         ),
         const SizedBox(width: 8),
-
-        // 맡은 수업(교체·보강) 범례
-        _buildLegendItem(
+        const ToggleableStatusLegendItem(
           backgroundColor:
               SimplifiedTimetableTheme.exchangedDestinationCellBackgroundColor,
           borderColor: Colors.transparent,
           borderWidth: 0,
           label: '맡은 수업(교체·보강)',
-        ),
-      ],
-    );
-  }
-
-  /// 개별 범례 아이템 생성
-  Widget _buildLegendItem({
-    required Color backgroundColor,
-    required Color borderColor,
-    required double borderWidth,
-    required String label,
-  }) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 16,
-          height: 16,
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            border: borderWidth > 0 
-                ? Border.all(color: borderColor, width: borderWidth)
-                : null,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
-            color: Colors.grey,
-          ),
+          symbolType: CellStatusSymbolType.takenClass,
         ),
       ],
     );

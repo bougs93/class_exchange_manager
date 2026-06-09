@@ -1,10 +1,14 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../constants/cell_status_tooltips.dart';
+import '../../providers/cell_status_symbol_visibility_provider.dart';
 import '../../utils/simplified_timetable_theme.dart';
 import '../../utils/cell_style_config.dart';
+import 'cell_status_border_overlay.dart';
+import 'exchanged_cell_status_overlay.dart';
 
 /// 단순화된 시간표 셀 위젯
-class SimplifiedTimetableCell extends StatelessWidget {
+class SimplifiedTimetableCell extends ConsumerWidget {
   final String content;
   final bool isTeacherColumn;
   final bool isSelected;
@@ -49,7 +53,9 @@ class SimplifiedTimetableCell extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final showStatusSymbols = ref.watch(cellStatusSymbolVisibilityProvider);
+
     final style = SimplifiedTimetableTheme.getCellStyleFromConfig(
       CellStyleConfig(
         isTeacherColumn: isTeacherColumn,
@@ -93,16 +99,35 @@ class SimplifiedTimetableCell extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            // 기본 셀 내용
+            // 기본 셀 내용 — FittedBox로 좁은 셀에서도 글자 잘림 방지
             Center(
-              child: Text(
-                content,
-                style: style.textStyle,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  content,
+                  style: style.textStyle,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.clip,
+                ),
               ),
             ),
+            // 상태 강조 테두리 (레이아웃 밖 오버레이)
+            if (style.statusBorder != null)
+              CellStatusBorderOverlay(border: style.statusBorder!),
+            // 빠진 수업(X)·맡은 수업(O)·교체 불가(X) 반투명 오버레이
+            if (showStatusSymbols && isNonExchangeable)
+              const ExchangedCellStatusOverlay(
+                type: CellStatusSymbolType.nonExchangeable,
+              ),
+            if (showStatusSymbols && isExchangedSourceCell)
+              const ExchangedCellStatusOverlay(
+                type: CellStatusSymbolType.missedClass,
+              ),
+            if (showStatusSymbols && isExchangedDestinationCell)
+              const ExchangedCellStatusOverlay(
+                type: CellStatusSymbolType.takenClass,
+              ),
             // 테마에서 제공하는 오버레이 위젯 (교체 가능한 셀에 숫자 1 표시)
             if (style.overlayWidget != null) style.overlayWidget!,
           ],

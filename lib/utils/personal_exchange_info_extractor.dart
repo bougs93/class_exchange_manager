@@ -1,3 +1,4 @@
+import '../models/time_slot.dart';
 import '../providers/substitution_plan_viewmodel.dart';
 import '../utils/date_format_utils.dart';
 
@@ -35,6 +36,10 @@ class ExchangeCellInfo {
 
   @override
   int get hashCode => Object.hash(teacherName, date, period, isAbsence);
+
+  /// TimeSlot.displayText 와 동일 — 학급(윗줄)\n과목(아랫줄)
+  String get displayText =>
+      TimeSlot.formatDisplayText(className, subject);
 
   @override
   String toString() {
