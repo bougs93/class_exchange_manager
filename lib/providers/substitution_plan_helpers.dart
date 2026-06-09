@@ -41,7 +41,7 @@ class ExchangeNodeParser {
     required String groupId,
     String? remarks,
     bool isCircular = false,
-    bool isChain = false,
+    bool isDual = false,
     bool isSupplement = false,
   }) {
     final parsed = ClassNameParser.parse(sourceNode.className);

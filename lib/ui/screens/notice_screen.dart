@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'notice/widgets/class_notice_widget.dart';
 import 'notice/widgets/teacher_notice_widget.dart';
 import '../widgets/unified_navigation_bar.dart';
@@ -22,16 +22,8 @@ class _NoticeScreenState extends State<NoticeScreen> {
 
   /// 사이드바 메뉴 정의 (아이콘·라벨·강조 색상)
   static const _menuItems = [
-    (
-      icon: Icons.person,
-      label: '교사안내',
-      color: Colors.orange,
-    ),
-    (
-      icon: Icons.class_,
-      label: '학급안내',
-      color: Colors.green,
-    ),
+    (icon: Icons.person, label: '교사안내', color: Colors.orange),
+    (icon: Icons.class_, label: '학급안내', color: Colors.green),
   ];
 
   void _onMenuSelected(int index) {
@@ -90,21 +82,22 @@ class _NoticeScreenState extends State<NoticeScreen> {
                     height: kUnifiedNavBarHeight,
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     decoration: BoxDecoration(
-                      color: isSelected
-                          ? item.color.withValues(alpha: 0.1)
-                          : Colors.transparent,
+                      color:
+                          isSelected
+                              ? item.color.withValues(alpha: 0.1)
+                              : Colors.transparent,
                       borderRadius: BorderRadius.circular(6),
-                      border: isSelected
-                          ? Border.all(color: item.color, width: 1)
-                          : null,
+                      border:
+                          isSelected
+                              ? Border.all(color: item.color, width: 1)
+                              : null,
                     ),
                     child: Row(
                       children: [
                         Icon(
                           item.icon,
                           size: 18,
-                          color:
-                              isSelected ? item.color : Colors.grey.shade600,
+                          color: isSelected ? item.color : Colors.grey.shade600,
                         ),
                         const SizedBox(width: 4),
                         Expanded(
@@ -112,12 +105,14 @@ class _NoticeScreenState extends State<NoticeScreen> {
                             item.label,
                             style: TextStyle(
                               fontSize: 12,
-                              fontWeight: isSelected
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                              color: isSelected
-                                  ? item.color
-                                  : Colors.grey.shade700,
+                              fontWeight:
+                                  isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                              color:
+                                  isSelected
+                                      ? item.color
+                                      : Colors.grey.shade700,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,

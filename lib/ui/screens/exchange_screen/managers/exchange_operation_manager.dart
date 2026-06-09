@@ -20,7 +20,7 @@ import '../exchange_screen_state_proxy.dart';
 class ExchangeModeSteps {
   static const List<int> oneToOne = [2]; // 1:1 교체는 2단계만
   static const List<int> circular = [2, 3, 4, 5]; // 순환교체는 2~5단계
-  static const List<int> chain = []; // 2중교체는 단계 필터 불필요
+  static const List<int> dual = []; // 2중교체는 단계 필터 불필요
   static const List<int> supplement = [2]; // 보강는 2단계
 }
 
@@ -304,12 +304,12 @@ class ExchangeOperationManager {
   void _disableOtherModes({
     bool keepExchange = false,
     bool keepCircular = false,
-    bool keepChain = false,
+    bool keepDual = false,
     bool keepSupplement = false,
   }) {
     if (!keepExchange) stateProxy.setExchangeModeEnabled(false);
     if (!keepCircular) stateProxy.setCircularExchangeModeEnabled(false);
-    if (!keepChain) stateProxy.setDualExchangeModeEnabled(false);
+    if (!keepDual) stateProxy.setDualExchangeModeEnabled(false);
     if (!keepSupplement) stateProxy.setSupplementExchangeModeEnabled(false);
   }
 
@@ -414,7 +414,7 @@ class ExchangeOperationManager {
     final wasEnabled = stateProxy.isDualExchangeModeEnabled;
 
     // 1. 다른 모드 비활성화
-    _disableOtherModes(keepChain: true);
+    _disableOtherModes(keepDual: true);
 
     // 2. 교체불가 편집 모드 비활성화
     if (stateProxy.isNonExchangeableEditMode) {
@@ -426,7 +426,7 @@ class ExchangeOperationManager {
 
     // 4. 활성화/비활성화 처리
     if (stateProxy.isDualExchangeModeEnabled) {
-      _activateMode(ExchangeModeSteps.chain);
+      _activateMode(ExchangeModeSteps.dual);
     } else {
       _deactivateMode();
     }

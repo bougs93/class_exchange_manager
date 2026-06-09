@@ -65,51 +65,57 @@ class ProgramInfoContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildSectionHeader(theme, Icons.description_outlined, '프로그램 소개'),
-              const SizedBox(height: 6),
-              _buildSectionContentAsList(AppInfo.description.trim()),
-            ],
+          _buildSection(
+            theme,
+            Icons.description_outlined,
+            '프로그램 소개',
+            _buildSectionContentAsList(AppInfo.description.trim()),
           ),
           _buildSectionSpacer(),
           _buildUsageRestrictionSection(theme),
           _buildSectionSpacer(),
           if (AppInfo.homepageLinks.isNotEmpty) ...[
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionHeader(theme, Icons.link, '홈페이지'),
-                const SizedBox(height: 6),
-                _buildHomepageLinksAsList(theme),
-              ],
+            _buildSection(
+              theme,
+              Icons.link,
+              '홈페이지',
+              _buildHomepageLinksAsList(theme),
             ),
             _buildSectionSpacer(),
           ],
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildSectionHeader(
-                theme,
-                Icons.contact_support_outlined,
-                'Noah Lab 정보',
-              ),
-              const SizedBox(height: 6),
-              _buildSectionContentAsList(AppInfo.contact.trim()),
-            ],
+          _buildSection(
+            theme,
+            Icons.contact_support_outlined,
+            'Noah Lab 정보',
+            _buildSectionContentAsList(AppInfo.contact.trim()),
           ),
           _buildSectionSpacer(),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildSectionHeader(theme, Icons.copyright_outlined, '라이센스'),
-              const SizedBox(height: 6),
-              _buildSectionContentAsList(AppInfo.license.trim()),
-            ],
+          _buildSection(
+            theme,
+            Icons.copyright_outlined,
+            '라이센스',
+            _buildSectionContentAsList(AppInfo.license.trim()),
           ),
         ],
       ),
+    );
+  }
+
+  /// 섹션 헤더 + 내용을 묶는 공통 레이아웃
+  Widget _buildSection(
+    ThemeData theme,
+    IconData icon,
+    String title,
+    Widget content, {
+    Color? color,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader(theme, icon, title, color: color),
+        const SizedBox(height: 6),
+        content,
+      ],
     );
   }
 
@@ -174,54 +180,62 @@ class ProgramInfoContent extends StatelessWidget {
   }
 
   Widget _buildSectionContentAsList(String content) {
-    final lines = content
-        .split('\n')
-        .map((line) => line.trim())
-        .where((line) => line.isNotEmpty)
-        .toList();
+    final lines =
+        content
+            .split('\n')
+            .map((line) => line.trim())
+            .where((line) => line.isNotEmpty)
+            .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: lines.map((line) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 6),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 2, right: 8),
-                child: Text(
-                  '•',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade700,
-                    fontWeight: FontWeight.bold,
-                  ),
+      children:
+          lines.map((line) {
+            return _buildBulletRow(
+              Text(
+                line,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.6,
+                  color: Colors.grey.shade700,
                 ),
               ),
-              Expanded(
-                child: Text(
-                  line,
-                  style: TextStyle(
-                    fontSize: 14,
-                    height: 1.6,
-                    color: Colors.grey.shade700,
-                  ),
-                ),
+            );
+          }).toList(),
+    );
+  }
+
+  /// 불릿(•) + 내용을 한 줄로 묶는 공통 레이아웃
+  Widget _buildBulletRow(Widget child) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2, right: 8),
+            child: Text(
+              '•',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade700,
+                fontWeight: FontWeight.bold,
               ),
-            ],
+            ),
           ),
-        );
-      }).toList(),
+          Expanded(child: child),
+        ],
+      ),
     );
   }
 
   Widget _buildUsageRestrictionSection(ThemeData theme) {
     final daysUntilExpiry = AppInfo.getDaysUntilExpiry();
     final isExpired = AppInfo.isExpired();
-    final color = isExpired
-        ? Colors.red
-        : daysUntilExpiry != null && daysUntilExpiry <= 30
+    final color =
+        isExpired
+            ? Colors.red
+            : daysUntilExpiry != null && daysUntilExpiry <= 30
             ? Colors.orange
             : theme.primaryColor;
 
@@ -231,7 +245,7 @@ class ProgramInfoContent extends StatelessWidget {
         _buildSectionHeader(
           theme,
           Icons.warning_amber_rounded,
-          '베타 버전 이용 안내',
+          'Beta 버전 이용 안내',
           color: color,
         ),
         const SizedBox(height: 6),
@@ -243,52 +257,34 @@ class ProgramInfoContent extends StatelessWidget {
   Widget _buildHomepageLinksAsList(ThemeData theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: AppInfo.homepageLinks.map((link) {
-        final name = link['name'] ?? '';
-        final url = link['url'] ?? '';
-        final displayName = name.isNotEmpty ? name : url;
+      children:
+          AppInfo.homepageLinks.map((link) {
+            final name = link['name'] ?? '';
+            final url = link['url'] ?? '';
+            final displayName = name.isNotEmpty ? name : url;
 
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 6),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 2, right: 8),
-                child: Text(
-                  '•',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade700,
-                    fontWeight: FontWeight.bold,
+            return _buildBulletRow(
+              InkWell(
+                onTap: () => UrlLauncherHelper.launchURL(url),
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 2,
+                    horizontal: 4,
                   ),
-                ),
-              ),
-              Expanded(
-                child: InkWell(
-                  onTap: () => UrlLauncherHelper.launchURL(url),
-                  borderRadius: BorderRadius.circular(4),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 2,
-                      horizontal: 4,
-                    ),
-                    child: Text(
-                      displayName,
-                      style: TextStyle(
-                        fontSize: 14,
-                        height: 1.6,
-                        color: theme.primaryColor,
-                        decoration: TextDecoration.underline,
-                      ),
+                  child: Text(
+                    displayName,
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.6,
+                      color: theme.primaryColor,
+                      decoration: TextDecoration.underline,
                     ),
                   ),
                 ),
               ),
-            ],
-          ),
-        );
-      }).toList(),
+            );
+          }).toList(),
     );
   }
 

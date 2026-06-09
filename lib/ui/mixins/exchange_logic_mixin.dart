@@ -118,7 +118,7 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
     }
 
     // 교체 대상 선택 후 교체 가능한 시간 탐색 및 표시
-    processChainCellSelection();
+    processDualCellSelection();
   }
   
   /// 셀 선택 후 공통 처리 로직
@@ -136,7 +136,7 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
     if (_isSelectedCellEmpty()) {
       AppLogger.exchangeDebug('$modeName: 빈 셀 선택 - 경로 탐색 건너뜀');
       if (isDualExchangeModeEnabled) {
-        onEmptyChainCellSelected();
+        onEmptyDualCellSelected();
       } else {
         onEmptyCellSelected();
       }
@@ -168,7 +168,7 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
       await _processCommonCellSelection('순환교체');
 
   /// 2중교체 셀 선택 후 처리 로직
-  Future<void> processChainCellSelection() async =>
+  Future<void> processDualCellSelection() async =>
       await _processCommonCellSelection('2중교체');
   
   /// 셀이 비어있지 않은지 확인 (과목이나 학급이 있는지 검사)
@@ -329,7 +329,7 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
   
   // 추상 메서드들 - 구현 클래스에서 구현해야 함
   void onEmptyCellSelected();
-  void onEmptyChainCellSelected();
+  void onEmptyDualCellSelected();
   Future<void> findCircularPathsWithProgress();
   
   // 로딩 상태 관리 콜백들 - 구현 클래스에서 구현해야 함

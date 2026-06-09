@@ -64,7 +64,7 @@ class ExchangePathConverter {
             circularPaths.add(path);
           }
           break;
-        case ExchangePathType.chain:
+        case ExchangePathType.dual:
           if (path is DualExchangePath) {
             dualPaths.add(path);
           }

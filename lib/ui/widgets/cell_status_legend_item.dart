@@ -43,14 +43,16 @@ class ToggleableStatusLegendItem extends ConsumerWidget {
                 height: 16,
                 decoration: BoxDecoration(
                   color: backgroundColor,
-                  border: borderWidth > 0
-                      ? Border.all(color: borderColor, width: borderWidth)
-                      : null,
+                  border:
+                      borderWidth > 0
+                          ? Border.all(color: borderColor, width: borderWidth)
+                          : null,
                   borderRadius: BorderRadius.circular(2),
                 ),
-                child: isSymbolVisible
-                    ? ExchangedStatusSymbol(type: symbolType)
-                    : null,
+                child:
+                    isSymbolVisible
+                        ? ExchangedStatusSymbol(type: symbolType)
+                        : null,
               ),
             ),
             const SizedBox(width: 4),

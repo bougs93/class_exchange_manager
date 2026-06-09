@@ -8,7 +8,7 @@ class GroupIdParser {
   static const String circularPrefix = 'circular_exchange_';
   static const String supplementPrefix = 'supplement_exchange_';
   static const String oneToOnePrefix = 'one_to_one_exchange_';
-  static const String dualPrefix = 'chain_exchange_';
+  static const String dualPrefix = 'dual_exchange_';
 
   /// 순환교체 단계 수 추출
   static int? extractCircularStep(String? groupId) {
@@ -34,7 +34,7 @@ class GroupIdParser {
   }
 
   /// 2중 교체 여부 확인
-  static bool isChain(String? groupId) {
+  static bool isDual(String? groupId) {
     return groupId != null && groupId.startsWith(dualPrefix);
   }
 }

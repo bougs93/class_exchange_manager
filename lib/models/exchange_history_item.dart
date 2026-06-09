@@ -99,8 +99,8 @@ class ExchangeHistoryItem {
           return 'circular_exchange_${stepCount}_$timestamp';
         }
         return 'circular_exchange_$timestamp';
-      case ExchangePathType.chain:
-        return 'chain_exchange_$timestamp';
+      case ExchangePathType.dual:
+        return 'dual_exchange_$timestamp';
       case ExchangePathType.supplement:
         return 'supplement_exchange_$timestamp';
     }
@@ -113,7 +113,7 @@ class ExchangeHistoryItem {
     } else if (path.toString().contains('CircularExchangePath')) {
       return ExchangePathType.circular;
     } else if (path.toString().contains('DualExchangePath')) {
-      return ExchangePathType.chain;
+      return ExchangePathType.dual;
     } else if (path.toString().contains('SupplementExchangePath')) {
       return ExchangePathType.supplement;
     }
@@ -261,7 +261,7 @@ class ExchangeHistoryItem {
       case 'circular':
         path = CircularExchangePath.fromJson(pathJson);
         break;
-      case 'chain':
+      case 'dual':
         path = DualExchangePath.fromJson(pathJson);
         break;
       case 'supplement':
@@ -280,8 +280,8 @@ class ExchangeHistoryItem {
       case 'circular':
         type = ExchangePathType.circular;
         break;
-      case 'chain':
-        type = ExchangePathType.chain;
+      case 'dual':
+        type = ExchangePathType.dual;
         break;
       case 'supplement':
         type = ExchangePathType.supplement;

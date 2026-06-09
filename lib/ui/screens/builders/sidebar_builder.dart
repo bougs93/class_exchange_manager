@@ -56,11 +56,11 @@ mixin SidebarBuilder<T extends StatefulWidget> on State<T> {
     } else if (isCircularExchangeModeEnabled) {
       currentMode = ExchangePathType.circular;
     } else if (isDualExchangeModeEnabled) {
-      currentMode = ExchangePathType.chain;
+      currentMode = ExchangePathType.dual;
     } else if (isSupplementExchangeModeEnabled) {
       currentMode = ExchangePathType.supplement;
     } else {
-      currentMode = ExchangePathType.chain; // 기본값
+      currentMode = ExchangePathType.dual; // 기본값
     }
 
     // 선택된 경로 결정

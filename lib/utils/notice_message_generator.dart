@@ -452,36 +452,36 @@ ${classLines.join('\n')}''',
     final List<String> classLines = [];
 
     // 2중교체와 일반 교체 분리
-    final chainGroups = <String?, List<SubstitutionPlanData>>{};
-    final nonChainData = <SubstitutionPlanData>[];
+    final dualGroups = <String?, List<SubstitutionPlanData>>{};
+    final nonDualData = <SubstitutionPlanData>[];
 
     for (final data in sortedDataList) {
       final isDualExchange =
-          (data.groupId != null && GroupIdParser.isChain(data.groupId!)) ||
+          (data.groupId != null && GroupIdParser.isDual(data.groupId!)) ||
           data.remarks.contains('2중교체');
 
       if (isDualExchange) {
-        chainGroups.putIfAbsent(data.groupId, () => []).add(data);
+        dualGroups.putIfAbsent(data.groupId, () => []).add(data);
       } else {
-        nonChainData.add(data);
+        nonDualData.add(data);
       }
     }
 
     // 2중교체 그룹별로 최종 결과 계산하여 메시지 생성
-    for (final groupDataList in chainGroups.values) {
+    for (final groupDataList in dualGroups.values) {
       classLines.addAll(
         _generateDualExchangeOption2Lines(groupDataList, teacherName),
       );
     }
 
     // 일반 교체 메시지 생성
-    classLines.addAll(_generateNonChainTeacherLines(nonChainData, teacherName));
+    classLines.addAll(_generateNonDualTeacherLines(nonDualData, teacherName));
 
     return classLines;
   }
 
   /// 일반 교체 교사 메시지 라인 생성
-  static List<String> _generateNonChainTeacherLines(
+  static List<String> _generateNonDualTeacherLines(
     List<SubstitutionPlanData> dataList,
     String teacherName,
   ) {

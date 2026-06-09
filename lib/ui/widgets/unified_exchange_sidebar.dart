@@ -107,7 +107,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
           // 순환교체, 1:1 교체, 2중교체 모드에서 검색 필터 그룹 표시
           if (widget.mode == ExchangePathType.circular ||
               widget.mode == ExchangePathType.oneToOne ||
-              widget.mode == ExchangePathType.chain)
+              widget.mode == ExchangePathType.dual)
             ExchangeFilterWidget(
               mode: widget.mode,
               paths: widget.paths,
@@ -525,7 +525,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
         colorScheme,
       );
     } else {
-      return _buildChainNodes(
+      return _buildDualNodes(
         path as DualExchangePath,
         index,
         isSelected,
@@ -629,7 +629,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
   // 기존 _buildCircularPathItem 메서드 제거 (공통 메서드로 통합됨)
 
   /// 2중교체 노드들 구성
-  Widget _buildChainNodes(
+  Widget _buildDualNodes(
     DualExchangePath path,
     int index,
     bool isSelected,

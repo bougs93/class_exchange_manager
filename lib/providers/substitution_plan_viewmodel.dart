@@ -213,7 +213,7 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
             _handleCircularExchange(nodes, newPlanData, item.id);
             break;
 
-          case ExchangePathType.chain:
+          case ExchangePathType.dual:
             _handleDualExchange(nodes, newPlanData, item.id);
             break;
 
@@ -380,7 +380,7 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
       exchangeId: finalExchangeId,
       groupId: groupId,
       remarks: '2중교체(중간)',
-      isChain: true,
+      isDual: true,
     );
     planData.add(finalData);
 
@@ -392,7 +392,7 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
       exchangeId: intermediateExchangeId,
       groupId: groupId,
       remarks: '2중교체(최종)',
-      isChain: true,
+      isDual: true,
     );
     planData.add(intermediateData);
 

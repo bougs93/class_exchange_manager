@@ -29,7 +29,7 @@ class CellTapHelper {
     required TimetableDataSource? dataSource,
     required VoidCallback Function(DataGridCellTapDetails) onOneToOneModeTap,
     required VoidCallback Function(DataGridCellTapDetails) onCircularModeTap,
-    required VoidCallback Function(DataGridCellTapDetails) onChainModeTap,
+    required VoidCallback Function(DataGridCellTapDetails) onDualModeTap,
     required VoidCallback Function(DataGridCellTapDetails) onNonExchangeableEditTap,
   }) {
     if (timetableData == null) return;
@@ -48,7 +48,7 @@ class CellTapHelper {
     } else if (isCircularExchangeModeEnabled) {
       onCircularModeTap(details);
     } else if (isDualExchangeModeEnabled) {
-      onChainModeTap(details);
+      onDualModeTap(details);
     }
   }
 

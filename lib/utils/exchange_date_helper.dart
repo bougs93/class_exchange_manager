@@ -105,41 +105,6 @@ class ExchangeDateHelper {
     return '';
   }
 
-  /// 2중교체 날짜 가져오기
-  ///
-  /// 매개변수:
-  /// - `useFallback`: true인 경우 날짜가 없으면 dayToDate로 fallback (디버그용)
-  ///
-  /// 날짜가 저장되지 않은 경우:
-  /// - useFallback=false: 빈 문자열 반환 (기본값, 운영용)
-  /// - useFallback=true: dayToDate로 fallback (디버그용)
-  static String getChainDate({
-    required String teacherName,
-    required String day,
-    required int period,
-    required String dateType,
-    required String stepInfo,
-    required SubstitutionPlanState substitutionPlanState,
-    PersonalScheduleState? scheduleState,
-    bool useFallback = false,
-  }) {
-    for (final key in substitutionPlanState.savedDates.keys) {
-      if (key.contains(teacherName) &&
-          key.contains('$day$period') &&
-          key.contains(stepInfo) &&
-          key.endsWith(dateType)) {
-        return formatDate(substitutionPlanState.savedDates[key]);
-      }
-    }
-
-    // fallback 옵션이 활성화되고 scheduleState가 제공된 경우
-    if (useFallback && scheduleState != null) {
-      return dayToDate(day, scheduleState);
-    }
-
-    return '';
-  }
-
   /// 보강 날짜 가져오기
   ///
   /// 매개변수:

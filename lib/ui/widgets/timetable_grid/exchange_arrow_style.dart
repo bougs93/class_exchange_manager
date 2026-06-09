@@ -40,7 +40,7 @@ class ExchangeArrowStyle {
   );
 
   /// 2중 교체 모드용 스타일 (양방향)
-  static const ExchangeArrowStyle chain = ExchangeArrowStyle(
+  static const ExchangeArrowStyle dual = ExchangeArrowStyle(
     color: Color(0xFFFF8C69), // 주황색 (#FF8C69)
     strokeWidth: 2.0,
     outlineColor: Colors.white,

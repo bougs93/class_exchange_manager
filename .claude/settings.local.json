@@ -48,7 +48,18 @@
       "Bash(grep -vE \"if |for |return |throw |//\")",
       "Bash(git commit *)",
       "PowerShell(Rename-Item *)",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Bash(Select-Object -Last 40)",
+      "PowerShell(flutter analyze *)",
+      "PowerShell(dart format *)",
+      "Bash(git rm *)",
+      "Bash(perl -pi -e 's/processChainCellSelection/processDualCellSelection/g' lib/ui/mixins/exchange_logic_mixin.dart)",
+      "Bash(perl -pi -e 's/onEmptyChainCellSelected/onEmptyDualCellSelected/g' lib/ui/mixins/exchange_logic_mixin.dart lib/ui/screens/exchange_screen.dart)",
+      "Bash(perl -pi -e 's/_drawChainArrows/_drawDualArrows/g' lib/ui/widgets/timetable_grid/exchange_arrow_painter.dart)",
+      "Bash(perl -pi -e 's/_buildChainNodes/_buildDualNodes/g' lib/ui/widgets/unified_exchange_sidebar.dart)",
+      "Bash(perl -pi -e 's/onChainModeTap/onDualModeTap/g' lib/ui/screens/exchange_screen/helpers/cell_tap_helper.dart)",
+      "Bash(git stash *)",
+      "Bash(grep -v \"//\")"
     ],
     "deny": [],
     "ask": []

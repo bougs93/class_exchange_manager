@@ -20,13 +20,8 @@ class AppContentCard extends StatelessWidget {
     return Card(
       elevation: 2,
       margin: margin ?? EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: padding,
-        child: child,
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(padding: padding, child: child),
     );
   }
 }

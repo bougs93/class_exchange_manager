@@ -20,10 +20,10 @@ class AppInfo {
   /// 프로그램명
   ///
   /// ⚠️ 이 값을 변경하면 위에 명시된 모든 네이티브 파일도 동일한 값으로 수정해야 합니다.
-  static const String programName = '수업 교체 도우미';
+  static const String programName = '수업 교체 도우미 Beta';
 
   /// 앱 버전 (이 값만 수정 — pubspec.yaml은 tool/bump_version.dart가 자동 동기화)
-  static const String version = '0.9.33';
+  static const String version = '0.9.34';
 
   // 소속
   static const String affiliation = '기술쿠키 & Noah Lab 후원';
@@ -51,9 +51,9 @@ class AppInfo {
   static const String usageRestriction = '''
 수업 교체 도우미는 시간표·PDF 출력 등에 일부 상용 소프트웨어 라이브러리를 포함하고 있습니다.
 정식 서비스를 위해서는 라이브러리 제작사에 대한 라이선스 비용 지불 및 사용 허가가 필요합니다.
-현재는 해당 비용을 아직 납부하지 않았으므로, 베타 버전에 사용 기한이 설정되어 있습니다.
+현재는 해당 비용을 아직 납부하지 않았으므로, Beta 버전에 사용 기한이 설정되어 있습니다.
 사용 기한이 지난 후에는 프로그램 실행이 중지됩니다.
-정식 출시 시 라이선스 비용이 발생하며, 이는 향후 일부 광고 또는 유료 구매를 통해 충당될 예정입니다.''';
+정식 출시 이후에는 라이선스 비용이 청구될 수 있으며, 추후 광고 기반 또는 부분 유료 모델로 전환될 가능성이 있습니다.''';
 
   /// 프로그램 실행 가능 여부 확인
   ///

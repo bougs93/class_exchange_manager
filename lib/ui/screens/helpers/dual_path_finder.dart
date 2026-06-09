@@ -1,4 +1,4 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import '../../../models/dual_exchange_path.dart';
 import '../../../models/time_slot.dart';
 import '../../../models/teacher.dart';
@@ -29,17 +29,14 @@ class DualPathFinder {
 
     try {
       // 백그라운드에서 2중교체 경로 탐색
-      List<DualExchangePath> paths = await compute(
-        _findDualPathsInBackground,
-        {
-          'timeSlots': timeSlots,
-          'teachers': teachers,
-          'teacher': dualExchangeService.selectedTeacher!,
-          'day': dualExchangeService.selectedDay!,
-          'period': dualExchangeService.selectedPeriod!,
-          'className': dualExchangeService.selectedClass ?? '',
-        },
-      );
+      List<DualExchangePath> paths = await compute(_findDualPathsInBackground, {
+        'timeSlots': timeSlots,
+        'teachers': teachers,
+        'teacher': dualExchangeService.selectedTeacher!,
+        'day': dualExchangeService.selectedDay!,
+        'period': dualExchangeService.selectedPeriod!,
+        'className': dualExchangeService.selectedClass ?? '',
+      });
 
       // 경로에 따른 사이드바 표시 설정
       bool shouldShowSidebar;
@@ -53,7 +50,9 @@ class DualPathFinder {
       } else {
         shouldShowSidebar = true;
         message = null; // 스낵바 메시지 제거
-        AppLogger.exchangeDebug('2중교체 경로 ${paths.length}개를 찾았습니다. 사이드바를 표시합니다.');
+        AppLogger.exchangeDebug(
+          '2중교체 경로 ${paths.length}개를 찾았습니다. 사이드바를 표시합니다.',
+        );
         AppLogger.exchangeInfo('2중교체: ${paths.length}개 경로 발견');
       }
 
@@ -64,7 +63,6 @@ class DualPathFinder {
         message: message,
         error: null,
       );
-
     } catch (e) {
       AppLogger.error('2중교체 경로 탐색 오류: $e');
       return DualPathResult(

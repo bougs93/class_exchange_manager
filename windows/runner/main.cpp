@@ -28,7 +28,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
   // Window title matches AppInfo.programName (Unicode escapes avoid MSVC C4819).
-  if (!window.Create(L"\uC218\uC5C5 \uAD50\uCCB4 \uB3C4\uC6B0\uBBF8", origin, size)) {
+  if (!window.Create(L"\uC218\uC5C5 \uAD50\uCCB4 \uB3C4\uC6B0\uBBF8 Beta", origin, size)) {
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);

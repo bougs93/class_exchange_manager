@@ -49,8 +49,8 @@ class ExchangeArrowPainter extends CustomPainter {
         case ExchangePathType.circular:
           _drawCircularArrows(canvas, size);
           break;
-        case ExchangePathType.chain:
-          _drawChainArrows(canvas, size);
+        case ExchangePathType.dual:
+          _drawDualArrows(canvas, size);
           break;
         case ExchangePathType.supplement:
           _drawSupplementArrows(canvas, size);
@@ -99,7 +99,7 @@ class ExchangeArrowPainter extends CustomPainter {
   }
 
   /// 2중 교체 화살표 그리기
-  void _drawChainArrows(Canvas canvas, Size size) {
+  void _drawDualArrows(Canvas canvas, Size size) {
     final dualPath = selectedPath as DualExchangePath;
     
     // 2중 교체의 각 단계별로 화살표 그리기 (세로 우선, 머리 사이즈 8, 단계별 텍스트)
@@ -673,8 +673,8 @@ class ExchangeArrowPainter extends CustomPainter {
         return ExchangeArrowStyle.oneToOne;
       case ExchangePathType.circular:
         return ExchangeArrowStyle.circular;
-      case ExchangePathType.chain:
-        return ExchangeArrowStyle.chain;
+      case ExchangePathType.dual:
+        return ExchangeArrowStyle.dual;
       case ExchangePathType.supplement:
         return ExchangeArrowStyle.supplement;
     }

@@ -44,7 +44,7 @@ mixin PathSelectionHandlerMixin<T extends StatefulWidget> on State<T> {
       case ExchangePathType.circular:
         handleCircularPathChanged(path as CircularExchangePath);
         break;
-      case ExchangePathType.chain:
+      case ExchangePathType.dual:
         handleDualPathChanged(path as DualExchangePath);
         break;
       case ExchangePathType.oneToOne:

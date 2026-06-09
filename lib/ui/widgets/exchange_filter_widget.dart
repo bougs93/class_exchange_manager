@@ -122,7 +122,7 @@ class ExchangeFilterWidget extends StatelessWidget {
     }
 
     // 2중교체 모드: 필터 동작 불필요 - 항상 숨김
-    if (mode == ExchangePathType.chain) {
+    if (mode == ExchangePathType.dual) {
       return false;
     }
 
@@ -199,7 +199,7 @@ class ExchangeFilterWidget extends StatelessWidget {
     switch (mode) {
       case ExchangePathType.circular:
         return '${step-2}단계(${_getStepCount(step)})';
-      case ExchangePathType.chain:
+      case ExchangePathType.dual:
         return '$step단계(${_getStepCount(step)})';
       case ExchangePathType.oneToOne:
         return '1:1교체(${_getStepCount(step)})';
@@ -215,7 +215,7 @@ class ExchangeFilterWidget extends StatelessWidget {
       switch (mode) {
         case ExchangePathType.circular:
           return path is CircularExchangePath && path.nodes.length == step;
-        case ExchangePathType.chain:
+        case ExchangePathType.dual:
           return path is DualExchangePath && path.dualDepth == step;
         case ExchangePathType.oneToOne:
           return path is OneToOneExchangePath; // 1:1 교체는 항상 2개 노드
@@ -258,7 +258,7 @@ class ExchangeFilterWidget extends StatelessWidget {
           return path.nodes[1]; // 순환교체의 경우 두 번째 노드가 교체 대상
         }
         break;
-      case ExchangePathType.chain:
+      case ExchangePathType.dual:
         if (path is DualExchangePath) {
           return path.nodeB; // 2중교체의 경우 마지막 교체 대상
         }

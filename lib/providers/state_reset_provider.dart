@@ -19,7 +19,7 @@ enum ResetLevel {
   /// Level 1: 경로 선택만 초기화
   ///
   /// **초기화 대상**:
-  /// - 선택된 교체 경로 (OneToOne/Circular/Chain)
+  /// - 선택된 교체 경로 (OneToOne/Circular/Dual)
   ///
   /// **사용 시점**:
   /// - 새로운 경로 선택 직전
@@ -242,7 +242,7 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   /// Level 1: 경로 선택만 초기화
   ///
   /// **초기화 대상**:
-  /// - 선택된 교체 경로 (OneToOne/Circular/Chain/Supplement)
+  /// - 선택된 교체 경로 (OneToOne/Circular/Dual/Supplement)
   /// - 화살표 상태
   ///
   /// **유지 대상**:
@@ -286,7 +286,7 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   ///
   /// **초기화 대상**:
   /// - 선택된 교체 경로
-  /// - 경로 리스트 (circular/oneToOne/chain)
+  /// - 경로 리스트 (circular/oneToOne/dual)
   /// - 사이드바 표시 상태
   /// - 로딩 상태
   /// - 필터 상태

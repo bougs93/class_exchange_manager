@@ -1242,7 +1242,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   }
 
   @override
-  void onEmptyChainCellSelected() {
+  void onEmptyDualCellSelected() {
     // 빈 셀 선택 시 경로만 초기화 (Level 1) - 선택된 셀은 유지
     ref.read(stateResetProvider.notifier).resetPathOnly(
       reason: '2중교체 빈 셀 선택',

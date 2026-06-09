@@ -23,5 +23,5 @@ class TeacherScrollNotifier extends StateNotifier<String?> {
 
 final teacherScrollProvider =
     StateNotifierProvider<TeacherScrollNotifier, String?>((ref) {
-  return TeacherScrollNotifier();
-});
+      return TeacherScrollNotifier();
+    });

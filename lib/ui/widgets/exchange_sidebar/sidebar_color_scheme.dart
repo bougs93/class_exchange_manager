@@ -51,7 +51,7 @@ class PathColorScheme {
   );
 
   /// 2중교체 색상 스키마 (주황색 계열)
-  static const chain = PathColorScheme(
+  static const dual = PathColorScheme(
     primary: Color(0xFFFF5722),                    // 주황색 화살표
     nodeBackground: Color(0xFFFBE9E7),             // 연한 주황색 노드 배경 (선택됨)
     nodeBackgroundUnselected: Color(0xFFFFF8F8),   // 매우 연한 주황색 노드 배경 (선택안됨)
@@ -81,8 +81,8 @@ class PathColorScheme {
         return oneToOne;
       case ExchangePathType.circular:
         return circular;
-      case ExchangePathType.chain:
-        return chain;
+      case ExchangePathType.dual:
+        return dual;
       case ExchangePathType.supplement:
         return supplement;
     }
@@ -146,7 +146,7 @@ class PathColorScheme {
         return Colors.green.shade50;
       case ExchangePathType.circular:
         return Colors.purple.shade50;
-      case ExchangePathType.chain:
+      case ExchangePathType.dual:
         return Colors.deepOrange.shade50;
       case ExchangePathType.supplement:
         return Colors.teal.shade50;
@@ -160,7 +160,7 @@ class PathColorScheme {
         return Colors.green.shade400;
       case ExchangePathType.circular:
         return Colors.purple.shade400;
-      case ExchangePathType.chain:
+      case ExchangePathType.dual:
         return Colors.deepOrange.shade400;
       case ExchangePathType.supplement:
         return Colors.teal.shade400;
@@ -174,7 +174,7 @@ class PathColorScheme {
         return Colors.green.shade200;
       case ExchangePathType.circular:
         return Colors.purple.shade200;
-      case ExchangePathType.chain:
+      case ExchangePathType.dual:
         return Colors.deepOrange.shade200;
       case ExchangePathType.supplement:
         return Colors.teal.shade200;

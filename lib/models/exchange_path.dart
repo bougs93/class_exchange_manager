@@ -38,7 +38,7 @@ abstract class ExchangePath {
 enum ExchangePathType {
   oneToOne,    // 1:1교체 (2개 노드)
   circular,    // 순환교체 (3+ 노드)
-  chain,       // 2중교체 (4개 노드: A, B, 1, 2)
+  dual,        // 2중교체 (4개 노드: A, B, 1, 2)
   supplement,  // 보강 (2개 노드: 보강할 셀, 보강할 교사)
 }
 
@@ -51,7 +51,7 @@ extension ExchangePathTypeExtension on ExchangePathType {
         return '1:1 교체';
       case ExchangePathType.circular:
         return '순환교체';
-      case ExchangePathType.chain:
+      case ExchangePathType.dual:
         return '2중교체';
       case ExchangePathType.supplement:
         return '보강';
@@ -65,7 +65,7 @@ extension ExchangePathTypeExtension on ExchangePathType {
         return '🔄';
       case ExchangePathType.circular:
         return '🔄';
-      case ExchangePathType.chain:
+      case ExchangePathType.dual:
         return '🔗';
       case ExchangePathType.supplement:
         return '➕';

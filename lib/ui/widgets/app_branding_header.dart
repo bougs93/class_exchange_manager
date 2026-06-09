@@ -6,10 +6,7 @@ import 'usage_period_compact_text.dart';
 
 /// 앱 아이콘 + 프로그램명 헤더 (카드 안에 배치 — [AppContentCard]와 함께 사용)
 class AppBrandingHeader extends StatelessWidget {
-  const AppBrandingHeader({
-    super.key,
-    this.showVersionAndPeriod = false,
-  });
+  const AppBrandingHeader({super.key, this.showVersionAndPeriod = false});
 
   /// true: 프로그램명 아래 버전·사용 기간 표시 (도움말 > 프로그램 정보용)
   final bool showVersionAndPeriod;
@@ -29,16 +26,17 @@ class AppBrandingHeader extends StatelessWidget {
         ),
         const SizedBox(width: 16),
         Expanded(
-          child: showVersionAndPeriod
-              ? _buildTitleWithPeriodInfo(theme)
-              : Text(
-                  AppInfo.programName,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey.shade800,
+          child:
+              showVersionAndPeriod
+                  ? _buildTitleWithPeriodInfo(theme)
+                  : Text(
+                    AppInfo.programName,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade800,
+                    ),
                   ),
-                ),
         ),
       ],
     );

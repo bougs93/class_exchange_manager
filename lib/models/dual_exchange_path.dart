@@ -71,7 +71,7 @@ class DualExchangePath implements ExchangePath {
   String get id {
     if (_customId != null) return _customId!;
     
-    // 원하는 형태: chain_1단계_문유란_수2교시_↔_정영훈, 목4교시_2단계_문유란_월5교시_↔_정수정_수2교시
+    // 원하는 형태: dual_1단계_문유란_수2교시_↔_정영훈, 목4교시_2단계_문유란_월5교시_↔_정수정_수2교시
     // 1단계: node1 ↔ node2 (교사명_요일교시 형태)
     String step1From = '${node1.teacherName}_${node1.day}${node1.period}교시';
     String step1To = '${node2.teacherName}, ${node2.day}${node2.period}교시';
@@ -80,7 +80,7 @@ class DualExchangePath implements ExchangePath {
     String step2From = '${nodeA.teacherName}_${nodeA.day}${nodeA.period}교시';
     String step2To = '${nodeB.teacherName}_${nodeB.day}${nodeB.period}교시';
     
-    return 'chain_1단계_${step1From}_↔_${step1To}_2단계_${step2From}_↔_$step2To';
+    return 'dual_1단계_${step1From}_↔_${step1To}_2단계_${step2From}_↔_$step2To';
   }
 
   /// 사용자 정의 ID 설정
@@ -95,7 +95,7 @@ class DualExchangePath implements ExchangePath {
   List<ExchangeNode> get nodes => [node1, node2, nodeA, nodeB];
 
   @override
-  ExchangePathType get type => ExchangePathType.chain;
+  ExchangePathType get type => ExchangePathType.dual;
 
   @override
   bool get isSelected => _isSelected;
@@ -190,7 +190,7 @@ class DualExchangePath implements ExchangePath {
   @override
   Map<String, dynamic> toJson() {
     return {
-      'type': 'chain',
+      'type': 'dual',
       'id': id,
       'nodeA': nodeA.toJson(),
       'nodeB': nodeB.toJson(),
