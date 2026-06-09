@@ -124,6 +124,9 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
   // 싱글톤 화살표 상태 매니저
   final ArrowStateManager _arrowStateManager = ArrowStateManager();
 
+  // 그리드 영역의 마지막 레이아웃 크기 (창 최대화/리사이즈 감지용)
+  Size? _lastGridSize;
+
   // ExchangeExecutor (필요 시 생성)
   late final ExchangeExecutor _exchangeExecutor;
 
@@ -513,27 +516,70 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
 
   /// DataGrid와 화살표를 함께 구성
   Widget _buildDataGridWithArrows() {
-    return Consumer(
-      builder: (context, ref, child) {
-        // select 패턴으로 경로 상태만 구독
-        final cellState = ref.watch(cellSelectionProvider);
-        final currentSelectedPath =
-            cellState.selectedOneToOnePath ??
-            cellState.selectedCircularPath ??
-            cellState.selectedDualPath ??
-            cellState.selectedSupplementPath ??
-            widget.selectedExchangePath;
-
-        Widget dataGrid = _buildDataGrid();
-
-        // 교체 경로가 선택된 경우에만 화살표 표시
-        if (currentSelectedPath != null && widget.timetableData != null) {
-          return _buildDataGridWithLegacyArrows(dataGrid, currentSelectedPath);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 🔧 창 최대화/리사이즈 시 화살표 좌표 어긋남 방지
+        // 뷰포트가 커지면 Syncfusion 내부 스크롤 오프셋이 조용히 보정(clamp)되는데,
+        // 이 보정은 알림/리스너를 발생시키지 않아 scrollProvider가 stale 값으로 남는다.
+        // → 레이아웃 크기가 바뀌면 프레임 종료 후 실제 컨트롤러 오프셋으로 재동기화한다.
+        final gridSize = Size(constraints.maxWidth, constraints.maxHeight);
+        if (_lastGridSize != gridSize) {
+          _lastGridSize = gridSize;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _syncScrollOffsetFromControllers();
+          });
         }
 
-        return dataGrid;
+        return Consumer(
+          builder: (context, ref, child) {
+            // select 패턴으로 경로 상태만 구독
+            final cellState = ref.watch(cellSelectionProvider);
+            final currentSelectedPath =
+                cellState.selectedOneToOnePath ??
+                cellState.selectedCircularPath ??
+                cellState.selectedDualPath ??
+                cellState.selectedSupplementPath ??
+                widget.selectedExchangePath;
+
+            Widget dataGrid = _buildDataGrid();
+
+            // 교체 경로가 선택된 경우에만 화살표 표시
+            if (currentSelectedPath != null && widget.timetableData != null) {
+              return _buildDataGridWithLegacyArrows(
+                dataGrid,
+                currentSelectedPath,
+              );
+            }
+
+            return dataGrid;
+          },
+        );
       },
     );
+  }
+
+  /// 실제 스크롤 컨트롤러의 오프셋으로 scrollProvider를 동기화
+  ///
+  /// 창 최대화/리사이즈로 인해 Syncfusion 내부 스크롤 오프셋이 조용히 보정되어
+  /// scrollProvider 값과 어긋나는 경우, 실제 위치로 맞춰 화살표 좌표를 정정한다.
+  void _syncScrollOffsetFromControllers() {
+    final horizontal = horizontalScrollController.hasClients
+        ? horizontalScrollController.offset
+        : 0.0;
+    final vertical = verticalScrollController.hasClients
+        ? verticalScrollController.offset
+        : 0.0;
+
+    final current = ref.read(scrollProvider);
+    // 미세한 차이는 무시하여 불필요한 재빌드 방지
+    if ((current.horizontalOffset - horizontal).abs() > 0.5 ||
+        (current.verticalOffset - vertical).abs() > 0.5) {
+      ref.read(scrollProvider.notifier).updateOffset(horizontal, vertical);
+      AppLogger.exchangeDebug(
+        '🔄 [스크롤 동기화] 리사이즈 후 오프셋 보정: '
+        'h=${horizontal.toStringAsFixed(1)}, v=${vertical.toStringAsFixed(1)}',
+      );
+    }
   }
 
   /// 기존 CustomPainter 기반 화살표 표시

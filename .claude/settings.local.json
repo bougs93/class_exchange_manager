@@ -47,7 +47,8 @@
       "Bash(grep -nE \"^  \\(\\\\/\\\\/\\\\/|[A-Za-z<].*\\\\\\(.*\\\\\\)? ?\\\\{?$|[A-Za-z].* [a-zA-Z_]+\\\\\\(\\)\" lib/services/exchange_service.dart)",
       "Bash(grep -vE \"if |for |return |throw |//\")",
       "Bash(git commit *)",
-      "PowerShell(Rename-Item *)"
+      "PowerShell(Rename-Item *)",
+      "Bash(grep -v \"^$\")"
     ],
     "deny": [],
     "ask": []

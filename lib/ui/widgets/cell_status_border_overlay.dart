@@ -5,20 +5,14 @@ class CellStatusBorder {
   final Color color;
   final double width;
 
-  const CellStatusBorder({
-    required this.color,
-    required this.width,
-  });
+  const CellStatusBorder({required this.color, required this.width});
 }
 
 /// 상태 테두리를 셀 안쪽에 오버레이로 그립니다 (텍스트 영역 유지).
 class CellStatusBorderOverlay extends StatelessWidget {
   final CellStatusBorder border;
 
-  const CellStatusBorderOverlay({
-    super.key,
-    required this.border,
-  });
+  const CellStatusBorderOverlay({super.key, required this.border});
 
   @override
   Widget build(BuildContext context) {
@@ -55,17 +49,17 @@ class CellStatusBorderPainter extends CustomPainter {
       size.height - strokeWidth,
     );
 
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth;
+    final paint =
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth;
 
     canvas.drawRect(rect, paint);
   }
 
   @override
   bool shouldRepaint(covariant CellStatusBorderPainter oldDelegate) {
-    return oldDelegate.color != color ||
-        oldDelegate.strokeWidth != strokeWidth;
+    return oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
   }
 }

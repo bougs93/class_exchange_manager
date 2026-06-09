@@ -858,7 +858,15 @@ class ExchangeArrowPainter extends CustomPainter {
     if ((oldPainter.zoomFactor - zoomFactor).abs() > 0.001) {
       hasChanged = true;
     }
-    
+
+    // 스크롤 오프셋 변경 확인
+    // 화살표 좌표는 scrollOffset을 반영해 계산되므로, 스크롤이 바뀌면
+    // 반드시 다시 그려야 화살표가 실제 셀 위치를 따라간다.
+    // (경로 선택 시 자동 스크롤되면서 화살표가 어긋나는 문제 해결)
+    if (oldPainter.scrollOffset != scrollOffset) {
+      hasChanged = true;
+    }
+
     return hasChanged;
   }
 }
