@@ -93,10 +93,11 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen>
   Future<void> _saveTeacherAndSchoolName() async {
     final appSettings = AppSettingsStorageService();
     await saveSetting(
-      saver: () => appSettings.saveTeacherAndSchoolName(
-        teacherName: _teacherNameController.text.trim(),
-        schoolName: _schoolNameController.text.trim(),
-      ),
+      saver:
+          () => appSettings.saveTeacherAndSchoolName(
+            teacherName: _teacherNameController.text.trim(),
+            schoolName: _schoolNameController.text.trim(),
+          ),
       successMessage: '기본 정보가 저장되었습니다.',
       setSavingState: (value) => _isSavingNames = value,
       onSuccess: _onTeacherNameSaved,
@@ -368,9 +369,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen>
 
   /// 기본 정보 카드 (교사명·학교명 입력 및 저장)
   Widget _buildBasicInfoCard(ThemeData theme) {
-    return AppContentCard(
-      child: _buildBasicInfoForm(theme),
-    );
+    return AppContentCard(child: _buildBasicInfoForm(theme));
   }
 
   /// 기본 정보 입력 폼 (제목·교사명·학교명·저장 한 줄)
@@ -520,5 +519,4 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen>
       ],
     );
   }
-
 }

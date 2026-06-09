@@ -5,7 +5,7 @@ import '../widgets/app_branding_header.dart';
 import '../widgets/app_content_card.dart';
 
 /// 정보 화면
-/// 
+///
 /// 앱의 기본 정보를 표시합니다.
 /// - 프로그램명, 버전
 /// - 개발자, 회사 정보
@@ -20,7 +20,7 @@ class InfoScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     // AppBar 없음 — HomeScreen 상단 UnifiedNavigationBar 사용
     return Scaffold(
       body: Container(
@@ -65,17 +65,17 @@ class InfoScreen extends StatelessWidget {
   Widget _buildBasicInfoCard(ThemeData theme) {
     return AppContentCard(
       child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Developer
-            _buildDeveloperRow(),
-            const SizedBox(height: 12),
-            _buildDivider(),
-            const SizedBox(height: 16),
-            // Company
-            _buildAffiliationRow(),
-          ],
-        ),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Developer
+          _buildDeveloperRow(),
+          const SizedBox(height: 12),
+          _buildDivider(),
+          const SizedBox(height: 16),
+          // Company
+          _buildAffiliationRow(),
+        ],
+      ),
     );
   }
 
@@ -83,64 +83,62 @@ class InfoScreen extends StatelessWidget {
   Widget _buildAllInfoCard(ThemeData theme) {
     return AppContentCard(
       child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 프로그램 소개 (불릿 리스트 형태)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionHeader(theme, Icons.description_outlined, '프로그램 소개'),
-                const SizedBox(height: 6),
-                _buildSectionContentAsList(AppInfo.description.trim()),
-              ],
-            ),
-            _buildSectionSpacer(),
-            
-            // 프로그램 실행 제한 (불릿 리스트 형태)
-            _buildUsageRestrictionSubSectionWithList(theme),
-            _buildSectionSpacer(),
-            
-            // 홈페이지 링크 (불릿 리스트 형태)
-            if (AppInfo.homepageLinks.isNotEmpty) ...[
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildSectionHeader(theme, Icons.link, '홈페이지'),
-                  const SizedBox(height: 6),
-                  _buildHomepageLinksAsList(theme),
-                ],
-              ),
-              _buildSectionSpacer(),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 프로그램 소개 (불릿 리스트 형태)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSectionHeader(theme, Icons.description_outlined, '프로그램 소개'),
+              const SizedBox(height: 6),
+              _buildSectionContentAsList(AppInfo.description.trim()),
             ],
-            
+          ),
+          _buildSectionSpacer(),
 
-            
-            // 연락처 (불릿 리스트 형태)
+          // 프로그램 실행 제한 (불릿 리스트 형태)
+          _buildUsageRestrictionSubSectionWithList(theme),
+          _buildSectionSpacer(),
+
+          // 홈페이지 링크 (불릿 리스트 형태)
+          if (AppInfo.homepageLinks.isNotEmpty) ...[
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildSectionHeader(
-                  theme,
-                  Icons.contact_support_outlined,
-                  'Noah Lab 정보',
-                ),
+                _buildSectionHeader(theme, Icons.link, '홈페이지'),
                 const SizedBox(height: 6),
-                _buildSectionContentAsList(AppInfo.contact.trim()),
+                _buildHomepageLinksAsList(theme),
               ],
             ),
             _buildSectionSpacer(),
-            
-            // 라이센스 (불릿 리스트 형태)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionHeader(theme, Icons.copyright_outlined, '라이센스'),
-                const SizedBox(height: 6),
-                _buildSectionContentAsList(AppInfo.license.trim()),
-              ],
-            ),
           ],
-        ),
+
+          // 연락처 (불릿 리스트 형태)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSectionHeader(
+                theme,
+                Icons.contact_support_outlined,
+                'Noah Lab 정보',
+              ),
+              const SizedBox(height: 6),
+              _buildSectionContentAsList(AppInfo.contact.trim()),
+            ],
+          ),
+          _buildSectionSpacer(),
+
+          // 라이센스 (불릿 리스트 형태)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSectionHeader(theme, Icons.copyright_outlined, '라이센스'),
+              const SizedBox(height: 6),
+              _buildSectionContentAsList(AppInfo.license.trim()),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -175,18 +173,11 @@ class InfoScreen extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Icon(
-          icon,
-          size: 20,
-          color: Colors.grey.shade600,
-        ),
+        Icon(icon, size: 20, color: Colors.grey.shade600),
         const SizedBox(width: 12),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey.shade700,
-          ),
+          style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
         ),
         const SizedBox(width: 8),
         Expanded(
@@ -208,7 +199,7 @@ class InfoScreen extends StatelessWidget {
   // ============================================================================
 
   /// 섹션 헤더 (아이콘 + 제목)
-  /// 
+  ///
   /// [color]가 제공되면 해당 색상을 사용하고, 없으면 [theme.primaryColor]를 사용합니다.
   Widget _buildSectionHeader(
     ThemeData theme,
@@ -217,7 +208,7 @@ class InfoScreen extends StatelessWidget {
     Color? color,
   }) {
     final headerColor = color ?? theme.primaryColor;
-    
+
     return Row(
       children: [
         Container(
@@ -226,11 +217,7 @@ class InfoScreen extends StatelessWidget {
             color: headerColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(
-            icon,
-            color: headerColor,
-            size: 15,
-          ),
+          child: Icon(icon, color: headerColor, size: 15),
         ),
         const SizedBox(width: 12),
         Text(
@@ -248,45 +235,47 @@ class InfoScreen extends StatelessWidget {
   /// 섹션 내용을 불릿 리스트 형태로 표시
   Widget _buildSectionContentAsList(String content) {
     // 빈 줄 제거 및 각 줄을 리스트로 변환
-    final lines = content
-        .split('\n')
-        .map((line) => line.trim())
-        .where((line) => line.isNotEmpty)
-        .toList();
+    final lines =
+        content
+            .split('\n')
+            .map((line) => line.trim())
+            .where((line) => line.isNotEmpty)
+            .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: lines.map((line) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 6),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 2, right: 8),
-                child: Text(
-                  '•',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade700,
-                    fontWeight: FontWeight.bold,
+      children:
+          lines.map((line) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2, right: 8),
+                    child: Text(
+                      '•',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade700,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  line,
-                  style: TextStyle(
-                    fontSize: 14,
-                    height: 1.6,
-                    color: Colors.grey.shade700,
+                  Expanded(
+                    child: Text(
+                      line,
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 1.6,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
-        );
-      }).toList(),
+            );
+          }).toList(),
     );
   }
 
@@ -294,14 +283,15 @@ class InfoScreen extends StatelessWidget {
   Widget _buildUsageRestrictionSubSectionWithList(ThemeData theme) {
     final daysUntilExpiry = AppInfo.getDaysUntilExpiry();
     final isExpired = AppInfo.isExpired();
-    
+
     // 만료 상태에 따른 색상 결정
-    final color = isExpired 
-      ? Colors.red 
-      : daysUntilExpiry != null && daysUntilExpiry <= 30
-        ? Colors.orange
-        : theme.primaryColor;
-    
+    final color =
+        isExpired
+            ? Colors.red
+            : daysUntilExpiry != null && daysUntilExpiry <= 30
+            ? Colors.orange
+            : theme.primaryColor;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -321,49 +311,53 @@ class InfoScreen extends StatelessWidget {
   Widget _buildHomepageLinksAsList(ThemeData theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: AppInfo.homepageLinks.map((link) {
-        final name = link['name'] ?? '';
-        final url = link['url'] ?? '';
-        final displayName = name.isNotEmpty ? name : url;
-        
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 6),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 2, right: 8),
-                child: Text(
-                  '•',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade700,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: InkWell(
-                  onTap: () => UrlLauncherHelper.launchURL(url),
-                  borderRadius: BorderRadius.circular(4),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+      children:
+          AppInfo.homepageLinks.map((link) {
+            final name = link['name'] ?? '';
+            final url = link['url'] ?? '';
+            final displayName = name.isNotEmpty ? name : url;
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2, right: 8),
                     child: Text(
-                      displayName,
+                      '•',
                       style: TextStyle(
                         fontSize: 14,
-                        height: 1.6,
-                        color: theme.primaryColor,
-                        decoration: TextDecoration.underline,
+                        color: Colors.grey.shade700,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
-                ),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => UrlLauncherHelper.launchURL(url),
+                      borderRadius: BorderRadius.circular(4),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 2,
+                          horizontal: 4,
+                        ),
+                        child: Text(
+                          displayName,
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.6,
+                            color: theme.primaryColor,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        );
-      }).toList(),
+            );
+          }).toList(),
     );
   }
 
@@ -384,11 +378,7 @@ class InfoScreen extends StatelessWidget {
 
   /// 구분선
   Widget _buildDivider() {
-    return Divider(
-      height: 1,
-      thickness: 1,
-      color: Colors.grey.shade300,
-    );
+    return Divider(height: 1, thickness: 1, color: Colors.grey.shade300);
   }
 
   // ============================================================================
