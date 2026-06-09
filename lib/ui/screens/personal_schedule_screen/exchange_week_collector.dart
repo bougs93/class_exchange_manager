@@ -40,14 +40,6 @@ class ExchangeWeekCollector {
     return labels;
   }
 
-  /// 칩 라벨 — 주의 월요일이 속한 달에서 몇 번째 월요일 주인지 표시
-  static String chipLabel(
-    DateTime weekMonday,
-    List<DateTime> sortedExchangeWeeks,
-  ) {
-    return monthWeekLabel(weekMonday);
-  }
-
   /// 해당 월에서 몇 번째 월요일인지 (1~5) — "6월5주" 등 라벨용
   static int mondayIndexInMonth(DateTime weekMonday) {
     final normalized = _normalizeDate(weekMonday);

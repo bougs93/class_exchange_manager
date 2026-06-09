@@ -12,6 +12,7 @@ import '../../../../providers/services_provider.dart';
 import '../../../../providers/state_reset_provider.dart';
 import '../../../../ui/widgets/document_toolbar_layout.dart';
 import '../../../../ui/widgets/document_usage_hint_bar.dart';
+import '../../../../ui/widgets/empty_state_message.dart';
 import '../../../../ui/widgets/timetable_grid/exchange_executor.dart';
 import '../../../../ui/widgets/timetable_grid/grid_header_widgets.dart';
 import '../../../../utils/logger.dart';
@@ -311,20 +312,16 @@ class _SubstitutionPlanGridState extends ConsumerState<SubstitutionPlanGrid>
           border: Border.all(color: Colors.grey.shade300),
           borderRadius: BorderRadius.circular(4),
         ),
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.description_outlined, size: 50, color: Colors.grey.shade400),
-                const SizedBox(height: 16),
-                Text('교체 기록이 없습니다', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: Colors.grey.shade600)),
-                const SizedBox(height: 8),
-                Text('교체를 실행하면 여기에 기록이 표시됩니다', style: TextStyle(fontSize: 14, color: Colors.grey.shade500)),
-              ],
-            ),
+        child: const Padding(
+          padding: EdgeInsets.all(16.0),
+          child: EmptyStateMessage(
+            icon: Icons.description_outlined,
+            iconSize: 50,
+            message: '교체 기록이 없습니다',
+            messageFontSize: 18,
+            messageFontWeight: FontWeight.w500,
+            subMessage: '교체를 실행하면 여기에 기록이 표시됩니다',
+            expand: false,
           ),
         ),
       ),

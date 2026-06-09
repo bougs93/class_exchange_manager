@@ -9,6 +9,7 @@ import '../../../providers/exchange_screen_provider.dart';
 import '../../../providers/services_provider.dart';
 import '../../../utils/logger.dart';
 import '../../../utils/day_utils.dart';
+import '../empty_state_message.dart';
 import 'sidebar_color_scheme.dart';
 import 'sidebar_constants.dart';
 import 'animated_sidebar_node.dart';
@@ -113,23 +114,13 @@ class _SupplementSidebarContentState
 
   /// 보강 선택 안내 메시지
   Widget _buildSupplementGuide() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.info_outline, size: 64, color: Colors.blue.shade400),
-          const SizedBox(height: 16),
-          Text(
-            '보강을 위해 빈 셀을 선택하거나\n교사명을 클릭해주세요',
-            style: TextStyle(
-              color: Colors.blue.shade600,
-              fontSize: SidebarFontSizes.emptyMessage,
-              fontWeight: FontWeight.w500,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
+    return EmptyStateMessage(
+      icon: Icons.info_outline,
+      iconColor: Colors.blue.shade400,
+      message: '보강을 위해 빈 셀을 선택하거나\n교사명을 클릭해주세요',
+      messageColor: Colors.blue.shade600,
+      messageFontSize: SidebarFontSizes.emptyMessage,
+      messageFontWeight: FontWeight.w500,
     );
   }
 
@@ -748,50 +739,26 @@ class _SupplementSidebarContentState
 
   /// 데이터 없음 메시지
   Widget _buildNoDataMessage() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.error_outline, size: 48, color: Colors.grey.shade400),
-          const SizedBox(height: 8),
-          Text(
-            '시간표 데이터가 없습니다',
-            style: TextStyle(
-              color: Colors.grey.shade600,
-              fontSize: SidebarFontSizes.emptyMessage - 2,
-            ),
-          ),
-        ],
-      ),
+    return EmptyStateMessage(
+      icon: Icons.error_outline,
+      iconSize: 48,
+      iconSpacing: 8,
+      message: '시간표 데이터가 없습니다',
+      messageFontSize: SidebarFontSizes.emptyMessage - 2,
     );
   }
 
   /// 보강 가능한 교사 없음 메시지
   Widget _buildNoAvailableTeachersMessage() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.person_off, size: 48, color: Colors.grey.shade400),
-          const SizedBox(height: 8),
-          Text(
-            '보강 가능한 교사가 없습니다',
-            style: TextStyle(
-              color: Colors.grey.shade600,
-              fontSize: SidebarFontSizes.emptyMessage - 2,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '같은 반을 가르치는 교사 중\n빈 시간이 있는 교사가 없습니다',
-            style: TextStyle(
-              color: Colors.grey.shade500,
-              fontSize: SidebarFontSizes.emptyMessage - 4,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
+    return EmptyStateMessage(
+      icon: Icons.person_off,
+      iconSize: 48,
+      iconSpacing: 8,
+      message: '보강 가능한 교사가 없습니다',
+      messageFontSize: SidebarFontSizes.emptyMessage - 2,
+      subMessage: '같은 반을 가르치는 교사 중\n빈 시간이 있는 교사가 없습니다',
+      subMessageSpacing: 4,
+      subMessageFontSize: SidebarFontSizes.emptyMessage - 4,
     );
   }
 

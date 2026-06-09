@@ -10,6 +10,7 @@ import '../../utils/day_utils.dart';
 import '../../models/time_slot.dart';
 import '../../ui/widgets/timetable_grid/grid_header_widgets.dart';
 import '../../ui/widgets/exchange_control_panel.dart';
+import '../../ui/widgets/empty_state_message.dart';
 import '../../providers/services_provider.dart';
 import '../../providers/substitution_plan_viewmodel.dart';
 import '../../services/excel_service.dart';
@@ -313,33 +314,13 @@ class _PersonalScheduleScreenState extends ConsumerState<PersonalScheduleScreen>
         appBar: AppBar(
           title: const Text('시간표'),
         ),
-        body: const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.table_chart_outlined,
-                size: 64,
-                color: Colors.grey,
-              ),
-              SizedBox(height: 16),
-              Text(
-                '시간표 데이터가 없습니다.',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
-                ),
-              ),
-              SizedBox(height: 8),
-              Text(
-                '홈 화면에서 시간표 파일을 먼저 선택해주세요.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey,
-                ),
-              ),
-            ],
-          ),
+        body: const EmptyStateMessage(
+          icon: Icons.table_chart_outlined,
+          iconColor: Colors.grey,
+          message: '시간표 데이터가 없습니다.',
+          messageColor: Colors.grey,
+          subMessage: '홈 화면에서 시간표 파일을 먼저 선택해주세요.',
+          subMessageColor: Colors.grey,
         ),
       );
     }

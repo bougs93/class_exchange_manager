@@ -163,7 +163,7 @@ class ExchangeWeekChipRow extends ConsumerWidget {
           );
           final label =
               chipLabels[ExchangeWeekCollector.weekKey(weekMonday)] ??
-              ExchangeWeekCollector.chipLabel(weekMonday, exchangeWeeks);
+              ExchangeWeekCollector.monthWeekLabel(weekMonday);
 
           return Padding(
             padding: const EdgeInsets.only(

@@ -12,6 +12,7 @@ import '../../providers/cell_selection_provider.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../providers/exchange_view_provider.dart';
 import '../../providers/state_reset_provider.dart';
+import 'empty_state_message.dart';
 import 'exchange_filter_widget.dart';
 import 'timetable_grid/exchange_executor.dart';
 import 'timetable_grid/grid_header_widgets.dart';
@@ -436,21 +437,10 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
     }
 
     // 다른 모드에서는 기존 로직 유지
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.search_off, size: 64, color: Colors.grey.shade400),
-          const SizedBox(height: 16),
-          Text(
-            widget.searchQuery.isNotEmpty ? '검색 결과가 없습니다' : '교체 가능한 경로가 없습니다',
-            style: TextStyle(
-              color: Colors.grey.shade600,
-              fontSize: SidebarFontSizes.emptyMessage,
-            ),
-          ),
-        ],
-      ),
+    return EmptyStateMessage(
+      icon: Icons.search_off,
+      message: widget.searchQuery.isNotEmpty ? '검색 결과가 없습니다' : '교체 가능한 경로가 없습니다',
+      messageFontSize: SidebarFontSizes.emptyMessage,
     );
   }
 
@@ -544,6 +534,56 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
     }
   }
 
+  /// 화살표 + 단계 숫자 배지 (연쇄·순환교체 공통)
+  ///
+  /// [arrow] 방향 아이콘(연쇄: swap_vert, 순환: arrow_downward),
+  /// [badgeColor] 선택 시 배지 색상(연쇄: 빨강, 순환: 경로색),
+  /// [arrowColor] 선택 시 화살표 색상(연쇄는 배지와 달리 경로색을 쓰므로 분리).
+  ///   생략 시 [badgeColor]와 동일. [number] 단계 번호. 미선택 시 회색으로 통일된다.
+  Widget _buildArrowWithBadge({
+    required IconData arrow,
+    required double arrowSize,
+    required String number,
+    required Color badgeColor,
+    required bool isSelected,
+    Color? arrowColor,
+    EdgeInsets margin = const EdgeInsets.symmetric(vertical: 2),
+  }) {
+    final effectiveBadgeColor = isSelected ? badgeColor : Colors.grey.shade500;
+    final effectiveArrowColor =
+        isSelected ? (arrowColor ?? badgeColor) : Colors.grey.shade500;
+
+    return Container(
+      margin: margin,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(arrow, color: effectiveArrowColor, size: arrowSize),
+          const SizedBox(width: 4),
+          Container(
+            width: 20,
+            height: 16,
+            decoration: BoxDecoration(
+              color: effectiveBadgeColor,
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(color: effectiveBadgeColor, width: 1),
+            ),
+            child: Center(
+              child: Text(
+                number,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// 1:1교체 노드들 구성
   Widget _buildOneToOneNodes(
     OneToOneExchangePath path,
@@ -614,42 +654,13 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
 
     // 1단계 양방향 화살표와 빨간색 숫자 박스
     nodeWidgets.add(
-      Container(
-        margin: const EdgeInsets.symmetric(vertical: 2),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.swap_vert,
-              color: isSelected ? colorScheme.primary : Colors.grey.shade500,
-              size: 14,
-            ),
-            const SizedBox(width: 4),
-            // 숫자 1 박스 (선택 상태에 따라 색상 변경)
-            Container(
-              width: 20,
-              height: 16,
-              decoration: BoxDecoration(
-                color: isSelected ? Colors.red : Colors.grey.shade500,
-                borderRadius: BorderRadius.circular(3),
-                border: Border.all(
-                  color: isSelected ? Colors.red : Colors.grey.shade500,
-                  width: 1,
-                ),
-              ),
-              child: Center(
-                child: Text(
-                  '1',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+      _buildArrowWithBadge(
+        arrow: Icons.swap_vert,
+        arrowSize: 14,
+        number: '1',
+        badgeColor: Colors.red,
+        arrowColor: colorScheme.primary,
+        isSelected: isSelected,
       ),
     );
 
@@ -685,42 +696,13 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
 
     // 2단계 양방향 화살표와 빨간색 숫자 박스
     nodeWidgets.add(
-      Container(
-        margin: const EdgeInsets.symmetric(vertical: 2),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.swap_vert,
-              color: isSelected ? colorScheme.primary : Colors.grey.shade500,
-              size: 14,
-            ),
-            const SizedBox(width: 4),
-            // 숫자 2 박스 (선택 상태에 따라 색상 변경)
-            Container(
-              width: 20,
-              height: 16,
-              decoration: BoxDecoration(
-                color: isSelected ? Colors.red : Colors.grey.shade500,
-                borderRadius: BorderRadius.circular(3),
-                border: Border.all(
-                  color: isSelected ? Colors.red : Colors.grey.shade500,
-                  width: 1,
-                ),
-              ),
-              child: Center(
-                child: Text(
-                  '2',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+      _buildArrowWithBadge(
+        arrow: Icons.swap_vert,
+        arrowSize: 14,
+        number: '2',
+        badgeColor: Colors.red,
+        arrowColor: colorScheme.primary,
+        isSelected: isSelected,
       ),
     );
 
@@ -795,47 +777,13 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
       for (int i = 1; i < path.nodes.length - 1; i++) {
         // 단방향 화살표와 숫자 (순환교체 특징)
         nodeWidgets.add(
-          Container(
+          _buildArrowWithBadge(
+            arrow: Icons.arrow_downward,
+            arrowSize: 12,
+            number: '$i',
+            badgeColor: colorScheme.primary,
+            isSelected: isSelected,
             margin: const EdgeInsets.symmetric(vertical: 1),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.arrow_downward,
-                  color:
-                      isSelected ? colorScheme.primary : Colors.grey.shade500,
-                  size: 12,
-                ),
-                const SizedBox(width: 4),
-                // 숫자 박스 (선택 상태에 따라 색상 변경)
-                Container(
-                  width: 20,
-                  height: 16,
-                  decoration: BoxDecoration(
-                    color:
-                        isSelected ? colorScheme.primary : Colors.grey.shade500,
-                    borderRadius: BorderRadius.circular(3),
-                    border: Border.all(
-                      color:
-                          isSelected
-                              ? colorScheme.primary
-                              : Colors.grey.shade500,
-                      width: 1,
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      '$i',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ),
         );
 
@@ -857,47 +805,13 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
       if (path.nodes.length > 3) {
         // 마지막 화살표와 숫자
         nodeWidgets.add(
-          Container(
+          _buildArrowWithBadge(
+            arrow: Icons.arrow_downward,
+            arrowSize: 12,
+            number: '${path.nodes.length - 1}',
+            badgeColor: colorScheme.primary,
+            isSelected: isSelected,
             margin: const EdgeInsets.symmetric(vertical: 1),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.arrow_downward,
-                  color:
-                      isSelected ? colorScheme.primary : Colors.grey.shade500,
-                  size: 12,
-                ),
-                const SizedBox(width: 4),
-                // 마지막 숫자 박스 (선택 상태에 따라 색상 변경)
-                Container(
-                  width: 20,
-                  height: 16,
-                  decoration: BoxDecoration(
-                    color:
-                        isSelected ? colorScheme.primary : Colors.grey.shade500,
-                    borderRadius: BorderRadius.circular(3),
-                    border: Border.all(
-                      color:
-                          isSelected
-                              ? colorScheme.primary
-                              : Colors.grey.shade500,
-                      width: 1,
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      '${path.nodes.length - 1}',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ),
         );
 
