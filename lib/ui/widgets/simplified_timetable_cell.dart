@@ -1,4 +1,5 @@
 ﻿import 'package:flutter/material.dart';
+import '../../constants/cell_status_tooltips.dart';
 import '../../utils/simplified_timetable_theme.dart';
 import '../../utils/cell_style_config.dart';
 
@@ -78,9 +79,12 @@ class SimplifiedTimetableCell extends StatelessWidget {
     //   AppLogger.exchangeDebug('선택된 셀 렌더링: $content, 교사열=$isTeacherColumn, 선택됨=$isSelected');
     // }
     
-    return GestureDetector(
+    // 셀 전체 영역에서 마우스 호버가 감지되도록 크기를 채웁니다.
+    final cellBody = GestureDetector(
       onTap: onTap,
       child: Container(
+        width: double.infinity,
+        height: double.infinity,
         padding: EdgeInsets.zero,
         alignment: Alignment.center,
         decoration: BoxDecoration(
@@ -104,6 +108,25 @@ class SimplifiedTimetableCell extends StatelessWidget {
           ],
         ),
       ),
+    );
+
+    // 빠진 수업·맡은 수업·교체 불가 수업 셀에만 툴팁을 표시합니다.
+    final tooltipMessage = CellStatusTooltips.forCellState(
+      isTeacherColumn: isTeacherColumn,
+      isHeader: isHeader,
+      isNonExchangeable: isNonExchangeable,
+      isExchangedSourceCell: isExchangedSourceCell,
+      isExchangedDestinationCell: isExchangedDestinationCell,
+    );
+
+    if (tooltipMessage == null) {
+      return cellBody;
+    }
+
+    return Tooltip(
+      message: tooltipMessage,
+      waitDuration: const Duration(milliseconds: 300),
+      child: cellBody,
     );
   }
 }
