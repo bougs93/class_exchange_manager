@@ -59,7 +59,16 @@
       "Bash(perl -pi -e 's/_buildChainNodes/_buildDualNodes/g' lib/ui/widgets/unified_exchange_sidebar.dart)",
       "Bash(perl -pi -e 's/onChainModeTap/onDualModeTap/g' lib/ui/screens/exchange_screen/helpers/cell_tap_helper.dart)",
       "Bash(git stash *)",
-      "Bash(grep -v \"//\")"
+      "Bash(grep -v \"//\")",
+      "Bash(findstr /R \"\\\\.dart$\")",
+      "Bash(grep '\\\\.dart$')",
+      "Bash(Select-String -Pattern \"error|No issues|issues found\")",
+      "Bash(Select-Object -First 5)",
+      "Bash(git add *)",
+      "Bash(git reset *)",
+      "Bash(dart format *)",
+      "Bash(grep -v '\\\\.dart$')",
+      "PowerShell(flutter *)"
     ],
     "deny": [],
     "ask": []
