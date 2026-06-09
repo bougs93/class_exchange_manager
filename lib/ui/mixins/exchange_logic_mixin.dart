@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../services/exchange_service.dart';
 import '../../services/circular_exchange_service.dart';
@@ -24,7 +24,7 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
   bool get isDualExchangeModeEnabled;
   CircularExchangePath? get selectedCircularPath;
   DualExchangePath? get selectedDualPath;
-  
+
   // 추상 메서드들 - 구현 클래스에서 구현해야 함
   void updateDataSource();
   void updateHeaderTheme();
@@ -38,7 +38,10 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
     }
 
     // ExchangeService를 사용하여 교체 처리
-    ExchangeResult result = exchangeService.startOneToOneExchange(details, dataSource!);
+    ExchangeResult result = exchangeService.startOneToOneExchange(
+      details,
+      dataSource!,
+    );
 
     if (result.isNoAction) {
       return; // 아무 동작하지 않음
@@ -47,7 +50,7 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
     // 교체 대상 선택 후 교체 가능한 시간 탐색 및 표시
     processCellSelection();
   }
-  
+
   /// 순환교체 처리 시작
   void startCircularExchange(DataGridCellTapDetails details) {
     // 데이터 소스가 없는 경우 처리하지 않음
@@ -56,10 +59,13 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
       return;
     }
 
-    AppLogger.exchangeDebug('순환교체: 셀 선택 시작 - 컬럼: ${details.column.columnName}, 행: ${details.rowColumnIndex.rowIndex}');
+    AppLogger.exchangeDebug(
+      '순환교체: 셀 선택 시작 - 컬럼: ${details.column.columnName}, 행: ${details.rowColumnIndex.rowIndex}',
+    );
 
     // CircularExchangeService를 사용하여 순환교체 처리
-    CircularExchangeResult result = circularExchangeService.startCircularExchange(details, dataSource!);
+    CircularExchangeResult result = circularExchangeService
+        .startCircularExchange(details, dataSource!);
 
     if (result.isNoAction) {
       AppLogger.exchangeDebug('순환교체: 아무 동작하지 않음 (교사명 열 또는 잘못된 컬럼)');
@@ -68,14 +74,15 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
 
     // 새로운 셀 선택 시 기존 선택된 순환교체 경로와 관련 상태 초기화
     if (result.isSelected) {
-      AppLogger.exchangeDebug('순환교체: 새로운 셀 선택됨 - 교사: ${result.teacherName}, 요일: ${result.day}, 교시: ${result.period}');
+      AppLogger.exchangeDebug(
+        '순환교체: 새로운 셀 선택됨 - 교사: ${result.teacherName}, 요일: ${result.day}, 교시: ${result.period}',
+      );
 
       // 이전 순환교체 경로 관련 상태 완전 초기화
       dataSource?.updateSelectedCircularPath(null);
 
       // 구현 클래스에서 순환교체 관련 상태 초기화
       clearPreviousCircularExchangeState();
-
     } else if (result.isDeselected) {
       AppLogger.exchangeDebug('순환교체: 셀 선택 해제됨');
     }
@@ -92,7 +99,9 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
       return;
     }
 
-    AppLogger.exchangeDebug('2중교체: 셀 선택 시작 - 컬럼: ${details.column.columnName}, 행: ${details.rowColumnIndex.rowIndex}');
+    AppLogger.exchangeDebug(
+      '2중교체: 셀 선택 시작 - 컬럼: ${details.column.columnName}, 행: ${details.rowColumnIndex.rowIndex}',
+    );
 
     // DualExchangeService를 사용하여 2중교체 처리
     DualExchangeResult result = dualExchangeService.startDualExchange(
@@ -108,11 +117,12 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
 
     // 새로운 셀 선택 시 기존 선택된 2중교체 경로와 관련 상태 초기화
     if (result.isSelected) {
-      AppLogger.exchangeDebug('2중교체: 새로운 셀 선택됨 - 교사: ${result.teacherName}, 요일: ${result.day}, 교시: ${result.period}');
+      AppLogger.exchangeDebug(
+        '2중교체: 새로운 셀 선택됨 - 교사: ${result.teacherName}, 요일: ${result.day}, 교시: ${result.period}',
+      );
 
       // 이전 2중교체 경로 관련 상태 완전 초기화
       clearPreviousDualExchangeState();
-
     } else if (result.isDeselected) {
       AppLogger.exchangeDebug('2중교체: 셀 선택 해제됨');
     }
@@ -120,7 +130,7 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
     // 교체 대상 선택 후 교체 가능한 시간 탐색 및 표시
     processDualCellSelection();
   }
-  
+
   /// 셀 선택 후 공통 처리 로직
   Future<void> _processCommonCellSelection(String modeName) async {
     final service = _getCurrentService();
@@ -129,7 +139,7 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
     dataSource?.updateSelection(
       service.selectedTeacher,
       service.selectedDay,
-      service.selectedPeriod
+      service.selectedPeriod,
     );
 
     // 빈 셀인 경우 경로 탐색하지 않음
@@ -170,13 +180,13 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
   /// 2중교체 셀 선택 후 처리 로직
   Future<void> processDualCellSelection() async =>
       await _processCommonCellSelection('2중교체');
-  
+
   /// 셀이 비어있지 않은지 확인 (과목이나 학급이 있는지 검사)
-  /// 
+  ///
   /// [teacherName] 교사 이름
   /// [day] 요일 (월, 화, 수, 목, 금)
   /// [period] 교시 (1-7)
-  /// 
+  ///
   /// Returns: `bool` - 수업이 있으면 true, 없으면 false
   bool _isCellNotEmpty(String teacherName, String day, int period) {
     if (timetableData == null) {
@@ -221,7 +231,7 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
     return !_isCellNotEmpty(
       service.selectedTeacher!,
       service.selectedDay!,
-      service.selectedPeriod!
+      service.selectedPeriod!,
     );
   }
 
@@ -293,45 +303,48 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
     AppLogger.exchangeDebug('1:1 교체: Provider 및 DataSource 업데이트 완료');
   }
 
-  
   /// 경로 선택 처리 (토글 기능 제거)
   void selectPath(CircularExchangePath path) {
     AppLogger.exchangeDebug('경로 선택 시도: ${path.id}');
-    
+
     // 토글 기능 제거 - 항상 새로운 경로 선택
     onPathSelected(path);
-    
+
     // 선택된 경로 정보를 콘솔에 출력
     AppLogger.exchangeInfo('선택된 순환교체 경로: ${path.nodes.length}단계');
     for (int i = 0; i < path.nodes.length; i++) {
       final node = path.nodes[i];
-      AppLogger.exchangeDebug('  ${i + 1}단계: ${node.day}${node.period} | ${node.teacherName}');
+      AppLogger.exchangeDebug(
+        '  ${i + 1}단계: ${node.day}${node.period} | ${node.teacherName}',
+      );
     }
   }
-  
+
   /// 실제 교체 가능한 수업 개수 반환
   int getActualExchangeableCount() {
     // 1:1 교체 모드가 비활성화되어 있거나 선택된 셀이 없으면 0 반환
-    if (!isExchangeModeEnabled || !exchangeService.hasSelectedCell() || timetableData == null) {
+    if (!isExchangeModeEnabled ||
+        !exchangeService.hasSelectedCell() ||
+        timetableData == null) {
       return 0;
     }
-    
+
     // 실제 교체 가능한 교사 정보를 가져와서 수업 개수 계산
-    List<Map<String, dynamic>> exchangeableTeachers = exchangeService.getCurrentExchangeableTeachers(
-      timetableData!.timeSlots,
-      timetableData!.teachers,
-    );
-    
+    List<Map<String, dynamic>> exchangeableTeachers = exchangeService
+        .getCurrentExchangeableTeachers(
+          timetableData!.timeSlots,
+          timetableData!.teachers,
+        );
+
     // 각 교체 가능한 교사 정보가 하나의 수업을 의미하므로 전체 길이가 수업 개수
     return exchangeableTeachers.length;
   }
 
-  
   // 추상 메서드들 - 구현 클래스에서 구현해야 함
   void onEmptyCellSelected();
   void onEmptyDualCellSelected();
   Future<void> findCircularPathsWithProgress();
-  
+
   // 로딩 상태 관리 콜백들 - 구현 클래스에서 구현해야 함
   void onStartLoading();
   void onFinishLoading();

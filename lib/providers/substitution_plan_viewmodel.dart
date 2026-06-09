@@ -8,23 +8,23 @@ import 'substitution_plan_helpers.dart';
 
 /// 보강계획서 데이터 모델
 class SubstitutionPlanData {
-  final String exchangeId;      // 교체 식별자 (고유 키)
-  final String absenceDate;      // 결강일
-  final String absenceDay;       // 결강 요일
-  final String period;           // 교시
-  final String grade;           // 학년
-  final String className;       // 반
-  final String subject;         // 과목
-  final String teacher;         // 교사
+  final String exchangeId; // 교체 식별자 (고유 키)
+  final String absenceDate; // 결강일
+  final String absenceDay; // 결강 요일
+  final String period; // 교시
+  final String grade; // 학년
+  final String className; // 반
+  final String subject; // 과목
+  final String teacher; // 교사
   final String supplementSubject; // 보강/수업변경 과목
   final String supplementTeacher; // 보강/수업변경 교사 성명
   final String substitutionDate; // 교체일
-  final String substitutionDay;  // 교체 요일
+  final String substitutionDay; // 교체 요일
   final String substitutionPeriod; // 교체 교시
   final String substitutionSubject; // 교체 과목
   final String substitutionTeacher; // 교체 교사 성명
-  final String remarks;         // 비고
-  final String? groupId;        // 교체 그룹 ID (순환교체 4단계 이상에서 그룹 구분용)
+  final String remarks; // 비고
+  final String? groupId; // 교체 그룹 ID (순환교체 4단계 이상에서 그룹 구분용)
 
   SubstitutionPlanData({
     required this.exchangeId,
@@ -50,7 +50,8 @@ class SubstitutionPlanData {
   String get formattedAbsenceDate => DateFormatUtils.toMonthDay(absenceDate);
 
   /// 포맷팅된 교체일 (월.일 형식)
-  String get formattedSubstitutionDate => DateFormatUtils.toMonthDay(substitutionDate);
+  String get formattedSubstitutionDate =>
+      DateFormatUtils.toMonthDay(substitutionDate);
 
   /// 학급명 (학년-반)
   String get fullClassName => '$grade-$className';
@@ -124,13 +125,15 @@ class SubstitutionPlanViewModelState {
 /// 보강계획서 ViewModel
 ///
 /// 교체 히스토리를 보강계획서 데이터로 변환하고 관리합니다.
-class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelState> {
-  SubstitutionPlanViewModel(this._ref) : super(const SubstitutionPlanViewModelState()) {
+class SubstitutionPlanViewModel
+    extends StateNotifier<SubstitutionPlanViewModelState> {
+  SubstitutionPlanViewModel(this._ref)
+    : super(const SubstitutionPlanViewModelState()) {
     _parser = ExchangeNodeParser(_ref);
-    
+
     // 초기 데이터 로드
     loadPlanData();
-    
+
     // 🔥 교체 리스트 변경 감지 및 자동 새로고침
     // exchangeListVersionProvider의 값이 변경되면 (즉, 교체 리스트가 변경되면)
     // 자동으로 결보강계획서를 새로고침합니다.
@@ -138,27 +141,32 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
       // 이전 버전이 null이 아니고 (초기화되지 않은 상태가 아니고)
       // 버전이 실제로 변경되었을 때만 새로고침을 실행합니다.
       if (previous != null && previous != next) {
-        AppLogger.exchangeDebug('[자동 새로고침] 교체 리스트 변경 감지 (버전: $previous → $next)');
-        
+        AppLogger.exchangeDebug(
+          '[자동 새로고침] 교체 리스트 변경 감지 (버전: $previous → $next)',
+        );
+
         // 로딩 중이 아닐 때만 새로고침 (중복 호출 방지)
         if (!state.isLoading) {
           loadPlanData();
         }
       }
     });
-    
+
     // 🔥 Provider 상태 변경 감지 및 자동 복원
     // substitutionPlanProvider의 상태가 변경되면 (저장된 날짜/과목이 로드되면)
     // 자동으로 보강계획서 데이터를 다시 로드하여 복원된 날짜/과목을 반영합니다.
     _ref.listen(substitutionPlanProvider, (previous, next) {
       // Provider에 저장된 데이터가 로드되었는지 확인
-      final hasSavedData = next.savedDates.isNotEmpty || next.savedSupplementSubjects.isNotEmpty;
-      final previousHasSavedData = previous?.savedDates.isNotEmpty == true || previous?.savedSupplementSubjects.isNotEmpty == true;
-      
+      final hasSavedData =
+          next.savedDates.isNotEmpty || next.savedSupplementSubjects.isNotEmpty;
+      final previousHasSavedData =
+          previous?.savedDates.isNotEmpty == true ||
+          previous?.savedSupplementSubjects.isNotEmpty == true;
+
       // 이전에는 데이터가 없었고, 현재는 데이터가 있는 경우 (프로그램 시작 후 데이터 로드 완료)
       if (!previousHasSavedData && hasSavedData) {
         AppLogger.info('🔄 [보강계획서] Provider에 저장된 데이터 로드 완료 감지 - 자동 복원 실행');
-        
+
         // 로딩 중이 아닐 때만 새로고침 (중복 호출 방지)
         if (!state.isLoading && state.planData.isNotEmpty) {
           // 저장된 날짜/과목 정보 반영을 위해 다시 로드
@@ -172,7 +180,13 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
   late final ExchangeNodeParser _parser;
 
   /// 교체 항목의 고유 식별자 생성
-  String _generateExchangeId(String teacher, String day, String period, String subject, {String? suffix}) {
+  String _generateExchangeId(
+    String teacher,
+    String day,
+    String period,
+    String subject, {
+    String? suffix,
+  }) {
     final base = '${teacher}_$day${period}_$subject';
     return suffix != null ? '${base}_$suffix' : base;
   }
@@ -225,45 +239,74 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
 
       // 🔥 저장된 날짜 및 보강 과목 복원 적용
       // Provider에서 직접 가져와서 복원 (캐시를 거치지 않고 최신 데이터 사용)
-      final substitutionPlanNotifier = _ref.read(substitutionPlanProvider.notifier);
-      
-      final restored = newPlanData.map((d) {
-        // 저장된 날짜 복원
-        final savedAbsenceDate = substitutionPlanNotifier.getSavedDate(d.exchangeId, 'absenceDate');
-        final savedSubstitutionDate = substitutionPlanNotifier.getSavedDate(d.exchangeId, 'substitutionDate');
-        
-        // 저장된 보강 과목 복원
-        final savedSupplementSubject = substitutionPlanNotifier.getSupplementSubject(d.exchangeId);
-        
-        // 복원된 값이 있으면 업데이트, 없으면 기존 값 유지
-        return d.copyWith(
-          absenceDate: savedAbsenceDate.isNotEmpty ? savedAbsenceDate : d.absenceDate,
-          substitutionDate: savedSubstitutionDate.isNotEmpty ? savedSubstitutionDate : d.substitutionDate,
-          supplementSubject: savedSupplementSubject.isNotEmpty ? savedSupplementSubject : d.supplementSubject,
-        );
-      }).toList();
+      final substitutionPlanNotifier = _ref.read(
+        substitutionPlanProvider.notifier,
+      );
+
+      final restored =
+          newPlanData.map((d) {
+            // 저장된 날짜 복원
+            final savedAbsenceDate = substitutionPlanNotifier.getSavedDate(
+              d.exchangeId,
+              'absenceDate',
+            );
+            final savedSubstitutionDate = substitutionPlanNotifier.getSavedDate(
+              d.exchangeId,
+              'substitutionDate',
+            );
+
+            // 저장된 보강 과목 복원
+            final savedSupplementSubject = substitutionPlanNotifier
+                .getSupplementSubject(d.exchangeId);
+
+            // 복원된 값이 있으면 업데이트, 없으면 기존 값 유지
+            return d.copyWith(
+              absenceDate:
+                  savedAbsenceDate.isNotEmpty
+                      ? savedAbsenceDate
+                      : d.absenceDate,
+              substitutionDate:
+                  savedSubstitutionDate.isNotEmpty
+                      ? savedSubstitutionDate
+                      : d.substitutionDate,
+              supplementSubject:
+                  savedSupplementSubject.isNotEmpty
+                      ? savedSupplementSubject
+                      : d.supplementSubject,
+            );
+          }).toList();
 
       state = state.copyWith(planData: restored, isLoading: false);
-      
+
       // 복원된 데이터 로그 출력
-      final restoredDatesCount = restored.where((d) => 
-        (d.absenceDate.isNotEmpty && d.absenceDate != '선택') || 
-        (d.substitutionDate.isNotEmpty && d.substitutionDate != '선택')
-      ).length;
-      final restoredSubjectsCount = restored.where((d) => d.supplementSubject.isNotEmpty).length;
-      
-      AppLogger.info('✅ [보강계획서] 데이터 복원 완료: 전체 ${restored.length}개 항목, 날짜 복원 $restoredDatesCount개, 보강 과목 복원 $restoredSubjectsCount개');
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: '데이터 로드 중 오류: $e',
+      final restoredDatesCount =
+          restored
+              .where(
+                (d) =>
+                    (d.absenceDate.isNotEmpty && d.absenceDate != '선택') ||
+                    (d.substitutionDate.isNotEmpty &&
+                        d.substitutionDate != '선택'),
+              )
+              .length;
+      final restoredSubjectsCount =
+          restored.where((d) => d.supplementSubject.isNotEmpty).length;
+
+      AppLogger.info(
+        '✅ [보강계획서] 데이터 복원 완료: 전체 ${restored.length}개 항목, 날짜 복원 $restoredDatesCount개, 보강 과목 복원 $restoredSubjectsCount개',
       );
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: '데이터 로드 중 오류: $e');
       AppLogger.exchangeDebug('데이터 로드 중 오류: $e');
     }
   }
 
   /// 1:1 교체 처리
-  void _handleOneToOneExchange(List nodes, String? notes, List<SubstitutionPlanData> planData, String groupId) {
+  void _handleOneToOneExchange(
+    List nodes,
+    String? notes,
+    List<SubstitutionPlanData> planData,
+    String groupId,
+  ) {
     if (nodes.length < 2) {
       AppLogger.exchangeDebug('1:1 교체: 노드가 부족합니다 (${nodes.length}개)');
       return;
@@ -271,7 +314,12 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
 
     final sourceNode = nodes[0];
     final targetNode = nodes[1];
-    final exchangeId = _generateExchangeId(sourceNode.teacherName, sourceNode.day, sourceNode.period.toString(), sourceNode.subjectName);
+    final exchangeId = _generateExchangeId(
+      sourceNode.teacherName,
+      sourceNode.day,
+      sourceNode.period.toString(),
+      sourceNode.subjectName,
+    );
 
     final data = _parser.parseNode(
       sourceNode: sourceNode,
@@ -286,7 +334,11 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
   }
 
   /// 순환 교체 처리
-  void _handleCircularExchange(List nodes, List<SubstitutionPlanData> planData, String groupId) {
+  void _handleCircularExchange(
+    List nodes,
+    List<SubstitutionPlanData> planData,
+    String groupId,
+  ) {
     if (nodes.length < 3) {
       AppLogger.exchangeDebug('순환교체: 노드가 부족합니다 (${nodes.length}개)');
       return;
@@ -300,7 +352,13 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
     if (nodes.length == 3) {
       final sourceNode = nodes[0];
       final targetNode = nodes[1];
-      final exchangeId = _generateExchangeId(sourceNode.teacherName, sourceNode.day, sourceNode.period.toString(), sourceNode.subjectName, suffix: '순환');
+      final exchangeId = _generateExchangeId(
+        sourceNode.teacherName,
+        sourceNode.day,
+        sourceNode.period.toString(),
+        sourceNode.subjectName,
+        suffix: '순환',
+      );
 
       final data = _parser.parseNode(
         sourceNode: sourceNode,
@@ -323,10 +381,16 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
         // i=2: nodes[nodes.length-3] → nodes[0]
         final sourceNode = (i == 0) ? nodes[0] : nodes[nodes.length - 1 - i];
         final targetNode = nodes[nodes.length - 2 - i];
-        
+
         // 비고란 번호: 역순 (i=0일 때 3, i=1일 때 2, i=2일 때 1)
         final stepNumber = nodes.length - 1 - i;
-        final exchangeId = _generateExchangeId(sourceNode.teacherName, sourceNode.day, sourceNode.period.toString(), sourceNode.subjectName, suffix: '순환$stepNumber');
+        final exchangeId = _generateExchangeId(
+          sourceNode.teacherName,
+          sourceNode.day,
+          sourceNode.period.toString(),
+          sourceNode.subjectName,
+          suffix: '순환$stepNumber',
+        );
 
         // 비고란: 순환교체 번호만 표시 (별표 없음)
         final remarks = '순환교체$stepNumber';
@@ -361,7 +425,11 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
   }
 
   /// 2중 교체 처리
-  void _handleDualExchange(List nodes, List<SubstitutionPlanData> planData, String groupId) {
+  void _handleDualExchange(
+    List nodes,
+    List<SubstitutionPlanData> planData,
+    String groupId,
+  ) {
     if (nodes.length < 4) {
       AppLogger.exchangeDebug('2중교체: 노드가 부족합니다 (${nodes.length}개)');
       return;
@@ -373,7 +441,13 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
     final intermediateNode2 = nodes[3];
 
     // 최종 교체
-    final finalExchangeId = _generateExchangeId(substituteNode.teacherName, substituteNode.day, substituteNode.period.toString(), substituteNode.subjectName, suffix: '2중최종');
+    final finalExchangeId = _generateExchangeId(
+      substituteNode.teacherName,
+      substituteNode.day,
+      substituteNode.period.toString(),
+      substituteNode.subjectName,
+      suffix: '2중최종',
+    );
     final finalData = _parser.parseNode(
       sourceNode: substituteNode,
       targetNode: absentNode,
@@ -385,7 +459,13 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
     planData.add(finalData);
 
     // 중간 교체
-    final intermediateExchangeId = _generateExchangeId(intermediateNode1.teacherName, intermediateNode1.day, intermediateNode1.period.toString(), intermediateNode1.subjectName, suffix: '2중중간');
+    final intermediateExchangeId = _generateExchangeId(
+      intermediateNode1.teacherName,
+      intermediateNode1.day,
+      intermediateNode1.period.toString(),
+      intermediateNode1.subjectName,
+      suffix: '2중중간',
+    );
     final intermediateData = _parser.parseNode(
       sourceNode: intermediateNode1,
       targetNode: intermediateNode2,
@@ -400,7 +480,11 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
   }
 
   /// 보강 처리
-  void _handleSupplementExchange(List nodes, List<SubstitutionPlanData> planData, String groupId) {
+  void _handleSupplementExchange(
+    List nodes,
+    List<SubstitutionPlanData> planData,
+    String groupId,
+  ) {
     if (nodes.length < 2) {
       AppLogger.exchangeDebug('보강: 노드가 부족합니다 (${nodes.length}개)');
       return;
@@ -408,7 +492,13 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
 
     final sourceNode = nodes[0];
     final targetNode = nodes[1];
-    final exchangeId = _generateExchangeId(sourceNode.teacherName, sourceNode.day, sourceNode.period.toString(), sourceNode.subjectName, suffix: '보강');
+    final exchangeId = _generateExchangeId(
+      sourceNode.teacherName,
+      sourceNode.day,
+      sourceNode.period.toString(),
+      sourceNode.subjectName,
+      suffix: '보강',
+    );
 
     final data = _parser.parseNode(
       sourceNode: sourceNode,
@@ -425,16 +515,23 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
   /// 날짜 업데이트 (동일 수업 조건 연동) - 성능 최적화 버전 O(n)
   void updateDate(String exchangeId, String columnName, String newDate) {
     // Provider에 날짜 저장
-    _ref.read(substitutionPlanProvider.notifier).saveDate(exchangeId, columnName, newDate);
+    _ref
+        .read(substitutionPlanProvider.notifier)
+        .saveDate(exchangeId, columnName, newDate);
 
     // 현재 항목 찾기
-    final currentIndex = state.planData.indexWhere((data) => data.exchangeId == exchangeId);
+    final currentIndex = state.planData.indexWhere(
+      (data) => data.exchangeId == exchangeId,
+    );
     if (currentIndex == -1) return;
 
     final currentData = state.planData[currentIndex];
 
     // 수업 조건 키 생성
-    final targetKey = ClassConditionMatcher.extractTargetKey(currentData, columnName);
+    final targetKey = ClassConditionMatcher.extractTargetKey(
+      currentData,
+      columnName,
+    );
 
     // 연동 대상 인덱스 추출
     final indicesToUpdate = <int, String>{}; // index -> columnName
@@ -454,7 +551,9 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
 
       if (absenceKey == targetKey) {
         indicesToUpdate[i] = 'absenceDate';
-        _ref.read(substitutionPlanProvider.notifier).saveDate(data.exchangeId, 'absenceDate', newDate);
+        _ref
+            .read(substitutionPlanProvider.notifier)
+            .saveDate(data.exchangeId, 'absenceDate', newDate);
       }
 
       // 교체일 섹션 검사
@@ -470,7 +569,9 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
 
         if (substitutionKey == targetKey) {
           indicesToUpdate[i] = 'substitutionDate';
-          _ref.read(substitutionPlanProvider.notifier).saveDate(data.exchangeId, 'substitutionDate', newDate);
+          _ref
+              .read(substitutionPlanProvider.notifier)
+              .saveDate(data.exchangeId, 'substitutionDate', newDate);
         }
       }
     }
@@ -482,9 +583,13 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
       final column = entry.value;
 
       if (column == 'absenceDate') {
-        updatedPlanData[index] = updatedPlanData[index].copyWith(absenceDate: newDate);
+        updatedPlanData[index] = updatedPlanData[index].copyWith(
+          absenceDate: newDate,
+        );
       } else {
-        updatedPlanData[index] = updatedPlanData[index].copyWith(substitutionDate: newDate);
+        updatedPlanData[index] = updatedPlanData[index].copyWith(
+          substitutionDate: newDate,
+        );
       }
     }
 
@@ -495,13 +600,14 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
   void clearAllDates() {
     _ref.read(substitutionPlanProvider.notifier).clearAllDates();
 
-    final clearedPlanData = state.planData.map((data) {
-      return data.copyWith(
-        absenceDate: '선택',
-        substitutionDate: '선택',
-        supplementSubject: '', // 보강 과목도 초기화
-      );
-    }).toList();
+    final clearedPlanData =
+        state.planData.map((data) {
+          return data.copyWith(
+            absenceDate: '선택',
+            substitutionDate: '선택',
+            supplementSubject: '', // 보강 과목도 초기화
+          );
+        }).toList();
 
     state = state.copyWith(planData: clearedPlanData);
   }
@@ -509,14 +615,17 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
   /// 보강 과목 업데이트 (해당 교체 항목만 반영)
   void updateSupplementSubject(String exchangeId, String newSubject) {
     // 전역 Provider에 저장
-    _ref.read(substitutionPlanProvider.notifier).saveSupplementSubject(exchangeId, newSubject);
+    _ref
+        .read(substitutionPlanProvider.notifier)
+        .saveSupplementSubject(exchangeId, newSubject);
 
-    final updated = state.planData.map((data) {
-      if (data.exchangeId == exchangeId) {
-        return data.copyWith(supplementSubject: newSubject);
-      }
-      return data;
-    }).toList();
+    final updated =
+        state.planData.map((data) {
+          if (data.exchangeId == exchangeId) {
+            return data.copyWith(supplementSubject: newSubject);
+          }
+          return data;
+        }).toList();
 
     state = state.copyWith(planData: updated);
     AppLogger.exchangeInfo('보강 과목 업데이트: $exchangeId -> $newSubject');
@@ -524,7 +633,9 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
 }
 
 /// 보강계획서 ViewModel Provider
-final substitutionPlanViewModelProvider =
-    StateNotifierProvider<SubstitutionPlanViewModel, SubstitutionPlanViewModelState>((ref) {
+final substitutionPlanViewModelProvider = StateNotifierProvider<
+  SubstitutionPlanViewModel,
+  SubstitutionPlanViewModelState
+>((ref) {
   return SubstitutionPlanViewModel(ref);
 });

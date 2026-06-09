@@ -9,28 +9,28 @@ import 'supplement_exchange_path.dart';
 class ExchangeHistoryItem {
   /// 고유 식별자
   final String id;
-  
+
   /// 실행 시간
   final DateTime timestamp;
-  
+
   /// 원본 교체 경로
   final ExchangePath originalPath;
-  
+
   /// 사용자 친화적 설명
   final String description;
-  
+
   /// 교체 타입 (1:1, 순환, 2중)
   final ExchangePathType type;
-  
+
   /// 추가 메타데이터
   final Map<String, dynamic> metadata;
-  
+
   /// 사용자 메모
   final String? notes;
-  
+
   /// 태그 목록
   final List<String> tags;
-  
+
   /// 되돌리기 여부
   bool isReverted;
 
@@ -59,7 +59,7 @@ class ExchangeHistoryItem {
   }) {
     final pathType = _getPathType(path);
     final generatedId = customId ?? _generateId(pathType, stepCount);
-    
+
     return ExchangeHistoryItem(
       id: generatedId,
       timestamp: DateTime.now(),
@@ -90,7 +90,7 @@ class ExchangeHistoryItem {
         '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_'
         '${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}_'
         '${now.microsecond.toString().padLeft(6, '0')}_$sequence';
-    
+
     switch (pathType) {
       case ExchangePathType.oneToOne:
         return 'one_to_one_exchange_$timestamp';
@@ -183,7 +183,7 @@ class ExchangeHistoryItem {
   /// 실행 시간을 포맷된 문자열로 반환
   String get formattedTimestamp {
     return '${timestamp.year}-${timestamp.month.toString().padLeft(2, '0')}-${timestamp.day.toString().padLeft(2, '0')} '
-           '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
+        '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
   }
 
   /// 교체 타입의 한국어 이름 반환
@@ -225,9 +225,9 @@ class ExchangeHistoryItem {
   String toString() {
     return 'ExchangeHistoryItem(id: $id, timestamp: $timestamp, type: $typeDisplayName, description: $description, isReverted: $isReverted)';
   }
-  
+
   /// JSON 직렬화 (저장용)
-  /// 
+  ///
   /// ExchangeHistoryItem을 Map 형태로 변환하여 JSON 파일에 저장할 수 있도록 합니다.
   /// ExchangePath는 타입별로 적절히 직렬화됩니다.
   Map<String, dynamic> toJson() {
@@ -240,18 +240,19 @@ class ExchangeHistoryItem {
       'notes': notes,
       'tags': tags,
       'isReverted': isReverted,
-      'originalPath': originalPath.toJson(), // ExchangePath는 타입 정보를 포함한 JSON으로 저장
+      'originalPath':
+          originalPath.toJson(), // ExchangePath는 타입 정보를 포함한 JSON으로 저장
     };
   }
-  
+
   /// JSON 역직렬화 (로드용)
-  /// 
+  ///
   /// JSON 파일에서 읽어온 Map 데이터를 ExchangeHistoryItem 객체로 변환합니다.
   /// ExchangePath는 타입에 따라 적절한 서브클래스로 복원됩니다.
   factory ExchangeHistoryItem.fromJson(Map<String, dynamic> json) {
     final pathJson = json['originalPath'] as Map<String, dynamic>;
     final pathType = pathJson['type'] as String;
-    
+
     // ExchangePath 타입에 따라 적절한 서브클래스로 복원
     final ExchangePath path;
     switch (pathType) {
@@ -270,7 +271,7 @@ class ExchangeHistoryItem {
       default:
         throw FormatException('알 수 없는 ExchangePath 타입: $pathType');
     }
-    
+
     // ExchangePathType enum 변환
     final ExchangePathType type;
     switch (json['type'] as String) {
@@ -289,7 +290,7 @@ class ExchangeHistoryItem {
       default:
         type = ExchangePathType.oneToOne;
     }
-    
+
     return ExchangeHistoryItem(
       id: json['id'] as String,
       timestamp: DateTime.parse(json['timestamp'] as String),

@@ -13,7 +13,7 @@ class ExchangeNodeParser {
   ExchangeNodeParser(this._ref);
 
   /// 저장된 날짜 정보 복원 (캐싱 포함)
-  /// 
+  ///
   /// Provider에서 직접 가져오되, 캐시를 통해 성능 최적화합니다.
   /// 저장된 날짜가 없으면 '선택'을 반환합니다.
   String getSavedDate(String exchangeId, String columnName) {
@@ -25,7 +25,9 @@ class ExchangeNodeParser {
     }
 
     // Provider에서 가져오기 (항상 최신 데이터)
-    final date = _ref.read(substitutionPlanProvider.notifier).getSavedDate(exchangeId, columnName);
+    final date = _ref
+        .read(substitutionPlanProvider.notifier)
+        .getSavedDate(exchangeId, columnName);
     final result = date.isNotEmpty ? date : '선택';
 
     // 캐시에 저장
@@ -102,12 +104,21 @@ class ExchangeNodeParser {
 /// updateDate의 성능을 O(n²) → O(n)으로 개선합니다.
 class ClassConditionMatcher {
   /// 수업 조건 키 생성
-  static String generateKey(String day, String period, String grade, String className, String subject, String teacher) {
+  static String generateKey(
+    String day,
+    String period,
+    String grade,
+    String className,
+    String subject,
+    String teacher,
+  ) {
     return '$day|$period|$grade|$className|$subject|$teacher';
   }
 
   /// planData에서 인덱스 맵 생성
-  static ClassConditionIndexMap buildIndexMap(List<SubstitutionPlanData> planData) {
+  static ClassConditionIndexMap buildIndexMap(
+    List<SubstitutionPlanData> planData,
+  ) {
     final Map<String, List<int>> absenceIndex = {};
     final Map<String, List<int>> substitutionIndex = {};
 
@@ -176,9 +187,6 @@ class ClassConditionIndexMap {
 
   /// 특정 키에 해당하는 모든 인덱스 반환
   List<int> getIndices(String key) {
-    return [
-      ...absenceIndex[key] ?? [],
-      ...substitutionIndex[key] ?? [],
-    ];
+    return [...absenceIndex[key] ?? [], ...substitutionIndex[key] ?? []];
   }
 }

@@ -1,4 +1,4 @@
-﻿import '../models/notice_message.dart';
+import '../models/notice_message.dart';
 import '../providers/substitution_plan_viewmodel.dart';
 import '../utils/logger.dart';
 import 'notice_message_helpers.dart';
@@ -289,9 +289,10 @@ ${classLines.join('\n')}''',
     List<SubstitutionPlanData> sortedDataList,
     String teacherName,
   ) {
-    return _generateTeacherOption1Lines(sortedDataList, teacherName)
-        .map(_convertExchangeLineToQuestion)
-        .toList();
+    return _generateTeacherOption1Lines(
+      sortedDataList,
+      teacherName,
+    ).map(_convertExchangeLineToQuestion).toList();
   }
 
   /// 교체 안내 문구를 질문 형태로 변환

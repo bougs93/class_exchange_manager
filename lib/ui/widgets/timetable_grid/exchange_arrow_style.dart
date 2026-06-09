@@ -1,13 +1,13 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'timetable_grid_constants.dart';
 
 /// 교체 모드별 화살표 스타일을 정의하는 클래스
 class ExchangeArrowStyle {
-  final Color color;           // 화살표 색상
-  final double strokeWidth;    // 선 두께
-  final Color outlineColor;    // 외곽선 색상
-  final double outlineWidth;   // 외곽선 두께
-  final double arrowHeadSize;  // 화살표 머리 크기
+  final Color color; // 화살표 색상
+  final double strokeWidth; // 선 두께
+  final Color outlineColor; // 외곽선 색상
+  final double outlineWidth; // 외곽선 두께
+  final double arrowHeadSize; // 화살표 머리 크기
   final ArrowDirection direction; // 화살표 방향
 
   const ExchangeArrowStyle({

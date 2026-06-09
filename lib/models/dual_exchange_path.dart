@@ -1,4 +1,4 @@
-﻿import 'exchange_node.dart';
+import 'exchange_node.dart';
 import 'exchange_path.dart';
 import 'dual_step.dart';
 
@@ -16,14 +16,14 @@ import 'dual_step.dart';
 /// 2단계: 이숙희 월1 ↔ 손혜옥 월4 교체 (결강 해결)
 /// ```
 class DualExchangePath implements ExchangePath {
-  final ExchangeNode nodeA;         // A 위치 (결강 수업)
-  final ExchangeNode nodeB;         // B 위치 (대체 가능 수업)
-  final ExchangeNode node1;         // 1번 위치 (1단계 교환 대상)
-  final ExchangeNode node2;         // 2번 위치 (A 교사의 B 시간 수업)
-  final int dualDepth;             // 2중 깊이 (기본값: 2)
-  final List<DualStep> steps;      // 교체 단계들
-  bool _isSelected = false;         // 선택 상태
-  String? _customId;                // 사용자 정의 ID
+  final ExchangeNode nodeA; // A 위치 (결강 수업)
+  final ExchangeNode nodeB; // B 위치 (대체 가능 수업)
+  final ExchangeNode node1; // 1번 위치 (1단계 교환 대상)
+  final ExchangeNode node2; // 2번 위치 (A 교사의 B 시간 수업)
+  final int dualDepth; // 2중 깊이 (기본값: 2)
+  final List<DualStep> steps; // 교체 단계들
+  bool _isSelected = false; // 선택 상태
+  String? _customId; // 사용자 정의 ID
 
   DualExchangePath({
     required this.nodeA,
@@ -44,16 +44,8 @@ class DualExchangePath implements ExchangePath {
   }) {
     // 단계별 설명 자동 생성
     List<DualStep> steps = [
-      DualStep.exchange(
-        stepNumber: 1,
-        fromNode: node1,
-        toNode: node2,
-      ),
-      DualStep.exchange(
-        stepNumber: 2,
-        fromNode: nodeA,
-        toNode: nodeB,
-      ),
+      DualStep.exchange(stepNumber: 1, fromNode: node1, toNode: node2),
+      DualStep.exchange(stepNumber: 2, fromNode: nodeA, toNode: nodeB),
     ];
 
     return DualExchangePath(
@@ -70,16 +62,16 @@ class DualExchangePath implements ExchangePath {
   @override
   String get id {
     if (_customId != null) return _customId!;
-    
+
     // 원하는 형태: dual_1단계_문유란_수2교시_↔_정영훈, 목4교시_2단계_문유란_월5교시_↔_정수정_수2교시
     // 1단계: node1 ↔ node2 (교사명_요일교시 형태)
     String step1From = '${node1.teacherName}_${node1.day}${node1.period}교시';
     String step1To = '${node2.teacherName}, ${node2.day}${node2.period}교시';
-    
+
     // 2단계: nodeA ↔ nodeB (교사명_요일교시 형태)
     String step2From = '${nodeA.teacherName}_${nodeA.day}${nodeA.period}교시';
     String step2To = '${nodeB.teacherName}_${nodeB.day}${nodeB.period}교시';
-    
+
     return 'dual_1단계_${step1From}_↔_${step1To}_2단계_${step2From}_↔_$step2To';
   }
 
@@ -109,16 +101,18 @@ class DualExchangePath implements ExchangePath {
   String get description {
     // 새로운 형식: [T] 목표노드→대체노드, [1] 1단계교체, [2] 2단계교체
     StringBuffer buffer = StringBuffer();
-    
+
     // 목표 노드와 대체 노드 표시 (학급 정보 포함)
-    buffer.write('[T] ${nodeA.day}${nodeA.period}|${nodeA.className}|${nodeA.teacherName}|${nodeA.subjectName}→${nodeB.day}${nodeB.period}|${nodeB.className}|${nodeB.teacherName}|${nodeB.subjectName}, ');
-    
+    buffer.write(
+      '[T] ${nodeA.day}${nodeA.period}|${nodeA.className}|${nodeA.teacherName}|${nodeA.subjectName}→${nodeB.day}${nodeB.period}|${nodeB.className}|${nodeB.teacherName}|${nodeB.subjectName}, ',
+    );
+
     // 각 단계별 교체 정보
     for (int i = 0; i < steps.length; i++) {
       if (i > 0) buffer.write(', ');
       buffer.write(steps[i].description);
     }
-    
+
     return buffer.toString();
   }
 
@@ -150,7 +144,9 @@ class DualExchangePath implements ExchangePath {
     buffer.writeln('');
     buffer.writeln('📍 목표: ${nodeA.displayText} 결강 해결');
     buffer.writeln('');
-    buffer.writeln('1단계: ${node2.teacherName} ${node2.day}${node2.period}교시 비우기');
+    buffer.writeln(
+      '1단계: ${node2.teacherName} ${node2.day}${node2.period}교시 비우기',
+    );
     buffer.writeln('  ${steps[0].description}');
     buffer.writeln('');
     buffer.writeln('2단계: 최종 교체');
@@ -172,10 +168,7 @@ class DualExchangePath implements ExchangePath {
   /// 해시코드 생성
   @override
   int get hashCode {
-    return nodeA.hashCode ^
-        nodeB.hashCode ^
-        node1.hashCode ^
-        node2.hashCode;
+    return nodeA.hashCode ^ nodeB.hashCode ^ node1.hashCode ^ node2.hashCode;
   }
 
   /// 디버그용 문자열 표현
@@ -183,9 +176,9 @@ class DualExchangePath implements ExchangePath {
   String toString() {
     return 'DualExchangePath(depth: $dualDepth, A: ${nodeA.displayText}, B: ${nodeB.displayText})';
   }
-  
+
   /// JSON 직렬화 (저장용)
-  /// 
+  ///
   /// ExchangePath를 JSON으로 저장할 때 타입 정보와 함께 저장합니다.
   @override
   Map<String, dynamic> toJson() {
@@ -203,21 +196,24 @@ class DualExchangePath implements ExchangePath {
       'isSelected': _isSelected,
     };
   }
-  
+
   /// JSON 역직렬화 (로드용)
-  /// 
+  ///
   /// JSON에서 DualExchangePath를 복원합니다.
   factory DualExchangePath.fromJson(Map<String, dynamic> json) {
     final nodeA = ExchangeNode.fromJson(json['nodeA'] as Map<String, dynamic>);
     final nodeB = ExchangeNode.fromJson(json['nodeB'] as Map<String, dynamic>);
     final node1 = ExchangeNode.fromJson(json['node1'] as Map<String, dynamic>);
     final node2 = ExchangeNode.fromJson(json['node2'] as Map<String, dynamic>);
-    
+
     final stepsJson = json['steps'] as List<dynamic>;
-    final steps = stepsJson
-        .map((stepJson) => DualStep.fromJson(stepJson as Map<String, dynamic>))
-        .toList();
-    
+    final steps =
+        stepsJson
+            .map(
+              (stepJson) => DualStep.fromJson(stepJson as Map<String, dynamic>),
+            )
+            .toList();
+
     return DualExchangePath(
       nodeA: nodeA,
       nodeB: nodeB,

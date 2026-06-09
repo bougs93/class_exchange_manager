@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../../../services/excel_service.dart';
 import '../../../../utils/timetable_data_source.dart';
@@ -30,7 +30,8 @@ class CellTapHelper {
     required VoidCallback Function(DataGridCellTapDetails) onOneToOneModeTap,
     required VoidCallback Function(DataGridCellTapDetails) onCircularModeTap,
     required VoidCallback Function(DataGridCellTapDetails) onDualModeTap,
-    required VoidCallback Function(DataGridCellTapDetails) onNonExchangeableEditTap,
+    required VoidCallback Function(DataGridCellTapDetails)
+    onNonExchangeableEditTap,
   }) {
     if (timetableData == null) return;
 

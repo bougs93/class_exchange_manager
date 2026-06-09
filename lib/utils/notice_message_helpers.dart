@@ -1,4 +1,4 @@
-﻿import '../models/notice_message.dart';
+import '../models/notice_message.dart';
 import '../providers/substitution_plan_viewmodel.dart';
 import 'date_format_utils.dart';
 
@@ -99,14 +99,17 @@ class MessageFormatter {
 
     if (option == MessageOption.option1) {
       // 질문 형태
-      final arrow = category == ExchangeCategory.circularFourPlus ? '->' : '<->';
-      final baseLine = category == ExchangeCategory.circularFourPlus
-          ? "'${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' $arrow '${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}'"
-          : "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' $arrow '${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}'";
+      final arrow =
+          category == ExchangeCategory.circularFourPlus ? '->' : '<->';
+      final baseLine =
+          category == ExchangeCategory.circularFourPlus
+              ? "'${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' $arrow '${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}'"
+              : "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' $arrow '${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}'";
       return '$baseLine 교체 가능하신지요?';
     } else if (option == MessageOption.option2) {
       // 교체 안내 형태 (날짜는 월.일 형식으로 표시)
-      final arrow = category == ExchangeCategory.circularFourPlus ? '->' : '<->';
+      final arrow =
+          category == ExchangeCategory.circularFourPlus ? '->' : '<->';
 
       if (category == ExchangeCategory.circularFourPlus) {
         return "'${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' $arrow '${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}'";
@@ -126,7 +129,7 @@ class MessageFormatter {
 
 /// 교체 유형 카테고리 (메시지 처리 방식 구분)
 enum ExchangeCategory {
-  basic,           // 1:1교체, 순환교체 3단계, 2중교체 (동일한 방식)
-  supplement,      // 보강 (별도 방식)
+  basic, // 1:1교체, 순환교체 3단계, 2중교체 (동일한 방식)
+  supplement, // 보강 (별도 방식)
   circularFourPlus, // 순환교체 4단계 이상 (별도 방식)
 }

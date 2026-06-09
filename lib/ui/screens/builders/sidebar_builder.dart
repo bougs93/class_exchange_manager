@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../../../models/exchange_path.dart';
 import '../../../models/one_to_one_exchange_path.dart';
 import '../../../models/circular_exchange_path.dart';
@@ -116,13 +116,39 @@ mixin SidebarBuilder<T extends StatefulWidget> on State<T> {
       onClearSearch: clearSearch,
       getSubjectName: getSubjectName,
       // 순환교체, 1:1 교체, 2중교체 모드에서 사용되는 단계 필터 매개변수들
-      availableSteps: (isCircularExchangeModeEnabled || isExchangeModeEnabled || isDualExchangeModeEnabled) ? availableSteps : null,
-      selectedStep: (isCircularExchangeModeEnabled || isExchangeModeEnabled || isDualExchangeModeEnabled) ? selectedStep : null,
-      onStepChanged: (isCircularExchangeModeEnabled || isExchangeModeEnabled || isDualExchangeModeEnabled) ? onStepChanged : null,
-      selectedDay: (isCircularExchangeModeEnabled || isExchangeModeEnabled || isDualExchangeModeEnabled) ? selectedDay : null,
-      onDayChanged: (isCircularExchangeModeEnabled || isExchangeModeEnabled || isDualExchangeModeEnabled) ? onDayChanged : null,
+      availableSteps:
+          (isCircularExchangeModeEnabled ||
+                  isExchangeModeEnabled ||
+                  isDualExchangeModeEnabled)
+              ? availableSteps
+              : null,
+      selectedStep:
+          (isCircularExchangeModeEnabled ||
+                  isExchangeModeEnabled ||
+                  isDualExchangeModeEnabled)
+              ? selectedStep
+              : null,
+      onStepChanged:
+          (isCircularExchangeModeEnabled ||
+                  isExchangeModeEnabled ||
+                  isDualExchangeModeEnabled)
+              ? onStepChanged
+              : null,
+      selectedDay:
+          (isCircularExchangeModeEnabled ||
+                  isExchangeModeEnabled ||
+                  isDualExchangeModeEnabled)
+              ? selectedDay
+              : null,
+      onDayChanged:
+          (isCircularExchangeModeEnabled ||
+                  isExchangeModeEnabled ||
+                  isDualExchangeModeEnabled)
+              ? onDayChanged
+              : null,
       // 보강 모드에서 사용되는 교사 버튼 클릭 콜백
-      onSupplementTeacherTap: isSupplementExchangeModeEnabled ? onSupplementTeacherTap : null,
+      onSupplementTeacherTap:
+          isSupplementExchangeModeEnabled ? onSupplementTeacherTap : null,
     );
   }
 

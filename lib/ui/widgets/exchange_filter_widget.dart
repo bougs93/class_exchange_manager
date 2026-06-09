@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../../models/exchange_path.dart';
 import '../../models/exchange_node.dart';
 import '../../models/circular_exchange_path.dart';
@@ -8,7 +8,7 @@ import '../../models/supplement_exchange_path.dart';
 
 /// 교체 경로 필터 위젯
 /// 순환교체, 2중교체, 1:1교체, 보강 등 모든 교체 모드에서 공용으로 사용하는 필터 위젯
-/// 
+///
 /// 주요 기능:
 /// - 단계 필터: 순환교체(2~5단계, 경로가 있을 때만), 2중교체(필터 불필요), 1:1교체, 보강
 /// - 요일 필터: 월~금 요일별 필터링
@@ -16,29 +16,29 @@ import '../../models/supplement_exchange_path.dart';
 /// - 빈 경로 처리: 교체 가능한 경로가 없을 때는 단계 필터 숨김
 /// - 모드별 특화: 순환교체에서만 2~5단계 표시, 2중교체는 필터 숨김
 class ExchangeFilterWidget extends StatelessWidget {
-  final ExchangePathType mode;                    // 현재 모드
-  final List<ExchangePath> paths;                 // 전체 경로 리스트
-  final String searchQuery;                       // 검색 쿼리
-  final bool isLoading;                           // 로딩 상태 (경로 탐색 중인지 여부)
-  
+  final ExchangePathType mode; // 현재 모드
+  final List<ExchangePath> paths; // 전체 경로 리스트
+  final String searchQuery; // 검색 쿼리
+  final bool isLoading; // 로딩 상태 (경로 탐색 중인지 여부)
+
   // 단계 필터 관련 매개변수 (순환교체, 2중교체에서 사용)
-  final List<int>? availableSteps;                // 사용 가능한 단계들
-  final int? selectedStep;                        // 선택된 단계
-  final Function(int?)? onStepChanged;           // 단계 변경 콜백
-  
+  final List<int>? availableSteps; // 사용 가능한 단계들
+  final int? selectedStep; // 선택된 단계
+  final Function(int?)? onStepChanged; // 단계 변경 콜백
+
   // 요일 필터 관련 매개변수
-  final String? selectedDay;                      // 선택된 요일
-  final Function(String?)? onDayChanged;          // 요일 변경 콜백
-  
+  final String? selectedDay; // 선택된 요일
+  final Function(String?)? onDayChanged; // 요일 변경 콜백
+
   // 교사 필터 관련 매개변수 (향후 확장용)
-  final List<String>? availableTeachers;          // 사용 가능한 교사들
-  final String? selectedTeacher;                 // 선택된 교사
-  final Function(String?)? onTeacherChanged;      // 교사 변경 콜백
-  
+  final List<String>? availableTeachers; // 사용 가능한 교사들
+  final String? selectedTeacher; // 선택된 교사
+  final Function(String?)? onTeacherChanged; // 교사 변경 콜백
+
   // 과목 필터 관련 매개변수 (향후 확장용)
-  final List<String>? availableSubjects;          // 사용 가능한 과목들
-  final String? selectedSubject;                 // 선택된 과목
-  final Function(String?)? onSubjectChanged;     // 과목 변경 콜백
+  final List<String>? availableSubjects; // 사용 가능한 과목들
+  final String? selectedSubject; // 선택된 과목
+  final Function(String?)? onSubjectChanged; // 과목 변경 콜백
 
   /// 필터 적용 후 경로 개수 (헤더에 「검색 필터 (N개 경로)」 표시용)
   final int? filteredPathCount;
@@ -48,7 +48,7 @@ class ExchangeFilterWidget extends StatelessWidget {
     required this.mode,
     required this.paths,
     required this.searchQuery,
-    this.isLoading = false,                        // 기본값 false로 설정
+    this.isLoading = false, // 기본값 false로 설정
     this.filteredPathCount,
     this.availableSteps,
     this.selectedStep,
@@ -70,10 +70,7 @@ class ExchangeFilterWidget extends StatelessWidget {
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
-        border: Border.all(
-          color: Colors.grey.shade200,
-          width: 1,
-        ),
+        border: Border.all(color: Colors.grey.shade200, width: 1),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Column(
@@ -82,22 +79,22 @@ class ExchangeFilterWidget extends StatelessWidget {
           // 필터 그룹 제목
           _buildFilterHeader(),
           const SizedBox(height: 4),
-          
+
           // 단계 필터 (순환교체에서만 2~5단계 표시, 다른 모드는 조건부 표시)
           if (_shouldShowStepFilter()) ...[
             _buildStepFilter(),
             const SizedBox(height: 4),
           ],
-          
+
           // 요일 필터
           _buildDayFilter(),
-          
+
           // 교사 필터 (향후 확장용)
           if (availableTeachers != null && availableTeachers!.isNotEmpty) ...[
             const SizedBox(height: 4),
             _buildTeacherFilter(),
           ],
-          
+
           // 과목 필터 (향후 확장용)
           if (availableSubjects != null && availableSubjects!.isNotEmpty) ...[
             const SizedBox(height: 4),
@@ -127,7 +124,8 @@ class ExchangeFilterWidget extends StatelessWidget {
     }
 
     // 1:1교체, 보강 모드: 경로가 있을 때 표시
-    if (mode == ExchangePathType.oneToOne || mode == ExchangePathType.supplement) {
+    if (mode == ExchangePathType.oneToOne ||
+        mode == ExchangePathType.supplement) {
       return paths.isNotEmpty;
     }
 
@@ -152,11 +150,7 @@ class ExchangeFilterWidget extends StatelessWidget {
 
     return Row(
       children: [
-        Icon(
-          Icons.filter_list,
-          size: 14,
-          color: Colors.grey.shade600,
-        ),
+        Icon(Icons.filter_list, size: 14, color: Colors.grey.shade600),
         const SizedBox(width: 4),
         Expanded(
           child: Text(
@@ -178,18 +172,21 @@ class ExchangeFilterWidget extends StatelessWidget {
     return Row(
       children: [
         // 각 단계별 버튼을 Expanded로 감싸서 전체 너비 채우기
-        ...availableSteps!.map((step) => Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(
-              right: step == availableSteps!.last ? 0 : 2, // 마지막 버튼은 오른쪽 패딩 없음
-            ),
-            child: _buildStepButton(
-              label: _getStepLabel(step),
-              step: step,
-              isSelected: selectedStep == step,
+        ...availableSteps!.map(
+          (step) => Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(
+                right:
+                    step == availableSteps!.last ? 0 : 2, // 마지막 버튼은 오른쪽 패딩 없음
+              ),
+              child: _buildStepButton(
+                label: _getStepLabel(step),
+                step: step,
+                isSelected: selectedStep == step,
+              ),
             ),
           ),
-        )),
+        ),
       ],
     );
   }
@@ -198,7 +195,7 @@ class ExchangeFilterWidget extends StatelessWidget {
   String _getStepLabel(int step) {
     switch (mode) {
       case ExchangePathType.circular:
-        return '${step-2}단계(${_getStepCount(step)})';
+        return '${step - 2}단계(${_getStepCount(step)})';
       case ExchangePathType.dual:
         return '$step단계(${_getStepCount(step)})';
       case ExchangePathType.oneToOne:
@@ -211,41 +208,42 @@ class ExchangeFilterWidget extends StatelessWidget {
   /// 특정 단계의 경로 개수 계산 (검색 및 기타 필터링 반영)
   int _getStepCount(int step) {
     // 단계별 경로를 먼저 필터링 (가장 제한적인 조건)
-    final stepPaths = paths.where((path) {
-      switch (mode) {
-        case ExchangePathType.circular:
-          return path is CircularExchangePath && path.nodes.length == step;
-        case ExchangePathType.dual:
-          return path is DualExchangePath && path.dualDepth == step;
-        case ExchangePathType.oneToOne:
-          return path is OneToOneExchangePath; // 1:1 교체는 항상 2개 노드
-        case ExchangePathType.supplement:
-          return path is SupplementExchangePath; // 보강는 항상 2개 노드
-      }
-    }).toList();
-    
+    final stepPaths =
+        paths.where((path) {
+          switch (mode) {
+            case ExchangePathType.circular:
+              return path is CircularExchangePath && path.nodes.length == step;
+            case ExchangePathType.dual:
+              return path is DualExchangePath && path.dualDepth == step;
+            case ExchangePathType.oneToOne:
+              return path is OneToOneExchangePath; // 1:1 교체는 항상 2개 노드
+            case ExchangePathType.supplement:
+              return path is SupplementExchangePath; // 보강는 항상 2개 노드
+          }
+        }).toList();
+
     // 필터가 없으면 단계별 경로 수만 반환
     if (selectedDay == null && searchQuery.isEmpty) {
       return stepPaths.length;
     }
-    
+
     // 추가 필터링 적용
     return stepPaths.where((path) {
       if (path.nodes.length < 2) return false;
-      
+
       final targetNode = _getTargetNode(path);
       if (targetNode == null) return false;
-      
+
       // 요일 필터링
       if (selectedDay != null && targetNode.day != selectedDay) {
         return false;
       }
-      
+
       // 검색 필터링
       if (searchQuery.isNotEmpty && !_matchesSearchQuery(targetNode)) {
         return false;
       }
-      
+
       return true;
     }).length;
   }
@@ -311,7 +309,7 @@ class ExchangeFilterWidget extends StatelessWidget {
   /// 요일 필터 구성
   Widget _buildDayFilter() {
     final List<String> days = ['월', '화', '수', '목', '금'];
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -331,7 +329,7 @@ class ExchangeFilterWidget extends StatelessWidget {
   /// 요일 선택 버튼 구성
   Widget _buildDayButton(String day) {
     final bool isSelected = selectedDay == day;
-    
+
     return GestureDetector(
       onTap: () => onDayChanged?.call(isSelected ? null : day),
       child: Container(
@@ -374,7 +372,9 @@ class ExchangeFilterWidget extends StatelessWidget {
           spacing: 3,
           runSpacing: 3,
           children: [
-            ...availableTeachers!.map((teacher) => _buildTeacherButton(teacher)),
+            ...availableTeachers!.map(
+              (teacher) => _buildTeacherButton(teacher),
+            ),
           ],
         ),
       ],
@@ -384,7 +384,7 @@ class ExchangeFilterWidget extends StatelessWidget {
   /// 교사 선택 버튼 구성 (향후 확장용)
   Widget _buildTeacherButton(String teacher) {
     final bool isSelected = selectedTeacher == teacher;
-    
+
     return GestureDetector(
       onTap: () => onTeacherChanged?.call(isSelected ? null : teacher),
       child: Container(
@@ -427,7 +427,9 @@ class ExchangeFilterWidget extends StatelessWidget {
           spacing: 3,
           runSpacing: 3,
           children: [
-            ...availableSubjects!.map((subject) => _buildSubjectButton(subject)),
+            ...availableSubjects!.map(
+              (subject) => _buildSubjectButton(subject),
+            ),
           ],
         ),
       ],
@@ -437,7 +439,7 @@ class ExchangeFilterWidget extends StatelessWidget {
   /// 과목 선택 버튼 구성 (향후 확장용)
   Widget _buildSubjectButton(String subject) {
     final bool isSelected = selectedSubject == subject;
-    
+
     return GestureDetector(
       onTap: () => onSubjectChanged?.call(isSelected ? null : subject),
       child: Container(
@@ -465,34 +467,34 @@ class ExchangeFilterWidget extends StatelessWidget {
   /// 검색 쿼리와 노드가 일치하는지 확인하는 통합 메서드
   bool _matchesSearchQuery(ExchangeNode node) {
     if (searchQuery.isEmpty) return true;
-    
+
     final query = searchQuery.toLowerCase();
-    
+
     // 교사명 검색
     if (node.teacherName.toLowerCase().contains(query)) {
       return true;
     }
-    
+
     // 과목명 검색
     if (node.subjectName.toLowerCase().contains(query)) {
       return true;
     }
-    
+
     // 학급명 검색
     if (node.className.toLowerCase().contains(query)) {
       return true;
     }
-    
+
     // 요일 검색
     if (node.day.toLowerCase().contains(query)) {
       return true;
     }
-    
+
     // 교시 검색
     if (node.period.toString().contains(query)) {
       return true;
     }
-    
+
     return false;
   }
 }

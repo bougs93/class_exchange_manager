@@ -82,7 +82,8 @@ class UnifiedExchangeSidebar extends ConsumerStatefulWidget {
       _UnifiedExchangeSidebarState();
 }
 
-class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar> {
+class _UnifiedExchangeSidebarState
+    extends ConsumerState<UnifiedExchangeSidebar> {
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
@@ -131,8 +132,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
     // 보강: 경로 미선택 시 안내, 선택 시 다른 모드와 동일하게 [교체 실행] 표시
     if (widget.mode == ExchangePathType.supplement &&
         widget.selectedPath == null) {
-      final headerText =
-          widget.isLoading ? '보강 준비 중...' : '보강 선택';
+      final headerText = widget.isLoading ? '보강 준비 중...' : '보강 선택';
       return _buildHeaderContainer(
         child: Row(
           children: [
@@ -266,9 +266,9 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
         path.sourceNode.subjectName,
         context,
         () {
-          ref.read(stateResetProvider.notifier).resetExchangeStates(
-                reason: '내부 경로 초기화',
-              );
+          ref
+              .read(stateResetProvider.notifier)
+              .resetExchangeStates(reason: '내부 경로 초기화');
         },
       );
       ref.read(exchangeScreenProvider.notifier).disableTeacherNameSelection();
@@ -439,7 +439,8 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
     // 다른 모드에서는 기존 로직 유지
     return EmptyStateMessage(
       icon: Icons.search_off,
-      message: widget.searchQuery.isNotEmpty ? '검색 결과가 없습니다' : '교체 가능한 경로가 없습니다',
+      message:
+          widget.searchQuery.isNotEmpty ? '검색 결과가 없습니다' : '교체 가능한 경로가 없습니다',
       messageFontSize: SidebarFontSizes.emptyMessage,
     );
   }
@@ -897,7 +898,8 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
       colorScheme: colorScheme,
       isLastNode: isLastNode,
       isSecondNode: isSecondNode,
-      label: labelOverride ??
+      label:
+          labelOverride ??
           '${node.day}${node.period}|${node.className}|${node.teacherName}|${widget.getSubjectName(node)}',
       onTap: () => _handleNodeTap(node, nodeKey, isSelected),
     );

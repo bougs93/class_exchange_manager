@@ -60,11 +60,7 @@ class ResetState {
   final ResetLevel? lastResetLevel;
   final String? resetReason;
 
-  const ResetState({
-    this.lastResetTime,
-    this.lastResetLevel,
-    this.resetReason,
-  });
+  const ResetState({this.lastResetTime, this.lastResetLevel, this.resetReason});
 
   ResetState copyWith({
     DateTime? lastResetTime,
@@ -83,7 +79,8 @@ class ResetState {
   String toString() {
     if (lastResetTime == null) return 'ResetState(초기화 기록 없음)';
 
-    final timeStr = '${lastResetTime!.hour}:${lastResetTime!.minute}:${lastResetTime!.second}';
+    final timeStr =
+        '${lastResetTime!.hour}:${lastResetTime!.minute}:${lastResetTime!.second}';
     return 'ResetState(Level: ${lastResetLevel?.name}, Time: $timeStr, Reason: $resetReason)';
   }
 }
@@ -109,10 +106,12 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   // ========================================
 
   /// ExchangeScreenProvider 참조 가져오기
-  ExchangeScreenNotifier get _exchangeNotifier => _ref.read(exchangeScreenProvider.notifier);
+  ExchangeScreenNotifier get _exchangeNotifier =>
+      _ref.read(exchangeScreenProvider.notifier);
 
   /// CellSelectionNotifier 참조 가져오기
-  CellSelectionNotifier get _cellNotifier => _ref.read(cellSelectionProvider.notifier);
+  CellSelectionNotifier get _cellNotifier =>
+      _ref.read(cellSelectionProvider.notifier);
 
   /// 공통 초기화 작업 수행 (DataSource 및 화살표 제거)
   ///
@@ -152,37 +151,39 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   void _updateHeaderTheme() {
     final screenState = _exchangeNotifier.state;
     if (screenState.timetableData == null) return;
-    
+
     // FixedHeaderStyleManager의 셀 선택 전용 업데이트 사용 (성능 최적화)
     FixedHeaderStyleManager.updateHeaderForCellSelection(
       selectedDay: null, // Level 3 초기화 시에는 선택된 셀이 없음
       selectedPeriod: null,
     );
-    
+
     // ExchangeService를 사용하여 교체 가능한 교사 정보 수집
-    List<Map<String, dynamic>> exchangeableTeachers = _ref.read(exchangeServiceProvider).getCurrentExchangeableTeachers(
-      screenState.timetableData!.timeSlots,
-      screenState.timetableData!.teachers,
-    );
-    
+    List<Map<String, dynamic>> exchangeableTeachers = _ref
+        .read(exchangeServiceProvider)
+        .getCurrentExchangeableTeachers(
+          screenState.timetableData!.timeSlots,
+          screenState.timetableData!.teachers,
+        );
+
     // 교시 헤더 색상 변경을 위한 캐시 강제 초기화
     FixedHeaderStyleManager.clearCacheForPeriodHeaderColorChange();
-    
+
     // 선택된 교시 정보를 전달하여 헤더만 업데이트 (초기화된 상태)
     final result = SyncfusionTimetableHelper.convertToSyncfusionData(
       screenState.timetableData!.timeSlots,
       screenState.timetableData!.teachers,
-      selectedDay: null,      // 초기화된 상태
-      selectedPeriod: null,   // 초기화된 상태
-      targetDay: null,        // 초기화된 상태
-      targetPeriod: null,     // 초기화된 상태
+      selectedDay: null, // 초기화된 상태
+      selectedPeriod: null, // 초기화된 상태
+      targetDay: null, // 초기화된 상태
+      targetPeriod: null, // 초기화된 상태
       exchangeableTeachers: exchangeableTeachers,
       // 모든 경로 정보도 초기화된 상태로 전달
       selectedCircularPath: null,
       selectedOneToOnePath: null,
       selectedDualPath: null,
     );
-    
+
     // Provider를 통해 헤더 강제 재생성을 위한 완전한 새로고침
     _exchangeNotifier.setColumns(result.columns);
     _exchangeNotifier.setStackedHeaders(result.stackedHeaders);
@@ -276,7 +277,6 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     // 상태 업데이트 및 로깅
     _updateStateAndLog(ResetLevel.pathOnly, reason ?? 'Level 1 초기화');
   }
-
 
   // ========================================
   // Level 2: 이전 교체 상태 초기화
@@ -418,5 +418,5 @@ class StateResetNotifier extends StateNotifier<ResetState> {
 /// ```
 final stateResetProvider =
     StateNotifierProvider<StateResetNotifier, ResetState>((ref) {
-  return StateResetNotifier(ref);
-});
+      return StateResetNotifier(ref);
+    });

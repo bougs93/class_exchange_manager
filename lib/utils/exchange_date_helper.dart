@@ -1,4 +1,4 @@
-﻿import '../models/exchange_node.dart';
+import '../models/exchange_node.dart';
 import '../providers/personal_schedule_provider.dart';
 import '../providers/substitution_plan_provider.dart';
 
@@ -20,9 +20,7 @@ class ExchangeDateHelper {
     final weekDates = scheduleState.weekDates;
 
     // 요일 인덱스 매핑
-    final dayIndex = {
-      '월': 0, '화': 1, '수': 2, '목': 3, '금': 4,
-    };
+    final dayIndex = {'월': 0, '화': 1, '수': 2, '목': 3, '금': 4};
 
     final index = dayIndex[day];
     if (index != null && index < weekDates.length) {
@@ -145,7 +143,8 @@ class ExchangeDateHelper {
     final searchKey =
         '${sourceNode.teacherName}_${sourceNode.day}${sourceNode.period}_${sourceNode.subjectName}_보강';
 
-    final savedSubject = substitutionPlanState.savedSupplementSubjects[searchKey];
+    final savedSubject =
+        substitutionPlanState.savedSupplementSubjects[searchKey];
     if (savedSubject != null && savedSubject.isNotEmpty) {
       return savedSubject;
     }

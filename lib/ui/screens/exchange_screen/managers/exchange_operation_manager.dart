@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -57,7 +57,7 @@ class ExchangeOperationManager {
   // ===== 파일 관리 =====
 
   /// Excel 파일 선택
-  /// 
+  ///
   /// Returns: 파일 선택 성공 여부 (true: 성공, false: 취소 또는 실패)
   Future<bool> selectExcelFile() async {
     stateProxy.setLoading(true);
@@ -266,10 +266,10 @@ class ExchangeOperationManager {
 
       // 되돌리기 스택도 초기화
       _historyService.clearUndoStack();
-      
+
       // 모든 교체불가 설정 초기화 (timeslot.isExchangeable = true로 복원)
       _nonExchangeableManager.resetAllNonExchangeableSettings();
-      
+
       AppLogger.exchangeInfo('히스토리, 교체목록, 교체불가 설정이 모두 초기화되었습니다.');
     } catch (e) {
       AppLogger.error('상태 초기화 중 오류 발생: $e');
@@ -280,18 +280,18 @@ class ExchangeOperationManager {
   void clearSelectedFile() {
     // 히스토리와 교체목록 초기화
     _clearHistoryAndExchangeList();
-    
+
     // 파일 관련 상태 초기화
     stateProxy.setSelectedFile(null);
     stateProxy.setTimetableData(null);
     stateProxy.setErrorMessage(null);
-    
+
     // 교체 관련 상태 초기화
     onClearAllExchangeStates();
-    
+
     // 파일 선택 해제 후 보기 모드로 전환
     stateProxy.setCurrentMode(ExchangeMode.view);
-    
+
     AppLogger.exchangeInfo('엑셀 파일 선택이 해제되고 보기 모드로 전환되었습니다.');
   }
 
@@ -331,7 +331,11 @@ class ExchangeOperationManager {
   /// 스낵바 피드백 표시 (템플릿 메서드 패턴)
   void _showFeedback(String message, {Color? backgroundColor}) {
     if (backgroundColor == Colors.blue) {
-      SnackBarHelper.showInfo(context, message, backgroundColor: backgroundColor);
+      SnackBarHelper.showInfo(
+        context,
+        message,
+        backgroundColor: backgroundColor,
+      );
     } else if (backgroundColor == Colors.orange) {
       SnackBarHelper.showWarning(context, message);
     } else {
@@ -401,7 +405,10 @@ class ExchangeOperationManager {
 
     // 6. 사용자 피드백
     if (stateProxy.isCircularExchangeModeEnabled) {
-      _showFeedback('순환교체 모드가 활성화되었습니다. 여러 교사의 시간을 순환 교체할 수 있습니다.', backgroundColor: Colors.blue);
+      _showFeedback(
+        '순환교체 모드가 활성화되었습니다. 여러 교사의 시간을 순환 교체할 수 있습니다.',
+        backgroundColor: Colors.blue,
+      );
     }
   }
 
@@ -467,7 +474,9 @@ class ExchangeOperationManager {
 
   /// 보강 모드 토글
   void toggleSupplementExchangeMode() {
-    AppLogger.exchangeDebug('보강 모드 토글 시작 - 현재 상태: ${stateProxy.isSupplementExchangeModeEnabled}');
+    AppLogger.exchangeDebug(
+      '보강 모드 토글 시작 - 현재 상태: ${stateProxy.isSupplementExchangeModeEnabled}',
+    );
 
     final wasEnabled = stateProxy.isSupplementExchangeModeEnabled;
 
@@ -510,7 +519,10 @@ class ExchangeOperationManager {
 
     // 6. 사용자 피드백
     if (stateProxy.isSupplementExchangeModeEnabled) {
-      _showFeedback('보강 모드가 활성화되었습니다. 교사가 부재 시 다른 교사가 대신 수업할 수 있습니다.', backgroundColor: Colors.orange);
+      _showFeedback(
+        '보강 모드가 활성화되었습니다. 교사가 부재 시 다른 교사가 대신 수업할 수 있습니다.',
+        backgroundColor: Colors.orange,
+      );
     }
   }
 }
