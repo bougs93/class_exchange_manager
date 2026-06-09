@@ -1,4 +1,4 @@
-# Debug data → installer/bundled_user_data/ 동기화
+﻿# Debug data → installer/bundled_user_data/ 동기화
 # 사용: .\tool\sync_bundled_data.ps1
 
 $ErrorActionPreference = 'Stop'

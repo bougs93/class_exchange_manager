@@ -1,8 +1,8 @@
-@echo off
+﻿@echo off
 chcp 65001 >nul
 REM 만료일 없음. 베타 설치 프로그램은 build_installer.bat 사용.
 echo ========================================
-echo  수업 교체 도우미미 - Windows 릴리즈 빌드
+echo  수업 교체 도우미 - Windows 릴리즈 빌드
 echo ========================================
 echo.
 

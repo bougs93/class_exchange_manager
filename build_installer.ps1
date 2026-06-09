@@ -1,4 +1,4 @@
-# 수업 교체 도우미 - Inno Setup 설치 프로그램 빌드 (베타 만료일 포함)
+﻿# 수업 교체 도우미 - Inno Setup 설치 프로그램 빌드 (베타 만료일 포함)
 #
 # tool/build_installer.json 의 EXPIRY_DATE 가 exe에 컴파일됩니다.
 # Inno Setup 6/7: https://jrsoftware.org/isinfo.php

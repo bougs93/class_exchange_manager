@@ -1,4 +1,4 @@
-# Debug data 폴더 기준 사용자 JSON 동기화·정리 유틸리티
+﻿# Debug data 폴더 기준 사용자 JSON 동기화·정리 유틸리티
 #
 # - Setup 번들: installer/bundled_user_data/data/
 # - 런타임 전용 JSON(last_execution_time 등)은 번들·Setup에 포함하지 않음

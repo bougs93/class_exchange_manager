@@ -298,7 +298,7 @@ ${classLines.join('\n')}''',
   /// 교체 안내 문구를 질문 형태로 변환
   static String _convertExchangeLineToQuestion(String line) {
     if (line.endsWith('수업 교체되었습니다.')) {
-      return line.replaceFirst('수업 교체되었습니다.', '수업 교체 가능하시나요?');
+      return line.replaceFirst('수업 교체되었습니다.', '수업 교체 가능할까요?');
     }
     if (line.endsWith('이동 되었습니다.')) {
       return line.replaceFirst('이동 되었습니다.', '이동 가능하신지요?');

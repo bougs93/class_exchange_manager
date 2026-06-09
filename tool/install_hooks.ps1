@@ -1,4 +1,4 @@
-# Git hook 설치 (Windows PowerShell)
+﻿# Git hook 설치 (Windows PowerShell)
 # 사용: .\tool\install_hooks.ps1
 
 $repoRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)

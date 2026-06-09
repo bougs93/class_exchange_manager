@@ -4,6 +4,7 @@
 
 ## 목차
 - [Syncfusion DataGrid 동적 헤더 업데이트 이슈](#syncfusion-datagrid-동적-헤더-업데이트-이슈)
+- [빌드 스크립트(.bat / .ps1) 터미널 한글 깨짐 이슈](#빌드-스크립트bat--ps1-터미널-한글-깨짐-이슈)
 
 ---
 
@@ -271,3 +272,100 @@ WidgetsBinding.instance.addPostFrameCallback((_) {
 
 **마지막 업데이트**: 2025년 1월
 **해결 완료**: ✅ 모든 시나리오에서 헤더 UI 정상 업데이트 확인
+
+---
+
+## 빌드 스크립트(.bat / .ps1) 터미널 한글 깨짐 이슈
+
+**발생 일자**: 2026년 6월
+**심각도**: 중간 (빌드/배포 스크립트 사용성 영향, 기능 자체에는 영향 없음)
+
+### 문제 상황
+
+`build_installer.bat`, `build_release.bat` 등 빌드 스크립트를 더블클릭 또는 터미널에서 실행할 때
+콘솔에 출력되는 한글이 깨져서 표시되는 문제:
+
+```
+蹂듭궗: app_settings.json
+蹂듭궗: timetable_file_metadata.json
+踰덈뱾 ?곗씠???숆린???꾨즺 (Debug 湲곗?): installer\bundled_user_data\data\
+```
+
+- 일부 라인(`[0/4] Debug data → 번들 JSON 동기화...`, `[1/4] Flutter 의존성 확인 중...`)은 정상 출력
+- 일부 라인(`복사: ...` → `蹂듭궗: ...`)만 깨짐
+
+### 근본 원인 분석
+
+#### 1. UTF-8 BOM 누락
+
+빌드 스크립트 파일들이 **BOM 없는 UTF-8**로 저장되어 있었음.
+
+- `.bat`: `chcp 65001`로 콘솔 출력 코드페이지를 UTF-8로 바꿔도, BOM이 없으면
+  cmd.exe가 파일 내 한글 바이트를 시스템 기본 코드페이지(CP949)로 잘못 해석
+- `.ps1`: **Windows PowerShell 5.1**은 BOM이 없는 스크립트를 ANSI(CP949)로 읽음.
+  그 결과 파일 내 UTF-8 한글 리터럴이 CP949로 잘못 디코딩됨
+
+**깨짐 메커니즘 (예: "복사")**:
+- "복사"의 UTF-8 바이트: `EB B3 B5 EC 82 AC`
+- 이를 CP949 2바이트 단위로 잘못 해석: `EBB3`=蹂, `B5EC`=듭, `82AC`=궗 → `蹂듭궗`
+
+#### 2. dot-source된 하위 스크립트 누락
+
+`build_installer.ps1` 본체에만 BOM을 추가했을 때, 일부 라인은 고쳐졌지만
+`복사: ...` 라인은 여전히 깨졌음.
+
+- 원인: `build_installer.ps1`이 `. $userDataSyncScript`로 dot-source 하는
+  `tool\user_data_sync.ps1`에 BOM이 없었기 때문
+- 본체 ps1의 `Write-Host` 한글(`[0/4]`, `[1/4]` 등)은 정상,
+  하위 스크립트의 `복사:` 한글만 깨지는 현상으로 나타남
+
+### 해결 방법
+
+한글이 포함된 모든 빌드 스크립트(`.bat`, `.ps1`)를 **UTF-8 + BOM**으로 저장.
+(파일 맨 앞에 BOM 바이트 `EF BB BF` 추가, 내용은 그대로 유지)
+
+**적용 파일**:
+- `build_installer.bat`
+- `build_installer.ps1`
+- `build_release.bat`
+- `build_release.ps1`
+- `tool\user_data_sync.ps1` ← 깨짐의 직접 원인
+- `tool\sync_bundled_data.ps1`
+- `tool\install_hooks.ps1`
+
+**핵심 원칙**:
+- 본체 스크립트뿐 아니라 **dot-source / 호출되는 하위 스크립트까지 모두** BOM 적용 필요
+- `.bat`은 `chcp 65001`을 유지하되 파일 자체도 UTF-8 BOM으로 저장
+
+### 검증 방법
+
+```bash
+# BOM 및 UTF-8 유효성 확인 (Python)
+python -c "d=open('build_installer.bat','rb').read(); print('BOM:', d[:3]==b'\xef\xbb\xbf')"
+```
+
+`build_installer.bat` 실행 후 `복사: ...`, `번들 데이터 동기화 완료...` 등이 깨지지 않고
+정상 출력되면 해결 완료.
+
+### 교훈 및 권장사항
+
+1. **Windows 빌드 스크립트는 UTF-8 BOM으로 저장**
+   - Windows PowerShell 5.1은 BOM 없으면 ANSI(CP949)로 읽음
+   - `.bat`은 `chcp 65001` + UTF-8 BOM 조합이 가장 안정적
+
+2. **신규 `.bat`/`.ps1` 작성 시 인코딩 체크를 기본 절차로**
+   - 에디터에서 "UTF-8 with BOM"으로 저장 설정 확인
+   - dot-source / 호출되는 하위 스크립트도 동일하게 적용
+
+3. **깨진 문자 패턴으로 원인 추정 가능**
+   - `蹂듭궗` 같은 CJK 한자 mojibake는 UTF-8 → CP949 오해석의 전형적 징후
+
+### 참고 자료
+
+- [Microsoft Docs - chcp](https://learn.microsoft.com/windows-server/administration/windows-commands/chcp)
+- [about_Character_Encoding (PowerShell)](https://learn.microsoft.com/powershell/module/microsoft.powershell.core/about/about_character_encoding)
+
+---
+
+**마지막 업데이트**: 2026년 6월
+**해결 완료**: ✅ 모든 빌드 스크립트에서 한글 정상 출력 확인
