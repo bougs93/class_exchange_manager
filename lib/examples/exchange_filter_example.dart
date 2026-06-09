@@ -1,12 +1,12 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../ui/widgets/exchange_filter_widget.dart';
 import '../models/exchange_path.dart';
 import '../models/circular_exchange_path.dart';
-import '../models/chain_exchange_path.dart';
+import '../models/dual_exchange_path.dart';
 import '../models/exchange_node.dart';
 
 /// 교체 필터 위젯 사용 예시
-/// 순환교체, 연쇄교체 등 다양한 모드에서 공용 필터 위젯 사용법을 보여줍니다
+/// 순환교체, 2중교체 등 다양한 모드에서 공용 필터 위젯 사용법을 보여줍니다
 class ExchangeFilterExample extends StatefulWidget {
   const ExchangeFilterExample({super.key});
 
@@ -24,7 +24,7 @@ class _ExchangeFilterExampleState extends State<ExchangeFilterExample> {
   int? _selectedStep;
   String? _selectedDay;
   
-  // 연쇄교체 필터 상태
+  // 2중교체 필터 상태
   List<int>? _chainAvailableSteps;
   int? _chainSelectedStep;
   
@@ -84,7 +84,7 @@ class _ExchangeFilterExampleState extends State<ExchangeFilterExample> {
               ),
               const PopupMenuItem(
                 value: ExchangePathType.chain,
-                child: Text('연쇄교체 모드'),
+                child: Text('2중교체 모드'),
               ),
             ],
             child: Text(_getModeText(_currentMode)),
@@ -151,8 +151,8 @@ class _ExchangeFilterExampleState extends State<ExchangeFilterExample> {
   /// 모드별 데이터 업데이트
   void _updateModeData() {
     if (_currentMode == ExchangePathType.chain) {
-      // 연쇄교체 모드로 전환
-      _chainAvailableSteps = [2]; // 연쇄교체는 2단계만
+      // 2중교체 모드로 전환
+      _chainAvailableSteps = [2]; // 2중교체는 2단계만
       _chainSelectedStep = 2;
     } else {
       // 순환교체 모드로 전환
@@ -167,7 +167,7 @@ class _ExchangeFilterExampleState extends State<ExchangeFilterExample> {
       case ExchangePathType.circular:
         return '순환교체';
       case ExchangePathType.chain:
-        return '연쇄교체';
+        return '2중교체';
       default:
         return '알 수 없음';
     }
@@ -187,7 +187,7 @@ class _ExchangeFilterExampleState extends State<ExchangeFilterExample> {
             return false;
           }
         } else if (_currentMode == ExchangePathType.chain) {
-          if (path is ChainExchangePath && path.chainDepth != currentStep) {
+          if (path is DualExchangePath && path.dualDepth != currentStep) {
             return false;
           }
         }
@@ -237,8 +237,8 @@ class _ExchangeFilterExampleState extends State<ExchangeFilterExample> {
         }
         break;
       case ExchangePathType.chain:
-        if (path is ChainExchangePath) {
-          return path.nodeB; // 연쇄교체의 경우 마지막 교체 대상
+        if (path is DualExchangePath) {
+          return path.nodeB; // 2중교체의 경우 마지막 교체 대상
         }
         break;
       default:

@@ -1,6 +1,6 @@
-import '../../models/exchange_path.dart';
+﻿import '../../models/exchange_path.dart';
 import '../../models/circular_exchange_path.dart';
-import '../../models/chain_exchange_path.dart';
+import '../../models/dual_exchange_path.dart';
 import '../../models/one_to_one_exchange_path.dart';
 
 /// 필터 변경 콜백
@@ -17,11 +17,11 @@ class FilterStateManager {
   /// 0-based index로 1은 두 번째 노드를 의미합니다.
   static const int circularExchangeFilterNodeIndex = 1;
   
-  /// 연쇄교체에서 필터링할 단계 번호 상수
+  /// 2중교체에서 필터링할 단계 번호 상수
   /// 
-  /// 연쇄교체 경로에서 요일 필터를 적용할 때 사용하는 단계 번호입니다.
+  /// 2중교체 경로에서 요일 필터를 적용할 때 사용하는 단계 번호입니다.
   /// 2단계의 toNode만 확인합니다.
-  static const int chainExchangeFilterStepNumber = 2;
+  static const int dualExchangeFilterStepNumber = 2;
   
   // 필터 상태
   int? _selectedStep;
@@ -121,8 +121,8 @@ class FilterStateManager {
         return path.nodes.length == _selectedStep;
       } else if (path is CircularExchangePath) {
         return path.nodes.length == _selectedStep;
-      } else if (path is ChainExchangePath) {
-        return path.chainDepth == _selectedStep;
+      } else if (path is DualExchangePath) {
+        return path.dualDepth == _selectedStep;
       }
       return true;
     }).toList();
@@ -142,10 +142,10 @@ class FilterStateManager {
           return path.nodes[circularExchangeFilterNodeIndex].day == _selectedDayFilter;
         }
         return false;
-      } else if (path is ChainExchangePath) {
-        // 연쇄교체의 경우 2단계의 toNode만 확인
+      } else if (path is DualExchangePath) {
+        // 2중교체의 경우 2단계의 toNode만 확인
         final step2 = path.steps.firstWhere(
-          (step) => step.stepNumber == chainExchangeFilterStepNumber,
+          (step) => step.stepNumber == dualExchangeFilterStepNumber,
           orElse: () => throw StateError('2단계를 찾을 수 없습니다'),
         );
         return step2.toNode.day == _selectedDayFilter;
@@ -171,7 +171,7 @@ class FilterStateManager {
             node.teacherName.toLowerCase().contains(keyword) ||
             node.className.toLowerCase().contains(keyword) ||
             node.subjectName.toLowerCase().contains(keyword));
-      } else if (path is ChainExchangePath) {
+      } else if (path is DualExchangePath) {
         return path.steps.any((step) =>
             step.fromNode.teacherName.toLowerCase().contains(keyword) ||
             step.toNode.teacherName.toLowerCase().contains(keyword) ||

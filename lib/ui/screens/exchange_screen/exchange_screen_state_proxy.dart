@@ -1,7 +1,7 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/circular_exchange_path.dart';
-import '../../../models/chain_exchange_path.dart';
+import '../../../models/dual_exchange_path.dart';
 import '../../../models/one_to_one_exchange_path.dart';
 import '../../../models/supplement_exchange_path.dart';
 import '../../../models/exchange_path.dart';
@@ -31,14 +31,14 @@ class ExchangeScreenStateProxy {
   // 편의 getter들 (기존 코드와의 호환성을 위해 유지)
   bool get isExchangeModeEnabled => _getState().currentMode == ExchangeMode.oneToOneExchange;
   bool get isCircularExchangeModeEnabled => _getState().currentMode == ExchangeMode.circularExchange;
-  bool get isChainExchangeModeEnabled => _getState().currentMode == ExchangeMode.chainExchange;
+  bool get isDualExchangeModeEnabled => _getState().currentMode == ExchangeMode.dualExchange;
   bool get isSupplementExchangeModeEnabled => _getState().currentMode == ExchangeMode.supplementExchange;
   bool get isNonExchangeableEditMode => _getState().currentMode == ExchangeMode.nonExchangeableEdit;
 
   // 편의 setter들 (기존 코드와의 호환성을 위해 유지)
   void setExchangeModeEnabled(bool enabled) => _setModeEnabled(ExchangeMode.oneToOneExchange, enabled);
   void setCircularExchangeModeEnabled(bool enabled) => _setModeEnabled(ExchangeMode.circularExchange, enabled);
-  void setChainExchangeModeEnabled(bool enabled) => _setModeEnabled(ExchangeMode.chainExchange, enabled);
+  void setDualExchangeModeEnabled(bool enabled) => _setModeEnabled(ExchangeMode.dualExchange, enabled);
   void setSupplementExchangeModeEnabled(bool enabled) => _setModeEnabled(ExchangeMode.supplementExchange, enabled);
   void setNonExchangeableEditMode(bool enabled) => _setModeEnabled(ExchangeMode.nonExchangeableEdit, enabled);
 
@@ -80,8 +80,8 @@ class ExchangeScreenStateProxy {
   CircularExchangePath? get selectedCircularPath => _getState().selectedCircularPath;
   void setSelectedCircularPath(CircularExchangePath? value) => _notifier.setSelectedCircularPath(value);
 
-  ChainExchangePath? get selectedChainPath => _getState().selectedChainPath;
-  void setSelectedChainPath(ChainExchangePath? value) => _notifier.setSelectedChainPath(value);
+  DualExchangePath? get selectedDualPath => _getState().selectedDualPath;
+  void setSelectedDualPath(DualExchangePath? value) => _notifier.setSelectedDualPath(value);
 
   SupplementExchangePath? get selectedSupplementPath => _getState().selectedSupplementPath;
   void setSelectedSupplementPath(SupplementExchangePath? value) => _notifier.setSelectedSupplementPath(value);
@@ -124,7 +124,7 @@ class ExchangeScreenStateProxy {
   void clearAllSelections() {
     _notifier.setSelectedOneToOnePath(null);
     _notifier.setSelectedCircularPath(null);
-    _notifier.setSelectedChainPath(null);
+    _notifier.setSelectedDualPath(null);
     _notifier.setSelectedSupplementPath(null);
   }
 
@@ -139,8 +139,8 @@ class ExchangeScreenStateProxy {
       return ExchangePathUtils.getOneToOnePaths(availablePaths);
     } else if (isCircularExchangeModeEnabled) {
       return ExchangePathUtils.getCircularPaths(availablePaths);
-    } else if (isChainExchangeModeEnabled) {
-      return ExchangePathUtils.getChainPaths(availablePaths);
+    } else if (isDualExchangeModeEnabled) {
+      return ExchangePathUtils.getDualPaths(availablePaths);
     }
     return [];
   }

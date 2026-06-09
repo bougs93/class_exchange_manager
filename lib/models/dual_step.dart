@@ -1,18 +1,18 @@
-import 'exchange_node.dart';
+﻿import 'exchange_node.dart';
 
-/// 연쇄교체의 각 단계를 나타내는 모델 클래스
+/// 2중교체의 각 단계를 나타내는 모델 클래스
 ///
-/// 연쇄교체는 2단계로 구성됩니다:
+/// 2중교체는 2단계로 구성됩니다:
 /// - 1단계: 1번 ↔ 2번 교체 (A 교사의 B 시간을 비우기)
 /// - 2단계: A ↔ B 교체 (결강 해결)
-class ChainStep {
+class DualStep {
   final int stepNumber;           // 단계 번호 (1, 2)
   final String stepType;          // 단계 타입 ('exchange')
   final ExchangeNode fromNode;    // 교환 시작 노드
   final ExchangeNode toNode;      // 교환 대상 노드
   final String description;       // 단계 설명
 
-  ChainStep({
+  DualStep({
     required this.stepNumber,
     required this.stepType,
     required this.fromNode,
@@ -21,7 +21,7 @@ class ChainStep {
   });
 
   /// 단계 설명을 자동 생성하는 팩토리 메서드
-  factory ChainStep.exchange({
+  factory DualStep.exchange({
     required int stepNumber,
     required ExchangeNode fromNode,
     required ExchangeNode toNode,
@@ -29,7 +29,7 @@ class ChainStep {
     // 새로운 형식: [단계번호] 요일교시|학급|교사명|과목명↔요일교시|학급|교사명|과목명
     String description = '[$stepNumber] ${fromNode.day}${fromNode.period}|${fromNode.className}|${fromNode.teacherName}|${fromNode.subjectName}↔${toNode.day}${toNode.period}|${toNode.className}|${toNode.teacherName}|${toNode.subjectName}';
 
-    return ChainStep(
+    return DualStep(
       stepNumber: stepNumber,
       stepType: 'exchange',
       fromNode: fromNode,
@@ -42,7 +42,7 @@ class ChainStep {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is ChainStep &&
+    return other is DualStep &&
         other.stepNumber == stepNumber &&
         other.stepType == stepType &&
         other.fromNode == fromNode &&
@@ -61,7 +61,7 @@ class ChainStep {
   /// 문자열 표현
   @override
   String toString() {
-    return 'ChainStep($stepNumber: $description)';
+    return 'DualStep($stepNumber: $description)';
   }
   
   /// JSON 직렬화 (저장용)
@@ -76,8 +76,8 @@ class ChainStep {
   }
   
   /// JSON 역직렬화 (로드용)
-  factory ChainStep.fromJson(Map<String, dynamic> json) {
-    return ChainStep(
+  factory DualStep.fromJson(Map<String, dynamic> json) {
+    return DualStep(
       stepNumber: json['stepNumber'] as int,
       stepType: json['stepType'] as String,
       fromNode: ExchangeNode.fromJson(json['fromNode'] as Map<String, dynamic>),

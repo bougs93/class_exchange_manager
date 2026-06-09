@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../../models/exchange_path.dart';
 import '../../../models/one_to_one_exchange_path.dart';
 import '../../../models/circular_exchange_path.dart';
-import '../../../models/chain_exchange_path.dart';
+import '../../../models/dual_exchange_path.dart';
 import '../../../models/supplement_exchange_path.dart';
 import '../../../models/exchange_node.dart';
 import '../../widgets/unified_exchange_sidebar.dart';
@@ -12,20 +12,20 @@ mixin SidebarBuilder<T extends StatefulWidget> on State<T> {
   // 인터페이스 - 구현 클래스에서 제공해야 함
   bool get isExchangeModeEnabled;
   bool get isCircularExchangeModeEnabled;
-  bool get isChainExchangeModeEnabled;
+  bool get isDualExchangeModeEnabled;
   bool get isSupplementExchangeModeEnabled;
 
   OneToOneExchangePath? get selectedOneToOnePath;
   CircularExchangePath? get selectedCircularPath;
-  ChainExchangePath? get selectedChainPath;
+  DualExchangePath? get selectedDualPath;
   SupplementExchangePath? get selectedSupplementPath;
 
   List<OneToOneExchangePath> get oneToOnePaths;
   List<CircularExchangePath> get circularPaths;
-  List<ChainExchangePath> get chainPaths;
+  List<DualExchangePath> get dualPaths;
 
   bool get isCircularPathsLoading;
-  bool get isChainPathsLoading;
+  bool get isDualPathsLoading;
   double get loadingProgress;
 
   List<ExchangePath> get filteredPaths;
@@ -55,7 +55,7 @@ mixin SidebarBuilder<T extends StatefulWidget> on State<T> {
       currentMode = ExchangePathType.oneToOne;
     } else if (isCircularExchangeModeEnabled) {
       currentMode = ExchangePathType.circular;
-    } else if (isChainExchangeModeEnabled) {
+    } else if (isDualExchangeModeEnabled) {
       currentMode = ExchangePathType.chain;
     } else if (isSupplementExchangeModeEnabled) {
       currentMode = ExchangePathType.supplement;
@@ -69,8 +69,8 @@ mixin SidebarBuilder<T extends StatefulWidget> on State<T> {
       selectedPath = selectedOneToOnePath;
     } else if (isCircularExchangeModeEnabled) {
       selectedPath = selectedCircularPath;
-    } else if (isChainExchangeModeEnabled) {
-      selectedPath = selectedChainPath;
+    } else if (isDualExchangeModeEnabled) {
+      selectedPath = selectedDualPath;
     } else if (isSupplementExchangeModeEnabled) {
       selectedPath = selectedSupplementPath;
     }
@@ -81,8 +81,8 @@ mixin SidebarBuilder<T extends StatefulWidget> on State<T> {
       paths = oneToOnePaths;
     } else if (isCircularExchangeModeEnabled) {
       paths = circularPaths;
-    } else if (isChainExchangeModeEnabled) {
-      paths = chainPaths;
+    } else if (isDualExchangeModeEnabled) {
+      paths = dualPaths;
     } else {
       paths = []; // 보강 모드에서는 빈 리스트
     }
@@ -93,8 +93,8 @@ mixin SidebarBuilder<T extends StatefulWidget> on State<T> {
       isLoading = isCircularPathsLoading; // 1:1 교체도 동일한 로딩 상태 사용
     } else if (isCircularExchangeModeEnabled) {
       isLoading = isCircularPathsLoading;
-    } else if (isChainExchangeModeEnabled) {
-      isLoading = isChainPathsLoading;
+    } else if (isDualExchangeModeEnabled) {
+      isLoading = isDualPathsLoading;
     } else if (isSupplementExchangeModeEnabled) {
       // 보강는 실제 로딩이 없지만 일관성을 위해 동일한 로딩 상태 사용
       isLoading = isCircularPathsLoading;
@@ -115,12 +115,12 @@ mixin SidebarBuilder<T extends StatefulWidget> on State<T> {
       onUpdateSearchQuery: updateSearchQuery,
       onClearSearch: clearSearch,
       getSubjectName: getSubjectName,
-      // 순환교체, 1:1 교체, 연쇄교체 모드에서 사용되는 단계 필터 매개변수들
-      availableSteps: (isCircularExchangeModeEnabled || isExchangeModeEnabled || isChainExchangeModeEnabled) ? availableSteps : null,
-      selectedStep: (isCircularExchangeModeEnabled || isExchangeModeEnabled || isChainExchangeModeEnabled) ? selectedStep : null,
-      onStepChanged: (isCircularExchangeModeEnabled || isExchangeModeEnabled || isChainExchangeModeEnabled) ? onStepChanged : null,
-      selectedDay: (isCircularExchangeModeEnabled || isExchangeModeEnabled || isChainExchangeModeEnabled) ? selectedDay : null,
-      onDayChanged: (isCircularExchangeModeEnabled || isExchangeModeEnabled || isChainExchangeModeEnabled) ? onDayChanged : null,
+      // 순환교체, 1:1 교체, 2중교체 모드에서 사용되는 단계 필터 매개변수들
+      availableSteps: (isCircularExchangeModeEnabled || isExchangeModeEnabled || isDualExchangeModeEnabled) ? availableSteps : null,
+      selectedStep: (isCircularExchangeModeEnabled || isExchangeModeEnabled || isDualExchangeModeEnabled) ? selectedStep : null,
+      onStepChanged: (isCircularExchangeModeEnabled || isExchangeModeEnabled || isDualExchangeModeEnabled) ? onStepChanged : null,
+      selectedDay: (isCircularExchangeModeEnabled || isExchangeModeEnabled || isDualExchangeModeEnabled) ? selectedDay : null,
+      onDayChanged: (isCircularExchangeModeEnabled || isExchangeModeEnabled || isDualExchangeModeEnabled) ? onDayChanged : null,
       // 보강 모드에서 사용되는 교사 버튼 클릭 콜백
       onSupplementTeacherTap: isSupplementExchangeModeEnabled ? onSupplementTeacherTap : null,
     );
@@ -128,11 +128,11 @@ mixin SidebarBuilder<T extends StatefulWidget> on State<T> {
 
   /// 현재 선택된 교체 경로 반환 (모든 타입 지원)
   ExchangePath? getCurrentSelectedPath() {
-    // 우선순위: 순환교체 > 연쇄교체 > 1:1교체
+    // 우선순위: 순환교체 > 2중교체 > 1:1교체
     if (selectedCircularPath != null) {
       return selectedCircularPath;
-    } else if (selectedChainPath != null) {
-      return selectedChainPath;
+    } else if (selectedDualPath != null) {
+      return selectedDualPath;
     } else if (selectedOneToOnePath != null) {
       return selectedOneToOnePath;
     } else if (selectedSupplementPath != null) {

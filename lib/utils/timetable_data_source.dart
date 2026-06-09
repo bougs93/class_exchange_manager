@@ -1,11 +1,11 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../models/time_slot.dart';
 import '../models/teacher.dart';
 import '../models/circular_exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
-import '../models/chain_exchange_path.dart';
+import '../models/dual_exchange_path.dart';
 import '../models/supplement_exchange_path.dart';
 import '../ui/widgets/simplified_timetable_cell.dart';
 import '../providers/cell_selection_provider.dart';
@@ -27,8 +27,8 @@ class CellStateInfo {
   final bool isInCircularPath;
   final int? circularPathStep;
   final bool isInSelectedPath;
-  final bool isInChainPath;
-  final int? chainPathStep;
+  final bool isInDualPath;
+  final int? dualPathStep;
   final bool isNonExchangeable;
   final bool isExchangedSourceCell; // 교체된 소스 셀인지 여부
   final bool isExchangedDestinationCell; // 교체된 목적지 셀인지 여부
@@ -44,8 +44,8 @@ class CellStateInfo {
     required this.isInCircularPath,
     this.circularPathStep,
     required this.isInSelectedPath,
-    required this.isInChainPath,
-    this.chainPathStep,
+    required this.isInDualPath,
+    this.dualPathStep,
     required this.isNonExchangeable,
     required this.isExchangedSourceCell,
     required this.isExchangedDestinationCell,
@@ -63,8 +63,8 @@ class CellStateInfo {
       isInCircularPath: false,
       circularPathStep: null,
       isInSelectedPath: false,
-      isInChainPath: false,
-      chainPathStep: null,
+      isInDualPath: false,
+      dualPathStep: null,
       isNonExchangeable: false,
       isExchangedSourceCell: false,
       isExchangedDestinationCell: false,
@@ -241,8 +241,8 @@ class TimetableDataSource extends DataGridSource {
           isInCircularPath: cellState.isInCircularPath,
           circularPathStep: cellState.circularPathStep,
           isInSelectedPath: cellState.isInSelectedPath,
-          isInChainPath: cellState.isInChainPath,
-          chainPathStep: cellState.chainPathStep,
+          isInDualPath: cellState.isInDualPath,
+          dualPathStep: cellState.dualPathStep,
           isTargetCell: cellState.isTargetCell,
           isNonExchangeable: cellState.isNonExchangeable,
           isExchangedSourceCell: cellState.isExchangedSourceCell,
@@ -297,7 +297,7 @@ class TimetableDataSource extends DataGridSource {
       isSelected: isTeacherSelected, // 교사 이름 선택은 isSelected에 포함하지 않음
       isExchangeableTeacher: isTeacherExchangeable,
       isInCircularPath: cellNotifier.isInCircularPath(teacherName, '', 0),
-      isInChainPath: cellNotifier.isInChainPath(teacherName, '', 0),
+      isInDualPath: cellNotifier.isInDualPath(teacherName, '', 0),
       isInSelectedPath: cellNotifier.isInSelectedOneToOnePath(teacherName, '', 0),
       isNonExchangeable: false,
       isExchangedSourceCell: false, // 교사명 열은 교체된 소스 셀 상태 적용 안함
@@ -306,7 +306,7 @@ class TimetableDataSource extends DataGridSource {
       isLastColumnOfDay: false,
       isFirstColumnOfDay: false,
       circularPathStep: null,
-      chainPathStep: null,
+      dualPathStep: null,
       isTeacherNameSelected: isTeacherNameSelected, // 새로 추가
       isHighlightedTeacher: isHighlighted, // 새로 추가
     );
@@ -346,10 +346,10 @@ class TimetableDataSource extends DataGridSource {
         teacherName, day, period,
         () => cellNotifier.isInCircularPath(teacherName, day, period)
       ),
-      isInChainPath: _getCachedOrCompute(
-        'chainPath', 
+      isInDualPath: _getCachedOrCompute(
+        'dualPath', 
         teacherName, day, period,
-        () => cellNotifier.isInChainPath(teacherName, day, period)
+        () => cellNotifier.isInDualPath(teacherName, day, period)
       ),
       isInSelectedPath: cellNotifier.isInSelectedOneToOnePath(teacherName, day, period),
       isNonExchangeable: _getCachedOrCompute(
@@ -362,7 +362,7 @@ class TimetableDataSource extends DataGridSource {
       isLastColumnOfDay: _isLastColumnOfDay(day, period),
       isFirstColumnOfDay: _isFirstColumnOfDay(day, period),
       circularPathStep: _getCircularPathStep(teacherName, day, period),
-      chainPathStep: _getChainPathStep(teacherName, day, period),
+      dualPathStep: _getDualPathStep(teacherName, day, period),
       isTeacherNameSelected: false, // 데이터 셀은 교사 이름 선택 상태 적용 안함
       isHighlightedTeacher: _isHighlightedTeacher(teacherName), // 새로 추가
     );
@@ -458,14 +458,14 @@ class TimetableDataSource extends DataGridSource {
     return null;
   }
 
-  /// 연쇄교체 경로에서 해당 셀의 단계 번호 가져오기
-  int? _getChainPathStep(String teacherName, String day, int period) {
+  /// 2중교체 경로에서 해당 셀의 단계 번호 가져오기
+  int? _getDualPathStep(String teacherName, String day, int period) {
     final cellState = ref.read(cellSelectionProvider);
-    if (cellState.selectedChainPath == null) return null;
+    if (cellState.selectedDualPath == null) return null;
     
-    // 연쇄교체의 노드 순서: [node1, node2, nodeA, nodeB]
-    for (int i = 0; i < cellState.selectedChainPath!.nodes.length; i++) {
-      final node = cellState.selectedChainPath!.nodes[i];
+    // 2중교체의 노드 순서: [node1, node2, nodeA, nodeB]
+    for (int i = 0; i < cellState.selectedDualPath!.nodes.length; i++) {
+      final node = cellState.selectedDualPath!.nodes[i];
       if (node.teacherName == teacherName &&
           node.day == day &&
           node.period == period) {
@@ -543,9 +543,9 @@ class TimetableDataSource extends DataGridSource {
     _clearCacheAndNotify();
   }
 
-  /// 선택된 연쇄교체 경로 업데이트
-  void updateSelectedChainPath(ChainExchangePath? path) {
-    ref.read(cellSelectionProvider.notifier).setChainPath(path);
+  /// 선택된 2중교체 경로 업데이트
+  void updateSelectedDualPath(DualExchangePath? path) {
+    ref.read(cellSelectionProvider.notifier).setDualPath(path);
     _clearCacheAndNotify();
   }
 
@@ -666,7 +666,7 @@ class TimetableDataSource extends DataGridSource {
   void resetPathSelectionBatch() {
     ref.read(cellSelectionProvider.notifier).setCircularPath(null);
     ref.read(cellSelectionProvider.notifier).setOneToOnePath(null);
-    ref.read(cellSelectionProvider.notifier).setChainPath(null);
+    ref.read(cellSelectionProvider.notifier).setDualPath(null);
     ref.read(cellSelectionProvider.notifier).setSupplementPath(null);
     _localCache.clear(); // 로컬 캐시 초기화
     notifyDataSourceListeners(); // 한 번만 UI 업데이트
@@ -677,7 +677,7 @@ class TimetableDataSource extends DataGridSource {
     // 경로 선택 초기화
     ref.read(cellSelectionProvider.notifier).setCircularPath(null);
     ref.read(cellSelectionProvider.notifier).setOneToOnePath(null);
-    ref.read(cellSelectionProvider.notifier).setChainPath(null);
+    ref.read(cellSelectionProvider.notifier).setDualPath(null);
     ref.read(cellSelectionProvider.notifier).setSupplementPath(null);
     
     // 교체 옵션 초기화
@@ -701,9 +701,9 @@ class TimetableDataSource extends DataGridSource {
     return ref.read(cellSelectionProvider).selectedOneToOnePath;
   }
   
-  /// 선택된 연쇄교체 경로 접근자 (보기 모드용)
-  ChainExchangePath? getSelectedChainPath() {
-    return ref.read(cellSelectionProvider).selectedChainPath;
+  /// 선택된 2중교체 경로 접근자 (보기 모드용)
+  DualExchangePath? getSelectedDualPath() {
+    return ref.read(cellSelectionProvider).selectedDualPath;
   }
 
   /// 선택된 보강 경로 접근자 (보기 모드용)

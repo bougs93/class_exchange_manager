@@ -1,7 +1,7 @@
-import '../../models/exchange_path.dart';
+﻿import '../../models/exchange_path.dart';
 import '../../models/one_to_one_exchange_path.dart';
 import '../../models/circular_exchange_path.dart';
-import '../../models/chain_exchange_path.dart';
+import '../../models/dual_exchange_path.dart';
 
 /// 경로 선택 이벤트 콜백
 typedef PathSelectionCallback = void Function(ExchangePath? path);
@@ -14,27 +14,27 @@ class PathSelectionManager {
   // 선택된 경로들
   OneToOneExchangePath? _selectedOneToOnePath;
   CircularExchangePath? _selectedCircularPath;
-  ChainExchangePath? _selectedChainPath;
+  DualExchangePath? _selectedDualPath;
 
   // 콜백 함수들
   PathSelectionCallback? _onOneToOnePathChanged;
   PathSelectionCallback? _onCircularPathChanged;
-  PathSelectionCallback? _onChainPathChanged;
+  PathSelectionCallback? _onDualPathChanged;
 
   // Getters
   OneToOneExchangePath? get selectedOneToOnePath => _selectedOneToOnePath;
   CircularExchangePath? get selectedCircularPath => _selectedCircularPath;
-  ChainExchangePath? get selectedChainPath => _selectedChainPath;
+  DualExchangePath? get selectedDualPath => _selectedDualPath;
 
   /// 콜백 함수 등록
   void setCallbacks({
     PathSelectionCallback? onOneToOnePathChanged,
     PathSelectionCallback? onCircularPathChanged,
-    PathSelectionCallback? onChainPathChanged,
+    PathSelectionCallback? onDualPathChanged,
   }) {
     _onOneToOnePathChanged = onOneToOnePathChanged;
     _onCircularPathChanged = onCircularPathChanged;
-    _onChainPathChanged = onChainPathChanged;
+    _onDualPathChanged = onDualPathChanged;
   }
 
   /// 1:1 교체 경로 선택
@@ -53,11 +53,11 @@ class PathSelectionManager {
     }
   }
 
-  /// 연쇄 교체 경로 선택
-  void selectChainPath(ChainExchangePath? path) {
-    if (_selectedChainPath?.id != path?.id) {
-      _selectedChainPath = path;
-      _onChainPathChanged?.call(path);
+  /// 2중 교체 경로 선택
+  void selectDualPath(DualExchangePath? path) {
+    if (_selectedDualPath?.id != path?.id) {
+      _selectedDualPath = path;
+      _onDualPathChanged?.call(path);
     }
   }
 
@@ -65,14 +65,14 @@ class PathSelectionManager {
   void clearAllSelections() {
     _selectedOneToOnePath = null;
     _selectedCircularPath = null;
-    _selectedChainPath = null;
+    _selectedDualPath = null;
   }
 
   /// 현재 선택된 경로가 있는지 확인
   bool hasAnySelection() {
     return _selectedOneToOnePath != null ||
            _selectedCircularPath != null ||
-           _selectedChainPath != null;
+           _selectedDualPath != null;
   }
 
   /// 특정 경로가 현재 선택되어 있는지 확인
@@ -81,8 +81,8 @@ class PathSelectionManager {
       return _selectedOneToOnePath?.id == path.id;
     } else if (path is CircularExchangePath) {
       return _selectedCircularPath?.id == path.id;
-    } else if (path is ChainExchangePath) {
-      return _selectedChainPath?.id == path.id;
+    } else if (path is DualExchangePath) {
+      return _selectedDualPath?.id == path.id;
     }
     return false;
   }
@@ -99,8 +99,8 @@ class PathSelectionManager {
       selectOneToOnePath(path);
     } else if (path is CircularExchangePath) {
       selectCircularPath(path);
-    } else if (path is ChainExchangePath) {
-      selectChainPath(path);
+    } else if (path is DualExchangePath) {
+      selectDualPath(path);
     }
   }
 
@@ -109,14 +109,14 @@ class PathSelectionManager {
   ExchangePath? get currentSelectedPath {
     return _selectedOneToOnePath ??
            _selectedCircularPath ??
-           _selectedChainPath;
+           _selectedDualPath;
   }
 
   /// 경로 타입별 이름 가져오기
   String getPathTypeName(ExchangePath path) {
     if (path is OneToOneExchangePath) return '1:1교체';
     if (path is CircularExchangePath) return '순환교체';
-    if (path is ChainExchangePath) return '연쇄교체';
+    if (path is DualExchangePath) return '2중교체';
     return '알 수 없음';
   }
 }

@@ -1,9 +1,9 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/excel_service.dart';
 import '../services/exchange_service.dart';
 import '../services/exchange_history_service.dart';
 import '../services/circular_exchange_service.dart';
-import '../services/chain_exchange_service.dart';
+import '../services/dual_exchange_service.dart';
 import '../services/timetable_storage_service.dart';
 
 /// ExcelService Provider
@@ -41,9 +41,9 @@ final circularExchangeServiceProvider = Provider<CircularExchangeService>((ref) 
   return CircularExchangeService();
 });
 
-/// ChainExchangeService Provider (연쇄 교체)
-final chainExchangeServiceProvider = Provider<ChainExchangeService>((ref) {
-  return ChainExchangeService();
+/// DualExchangeService Provider (2중 교체)
+final dualExchangeServiceProvider = Provider<DualExchangeService>((ref) {
+  return DualExchangeService();
 });
 
 /// 교체 리스트 버전 상태 관리용 StateNotifier

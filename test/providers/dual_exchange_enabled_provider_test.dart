@@ -1,18 +1,18 @@
-import 'package:flutter_test/flutter_test.dart';
+﻿import 'package:flutter_test/flutter_test.dart';
 import 'package:class_exchange_manager/providers/app_settings_provider.dart';
 import 'package:class_exchange_manager/services/app_settings_storage_service.dart';
 
-class FakeChainExchangeSettingsStorage implements ChainExchangeSettingsStorage {
+class FakeDualExchangeSettingsStorage implements DualExchangeSettingsStorage {
   bool enabled;
   int saveCallCount = 0;
 
-  FakeChainExchangeSettingsStorage({this.enabled = false});
+  FakeDualExchangeSettingsStorage({this.enabled = false});
 
   @override
-  Future<bool> getChainExchangeEnabled() async => enabled;
+  Future<bool> getDualExchangeEnabled() async => enabled;
 
   @override
-  Future<bool> saveChainExchangeEnabled(bool value) async {
+  Future<bool> saveDualExchangeEnabled(bool value) async {
     saveCallCount++;
     enabled = value;
     return true;
@@ -20,10 +20,10 @@ class FakeChainExchangeSettingsStorage implements ChainExchangeSettingsStorage {
 }
 
 void main() {
-  group('ChainExchangeEnabledNotifier', () {
+  group('DualExchangeEnabledNotifier', () {
     test('setEnabled(true) → 상태 및 저장소 갱신', () async {
-      final storage = FakeChainExchangeSettingsStorage(enabled: false);
-      final notifier = ChainExchangeEnabledNotifier(
+      final storage = FakeDualExchangeSettingsStorage(enabled: false);
+      final notifier = DualExchangeEnabledNotifier(
         storageService: storage,
         skipInitialLoad: true,
         initialValue: false,
@@ -38,8 +38,8 @@ void main() {
     });
 
     test('setEnabled(false) → 상태 및 저장소 갱신', () async {
-      final storage = FakeChainExchangeSettingsStorage(enabled: true);
-      final notifier = ChainExchangeEnabledNotifier(
+      final storage = FakeDualExchangeSettingsStorage(enabled: true);
+      final notifier = DualExchangeEnabledNotifier(
         storageService: storage,
         skipInitialLoad: true,
         initialValue: true,
@@ -54,8 +54,8 @@ void main() {
     });
 
     test('동일 값 저장 시 불필요한 저장 생략', () async {
-      final storage = FakeChainExchangeSettingsStorage(enabled: false);
-      final notifier = ChainExchangeEnabledNotifier(
+      final storage = FakeDualExchangeSettingsStorage(enabled: false);
+      final notifier = DualExchangeEnabledNotifier(
         storageService: storage,
         skipInitialLoad: true,
         initialValue: false,

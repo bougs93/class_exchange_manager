@@ -1,8 +1,8 @@
-import '../models/exchange_history_item.dart';
+﻿import '../models/exchange_history_item.dart';
 import '../models/exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
 import '../models/circular_exchange_path.dart';
-import '../models/chain_exchange_path.dart';
+import '../models/dual_exchange_path.dart';
 import '../models/supplement_exchange_path.dart';
 import '../utils/logger.dart';
 import 'package:flutter/foundation.dart';
@@ -462,8 +462,8 @@ class ExchangeHistoryService {
         return _formatNodes([path.sourceNode, path.targetNode]);
       } else if (path is CircularExchangePath) {
         return _formatNodes(path.nodes);
-      } else if (path is ChainExchangePath) {
-        // 연쇄교체: 4개 노드 모두 출력 (node1, node2, nodeA, nodeB)
+      } else if (path is DualExchangePath) {
+        // 2중교체: 4개 노드 모두 출력 (node1, node2, nodeA, nodeB)
         return _formatNodes([path.node1, path.node2, path.nodeA, path.nodeB]);
       } else if (path is SupplementExchangePath) {
         return _formatNodes([path.sourceNode, path.targetNode]);
@@ -525,7 +525,7 @@ class ExchangeHistoryService {
       return [path.sourceNode, path.targetNode];
     } else if (path is CircularExchangePath) {
       return path.nodes;
-    } else if (path is ChainExchangePath) {
+    } else if (path is DualExchangePath) {
       return [path.nodeA, path.nodeB, path.node1, path.node2];
     } else if (path is SupplementExchangePath) {
       return [path.sourceNode, path.targetNode];

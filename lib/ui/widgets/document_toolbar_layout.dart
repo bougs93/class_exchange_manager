@@ -33,4 +33,9 @@ class DocumentToolbarLayout {
 
   static const Widget hintToToolbarSpacer =
       SizedBox(height: hintToToolbarGap);
+
+  /// 일반 동작 버튼(새로고침·복사 등) — 선택·눌림 상태처럼 보이지 않는 중립 색
+  static Color get neutralButtonBackground => Colors.grey.shade100;
+  static Color get neutralButtonForeground => Colors.grey.shade700;
+  static Color get neutralButtonBorder => Colors.grey.shade300;
 }

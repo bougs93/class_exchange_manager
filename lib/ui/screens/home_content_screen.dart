@@ -235,7 +235,7 @@ class _HomeContentScreenState extends ConsumerState<HomeContentScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 앱 아이콘 + 프로그램명 + 버전·이용 기간 (정보 화면과 동일)
+            // 앱 아이콘 + 프로그램명 + 버전·이용 기간 (도움말 > 프로그램 정보와 동일)
             const AppContentCard(
               child: AppBrandingHeader(showVersionAndPeriod: true),
             ),

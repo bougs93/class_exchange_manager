@@ -140,7 +140,7 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     if (dataSource != null) {
       dataSource.updateSelectedCircularPath(null);
       dataSource.updateSelectedOneToOnePath(null);
-      dataSource.updateSelectedChainPath(null);
+      dataSource.updateSelectedDualPath(null);
       dataSource.updateSelectedSupplementPath(null);
     }
 
@@ -180,7 +180,7 @@ class StateResetNotifier extends StateNotifier<ResetState> {
       // 모든 경로 정보도 초기화된 상태로 전달
       selectedCircularPath: null,
       selectedOneToOnePath: null,
-      selectedChainPath: null,
+      selectedDualPath: null,
     );
     
     // Provider를 통해 헤더 강제 재생성을 위한 완전한 새로고침
@@ -302,7 +302,7 @@ class StateResetNotifier extends StateNotifier<ResetState> {
   /// **사용 시점**:
   /// - 동일 모드 내에서 다른 셀 선택 시
   /// - 교체 후 다음 작업 준비 시
-  /// - 모든 모드 전환 시 (보기 ↔ 1:1 ↔ 순환 ↔ 연쇄)
+  /// - 모든 모드 전환 시 (보기 ↔ 1:1 ↔ 순환 ↔ 2중)
   ///
   /// **주의**: 헤더 테마 업데이트는 호출자(ExchangeScreen)에서 수동으로 호출해야 함
   void resetExchangeStates({String? reason}) {
@@ -312,7 +312,7 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     _ref.read(cellSelectionProvider.notifier).clearAllSelections();
     _ref.read(exchangeServiceProvider).clearAllSelections();
     _ref.read(circularExchangeServiceProvider).clearAllSelections();
-    _ref.read(chainExchangeServiceProvider).clearAllSelections();
+    _ref.read(dualExchangeServiceProvider).clearAllSelections();
 
     // 2. ExchangeScreenProvider 배치 업데이트
     _exchangeNotifier.resetExchangeStatesBatch();

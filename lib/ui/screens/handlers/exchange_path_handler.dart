@@ -1,11 +1,11 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../../models/one_to_one_exchange_path.dart';
 import '../../../models/circular_exchange_path.dart';
-import '../../../models/chain_exchange_path.dart';
+import '../../../models/dual_exchange_path.dart';
 import '../../../services/excel_service.dart';
 import '../../../services/exchange_service.dart';
 import '../../../services/circular_exchange_service.dart';
-import '../../../services/chain_exchange_service.dart';
+import '../../../services/dual_exchange_service.dart';
 import '../../../utils/exchange_path_converter.dart';
 import '../../../utils/logger.dart';
 
@@ -14,7 +14,7 @@ mixin ExchangePathHandler<T extends StatefulWidget> on State<T> {
   // 하위 클래스에서 구현해야 하는 속성들
   ExchangeService get exchangeService;
   CircularExchangeService get circularExchangeService;
-  ChainExchangeService get chainExchangeService;
+  DualExchangeService get dualExchangeService;
   TimetableData? get timetableData;
 
   List<OneToOneExchangePath> get oneToOnePaths;
@@ -25,8 +25,8 @@ mixin ExchangePathHandler<T extends StatefulWidget> on State<T> {
   List<CircularExchangePath> get circularPaths;
   set circularPaths(List<CircularExchangePath> value);
 
-  List<ChainExchangePath> get chainPaths;
-  set chainPaths(List<ChainExchangePath> value);
+  List<DualExchangePath> get dualPaths;
+  set dualPaths(List<DualExchangePath> value);
 
   bool get isSidebarVisible;
   set isSidebarVisible(bool value);
@@ -125,33 +125,33 @@ mixin ExchangePathHandler<T extends StatefulWidget> on State<T> {
     }
   }
 
-  /// 연쇄교체 경로 탐색
-  Future<void> findChainPathsWithProgress() async {
-    if (timetableData == null || !chainExchangeService.hasSelectedCell()) {
-      AppLogger.warning('연쇄교체: 시간표 데이터 없음 또는 셀 미선택');
+  /// 2중교체 경로 탐색
+  Future<void> findDualPathsWithProgress() async {
+    if (timetableData == null || !dualExchangeService.hasSelectedCell()) {
+      AppLogger.warning('2중교체: 시간표 데이터 없음 또는 셀 미선택');
       return;
     }
 
-    AppLogger.exchangeInfo('연쇄교체: 경로 탐색 시작');
+    AppLogger.exchangeInfo('2중교체: 경로 탐색 시작');
 
     try {
-      List<ChainExchangePath> paths = chainExchangeService.findChainExchangePaths(
+      List<DualExchangePath> paths = dualExchangeService.findDualExchangePaths(
         timetableData!.timeSlots,
         timetableData!.teachers,
       );
 
-      chainPaths = paths;
+      dualPaths = paths;
       updateFilteredPaths();
       isSidebarVisible = paths.isNotEmpty;
 
       if (paths.isEmpty) {
-        AppLogger.exchangeInfo('연쇄교체: 경로 없음');
+        AppLogger.exchangeInfo('2중교체: 경로 없음');
       } else {
-        AppLogger.exchangeInfo('연쇄교체: ${paths.length}개 경로 발견');
+        AppLogger.exchangeInfo('2중교체: ${paths.length}개 경로 발견');
       }
     } catch (e) {
-      AppLogger.error('연쇄교체 경로 탐색 오류: $e');
-      chainPaths = [];
+      AppLogger.error('2중교체 경로 탐색 오류: $e');
+      dualPaths = [];
     }
   }
 }

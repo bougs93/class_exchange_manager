@@ -69,7 +69,7 @@ class ExchangeNodeParser {
       );
     }
 
-    // 수업 교체 (1:1, 순환, 연쇄)
+    // 수업 교체 (1:1, 순환, 2중)
     return SubstitutionPlanData(
       exchangeId: exchangeId,
       absenceDate: getSavedDate(exchangeId, 'absenceDate'),

@@ -1,7 +1,7 @@
-import '../models/exchange_path.dart';
+﻿import '../models/exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
 import '../models/circular_exchange_path.dart';
-import '../models/chain_exchange_path.dart';
+import '../models/dual_exchange_path.dart';
 import '../models/supplement_exchange_path.dart';
 import '../models/time_slot.dart';
 import '../utils/exchange_algorithm.dart';
@@ -44,12 +44,12 @@ class ExchangePathConverter {
   static ({
     List<OneToOneExchangePath> oneToOnePaths,
     List<CircularExchangePath> circularPaths,
-    List<ChainExchangePath> chainPaths,
+    List<DualExchangePath> dualPaths,
     List<SupplementExchangePath> supplementPaths,
   }) separatePathsByType(List<ExchangePath> paths) {
     List<OneToOneExchangePath> oneToOnePaths = [];
     List<CircularExchangePath> circularPaths = [];
-    List<ChainExchangePath> chainPaths = [];
+    List<DualExchangePath> dualPaths = [];
     List<SupplementExchangePath> supplementPaths = [];
 
     for (ExchangePath path in paths) {
@@ -65,8 +65,8 @@ class ExchangePathConverter {
           }
           break;
         case ExchangePathType.chain:
-          if (path is ChainExchangePath) {
-            chainPaths.add(path);
+          if (path is DualExchangePath) {
+            dualPaths.add(path);
           }
           break;
         case ExchangePathType.supplement:
@@ -80,7 +80,7 @@ class ExchangePathConverter {
     return (
       oneToOnePaths: oneToOnePaths,
       circularPaths: circularPaths,
-      chainPaths: chainPaths,
+      dualPaths: dualPaths,
       supplementPaths: supplementPaths,
     );
   }

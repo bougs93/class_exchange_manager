@@ -1,10 +1,10 @@
-import 'exchange_node.dart';
+﻿import 'exchange_node.dart';
 import 'exchange_path.dart';
-import 'chain_step.dart';
+import 'dual_step.dart';
 
-/// 연쇄교체 경로를 나타내는 모델 클래스
+/// 2중교체 경로를 나타내는 모델 클래스
 ///
-/// 연쇄교체는 결강한 수업(A)을 다른 교사(B)가 대체하려고 할 때,
+/// 2중교체는 결강한 수업(A)을 다른 교사(B)가 대체하려고 할 때,
 /// A 교사가 B 시간에 다른 수업이 있어 직접 교체가 불가능한 경우,
 /// A 교사의 해당 시간 수업을 먼저 다른 교사와 교체하여 빈 시간을 만든 후
 /// 최종 교체를 완성하는 방식입니다.
@@ -15,53 +15,53 @@ import 'chain_step.dart';
 /// 1단계: 박지혜 월5 ↔ 이숙희 월4 교체 (이숙희 월4 비우기)
 /// 2단계: 이숙희 월1 ↔ 손혜옥 월4 교체 (결강 해결)
 /// ```
-class ChainExchangePath implements ExchangePath {
+class DualExchangePath implements ExchangePath {
   final ExchangeNode nodeA;         // A 위치 (결강 수업)
   final ExchangeNode nodeB;         // B 위치 (대체 가능 수업)
   final ExchangeNode node1;         // 1번 위치 (1단계 교환 대상)
   final ExchangeNode node2;         // 2번 위치 (A 교사의 B 시간 수업)
-  final int chainDepth;             // 연쇄 깊이 (기본값: 2)
-  final List<ChainStep> steps;      // 교체 단계들
+  final int dualDepth;             // 2중 깊이 (기본값: 2)
+  final List<DualStep> steps;      // 교체 단계들
   bool _isSelected = false;         // 선택 상태
   String? _customId;                // 사용자 정의 ID
 
-  ChainExchangePath({
+  DualExchangePath({
     required this.nodeA,
     required this.nodeB,
     required this.node1,
     required this.node2,
-    this.chainDepth = 2,
+    this.dualDepth = 2,
     required this.steps,
     String? customId,
   }) : _customId = customId;
 
   /// 노드들로부터 자동으로 경로 생성하는 팩토리 메서드
-  factory ChainExchangePath.build({
+  factory DualExchangePath.build({
     required ExchangeNode nodeA,
     required ExchangeNode nodeB,
     required ExchangeNode node1,
     required ExchangeNode node2,
   }) {
     // 단계별 설명 자동 생성
-    List<ChainStep> steps = [
-      ChainStep.exchange(
+    List<DualStep> steps = [
+      DualStep.exchange(
         stepNumber: 1,
         fromNode: node1,
         toNode: node2,
       ),
-      ChainStep.exchange(
+      DualStep.exchange(
         stepNumber: 2,
         fromNode: nodeA,
         toNode: nodeB,
       ),
     ];
 
-    return ChainExchangePath(
+    return DualExchangePath(
       nodeA: nodeA,
       nodeB: nodeB,
       node1: node1,
       node2: node2,
-      chainDepth: 2,
+      dualDepth: 2,
       steps: steps,
     );
   }
@@ -89,7 +89,7 @@ class ChainExchangePath implements ExchangePath {
   }
 
   @override
-  String get displayTitle => '연쇄교체 $chainDepth단계';
+  String get displayTitle => '2중교체 $dualDepth단계';
 
   @override
   List<ExchangeNode> get nodes => [node1, node2, nodeA, nodeB];
@@ -123,9 +123,9 @@ class ChainExchangePath implements ExchangePath {
   }
 
   @override
-  int get priority => chainDepth; // 깊이가 적을수록 높은 우선순위
+  int get priority => dualDepth; // 깊이가 적을수록 높은 우선순위
 
-  /// 연쇄교체 경로가 유효한지 확인
+  /// 2중교체 경로가 유효한지 확인
   bool get isValid {
     if (steps.length != 2) return false;
     if (steps[0].stepType != 'exchange') return false;
@@ -146,7 +146,7 @@ class ChainExchangePath implements ExchangePath {
   /// 상세 설명 생성
   String get detailedDescription {
     StringBuffer buffer = StringBuffer();
-    buffer.writeln('🔗 연쇄교체 $chainDepth단계');
+    buffer.writeln('🔗 2중교체 $dualDepth단계');
     buffer.writeln('');
     buffer.writeln('📍 목표: ${nodeA.displayText} 결강 해결');
     buffer.writeln('');
@@ -162,7 +162,7 @@ class ChainExchangePath implements ExchangePath {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is ChainExchangePath &&
+    return other is DualExchangePath &&
         other.nodeA == nodeA &&
         other.nodeB == nodeB &&
         other.node1 == node1 &&
@@ -181,7 +181,7 @@ class ChainExchangePath implements ExchangePath {
   /// 디버그용 문자열 표현
   @override
   String toString() {
-    return 'ChainExchangePath(depth: $chainDepth, A: ${nodeA.displayText}, B: ${nodeB.displayText})';
+    return 'DualExchangePath(depth: $dualDepth, A: ${nodeA.displayText}, B: ${nodeB.displayText})';
   }
   
   /// JSON 직렬화 (저장용)
@@ -196,7 +196,7 @@ class ChainExchangePath implements ExchangePath {
       'nodeB': nodeB.toJson(),
       'node1': node1.toJson(),
       'node2': node2.toJson(),
-      'chainDepth': chainDepth,
+      'dualDepth': dualDepth,
       'steps': steps.map((step) => step.toJson()).toList(),
       'description': description,
       'priority': priority,
@@ -206,8 +206,8 @@ class ChainExchangePath implements ExchangePath {
   
   /// JSON 역직렬화 (로드용)
   /// 
-  /// JSON에서 ChainExchangePath를 복원합니다.
-  factory ChainExchangePath.fromJson(Map<String, dynamic> json) {
+  /// JSON에서 DualExchangePath를 복원합니다.
+  factory DualExchangePath.fromJson(Map<String, dynamic> json) {
     final nodeA = ExchangeNode.fromJson(json['nodeA'] as Map<String, dynamic>);
     final nodeB = ExchangeNode.fromJson(json['nodeB'] as Map<String, dynamic>);
     final node1 = ExchangeNode.fromJson(json['node1'] as Map<String, dynamic>);
@@ -215,15 +215,15 @@ class ChainExchangePath implements ExchangePath {
     
     final stepsJson = json['steps'] as List<dynamic>;
     final steps = stepsJson
-        .map((stepJson) => ChainStep.fromJson(stepJson as Map<String, dynamic>))
+        .map((stepJson) => DualStep.fromJson(stepJson as Map<String, dynamic>))
         .toList();
     
-    return ChainExchangePath(
+    return DualExchangePath(
       nodeA: nodeA,
       nodeB: nodeB,
       node1: node1,
       node2: node2,
-      chainDepth: json['chainDepth'] as int? ?? 2,
+      dualDepth: json['dualDepth'] as int? ?? 2,
       steps: steps,
       customId: json['id'] as String?,
     )..setSelected(json['isSelected'] as bool? ?? false);

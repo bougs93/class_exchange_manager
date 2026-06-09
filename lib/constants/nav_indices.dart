@@ -3,9 +3,9 @@ class NavIndices {
   static const int home = 0;
   static const int exchange = 1;
   static const int document = 2;
-  static const int personalSchedule = 3;
-  static const int help = 4;
-  static const int info = 5;
+  static const int notice = 3;
+  static const int personalSchedule = 4;
+  static const int guide = 5;
 
   /// IndexedStack / 메뉴 화면 개수
   static const int screenCount = 6;

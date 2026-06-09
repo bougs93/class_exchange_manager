@@ -175,7 +175,7 @@ class ExchangeAppBar extends ConsumerWidget implements PreferredSizeWidget {
 🎯 선택된 경로:
   - 1:1: ${currentState.selectedOneToOnePath?.id ?? '없음'}
   - 순환: ${currentState.selectedCircularPath?.id ?? '없음'}
-  - 연쇄: ${currentState.selectedChainPath?.id ?? '없음'}
+  - 2중교체: ${currentState.selectedDualPath?.id ?? '없음'}
 
 🔍 셀 선택 상태:
   - 선택된 교사: ${cellState.selectedTeacher ?? '없음'}

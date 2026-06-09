@@ -1,4 +1,4 @@
-import '../models/exchange_node.dart';
+﻿import '../models/exchange_node.dart';
 import '../providers/personal_schedule_provider.dart';
 import '../providers/substitution_plan_provider.dart';
 
@@ -105,7 +105,7 @@ class ExchangeDateHelper {
     return '';
   }
 
-  /// 연쇄교체 날짜 가져오기
+  /// 2중교체 날짜 가져오기
   ///
   /// 매개변수:
   /// - `useFallback`: true인 경우 날짜가 없으면 dayToDate로 fallback (디버그용)

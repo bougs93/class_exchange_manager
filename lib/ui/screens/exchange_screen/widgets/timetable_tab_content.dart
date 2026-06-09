@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../../../models/exchange_path.dart';
@@ -59,7 +59,7 @@ class TimetableTabContent extends ConsumerWidget {
               stackedHeaders: stackedHeaders,
               isExchangeModeEnabled: state.currentMode == ExchangeMode.oneToOneExchange,
               isCircularExchangeModeEnabled: state.currentMode == ExchangeMode.circularExchange,
-              isChainExchangeModeEnabled: state.currentMode == ExchangeMode.chainExchange,
+              isDualExchangeModeEnabled: state.currentMode == ExchangeMode.dualExchange,
               exchangeableCount: getActualExchangeableCount(),
               onCellTap: onCellTap,
               selectedExchangePath: getCurrentSelectedPath(),

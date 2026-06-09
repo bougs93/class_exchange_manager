@@ -4,8 +4,8 @@ import 'exchange_screen.dart';
 import 'personal_schedule_screen.dart';
 import 'document_screen.dart';
 import 'home_content_screen.dart';
-import 'help_screen.dart';
-import 'info_screen.dart';
+import 'guide_screen.dart';
+import 'notice_screen.dart';
 import '../../providers/navigation_provider.dart';
 import '../widgets/unified_navigation_bar.dart';
 import '../../providers/exchange_screen_provider.dart';
@@ -210,9 +210,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   List<Widget> _tabScreens() => const [
     ExchangeScreen(),
     DocumentScreen(),
+    NoticeScreen(),
     PersonalScheduleScreen(),
-    HelpScreen(),
-    InfoScreen(),
+    GuideScreen(),
   ];
 
   @override

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../../utils/logger.dart';
 
 /// 교체 모드 전환 관련 핸들러
@@ -6,12 +6,12 @@ mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
   // 하위 클래스에서 구현해야 하는 속성들
   bool get isExchangeModeEnabled;
   bool get isCircularExchangeModeEnabled;
-  bool get isChainExchangeModeEnabled;
+  bool get isDualExchangeModeEnabled;
   bool get isNonExchangeableEditMode;
 
   void Function(bool) get setExchangeModeEnabled;
   void Function(bool) get setCircularExchangeModeEnabled;
-  void Function(bool) get setChainExchangeModeEnabled;
+  void Function(bool) get setDualExchangeModeEnabled;
   void Function(bool) get setNonExchangeableEditMode;
 
   void clearAllExchangeStates();
@@ -28,12 +28,12 @@ mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
   /// 1:1 교체 모드 토글
   void toggleExchangeMode() {
     bool wasEnabled = isExchangeModeEnabled;
-    bool hasOtherModesActive = isCircularExchangeModeEnabled || isChainExchangeModeEnabled;
+    bool hasOtherModesActive = isCircularExchangeModeEnabled || isDualExchangeModeEnabled;
 
     // 다른 모드가 활성화되어 있다면 비활성화
     if (hasOtherModesActive) {
       setCircularExchangeModeEnabled(false);
-      setChainExchangeModeEnabled(false);
+      setDualExchangeModeEnabled(false);
     }
     
     // 교체불가 편집 모드가 활성화되어 있다면 비활성화
@@ -76,12 +76,12 @@ mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
     AppLogger.exchangeDebug('순환교체 모드 토글 시작 - 현재 상태: $isCircularExchangeModeEnabled');
 
     bool wasEnabled = isCircularExchangeModeEnabled;
-    bool hasOtherModesActive = isExchangeModeEnabled || isChainExchangeModeEnabled;
+    bool hasOtherModesActive = isExchangeModeEnabled || isDualExchangeModeEnabled;
 
     // 다른 모드가 활성화되어 있다면 비활성화
     if (hasOtherModesActive) {
       setExchangeModeEnabled(false);
-      setChainExchangeModeEnabled(false);
+      setDualExchangeModeEnabled(false);
     }
     
     // 교체불가 편집 모드가 활성화되어 있다면 비활성화
@@ -119,11 +119,11 @@ mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
     }
   }
 
-  /// 연쇄교체 모드 토글
-  void toggleChainExchangeMode() {
-    AppLogger.exchangeDebug('연쇄교체 모드 토글 시작 - 현재 상태: $isChainExchangeModeEnabled');
+  /// 2중교체 모드 토글
+  void toggleDualExchangeMode() {
+    AppLogger.exchangeDebug('2중교체 모드 토글 시작 - 현재 상태: $isDualExchangeModeEnabled');
 
-    bool wasEnabled = isChainExchangeModeEnabled;
+    bool wasEnabled = isDualExchangeModeEnabled;
     bool hasOtherModesActive = isExchangeModeEnabled || isCircularExchangeModeEnabled;
 
     // 다른 모드가 활성화되어 있다면 비활성화
@@ -137,12 +137,12 @@ mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
       setNonExchangeableEditMode(false);
     }
 
-    setChainExchangeModeEnabled(!wasEnabled);
+    setDualExchangeModeEnabled(!wasEnabled);
 
-    // 연쇄교체 모드가 활성화되면 초기화
-    if (isChainExchangeModeEnabled) {
+    // 2중교체 모드가 활성화되면 초기화
+    if (isDualExchangeModeEnabled) {
       clearAllExchangeStates();
-      availableSteps = []; // 연쇄교체: 단계 필터 불필요
+      availableSteps = []; // 2중교체: 단계 필터 불필요
       selectedStep = null; // 단계 필터 강제 초기화
       selectedDay = null;
     } else {
@@ -155,11 +155,11 @@ mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
     // 헤더 테마 업데이트
     refreshHeaderTheme();
 
-    // 연쇄교체 모드 활성화 시 안내 메시지 - 스낵바 제거
-    // if (isChainExchangeModeEnabled && mounted) {
+    // 2중교체 모드 활성화 시 안내 메시지 - 스낵바 제거
+    // if (isDualExchangeModeEnabled && mounted) {
     //   ScaffoldMessenger.of(context).showSnackBar(
     //     const SnackBar(
-    //       content: Text('연쇄교체 모드가 활성화되었습니다. 2단계 교체로 결강을 해결할 수 있습니다.'),
+    //       content: Text('2중교체 모드가 활성화되었습니다. 2단계 교체로 결강을 해결할 수 있습니다.'),
     //       backgroundColor: Colors.deepOrange,
     //       duration: Duration(seconds: 3),
     //     ),
@@ -171,13 +171,13 @@ mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
   void toggleSupplementExchangeMode() {
     AppLogger.exchangeDebug('보강 모드 토글 시작');
 
-    bool hasOtherModesActive = isExchangeModeEnabled || isCircularExchangeModeEnabled || isChainExchangeModeEnabled;
+    bool hasOtherModesActive = isExchangeModeEnabled || isCircularExchangeModeEnabled || isDualExchangeModeEnabled;
 
     // 다른 모드가 활성화되어 있다면 비활성화
     if (hasOtherModesActive) {
       setExchangeModeEnabled(false);
       setCircularExchangeModeEnabled(false);
-      setChainExchangeModeEnabled(false);
+      setDualExchangeModeEnabled(false);
     }
     
     // 교체불가 편집 모드가 활성화되어 있다면 비활성화

@@ -4,8 +4,6 @@ import '../../models/document_type.dart';
 import '../../ui/widgets/unified_navigation_bar.dart';
 import '../../utils/logger.dart';
 import 'document_screen/widgets/substitution_plan_grid.dart';
-import 'document_screen/widgets/class_notice_widget.dart';
-import 'document_screen/widgets/teacher_notice_widget.dart';
 import 'document_screen/widgets/file_export/file_export_widget.dart';
 
 /// PDF 출력 화면 (결보강 문서)
@@ -189,10 +187,6 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen> {
     switch (type) {
       case DocumentType.substitutionPlan:
         return const SubstitutionPlanGrid();
-      case DocumentType.classNotice:
-        return const ClassNoticeWidget();
-      case DocumentType.teacherNotice:
-        return const TeacherNoticeWidget();
       case DocumentType.fileExport:
         return FileExportWidget(key: _fileExportWidgetKey);
     }

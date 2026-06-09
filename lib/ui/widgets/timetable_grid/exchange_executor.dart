@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/exchange_path.dart';
 import '../../../models/one_to_one_exchange_path.dart';
 import '../../../models/circular_exchange_path.dart';
-import '../../../models/chain_exchange_path.dart';
+import '../../../models/dual_exchange_path.dart';
 import '../../../models/supplement_exchange_path.dart';
 import '../../../models/exchange_history_item.dart';
 import '../../../services/exchange_service.dart';
@@ -538,7 +538,7 @@ class ExchangeExecutor {
     } else if (path is CircularExchangePath) {
       // 순환 교체: 마지막 노드를 제외한 모든 노드가 소스 셀
       return path.nodes.take(path.nodes.length - 1).map((node) => '${node.teacherName}_${node.day}_${node.period}').toList();
-    } else if (path is ChainExchangePath) {
+    } else if (path is DualExchangePath) {
       return [
         '${path.nodeA.teacherName}_${path.nodeA.day}_${path.nodeA.period}',
         '${path.nodeB.teacherName}_${path.nodeB.day}_${path.nodeB.period}',
@@ -579,9 +579,9 @@ class ExchangeExecutor {
       
       cellKeys.addAll(destinationKeys);
 
-      // 연쇄교체 경로의 목적지 셀 추출
-      // 연쇄교체는 2단계로 이루어지므로 각 단계별 목적지 셀을 모두 추출
-    } else if (path is ChainExchangePath) {
+      // 2중교체 경로의 목적지 셀 추출
+      // 2중교체는 2단계로 이루어지므로 각 단계별 목적지 셀을 모두 추출
+    } else if (path is DualExchangePath) {
       // 1단계 교체 후 목적지 셀들
       // node1 교사가 node2 위치로 이동
       cellKeys.add('${path.node1.teacherName}_${path.node2.day}_${path.node2.period}');
@@ -626,7 +626,7 @@ class ExchangeExecutor {
     } else if (path is CircularExchangePath) {
       // 순환 교체: 마지막 노드를 제외한 모든 노드가 소스 셀
       return path.nodes.take(path.nodes.length - 1).map((node) => '${node.teacherName}_${node.day}_${node.period}').toList();
-    } else if (path is ChainExchangePath) {
+    } else if (path is DualExchangePath) {
       return [
         '${path.nodeA.teacherName}_${path.nodeA.day}_${path.nodeA.period}',
         '${path.nodeB.teacherName}_${path.nodeB.day}_${path.nodeB.period}',
@@ -672,9 +672,9 @@ class ExchangeExecutor {
         
         cellKeys.addAll(destinationKeys);
 
-        // 연쇄교체 경로의 목적지 셀 추출
-        // 연쇄교체는 2단계로 이루어지므로 각 단계별 목적지 셀을 모두 추출
-      } else if (path is ChainExchangePath) {
+        // 2중교체 경로의 목적지 셀 추출
+        // 2중교체는 2단계로 이루어지므로 각 단계별 목적지 셀을 모두 추출
+      } else if (path is DualExchangePath) {
         // 1단계 교체 후 목적지 셀들
         // node1 교사가 node2 위치로 이동
         cellKeys.add('${path.node1.teacherName}_${path.node2.day}_${path.node2.period}');

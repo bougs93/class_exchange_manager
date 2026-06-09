@@ -97,7 +97,7 @@ class ExchangeHistoryItem {
 - **타입**: `ExchangePath` 추상 클래스의 서브클래스
   - `OneToOneExchangePath` (1:1 교체)
   - `CircularExchangePath` (순환교체)
-  - `ChainExchangePath` (연쇄교체)
+  - `ChainExchangePath` (2중교체)
   - `SupplementExchangePath` (보강교체)
 - **중요**: 교체의 핵심 데이터를 포함
 
@@ -114,7 +114,7 @@ class ExchangeHistoryItem {
 - **가능한 값**:
   - `oneToOne`: 1:1 교체
   - `circular`: 순환교체
-  - `chain`: 연쇄교체
+  - `chain`: 2중교체
   - `supplement`: 보강교체
 
 #### 6. `metadata` (Map<String, dynamic>)
@@ -205,7 +205,7 @@ class CircularExchangePath implements ExchangePath {
 **예시**:
 - 교사 A → 교사 B → 교사 C → 교사 A
 
-### 3. ChainExchangePath (연쇄교체)
+### 3. ChainExchangePath (2중교체)
 
 **구조**:
 ```dart
@@ -214,11 +214,11 @@ class ChainExchangePath implements ExchangePath {
   ExchangeNode nodeB;  // 첫 번째 교체의 대상
   ExchangeNode node1;  // 두 번째 교체의 원본
   ExchangeNode node2;  // 두 번째 교체의 대상
-  List<ChainStep> steps;  // 연쇄 단계 정보
+  List<ChainStep> steps;  // 2중 단계 정보
 }
 ```
 
-**설명**: 두 개의 교체가 연쇄적으로 연결된 교체
+**설명**: 두 개의 1:1 교체가 연결된 교체
 
 **예시**:
 - (A ↔ B) 이후 (B ↔ C)로 연결

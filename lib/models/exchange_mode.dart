@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 /// 교체 모드 열거형
 /// 각 모드는 상호 배타적으로 동작합니다.
@@ -12,8 +12,8 @@ enum ExchangeMode {
   /// 1:1교체 모드 - 두 교사 간 직접 교체
   oneToOneExchange,
   
-  /// 연쇄교체 모드 - 연쇄적으로 교체
-  chainExchange,
+  /// 2중교체 모드 - 2중으로 교체
+  dualExchange,
   
   /// 순환교체 모드 - 여러 교사가 순환하며 교체
   circularExchange,
@@ -35,8 +35,8 @@ extension ExchangeModeExtension on ExchangeMode {
         return '1:1교체';
       case ExchangeMode.circularExchange:
         return '순환교체';
-      case ExchangeMode.chainExchange:
-        return '연쇄교체';
+      case ExchangeMode.dualExchange:
+        return '2중교체';
       case ExchangeMode.supplementExchange:
         return '보강';
     }
@@ -50,8 +50,8 @@ extension ExchangeModeExtension on ExchangeMode {
         return null;
       case ExchangeMode.oneToOneExchange:
         return '1:1';
-      case ExchangeMode.chainExchange:
-        return '연쇄';
+      case ExchangeMode.dualExchange:
+        return '2중';
       case ExchangeMode.circularExchange:
         return '순환';
       case ExchangeMode.supplementExchange:
@@ -70,7 +70,7 @@ extension ExchangeModeExtension on ExchangeMode {
         return '가장 기본적인 교체 방식입니다. 한 교사와 같은 반 수업을 서로 맞바꿉니다.';
       case ExchangeMode.circularExchange:
         return '1:1 교체가 어려울 때, 두 교사의 같은 반 수업을 순환해 맞바꿉니다.';
-      case ExchangeMode.chainExchange:
+      case ExchangeMode.dualExchange:
         return '1:1 교체가 어려울 때, 1:1 교체를 두 번 연결해 수업을 맞바꿉니다.';
       case ExchangeMode.supplementExchange:
         return '수업 교체가 불가능할 때, 해당 시간에 수업이 비어 있는 교사가 보강 수업을 진행합니다.';
@@ -88,7 +88,7 @@ extension ExchangeModeExtension on ExchangeMode {
         return Icons.swap_horiz;
       case ExchangeMode.circularExchange:
         return Icons.refresh;
-      case ExchangeMode.chainExchange:
+      case ExchangeMode.dualExchange:
         return Icons.link;
       case ExchangeMode.supplementExchange:
         return Icons.add_circle;
@@ -106,7 +106,7 @@ extension ExchangeModeExtension on ExchangeMode {
         return Colors.green;
       case ExchangeMode.circularExchange:
         return Colors.indigo;
-      case ExchangeMode.chainExchange:
+      case ExchangeMode.dualExchange:
         return Colors.deepOrange;
       case ExchangeMode.supplementExchange:
         return Colors.teal;

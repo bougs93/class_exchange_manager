@@ -1,7 +1,7 @@
-import '../models/exchange_path.dart';
+﻿import '../models/exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
 import '../models/circular_exchange_path.dart';
-import '../models/chain_exchange_path.dart';
+import '../models/dual_exchange_path.dart';
 
 /// ExchangePath 관련 유틸리티 클래스
 /// 중복된 타입 필터링 로직을 중앙 집중화
@@ -40,9 +40,9 @@ class ExchangePathUtils {
     return filterByType<CircularExchangePath>(paths);
   }
   
-  /// 연쇄교체 경로들만 반환
-  static List<ChainExchangePath> getChainPaths(List<ExchangePath> paths) {
-    return filterByType<ChainExchangePath>(paths);
+  /// 2중교체 경로들만 반환
+  static List<DualExchangePath> getDualPaths(List<ExchangePath> paths) {
+    return filterByType<DualExchangePath>(paths);
   }
   
   /// 특정 타입의 경로가 있는지 확인

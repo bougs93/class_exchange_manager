@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../../models/circular_exchange_path.dart';
 import '../../../utils/logger.dart';
 import '../../state_managers/filter_state_manager.dart';
@@ -12,7 +12,7 @@ mixin FilterSearchHandler<T extends StatefulWidget> on State<T> {
   // 모드 상태
   bool get isExchangeModeEnabled;
   bool get isCircularExchangeModeEnabled;
-  bool get isChainExchangeModeEnabled;
+  bool get isDualExchangeModeEnabled;
 
   // 상태 변수 getter/setter
   String get searchQuery;
@@ -26,9 +26,9 @@ mixin FilterSearchHandler<T extends StatefulWidget> on State<T> {
 
   /// 단계 필터 변경 처리 (순환교체, 1:1 교체 모드만)
   void onStepChanged(int? step) {
-    // 연쇄교체에서는 단계 필터 동작 불필요
-    if (isChainExchangeModeEnabled) {
-      AppLogger.exchangeDebug('연쇄교체: 단계 필터 변경 무시 (필터 동작 불필요)');
+    // 2중교체에서는 단계 필터 동작 불필요
+    if (isDualExchangeModeEnabled) {
+      AppLogger.exchangeDebug('2중교체: 단계 필터 변경 무시 (필터 동작 불필요)');
       return;
     }
 
@@ -39,13 +39,13 @@ mixin FilterSearchHandler<T extends StatefulWidget> on State<T> {
     AppLogger.exchangeDebug('$mode 단계 필터 변경: ${step ?? "전체"}');
   }
 
-  /// 요일 필터 변경 처리 (순환교체, 1:1 교체, 연쇄교체 모드)
+  /// 요일 필터 변경 처리 (순환교체, 1:1 교체, 2중교체 모드)
   void onDayChanged(String? day) {
     setSelectedDay(day);
     filterStateManager.setDayFilter(day);
 
     String mode = isExchangeModeEnabled ? '1:1교체' :
-                  isCircularExchangeModeEnabled ? '순환교체' : '연쇄교체';
+                  isCircularExchangeModeEnabled ? '순환교체' : '2중교체';
     AppLogger.exchangeDebug('$mode 요일 필터 변경: ${day ?? "전체"}');
   }
 
@@ -64,8 +64,8 @@ mixin FilterSearchHandler<T extends StatefulWidget> on State<T> {
       // 순환교체: 가장 높은 단계를 기본 선택으로 설정
       setSelectedStep(availableSteps.isNotEmpty ? availableSteps.last : null);
       filterStateManager.setStepFilter(selectedStep);
-    } else if (isChainExchangeModeEnabled) {
-      // 연쇄교체: 단계 필터 항상 null (필터 동작 불필요)
+    } else if (isDualExchangeModeEnabled) {
+      // 2중교체: 단계 필터 항상 null (필터 동작 불필요)
       setSelectedStep(null);
       filterStateManager.setStepFilter(null);
     }

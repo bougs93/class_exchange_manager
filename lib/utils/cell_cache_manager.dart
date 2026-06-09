@@ -1,11 +1,11 @@
-
+﻿
 /// 캐시 타입 열거형
 enum CacheType {
   cellSelection,
   cellTarget,
   exchangeable,
   circularPath,
-  chainPath,
+  dualPath,
   nonExchangeable,
 }
 
@@ -17,7 +17,7 @@ class CellCacheManager {
     CacheType.cellTarget: {},
     CacheType.exchangeable: {},
     CacheType.circularPath: {},
-    CacheType.chainPath: {},
+    CacheType.dualPath: {},
     CacheType.nonExchangeable: {},
   };
 
@@ -73,9 +73,9 @@ class CellCacheManager {
     return _getCached(CacheType.circularPath, teacherName, day, period, checker);
   }
 
-  /// 연쇄교체 경로 포함 여부 캐시 확인
-  bool getChainPathCached(String teacherName, String day, int period, bool Function() checker) {
-    return _getCached(CacheType.chainPath, teacherName, day, period, checker);
+  /// 2중교체 경로 포함 여부 캐시 확인
+  bool getDualPathCached(String teacherName, String day, int period, bool Function() checker) {
+    return _getCached(CacheType.dualPath, teacherName, day, period, checker);
   }
 
   /// 교체불가 여부 캐시 확인
@@ -100,8 +100,8 @@ class CellCacheManager {
     _caches[CacheType.cellSelection]?.clear();
   }
 
-  /// 연쇄교체 경로 캐시만 초기화
-  void clearChainPathCache() {
-    _caches[CacheType.chainPath]?.clear();
+  /// 2중교체 경로 캐시만 초기화
+  void clearDualPathCache() {
+    _caches[CacheType.dualPath]?.clear();
   }
 }

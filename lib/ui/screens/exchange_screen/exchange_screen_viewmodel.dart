@@ -1,16 +1,16 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../../services/excel_service.dart';
 import '../../../services/exchange_service.dart';
 import '../../../services/circular_exchange_service.dart';
-import '../../../services/chain_exchange_service.dart';
+import '../../../services/dual_exchange_service.dart';
 import '../../../providers/exchange_screen_provider.dart';
 import '../../../providers/services_provider.dart';
 import '../../../models/time_slot.dart';
 import '../../../models/circular_exchange_path.dart';
 import '../../../models/one_to_one_exchange_path.dart';
-import '../../../models/chain_exchange_path.dart';
+import '../../../models/dual_exchange_path.dart';
 import '../../../utils/logger.dart';
 import '../../../utils/timetable_data_source.dart';
 import '../../../utils/day_utils.dart';
@@ -31,13 +31,13 @@ class ExchangeScreenViewModel {
   final Ref ref;
   final ExchangeService exchangeService;
   final CircularExchangeService circularExchangeService;
-  final ChainExchangeService chainExchangeService;
+  final DualExchangeService dualExchangeService;
 
   ExchangeScreenViewModel({
     required this.ref,
     required this.exchangeService,
     required this.circularExchangeService,
-    required this.chainExchangeService,
+    required this.dualExchangeService,
   });
 
   /// Provider notifier 접근
@@ -53,10 +53,10 @@ class ExchangeScreenViewModel {
   void toggleNonExchangeableEditMode({
     required bool isExchangeModeEnabled,
     required bool isCircularExchangeModeEnabled,
-    required bool isChainExchangeModeEnabled,
+    required bool isDualExchangeModeEnabled,
     required VoidCallback toggleExchangeMode,
     required VoidCallback toggleCircularExchangeMode,
-    required VoidCallback toggleChainExchangeMode,
+    required VoidCallback toggleDualExchangeMode,
     required TimetableDataSource? dataSource,
   }) {
     final currentMode = _state.isNonExchangeableEditMode;
@@ -65,7 +65,7 @@ class ExchangeScreenViewModel {
     if (!currentMode) {
       if (isExchangeModeEnabled) toggleExchangeMode();
       if (isCircularExchangeModeEnabled) toggleCircularExchangeMode();
-      if (isChainExchangeModeEnabled) toggleChainExchangeMode();
+      if (isDualExchangeModeEnabled) toggleDualExchangeMode();
     }
 
     // 상태 변경
@@ -184,14 +184,14 @@ class ExchangeScreenViewModel {
     List<Map<String, dynamic>>? exchangeableTeachers,
     CircularExchangePath? selectedCircularPath,
     OneToOneExchangePath? selectedOneToOnePath,
-    ChainExchangePath? selectedChainPath,
+    DualExchangePath? selectedDualPath,
   }) {
     return GridHelper.createSyncfusionGridData(
       timetableData: timetableData,
       exchangeableTeachers: exchangeableTeachers,
       selectedCircularPath: selectedCircularPath,
       selectedOneToOnePath: selectedOneToOnePath,
-      selectedChainPath: selectedChainPath,
+      selectedDualPath: selectedDualPath,
     );
   }
 
@@ -201,13 +201,13 @@ class ExchangeScreenViewModel {
   bool shouldHandleCellTap({
     required bool isExchangeModeEnabled,
     required bool isCircularExchangeModeEnabled,
-    required bool isChainExchangeModeEnabled,
+    required bool isDualExchangeModeEnabled,
     required bool isNonExchangeableEditMode,
   }) {
     return CellTapHelper.shouldHandleCellTap(
       isExchangeModeEnabled: isExchangeModeEnabled,
       isCircularExchangeModeEnabled: isCircularExchangeModeEnabled,
-      isChainExchangeModeEnabled: isChainExchangeModeEnabled,
+      isDualExchangeModeEnabled: isDualExchangeModeEnabled,
       isNonExchangeableEditMode: isNonExchangeableEditMode,
     );
   }
@@ -226,6 +226,6 @@ final exchangeScreenViewModelProvider = Provider<ExchangeScreenViewModel>((ref) 
     ref: ref,
     exchangeService: ref.read(exchangeServiceProvider),
     circularExchangeService: ref.read(circularExchangeServiceProvider),
-    chainExchangeService: ref.read(chainExchangeServiceProvider),
+    dualExchangeService: ref.read(dualExchangeServiceProvider),
   );
 });

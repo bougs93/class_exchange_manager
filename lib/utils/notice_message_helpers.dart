@@ -1,4 +1,4 @@
-import '../models/notice_message.dart';
+﻿import '../models/notice_message.dart';
 import '../providers/substitution_plan_viewmodel.dart';
 import 'date_format_utils.dart';
 
@@ -8,7 +8,7 @@ class GroupIdParser {
   static const String circularPrefix = 'circular_exchange_';
   static const String supplementPrefix = 'supplement_exchange_';
   static const String oneToOnePrefix = 'one_to_one_exchange_';
-  static const String chainPrefix = 'chain_exchange_';
+  static const String dualPrefix = 'chain_exchange_';
 
   /// 순환교체 단계 수 추출
   static int? extractCircularStep(String? groupId) {
@@ -33,9 +33,9 @@ class GroupIdParser {
     return groupId != null && groupId.startsWith(oneToOnePrefix);
   }
 
-  /// 연쇄 교체 여부 확인
+  /// 2중 교체 여부 확인
   static bool isChain(String? groupId) {
-    return groupId != null && groupId.startsWith(chainPrefix);
+    return groupId != null && groupId.startsWith(dualPrefix);
   }
 }
 
@@ -126,7 +126,7 @@ class MessageFormatter {
 
 /// 교체 유형 카테고리 (메시지 처리 방식 구분)
 enum ExchangeCategory {
-  basic,           // 1:1교체, 순환교체 3단계, 연쇄교체 (동일한 방식)
+  basic,           // 1:1교체, 순환교체 3단계, 2중교체 (동일한 방식)
   supplement,      // 보강 (별도 방식)
   circularFourPlus, // 순환교체 4단계 이상 (별도 방식)
 }

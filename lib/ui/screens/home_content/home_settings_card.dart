@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../constants/teacher_row_highlight_colors.dart';
 import '../../../providers/app_settings_provider.dart';
@@ -10,7 +10,7 @@ import '../../widgets/data_storage_location_section.dart';
 import 'highlight_color_picker.dart';
 import 'setting_save_mixin.dart';
 
-/// 홈 화면 설정 카드 (언어 · 연쇄 교체 · 하이라이트 색상 · 저장 위치 · 데이터 초기화)
+/// 홈 화면 설정 카드 (언어 · 2중 교체 · 하이라이트 색상 · 저장 위치 · 데이터 초기화)
 ///
 /// 설정 관련 상태(언어·색상·초기화)를 스스로 로드/저장하여 홈 화면 본체의
 /// 기본 정보(교사명·학교명) 관리와 책임을 분리한다.
@@ -99,13 +99,23 @@ class _HomeSettingsCardState extends ConsumerState<HomeSettingsCard>
     );
   }
 
-  /// 연쇄 교체 설정 저장
-  Future<void> _saveChainExchangeEnabled(bool enabled) async {
+  /// 2중 교체 설정 저장
+  Future<void> _saveDualExchangeEnabled(bool enabled) async {
     await saveSetting(
       saver: () =>
-          ref.read(chainExchangeEnabledProvider.notifier).setEnabled(enabled),
+          ref.read(dualExchangeEnabledProvider.notifier).setEnabled(enabled),
       successMessage:
-          enabled ? '연쇄 교체 기능이 활성화되었습니다.' : '연쇄 교체 기능이 비활성화되었습니다.',
+          enabled ? '2중 교체 기능이 활성화되었습니다.' : '2중 교체 기능이 비활성화되었습니다.',
+    );
+  }
+
+  /// 순환 교체 설정 저장
+  Future<void> _saveCircularExchangeEnabled(bool enabled) async {
+    await saveSetting(
+      saver: () =>
+          ref.read(circularExchangeEnabledProvider.notifier).setEnabled(enabled),
+      successMessage:
+          enabled ? '순환 교체 기능이 활성화되었습니다.' : '순환 교체 기능이 비활성화되었습니다.',
     );
   }
 
@@ -231,9 +241,9 @@ class _HomeSettingsCardState extends ConsumerState<HomeSettingsCard>
               children: [
                 _buildLanguageSection(),
                 const SizedBox(height: 8),
-                _buildChainExchangeSection(),
-                const SizedBox(height: 8),
                 _buildHighlightColorSection(),
+                const SizedBox(height: 8),
+                _buildIndirectExchangeGroupSection(),
                 const SizedBox(height: 8),
                 DataStorageLocationSection(
                   key: _dataStorageLocationKey,
@@ -285,19 +295,80 @@ class _HomeSettingsCardState extends ConsumerState<HomeSettingsCard>
     );
   }
 
-  /// 연쇄 교체 사용 설정 섹션
-  Widget _buildChainExchangeSection() {
-    final isEnabled = ref.watch(chainExchangeEnabledProvider);
+  /// 간접교체 그룹 (2중 교체 · 순환 교체 메뉴 표시 설정)
+  Widget _buildIndirectExchangeGroupSection() {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '간접교체',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '1:1 교체가 어려울 때 교체 화면에 표시할 메뉴를 설정합니다.',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 8),
+          _buildExchangeModeTogglesSection(),
+        ],
+      ),
+    );
+  }
+
+  /// 2중교체 · 순환교체 토글을 한 줄에 가로 배치
+  Widget _buildExchangeModeTogglesSection() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: _buildIndirectExchangeToggle(
+            label: '2중교체',
+            description: '2회의 간접 교체',
+            showRecommended: true,
+            isEnabled: ref.watch(dualExchangeEnabledProvider),
+            onChanged: _saveDualExchangeEnabled,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildIndirectExchangeToggle(
+            label: '순환교체',
+            description: '3~4회의 간접 교체',
+            isEnabled: ref.watch(circularExchangeEnabledProvider),
+            onChanged: _saveCircularExchangeEnabled,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 간접교체 하위 메뉴 토글
+  Widget _buildIndirectExchangeToggle({
+    required String label,
+    required String description,
+    bool showRecommended = false,
+    required bool isEnabled,
+    required ValueChanged<bool> onChanged,
+  }) {
+    final theme = Theme.of(context);
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 스위치를 텍스트 앞(왼쪽)에 작게 배치
         Transform.scale(
           scale: 0.72,
+          alignment: Alignment.topLeft,
           child: Switch(
             value: isEnabled,
-            onChanged: _saveChainExchangeEnabled,
+            onChanged: onChanged,
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
         ),
@@ -306,12 +377,41 @@ class _HomeSettingsCardState extends ConsumerState<HomeSettingsCard>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                '연쇄 교체',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+              Row(
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (showRecommended) ...[
+                    const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.primaryColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '추천',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                          color: theme.primaryColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
+              const SizedBox(height: 2),
               Text(
-                '교체 화면 연쇄교체 메뉴 표시',
+                description,
                 style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
               ),
             ],

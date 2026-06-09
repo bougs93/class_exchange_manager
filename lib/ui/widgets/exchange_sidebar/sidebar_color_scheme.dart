@@ -3,7 +3,7 @@ import '../../../models/exchange_path.dart';
 
 /// 경로 타입별 색상 시스템
 ///
-/// 각 교체 타입(1:1/순환/연쇄/보강)의 색상 팔레트와,
+/// 각 교체 타입(1:1/순환/2중/보강)의 색상 팔레트와,
 /// 노드·경로 아이템의 선택 상태별 색상 계산을 한곳에서 담당한다.
 class PathColorScheme {
   final Color primary;              // 메인 색상 (화살표, 강조)
@@ -50,7 +50,7 @@ class PathColorScheme {
     shadow: Color(0xFFE1BEE7),                     // 보라색 그림자
   );
 
-  /// 연쇄교체 색상 스키마 (주황색 계열)
+  /// 2중교체 색상 스키마 (주황색 계열)
   static const chain = PathColorScheme(
     primary: Color(0xFFFF5722),                    // 주황색 화살표
     nodeBackground: Color(0xFFFBE9E7),             // 연한 주황색 노드 배경 (선택됨)

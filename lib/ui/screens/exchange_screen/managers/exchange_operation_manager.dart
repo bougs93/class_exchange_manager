@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,7 +20,7 @@ import '../exchange_screen_state_proxy.dart';
 class ExchangeModeSteps {
   static const List<int> oneToOne = [2]; // 1:1 교체는 2단계만
   static const List<int> circular = [2, 3, 4, 5]; // 순환교체는 2~5단계
-  static const List<int> chain = []; // 연쇄교체는 단계 필터 불필요
+  static const List<int> chain = []; // 2중교체는 단계 필터 불필요
   static const List<int> supplement = [2]; // 보강는 2단계
 }
 
@@ -309,7 +309,7 @@ class ExchangeOperationManager {
   }) {
     if (!keepExchange) stateProxy.setExchangeModeEnabled(false);
     if (!keepCircular) stateProxy.setCircularExchangeModeEnabled(false);
-    if (!keepChain) stateProxy.setChainExchangeModeEnabled(false);
+    if (!keepChain) stateProxy.setDualExchangeModeEnabled(false);
     if (!keepSupplement) stateProxy.setSupplementExchangeModeEnabled(false);
   }
 
@@ -405,13 +405,13 @@ class ExchangeOperationManager {
     }
   }
 
-  /// 연쇄교체 모드 토글
-  void toggleChainExchangeMode() {
+  /// 2중교체 모드 토글
+  void toggleDualExchangeMode() {
     AppLogger.exchangeDebug(
-      '연쇄교체 모드 토글 시작 - 현재 상태: ${stateProxy.isChainExchangeModeEnabled}',
+      '2중교체 모드 토글 시작 - 현재 상태: ${stateProxy.isDualExchangeModeEnabled}',
     );
 
-    final wasEnabled = stateProxy.isChainExchangeModeEnabled;
+    final wasEnabled = stateProxy.isDualExchangeModeEnabled;
 
     // 1. 다른 모드 비활성화
     _disableOtherModes(keepChain: true);
@@ -421,11 +421,11 @@ class ExchangeOperationManager {
       stateProxy.setNonExchangeableEditMode(false);
     }
 
-    // 3. 연쇄교체 모드 토글
-    stateProxy.setChainExchangeModeEnabled(!wasEnabled);
+    // 3. 2중교체 모드 토글
+    stateProxy.setDualExchangeModeEnabled(!wasEnabled);
 
     // 4. 활성화/비활성화 처리
-    if (stateProxy.isChainExchangeModeEnabled) {
+    if (stateProxy.isDualExchangeModeEnabled) {
       _activateMode(ExchangeModeSteps.chain);
     } else {
       _deactivateMode();

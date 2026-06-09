@@ -65,14 +65,14 @@ Excel 파일 (읽기 전용) → ExcelService → Models → Providers → UI
 **Providers** (`lib/providers/`):
 - `exchangeScreenProvider` - 교체 화면의 모든 상태 관리 (30+ 상태 변수)
 - `servicesProvider` - 서비스 인스턴스 제공 (ExcelService, ExchangeService 등)
-- `exchangeLogicProvider` - 교체 모드 상태 관리 (oneToOne, circular, chain)
+- `exchangeLogicProvider` - 교체 모드 상태 관리 (oneToOne, circular, dual)
 - `navigationProvider` - 홈 화면 네비게이션 상태
 
 **서비스** (`lib/services/`):
 - `ExcelService` - Excel 파일 파싱, 다양한 파일 레이아웃용 `ExcelParsingConfig` 처리
 - `ExchangeService` - 핵심 1:1 교체 로직
 - `CircularExchangeService` - 2-5명 교사 순환 교체 처리
-- `ChainExchangeService` - 연쇄 교체 처리
+- `DualExchangeService` - 2중 교체 처리
 
 **핵심 알고리즘** (`lib/utils/`):
 - `ExchangeAlgorithm` - 메인 교체 경로 탐색 및 검증
@@ -109,7 +109,7 @@ Excel 파일 (읽기 전용) → ExcelService → Models → Providers → UI
 
 ### 교체 알고리즘 요구사항
 - **1:1 교체**: 과목 호환성 검사를 포함한 교사 간 직접 교환
-- **순환 교체**: BFS 경로 탐색을 사용하는 2-5명 교사 연쇄 교체
+- **순환 교체**: BFS 경로 탐색을 사용하는 2~5명 교사 순환 교체
 - **제약사항**: 과목 매칭 (설정 가능), 특별교실 제한, 블록타임 보존
 - **성능**: 1초 미만의 실시간 시뮬레이션
 
@@ -162,7 +162,7 @@ Excel 파일 (읽기 전용) → ExcelService → Models → Providers → UI
 - ✅ 메인 UI 화면 및 네비게이션
 - ✅ 1:1 교체 알고리즘 구현
 - ✅ 순환 교체 알고리즘 구현
-- ✅ 연쇄 교체 알고리즘 구현
+- ✅ 2중 교체 알고리즘 구현
 - ✅ 실시간 시각화 시스템
 
 **Phase 2 - 코드 품질 개선 (2025년 1월 완료)**:
@@ -216,7 +216,7 @@ Excel 파일 (읽기 전용) → ExcelService → Models → Providers → UI
 - `lib/services/excel_service.dart` - Excel 파싱 (한글 텍스트 처리, ExcelServiceConstants)
 - `lib/services/exchange_service.dart` - 1:1 교체 로직
 - `lib/services/circular_exchange_service.dart` - 순환 교체 (LRU 캐시)
-- `lib/services/chain_exchange_service.dart` - 연쇄 교체
+- `lib/services/dual_exchange_service.dart` - 2중 교체
 - `lib/utils/exchange_algorithm.dart` - 핵심 경로 탐색 알고리즘
 - `lib/models/exchange_path.dart` - 교체 유형 추상화
 

@@ -1,4 +1,4 @@
-/// 셀 스타일 설정을 위한 데이터 클래스
+﻿/// 셀 스타일 설정을 위한 데이터 클래스
 class CellStyleConfig {
   final bool isTeacherColumn;
   final bool isSelected;
@@ -9,8 +9,8 @@ class CellStyleConfig {
   final bool isInCircularPath;
   final int? circularPathStep;
   final bool isInSelectedPath;
-  final bool isInChainPath;
-  final int? chainPathStep;
+  final bool isInDualPath;
+  final int? dualPathStep;
   final bool isInSupplementPath;
   final bool isTargetCell;
   final bool isNonExchangeable;
@@ -30,8 +30,8 @@ class CellStyleConfig {
     this.isInCircularPath = false,
     this.circularPathStep,
     this.isInSelectedPath = false,
-    this.isInChainPath = false,
-    this.chainPathStep,
+    this.isInDualPath = false,
+    this.dualPathStep,
     this.isInSupplementPath = false,
     this.isTargetCell = false,
     this.isNonExchangeable = false,

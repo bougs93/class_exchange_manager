@@ -1,27 +1,27 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../models/exchange_path.dart';
 import '../../models/exchange_node.dart';
 import '../../models/circular_exchange_path.dart';
-import '../../models/chain_exchange_path.dart';
+import '../../models/dual_exchange_path.dart';
 import '../../models/one_to_one_exchange_path.dart';
 import '../../models/supplement_exchange_path.dart';
 
 /// 교체 경로 필터 위젯
-/// 순환교체, 연쇄교체, 1:1교체, 보강 등 모든 교체 모드에서 공용으로 사용하는 필터 위젯
+/// 순환교체, 2중교체, 1:1교체, 보강 등 모든 교체 모드에서 공용으로 사용하는 필터 위젯
 /// 
 /// 주요 기능:
-/// - 단계 필터: 순환교체(2~5단계, 경로가 있을 때만), 연쇄교체(필터 불필요), 1:1교체, 보강
+/// - 단계 필터: 순환교체(2~5단계, 경로가 있을 때만), 2중교체(필터 불필요), 1:1교체, 보강
 /// - 요일 필터: 월~금 요일별 필터링
 /// - 로딩 상태 처리: 경로 탐색 중에는 단계 필터 숨김
 /// - 빈 경로 처리: 교체 가능한 경로가 없을 때는 단계 필터 숨김
-/// - 모드별 특화: 순환교체에서만 2~5단계 표시, 연쇄교체는 필터 숨김
+/// - 모드별 특화: 순환교체에서만 2~5단계 표시, 2중교체는 필터 숨김
 class ExchangeFilterWidget extends StatelessWidget {
   final ExchangePathType mode;                    // 현재 모드
   final List<ExchangePath> paths;                 // 전체 경로 리스트
   final String searchQuery;                       // 검색 쿼리
   final bool isLoading;                           // 로딩 상태 (경로 탐색 중인지 여부)
   
-  // 단계 필터 관련 매개변수 (순환교체, 연쇄교체에서 사용)
+  // 단계 필터 관련 매개변수 (순환교체, 2중교체에서 사용)
   final List<int>? availableSteps;                // 사용 가능한 단계들
   final int? selectedStep;                        // 선택된 단계
   final Function(int?)? onStepChanged;           // 단계 변경 콜백
@@ -109,7 +109,7 @@ class ExchangeFilterWidget extends StatelessWidget {
   }
 
   /// 단계 필터 표시 여부 결정
-  /// 순환교체에서만 2~5단계 표시, 연쇄교체는 필터 불필요
+  /// 순환교체에서만 2~5단계 표시, 2중교체는 필터 불필요
   bool _shouldShowStepFilter() {
     // 기본 조건: 사용 가능한 단계가 있고 로딩 중이 아니어야 함
     if (availableSteps == null || availableSteps!.isEmpty || isLoading) {
@@ -121,7 +121,7 @@ class ExchangeFilterWidget extends StatelessWidget {
       return paths.isNotEmpty && _hasCircularPaths();
     }
 
-    // 연쇄교체 모드: 필터 동작 불필요 - 항상 숨김
+    // 2중교체 모드: 필터 동작 불필요 - 항상 숨김
     if (mode == ExchangePathType.chain) {
       return false;
     }
@@ -216,7 +216,7 @@ class ExchangeFilterWidget extends StatelessWidget {
         case ExchangePathType.circular:
           return path is CircularExchangePath && path.nodes.length == step;
         case ExchangePathType.chain:
-          return path is ChainExchangePath && path.chainDepth == step;
+          return path is DualExchangePath && path.dualDepth == step;
         case ExchangePathType.oneToOne:
           return path is OneToOneExchangePath; // 1:1 교체는 항상 2개 노드
         case ExchangePathType.supplement:
@@ -259,8 +259,8 @@ class ExchangeFilterWidget extends StatelessWidget {
         }
         break;
       case ExchangePathType.chain:
-        if (path is ChainExchangePath) {
-          return path.nodeB; // 연쇄교체의 경우 마지막 교체 대상
+        if (path is DualExchangePath) {
+          return path.nodeB; // 2중교체의 경우 마지막 교체 대상
         }
         break;
       case ExchangePathType.oneToOne:

@@ -1,12 +1,12 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import '../../../../models/exchange_path.dart';
 import '../../../../models/one_to_one_exchange_path.dart';
 import '../../../../models/circular_exchange_path.dart';
-import '../../../../models/chain_exchange_path.dart';
+import '../../../../models/dual_exchange_path.dart';
 import '../../../../services/excel_service.dart';
 import '../../../../services/exchange_service.dart';
 import '../../../../services/circular_exchange_service.dart';
-import '../../../../services/chain_exchange_service.dart';
+import '../../../../services/dual_exchange_service.dart';
 import '../../../../utils/exchange_path_converter.dart';
 import '../../../../utils/exchange_path_utils.dart';
 import '../../../../utils/logger.dart';
@@ -19,7 +19,7 @@ class ExchangePathManager {
   final ExchangeScreenStateProxy stateProxy;
   final ExchangeService exchangeService;
   final CircularExchangeService circularExchangeService;
-  final ChainExchangeService chainExchangeService;
+  final DualExchangeService dualExchangeService;
   final VoidCallback onUpdateFilteredPaths;
   final void Function(double) onUpdateProgressSmoothly;
 
@@ -27,7 +27,7 @@ class ExchangePathManager {
     required this.stateProxy,
     required this.exchangeService,
     required this.circularExchangeService,
-    required this.chainExchangeService,
+    required this.dualExchangeService,
     required this.onUpdateFilteredPaths,
     required this.onUpdateProgressSmoothly,
   });
@@ -102,26 +102,26 @@ class ExchangePathManager {
     }
   }
 
-  /// 연쇄교체 경로 탐색
-  Future<void> findChainPathsWithProgress(TimetableData? timetableData) async {
-    if (timetableData == null || !chainExchangeService.hasSelectedCell()) {
-      AppLogger.warning('연쇄교체: 시간표 데이터 없음 또는 셀 미선택');
+  /// 2중교체 경로 탐색
+  Future<void> findDualPathsWithProgress(TimetableData? timetableData) async {
+    if (timetableData == null || !dualExchangeService.hasSelectedCell()) {
+      AppLogger.warning('2중교체: 시간표 데이터 없음 또는 셀 미선택');
       return;
     }
 
-    AppLogger.exchangeInfo('연쇄교체: 경로 탐색 시작');
+    AppLogger.exchangeInfo('2중교체: 경로 탐색 시작');
 
     try {
-      final paths = chainExchangeService.findChainExchangePaths(
+      final paths = dualExchangeService.findDualExchangePaths(
         timetableData.timeSlots,
         timetableData.teachers,
       );
 
       _updatePaths(paths);
-      AppLogger.exchangeInfo('연쇄교체: ${paths.isEmpty ? "경로 없음" : "${paths.length}개 경로 발견"}');
+      AppLogger.exchangeInfo('2중교체: ${paths.isEmpty ? "경로 없음" : "${paths.length}개 경로 발견"}');
     } catch (e) {
-      AppLogger.error('연쇄교체 경로 탐색 오류: $e');
-      _clearPaths<ChainExchangePath>();
+      AppLogger.error('2중교체 경로 탐색 오류: $e');
+      _clearPaths<DualExchangePath>();
     }
   }
 

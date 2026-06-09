@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'simplified_timetable_theme.dart';
 import 'constants.dart';
@@ -220,7 +220,7 @@ class FixedHeaderStyleManager {
   /// [exchangeableTeachers] 교체 가능한 교사 정보
   /// [selectedCircularPath] 순환교체 경로
   /// [selectedOneToOnePath] 1:1 교체 경로
-  /// [selectedChainPath] 연쇄교체 경로
+  /// [selectedDualPath] 2중교체 경로
   /// [selectedSupplementPath] 보강 경로
   static List<GridColumn> buildGridColumns({
     required List<String> days,
@@ -232,7 +232,7 @@ class FixedHeaderStyleManager {
     List<Map<String, dynamic>>? exchangeableTeachers,
     dynamic selectedCircularPath,
     dynamic selectedOneToOnePath,
-    dynamic selectedChainPath,
+    dynamic selectedDualPath,
     dynamic selectedSupplementPath,
   }) {
     List<GridColumn> columns = [];
@@ -272,8 +272,8 @@ class FixedHeaderStyleManager {
         bool isInSelectedOneToOnePath = _isPeriodInPath(
           day, period, selectedOneToOnePath?.nodes,
         );
-        bool isInChainPath = _isPeriodInPath(
-          day, period, selectedChainPath?.nodes,
+        bool isInDualPath = _isPeriodInPath(
+          day, period, selectedDualPath?.nodes,
         );
         bool isInSupplementPath = _isPeriodInPath(
           day, period, selectedSupplementPath?.nodes,
@@ -289,7 +289,7 @@ class FixedHeaderStyleManager {
           isHeader: true,
           isInCircularPath: isInCircularPath,
           isInSelectedPath: isInSelectedOneToOnePath,
-          isInChainPath: isInChainPath,
+          isInDualPath: isInDualPath,
           isInSupplementPath: isInSupplementPath,
           isTargetCell: isTargetCell,
           headerPosition: '$day$period', // 헤더 위치 정보 추가 (캐시 키 구분용)
@@ -343,7 +343,7 @@ class FixedHeaderStyleManager {
     if (config.isExchangeable) key.write('_E');
     if (config.isInCircularPath) key.write('_C');
     if (config.isInSelectedPath) key.write('_P');
-    if (config.isInChainPath) key.write('_H');
+    if (config.isInDualPath) key.write('_H');
     if (config.isTargetCell) key.write('_T');
     return key.toString();
   }

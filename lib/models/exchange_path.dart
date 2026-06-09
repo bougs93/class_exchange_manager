@@ -1,4 +1,4 @@
-import 'exchange_node.dart';
+﻿import 'exchange_node.dart';
 
 /// 교체 경로의 공통 인터페이스
 /// 1:1교체와 순환교체 모두에서 사용할 수 있는 공통 구조 정의
@@ -38,7 +38,7 @@ abstract class ExchangePath {
 enum ExchangePathType {
   oneToOne,    // 1:1교체 (2개 노드)
   circular,    // 순환교체 (3+ 노드)
-  chain,       // 연쇄교체 (4개 노드: A, B, 1, 2)
+  chain,       // 2중교체 (4개 노드: A, B, 1, 2)
   supplement,  // 보강 (2개 노드: 보강할 셀, 보강할 교사)
 }
 
@@ -52,7 +52,7 @@ extension ExchangePathTypeExtension on ExchangePathType {
       case ExchangePathType.circular:
         return '순환교체';
       case ExchangePathType.chain:
-        return '연쇄교체';
+        return '2중교체';
       case ExchangePathType.supplement:
         return '보강';
     }

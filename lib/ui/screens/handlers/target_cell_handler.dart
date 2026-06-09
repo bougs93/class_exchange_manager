@@ -1,12 +1,12 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../../models/one_to_one_exchange_path.dart';
 import '../../../models/circular_exchange_path.dart';
-import '../../../models/chain_exchange_path.dart';
+import '../../../models/dual_exchange_path.dart';
 import '../../../models/supplement_exchange_path.dart';
 import '../../../models/exchange_node.dart';
 import '../../../services/exchange_service.dart';
 import '../../../services/circular_exchange_service.dart';
-import '../../../services/chain_exchange_service.dart';
+import '../../../services/dual_exchange_service.dart';
 import '../../../services/excel_service.dart';
 import '../../../utils/logger.dart';
 import '../../../utils/timetable_data_source.dart';
@@ -16,7 +16,7 @@ mixin TargetCellHandler<T extends StatefulWidget> on State<T> {
   // 인터페이스 - 구현 클래스에서 제공해야 함
   ExchangeService get exchangeService;
   CircularExchangeService get circularExchangeService;
-  ChainExchangeService get chainExchangeService;
+  DualExchangeService get dualExchangeService;
   TimetableData? get timetableData;
   TimetableDataSource? get dataSource; // TimetableDataSource - ExchangeLogicMixin에서 제공
 
@@ -73,15 +73,15 @@ mixin TargetCellHandler<T extends StatefulWidget> on State<T> {
     AppLogger.exchangeDebug('순환교체 타겟 셀 설정: $selectedTeacher $targetDay $targetPeriod교시');
   }
 
-  /// 연쇄교체 경로에서 타겟 셀 설정 (마지막 교체 대상의 같은 행 셀)
+  /// 2중교체 경로에서 타겟 셀 설정 (마지막 교체 대상의 같은 행 셀)
   /// 마지막 교체 대상이 수1교시라면, 선택된 셀의 같은 행의 수1교시를 타겟으로 설정
-  void setTargetCellFromChainPath(ChainExchangePath path) {
-    if (!chainExchangeService.hasSelectedCell() || timetableData == null) {
-      AppLogger.exchangeDebug('연쇄교체 타겟 셀 설정 실패: 조건 불충족');
+  void setTargetCellFromDualPath(DualExchangePath path) {
+    if (!dualExchangeService.hasSelectedCell() || timetableData == null) {
+      AppLogger.exchangeDebug('2중교체 타겟 셀 설정 실패: 조건 불충족');
       return;
     }
 
-    // 연쇄교체 경로의 마지막 교체 대상은 nodeB (최종 교체 대상)
+    // 2중교체 경로의 마지막 교체 대상은 nodeB (최종 교체 대상)
     ExchangeNode targetNode = path.nodeB; // 마지막 교체 대상
 
     // 교체 대상의 요일과 교시 가져오기
@@ -97,7 +97,7 @@ mixin TargetCellHandler<T extends StatefulWidget> on State<T> {
     // 데이터 소스에 타겟 셀 정보 전달
     dataSource?.updateTargetCell(selectedTeacher, targetDay, targetPeriod);
 
-    AppLogger.exchangeDebug('연쇄교체 타겟 셀 설정: $selectedTeacher $targetDay $targetPeriod교시 (마지막 교체 대상)');
+    AppLogger.exchangeDebug('2중교체 타겟 셀 설정: $selectedTeacher $targetDay $targetPeriod교시 (마지막 교체 대상)');
   }
 
   /// 보강 경로에서 타겟 셀 설정 (보강 대상의 같은 행 셀)

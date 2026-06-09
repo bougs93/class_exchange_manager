@@ -1,7 +1,7 @@
-import '../models/exchange_history_item.dart';
+﻿import '../models/exchange_history_item.dart';
 import '../models/one_to_one_exchange_path.dart';
 import '../models/circular_exchange_path.dart';
-import '../models/chain_exchange_path.dart';
+import '../models/dual_exchange_path.dart';
 import '../models/supplement_exchange_path.dart';
 import '../models/time_slot.dart';
 import '../models/teacher.dart';
@@ -102,8 +102,8 @@ class PersonalExchangeViewManager {
         return _executeOneToOneExchange(exchangePath, timeSlots);
       } else if (exchangePath is CircularExchangePath) {
         return _executeCircularExchange(exchangePath, timeSlots);
-      } else if (exchangePath is ChainExchangePath) {
-        return _executeChainExchange(exchangePath, timeSlots);
+      } else if (exchangePath is DualExchangePath) {
+        return _executeDualExchange(exchangePath, timeSlots);
       } else if (exchangePath is SupplementExchangePath) {
         return _executeSupplementExchange(exchangePath, timeSlots);
       }
@@ -158,21 +158,21 @@ class PersonalExchangeViewManager {
     }
   }
 
-  /// 연쇄 교체 실행
-  static bool _executeChainExchange(
-    ChainExchangePath exchangePath,
+  /// 2중 교체 실행
+  static bool _executeDualExchange(
+    DualExchangePath exchangePath,
     List<TimeSlot> timeSlots,
   ) {
     try {
       final exchangeService = ExchangeService();
       
-      AppLogger.exchangeDebug('[PersonalExchangeViewManager] 연쇄 교체 실행: A(${exchangePath.nodeA.displayText}) ↔ B(${exchangePath.nodeB.displayText})');
+      AppLogger.exchangeDebug('[PersonalExchangeViewManager] 2중 교체 실행: A(${exchangePath.nodeA.displayText}) ↔ B(${exchangePath.nodeB.displayText})');
       
-      // 연쇄 교체는 두 단계로 이루어짐:
+      // 2중 교체는 두 단계로 이루어짐:
       // 1단계: node1 ↔ node2 교체 (node2를 비우기 위해)
       // 2단계: nodeA ↔ nodeB 교체 (최종 교체)
       
-      AppLogger.exchangeDebug('[PersonalExchangeViewManager] 연쇄 교체 1단계: ${exchangePath.node1.displayText} ↔ ${exchangePath.node2.displayText}');
+      AppLogger.exchangeDebug('[PersonalExchangeViewManager] 2중 교체 1단계: ${exchangePath.node1.displayText} ↔ ${exchangePath.node2.displayText}');
       
       // 1단계: node1 ↔ node2 교체
       bool step1Success = exchangeService.performOneToOneExchange(
@@ -186,11 +186,11 @@ class PersonalExchangeViewManager {
       );
       
       if (!step1Success) {
-        AppLogger.exchangeDebug('[PersonalExchangeViewManager] 연쇄 교체 1단계 실패');
+        AppLogger.exchangeDebug('[PersonalExchangeViewManager] 2중 교체 1단계 실패');
         return false;
       }
       
-      AppLogger.exchangeDebug('[PersonalExchangeViewManager] 연쇄 교체 2단계: ${exchangePath.nodeA.displayText} ↔ ${exchangePath.nodeB.displayText}');
+      AppLogger.exchangeDebug('[PersonalExchangeViewManager] 2중 교체 2단계: ${exchangePath.nodeA.displayText} ↔ ${exchangePath.nodeB.displayText}');
       
       // 2단계: nodeA ↔ nodeB 교체
       bool step2Success = exchangeService.performOneToOneExchange(
@@ -204,14 +204,14 @@ class PersonalExchangeViewManager {
       );
       
       if (!step2Success) {
-        AppLogger.exchangeDebug('[PersonalExchangeViewManager] 연쇄 교체 2단계 실패');
+        AppLogger.exchangeDebug('[PersonalExchangeViewManager] 2중 교체 2단계 실패');
         return false;
       }
       
-      AppLogger.exchangeDebug('[PersonalExchangeViewManager] 연쇄 교체 완료: 2단계 모두 성공');
+      AppLogger.exchangeDebug('[PersonalExchangeViewManager] 2중 교체 완료: 2단계 모두 성공');
       return true;
     } catch (e) {
-      AppLogger.exchangeDebug('[PersonalExchangeViewManager] 연쇄 교체 실행 중 오류: $e');
+      AppLogger.exchangeDebug('[PersonalExchangeViewManager] 2중 교체 실행 중 오류: $e');
       return false;
     }
   }

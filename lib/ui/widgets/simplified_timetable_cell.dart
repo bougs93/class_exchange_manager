@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../utils/simplified_timetable_theme.dart';
 import '../../utils/cell_style_config.dart';
 
@@ -14,8 +14,8 @@ class SimplifiedTimetableCell extends StatelessWidget {
   final bool isInCircularPath; // 순환교체 경로에 포함된 셀인지 여부
   final int? circularPathStep; // 순환교체 경로에서의 단계 (1, 2, 3...)
   final bool isInSelectedPath; // 선택된 경로에 포함된 셀인지 여부 (1:1 교체 모드)
-  final bool isInChainPath; // 연쇄교체 경로에 포함된 셀인지 여부
-  final int? chainPathStep; // 연쇄교체 경로에서의 단계 (1, 2)
+  final bool isInDualPath; // 2중교체 경로에 포함된 셀인지 여부
+  final int? dualPathStep; // 2중교체 경로에서의 단계 (1, 2)
   final bool isTargetCell; // 타겟 셀인지 여부 (교체 대상의 같은 행 셀)
   final bool isNonExchangeable; // 교체불가 셀인지 여부
   final bool isExchangedSourceCell; // 교체된 소스 셀인지 여부
@@ -36,8 +36,8 @@ class SimplifiedTimetableCell extends StatelessWidget {
     this.isInCircularPath = false,
     this.circularPathStep,
     this.isInSelectedPath = false,
-    this.isInChainPath = false,
-    this.chainPathStep,
+    this.isInDualPath = false,
+    this.dualPathStep,
     this.isTargetCell = false,
     this.isNonExchangeable = false,
     this.isExchangedSourceCell = false, // 교체된 소스 셀 기본값은 false
@@ -60,8 +60,8 @@ class SimplifiedTimetableCell extends StatelessWidget {
         isInCircularPath: isInCircularPath,
         circularPathStep: circularPathStep,
         isInSelectedPath: isInSelectedPath,
-        isInChainPath: isInChainPath,
-        chainPathStep: chainPathStep,
+        isInDualPath: isInDualPath,
+        dualPathStep: dualPathStep,
         isTargetCell: isTargetCell,
         isNonExchangeable: isNonExchangeable,
         isExchangedSourceCell: isExchangedSourceCell,

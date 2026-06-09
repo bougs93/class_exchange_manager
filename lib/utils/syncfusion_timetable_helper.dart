@@ -1,9 +1,9 @@
-import 'package:syncfusion_flutter_datagrid/datagrid.dart';
+﻿import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../models/time_slot.dart';
 import '../models/teacher.dart';
 import '../models/circular_exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
-import '../models/chain_exchange_path.dart';
+import '../models/dual_exchange_path.dart';
 import '../models/supplement_exchange_path.dart';
 import 'day_utils.dart';
 import 'fixed_header_style_manager.dart';
@@ -34,7 +34,7 @@ class SyncfusionTimetableHelper {
     List<Map<String, dynamic>>? exchangeableTeachers, // 교체 가능한 교사 정보
     CircularExchangePath? selectedCircularPath, // 선택된 순환교체 경로
     OneToOneExchangePath? selectedOneToOnePath, // 선택된 1:1 교체 경로
-    ChainExchangePath? selectedChainPath, // 선택된 연쇄교체 경로
+    DualExchangePath? selectedDualPath, // 선택된 2중교체 경로
     SupplementExchangePath? selectedSupplementPath, // 선택된 보강 경로
   }) {
     // 요일별로 데이터 그룹화
@@ -76,7 +76,7 @@ class SyncfusionTimetableHelper {
       exchangeableTeachers: exchangeableTeachers,
       selectedCircularPath: selectedCircularPath,
       selectedOneToOnePath: selectedOneToOnePath,
-      selectedChainPath: selectedChainPath,
+      selectedDualPath: selectedDualPath,
       selectedSupplementPath: selectedSupplementPath,
     );
     

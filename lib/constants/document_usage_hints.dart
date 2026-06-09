@@ -4,11 +4,11 @@
 class DocumentUsageHints {
   DocumentUsageHints._();
 
-  /// 날짜선택
+  /// 내용 입력
   static const String substitutionPlan =
-      '표에서 선택 항목을 클릭해 필수 정보를 입력하세요. 입력이 끝나면 계획서 탭에서 PDF를 출력할 수 있습니다.';
+      '표에서 선택 항목을 클릭해 필수 정보를 입력하세요. 입력이 끝나면 결보강 출력에서 PDF를 저장할 수 있습니다.';
 
-  /// 계획서
+  /// 결보강 출력
   static const String fileExport =
       '입력란을 확인한 후 PDF 출력·인쇄 버튼을 눌러 결보강 계획서를 저장하거나 인쇄하세요.';
 

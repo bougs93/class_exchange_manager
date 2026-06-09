@@ -21,7 +21,7 @@ enum ExchangeModeLabelStyle {
   /// 전체 이름 (보기, 교체불가, 1:1교체, …)
   full,
 
-  /// 축약 (👁·🚫 아이콘만, 1:1·연쇄·순환·보강)
+  /// 축약 (👁·🚫 아이콘만, 1:1·2중·순환·보강)
   compact,
 }
 
@@ -63,7 +63,7 @@ class UnifiedToolbarLayoutDecision {
 /// 둘 다 불가하면 2줄(모드 단독 행)로 전환합니다.
 UnifiedToolbarLayoutDecision resolveUnifiedToolbarLayout({
   required double totalWidth,
-  required bool isChainExchangeEnabled,
+  required bool isDualExchangeEnabled,
   required bool showTeacherCount,
   int teacherCount = 0,
 }) {
@@ -72,7 +72,7 @@ UnifiedToolbarLayoutDecision resolveUnifiedToolbarLayout({
     ExchangeModeLabelStyle.compact,
   ]) {
     final minWidth = estimateUnifiedToolbarMinWidth(
-      isChainExchangeEnabled: isChainExchangeEnabled,
+      isDualExchangeEnabled: isDualExchangeEnabled,
       labelStyle: labelStyle,
       showTeacherCount: showTeacherCount,
       teacherCount: teacherCount,
@@ -93,7 +93,7 @@ UnifiedToolbarLayoutDecision resolveUnifiedToolbarLayout({
 
 /// 통합 툴바 1줄 배치에 필요한 최소 가로 폭 (모드·실행도구·줌·교사 수 합산)
 double estimateUnifiedToolbarMinWidth({
-  required bool isChainExchangeEnabled,
+  required bool isDualExchangeEnabled,
   required ExchangeModeLabelStyle labelStyle,
   required bool showTeacherCount,
   int teacherCount = 0,
@@ -103,7 +103,7 @@ double estimateUnifiedToolbarMinWidth({
 
   var width = horizontalPadding;
   width += estimateModeSelectorWidth(
-    isChainExchangeEnabled: isChainExchangeEnabled,
+    isDualExchangeEnabled: isDualExchangeEnabled,
     labelStyle: labelStyle,
   );
   // 모드 선택 영역과 실행 도구 사이 구분선
@@ -121,7 +121,7 @@ double estimateUnifiedToolbarMinWidth({
 
 /// [ExchangeModeSelector] 최소 폭 (내부 그룹 구분선 포함)
 double estimateModeSelectorWidth({
-  required bool isChainExchangeEnabled,
+  required bool isDualExchangeEnabled,
   required ExchangeModeLabelStyle labelStyle,
 }) {
   const viewEditModes = [
@@ -129,10 +129,10 @@ double estimateModeSelectorWidth({
     ExchangeMode.nonExchangeableEdit,
   ];
   final exchangeModes =
-      isChainExchangeEnabled
+      isDualExchangeEnabled
           ? const [
             ExchangeMode.oneToOneExchange,
-            ExchangeMode.chainExchange,
+            ExchangeMode.dualExchange,
             ExchangeMode.circularExchange,
             ExchangeMode.supplementExchange,
           ]
@@ -234,7 +234,7 @@ double _measureToolbarTextWidth(
 /// 교체 모드 선택 위젯 (컴팩트 가로 배치)
 ///
 /// [labelStyle]에 따라 전체 라벨 또는 축약 라벨을 표시합니다.
-/// 연쇄 교체는 홈>설정에서 활성화한 경우에만 메뉴에 표시됩니다.
+/// 2중 교체는 홈>설정에서 활성화한 경우에만 메뉴에 표시됩니다.
 class ExchangeModeSelector extends ConsumerWidget {
   final ExchangeMode currentMode;
   final void Function(ExchangeMode) onModeChanged;
@@ -254,26 +254,35 @@ class ExchangeModeSelector extends ConsumerWidget {
 
   static const _exchangeModes = [
     ExchangeMode.oneToOneExchange,
-    ExchangeMode.chainExchange,
+    ExchangeMode.dualExchange,
     ExchangeMode.circularExchange,
     ExchangeMode.supplementExchange,
   ];
 
-  List<ExchangeMode> _visibleExchangeModes(bool isChainExchangeEnabled) {
-    if (isChainExchangeEnabled) {
-      return _exchangeModes;
-    }
-
-    return _exchangeModes
-        .where((mode) => mode != ExchangeMode.chainExchange)
-        .toList();
+  List<ExchangeMode> _visibleExchangeModes(
+    bool isDualExchangeEnabled,
+    bool isCircularExchangeEnabled,
+  ) {
+    return _exchangeModes.where((mode) {
+      if (mode == ExchangeMode.dualExchange && !isDualExchangeEnabled) {
+        return false;
+      }
+      if (mode == ExchangeMode.circularExchange && !isCircularExchangeEnabled) {
+        return false;
+      }
+      return true;
+    }).toList();
   }
 
   void _handleModeChanged(
     ExchangeMode mode,
-    bool isChainExchangeEnabled,
+    bool isDualExchangeEnabled,
+    bool isCircularExchangeEnabled,
   ) {
-    if (mode == ExchangeMode.chainExchange && !isChainExchangeEnabled) {
+    if (mode == ExchangeMode.dualExchange && !isDualExchangeEnabled) {
+      return;
+    }
+    if (mode == ExchangeMode.circularExchange && !isCircularExchangeEnabled) {
       return;
     }
 
@@ -282,22 +291,24 @@ class ExchangeModeSelector extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isChainExchangeEnabled = ref.watch(chainExchangeEnabledProvider);
-    final exchangeModes = _visibleExchangeModes(isChainExchangeEnabled);
+    final isDualExchangeEnabled = ref.watch(dualExchangeEnabledProvider);
+    final isCircularExchangeEnabled = ref.watch(circularExchangeEnabledProvider);
+    final exchangeModes = _visibleExchangeModes(isDualExchangeEnabled, isCircularExchangeEnabled);
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ..._buildModeGroup(_viewEditModes, isChainExchangeEnabled),
+        ..._buildModeGroup(_viewEditModes, isDualExchangeEnabled, isCircularExchangeEnabled),
         const _ToolbarGroupDivider(),
-        ..._buildModeGroup(exchangeModes, isChainExchangeEnabled),
+        ..._buildModeGroup(exchangeModes, isDualExchangeEnabled, isCircularExchangeEnabled),
       ],
     );
   }
 
   List<Widget> _buildModeGroup(
     List<ExchangeMode> modes,
-    bool isChainExchangeEnabled,
+    bool isDualExchangeEnabled,
+    bool isCircularExchangeEnabled,
   ) {
     return modes.map((mode) {
       final isSelected = mode == currentMode;
@@ -307,7 +318,7 @@ class ExchangeModeSelector extends ConsumerWidget {
           mode: mode,
           isSelected: isSelected,
           labelStyle: labelStyle,
-          onPressed: () => _handleModeChanged(mode, isChainExchangeEnabled),
+          onPressed: () => _handleModeChanged(mode, isDualExchangeEnabled, isCircularExchangeEnabled),
         ),
       );
     }).toList();

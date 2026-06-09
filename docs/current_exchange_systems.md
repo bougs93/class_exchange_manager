@@ -290,7 +290,7 @@ List<List<ExchangeNode>> _findCircularPathsDFS(
     // 최대 단계 수 초과 시 종료
     if (currentStep > maxSteps) return;
     
-    // 연쇄 교체 완료 확인 (시작점으로 돌아옴)
+    // 순환 교체 완료 확인 (시작점으로 돌아옴)
     if (currentStep >= 2 && currentNode.nodeId == startNode.nodeId) {
       bool shouldAddPath = exactSteps ? 
         (currentStep == maxSteps) :  // 정확히 해당 단계만
@@ -786,5 +786,5 @@ enum ExchangePathType {
 3. **테스트 커버리지**: 포괄적인 테스트 케이스 추가
 4. **문서화**: API 문서 및 사용법 가이드 보완
 
-이 시스템은 학교 시간표 관리에 필요한 기본적인 교체 기능을 제공하며, 향후 연쇄교체와 같은 새로운 교체 방식 추가를 위한 견고한 기반을 제공합니다.
+이 시스템은 학교 시간표 관리에 필요한 기본적인 교체 기능을 제공하며, 향후 2중교체와 같은 새로운 교체 방식 추가를 위한 견고한 기반을 제공합니다.
 

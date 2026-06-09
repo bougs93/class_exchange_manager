@@ -1,7 +1,7 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import '../models/circular_exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
-import '../models/chain_exchange_path.dart';
+import '../models/dual_exchange_path.dart';
 
 /// 셀 상태 관리 클래스
 class CellStateManager {
@@ -21,7 +21,7 @@ class CellStateManager {
   // 선택된 경로들
   CircularExchangePath? _selectedCircularPath;
   OneToOneExchangePath? _selectedOneToOnePath;
-  ChainExchangePath? _selectedChainPath;
+  DualExchangePath? _selectedDualPath;
   
   // 교체된 셀 관리 (셀 키: "교사명_요일_교시" 형식)
   final Set<String> _exchangedCells = {};
@@ -62,9 +62,9 @@ class CellStateManager {
     _selectedOneToOnePath = path;
   }
   
-  /// 선택된 연쇄교체 경로 업데이트
-  void updateSelectedChainPath(ChainExchangePath? path) {
-    _selectedChainPath = path;
+  /// 선택된 2중교체 경로 업데이트
+  void updateSelectedDualPath(DualExchangePath? path) {
+    _selectedDualPath = path;
   }
 
   /// 특정 셀이 선택된 상태인지 확인
@@ -160,24 +160,24 @@ class CellStateManager {
     });
   }
 
-  /// 연쇄교체 경로에 포함된 셀인지 확인
-  bool isInChainPath(String teacherName, String day, int period) {
-    if (_selectedChainPath == null) return false;
+  /// 2중교체 경로에 포함된 셀인지 확인
+  bool isInDualPath(String teacherName, String day, int period) {
+    if (_selectedDualPath == null) return false;
     
-    return _selectedChainPath!.nodes.any((node) => 
+    return _selectedDualPath!.nodes.any((node) => 
       node.teacherName == teacherName &&
       node.day == day &&
       node.period == period
     );
   }
   
-  /// 연쇄교체 경로에서 해당 셀의 단계 번호 가져오기
-  int? getChainPathStep(String teacherName, String day, int period) {
-    if (_selectedChainPath == null) return null;
+  /// 2중교체 경로에서 해당 셀의 단계 번호 가져오기
+  int? getDualPathStep(String teacherName, String day, int period) {
+    if (_selectedDualPath == null) return null;
     
-    // 연쇄교체의 노드 순서: [node1, node2, nodeA, nodeB]
-    for (int i = 0; i < _selectedChainPath!.nodes.length; i++) {
-      final node = _selectedChainPath!.nodes[i];
+    // 2중교체의 노드 순서: [node1, node2, nodeA, nodeB]
+    for (int i = 0; i < _selectedDualPath!.nodes.length; i++) {
+      final node = _selectedDualPath!.nodes[i];
       if (node.teacherName == teacherName &&
           node.day == day &&
           node.period == period) {
@@ -193,11 +193,11 @@ class CellStateManager {
     return null;
   }
   
-  /// 연쇄교체 경로에 포함된 교사인지 확인
-  bool isTeacherInChainPath(String teacherName) {
-    if (_selectedChainPath == null) return false;
+  /// 2중교체 경로에 포함된 교사인지 확인
+  bool isTeacherInDualPath(String teacherName) {
+    if (_selectedDualPath == null) return false;
     
-    return _selectedChainPath!.nodes.any((node) => 
+    return _selectedDualPath!.nodes.any((node) => 
       node.teacherName == teacherName
     );
   }
@@ -247,9 +247,9 @@ class CellStateManager {
     return _selectedOneToOnePath;
   }
   
-  /// 선택된 연쇄교체 경로 접근자 (보기 모드용)
-  ChainExchangePath? getSelectedChainPath() {
-    return _selectedChainPath;
+  /// 선택된 2중교체 경로 접근자 (보기 모드용)
+  DualExchangePath? getSelectedDualPath() {
+    return _selectedDualPath;
   }
   
   /// 교체된 셀 목록 초기화
@@ -268,7 +268,7 @@ class CellStateManager {
     _targetPeriod = null;
     _selectedCircularPath = null;
     _selectedOneToOnePath = null;
-    _selectedChainPath = null;
+    _selectedDualPath = null;
     _exchangeableTeachers.clear();
   }
 }

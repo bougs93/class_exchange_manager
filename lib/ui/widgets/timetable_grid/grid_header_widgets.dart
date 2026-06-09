@@ -7,8 +7,24 @@ const double kCompactToolbarHeight = 28.0;
 /// @deprecated 내부 호환용 — [kCompactToolbarHeight] 사용
 const double _kCompactToolbarHeight = kCompactToolbarHeight;
 
+/// 탭 후 활성화처럼 보이는 하이라이트 유지 시간
+const Duration kCompactToolbarPressHighlightDuration =
+    Duration(milliseconds: 250);
+
+/// 탭 하이라이트 배경색 (기본색보다 약간 진하게)
+Color compactToolbarPressedBackground(Color normal) =>
+    Color.alphaBlend(Colors.black.withValues(alpha: 0.1), normal);
+
+/// 탭 하이라이트 전경색
+Color compactToolbarPressedForeground(Color normal) =>
+    Color.alphaBlend(Colors.black.withValues(alpha: 0.22), normal);
+
+/// 탭 하이라이트 테두리색
+Color compactToolbarPressedBorder(Color normal) =>
+    Color.alphaBlend(Colors.black.withValues(alpha: 0.18), normal);
+
 /// 아이콘만 표시 + Tooltip (컴팩트 툴바용)
-class CompactToolbarIconButton extends StatelessWidget {
+class CompactToolbarIconButton extends StatefulWidget {
   final VoidCallback? onPressed;
   final IconData icon;
   final String tooltip;
@@ -33,16 +49,45 @@ class CompactToolbarIconButton extends StatelessWidget {
   });
 
   @override
+  State<CompactToolbarIconButton> createState() =>
+      _CompactToolbarIconButtonState();
+}
+
+class _CompactToolbarIconButtonState extends State<CompactToolbarIconButton> {
+  bool _pressHighlighted = false;
+
+  void _handleTap() {
+    final action = widget.onPressed;
+    if (action == null) return;
+
+    setState(() => _pressHighlighted = true);
+    action();
+    Future.delayed(kCompactToolbarPressHighlightDuration, () {
+      if (mounted) setState(() => _pressHighlighted = false);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final isEnabled = onPressed != null;
-    final effectiveBackground =
-        isEnabled ? backgroundColor : Colors.grey.shade100;
-    final effectiveForeground =
-        isEnabled ? foregroundColor : Colors.grey.shade400;
-    final effectiveBorder = isEnabled ? borderColor : Colors.grey.shade300;
+    final isEnabled = widget.onPressed != null;
+    final baseBackground =
+        isEnabled ? widget.backgroundColor : Colors.grey.shade100;
+    final baseForeground =
+        isEnabled ? widget.foregroundColor : Colors.grey.shade400;
+    final baseBorder = isEnabled ? widget.borderColor : Colors.grey.shade300;
+
+    final effectiveBackground = _pressHighlighted
+        ? compactToolbarPressedBackground(baseBackground)
+        : baseBackground;
+    final effectiveForeground = _pressHighlighted
+        ? compactToolbarPressedForeground(baseForeground)
+        : baseForeground;
+    final effectiveBorder = _pressHighlighted
+        ? compactToolbarPressedBorder(baseBorder)
+        : baseBorder;
 
     return Tooltip(
-      message: tooltip,
+      message: widget.tooltip,
       child: Material(
         color: effectiveBackground,
         shape: RoundedRectangleBorder(
@@ -50,12 +95,16 @@ class CompactToolbarIconButton extends StatelessWidget {
           side: BorderSide(color: effectiveBorder),
         ),
         child: InkWell(
-          onTap: onPressed,
+          onTap: isEnabled ? _handleTap : null,
           borderRadius: BorderRadius.circular(5),
           child: SizedBox(
-            width: size,
-            height: size,
-            child: Icon(icon, size: iconSize, color: effectiveForeground),
+            width: widget.size,
+            height: widget.size,
+            child: Icon(
+              widget.icon,
+              size: widget.iconSize,
+              color: effectiveForeground,
+            ),
           ),
         ),
       ),
@@ -64,7 +113,7 @@ class CompactToolbarIconButton extends StatelessWidget {
 }
 
 /// 아이콘 + 텍스트 라벨 (컴팩트 툴바용, 교체 실행 버튼 등)
-class CompactToolbarLabelButton extends StatelessWidget {
+class CompactToolbarLabelButton extends StatefulWidget {
   final VoidCallback? onPressed;
   final IconData icon;
   final String label;
@@ -105,17 +154,46 @@ class CompactToolbarLabelButton extends StatelessWidget {
   });
 
   @override
+  State<CompactToolbarLabelButton> createState() =>
+      _CompactToolbarLabelButtonState();
+}
+
+class _CompactToolbarLabelButtonState extends State<CompactToolbarLabelButton> {
+  bool _pressHighlighted = false;
+
+  void _handleTap() {
+    final action = widget.onPressed;
+    if (action == null) return;
+
+    setState(() => _pressHighlighted = true);
+    action();
+    Future.delayed(kCompactToolbarPressHighlightDuration, () {
+      if (mounted) setState(() => _pressHighlighted = false);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     // onPressed가 null이면 비활성(회색) 스타일 적용
-    final isEnabled = onPressed != null;
-    final effectiveBackground =
-        isEnabled ? backgroundColor : Colors.grey.shade100;
-    final effectiveForeground =
-        isEnabled ? foregroundColor : Colors.grey.shade400;
-    final effectiveBorder = isEnabled ? borderColor : Colors.grey.shade300;
+    final isEnabled = widget.onPressed != null;
+    final baseBackground =
+        isEnabled ? widget.backgroundColor : Colors.grey.shade100;
+    final baseForeground =
+        isEnabled ? widget.foregroundColor : Colors.grey.shade400;
+    final baseBorder = isEnabled ? widget.borderColor : Colors.grey.shade300;
+
+    final effectiveBackground = _pressHighlighted
+        ? compactToolbarPressedBackground(baseBackground)
+        : baseBackground;
+    final effectiveForeground = _pressHighlighted
+        ? compactToolbarPressedForeground(baseForeground)
+        : baseForeground;
+    final effectiveBorder = _pressHighlighted
+        ? compactToolbarPressedBorder(baseBorder)
+        : baseBorder;
 
     return Tooltip(
-      message: isEnabled ? tooltip : '$tooltip (경로를 선택하세요)',
+      message: isEnabled ? widget.tooltip : '${widget.tooltip} (경로를 선택하세요)',
       child: Material(
         color: effectiveBackground,
         shape: RoundedRectangleBorder(
@@ -123,33 +201,39 @@ class CompactToolbarLabelButton extends StatelessWidget {
           side: BorderSide(color: effectiveBorder),
         ),
         child: InkWell(
-          onTap: onPressed,
+          onTap: isEnabled ? _handleTap : null,
           borderRadius: BorderRadius.circular(6),
           child: SizedBox(
-            height: height,
-            width: width,
+            height: widget.height,
+            width: widget.width,
             child: ConstrainedBox(
-              constraints: BoxConstraints(minWidth: minWidth ?? 0),
+              constraints: BoxConstraints(minWidth: widget.minWidth ?? 0),
               child: Padding(
                 padding: EdgeInsets.symmetric(
-                  horizontal: (minWidth != null || width != null) ? 10 : 6,
+                  horizontal:
+                      (widget.minWidth != null || widget.width != null) ? 10 : 6,
                 ),
                 child: Row(
-                  mainAxisSize:
-                      width != null ? MainAxisSize.max : MainAxisSize.min,
+                  mainAxisSize: widget.width != null
+                      ? MainAxisSize.max
+                      : MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(icon, size: iconSize, color: effectiveForeground),
+                    Icon(
+                      widget.icon,
+                      size: widget.iconSize,
+                      color: effectiveForeground,
+                    ),
                     const SizedBox(width: 4),
                     // 고정 폭일 때만 말줄임 — minWidth·자동 폭이면 라벨 전체 표시
-                    if (width != null)
+                    if (widget.width != null)
                       Flexible(
                         child: Text(
-                          label,
+                          widget.label,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: fontSize,
+                            fontSize: widget.fontSize,
                             fontWeight: FontWeight.w600,
                             color: effectiveForeground,
                           ),
@@ -157,10 +241,10 @@ class CompactToolbarLabelButton extends StatelessWidget {
                       )
                     else
                       Text(
-                        label,
+                        widget.label,
                         maxLines: 1,
                         style: TextStyle(
-                          fontSize: fontSize,
+                          fontSize: widget.fontSize,
                           fontWeight: FontWeight.w600,
                           color: effectiveForeground,
                         ),

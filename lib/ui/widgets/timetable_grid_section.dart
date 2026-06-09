@@ -77,7 +77,7 @@ class TimetableGridSection extends ConsumerStatefulWidget {
   final List<StackedHeaderRow> stackedHeaders;
   final bool isExchangeModeEnabled;
   final bool isCircularExchangeModeEnabled;
-  final bool isChainExchangeModeEnabled;
+  final bool isDualExchangeModeEnabled;
   final int exchangeableCount;
   final Function(DataGridCellTapDetails) onCellTap;
   final ExchangePath? selectedExchangePath; // 선택된 교체 경로 (모든 타입 지원)
@@ -95,7 +95,7 @@ class TimetableGridSection extends ConsumerStatefulWidget {
     required this.stackedHeaders,
     required this.isExchangeModeEnabled,
     required this.isCircularExchangeModeEnabled,
-    required this.isChainExchangeModeEnabled,
+    required this.isDualExchangeModeEnabled,
     required this.exchangeableCount,
     required this.onCellTap,
     required this.currentMode,
@@ -126,11 +126,11 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
   // ExchangeExecutor (필요 시 생성)
   late final ExchangeExecutor _exchangeExecutor;
 
-  /// 교체 모드인지 확인 (1:1, 순환, 연쇄 중 하나라도 활성화된 경우)
+  /// 교체 모드인지 확인 (1:1, 순환, 2중 중 하나라도 활성화된 경우)
   bool get isInExchangeMode =>
       widget.isExchangeModeEnabled ||
       widget.isCircularExchangeModeEnabled ||
-      widget.isChainExchangeModeEnabled;
+      widget.isDualExchangeModeEnabled;
 
   /// 🆕 노드 스크롤 콜백 설정
   void _setupNodeScrollCallback() {
@@ -182,8 +182,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
         widget.isExchangeModeEnabled != oldWidget.isExchangeModeEnabled ||
         widget.isCircularExchangeModeEnabled !=
             oldWidget.isCircularExchangeModeEnabled ||
-        widget.isChainExchangeModeEnabled !=
-            oldWidget.isChainExchangeModeEnabled) {
+        widget.isDualExchangeModeEnabled !=
+            oldWidget.isDualExchangeModeEnabled) {
       // Syncfusion DataGrid 초기화 로그 (위젯 업데이트 시)
       AppLogger.exchangeDebug(
         '[wg2] Syncfusion DataGrid 초기화: 위젯 업데이트 시 (didUpdateWidget) - 구조적 데이터 변경',
@@ -298,7 +298,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
         // 고정 900px 대신 실제 콘텐츠 최소 폭으로 1줄 유지 여부 판단
         final layout = resolveUnifiedToolbarLayout(
           totalWidth: totalWidth,
-          isChainExchangeEnabled: widget.isChainExchangeModeEnabled,
+          isDualExchangeEnabled: widget.isDualExchangeModeEnabled,
           showTeacherCount: !hideTeacherCount,
           teacherCount: teacherCount,
         );
@@ -475,7 +475,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
         final currentSelectedPath =
             cellState.selectedOneToOnePath ??
             cellState.selectedCircularPath ??
-            cellState.selectedChainPath ??
+            cellState.selectedDualPath ??
             cellState.selectedSupplementPath ??
             widget.selectedExchangePath;
         final isFromExchangedCell = cellState.isFromExchangedCell;
@@ -512,7 +512,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
         final currentSelectedPath =
             cellState.selectedOneToOnePath ??
             cellState.selectedCircularPath ??
-            cellState.selectedChainPath ??
+            cellState.selectedDualPath ??
             cellState.selectedSupplementPath ??
             widget.selectedExchangePath;
 
@@ -1242,7 +1242,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       return;
     }
 
-    // 기존 교체 모드인 경우 교사 이름 선택 기능 사용 (1:1, 순환, 연쇄 교체)
+    // 기존 교체 모드인 경우 교사 이름 선택 기능 사용 (1:1, 순환, 2중 교체)
     final cellNotifier = ref.read(cellSelectionProvider.notifier);
     final cellState = ref.read(cellSelectionProvider);
 

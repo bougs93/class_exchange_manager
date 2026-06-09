@@ -1,11 +1,11 @@
-import 'dart:math' as math;
+﻿import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../../services/excel_service.dart';
 import '../../../models/exchange_path.dart';
 import '../../../models/one_to_one_exchange_path.dart';
 import '../../../models/circular_exchange_path.dart';
-import '../../../models/chain_exchange_path.dart';
+import '../../../models/dual_exchange_path.dart';
 import '../../../models/supplement_exchange_path.dart';
 import '../../../models/exchange_node.dart';
 import '../../../utils/constants.dart';
@@ -98,13 +98,13 @@ class ExchangeArrowPainter extends CustomPainter {
     }
   }
 
-  /// 연쇄 교체 화살표 그리기
+  /// 2중 교체 화살표 그리기
   void _drawChainArrows(Canvas canvas, Size size) {
-    final chainPath = selectedPath as ChainExchangePath;
+    final dualPath = selectedPath as DualExchangePath;
     
-    // 연쇄 교체의 각 단계별로 화살표 그리기 (세로 우선, 머리 사이즈 8, 단계별 텍스트)
+    // 2중 교체의 각 단계별로 화살표 그리기 (세로 우선, 머리 사이즈 8, 단계별 텍스트)
     int stepNumber = 1;
-    for (final step in chainPath.steps) {
+    for (final step in dualPath.steps) {
       if (step.stepType == 'exchange') {
         _drawArrowBetweenNodes(canvas, size, step.fromNode, step.toNode, priority: ArrowPriority.verticalFirst, arrowHeadSize: 8.0, text: "$stepNumber");
         stepNumber++;

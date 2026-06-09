@@ -4,13 +4,13 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../services/excel_service.dart';
 import '../../services/exchange_service.dart';
 import '../../services/circular_exchange_service.dart';
-import '../../services/chain_exchange_service.dart';
+import '../../services/dual_exchange_service.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../providers/navigation_provider.dart';
 import '../../providers/services_provider.dart';
 import '../../providers/cell_selection_provider.dart';
 import '../../models/circular_exchange_path.dart';
-import '../../models/chain_exchange_path.dart';
+import '../../models/dual_exchange_path.dart';
 import '../../models/exchange_node.dart';
 import '../../utils/timetable_data_source.dart';
 import '../../utils/syncfusion_timetable_helper.dart';
@@ -42,7 +42,7 @@ import '../../providers/app_settings_provider.dart';
 import '../../providers/teacher_scroll_provider.dart';
 import '../../services/app_settings_storage_service.dart';
 import 'helpers/circular_path_finder.dart';
-import 'helpers/chain_path_finder.dart';
+import 'helpers/dual_path_finder.dart';
 
 // 새로 분리된 위젯, ViewModel, Managers
 import 'exchange_screen/widgets/timetable_tab_content.dart';
@@ -96,7 +96,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   CircularExchangeService get circularExchangeService => ref.read(circularExchangeServiceProvider);
 
   @override
-  ChainExchangeService get chainExchangeService => ref.read(chainExchangeServiceProvider);
+  DualExchangeService get dualExchangeService => ref.read(dualExchangeServiceProvider);
 
   @override
   TimetableData? get timetableData => _stateProxy.timetableData;
@@ -111,7 +111,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   bool get isCircularExchangeModeEnabled => _stateProxy.currentMode == ExchangeMode.circularExchange;
 
   @override
-  bool get isChainExchangeModeEnabled => _stateProxy.currentMode == ExchangeMode.chainExchange;
+  bool get isDualExchangeModeEnabled => _stateProxy.currentMode == ExchangeMode.dualExchange;
 
   bool get isNonExchangeableEditMode => _stateProxy.currentMode == ExchangeMode.nonExchangeableEdit;
 
@@ -119,7 +119,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   CircularExchangePath? get selectedCircularPath => _stateProxy.selectedCircularPath;
 
   @override
-  ChainExchangePath? get selectedChainPath => _stateProxy.selectedChainPath;
+  DualExchangePath? get selectedDualPath => _stateProxy.selectedDualPath;
 
   @override
   SupplementExchangePath? get selectedSupplementPath =>
@@ -141,11 +141,11 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   TimetableData? get _timetableData => timetableData;
   bool get _isExchangeModeEnabled => isExchangeModeEnabled;
   bool get _isCircularExchangeModeEnabled => isCircularExchangeModeEnabled;
-  bool get _isChainExchangeModeEnabled => isChainExchangeModeEnabled;
+  bool get _isDualExchangeModeEnabled => isDualExchangeModeEnabled;
   bool get _isSupplementExchangeModeEnabled => _stateProxy.isSupplementExchangeModeEnabled;
   CircularExchangePath? get _selectedCircularPath => selectedCircularPath;
   double get _loadingProgress => _stateProxy.loadingProgress;
-  ChainExchangePath? get _selectedChainPath => selectedChainPath;
+  DualExchangePath? get _selectedDualPath => selectedDualPath;
   OneToOneExchangePath? get _selectedOneToOnePath => selectedOneToOnePath;
   bool get _isSidebarVisible => _stateProxy.isSidebarVisible;
 
@@ -208,8 +208,12 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
   /// 교체 모드 변경 (TabBar에서 호출)
   void _changeMode(ExchangeMode newMode) {
-    if (newMode == ExchangeMode.chainExchange &&
-        !ref.read(chainExchangeEnabledProvider)) {
+    if (newMode == ExchangeMode.dualExchange &&
+        !ref.read(dualExchangeEnabledProvider)) {
+      return;
+    }
+    if (newMode == ExchangeMode.circularExchange &&
+        !ref.read(circularExchangeEnabledProvider)) {
       return;
     }
 
@@ -266,8 +270,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       case ExchangeMode.circularExchange:
         notifier.setAvailableSteps([2, 3, 4, 5]);
         break;
-      case ExchangeMode.chainExchange:
-        // 연쇄교체: 단계 필터 불필요 - 빈 배열로 설정하고 단계 필터 강제 초기화
+      case ExchangeMode.dualExchange:
+        // 2중교체: 단계 필터 불필요 - 빈 배열로 설정하고 단계 필터 강제 초기화
         notifier.setAvailableSteps([]);
         notifier.setSelectedStep(null); // 단계 필터 강제 초기화
         // FilterStateManager에서도 강제 초기화
@@ -308,7 +312,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     // 교체 모드가 아니면 복원하지 않음
     if (!mode.isExchangeMode &&
         mode != ExchangeMode.circularExchange &&
-        mode != ExchangeMode.chainExchange &&
+        mode != ExchangeMode.dualExchange &&
         mode != ExchangeMode.supplementExchange) {
       AppLogger.exchangeDebug('[모드 전환] 비교체 모드 - 셀 복원 건너뜀');
       return;
@@ -378,13 +382,13 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
         _updateHeaderTheme();
         break;
 
-      case ExchangeMode.chainExchange:
-        // 연쇄 교체 시작
-        chainExchangeService.selectCell(teacher, day, period);
+      case ExchangeMode.dualExchange:
+        // 2중 교체 시작
+        dualExchangeService.selectCell(teacher, day, period);
         ref.read(cellSelectionProvider.notifier).selectCell(teacher, day, period);
-        ref.read(cellSelectionProvider.notifier).setExchangeMode(ExchangeMode.chainExchange);
+        ref.read(cellSelectionProvider.notifier).setExchangeMode(ExchangeMode.dualExchange);
         // 경로 탐색 (비동기)
-        findChainPathsWithProgress();
+        findDualPathsWithProgress();
         _updateHeaderTheme();
         break;
 
@@ -586,8 +590,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   /// 순환교체 모드 토글 (OperationManager 위임)
   void toggleCircularExchangeMode() => _operationManager.toggleCircularExchangeMode();
 
-  /// 연쇄교체 모드 토글 (OperationManager 위임)
-  void toggleChainExchangeMode() => _operationManager.toggleChainExchangeMode();
+  /// 2중교체 모드 토글 (OperationManager 위임)
+  void toggleDualExchangeMode() => _operationManager.toggleDualExchangeMode();
 
 
 
@@ -597,7 +601,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   @override
   void Function(OneToOneExchangePath?) get setSelectedOneToOnePath => _stateProxy.setSelectedOneToOnePath;
   @override
-  void Function(ChainExchangePath?) get setSelectedChainPath => _stateProxy.setSelectedChainPath;
+  void Function(DualExchangePath?) get setSelectedDualPath => _stateProxy.setSelectedDualPath;
   @override
   void Function(SupplementExchangePath?) get setSelectedSupplementPath => _stateProxy.setSelectedSupplementPath;
 
@@ -625,7 +629,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   @override
   List<CircularExchangePath> get circularPaths => ExchangePathUtils.getCircularPaths(_stateProxy.availablePaths);
   @override
-  List<ChainExchangePath> get chainPaths => ExchangePathUtils.getChainPaths(_stateProxy.availablePaths);
+  List<DualExchangePath> get dualPaths => ExchangePathUtils.getDualPaths(_stateProxy.availablePaths);
   @override
   List<int> get availableSteps => _stateProxy.availableSteps;
   @override
@@ -642,7 +646,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   @override
   bool get isCircularPathsLoading => _stateProxy.isPathsLoading;
   @override
-  bool get isChainPathsLoading => _stateProxy.isPathsLoading;
+  bool get isDualPathsLoading => _stateProxy.isPathsLoading;
   @override
   double get loadingProgress => _stateProxy.loadingProgress;
   @override
@@ -684,7 +688,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     _pathSelectionManager.setCallbacks(
       onOneToOnePathChanged: (path) => handleOneToOnePathChanged(path as OneToOneExchangePath?),
       onCircularPathChanged: (path) => handleCircularPathChanged(path as CircularExchangePath?),
-      onChainPathChanged: (path) => handleChainPathChanged(path as ChainExchangePath?),
+      onDualPathChanged: (path) => handleDualPathChanged(path as DualExchangePath?),
     );
     
     // FilterStateManager 콜백 설정
@@ -738,15 +742,15 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       }
     });
 
-    // 연쇄 교체 비활성화 시 연쇄 모드에서 1:1교체로 자동 전환
-    ref.listen<bool>(chainExchangeEnabledProvider, (previous, next) {
+    // 2중 교체 비활성화 시 2중교체 모드에서 1:1교체로 자동 전환
+    ref.listen<bool>(dualExchangeEnabledProvider, (previous, next) {
       if (previous == next) {
         return;
       }
 
       if (!next &&
           ref.read(exchangeScreenProvider).currentMode ==
-              ExchangeMode.chainExchange) {
+              ExchangeMode.dualExchange) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             _changeMode(ExchangeMode.oneToOneExchange);
@@ -754,7 +758,24 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
         });
       }
     });
-    
+
+    // 순환 교체 비활성화 시 순환 모드에서 1:1교체로 자동 전환
+    ref.listen<bool>(circularExchangeEnabledProvider, (previous, next) {
+      if (previous == next) {
+        return;
+      }
+
+      if (!next &&
+          ref.read(exchangeScreenProvider).currentMode ==
+              ExchangeMode.circularExchange) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _changeMode(ExchangeMode.oneToOneExchange);
+          }
+        });
+      }
+    });
+
     // 줌 팩터 변경 감지하여 헤더 재생성
     ref.listen<double>(
       zoomProvider.select((s) => s.zoomFactor),
@@ -788,7 +809,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     final isSidebarVisible = screenState.isSidebarVisible;
     final isExchangeModeEnabled = screenState.currentMode == ExchangeMode.oneToOneExchange;
     final isCircularExchangeModeEnabled = screenState.currentMode == ExchangeMode.circularExchange;
-    final isChainExchangeModeEnabled = screenState.currentMode == ExchangeMode.chainExchange;
+    final isDualExchangeModeEnabled = screenState.currentMode == ExchangeMode.dualExchange;
     
     // 통합된 경로 접근
     final availablePaths = screenState.availablePaths;
@@ -821,7 +842,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
           if (isSidebarVisible && (
             (isExchangeModeEnabled && (ExchangePathUtils.hasPathsOfType<OneToOneExchangePath>(availablePaths) || isPathsLoading)) ||
             (isCircularExchangeModeEnabled && (ExchangePathUtils.hasPathsOfType<CircularExchangePath>(availablePaths) || isPathsLoading)) ||
-            (isChainExchangeModeEnabled && (ExchangePathUtils.hasPathsOfType<ChainExchangePath>(availablePaths) || isPathsLoading)) ||
+            (isDualExchangeModeEnabled && (ExchangePathUtils.hasPathsOfType<DualExchangePath>(availablePaths) || isPathsLoading)) ||
             (_isSupplementExchangeModeEnabled && ref.read(cellSelectionProvider.notifier).hasSelectedCell) // 보강 모드에서는 셀 선택 시에만 사이드바 표시
           ))
             buildUnifiedExchangeSidebar(),
@@ -855,7 +876,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       );
     }
     
-    // 선택된 요일과 교시 결정 (1:1 교체, 순환교체, 연쇄교체 모드, 또는 모든 모드에서 교체 리스트 셀 선택에 따라)
+    // 선택된 요일과 교시 결정 (1:1 교체, 순환교체, 2중교체 모드, 또는 모든 모드에서 교체 리스트 셀 선택에 따라)
     String? selectedDay;
     int? selectedPeriod;
     
@@ -867,16 +888,16 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       // 순환교체 모드
       selectedDay = circularExchangeService.selectedDay;
       selectedPeriod = circularExchangeService.selectedPeriod;
-    } else if (_isChainExchangeModeEnabled && chainExchangeService.hasSelectedCell()) {
-      // 연쇄교체 모드
-      selectedDay = chainExchangeService.selectedDay;
-      selectedPeriod = chainExchangeService.selectedPeriod;
+    } else if (_isDualExchangeModeEnabled && dualExchangeService.hasSelectedCell()) {
+      // 2중교체 모드
+      selectedDay = dualExchangeService.selectedDay;
+      selectedPeriod = dualExchangeService.selectedPeriod;
     } else {
       // 모든 모드에서 교체 리스트 셀 선택 시 헤더 색상 변경 (보기 모드뿐만 아니라 다른 모드에서도)
       // TimetableDataSource에서 선택된 경로 확인 (TimetableGridSection에서 설정한 경로)
       final dataSourceCircularPath = _dataSource?.getSelectedCircularPath();
       final dataSourceOneToOnePath = _dataSource?.getSelectedOneToOnePath();
-      final dataSourceChainPath = _dataSource?.getSelectedChainPath();
+      final dataSourceDualPath = _dataSource?.getSelectedDualPath();
       
       if (dataSourceCircularPath != null && dataSourceCircularPath.nodes.isNotEmpty) {
         selectedDay = dataSourceCircularPath.nodes.first.day;
@@ -884,9 +905,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       } else if (dataSourceOneToOnePath != null && dataSourceOneToOnePath.nodes.isNotEmpty) {
         selectedDay = dataSourceOneToOnePath.nodes.first.day;
         selectedPeriod = dataSourceOneToOnePath.nodes.first.period;
-      } else if (dataSourceChainPath != null && dataSourceChainPath.nodes.isNotEmpty) {
-        selectedDay = dataSourceChainPath.nodes.first.day;
-        selectedPeriod = dataSourceChainPath.nodes.first.period;
+      } else if (dataSourceDualPath != null && dataSourceDualPath.nodes.isNotEmpty) {
+        selectedDay = dataSourceDualPath.nodes.first.day;
+        selectedPeriod = dataSourceDualPath.nodes.first.period;
       }
     }
     
@@ -901,7 +922,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       exchangeableTeachers: exchangeableTeachers, // 교체 가능한 교사 정보 전달
       selectedCircularPath: _selectedCircularPath, // 선택된 순환교체 경로 전달
       selectedOneToOnePath: _selectedOneToOnePath, // 선택된 1:1 교체 경로 전달
-      selectedChainPath: _selectedChainPath, // 선택된 연쇄교체 경로 전달
+      selectedDualPath: _selectedDualPath, // 선택된 2중교체 경로 전달
       selectedSupplementPath: _stateProxy.selectedSupplementPath, // 선택된 보강 경로 전달
     );
     
@@ -963,7 +984,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     }
 
     // 교체 모드가 비활성화된 경우 아무 동작하지 않음
-    if (!_isExchangeModeEnabled && !_isCircularExchangeModeEnabled && !_isChainExchangeModeEnabled && !_isSupplementExchangeModeEnabled) {
+    if (!_isExchangeModeEnabled && !_isCircularExchangeModeEnabled && !_isDualExchangeModeEnabled && !_isSupplementExchangeModeEnabled) {
       return;
     }
 
@@ -975,9 +996,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     else if (_isCircularExchangeModeEnabled) {
       startCircularExchange(details);
     }
-    // 연쇄교체 모드인 경우 연쇄교체 처리 시작
-    else if (_isChainExchangeModeEnabled) {
-      startChainExchange(details);
+    // 2중교체 모드인 경우 2중교체 처리 시작
+    else if (_isDualExchangeModeEnabled) {
+      startDualExchange(details);
     }
   }
 
@@ -1205,10 +1226,10 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   }
 
   @override
-  void clearPreviousChainExchangeState() {
-    // 연쇄교체 이전 상태만 초기화 (현재 선택된 셀은 유지) - Level 1
+  void clearPreviousDualExchangeState() {
+    // 2중교체 이전 상태만 초기화 (현재 선택된 셀은 유지) - Level 1
     ref.read(stateResetProvider.notifier).resetPathOnly(
-      reason: '연쇄교체 이전 상태 초기화',
+      reason: '2중교체 이전 상태 초기화',
     );
 
     // 필터 초기화
@@ -1217,14 +1238,14 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     // 시간표 그리드 테마 업데이트 (이전 경로 표시 제거)
     _updateHeaderTheme();
 
-    AppLogger.exchangeDebug('연쇄교체: 이전 상태 초기화 완료');
+    AppLogger.exchangeDebug('2중교체: 이전 상태 초기화 완료');
   }
 
   @override
   void onEmptyChainCellSelected() {
     // 빈 셀 선택 시 경로만 초기화 (Level 1) - 선택된 셀은 유지
     ref.read(stateResetProvider.notifier).resetPathOnly(
-      reason: '연쇄교체 빈 셀 선택',
+      reason: '2중교체 빈 셀 선택',
     );
 
     // 필터 초기화
@@ -1258,9 +1279,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   }
 
   @override
-  Future<void> findChainPathsWithProgress() async {
-    if (_timetableData == null || !chainExchangeService.hasSelectedCell()) {
-      AppLogger.warning('연쇄교체: 시간표 데이터 없음 또는 셀 미선택');
+  Future<void> findDualPathsWithProgress() async {
+    if (_timetableData == null || !dualExchangeService.hasSelectedCell()) {
+      AppLogger.warning('2중교체: 시간표 데이터 없음 또는 셀 미선택');
       return;
     }
 
@@ -1268,16 +1289,16 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     notifier.setPathsLoading(true);
     notifier.setLoadingProgress(0.0);
     
-    // 기존 경로들에서 연쇄교체 경로 제거
-    List<ExchangePath> otherPaths = ExchangePathUtils.removePaths<ChainExchangePath>(_stateProxy.availablePaths);
+    // 기존 경로들에서 2중교체 경로 제거
+    List<ExchangePath> otherPaths = ExchangePathUtils.removePaths<DualExchangePath>(_stateProxy.availablePaths);
     notifier.setAvailablePaths(otherPaths);
     
-    notifier.setSelectedChainPath(null);
+    notifier.setSelectedDualPath(null);
     notifier.setSidebarVisible(true);
 
     // 헬퍼를 사용하여 경로 탐색
-    final result = await ChainPathFinder.findChainPathsWithProgress(
-      chainExchangeService: chainExchangeService,
+    final result = await DualPathFinder.findDualPathsWithProgress(
+      dualExchangeService: dualExchangeService,
       timeSlots: _timetableData!.timeSlots,
       teachers: _timetableData!.teachers,
     );
@@ -1302,8 +1323,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       reason: '새로운 셀 선택 - 경로만 초기화',
     );
 
-    // 순환교체, 1:1 교체, 연쇄교체 모드에서 필터 초기화
-    if (_isCircularExchangeModeEnabled || _isExchangeModeEnabled || _isChainExchangeModeEnabled) {
+    // 순환교체, 1:1 교체, 2중교체 모드에서 필터 초기화
+    if (_isCircularExchangeModeEnabled || _isExchangeModeEnabled || _isDualExchangeModeEnabled) {
       resetFilters();
     }
 
@@ -1388,7 +1409,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     // 모든 교체 서비스의 선택 상태 초기화
     exchangeService.clearAllSelections();
     circularExchangeService.clearAllSelections();
-    chainExchangeService.clearAllSelections();
+    dualExchangeService.clearAllSelections();
     
     // TimetableDataSource의 모든 선택 상태 해제
     _dataSource?.clearAllSelections();
@@ -1400,7 +1421,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     final notifier = ref.read(exchangeScreenProvider.notifier);
     notifier.setSelectedCircularPath(null);
     notifier.setSelectedOneToOnePath(null);
-    notifier.setSelectedChainPath(null);
+    notifier.setSelectedDualPath(null);
     notifier.setSelectedSupplementPath(null);
 
     // TimetableGridSection의 화살표 상태 초기화
@@ -1445,9 +1466,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       return (day: circularExchangeService.selectedDay, period: circularExchangeService.selectedPeriod);
     }
     
-    // 연쇄교체 모드
-    if (_isChainExchangeModeEnabled && chainExchangeService.hasSelectedCell()) {
-      return (day: chainExchangeService.selectedDay, period: chainExchangeService.selectedPeriod);
+    // 2중교체 모드
+    if (_isDualExchangeModeEnabled && dualExchangeService.hasSelectedCell()) {
+      return (day: dualExchangeService.selectedDay, period: dualExchangeService.selectedPeriod);
     }
     
     // 경로 선택 시 (모든 모드에서 교체 리스트 셀 선택)
@@ -1462,9 +1483,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
         return (day: dataSourceOneToOnePath.nodes.first.day, period: dataSourceOneToOnePath.nodes.first.period);
       }
       
-      final dataSourceChainPath = screenState.dataSource?.getSelectedChainPath();
-      if (dataSourceChainPath != null && dataSourceChainPath.nodes.isNotEmpty) {
-        return (day: dataSourceChainPath.nodes.first.day, period: dataSourceChainPath.nodes.first.period);
+      final dataSourceDualPath = screenState.dataSource?.getSelectedDualPath();
+      if (dataSourceDualPath != null && dataSourceDualPath.nodes.isNotEmpty) {
+        return (day: dataSourceDualPath.nodes.first.day, period: dataSourceDualPath.nodes.first.period);
       }
       
       final dataSourceSupplementPath = screenState.dataSource?.getSelectedSupplementPath();
@@ -1536,7 +1557,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       // 보기 모드에서도 경로 정보 전달 (헤더 스타일 적용을 위해)
       selectedCircularPath: _selectedCircularPath, // 순환교체 경로
       selectedOneToOnePath: _selectedOneToOnePath, // 1:1 교체 경로
-      selectedChainPath: _selectedChainPath, // 연쇄교체 경로
+      selectedDualPath: _selectedDualPath, // 2중교체 경로
       selectedSupplementPath: _stateProxy.selectedSupplementPath, // 보강 경로
     );
 

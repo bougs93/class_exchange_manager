@@ -78,14 +78,14 @@ class NoticeControlPanel extends ConsumerWidget {
               padding: DocumentToolbarLayout.toolbarPadding,
               child: Row(
                 children: [
-                  // 새로고침 버튼 (날짜선택 화면과 동일한 CompactToolbarIconButton 스타일)
+                  // 새로고침 — 중립 스타일 (선택된 안내 방식 버튼과 구분)
                   CompactToolbarIconButton(
                     onPressed: () => noticeNotifier.refreshAllMessages(),
                     icon: Icons.refresh,
                     tooltip: '새로고침',
-                    backgroundColor: _refreshColors.background,
-                    foregroundColor: _refreshColors.foreground,
-                    borderColor: _refreshColors.border,
+                    backgroundColor: _neutralActionColors.background,
+                    foregroundColor: _neutralActionColors.foreground,
+                    borderColor: _neutralActionColors.border,
                     iconSize: DocumentToolbarLayout.buttonIconSize,
                     size: buttonHeight,
                   ),
@@ -125,14 +125,14 @@ class NoticeControlPanel extends ConsumerWidget {
                       },
                     ),
                   ),
-                  // 전체 복사 버튼 (오른쪽, 툴바 버튼과 동일 높이·아이콘 크기)
+                  // 전체 복사 — 중립 스타일 (선택 상태처럼 보이지 않도록)
                   CompactToolbarIconButton(
                     onPressed: () => _copyAllMessages(context, noticeState),
                     icon: Icons.copy,
                     tooltip: '전체 복사',
-                    backgroundColor: Colors.blue.shade100,
-                    foregroundColor: Colors.blue.shade700,
-                    borderColor: Colors.blue.shade300,
+                    backgroundColor: _neutralActionColors.background,
+                    foregroundColor: _neutralActionColors.foreground,
+                    borderColor: _neutralActionColors.border,
                     iconSize: DocumentToolbarLayout.buttonIconSize,
                     size: buttonHeight,
                   ),
@@ -209,7 +209,14 @@ class NoticeControlPanel extends ConsumerWidget {
     );
   }
 
-  /// 새로고침 버튼 색상 (날짜선택 CompactToolbarIconButton과 동일 패턴, 탭별 색상 유지)
+  /// 일반 동작 버튼(새로고침·복사) — 문서 툴바와 동일한 중립 색
+  ({Color background, Color foreground, Color border}) get _neutralActionColors => (
+        background: DocumentToolbarLayout.neutralButtonBackground,
+        foreground: DocumentToolbarLayout.neutralButtonForeground,
+        border: DocumentToolbarLayout.neutralButtonBorder,
+      );
+
+  /// 선택된 안내 방식 버튼 강조 색 (탭별 주황·초록 등)
   ({Color background, Color foreground, Color border}) get _refreshColors {
     final color = refreshButtonColor;
     if (color == Colors.green) {

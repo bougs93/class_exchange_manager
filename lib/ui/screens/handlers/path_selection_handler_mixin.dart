@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../../models/exchange_path.dart';
 import '../../../models/exchange_node.dart';
 import '../../../models/one_to_one_exchange_path.dart';
 import '../../../models/circular_exchange_path.dart';
-import '../../../models/chain_exchange_path.dart';
+import '../../../models/dual_exchange_path.dart';
 import '../../../models/supplement_exchange_path.dart';
 import '../../../utils/logger.dart';
 import '../../state_managers/path_selection_manager.dart';
@@ -18,7 +18,7 @@ mixin PathSelectionHandlerMixin<T extends StatefulWidget> on State<T> {
   // 타겟 셀 핸들러 메서드들
   void setTargetCellFromPath(OneToOneExchangePath path);
   void setTargetCellFromCircularPath(CircularExchangePath path);
-  void setTargetCellFromChainPath(ChainExchangePath path);
+  void setTargetCellFromDualPath(DualExchangePath path);
   void setTargetCellFromSupplementPath(SupplementExchangePath path);
   void clearTargetCell();
   void updateHeaderTheme();
@@ -28,7 +28,7 @@ mixin PathSelectionHandlerMixin<T extends StatefulWidget> on State<T> {
 
   // 상태 변수 setter
   void Function(OneToOneExchangePath?) get setSelectedOneToOnePath;
-  void Function(ChainExchangePath?) get setSelectedChainPath;
+  void Function(DualExchangePath?) get setSelectedDualPath;
   void Function(SupplementExchangePath?) get setSelectedSupplementPath;
 
   /// 통합 경로 선택 처리 (PathSelectionManager 사용)
@@ -45,7 +45,7 @@ mixin PathSelectionHandlerMixin<T extends StatefulWidget> on State<T> {
         handleCircularPathChanged(path as CircularExchangePath);
         break;
       case ExchangePathType.chain:
-        handleChainPathChanged(path as ChainExchangePath);
+        handleDualPathChanged(path as DualExchangePath);
         break;
       case ExchangePathType.oneToOne:
         handleOneToOnePathChanged(path as OneToOneExchangePath);
@@ -117,22 +117,22 @@ mixin PathSelectionHandlerMixin<T extends StatefulWidget> on State<T> {
     }
   }
 
-  /// 연쇄 교체 경로 변경 핸들러
-  void handleChainPathChanged(ChainExchangePath? path) {
-    setSelectedChainPath(path);
-    dataSource?.updateSelectedChainPath(path);
+  /// 2중 교체 경로 변경 핸들러
+  void handleDualPathChanged(DualExchangePath? path) {
+    setSelectedDualPath(path);
+    dataSource?.updateSelectedDualPath(path);
 
     if (path != null) {
-      AppLogger.exchangeDebug('연쇄교체 경로 선택: ${path.id}');
-      setTargetCellFromChainPath(path);
+      AppLogger.exchangeDebug('2중교체 경로 선택: ${path.id}');
+      setTargetCellFromDualPath(path);
       updateHeaderTheme();
     } else {
-      AppLogger.exchangeDebug('연쇄교체 경로 선택 해제');
+      AppLogger.exchangeDebug('2중교체 경로 선택 해제');
       clearTargetCell();
       updateHeaderTheme();
-      // 연쇄교체 경로 선택 해제 스낵바 제거
+      // 2중교체 경로 선택 해제 스낵바 제거
       // showSnackBar(
-      //   '연쇄교체 경로 선택이 해제되었습니다.',
+      //   '2중교체 경로 선택이 해제되었습니다.',
       //   backgroundColor: Colors.grey.shade600,
       // );
     }

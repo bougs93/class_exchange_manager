@@ -11,7 +11,7 @@ class AppBrandingHeader extends StatelessWidget {
     this.showVersionAndPeriod = false,
   });
 
-  /// true: 프로그램명 아래 버전·사용 기간 표시 (정보 화면용)
+  /// true: 프로그램명 아래 버전·사용 기간 표시 (도움말 > 프로그램 정보용)
   final bool showVersionAndPeriod;
 
   @override
@@ -44,7 +44,7 @@ class AppBrandingHeader extends StatelessWidget {
     );
   }
 
-  /// 프로그램명 + 버전·기간 정보 (정보 화면 헤더용)
+  /// 프로그램명 + 버전·기간 정보 (도움말 > 프로그램 정보 헤더용)
   Widget _buildTitleWithPeriodInfo(ThemeData theme) {
     const metaFontSize = 12.0;
     final labelStyle = TextStyle(

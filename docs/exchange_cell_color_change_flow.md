@@ -173,7 +173,7 @@ void _updateExchangedCells() {
 - 교체 타입에 따라 소스 셀 키 추출
   - **1:1 교체**: sourceNode와 targetNode 모두 소스 셀
   - **순환교체**: 마지막 노드를 제외한 모든 노드가 소스 셀
-  - **연쇄교체**: nodeA, nodeB, node1, node2 모두 소스 셀
+  - **2중교체**: nodeA, nodeB, node1, node2 모두 소스 셀
   - **보강교체**: sourceNode만 소스 셀
 
 **셀 키 형식**: `"{teacherName}_{day}_{period}"`
@@ -191,7 +191,7 @@ void _updateExchangedCells() {
     - `"{sourceTeacher}_{targetDay}_{targetPeriod}"`
   - **순환교체**: 각 노드가 다음 노드의 위치로 이동
     - `"{currentTeacher}_{nextDay}_{nextPeriod}"`
-  - **연쇄교체**: 각 단계별 교체 후 목적지 셀
+  - **2중교체**: 각 단계별 교체 후 목적지 셀
   - **보강교체**: targetTeacher의 위치가 목적지 셀
 
 ```612:663:lib/ui/widgets/timetable_grid/exchange_executor.dart
@@ -223,8 +223,8 @@ List<String> _extractDestinationCells() {
         
         cellKeys.addAll(destinationKeys);
 
-        // 연쇄교체 경로의 목적지 셀 추출
-        // 연쇄교체는 2단계로 이루어지므로 각 단계별 목적지 셀을 모두 추출
+        // 2중교체 경로의 목적지 셀 추출
+        // 2중교체는 2단계로 이루어지므로 각 단계별 목적지 셀을 모두 추출
       } else if (path is ChainExchangePath) {
         // 1단계 교체 후 목적지 셀들
         // node1 교사가 node2 위치로 이동
@@ -432,7 +432,7 @@ if (isExchangedSourceCell && showExchangedSourceCellBorder) {
 **목적지 셀**:
 - 각 노드가 다음 노드의 위치로 이동한 셀에 연한 파란색 배경
 
-### 연쇄교체 (ChainExchangePath)
+### 2중교체 (ChainExchangePath)
 
 **소스 셀**:
 - `nodeA`, `nodeB`, `node1`, `node2` 모두 파란색 테두리

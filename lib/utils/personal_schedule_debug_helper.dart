@@ -1,5 +1,5 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/chain_exchange_path.dart';
+﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/dual_exchange_path.dart';
 import '../models/circular_exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
 import '../models/supplement_exchange_path.dart';
@@ -44,7 +44,7 @@ class PersonalScheduleDebugHelper {
           } else if (path is CircularExchangePath) {
             final nodeNames = path.nodes.map((n) => '${n.teacherName}(${n.day}${n.period}교시)').join(' → ');
             exchangeInfo = '$nodeNames → ${path.nodes.first.teacherName} (${path.nodes.length}명)';
-          } else if (path is ChainExchangePath) {
+          } else if (path is DualExchangePath) {
             exchangeInfo = '[1단계] ${path.node1.teacherName}(${path.node1.day}${path.node1.period}교시) ↔ ${path.node2.teacherName}(${path.node2.day}${path.node2.period}교시) | [2단계] ${path.nodeA.teacherName}(${path.nodeA.day}${path.nodeA.period}교시) ↔ ${path.nodeB.teacherName}(${path.nodeB.day}${path.nodeB.period}교시)';
           } else if (path is SupplementExchangePath) {
             exchangeInfo = '${path.sourceNode.teacherName}(${path.sourceNode.day}${path.sourceNode.period}교시, ${path.sourceNode.className}) → ${path.targetNode.teacherName}(${path.targetNode.day}${path.targetNode.period}교시) [보강]';

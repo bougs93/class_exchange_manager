@@ -6,7 +6,7 @@ import '../models/teacher.dart';
 import '../models/exchange_node.dart';
 import '../models/one_to_one_exchange_path.dart';
 import '../models/circular_exchange_path.dart';
-import '../models/chain_exchange_path.dart';
+import '../models/dual_exchange_path.dart';
 import '../models/supplement_exchange_path.dart';
 import '../services/exchange_service.dart';
 import '../utils/timetable_data_source.dart';
@@ -275,8 +275,8 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
         _backupOneToOneExchange(exchangePath, timeSlots, backupData);
       } else if (exchangePath is CircularExchangePath) {
         _backupCircularExchange(exchangePath, timeSlots, backupData);
-      } else if (exchangePath is ChainExchangePath) {
-        _backupChainExchange(exchangePath, timeSlots, backupData);
+      } else if (exchangePath is DualExchangePath) {
+        _backupDualExchange(exchangePath, timeSlots, backupData);
       } else if (exchangePath is SupplementExchangePath) {
         _backupSupplementExchange(exchangePath, timeSlots, backupData);
       }
@@ -354,21 +354,21 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
     }
   }
 
-  /// 연쇄 교체의 원본 정보 백업
-  /// 연쇄 교체에서는 각 교사가 목적지 위치로 이동하므로 원본과 목적지 모두 백업해야 함
-  void _backupChainExchange(
-    ChainExchangePath exchangeItem,
+  /// 2중 교체의 원본 정보 백업
+  /// 2중 교체에서는 각 교사가 목적지 위치로 이동하므로 원본과 목적지 모두 백업해야 함
+  void _backupDualExchange(
+    DualExchangePath exchangeItem,
     List<TimeSlot> timeSlots,
     List<ExchangeBackupInfo> backupData,
   ) {
-    AppLogger.exchangeDebug('연쇄 교체 백업: A(${exchangeItem.nodeA.displayText}) ↔ B(${exchangeItem.nodeB.displayText})');
+    AppLogger.exchangeDebug('2중 교체 백업: A(${exchangeItem.nodeA.displayText}) ↔ B(${exchangeItem.nodeB.displayText})');
     
-    // 연쇄 교체는 두 단계로 이루어짐:
+    // 2중 교체는 두 단계로 이루어짐:
     // 1단계: node1 ↔ node2 교체
     // 2단계: nodeA ↔ nodeB 교체
     
     // 1단계 백업: node1 ↔ node2 교체 관련 셀들
-    AppLogger.exchangeDebug('연쇄 백업 1단계: ${exchangeItem.node1.displayText} ↔ ${exchangeItem.node2.displayText}');
+    AppLogger.exchangeDebug('2중교체 백업 1단계: ${exchangeItem.node1.displayText} ↔ ${exchangeItem.node2.displayText}');
     
     // node1의 원본 위치와 목적지 위치 백업
     _backupNodeData(exchangeItem.node1, timeSlots, backupData);
@@ -391,7 +391,7 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
     );
     
     // 2단계 백업: nodeA ↔ nodeB 교체 관련 셀들
-    AppLogger.exchangeDebug('연쇄 백업 2단계: ${exchangeItem.nodeA.displayText} ↔ ${exchangeItem.nodeB.displayText}');
+    AppLogger.exchangeDebug('2중교체 백업 2단계: ${exchangeItem.nodeA.displayText} ↔ ${exchangeItem.nodeB.displayText}');
     
     // nodeA의 원본 위치와 목적지 위치 백업
     _backupNodeData(exchangeItem.nodeA, timeSlots, backupData);
@@ -531,8 +531,8 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
         return _executeOneToOneExchange(exchangePath, timeSlots, exchangeService);
       } else if (exchangePath is CircularExchangePath) {
         return _executeCircularExchange(exchangePath, timeSlots, exchangeService);
-      } else if (exchangePath is ChainExchangePath) {
-        return _executeChainExchange(exchangePath, timeSlots, exchangeService);
+      } else if (exchangePath is DualExchangePath) {
+        return _executeDualExchange(exchangePath, timeSlots, exchangeService);
       } else if (exchangePath is SupplementExchangePath) {
         return _executeSupplementExchange(exchangePath, timeSlots, exchangeService);
       }
@@ -591,20 +591,20 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
     }
   }
 
-  /// 연쇄 교체 실행
-  bool _executeChainExchange(
-    ChainExchangePath exchangePath,
+  /// 2중 교체 실행
+  bool _executeDualExchange(
+    DualExchangePath exchangePath,
     List<TimeSlot> timeSlots,
     ExchangeService exchangeService,
   ) {
     try {
-      AppLogger.exchangeDebug('연쇄 교체 실행: A(${exchangePath.nodeA.displayText}) ↔ B(${exchangePath.nodeB.displayText})');
+      AppLogger.exchangeDebug('2중 교체 실행: A(${exchangePath.nodeA.displayText}) ↔ B(${exchangePath.nodeB.displayText})');
       
-      // 연쇄 교체는 두 단계로 이루어짐:
+      // 2중 교체는 두 단계로 이루어짐:
       // 1단계: node1 ↔ node2 교체 (node2를 비우기 위해)
       // 2단계: nodeA ↔ nodeB 교체 (최종 교체)
       
-      AppLogger.exchangeDebug('연쇄 교체 1단계: ${exchangePath.node1.displayText} ↔ ${exchangePath.node2.displayText}');
+      AppLogger.exchangeDebug('2중 교체 1단계: ${exchangePath.node1.displayText} ↔ ${exchangePath.node2.displayText}');
       
       // 1단계: node1 ↔ node2 교체
       bool step1Success = exchangeService.performOneToOneExchange(
@@ -618,11 +618,11 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
       );
       
       if (!step1Success) {
-        AppLogger.exchangeDebug('연쇄 교체 1단계 실패');
+        AppLogger.exchangeDebug('2중 교체 1단계 실패');
         return false;
       }
       
-      AppLogger.exchangeDebug('연쇄 교체 2단계: ${exchangePath.nodeA.displayText} ↔ ${exchangePath.nodeB.displayText}');
+      AppLogger.exchangeDebug('2중 교체 2단계: ${exchangePath.nodeA.displayText} ↔ ${exchangePath.nodeB.displayText}');
       
       // 2단계: nodeA ↔ nodeB 교체
       bool step2Success = exchangeService.performOneToOneExchange(
@@ -636,15 +636,15 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
       );
       
       if (!step2Success) {
-        AppLogger.exchangeDebug('연쇄 교체 2단계 실패');
+        AppLogger.exchangeDebug('2중 교체 2단계 실패');
         return false;
       }
       
-      AppLogger.exchangeDebug('연쇄 교체 완료: 2단계 모두 성공');
+      AppLogger.exchangeDebug('2중 교체 완료: 2단계 모두 성공');
       return true;
       
     } catch (e) {
-      AppLogger.exchangeDebug('연쇄 교체 실행 중 오류: $e');
+      AppLogger.exchangeDebug('2중 교체 실행 중 오류: $e');
       return false;
     }
   }

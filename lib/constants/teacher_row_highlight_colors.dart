@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 /// 교사 행 하이라이트 색상 (교체 화면 범례와 구분)
 ///
@@ -31,7 +31,7 @@ class TeacherRowHighlightColors {
     0xFFFFF9C4, // 연노랑 — 선택한 수업(0xFFFFEB3B)과 유사
     0xFFF3E5F5, // 연보라 — 순환교체 경로와 유사
     0xFFE1F5FE, // 연하늘 — 채워진 수업과 유사
-    0xFFFFE0B2, // 연주황 — 연쇄교체(0xFFFF8A65)와 유사
+    0xFFFFE0B2, // 연주황 — 2중교체(0xFFFF8A65)와 유사
     0xFFFFCDD2, // 연분홍 — 교체불가 기본색과 동일
   };
 

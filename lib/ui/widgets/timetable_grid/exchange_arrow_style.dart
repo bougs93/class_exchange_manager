@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'timetable_grid_constants.dart';
 
 /// 교체 모드별 화살표 스타일을 정의하는 클래스
@@ -39,7 +39,7 @@ class ExchangeArrowStyle {
     direction: ArrowDirection.forward,
   );
 
-  /// 연쇄 교체 모드용 스타일 (양방향)
+  /// 2중 교체 모드용 스타일 (양방향)
   static const ExchangeArrowStyle chain = ExchangeArrowStyle(
     color: Color(0xFFFF8C69), // 주황색 (#FF8C69)
     strokeWidth: 2.0,

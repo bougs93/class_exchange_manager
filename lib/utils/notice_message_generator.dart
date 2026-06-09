@@ -1,4 +1,4 @@
-import '../models/notice_message.dart';
+﻿import '../models/notice_message.dart';
 import '../providers/substitution_plan_viewmodel.dart';
 import '../utils/logger.dart';
 import 'notice_message_helpers.dart';
@@ -451,26 +451,26 @@ ${classLines.join('\n')}''',
   ) {
     final List<String> classLines = [];
 
-    // 연쇄교체와 일반 교체 분리
+    // 2중교체와 일반 교체 분리
     final chainGroups = <String?, List<SubstitutionPlanData>>{};
     final nonChainData = <SubstitutionPlanData>[];
 
     for (final data in sortedDataList) {
-      final isChainExchange =
+      final isDualExchange =
           (data.groupId != null && GroupIdParser.isChain(data.groupId!)) ||
-          data.remarks.contains('연쇄교체');
+          data.remarks.contains('2중교체');
 
-      if (isChainExchange) {
+      if (isDualExchange) {
         chainGroups.putIfAbsent(data.groupId, () => []).add(data);
       } else {
         nonChainData.add(data);
       }
     }
 
-    // 연쇄교체 그룹별로 최종 결과 계산하여 메시지 생성
+    // 2중교체 그룹별로 최종 결과 계산하여 메시지 생성
     for (final groupDataList in chainGroups.values) {
       classLines.addAll(
-        _generateChainExchangeOption2Lines(groupDataList, teacherName),
+        _generateDualExchangeOption2Lines(groupDataList, teacherName),
       );
     }
 
@@ -622,29 +622,29 @@ ${classLines.join('\n')}''',
     return lines;
   }
 
-  /// 연쇄교체 옵션2 라인 생성 (최종 결과 반영)
+  /// 2중교체 옵션2 라인 생성 (최종 결과 반영)
   ///
-  /// 연쇄교체는 2단계로 이루어지며, 각 교사별로 최종 결과를 계산하여 메시지를 생성합니다.
-  /// - 중간 단계 (remarks: '연쇄교체(중간)'): node1 ↔ node2
-  /// - 최종 단계 (remarks: '연쇄교체(최종)'): nodeA ↔ nodeB
+  /// 2중교체는 2단계로 이루어지며, 각 교사별로 최종 결과를 계산하여 메시지를 생성합니다.
+  /// - 중간 단계 (remarks: '2중교체(중간)'): node1 ↔ node2
+  /// - 최종 단계 (remarks: '2중교체(최종)'): nodeA ↔ nodeB
   ///
   /// 최종 결과:
   /// - 중간 단계의 교사들은 교체 후 최종 위치에 있는 수업을 표시
   /// - 최종 단계의 교사들은 결강과 교체 후 수업을 표시
-  static List<String> _generateChainExchangeOption2Lines(
+  static List<String> _generateDualExchangeOption2Lines(
     List<SubstitutionPlanData> groupDataList,
     String teacherName,
   ) {
     final List<String> classLines = [];
 
     // 중간 단계와 최종 단계 구분
-    SubstitutionPlanData? intermediateData; // 연쇄교체(중간)
-    SubstitutionPlanData? finalData; // 연쇄교체(최종)
+    SubstitutionPlanData? intermediateData; // 2중교체(중간)
+    SubstitutionPlanData? finalData; // 2중교체(최종)
 
     for (final data in groupDataList) {
-      if (data.remarks == '연쇄교체(중간)') {
+      if (data.remarks == '2중교체(중간)') {
         intermediateData = data;
-      } else if (data.remarks == '연쇄교체(최종)') {
+      } else if (data.remarks == '2중교체(최종)') {
         finalData = data;
       }
     }
@@ -671,7 +671,7 @@ ${classLines.join('\n')}''',
     return classLines;
   }
 
-  /// 연쇄교체 중간 단계 원래 교사 메시지 추가
+  /// 2중교체 중간 단계 원래 교사 메시지 추가
   static void _addIntermediateSourceTeacherLines(
     List<String> classLines,
     SubstitutionPlanData? intermediateData,
@@ -686,7 +686,7 @@ ${classLines.join('\n')}''',
     );
   }
 
-  /// 연쇄교체 최종 단계 원래 교사 메시지 추가
+  /// 2중교체 최종 단계 원래 교사 메시지 추가
   static void _addFinalSourceTeacherLines(
     List<String> classLines,
     SubstitutionPlanData? finalData,
@@ -704,7 +704,7 @@ ${classLines.join('\n')}''',
     );
   }
 
-  /// 연쇄교체 중간 단계 교체 교사 메시지 추가
+  /// 2중교체 중간 단계 교체 교사 메시지 추가
   static void _addIntermediateSubstitutionTeacherLines(
     List<String> classLines,
     SubstitutionPlanData? intermediateData,
@@ -723,7 +723,7 @@ ${classLines.join('\n')}''',
     );
   }
 
-  /// 연쇄교체 최종 단계 교체 교사 메시지 추가
+  /// 2중교체 최종 단계 교체 교사 메시지 추가
   static void _addFinalSubstitutionTeacherLines(
     List<String> classLines,
     SubstitutionPlanData? finalData,
@@ -753,7 +753,7 @@ ${classLines.join('\n')}''',
       return ExchangeCategory.circularFourPlus;
     }
 
-    // 기본 교체 유형 (1:1교체, 순환교체 3단계, 연쇄교체)
+    // 기본 교체 유형 (1:1교체, 순환교체 3단계, 2중교체)
     return ExchangeCategory.basic;
   }
 

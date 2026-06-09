@@ -32,7 +32,7 @@
   - `ExcelService` - Excel 파일 파싱
   - `ExchangeService` - 1:1 교체 로직
   - `CircularExchangeService` - 순환 교체 로직
-  - `ChainExchangeService` - 연쇄 교체 로직
+  - `DualExchangeService` - 2중 교체 로직
 - **DocumentGenerator**: PDF/QR코드 생성 (예정)
 - **DatabaseManager**: SQLite 데이터 관리 (예정)
 
@@ -123,7 +123,7 @@ class TimeTable {
 - 가장 간단하고 직관적인 교체 방식
 
 **순환 교체 (2-5명)**
-- A → B → C → A 형태의 연쇄 교체
+- A → B → C → A 형태의 순환 교체
 - BFS 알고리즘으로 경로 탐색 (구현 시 결정)
 
 **제약 조건 (설정 가능)**
@@ -401,7 +401,7 @@ lib/
 │   ├── excel_service.dart                # Excel 파싱
 │   ├── exchange_service.dart             # 1:1 교체
 │   ├── circular_exchange_service.dart    # 순환 교체
-│   └── chain_exchange_service.dart       # 연쇄 교체
+│   └── dual_exchange_service.dart       # 2중 교체
 ├── ui/                                    # UI 컴포넌트
 │   ├── screens/                          # 화면 (ConsumerWidget)
 │   │   ├── home_screen.dart             # ConsumerWidget

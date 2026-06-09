@@ -4,55 +4,24 @@ import 'package:file_picker/file_picker.dart';
 import '../../../../../constants/korean_fonts.dart';
 import '../../../../../utils/pdf_field_config.dart';
 
-/// PDF 설정 섹션 위젯
-///
-/// 템플릿 선택, 폰트 설정, 비고 출력 여부 등을 관리하는 위젯입니다.
+/// PDF 양식 선택 섹션
 class PdfSettingsSection extends StatelessWidget {
   final int selectedTemplateIndex;
   final String? selectedTemplateFilePath;
-  final double fontSize;
-  final double remarksFontSize;
-  final String selectedFont;
-  final bool includeRemarks;
-  final List<double> fontSizeOptions;
-  final List<double> remarksFontSizeOptions;
   final ValueChanged<int> onTemplateIndexChanged;
   final ValueChanged<String?> onTemplateFilePathChanged;
-  final ValueChanged<double> onFontSizeChanged;
-  final ValueChanged<double> onRemarksFontSizeChanged;
-  final ValueChanged<String> onFontChanged;
-  final ValueChanged<bool> onIncludeRemarksChanged;
 
   const PdfSettingsSection({
     super.key,
     required this.selectedTemplateIndex,
     required this.selectedTemplateFilePath,
-    required this.fontSize,
-    required this.remarksFontSize,
-    required this.selectedFont,
-    required this.includeRemarks,
-    required this.fontSizeOptions,
-    required this.remarksFontSizeOptions,
     required this.onTemplateIndexChanged,
     required this.onTemplateFilePathChanged,
-    required this.onFontSizeChanged,
-    required this.onRemarksFontSizeChanged,
-    required this.onFontChanged,
-    required this.onIncludeRemarksChanged,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // PDF 양식 선택
-        _buildTemplateSelector(context),
-        const SizedBox(height: 15),
-        // 폰트 설정
-        _buildFontSettings(),
-      ],
-    );
+    return _buildTemplateSelector(context);
   }
 
   /// PDF 양식 파일 선택
@@ -122,138 +91,6 @@ class PdfSettingsSection extends StatelessWidget {
     );
   }
 
-  /// 폰트 설정 섹션
-  Widget _buildFontSettings() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.font_download, size: 20, color: Colors.grey.shade700),
-              const SizedBox(width: 8),
-              Text('폰트 설정', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey.shade800)),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildFontTypeSelector(),
-          const SizedBox(height: 16),
-          _buildFontSizeRow(),
-        ],
-      ),
-    );
-  }
-
-  /// 폰트 종류 선택
-  Widget _buildFontTypeSelector() {
-    return Row(
-      children: [
-        Expanded(child: Text('폰트 종류', style: TextStyle(fontSize: 13, color: Colors.grey.shade700))),
-        const SizedBox(width: 12),
-        Expanded(
-          flex: 2,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: DropdownButton<String>(
-              value: selectedFont,
-              underline: const SizedBox.shrink(),
-              isExpanded: true,
-              isDense: true,
-              style: const TextStyle(color: Colors.black, fontSize: 13),
-              items: KoreanFontConstants.fontListWithNames.map((font) {
-                return DropdownMenuItem(
-                  value: font['file']!,
-                  child: Text(font['name']!, style: const TextStyle(color: Colors.black)),
-                );
-              }).toList(),
-              onChanged: (String? newFont) {
-                if (newFont != null) onFontChanged(newFont);
-              },
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// 폰트 사이즈 행 (일반 + 비고)
-  Widget _buildFontSizeRow() {
-    return Row(
-      children: [
-        Expanded(child: _buildFontSizeDropdown('일 반', fontSize, fontSizeOptions, onFontSizeChanged)),
-        Container(
-          width: 1,
-          height: 25,
-          margin: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(0.5)),
-        ),
-        Expanded(
-          child: Row(
-            children: [
-              Expanded(child: _buildFontSizeDropdown('비 고', remarksFontSize, remarksFontSizeOptions, onRemarksFontSizeChanged)),
-              const SizedBox(width: 16),
-              Row(
-                children: [
-                  Checkbox(
-                    value: includeRemarks,
-                    onChanged: (bool? value) {
-                      if (value != null) onIncludeRemarksChanged(value);
-                    },
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  Text('비고 출력', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// 폰트 사이즈 드롭다운
-  Widget _buildFontSizeDropdown(String label, double value, List<double> options, ValueChanged<double> onChanged) {
-    return Row(
-      children: [
-        Expanded(child: Text(label, style: TextStyle(fontSize: 13, color: Colors.grey.shade700))),
-        const SizedBox(width: 12),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: DropdownButton<double>(
-            value: value,
-            underline: const SizedBox.shrink(),
-            isDense: true,
-            style: const TextStyle(color: Colors.black, fontSize: 13),
-            items: options.map((size) {
-              return DropdownMenuItem(
-                value: size,
-                child: Text('${size.toInt()}pt', style: const TextStyle(color: Colors.black)),
-              );
-            }).toList(),
-            onChanged: (double? newSize) {
-              if (newSize != null) onChanged(newSize);
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
   /// 드롭다운 항목 생성
   List<DropdownMenuItem<int>> _buildDropdownItems() {
     final items = <DropdownMenuItem<int>>[];
@@ -292,5 +129,241 @@ class PdfSettingsSection extends StatelessWidget {
     if (path != null) {
       onTemplateFilePathChanged(path);
     }
+  }
+}
+
+/// 폰트 사이즈·비고 체크박스를 가로 1줄로 배치할 최소 폭
+const double _kFontSizeRowCompactBreakpoint = 520;
+
+/// 폰트 종류·크기 드롭다운 고정 폭 (내용에 맞게, 전체 폭 채우지 않음)
+const double _kFontTypeDropdownWidth = 160;
+const double _kFontSizeDropdownWidth = 84;
+
+/// PDF 폰트 설정 섹션 (추가 필드 입력 아래에 배치)
+class PdfFontSettingsSection extends StatelessWidget {
+  final double fontSize;
+  final double remarksFontSize;
+  final String selectedFont;
+  final bool includeRemarks;
+  final List<double> fontSizeOptions;
+  final List<double> remarksFontSizeOptions;
+  final ValueChanged<double> onFontSizeChanged;
+  final ValueChanged<double> onRemarksFontSizeChanged;
+  final ValueChanged<String> onFontChanged;
+  final ValueChanged<bool> onIncludeRemarksChanged;
+
+  const PdfFontSettingsSection({
+    super.key,
+    required this.fontSize,
+    required this.remarksFontSize,
+    required this.selectedFont,
+    required this.includeRemarks,
+    required this.fontSizeOptions,
+    required this.remarksFontSizeOptions,
+    required this.onFontSizeChanged,
+    required this.onRemarksFontSizeChanged,
+    required this.onFontChanged,
+    required this.onIncludeRemarksChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.font_download, size: 20, color: Colors.grey.shade700),
+              const SizedBox(width: 8),
+              Text(
+                '폰트 설정',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildFontTypeSelector(),
+          const SizedBox(height: 16),
+          _buildFontSizeRow(),
+        ],
+      ),
+    );
+  }
+
+  /// 폰트 종류 선택 (좁은 폭에서는 라벨·드롭다운을 세로 배치)
+  Widget _buildFontTypeSelector() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final dropdown = _buildFontDropdown();
+        if (constraints.maxWidth < _kFontSizeRowCompactBreakpoint) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('폰트 종류', style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+              const SizedBox(height: 8),
+              SizedBox(width: _kFontTypeDropdownWidth, child: dropdown),
+            ],
+          );
+        }
+        return Row(
+          children: [
+            SizedBox(
+              width: 64,
+              child: Text('폰트 종류', style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+            ),
+            const SizedBox(width: 12),
+            SizedBox(width: _kFontTypeDropdownWidth, child: dropdown),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildFontDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: DropdownButton<String>(
+        value: selectedFont,
+        underline: const SizedBox.shrink(),
+        isExpanded: true,
+        isDense: true,
+        style: const TextStyle(color: Colors.black, fontSize: 13),
+        items: KoreanFontConstants.fontListWithNames.map((font) {
+          return DropdownMenuItem(
+            value: font['file']!,
+            child: Text(font['name']!, style: const TextStyle(color: Colors.black)),
+          );
+        }).toList(),
+        onChanged: (String? newFont) {
+          if (newFont != null) onFontChanged(newFont);
+        },
+      ),
+    );
+  }
+
+  /// 폰트 사이즈 행 — 넓을 때 가로, 좁을 때 세로 배치
+  Widget _buildFontSizeRow() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < _kFontSizeRowCompactBreakpoint) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildFontSizeDropdown('일반', fontSize, fontSizeOptions, onFontSizeChanged),
+              const SizedBox(height: 12),
+              _buildFontSizeDropdown(
+                '비고',
+                remarksFontSize,
+                remarksFontSizeOptions,
+                onRemarksFontSizeChanged,
+              ),
+              const SizedBox(height: 8),
+              _buildIncludeRemarksCheckbox(),
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            _buildFontSizeDropdown('일반', fontSize, fontSizeOptions, onFontSizeChanged),
+            Container(
+              width: 1,
+              height: 25,
+              margin: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(0.5),
+              ),
+            ),
+            _buildFontSizeDropdown(
+              '비고',
+              remarksFontSize,
+              remarksFontSizeOptions,
+              onRemarksFontSizeChanged,
+            ),
+            const SizedBox(width: 12),
+            _buildIncludeRemarksCheckbox(),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildIncludeRemarksCheckbox() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Checkbox(
+          value: includeRemarks,
+          onChanged: (bool? value) {
+            if (value != null) onIncludeRemarksChanged(value);
+          },
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: VisualDensity.compact,
+        ),
+        Text('비고 출력', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+      ],
+    );
+  }
+
+  /// 폰트 사이즈 드롭다운 (라벨 + 내용 크기에 맞는 고정 폭)
+  Widget _buildFontSizeDropdown(
+    String label,
+    double value,
+    List<double> options,
+    ValueChanged<double> onChanged,
+  ) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 40,
+          child: Text(label, style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: _kFontSizeDropdownWidth,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: DropdownButton<double>(
+              value: value,
+              underline: const SizedBox.shrink(),
+              isDense: true,
+              isExpanded: true,
+              style: const TextStyle(color: Colors.black, fontSize: 13),
+              items: options.map((size) {
+                return DropdownMenuItem(
+                  value: size,
+                  child: Text('${size.toInt()}pt', style: const TextStyle(color: Colors.black)),
+                );
+              }).toList(),
+              onChanged: (double? newSize) {
+                if (newSize != null) onChanged(newSize);
+              },
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

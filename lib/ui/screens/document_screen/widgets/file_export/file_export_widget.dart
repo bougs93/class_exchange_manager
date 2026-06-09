@@ -437,7 +437,7 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
     // SingleChildScrollView로 감싸서 작은 창에서 스크롤 가능하도록 함
     return Container(
       width: double.infinity,
-      // 날짜선택(SubstitutionPlanGrid) 등 다른 문서 탭과 동일한 16px 여백
+      // 내용 입력(SubstitutionPlanGrid) 등 다른 문서 탭과 동일한 16px 여백
       padding: const EdgeInsets.all(16),
       alignment: Alignment.topLeft,
       // SingleChildScrollView를 사용하여 내용이 화면 높이를 초과할 때 스크롤 가능하게 함
@@ -460,16 +460,10 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
 
             const SizedBox(height: 15),
 
-            // PDF 설정 섹션 (템플릿, 폰트)
+            // PDF 양식 선택
             PdfSettingsSection(
               selectedTemplateIndex: _selectedTemplateIndex,
               selectedTemplateFilePath: _selectedTemplateFilePath,
-              fontSize: _fontSize,
-              remarksFontSize: _remarksFontSize,
-              selectedFont: _selectedFont,
-              includeRemarks: _includeRemarks,
-              fontSizeOptions: _fontSizeOptions,
-              remarksFontSizeOptions: _remarksFontSizeOptions,
               onTemplateIndexChanged: (index) async {
                 // 양식 변경 시: 먼저 현재 양식의 메모리 상 설정을 디스크에 저장한 후, 새 양식의 설정을 로드
                 
@@ -496,22 +490,6 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
                 // 파일 경로는 문서 출력 버튼 클릭 시 또는 프로그램 종료 시 저장됨
                 AppLogger.info('사용자 정의 PDF 파일 선택: $path (메모리에만 저장, 디스크 저장은 문서 출력 시)');
               },
-              onFontSizeChanged: (size) {
-                // 폰트 크기 변경 시 메모리 변수만 업데이트 (디스크 저장하지 않음)
-                setState(() => _fontSize = size);
-              },
-              onRemarksFontSizeChanged: (size) {
-                // 비고 폰트 크기 변경 시 메모리 변수만 업데이트 (디스크 저장하지 않음)
-                setState(() => _remarksFontSize = size);
-              },
-              onFontChanged: (font) {
-                // 폰트 종류 변경 시 메모리 변수만 업데이트 (디스크 저장하지 않음)
-                setState(() => _selectedFont = font);
-              },
-              onIncludeRemarksChanged: (include) {
-                // 비고 출력 여부 변경 시 메모리 변수만 업데이트 (디스크 저장하지 않음)
-                setState(() => _includeRemarks = include);
-              },
             ),
 
             const SizedBox(height: 15),
@@ -524,6 +502,30 @@ class FileExportWidgetState extends ConsumerState<FileExportWidget> {
               reasonForAbsenceController: _reasonForAbsenceController,
               notesController: _notesController,
               schoolNameController: _schoolNameController,
+            ),
+
+            const SizedBox(height: 15),
+
+            // 폰트 설정 (추가 필드 입력 아래)
+            PdfFontSettingsSection(
+              fontSize: _fontSize,
+              remarksFontSize: _remarksFontSize,
+              selectedFont: _selectedFont,
+              includeRemarks: _includeRemarks,
+              fontSizeOptions: _fontSizeOptions,
+              remarksFontSizeOptions: _remarksFontSizeOptions,
+              onFontSizeChanged: (size) {
+                setState(() => _fontSize = size);
+              },
+              onRemarksFontSizeChanged: (size) {
+                setState(() => _remarksFontSize = size);
+              },
+              onFontChanged: (font) {
+                setState(() => _selectedFont = font);
+              },
+              onIncludeRemarksChanged: (include) {
+                setState(() => _includeRemarks = include);
+              },
             ),
           ],
         ),

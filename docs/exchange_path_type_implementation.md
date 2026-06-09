@@ -42,7 +42,7 @@ void _processExchangePathByType(ExchangeHistoryItem item, List<ExchangeNode> nod
 - 각 교체 쌍을 별도 행으로 생성
 - [A, B, C, A] → A→B, B→C 교체 쌍 생성
 
-**연쇄교체 (`_processChainExchange`)**
+**2중교체 (`_processChainExchange`)**
 - 2단계 교체 과정 처리
 - 1단계와 2단계를 각각 별도 행으로 생성
 - [node1, node2, nodeA, nodeB] 구조
@@ -112,7 +112,7 @@ final nodes = [
 // 김교사→이교사, 이교사→박교사, 박교사→김교사
 ```
 
-### 연쇄교체 테스트
+### 2중교체 테스트
 ```dart
 final testItem = ExchangeHistoryItem(
   type: ExchangePathType.chain,

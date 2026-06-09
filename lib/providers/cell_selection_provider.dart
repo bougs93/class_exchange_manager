@@ -1,8 +1,8 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/exchange_path.dart';
 import '../models/circular_exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
-import '../models/chain_exchange_path.dart';
+import '../models/dual_exchange_path.dart';
 import '../models/supplement_exchange_path.dart';
 import '../models/exchange_mode.dart';
 import '../utils/logger.dart';
@@ -31,7 +31,7 @@ class CellSelectionState {
   /// 선택된 교체 경로들 (타입별)
   final OneToOneExchangePath? selectedOneToOnePath;
   final CircularExchangePath? selectedCircularPath;
-  final ChainExchangePath? selectedChainPath;
+  final DualExchangePath? selectedDualPath;
   final SupplementExchangePath? selectedSupplementPath;
   
   /// 교체 가능한 교사 정보
@@ -72,7 +72,7 @@ class CellSelectionState {
     this.currentMode = ExchangeMode.view,
     this.selectedOneToOnePath,
     this.selectedCircularPath,
-    this.selectedChainPath,
+    this.selectedDualPath,
     this.selectedSupplementPath,
     this.exchangeableTeachers = const [],
     this.exchangedCells = const {},
@@ -95,7 +95,7 @@ class CellSelectionState {
     ExchangeMode? currentMode,
     OneToOneExchangePath? selectedOneToOnePath,
     CircularExchangePath? selectedCircularPath,
-    ChainExchangePath? selectedChainPath,
+    DualExchangePath? selectedDualPath,
     SupplementExchangePath? selectedSupplementPath,
     List<Map<String, dynamic>>? exchangeableTeachers,
     Set<String>? exchangedCells,
@@ -117,7 +117,7 @@ class CellSelectionState {
       currentMode: currentMode ?? this.currentMode,
       selectedOneToOnePath: selectedOneToOnePath ?? this.selectedOneToOnePath,
       selectedCircularPath: selectedCircularPath ?? this.selectedCircularPath,
-      selectedChainPath: selectedChainPath ?? this.selectedChainPath,
+      selectedDualPath: selectedDualPath ?? this.selectedDualPath,
       selectedSupplementPath: selectedSupplementPath ?? this.selectedSupplementPath,
       exchangeableTeachers: exchangeableTeachers ?? this.exchangeableTeachers,
       exchangedCells: exchangedCells ?? this.exchangedCells,
@@ -220,10 +220,10 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
     );
   }
 
-  /// 연쇄 교체 경로 설정
-  void setChainPath(ChainExchangePath? path) {
+  /// 2중 교체 경로 설정
+  void setDualPath(DualExchangePath? path) {
     state = state.copyWith(
-      selectedChainPath: path,
+      selectedDualPath: path,
       lastUpdated: DateTime.now(),
     );
   }
@@ -303,10 +303,10 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
         isFromExchangedCell: true,
         lastUpdated: DateTime.now(),
       );
-    } else if (path is ChainExchangePath) {
-      AppLogger.debug('🔍 [CellSelectionProvider] 연쇄 교체 경로 설정');
+    } else if (path is DualExchangePath) {
+      AppLogger.debug('🔍 [CellSelectionProvider] 2중 교체 경로 설정');
       state = state.copyWith(
-        selectedChainPath: path,
+        selectedDualPath: path,
         isArrowVisible: true,
         arrowReason: ArrowDisplayReason.exchangedCellClicked,
         isFromExchangedCell: true,
@@ -368,7 +368,7 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
     state = state.copyWith(
       selectedOneToOnePath: null,
       selectedCircularPath: null,
-      selectedChainPath: null,
+      selectedDualPath: null,
       selectedSupplementPath: null,
       lastUpdated: DateTime.now(),
     );
@@ -451,7 +451,7 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
   bool get hasSelectedPath {
     return state.selectedOneToOnePath != null ||
            state.selectedCircularPath != null ||
-           state.selectedChainPath != null ||
+           state.selectedDualPath != null ||
            state.selectedSupplementPath != null;
   }
 
@@ -485,11 +485,11 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
     return false;
   }
 
-  /// 특정 셀이 연쇄 교체 경로에 포함되어 있는지 확인
-  bool isInChainPath(String teacherName, String day, int period) {
-    if (state.selectedChainPath == null) return false;
+  /// 특정 셀이 2중 교체 경로에 포함되어 있는지 확인
+  bool isInDualPath(String teacherName, String day, int period) {
+    if (state.selectedDualPath == null) return false;
     
-    final path = state.selectedChainPath!;
+    final path = state.selectedDualPath!;
     // node1, node2, nodeA, nodeB 모두 확인
     final nodes = [path.node1, path.node2, path.nodeA, path.nodeB];
     

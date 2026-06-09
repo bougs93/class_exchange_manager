@@ -1,9 +1,9 @@
-import 'package:syncfusion_flutter_datagrid/datagrid.dart';
+﻿import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../../../services/excel_service.dart';
 import '../../../../utils/syncfusion_timetable_helper.dart';
 import '../../../../models/circular_exchange_path.dart';
 import '../../../../models/one_to_one_exchange_path.dart';
-import '../../../../models/chain_exchange_path.dart';
+import '../../../../models/dual_exchange_path.dart';
 import '../../../../models/supplement_exchange_path.dart';
 
 /// Syncfusion DataGrid 관련 헬퍼 클래스
@@ -15,7 +15,7 @@ class GridHelper {
     List<Map<String, dynamic>>? exchangeableTeachers,
     CircularExchangePath? selectedCircularPath,
     OneToOneExchangePath? selectedOneToOnePath,
-    ChainExchangePath? selectedChainPath,
+    DualExchangePath? selectedDualPath,
     SupplementExchangePath? selectedSupplementPath,
   }) {
     // SyncfusionTimetableHelper를 사용하여 데이터 생성
@@ -25,7 +25,7 @@ class GridHelper {
       exchangeableTeachers: exchangeableTeachers,
       selectedCircularPath: selectedCircularPath,
       selectedOneToOnePath: selectedOneToOnePath,
-      selectedChainPath: selectedChainPath,
+      selectedDualPath: selectedDualPath,
       selectedSupplementPath: selectedSupplementPath,
     );
 

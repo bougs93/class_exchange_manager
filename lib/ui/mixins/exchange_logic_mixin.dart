@@ -1,29 +1,29 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../services/exchange_service.dart';
 import '../../services/circular_exchange_service.dart';
-import '../../services/chain_exchange_service.dart';
+import '../../services/dual_exchange_service.dart';
 import '../../services/base_exchange_service.dart';
 import '../../services/excel_service.dart';
 import '../../models/circular_exchange_path.dart';
-import '../../models/chain_exchange_path.dart';
+import '../../models/dual_exchange_path.dart';
 import '../../utils/timetable_data_source.dart';
 import '../../utils/logger.dart';
 
 /// 교체 로직을 담당하는 Mixin
-/// 1:1 교체, 순환교체, 연쇄교체 관련 비즈니스 로직을 분리
+/// 1:1 교체, 순환교체, 2중교체 관련 비즈니스 로직을 분리
 mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
   // 추상 속성들 - 구현 클래스에서 제공해야 함
   ExchangeService get exchangeService;
   CircularExchangeService get circularExchangeService;
-  ChainExchangeService get chainExchangeService;
+  DualExchangeService get dualExchangeService;
   TimetableData? get timetableData;
   TimetableDataSource? get dataSource;
   bool get isExchangeModeEnabled;
   bool get isCircularExchangeModeEnabled;
-  bool get isChainExchangeModeEnabled;
+  bool get isDualExchangeModeEnabled;
   CircularExchangePath? get selectedCircularPath;
-  ChainExchangePath? get selectedChainPath;
+  DualExchangePath? get selectedDualPath;
   
   // 추상 메서드들 - 구현 클래스에서 구현해야 함
   void updateDataSource();
@@ -84,37 +84,37 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
     processCircularCellSelection();
   }
 
-  /// 연쇄교체 처리 시작
-  void startChainExchange(DataGridCellTapDetails details) {
+  /// 2중교체 처리 시작
+  void startDualExchange(DataGridCellTapDetails details) {
     // 데이터 소스가 없는 경우 처리하지 않음
     if (dataSource == null || timetableData == null) {
-      AppLogger.exchangeDebug('연쇄교체: 데이터 소스가 없습니다.');
+      AppLogger.exchangeDebug('2중교체: 데이터 소스가 없습니다.');
       return;
     }
 
-    AppLogger.exchangeDebug('연쇄교체: 셀 선택 시작 - 컬럼: ${details.column.columnName}, 행: ${details.rowColumnIndex.rowIndex}');
+    AppLogger.exchangeDebug('2중교체: 셀 선택 시작 - 컬럼: ${details.column.columnName}, 행: ${details.rowColumnIndex.rowIndex}');
 
-    // ChainExchangeService를 사용하여 연쇄교체 처리
-    ChainExchangeResult result = chainExchangeService.startChainExchange(
+    // DualExchangeService를 사용하여 2중교체 처리
+    DualExchangeResult result = dualExchangeService.startDualExchange(
       details,
       dataSource!,
       timetableData!.timeSlots,
     );
 
     if (result.isNoAction) {
-      AppLogger.exchangeDebug('연쇄교체: 아무 동작하지 않음 (교사명 열 또는 잘못된 컬럼)');
+      AppLogger.exchangeDebug('2중교체: 아무 동작하지 않음 (교사명 열 또는 잘못된 컬럼)');
       return; // 아무 동작하지 않음
     }
 
-    // 새로운 셀 선택 시 기존 선택된 연쇄교체 경로와 관련 상태 초기화
+    // 새로운 셀 선택 시 기존 선택된 2중교체 경로와 관련 상태 초기화
     if (result.isSelected) {
-      AppLogger.exchangeDebug('연쇄교체: 새로운 셀 선택됨 - 교사: ${result.teacherName}, 요일: ${result.day}, 교시: ${result.period}');
+      AppLogger.exchangeDebug('2중교체: 새로운 셀 선택됨 - 교사: ${result.teacherName}, 요일: ${result.day}, 교시: ${result.period}');
 
-      // 이전 연쇄교체 경로 관련 상태 완전 초기화
-      clearPreviousChainExchangeState();
+      // 이전 2중교체 경로 관련 상태 완전 초기화
+      clearPreviousDualExchangeState();
 
     } else if (result.isDeselected) {
-      AppLogger.exchangeDebug('연쇄교체: 셀 선택 해제됨');
+      AppLogger.exchangeDebug('2중교체: 셀 선택 해제됨');
     }
 
     // 교체 대상 선택 후 교체 가능한 시간 탐색 및 표시
@@ -135,7 +135,7 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
     // 빈 셀인 경우 경로 탐색하지 않음
     if (_isSelectedCellEmpty()) {
       AppLogger.exchangeDebug('$modeName: 빈 셀 선택 - 경로 탐색 건너뜀');
-      if (isChainExchangeModeEnabled) {
+      if (isDualExchangeModeEnabled) {
         onEmptyChainCellSelected();
       } else {
         onEmptyCellSelected();
@@ -153,8 +153,8 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
       if (timetableData != null) {
         if (isCircularExchangeModeEnabled) {
           await findCircularPathsWithProgress();
-        } else if (isChainExchangeModeEnabled) {
-          await findChainPathsWithProgress();
+        } else if (isDualExchangeModeEnabled) {
+          await findDualPathsWithProgress();
         }
       }
     }
@@ -167,9 +167,9 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
   Future<void> processCircularCellSelection() async =>
       await _processCommonCellSelection('순환교체');
 
-  /// 연쇄교체 셀 선택 후 처리 로직
+  /// 2중교체 셀 선택 후 처리 로직
   Future<void> processChainCellSelection() async =>
-      await _processCommonCellSelection('연쇄교체');
+      await _processCommonCellSelection('2중교체');
   
   /// 셀이 비어있지 않은지 확인 (과목이나 학급이 있는지 검사)
   /// 
@@ -202,7 +202,7 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
 
   /// 현재 활성 모드에 맞는 서비스 반환
   BaseExchangeService _getCurrentService() {
-    if (isChainExchangeModeEnabled) return chainExchangeService;
+    if (isDualExchangeModeEnabled) return dualExchangeService;
     if (isCircularExchangeModeEnabled) return circularExchangeService;
     return exchangeService;
   }
@@ -336,10 +336,10 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
   void onStartLoading();
   void onFinishLoading();
   void onErrorLoading();
-  Future<void> findChainPathsWithProgress();
+  Future<void> findDualPathsWithProgress();
   void generateOneToOnePaths(List<dynamic> options); // ExchangeOption 리스트
   void onPathSelected(CircularExchangePath path);
   void onPathDeselected();
   void clearPreviousCircularExchangeState();
-  void clearPreviousChainExchangeState();
+  void clearPreviousDualExchangeState();
 }

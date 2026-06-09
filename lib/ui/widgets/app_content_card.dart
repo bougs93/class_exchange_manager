@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// 홈·도움말·정보 등에서 공통으로 사용하는 콘텐츠 카드
+/// 홈·도움말 등에서 공통으로 사용하는 콘텐츠 카드
 ///
 /// Material [Card] 기반으로 동일한 elevation·모서리·패딩을 제공합니다.
 class AppContentCard extends StatelessWidget {

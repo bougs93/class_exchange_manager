@@ -1,10 +1,10 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../services/excel_service.dart';
 import '../models/exchange_path.dart';
 import '../models/circular_exchange_path.dart';
-import '../models/chain_exchange_path.dart';
+import '../models/dual_exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
 import '../models/supplement_exchange_path.dart';
 import '../models/exchange_mode.dart';
@@ -32,7 +32,7 @@ class ExchangeScreenState {
   // 선택된 경로들 (타입별로 유지)
   final OneToOneExchangePath? selectedOneToOnePath;
   final CircularExchangePath? selectedCircularPath;
-  final ChainExchangePath? selectedChainPath;
+  final DualExchangePath? selectedDualPath;
   final SupplementExchangePath? selectedSupplementPath;
 
   final bool isSidebarVisible;
@@ -61,7 +61,7 @@ class ExchangeScreenState {
     this.loadingProgress = 0.0,
     this.selectedOneToOnePath,
     this.selectedCircularPath,
-    this.selectedChainPath,
+    this.selectedDualPath,
     this.selectedSupplementPath,
     this.isSidebarVisible = false,
     this.searchQuery = '',
@@ -94,7 +94,7 @@ class ExchangeScreenState {
     double? loadingProgress,
     OneToOneExchangePath? Function()? selectedOneToOnePath,
     CircularExchangePath? Function()? selectedCircularPath,
-    ChainExchangePath? Function()? selectedChainPath,
+    DualExchangePath? Function()? selectedDualPath,
     SupplementExchangePath? Function()? selectedSupplementPath,
     bool? isSidebarVisible,
     String? searchQuery,
@@ -123,7 +123,7 @@ class ExchangeScreenState {
       loadingProgress: loadingProgress ?? this.loadingProgress,
       selectedOneToOnePath: selectedOneToOnePath != null ? selectedOneToOnePath() : this.selectedOneToOnePath,
       selectedCircularPath: selectedCircularPath != null ? selectedCircularPath() : this.selectedCircularPath,
-      selectedChainPath: selectedChainPath != null ? selectedChainPath() : this.selectedChainPath,
+      selectedDualPath: selectedDualPath != null ? selectedDualPath() : this.selectedDualPath,
       selectedSupplementPath: selectedSupplementPath != null ? selectedSupplementPath() : this.selectedSupplementPath,
       isSidebarVisible: isSidebarVisible ?? this.isSidebarVisible,
       searchQuery: searchQuery ?? this.searchQuery,
@@ -245,8 +245,8 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
     state = state.copyWith(selectedCircularPath: () => path);
   }
 
-  void setSelectedChainPath(ChainExchangePath? path) {
-    state = state.copyWith(selectedChainPath: () => path);
+  void setSelectedDualPath(DualExchangePath? path) {
+    state = state.copyWith(selectedDualPath: () => path);
   }
 
   void setSelectedSupplementPath(SupplementExchangePath? path) {
@@ -282,8 +282,8 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
   /// 체인 교체 모드 활성화 상태 설정 (Deprecated)
   /// setCurrentMode()를 사용하세요.
   @Deprecated('setCurrentMode()를 사용하세요.')
-  void setChainExchangeModeEnabled(bool enabled) {
-    // ExchangeMode.chainExchange / ExchangeMode.view 사용
+  void setDualExchangeModeEnabled(bool enabled) {
+    // ExchangeMode.dualExchange / ExchangeMode.view 사용
   }
 
   /// 교체불가 편집 모드 설정
@@ -308,14 +308,14 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
     List<CircularExchangePath>? circularPaths,
     bool? isCircularPathsLoading,
     double? loadingProgress,
-    List<ChainExchangePath>? chainPaths,
-    bool? isChainPathsLoading,
+    List<DualExchangePath>? dualPaths,
+    bool? isDualPathsLoading,
     List<OneToOneExchangePath>? oneToOnePaths,
     bool? isSidebarVisible,
     String? searchQuery,
     OneToOneExchangePath? selectedOneToOnePath,
     CircularExchangePath? selectedCircularPath,
-    ChainExchangePath? selectedChainPath,
+    DualExchangePath? selectedDualPath,
     List<int>? availableSteps,
     int? selectedStep,
     String? selectedDay,
@@ -337,7 +337,7 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
       searchQuery: searchQuery,
       selectedOneToOnePath: selectedOneToOnePath != null ? () => selectedOneToOnePath : null,
       selectedCircularPath: selectedCircularPath != null ? () => selectedCircularPath : null,
-      selectedChainPath: selectedChainPath != null ? () => selectedChainPath : null,
+      selectedDualPath: selectedDualPath != null ? () => selectedDualPath : null,
       availableSteps: availableSteps,
       selectedStep: selectedStep != null ? () => selectedStep : null,
       selectedDay: selectedDay != null ? () => selectedDay : null,
@@ -350,7 +350,7 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
     state = state.copyWith(
       selectedOneToOnePath: () => null,
       selectedCircularPath: () => null,
-      selectedChainPath: () => null,
+      selectedDualPath: () => null,
       selectedSupplementPath: () => null,
     );
   }
@@ -361,7 +361,7 @@ class ExchangeScreenNotifier extends StateNotifier<ExchangeScreenState> {
       // 경로 선택 초기화
       selectedOneToOnePath: () => null,
       selectedCircularPath: () => null,
-      selectedChainPath: () => null,
+      selectedDualPath: () => null,
       selectedSupplementPath: () => null,
       // 통합된 경로 리스트 초기화
       availablePaths: [],

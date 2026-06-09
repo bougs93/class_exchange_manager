@@ -1,9 +1,9 @@
-# 연쇄교체 알고리즘 개발 문서
+# 2중교체 알고리즘 개발 문서
 
 ## 📋 목차
 
 1. [개요](#개요)
-2. [연쇄교체 개념](#연쇄교체-개념)
+2. [2중교체 개념](#2중교체-개념)
 3. [알고리즘 설계](#알고리즘-설계)
 4. [구현 가이드](#구현-가이드)
 5. [성능 분석](#성능-분석)
@@ -13,14 +13,14 @@
 ## 개요
 
 ### 목적
-연쇄교체 알고리즘은 결강한 수업(A)을 다른 교사(B)가 대체하려고 할 때, A 교사가 B 시간에 다른 수업이 있어 직접 교체가 불가능한 경우, A 교사의 해당 시간 수업을 먼저 다른 교사와 교체하여 빈 시간을 만든 후 최종 교체를 완성하는 방식입니다.
+2중교체 알고리즘은 결강한 수업(A)을 다른 교사(B)가 대체하려고 할 때, A 교사가 B 시간에 다른 수업이 있어 직접 교체가 불가능한 경우, A 교사의 해당 시간 수업을 먼저 다른 교사와 교체하여 빈 시간을 만든 후 최종 교체를 완성하는 방식입니다.
 
 ### 특징
 - **2단계 고정 구조**: 빈 시간 만들기(1:1 교체) → 최종 교체(1:1 교체)
 - **순환교체 대비 효율성**: 약 6.5배 빠른 연산
 - **실시간 처리 가능**: 백그라운드 처리로 사용자 경험 향상
 
-## 연쇄교체 개념
+## 2중교체 개념
 
 ### 기본 구조
 ```
@@ -76,9 +76,9 @@ A 위치(결강 수업) ↔ B 위치(대체 가능 수업)
 ## 알고리즘 설계
 
 ### 시간 복잡도
-- **연쇄교체**: O(T³/N) = O(17,150,000)
+- **2중교체**: O(T³/N) = O(17,150,000)
 - **순환교체 4단계**: O(T × N^4) = O(112,000,000)
-- **성능 비율**: 연쇄교체가 6.5배 빠름
+- **성능 비율**: 2중교체가 6.5배 빠름
 
 ### 핵심 알고리즘
 ```dart
@@ -95,7 +95,7 @@ List<ChainExchangePath> findChainExchangePaths(
   for (ExchangeNode nodeB in _findSameClassSlots(nodeA)) {
     // A 교사가 B 시간에 다른 수업(2번)이 있는지 확인
     ExchangeNode? node2 = _findBlockingSlot(nodeA.teacher, nodeB);
-    if (node2 == null) continue; // 직접 교체 가능하면 연쇄교체 불필요
+    if (node2 == null) continue; // 직접 교체 가능하면 2중교체 불필요
 
     // 2번 수업과 1:1 교체 가능한 같은 학급 수업(1번) 찾기
     for (ExchangeNode node1 in _findSameClassSlots(node2)) {
@@ -105,7 +105,7 @@ List<ChainExchangePath> findChainExchangePaths(
       // 2단계: A ↔ B 교체 가능한지 확인 (2번이 비워진 상태 가정)
       if (!_canExchangeAfterClearing(nodeA, nodeB, node2, timeSlots)) continue;
 
-      // 유효한 연쇄교체 경로 발견
+      // 유효한 2중교체 경로 발견
       paths.add(ChainExchangePath(
         nodeA: nodeA,
         nodeB: nodeB,
@@ -192,11 +192,11 @@ class ChainExchangePath implements ExchangePath {
   final ExchangeNode nodeB;         // B 위치 (대체 가능 수업)
   final ExchangeNode node1;         // 1번 위치 (1단계 교환 대상)
   final ExchangeNode node2;         // 2번 위치 (A 교사의 B 시간 수업)
-  final int chainDepth;             // 연쇄 깊이 (기본값: 2)
+  final int chainDepth;             // 2중 깊이 (기본값: 2)
   final List<ChainStep> steps;      // 교체 단계들
 
   @override
-  String get displayTitle => '연쇄교체 ${chainDepth}단계';
+  String get displayTitle => '2중교체 ${chainDepth}단계';
 
   @override
   int get priority => chainDepth;
@@ -232,13 +232,13 @@ class ChainExchangeService {
   int? _nodeAPeriod;
   String? _nodeAClass;
 
-  // 연쇄 교체 처리 시작
+  // 2중 교체 처리 시작
   ChainExchangeResult startChainExchange(
     DataGridCellTapDetails details,
     TimetableDataSource dataSource,
   );
 
-  // 연쇄 교체 가능한 경로들 찾기
+  // 2중 교체 가능한 경로들 찾기
   List<ChainExchangePath> findChainExchangePaths(
     List<TimeSlot> timeSlots,
     List<Teacher> teachers,
@@ -261,10 +261,10 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
   ExchangeService get exchangeService;
   CircularExchangeService get circularExchangeService;
   
-  // 새로운 연쇄 교체 서비스 추가
+  // 새로운 2중 교체 서비스 추가
   ChainExchangeService get chainExchangeService;
   
-  /// 연쇄 교체 처리 시작
+  /// 2중 교체 처리 시작
   void startChainExchange(DataGridCellTapDetails details);
 }
 ```
@@ -275,7 +275,7 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
 
 | 교체 방식 | 연산량 | 실행 시간 | 메모리 사용량 |
 |-----------|--------|-----------|---------------|
-| **연쇄교체 2단계** | 17,150,000 | ~1.7초 | 낮음 |
+| **2중교체 2단계** | 17,150,000 | ~1.7초 | 낮음 |
 | **순환교체 4단계** | 112,000,000 | ~11초 | 높음 |
 
 ### 최적화 방안
@@ -320,7 +320,7 @@ List<ChainExchangePath> findPathsOptimized() {
 ```
 
 ### 최적화 후 성능
-- **연쇄교체**: 1.7초 → 0.003초 (567배 개선)
+- **2중교체**: 1.7초 → 0.003초 (567배 개선)
 - **순환교체**: 11초 → 0.02초 (550배 개선)
 
 ## 테스트 계획
@@ -329,7 +329,7 @@ List<ChainExchangePath> findPathsOptimized() {
 ```dart
 void main() {
   group('ChainExchangeService Tests', () {
-    test('연쇄교체 경로 생성 테스트', () {
+    test('2중교체 경로 생성 테스트', () {
       // Given
       ExchangeNode target = ExchangeNode(...);
       ExchangeNode source1 = ExchangeNode(...);
@@ -365,7 +365,7 @@ void main() {
 ```dart
 void main() {
   group('Chain Exchange Integration Tests', () {
-    test('전체 연쇄교체 프로세스 테스트', () {
+    test('전체 2중교체 프로세스 테스트', () {
       // Given
       ChainExchangeService service = ChainExchangeService();
       List<TimeSlot> timeSlots = createTestTimeSlots();
@@ -395,7 +395,7 @@ ChainExchangeResult startChainExchange(
   TimetableDataSource dataSource,
 );
 ```
-- **목적**: 연쇄교체 모드에서 셀 탭 처리
+- **목적**: 2중교체 모드에서 셀 탭 처리
 - **반환값**: `ChainExchangeResult`
 - **예외**: `ArgumentError` (잘못된 셀 선택 시)
 
@@ -406,7 +406,7 @@ List<ChainExchangePath> findChainExchangePaths(
   List<Teacher> teachers,
 );
 ```
-- **목적**: 연쇄교체 가능한 모든 경로 탐색
+- **목적**: 2중교체 가능한 모든 경로 탐색
 - **반환값**: `List<ChainExchangePath>`
 - **성능**: O(T³/N) 시간 복잡도
 
@@ -468,12 +468,12 @@ ChainStep({
 - [ ] `ExchangePathType.chain` 추가
 
 ### Phase 2: 핵심 로직
-- [ ] 연쇄교체 경로 탐색 알고리즘 구현
+- [ ] 2중교체 경로 탐색 알고리즘 구현
 - [ ] 교체 가능성 검증 로직 구현
 - [ ] 경로 생성 및 검증 로직 구현
 
 ### Phase 3: UI 통합
-- [ ] `ExchangeLogicMixin`에 연쇄교체 기능 추가
+- [ ] `ExchangeLogicMixin`에 2중교체 기능 추가
 - [ ] UI 컴포넌트 구현
 - [ ] 사용자 인터랙션 처리
 
@@ -495,18 +495,18 @@ ChainStep({
 - 기존 UI 컴포넌트 재사용 가능
 
 ### 확장 가능성
-- 향후 3단계 이상의 복잡한 연쇄교체 지원 가능
-- 중간 노드 추가를 통한 고급 연쇄교체 구현 가능
+- 향후 3단계 이상의 복잡한 2중교체 지원 가능
+- 중간 노드 추가를 통한 고급 2중교체 구현 가능
 - 성능 최적화를 통한 실시간 처리 지원
 
 ### 주의사항
-- 연쇄교체는 항상 2단계로 고정 (두 번의 1:1 교체)
+- 2중교체는 항상 2단계로 고정 (두 번의 1:1 교체)
 - 1단계에서 A 교사의 B 시간을 비워야 2단계 교체 가능
 - 모든 교체는 같은 학급 내에서만 가능
 - 교체 가능성 검증이 복잡하므로 충분한 테스트 필요
 - 성능 최적화 없이는 실시간 처리 어려움
 
-### 연쇄교체 vs 1:1 교체 vs 순환교체
+### 2중교체 vs 1:1 교체 vs 순환교체
 - **1:1 교체**: A ↔ B (직접 교체)
-- **연쇄교체**: (1 ↔ 2) → (A ↔ B) (간접 교체, 2번의 1:1 교체)
+- **2중교체**: (1 ↔ 2) → (A ↔ B) (간접 교체, 2번의 1:1 교체)
 - **순환교체**: A → B → C → ... → A (순환 구조)

@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/exchange_path.dart';
 import '../../models/circular_exchange_path.dart';
 import '../../models/one_to_one_exchange_path.dart';
-import '../../models/chain_exchange_path.dart';
+import '../../models/dual_exchange_path.dart';
 import '../../models/supplement_exchange_path.dart';
 import '../../models/exchange_node.dart';
 import '../../utils/logger.dart';
@@ -104,7 +104,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
           _buildHeader(),
           // 보강 모드가 아닌 경우에만 검색바 표시
           if (widget.mode != ExchangePathType.supplement) _buildSearchBar(),
-          // 순환교체, 1:1 교체, 연쇄교체 모드에서 검색 필터 그룹 표시
+          // 순환교체, 1:1 교체, 2중교체 모드에서 검색 필터 그룹 표시
           if (widget.mode == ExchangePathType.circular ||
               widget.mode == ExchangePathType.oneToOne ||
               widget.mode == ExchangePathType.chain)
@@ -526,7 +526,7 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
       );
     } else {
       return _buildChainNodes(
-        path as ChainExchangePath,
+        path as DualExchangePath,
         index,
         isSelected,
         colorScheme,
@@ -534,11 +534,11 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
     }
   }
 
-  /// 화살표 + 단계 숫자 배지 (연쇄·순환교체 공통)
+  /// 화살표 + 단계 숫자 배지 (2중·순환교체 공통)
   ///
-  /// [arrow] 방향 아이콘(연쇄: swap_vert, 순환: arrow_downward),
-  /// [badgeColor] 선택 시 배지 색상(연쇄: 빨강, 순환: 경로색),
-  /// [arrowColor] 선택 시 화살표 색상(연쇄는 배지와 달리 경로색을 쓰므로 분리).
+  /// [arrow] 방향 아이콘(2중: swap_vert, 순환: arrow_downward),
+  /// [badgeColor] 선택 시 배지 색상(2중: 빨강, 순환: 경로색),
+  /// [arrowColor] 선택 시 화살표 색상(2중은 배지와 달리 경로색을 쓰므로 분리).
   ///   생략 시 [badgeColor]와 동일. [number] 단계 번호. 미선택 시 회색으로 통일된다.
   Widget _buildArrowWithBadge({
     required IconData arrow,
@@ -628,16 +628,16 @@ class _UnifiedExchangeSidebarState extends ConsumerState<UnifiedExchangeSidebar>
 
   // 기존 _buildCircularPathItem 메서드 제거 (공통 메서드로 통합됨)
 
-  /// 연쇄교체 노드들 구성
+  /// 2중교체 노드들 구성
   Widget _buildChainNodes(
-    ChainExchangePath path,
+    DualExchangePath path,
     int index,
     bool isSelected,
     PathColorScheme colorScheme,
   ) {
     List<Widget> nodeWidgets = [];
 
-    // 연쇄교체 단계별 표시:
+    // 2중교체 단계별 표시:
     // 1단계: node1 ↔ node2
     // 2단계: nodeA ↔ nodeB
 

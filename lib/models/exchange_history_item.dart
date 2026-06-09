@@ -1,7 +1,7 @@
 import 'exchange_path.dart';
 import 'one_to_one_exchange_path.dart';
 import 'circular_exchange_path.dart';
-import 'chain_exchange_path.dart';
+import 'dual_exchange_path.dart';
 import 'supplement_exchange_path.dart';
 
 /// 교체 히스토리 항목을 나타내는 클래스
@@ -19,7 +19,7 @@ class ExchangeHistoryItem {
   /// 사용자 친화적 설명
   final String description;
   
-  /// 교체 타입 (1:1, 순환, 연쇄)
+  /// 교체 타입 (1:1, 순환, 2중)
   final ExchangePathType type;
   
   /// 추가 메타데이터
@@ -112,7 +112,7 @@ class ExchangeHistoryItem {
       return ExchangePathType.oneToOne;
     } else if (path.toString().contains('CircularExchangePath')) {
       return ExchangePathType.circular;
-    } else if (path.toString().contains('ChainExchangePath')) {
+    } else if (path.toString().contains('DualExchangePath')) {
       return ExchangePathType.chain;
     } else if (path.toString().contains('SupplementExchangePath')) {
       return ExchangePathType.supplement;
@@ -262,7 +262,7 @@ class ExchangeHistoryItem {
         path = CircularExchangePath.fromJson(pathJson);
         break;
       case 'chain':
-        path = ChainExchangePath.fromJson(pathJson);
+        path = DualExchangePath.fromJson(pathJson);
         break;
       case 'supplement':
         path = SupplementExchangePath.fromJson(pathJson);

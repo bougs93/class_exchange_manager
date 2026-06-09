@@ -23,7 +23,7 @@ class AppInfo {
   static const String programName = '수업 교체 도우미';
 
   /// 앱 버전 (이 값만 수정 — pubspec.yaml은 tool/bump_version.dart가 자동 동기화)
-  static const String version = '0.9.26';
+  static const String version = '0.9.27';
 
   // 소속
   static const String affiliation = '기술쿠키 & Noah Lab 후원';
@@ -96,7 +96,7 @@ class AppInfo {
     }
   }
 
-  /// 사용 가능 기간 표시 문자열 (홈·정보 화면 공통)
+  /// 사용 가능 기간 표시 문자열 (홈·도움말 공통)
   static String get availablePeriodDisplay {
     final date = expiryDate;
     if (date == null) {
@@ -111,7 +111,7 @@ class AppInfo {
     }
   }
 
-  /// 남은 사용 기간 표시 문자열 (홈·정보 화면 공통)
+  /// 남은 사용 기간 표시 문자열 (홈·도움말 공통)
   static String get remainingPeriodDisplay {
     final date = expiryDate;
     if (date == null) {

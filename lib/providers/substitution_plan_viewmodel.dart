@@ -214,7 +214,7 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
             break;
 
           case ExchangePathType.chain:
-            _handleChainExchange(nodes, newPlanData, item.id);
+            _handleDualExchange(nodes, newPlanData, item.id);
             break;
 
           case ExchangePathType.supplement:
@@ -360,10 +360,10 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
     return index == totalNodes - 2 ? '순환교체${index + 1}*' : '순환교체${index + 1}';
   }
 
-  /// 연쇄 교체 처리
-  void _handleChainExchange(List nodes, List<SubstitutionPlanData> planData, String groupId) {
+  /// 2중 교체 처리
+  void _handleDualExchange(List nodes, List<SubstitutionPlanData> planData, String groupId) {
     if (nodes.length < 4) {
-      AppLogger.exchangeDebug('연쇄교체: 노드가 부족합니다 (${nodes.length}개)');
+      AppLogger.exchangeDebug('2중교체: 노드가 부족합니다 (${nodes.length}개)');
       return;
     }
 
@@ -373,30 +373,30 @@ class SubstitutionPlanViewModel extends StateNotifier<SubstitutionPlanViewModelS
     final intermediateNode2 = nodes[3];
 
     // 최종 교체
-    final finalExchangeId = _generateExchangeId(substituteNode.teacherName, substituteNode.day, substituteNode.period.toString(), substituteNode.subjectName, suffix: '연쇄최종');
+    final finalExchangeId = _generateExchangeId(substituteNode.teacherName, substituteNode.day, substituteNode.period.toString(), substituteNode.subjectName, suffix: '2중최종');
     final finalData = _parser.parseNode(
       sourceNode: substituteNode,
       targetNode: absentNode,
       exchangeId: finalExchangeId,
       groupId: groupId,
-      remarks: '연쇄교체(중간)',
+      remarks: '2중교체(중간)',
       isChain: true,
     );
     planData.add(finalData);
 
     // 중간 교체
-    final intermediateExchangeId = _generateExchangeId(intermediateNode1.teacherName, intermediateNode1.day, intermediateNode1.period.toString(), intermediateNode1.subjectName, suffix: '연쇄중간');
+    final intermediateExchangeId = _generateExchangeId(intermediateNode1.teacherName, intermediateNode1.day, intermediateNode1.period.toString(), intermediateNode1.subjectName, suffix: '2중중간');
     final intermediateData = _parser.parseNode(
       sourceNode: intermediateNode1,
       targetNode: intermediateNode2,
       exchangeId: intermediateExchangeId,
       groupId: groupId,
-      remarks: '연쇄교체(최종)',
+      remarks: '2중교체(최종)',
       isChain: true,
     );
     planData.add(intermediateData);
 
-    AppLogger.exchangeDebug('연쇄교체 처리 완료');
+    AppLogger.exchangeDebug('2중교체 처리 완료');
   }
 
   /// 보강 처리

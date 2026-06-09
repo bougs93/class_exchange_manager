@@ -61,13 +61,13 @@ _selectExchangePath(newPath);
 - ✅ 캐시 초기화
 
 **호출 시점**:
-- 모든 모드 전환 시 (보기 ↔ 1:1 ↔ 순환 ↔ 연쇄)
+- 모든 모드 전환 시 (보기 ↔ 1:1 ↔ 순환 ↔ 2중)
 - 교체 후 다음 작업 준비 시
 
 **예시**:
 ```dart
-// 교체 모드 전환 시 (1:1 ↔ 순환 ↔ 연쇄)
-resetExchangeStates(reason: '연쇄교체 모드로 전환');
+// 교체 모드 전환 시 (1:1 ↔ 순환 ↔ 2중)
+resetExchangeStates(reason: '2중교체 모드로 전환');
 
 // 교체 실행 후 다음 작업 준비 시
 resetExchangeStates(reason: '교체 실행 - 선택 상태 초기화');
@@ -90,7 +90,7 @@ resetExchangeStates(reason: '교체 실행 - 선택 상태 초기화');
 - ✅ 모든 교체 모드 상태 (selectedDay 등) (Level 3에서 추가)
 
 **호출 시점**:
-- 교체 모드 전환 시 (1:1 ↔ 순환 ↔ 연쇄)
+- 교체 모드 전환 시 (1:1 ↔ 순환 ↔ 2중)
 - 파일 선택/해제 시
 - 교체불가 편집 모드 진입 시
 

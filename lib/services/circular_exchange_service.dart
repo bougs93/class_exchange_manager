@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../utils/simplified_timetable_theme.dart';
 import '../utils/exchange_algorithm.dart';
@@ -347,9 +347,9 @@ class CircularExchangeService extends BaseExchangeService {
         // 최대 단계 수 초과 시 종료
       if (currentStep > maxSteps) return;
       
-      // 연쇄 교체 완료 확인 (시작점으로 돌아옴)
+      // 2중 교체 완료 확인 (시작점으로 돌아옴)
       // 조건: 최소 2단계 이상이고, 시작점(결강 교사)으로 돌아옴
-      // 의미: 결강 교사가 마지막 교사의 수업을 대신하여 연쇄 교체 완료
+      // 의미: 결강 교사가 마지막 교사의 수업을 대신하여 2중 교체 완료
       if (currentStep >= 2 && currentNode.nodeId == startNode.nodeId) {
         // exactSteps 옵션에 따라 조건 확인
         bool shouldAddPath = exactSteps ? 
@@ -476,7 +476,7 @@ class CircularExchangeService extends BaseExchangeService {
   /// 조건:
   /// 1. to 교사가 from 교사의 시간에 빈 시간이어야 함 (수업 가능)
   /// 2. 교체 불가 충돌 검증 추가
-  /// 3. 연쇄 교체 방식: A(결강) → B(대신 수업) → C(대신 수업) → D(대신 수업)
+  /// 3. 2중 교체 방식: A(결강) → B(대신 수업) → C(대신 수업) → D(대신 수업)
   /// 
   /// 예시: A교사(월 1교시) → B교사(화 3교시)
   /// - A교사가 결강할 때 B교사가 A교사의 수업(월 1교시)을 대신

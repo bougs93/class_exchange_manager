@@ -4,7 +4,7 @@ import 'document_toolbar_layout.dart';
 /// 문서 출력 탭 상단 사용 안내 바
 ///
 /// 안내 문구가 비어 있으면 레이아웃에 영향을 주지 않습니다.
-/// 날짜선택·계획서·교사안내·학급안내에서 동일한 형식으로 사용합니다.
+/// 내용 입력·결보강 출력·교사안내·학급안내에서 동일한 형식으로 사용합니다.
 class DocumentUsageHintBar extends StatelessWidget {
   /// 표시할 안내 문구 (비어 있으면 숨김)
   final String message;

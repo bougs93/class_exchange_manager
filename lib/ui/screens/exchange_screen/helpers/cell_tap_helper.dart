@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../../../services/excel_service.dart';
 import '../../../../utils/timetable_data_source.dart';
@@ -9,12 +9,12 @@ class CellTapHelper {
   static bool shouldHandleCellTap({
     required bool isExchangeModeEnabled,
     required bool isCircularExchangeModeEnabled,
-    required bool isChainExchangeModeEnabled,
+    required bool isDualExchangeModeEnabled,
     required bool isNonExchangeableEditMode,
   }) {
     return isExchangeModeEnabled ||
         isCircularExchangeModeEnabled ||
-        isChainExchangeModeEnabled ||
+        isDualExchangeModeEnabled ||
         isNonExchangeableEditMode;
   }
 
@@ -23,7 +23,7 @@ class CellTapHelper {
     required DataGridCellTapDetails details,
     required bool isExchangeModeEnabled,
     required bool isCircularExchangeModeEnabled,
-    required bool isChainExchangeModeEnabled,
+    required bool isDualExchangeModeEnabled,
     required bool isNonExchangeableEditMode,
     required TimetableData? timetableData,
     required TimetableDataSource? dataSource,
@@ -47,7 +47,7 @@ class CellTapHelper {
       onOneToOneModeTap(details);
     } else if (isCircularExchangeModeEnabled) {
       onCircularModeTap(details);
-    } else if (isChainExchangeModeEnabled) {
+    } else if (isDualExchangeModeEnabled) {
       onChainModeTap(details);
     }
   }

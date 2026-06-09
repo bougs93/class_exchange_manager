@@ -1,25 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'guide/program_info_content.dart';
 import '../widgets/app_content_card.dart';
 import '../widgets/exchange_control_panel.dart';
 import '../widgets/timetable_grid/grid_header_widgets.dart';
 import '../../utils/url_launcher_helper.dart';
 
 /// 도움말 화면
-/// 
-/// 프로그램 사용법과 양식 파일 정보를 제공합니다.
-/// - 기본 사용법: 프로그램의 주요 기능 사용 방법
-/// - 양식PDF 제작 방법: PDF 양식 파일 안내
-class HelpScreen extends StatefulWidget {
-  const HelpScreen({super.key});
+///
+/// 프로그램 정보, 사용법, PDF 양식 제작을 서브 메뉴로 제공합니다.
+class GuideScreen extends StatefulWidget {
+  const GuideScreen({super.key});
 
   @override
-  State<HelpScreen> createState() => _HelpScreenState();
+  State<GuideScreen> createState() => _GuideScreenState();
 }
 
-class _HelpScreenState extends State<HelpScreen> {
-  /// 선택된 서브 메뉴 (0: 기본 사용법, 1: 양식PDF 제작 방법)
+class _GuideScreenState extends State<GuideScreen> {
+  /// 선택된 서브 메뉴 (0: 프로그램 정보, 1: 기본 사용법, 2: PDF 양식 제작)
   int _selectedIndex = 0;
 
   // 마크다운 파일 내용을 저장할 변수
@@ -30,13 +29,18 @@ class _HelpScreenState extends State<HelpScreen> {
   /// 서브 메뉴 정의 (아이콘·라벨·선택 색상)
   static const _menuItems = [
     (
+      icon: Icons.info_outline,
+      label: '프로그램 정보',
+      color: Colors.teal,
+    ),
+    (
       icon: Icons.help_outline,
       label: '기본 사용법',
       color: Colors.blue,
     ),
     (
-      icon: Icons.description,
-      label: '양식PDF 제작 방법',
+      icon: Icons.description_outlined,
+      label: 'PDF 양식 제작',
       color: Colors.purple,
     ),
   ];
@@ -90,7 +94,12 @@ class _HelpScreenState extends State<HelpScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildSubMenuBar(),
-          Expanded(child: _buildContent(theme)),
+          Expanded(
+            child: ColoredBox(
+              color: Colors.grey.shade50,
+              child: _buildContent(theme),
+            ),
+          ),
         ],
       ),
     );
@@ -143,11 +152,13 @@ class _HelpScreenState extends State<HelpScreen> {
   Widget _buildContent(ThemeData theme) {
     switch (_selectedIndex) {
       case 0:
-        return _buildBasicUsageTab(theme);
+        return const ProgramInfoContent();
       case 1:
-        return _buildFormFileTab(theme);
-      default:
         return _buildBasicUsageTab(theme);
+      case 2:
+        return _buildFormGuideTab(theme);
+      default:
+        return const ProgramInfoContent();
     }
   }
 
@@ -333,8 +344,8 @@ class _HelpScreenState extends State<HelpScreen> {
     return _buildMarkdownTab(theme, _basicUsageMarkdown);
   }
 
-  /// "양식PDF 제작 방법" 탭 컨텐츠
-  Widget _buildFormFileTab(ThemeData theme) {
+  /// "PDF 양식 제작" 탭 콘텐츠
+  Widget _buildFormGuideTab(ThemeData theme) {
     return _buildMarkdownTab(theme, _pdfFormGuideMarkdown);
   }
 

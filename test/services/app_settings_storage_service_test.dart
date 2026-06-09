@@ -1,45 +1,45 @@
-import 'package:flutter_test/flutter_test.dart';
+﻿import 'package:flutter_test/flutter_test.dart';
 import 'package:class_exchange_manager/services/app_settings_storage_service.dart';
 
 /// 테스트용 in-memory 저장소
-class FakeChainExchangeSettingsStorage implements ChainExchangeSettingsStorage {
+class FakeDualExchangeSettingsStorage implements DualExchangeSettingsStorage {
   Map<String, dynamic> settings = {};
 
   @override
-  Future<bool> getChainExchangeEnabled() async {
-    return settings['chainExchangeEnabled'] as bool? ?? false;
+  Future<bool> getDualExchangeEnabled() async {
+    return settings['dualExchangeEnabled'] as bool? ?? true;
   }
 
   @override
-  Future<bool> saveChainExchangeEnabled(bool enabled) async {
-    settings['chainExchangeEnabled'] = enabled;
+  Future<bool> saveDualExchangeEnabled(bool enabled) async {
+    settings['dualExchangeEnabled'] = enabled;
     return true;
   }
 }
 
 void main() {
-  group('ChainExchangeSettingsStorage', () {
-    test('설정 없음 → 기본값 false', () async {
-      final storage = FakeChainExchangeSettingsStorage();
+  group('DualExchangeSettingsStorage', () {
+    test('설정 없음 → 기본값 true', () async {
+      final storage = FakeDualExchangeSettingsStorage();
 
-      expect(await storage.getChainExchangeEnabled(), isFalse);
+      expect(await storage.getDualExchangeEnabled(), isTrue);
     });
 
     test('save 후 load → 저장값 반환', () async {
-      final storage = FakeChainExchangeSettingsStorage();
+      final storage = FakeDualExchangeSettingsStorage();
 
-      expect(await storage.saveChainExchangeEnabled(true), isTrue);
-      expect(await storage.getChainExchangeEnabled(), isTrue);
+      expect(await storage.saveDualExchangeEnabled(true), isTrue);
+      expect(await storage.getDualExchangeEnabled(), isTrue);
 
-      expect(await storage.saveChainExchangeEnabled(false), isTrue);
-      expect(await storage.getChainExchangeEnabled(), isFalse);
+      expect(await storage.saveDualExchangeEnabled(false), isTrue);
+      expect(await storage.getDualExchangeEnabled(), isFalse);
     });
 
-    test('null 값은 false로 처리', () async {
-      final storage = FakeChainExchangeSettingsStorage()
-        ..settings['chainExchangeEnabled'] = null;
+    test('null 값은 true로 처리', () async {
+      final storage = FakeDualExchangeSettingsStorage()
+        ..settings['dualExchangeEnabled'] = null;
 
-      expect(await storage.getChainExchangeEnabled(), isFalse);
+      expect(await storage.getDualExchangeEnabled(), isTrue);
     });
   });
 }

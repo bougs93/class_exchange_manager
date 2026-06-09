@@ -19,9 +19,9 @@ class UnifiedNavigationBar extends ConsumerWidget {
   static const _navItems = [
     {
       'index': NavIndices.home,
-      'icon': Icons.home,
-      'label': '홈',
-      'tooltip': '홈',
+      'icon': Icons.play_circle_outline,
+      'label': '시작',
+      'tooltip': '시작',
     },
     {
       'index': NavIndices.exchange,
@@ -32,8 +32,14 @@ class UnifiedNavigationBar extends ConsumerWidget {
     {
       'index': NavIndices.document,
       'icon': Icons.description,
-      'label': '문서',
-      'tooltip': '문서',
+      'label': '계획서 출력',
+      'tooltip': '결보강 계획서 출력',
+    },
+    {
+      'index': NavIndices.notice,
+      'icon': Icons.campaign_outlined,
+      'label': '안내',
+      'tooltip': '안내',
     },
     {
       'index': NavIndices.personalSchedule,
@@ -42,16 +48,10 @@ class UnifiedNavigationBar extends ConsumerWidget {
       'tooltip': '시간표',
     },
     {
-      'index': NavIndices.help,
+      'index': NavIndices.guide,
       'icon': Icons.help_outline,
       'label': '도움말',
       'tooltip': '도움말',
-    },
-    {
-      'index': NavIndices.info,
-      'icon': Icons.info_outline,
-      'label': '정보',
-      'tooltip': '정보',
     },
   ];
 
