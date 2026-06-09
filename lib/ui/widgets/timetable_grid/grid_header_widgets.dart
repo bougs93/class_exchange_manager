@@ -282,7 +282,7 @@ class ResetExchangeListButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return CompactToolbarIconButton(
       onPressed: onPressed,
-      icon: Icons.delete_forever,
+      icon: Icons.clear,
       tooltip: '결보강 전체 초기화',
       backgroundColor: Colors.grey.shade100,
       foregroundColor: Colors.grey.shade700,

@@ -204,8 +204,8 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
                 CompactToolbarLabelButton(
                   onPressed: () => _clearAllDates(context, viewModel),
                   icon: Icons.clear,
-                  label: '날짜과목 초기화',
-                  tooltip: '날짜과목 초기화',
+                  label: '날짜 초기화',
+                  tooltip: '날짜 초기화',
                   backgroundColor: ContentToolbarLayout.neutralButtonBackground,
                   foregroundColor: ContentToolbarLayout.neutralButtonForeground,
                   borderColor: ContentToolbarLayout.neutralButtonBorder,
@@ -216,9 +216,9 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
                 const SizedBox(width: ContentToolbarLayout.buttonGap),
                 CompactToolbarLabelButton(
                   onPressed: () => _showDeleteConfirmDialog(context, ref),
-                  icon: Icons.delete_forever,
+                  icon: Icons.clear,
                   label: '결보강 초기화',
-                  tooltip: '결보강 초기화',
+                  tooltip: '결보강 전체 초기화',
                   backgroundColor: ContentToolbarLayout.neutralButtonBackground,
                   foregroundColor: ContentToolbarLayout.neutralButtonForeground,
                   borderColor: ContentToolbarLayout.neutralButtonBorder,
@@ -668,7 +668,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
   ) async {
     final confirmed = await DialogHelper.showConfirmDialog(
       context,
-      title: '날짜과목 초기화',
+      title: '날짜 초기화',
       message: '입력한 모든 날짜 정보와 과목 선택을 초기화하겠습니까?\n이 작업은 되돌릴 수 없습니다.',
       confirmText: '초기화',
       isDangerous: true,
