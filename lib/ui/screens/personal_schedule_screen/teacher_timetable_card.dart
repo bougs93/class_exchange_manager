@@ -311,40 +311,44 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
   }
 
   /// 교체·보강 역할 뱃지 (교사명 바로 옆)
-  Widget _buildRoleBadge(String label) {
+  Widget _buildRoleBadge(String label) => _buildBadge(
+        label,
+        horizontalPadding: 6,
+        background: Colors.orange.shade50,
+        border: Colors.orange.shade200,
+        text: Colors.orange.shade800,
+      );
+
+  /// 날짜 미지정 안내 뱃지
+  Widget _buildDateStatusBadge(String message) => _buildBadge(
+        message,
+        horizontalPadding: 5,
+        background: Colors.red.shade50,
+        border: Colors.red.shade200,
+        text: Colors.red.shade700,
+      );
+
+  /// 카드 헤더용 소형 뱃지 (역할·날짜 미지정 공통)
+  Widget _buildBadge(
+    String label, {
+    required double horizontalPadding,
+    required Color background,
+    required Color border,
+    required Color text,
+  }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.orange.shade50,
+        color: background,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.orange.shade200),
+        border: Border.all(color: border),
       ),
       child: Text(
         label,
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w600,
-          color: Colors.orange.shade800,
-        ),
-      ),
-    );
-  }
-
-  /// 날짜 미지정 안내 뱃지
-  Widget _buildDateStatusBadge(String message) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-      decoration: BoxDecoration(
-        color: Colors.red.shade50,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.red.shade200),
-      ),
-      child: Text(
-        message,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          color: Colors.red.shade700,
+          color: text,
         ),
       ),
     );

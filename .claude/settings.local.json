@@ -43,7 +43,9 @@
       "Bash(sed -n '552,558p' lib/ui/screens/home_content_screen.dart)",
       "Bash(cat)",
       "Bash(printf '}\\\\n')",
-      "Bash(cat /tmp/supp_header.dart /tmp/supp_body.dart /tmp/supp_footer.dart)"
+      "Bash(cat /tmp/supp_header.dart /tmp/supp_body.dart /tmp/supp_footer.dart)",
+      "Bash(grep -nE \"^  \\(\\\\/\\\\/\\\\/|[A-Za-z<].*\\\\\\(.*\\\\\\)? ?\\\\{?$|[A-Za-z].* [a-zA-Z_]+\\\\\\(\\)\" lib/services/exchange_service.dart)",
+      "Bash(grep -vE \"if |for |return |throw |//\")"
     ],
     "deny": [],
     "ask": []

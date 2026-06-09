@@ -786,14 +786,6 @@ class ExchangeService extends BaseExchangeService {
     return supplementTeachers;
   }
 
-  /// 보강용 교사 목록 가져오기 (선택된 시간에 공강이 있는 교사)
-  List<Map<String, dynamic>> getSupplementExchangeableTeachers(
-    List<TimeSlot> timeSlots,
-    List<Teacher> teachers,
-  ) {
-    return getSupplementTeachers(timeSlots, teachers);
-  }
-
   /// 보강 대상으로 선택 가능한 교사인지 확인
   ///
   /// - 결강 교사 본인 제외
@@ -856,19 +848,6 @@ class ExchangeService extends BaseExchangeService {
           slot.teacher == teacherName &&
           slot.isNotEmpty &&
           (slot.subject?.trim() ?? '') == target,
-    );
-  }
-
-  /// 동일 교과목을 가르치는 보강 가능 교사 목록 (사이드바 필터용)
-  List<Map<String, dynamic>> getSupplementTeachersTeachingSubject(
-    List<TimeSlot> timeSlots,
-    List<Teacher> teachers,
-    String subject,
-  ) {
-    return getSupplementTeachers(
-      timeSlots,
-      teachers,
-      subjectFilter: subject,
     );
   }
 
