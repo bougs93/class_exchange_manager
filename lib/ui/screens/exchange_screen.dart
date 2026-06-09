@@ -516,123 +516,22 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   ///
   /// Returns: `bool` - 수업이 있으면 true, 없으면 false
   bool _isCellNotEmpty(String teacherName, String day, int period) {
-    if (_timetableData == null) {
-      AppLogger.exchangeDebug(
-        '🔄 [교체관리] 셀 확인: timetableData가 null입니다 - $teacherName $day$period교시',
-      );
-      return false;
-    }
+    if (_timetableData == null) return false;
 
     try {
       final dayNumber = DayUtils.getDayNumber(day);
 
-      // 디버깅: 전체 timeSlots 개수 확인
-      final totalSlots = _timetableData!.timeSlots.length;
-      AppLogger.exchangeDebug(
-        '🔄 [교체관리] 셀 확인 시작: $teacherName $day$period교시 (요일번호=$dayNumber, 전체TimeSlot=$totalSlots개)',
+      // 교사/요일/교시가 일치하는 TimeSlot 찾기 (없으면 빈 슬롯으로 간주)
+      final foundSlot = _timetableData!.timeSlots.firstWhere(
+        (slot) =>
+            slot.teacher == teacherName &&
+            slot.dayOfWeek == dayNumber &&
+            slot.period == period,
+        orElse: () => TimeSlot(),
       );
 
-      // 디버깅: 해당 교사의 TimeSlot 확인
-      final teacherSlots =
-          _timetableData!.timeSlots
-              .where((slot) => slot.teacher == teacherName)
-              .toList();
-      AppLogger.exchangeDebug(
-        '🔄 [교체관리] 해당 교사의 TimeSlot: ${teacherSlots.length}개',
-      );
-
-      // 디버깅: 해당 요일의 TimeSlot 확인
-      final daySlots =
-          _timetableData!.timeSlots
-              .where((slot) => slot.dayOfWeek == dayNumber)
-              .toList();
-      AppLogger.exchangeDebug('🔄 [교체관리] 해당 요일의 TimeSlot: ${daySlots.length}개');
-
-      // TimeSlot 찾기
-      TimeSlot? foundSlot;
-      bool slotFound = false;
-      try {
-        foundSlot = _timetableData!.timeSlots.firstWhere(
-          (slot) =>
-              slot.teacher == teacherName &&
-              slot.dayOfWeek == dayNumber &&
-              slot.period == period,
-        );
-        slotFound = true;
-        AppLogger.exchangeDebug(
-          '🔄 [교체관리] TimeSlot 찾음: teacher=${foundSlot.teacher}, subject=${foundSlot.subject}, className=${foundSlot.className}',
-        );
-      } catch (e) {
-        AppLogger.exchangeDebug('🔄 [교체관리] TimeSlot을 찾지 못했습니다: $e');
-        slotFound = false;
-
-        // 디버깅: 비슷한 TimeSlot 확인 (teacher만 맞는 경우)
-        final similarByTeacher =
-            _timetableData!.timeSlots
-                .where((slot) => slot.teacher == teacherName)
-                .take(5)
-                .toList();
-        AppLogger.exchangeDebug('🔄 [교체관리] 같은 교사의 TimeSlot 샘플 (최대 5개):');
-        for (var slot in similarByTeacher) {
-          AppLogger.exchangeDebug(
-            '  - teacher=${slot.teacher}, dayOfWeek=${slot.dayOfWeek}, period=${slot.period}, subject=${slot.subject}, className=${slot.className}',
-          );
-        }
-
-        // 디버깅: 같은 요일과 교시의 TimeSlot 확인
-        final similarByDayPeriod =
-            _timetableData!.timeSlots
-                .where(
-                  (slot) =>
-                      slot.dayOfWeek == dayNumber && slot.period == period,
-                )
-                .take(5)
-                .toList();
-        AppLogger.exchangeDebug('🔄 [교체관리] 같은 요일/교시의 TimeSlot 샘플 (최대 5개):');
-        for (var slot in similarByDayPeriod) {
-          AppLogger.exchangeDebug(
-            '  - teacher=${slot.teacher}, dayOfWeek=${slot.dayOfWeek}, period=${slot.period}, subject=${slot.subject}, className=${slot.className}',
-          );
-        }
-
-        foundSlot = TimeSlot(); // 빈 TimeSlot 반환
-      }
-
-      // 🔥 수업있음 판단 과정 상세 로그 (TimeSlot.isEmpty/isNotEmpty getter 사용 - 중복 계산 제거)
-      try {
-        AppLogger.exchangeDebug(
-          '📊 [교체관리] 수업있음 판단 시작: $teacherName $day$period교시',
-        );
-        AppLogger.exchangeDebug('  - TimeSlot 찾기: ${slotFound ? "성공" : "실패"}');
-
-        // TimeSlot의 isEmpty/isNotEmpty getter 직접 사용 (중복 계산 제거)
-        final subject = foundSlot.subject;
-        final className = foundSlot.className;
-        final isEmpty = foundSlot.isEmpty; // TimeSlot.isEmpty getter 사용
-        final isNotEmpty =
-            foundSlot.isNotEmpty; // TimeSlot.isNotEmpty getter 사용
-
-        AppLogger.exchangeDebug('  - subject 값: ${subject ?? "null"}');
-        AppLogger.exchangeDebug('  - className 값: ${className ?? "null"}');
-        AppLogger.exchangeDebug(
-          '  - isEmpty 판단: $isEmpty (TimeSlot.isEmpty 사용)',
-        );
-        AppLogger.exchangeDebug(
-          '  - isNotEmpty 판단: $isNotEmpty (TimeSlot.isNotEmpty 사용)',
-        );
-        AppLogger.exchangeDebug('  ✅ 최종 판단: 수업있음=$isNotEmpty');
-      } catch (logError) {
-        AppLogger.exchangeDebug('  ⚠️ 상세 로그 출력 중 오류: $logError');
-      }
-
-      bool hasClass = foundSlot.isNotEmpty;
-      AppLogger.exchangeDebug(
-        '🔄 [교체관리] 셀 확인: $teacherName $day$period교시, 수업있음=$hasClass (최종 결과)',
-      );
-
-      return hasClass;
+      return foundSlot.isNotEmpty;
     } catch (e) {
-      AppLogger.exchangeDebug('🔄 [교체관리] 셀 확인 중 오류: $e');
       AppLogger.error('셀 확인 중 예외 발생: $e', e);
       return false;
     }
@@ -953,23 +852,12 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
   /// Syncfusion DataGrid 컬럼 및 헤더 생성
   void _createSyncfusionGridData() {
-    AppLogger.exchangeDebug(
-      '🔄 [ExchangeScreen] _createSyncfusionGridData() 호출됨',
-    );
-
     // 글로벌 Provider에서 시간표 데이터 확인 (StartScreen에서 설정한 데이터)
     final globalTimetableData = ref.read(exchangeScreenProvider).timetableData;
 
     if (globalTimetableData == null) {
-      AppLogger.exchangeDebug(
-        '❌ [ExchangeScreen] globalTimetableData가 null입니다',
-      );
       return;
     }
-
-    AppLogger.exchangeDebug(
-      '✅ [ExchangeScreen] globalTimetableData 확인됨: ${globalTimetableData.teachers.length}명 교사, ${globalTimetableData.timeSlots.length}개 시간표',
-    );
 
     // ExchangeService를 사용하여 교체 가능한 교사 정보 수집 (현재 선택된 교사가 있는 경우에만)
     List<Map<String, dynamic>> exchangeableTeachers = [];
@@ -1048,9 +936,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     // 현재 상태와 비교하여 실제로 변경이 필요한 경우에만 업데이트
     if (needsForceUpdate ||
         _shouldUpdateColumns(currentState.columns, result.columns)) {
-      AppLogger.exchangeDebug(
-        '🔄 [그리드 생성] 컬럼 업데이트: ${currentState.columns.length}개 → ${result.columns.length}개',
-      );
       notifier.setColumns(result.columns);
     }
 
@@ -1059,15 +944,10 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
           currentState.stackedHeaders,
           result.stackedHeaders,
         )) {
-      AppLogger.exchangeDebug(
-        '🔄 [그리드 생성] 스택 헤더 업데이트: ${currentState.stackedHeaders.length}개 → ${result.stackedHeaders.length}개',
-      );
       notifier.setStackedHeaders(result.stackedHeaders);
     }
 
     // 엑셀 파일 로드 시마다 무조건 새로운 데이터소스 생성
-    AppLogger.exchangeDebug('🔄 [ExchangeScreen] 새로운 TimetableDataSource 생성');
-
     final dataSource = TimetableDataSource(
       timeSlots: globalTimetableData.timeSlots,
       teachers: globalTimetableData.teachers,
@@ -1082,13 +962,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
     // Provider에 데이터 소스 설정
     notifier.setDataSource(dataSource);
-    AppLogger.exchangeDebug(
-      '✅ [ExchangeScreen] 새로운 TimetableDataSource 생성 및 설정 완료',
-    );
-
-    AppLogger.exchangeDebug(
-      '🎉 [ExchangeScreen] _createSyncfusionGridData() 완료 - 컬럼: ${result.columns.length}개, 헤더: ${result.stackedHeaders.length}개',
-    );
   }
 
   /// 셀 탭 이벤트 핸들러 - 교체 모드가 활성화된 경우만 동작
@@ -1719,7 +1592,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     // 🔥 중요: timetableData가 없으면 헤더 업데이트 중단
     // 모드 전환 중 timetableData가 로드되지 않은 경우를 방지
     if (screenState.timetableData == null) {
-      AppLogger.exchangeDebug('🔄 [헤더 테마] timetableData가 null이어서 헤더 업데이트 건너뜀');
       return;
     }
 
@@ -1730,7 +1602,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
         screenState.columns.isNotEmpty &&
         screenState.timetableData != null) {
       // 기존 컬럼이 있으면 DataSource만 업데이트 (스타일 변경만 반영)
-      AppLogger.exchangeDebug('🔄 [헤더 테마] 기존 컬럼 유지 - 스타일만 업데이트');
       screenState.dataSource?.notifyDataChanged();
       return;
     }
@@ -1796,9 +1667,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       if (forceUpdate ||
           needsForceUpdate ||
           _shouldUpdateColumns(currentState.columns, result.columns)) {
-        AppLogger.exchangeDebug(
-          '🔄 [헤더 테마] 컬럼 업데이트: ${currentState.columns.length}개 → ${result.columns.length}개${forceUpdate ? " (강제 재생성)" : ""}',
-        );
         notifier.setColumns(result.columns);
       }
 
@@ -1808,20 +1676,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
             currentState.stackedHeaders,
             result.stackedHeaders,
           )) {
-        AppLogger.exchangeDebug(
-          '🔄 [헤더 테마] 스택 헤더 업데이트: ${currentState.stackedHeaders.length}개 → ${result.stackedHeaders.length}개${forceUpdate ? " (강제 재생성)" : ""}',
-        );
         notifier.setStackedHeaders(result.stackedHeaders);
       }
-
-      AppLogger.exchangeDebug(
-        '🔄 [헤더 테마] 구조적 변경으로 인한 columns/stackedHeaders 업데이트${forceUpdate ? " (줌 팩터 변경)" : ""}',
-      );
-    } else {
-      // 구조적 변경이 없는 경우 DataSource만 업데이트하여 스타일 변경 반영
-      AppLogger.exchangeDebug(
-        '🔄 [헤더 테마] 스타일 변경만 반영 - columns/stackedHeaders 재생성 없음',
-      );
     }
 
     // TimetableDataSource의 최적화된 UI 업데이트 (배치 업데이트 지원)
@@ -1835,26 +1691,17 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   ) {
     // 🔥 중요: 빈 리스트인 경우 무조건 업데이트 (초기 상태 또는 리셋된 상태)
     if (currentColumns.isEmpty && newColumns.isNotEmpty) {
-      AppLogger.exchangeDebug(
-        '🔄 [컬럼 업데이트] 빈 컬럼 리스트 감지 - 강제 업데이트 (${newColumns.length}개)',
-      );
       return true;
     }
 
     // 길이가 다르면 구조적 변경
     if (currentColumns.length != newColumns.length) {
-      AppLogger.exchangeDebug(
-        '🔄 [컬럼 업데이트] 컬럼 개수 불일치 - ${currentColumns.length}개 → ${newColumns.length}개',
-      );
       return true;
     }
 
     // 컬럼명이나 기본 구조가 변경된 경우만 업데이트 (스타일 변경은 제외)
     for (int i = 0; i < currentColumns.length; i++) {
       if (currentColumns[i].columnName != newColumns[i].columnName) {
-        AppLogger.exchangeDebug(
-          '🔄 [컬럼 업데이트] 컬럼명 변경 감지: ${currentColumns[i].columnName} → ${newColumns[i].columnName}',
-        );
         return true; // 컬럼명 변경은 구조적 변경
       }
       // width 변경은 스타일 변경이므로 제외하여 불필요한 ValueKey 변경 방지
@@ -1869,17 +1716,11 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   ) {
     // 🔥 중요: 빈 리스트인 경우 무조건 업데이트 (초기 상태 또는 리셋된 상태)
     if (currentHeaders.isEmpty && newHeaders.isNotEmpty) {
-      AppLogger.exchangeDebug(
-        '🔄 [스택 헤더 업데이트] 빈 헤더 리스트 감지 - 강제 업데이트 (${newHeaders.length}개)',
-      );
       return true;
     }
 
     // 길이가 다르면 구조적 변경
     if (currentHeaders.length != newHeaders.length) {
-      AppLogger.exchangeDebug(
-        '🔄 [스택 헤더 업데이트] 헤더 개수 불일치 - ${currentHeaders.length}개 → ${newHeaders.length}개',
-      );
       return true;
     }
 
