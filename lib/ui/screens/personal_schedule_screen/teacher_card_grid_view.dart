@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/time_slot.dart';
 import '../../../providers/personal_schedule_provider.dart';
+import '../../../providers/plan_output_menu_provider.dart';
 import '../../../providers/substitution_plan_viewmodel.dart';
 import '../../../services/excel_service.dart';
 import '../../../utils/personal_exchange_info_extractor.dart';
@@ -98,6 +99,10 @@ class _TeacherCardGridViewState extends ConsumerState<TeacherCardGridView>
                   ),
                   roleLabel: target.roleLabel,
                   dateStatusMessage: target.dateStatusMessage,
+                  onDateStatusTap:
+                      target.hasUnspecifiedDate
+                          ? () => navigateToPlanDateSelection(ref)
+                          : null,
                   timeSlots: widget.timeSlots,
                   weekDates: widget.weekDates,
                   zoomFactor: zoomFactor,

@@ -70,7 +70,8 @@
       "Bash(grep -v '\\\\.dart$')",
       "PowerShell(flutter *)",
       "Bash(Select-String -Pattern \"error|warning|info|No issues\")",
-      "Bash(Select-Object -First 30)"
+      "Bash(Select-Object -First 30)",
+      "Bash(grep -v '^$')"
     ],
     "deny": [],
     "ask": []

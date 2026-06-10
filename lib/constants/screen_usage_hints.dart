@@ -10,7 +10,7 @@ class ScreenUsageHints {
 
   /// 계획서 출력 > 결보강 출력
   static const String substitutionOutput =
-      '입력란을 확인한 후 PDF 출력·인쇄 버튼을 눌러 결보강 계획서를 저장하거나 인쇄하세요.';
+      '입력란을 확인한 후 PDF 미리보기, 인쇄 버튼을 눌러 결보강 계획서를 저장하거나 인쇄하세요.';
 
   /// 안내 > 교사안내
   static const String teacherNotice =

@@ -120,7 +120,7 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
   /// AppBar 생성
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      title: const Text('출력 미리 보기'),
+      title: const Text('PDF 미리보기, 인쇄'),
       actions: [
         if (!_isLoading && !_hasError) ...[
           Center(
@@ -201,7 +201,7 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
             Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
             const SizedBox(height: 16),
             Text(
-              '출력 미리 보기 오류',
+              'PDF 미리보기, 인쇄 오류',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -263,7 +263,7 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
             Icon(Icons.error_outline, size: 64, color: Colors.orange.shade300),
             const SizedBox(height: 16),
             Text(
-              '출력 미리 보기 사용 불가',
+              'PDF 미리보기, 인쇄 사용 불가',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,

@@ -19,6 +19,10 @@ class TeacherTimetableCard extends StatefulWidget {
   final String? subject;
   final String? roleLabel;
   final String? dateStatusMessage;
+
+  /// 날짜 미지정 뱃지 탭 시 호출 (계획서 > 날짜 선택으로 이동 등)
+  final VoidCallback? onDateStatusTap;
+
   final List<TimeSlot> timeSlots;
   final List<DateTime> weekDates;
   final double zoomFactor;
@@ -34,6 +38,7 @@ class TeacherTimetableCard extends StatefulWidget {
     this.subject,
     this.roleLabel,
     this.dateStatusMessage,
+    this.onDateStatusTap,
     required this.timeSlots,
     required this.weekDates,
     required this.zoomFactor,
@@ -287,7 +292,10 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
                 ],
                 if (hasDateStatusMessage) ...[
                   const SizedBox(width: 6),
-                  _buildDateStatusBadge(dateStatusMessage),
+                  _buildDateStatusBadge(
+                    dateStatusMessage,
+                    onTap: widget.onDateStatusTap,
+                  ),
                 ],
               ],
             ),
@@ -321,14 +329,32 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
     text: Colors.orange.shade800,
   );
 
-  /// 날짜 미지정 안내 뱃지
-  Widget _buildDateStatusBadge(String message) => _buildBadge(
-    message,
-    horizontalPadding: 5,
-    background: Colors.red.shade50,
-    border: Colors.red.shade200,
-    text: Colors.red.shade700,
-  );
+  /// 날짜 미지정 안내 뱃지 — 탭 시 [onTap]으로 계획서 날짜 선택 화면 이동
+  Widget _buildDateStatusBadge(String message, {VoidCallback? onTap}) {
+    final badge = _buildBadge(
+      message,
+      horizontalPadding: 5,
+      background: Colors.red.shade50,
+      border: Colors.red.shade200,
+      text: Colors.red.shade700,
+    );
+
+    if (onTap == null) {
+      return badge;
+    }
+
+    return Tooltip(
+      message: '계획서 > 날짜 선택으로 이동',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(4),
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: badge,
+        ),
+      ),
+    );
+  }
 
   /// 카드 헤더용 소형 뱃지 (역할·날짜 미지정 공통)
   Widget _buildBadge(

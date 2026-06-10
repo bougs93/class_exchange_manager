@@ -598,9 +598,9 @@ class SubstitutionOutputWidgetState
       width: double.infinity,
       child: CompactToolbarLabelButton(
         onPressed: _handlePreview,
-        icon: Icons.picture_as_pdf,
-        label: 'PDF 출력 · 인쇄',
-        tooltip: 'PDF 출력 · 인쇄',
+        icon: Icons.print,
+        label: 'PDF 미리보기, 인쇄',
+        tooltip: 'PDF 미리보기, 인쇄',
         backgroundColor: accentColor.shade50,
         foregroundColor: accentColor.shade600,
         borderColor: accentColor.shade600,
@@ -650,7 +650,7 @@ class SubstitutionOutputWidgetState
       if (!mounted) return;
 
       if (!success) {
-        _showSnackBar('출력 미리 보기 생성 실패', Colors.red);
+        _showSnackBar('PDF 미리보기 생성 실패', Colors.red);
         return;
       }
 

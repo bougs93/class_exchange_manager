@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../models/exchange_node.dart';
 import '../../../models/exchange_path.dart';
 import '../../../models/one_to_one_exchange_path.dart';
 import '../../../models/circular_exchange_path.dart';
@@ -93,6 +94,48 @@ class ExchangeExecutor {
     );
   }
 
+  /// 교체 노드를 "교사명 요일N교시" 형식으로 표시합니다.
+  String _formatExchangeNodeSlot(ExchangeNode node) {
+    return '${node.teacherName} ${node.day}${node.period}교시';
+  }
+
+  /// 양쪽 교사·교시와 교체 유형을 포함한 완료 메시지를 생성합니다.
+  String _buildExchangePairMessage(
+    ExchangeNode left,
+    ExchangeNode right,
+    String exchangeTypeLabel,
+  ) {
+    return '${_formatExchangeNodeSlot(left)} ↔ '
+        '${_formatExchangeNodeSlot(right)} $exchangeTypeLabel 교체가 완료되었습니다.';
+  }
+
+  /// 교체 완료 스낵바 메시지 생성
+  String _buildExchangeCompleteMessage(ExchangePath exchangePath) {
+    if (exchangePath is OneToOneExchangePath) {
+      return _buildExchangePairMessage(
+        exchangePath.sourceNode,
+        exchangePath.targetNode,
+        '1:1',
+      );
+    }
+    if (exchangePath is DualExchangePath) {
+      // 목표 교체(nodeA ↔ nodeB)를 스낵바에 표시
+      return _buildExchangePairMessage(
+        exchangePath.nodeA,
+        exchangePath.nodeB,
+        '2중',
+      );
+    }
+    if (exchangePath is CircularExchangePath) {
+      final nodes = exchangePath.nodes;
+      if (nodes.length >= 2) {
+        return _buildExchangePairMessage(nodes[0], nodes[1], '순환');
+      }
+      return '순환 교체가 완료되었습니다.';
+    }
+    return '${exchangePath.displayTitle}가 완료되었습니다.';
+  }
+
   /// 교체 실행 기능
   void executeExchange(
     ExchangePath exchangePath,
@@ -122,7 +165,7 @@ class ExchangeExecutor {
     _executeCommonPostProcess(
       context: context,
       onInternalPathClear: onInternalPathClear,
-      message: '교체 경로 "${exchangePath.id}"가 실행되었습니다',
+      message: _buildExchangeCompleteMessage(exchangePath),
       snackBarColor: Colors.blue,
       undoButtonLabel: '되돌리기',
       onUndoPressed: () => undoLastExchange(context, onInternalPathClear),
