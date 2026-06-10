@@ -6,6 +6,7 @@ import '../../../services/app_settings_storage_service.dart';
 import '../../../services/storage_service.dart';
 import '../../../utils/logger.dart';
 import '../../../utils/simplified_timetable_theme.dart';
+import '../../widgets/timetable_grid/timetable_grid_constants.dart';
 import '../../widgets/data_storage_location_section.dart';
 import 'highlight_color_picker.dart';
 import 'setting_save_mixin.dart';
@@ -116,6 +117,28 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
               .read(circularExchangeEnabledProvider.notifier)
               .setEnabled(enabled),
       successMessage: enabled ? '순환 교체 기능이 활성화되었습니다.' : '순환 교체 기능이 비활성화되었습니다.',
+    );
+  }
+
+  /// 1:1 교체 화살표 방향 저장
+  Future<void> _saveOneToOneArrowDirection(ArrowDirection direction) async {
+    await saveSetting(
+      saver:
+          () => ref
+              .read(oneToOneArrowDirectionProvider.notifier)
+              .setDirection(direction),
+      successMessage: '화살표 표시 설정이 저장되었습니다.',
+    );
+  }
+
+  /// 2중 교체 화살표 방향 저장
+  Future<void> _saveDualArrowDirection(ArrowDirection direction) async {
+    await saveSetting(
+      saver:
+          () => ref
+              .read(dualArrowDirectionProvider.notifier)
+              .setDirection(direction),
+      successMessage: '화살표 표시 설정이 저장되었습니다.',
     );
   }
 
@@ -247,6 +270,8 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
                 const SizedBox(height: 8),
                 _buildHighlightColorSection(),
                 const SizedBox(height: 8),
+                _buildArrowDirectionSection(),
+                const SizedBox(height: 8),
                 _buildIndirectExchangeGroupSection(),
                 const SizedBox(height: 8),
                 DataStorageLocationSection(
@@ -297,6 +322,117 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
                       : null,
         ),
       ],
+    );
+  }
+
+  /// 화살표 표시 설정 섹션 (1:1·2중 교체 화살표 방향)
+  Widget _buildArrowDirectionSection() {
+    final oneToOneDir = ref.watch(oneToOneArrowDirectionProvider);
+    final dualDir = ref.watch(dualArrowDirectionProvider);
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '화살표 표시',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '교체 화면 시간표에 표시되는 화살표 방향을 설정합니다.',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 8),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // 카드 2개 + 간격이 들어갈 수 있으면 1행, 부족하면 2행으로 줄바꿈
+              const spacing = 12.0;
+              const minCardWidth = 168.0;
+              final maxWidth = constraints.maxWidth;
+              final twoColumns = maxWidth >= minCardWidth * 2 + spacing;
+              final cardWidth =
+                  twoColumns ? (maxWidth - spacing) / 2 : maxWidth;
+
+              return Wrap(
+                spacing: spacing,
+                runSpacing: 8,
+                children: [
+                  SizedBox(
+                    width: cardWidth,
+                    child: _buildArrowDirectionCard(
+                      label: '1:1 교체',
+                      value: oneToOneDir,
+                      onChanged: _saveOneToOneArrowDirection,
+                    ),
+                  ),
+                  SizedBox(
+                    width: cardWidth,
+                    child: _buildArrowDirectionCard(
+                      label: '2중 교체',
+                      value: dualDir,
+                      onChanged: _saveDualArrowDirection,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 화살표 방향 선택 카드 (1:1·2중 각각 그룹)
+  Widget _buildArrowDirectionCard({
+    required String label,
+    required ArrowDirection value,
+    required ValueChanged<ArrowDirection> onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
+          DropdownButton<ArrowDirection>(
+            value: value,
+            isExpanded: true,
+            underline: const SizedBox.shrink(),
+            isDense: true,
+            items: const [
+              DropdownMenuItem(
+                value: ArrowDirection.forward,
+                child: Text('단방향(2개) 화살표', style: TextStyle(fontSize: 12)),
+              ),
+              DropdownMenuItem(
+                value: ArrowDirection.bidirectional,
+                child: Text('양방향(1개) 화살표', style: TextStyle(fontSize: 12)),
+              ),
+            ],
+            onChanged:
+                (newValue) =>
+                    newValue != null && newValue != value
+                        ? onChanged(newValue)
+                        : null,
+          ),
+        ],
+      ),
     );
   }
 

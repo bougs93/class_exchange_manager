@@ -25,6 +25,7 @@ import '../../providers/scroll_provider.dart';
 import '../../providers/node_scroll_provider.dart'; // 🆕 노드 스크롤 Provider 추가
 import '../../providers/teacher_scroll_provider.dart';
 import '../../providers/cell_status_symbol_visibility_provider.dart';
+import '../../providers/app_settings_provider.dart';
 import '../../utils/simplified_timetable_theme.dart';
 import 'timetable_grid/timetable_grid_constants.dart';
 import 'timetable_grid/exchange_arrow_style.dart';
@@ -622,6 +623,11 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
           scrollState.horizontalOffset,
           scrollState.verticalOffset,
         );
+        // 화살표 방향 설정 (변경 시 painter 재생성 → shouldRepaint로 갱신)
+        final oneToOneArrowDirection = ref.watch(
+          oneToOneArrowDirectionProvider,
+        );
+        final dualArrowDirection = ref.watch(dualArrowDirectionProvider);
 
         return Stack(
           children: [
@@ -636,6 +642,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
                     customArrowStyle: widget.customArrowStyle,
                     zoomFactor: zoomFactor,
                     scrollOffset: scrollOffset,
+                    oneToOneArrowDirection: oneToOneArrowDirection,
+                    dualArrowDirection: dualArrowDirection,
                   ),
                   child: RepaintBoundary(child: Container()),
                 ),

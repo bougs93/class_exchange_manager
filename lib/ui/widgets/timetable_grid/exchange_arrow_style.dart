@@ -19,14 +19,34 @@ class ExchangeArrowStyle {
     this.direction = ArrowDirection.forward,
   });
 
-  /// 1:1 교체 모드용 스타일 (단방향 - 별도 화살표로 양방향 구현)
+  /// 일부 속성만 교체한 새 스타일 생성
+  ///
+  /// 화살표 머리 크기·방향을 런타임 설정에 맞춰 조정할 때 사용한다.
+  ExchangeArrowStyle copyWith({
+    Color? color,
+    double? strokeWidth,
+    Color? outlineColor,
+    double? outlineWidth,
+    double? arrowHeadSize,
+    ArrowDirection? direction,
+  }) {
+    return ExchangeArrowStyle(
+      color: color ?? this.color,
+      strokeWidth: strokeWidth ?? this.strokeWidth,
+      outlineColor: outlineColor ?? this.outlineColor,
+      outlineWidth: outlineWidth ?? this.outlineWidth,
+      arrowHeadSize: arrowHeadSize ?? this.arrowHeadSize,
+      direction: direction ?? this.direction,
+    );
+  }
+
+  /// 1:1 교체 모드용 스타일 (방향은 설정에 따라 런타임에 적용)
   static const ExchangeArrowStyle oneToOne = ExchangeArrowStyle(
     color: Colors.green,
     strokeWidth: 3.0,
     outlineColor: Colors.white,
     outlineWidth: 5.0,
     arrowHeadSize: 12.0,
-    direction: ArrowDirection.forward,
   );
 
   /// 순환 교체 모드용 스타일 (단방향)
@@ -39,14 +59,13 @@ class ExchangeArrowStyle {
     direction: ArrowDirection.forward,
   );
 
-  /// 2중 교체 모드용 스타일 (양방향)
+  /// 2중 교체 모드용 스타일 (방향은 설정에 따라 런타임에 적용)
   static const ExchangeArrowStyle dual = ExchangeArrowStyle(
     color: Color(0xFFFF8C69), // 주황색 (#FF8C69)
     strokeWidth: 2.0,
     outlineColor: Colors.white,
     outlineWidth: 4.0,
     arrowHeadSize: 8.0,
-    direction: ArrowDirection.bidirectional,
   );
 
   /// 보강 모드용 스타일 (단방향)

@@ -1,5 +1,7 @@
 import 'storage_service.dart';
+import '../models/exchange_mode.dart';
 import '../utils/logger.dart';
+import '../ui/widgets/timetable_grid/timetable_grid_constants.dart';
 
 /// 2중 교체 설정 저장/로드 인터페이스 (테스트 mock 지원)
 abstract class DualExchangeSettingsStorage {
@@ -13,11 +15,46 @@ abstract class CircularExchangeSettingsStorage {
   Future<bool> saveCircularExchangeEnabled(bool enabled);
 }
 
+/// 마지막 교체 모드 저장/로드 인터페이스 (테스트 mock 지원)
+abstract class LastExchangeModeStorage {
+  Future<ExchangeMode?> getLastExchangeMode();
+  Future<bool> saveLastExchangeMode(ExchangeMode mode);
+}
+
+/// 교체 화살표 방향 설정 저장/로드 인터페이스 (테스트 mock 지원)
+abstract class ArrowDirectionSettingsStorage {
+  Future<ArrowDirection> getOneToOneArrowDirection();
+  Future<bool> saveOneToOneArrowDirection(ArrowDirection direction);
+  Future<ArrowDirection> getDualArrowDirection();
+  Future<bool> saveDualArrowDirection(ArrowDirection direction);
+}
+
+/// ArrowDirection ↔ JSON 문자열 변환
+String arrowDirectionToJson(ArrowDirection direction) {
+  return direction == ArrowDirection.bidirectional ? 'bidirectional' : 'forward';
+}
+
+/// JSON 문자열 → ArrowDirection (알 수 없는 값이면 [fallback])
+ArrowDirection arrowDirectionFromJson(String? value, ArrowDirection fallback) {
+  switch (value) {
+    case 'forward':
+      return ArrowDirection.forward;
+    case 'bidirectional':
+      return ArrowDirection.bidirectional;
+    default:
+      return fallback;
+  }
+}
+
 /// 앱 설정 저장 서비스
 ///
 /// 언어 설정 등 앱 전역 설정을 JSON 파일로 저장하고 로드합니다.
 class AppSettingsStorageService
-    implements DualExchangeSettingsStorage, CircularExchangeSettingsStorage {
+    implements
+        DualExchangeSettingsStorage,
+        CircularExchangeSettingsStorage,
+        LastExchangeModeStorage,
+        ArrowDirectionSettingsStorage {
   final StorageService _storageService = StorageService();
 
   // 싱글톤 인스턴스
@@ -334,6 +371,136 @@ class AppSettingsStorageService
       return settings['circularExchangeEnabled'] as bool? ?? false;
     } catch (e) {
       AppLogger.error('순환 교체 설정 로드 중 오류: $e', e);
+      return false;
+    }
+  }
+
+  /// 1:1 교체 화살표 방향 로드 (기본값: 단방향 forward)
+  @override
+  Future<ArrowDirection> getOneToOneArrowDirection() async {
+    try {
+      final settings = await loadAppSettings();
+      return arrowDirectionFromJson(
+        settings?['oneToOneArrowDirection'] as String?,
+        ArrowDirection.forward,
+      );
+    } catch (e) {
+      AppLogger.error('1:1 화살표 방향 로드 중 오류: $e', e);
+      return ArrowDirection.forward;
+    }
+  }
+
+  /// 1:1 교체 화살표 방향 저장 (기존 설정은 merge 방식 유지)
+  @override
+  Future<bool> saveOneToOneArrowDirection(ArrowDirection direction) async {
+    return _saveArrowDirection('oneToOneArrowDirection', direction, '1:1');
+  }
+
+  /// 2중 교체 화살표 방향 로드 (기본값: 양방향 bidirectional)
+  @override
+  Future<ArrowDirection> getDualArrowDirection() async {
+    try {
+      final settings = await loadAppSettings();
+      return arrowDirectionFromJson(
+        settings?['dualArrowDirection'] as String?,
+        ArrowDirection.bidirectional,
+      );
+    } catch (e) {
+      AppLogger.error('2중 화살표 방향 로드 중 오류: $e', e);
+      return ArrowDirection.bidirectional;
+    }
+  }
+
+  /// 2중 교체 화살표 방향 저장 (기존 설정은 merge 방식 유지)
+  @override
+  Future<bool> saveDualArrowDirection(ArrowDirection direction) async {
+    return _saveArrowDirection('dualArrowDirection', direction, '2중');
+  }
+
+  /// 화살표 방향 설정 저장 공통 처리 (merge 방식)
+  Future<bool> _saveArrowDirection(
+    String key,
+    ArrowDirection direction,
+    String label,
+  ) async {
+    try {
+      final settings = await loadAppSettings();
+      final updatedSettings =
+          settings == null
+              ? <String, dynamic>{}
+              : Map<String, dynamic>.from(settings);
+
+      updatedSettings[key] = arrowDirectionToJson(direction);
+
+      final success = await _storageService.saveJson(
+        'app_settings.json',
+        updatedSettings,
+      );
+
+      if (success) {
+        AppLogger.info('$label 화살표 방향 저장 성공: ${arrowDirectionToJson(direction)}');
+      } else {
+        AppLogger.error('$label 화살표 방향 저장 실패');
+      }
+
+      return success;
+    } catch (e) {
+      AppLogger.error('$label 화살표 방향 저장 중 오류: $e', e);
+      return false;
+    }
+  }
+
+  /// 마지막으로 사용한 교체 모드 로드
+  ///
+  /// 반환값:
+  /// - `Future<ExchangeMode?>`: 저장된 모드 (최초 실행 등 저장 이력 없으면 null)
+  @override
+  Future<ExchangeMode?> getLastExchangeMode() async {
+    try {
+      final settings = await loadAppSettings();
+      if (settings == null) {
+        return null;
+      }
+
+      return exchangeModeFromJson(settings['lastExchangeMode'] as String?);
+    } catch (e) {
+      AppLogger.error('마지막 교체 모드 로드 중 오류: $e', e);
+      return null;
+    }
+  }
+
+  /// 마지막 교체 모드 저장 (기존 설정은 merge 방식 유지)
+  ///
+  /// [view] 모드는 교체 메뉴 탭 상태가 아니므로 저장하지 않습니다.
+  @override
+  Future<bool> saveLastExchangeMode(ExchangeMode mode) async {
+    if (mode == ExchangeMode.view) {
+      return true;
+    }
+
+    try {
+      final settings = await loadAppSettings();
+      final updatedSettings =
+          settings == null
+              ? <String, dynamic>{}
+              : Map<String, dynamic>.from(settings);
+
+      updatedSettings['lastExchangeMode'] = exchangeModeToJson(mode);
+
+      final success = await _storageService.saveJson(
+        'app_settings.json',
+        updatedSettings,
+      );
+
+      if (success) {
+        AppLogger.info('마지막 교체 모드 저장 성공: ${exchangeModeToJson(mode)}');
+      } else {
+        AppLogger.error('마지막 교체 모드 저장 실패');
+      }
+
+      return success;
+    } catch (e) {
+      AppLogger.error('마지막 교체 모드 저장 중 오류: $e', e);
       return false;
     }
   }

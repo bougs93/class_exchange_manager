@@ -124,3 +124,19 @@ extension ExchangeModeExtension on ExchangeMode {
     return this == ExchangeMode.nonExchangeableEdit;
   }
 }
+
+/// [ExchangeMode] ↔ app_settings.json 문자열 변환
+String exchangeModeToJson(ExchangeMode mode) => mode.name;
+
+/// JSON 문자열 → [ExchangeMode] (없거나 알 수 없으면 null)
+ExchangeMode? exchangeModeFromJson(String? value) {
+  if (value == null || value.isEmpty) {
+    return null;
+  }
+  for (final mode in ExchangeMode.values) {
+    if (mode.name == value) {
+      return mode;
+    }
+  }
+  return null;
+}

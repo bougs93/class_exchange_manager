@@ -11,6 +11,8 @@ import '../../../models/exchange_node.dart';
 import '../../../utils/constants.dart';
 import 'timetable_grid_constants.dart';
 import 'exchange_arrow_style.dart';
+import 'exchange_arrow_step.dart';
+import 'exchange_arrow_draw_helper.dart';
 
 /// 교체 경로 화살표를 그리는 CustomPainter
 class ExchangeArrowPainter extends CustomPainter {
@@ -21,6 +23,12 @@ class ExchangeArrowPainter extends CustomPainter {
   final double zoomFactor; // 클리핑 계산용 (실제 크기는 이미 조정됨)
   final Offset scrollOffset; // 스크롤 오프셋 (화살표가 스크롤을 따라 이동)
 
+  /// 1:1 교체 화살표 방향 (설정값, 기본: 단방향)
+  final ArrowDirection oneToOneArrowDirection;
+
+  /// 2중 교체 화살표 방향 (설정값, 기본: 양방향)
+  final ArrowDirection dualArrowDirection;
+
   ExchangeArrowPainter({
     required this.selectedPath,
     required this.timetableData,
@@ -28,6 +36,8 @@ class ExchangeArrowPainter extends CustomPainter {
     this.customArrowStyle,
     required this.zoomFactor, // 클리핑 계산용
     required this.scrollOffset, // 스크롤 오프셋
+    this.oneToOneArrowDirection = ArrowDirection.forward,
+    this.dualArrowDirection = ArrowDirection.bidirectional,
   }) : assert(columns.isNotEmpty, 'columns cannot be empty'),
        assert(zoomFactor > 0, 'zoomFactor must be positive');
 
@@ -60,31 +70,60 @@ class ExchangeArrowPainter extends CustomPainter {
     }
   }
 
-  /// 1:1 교체 화살표 그리기 (2개의 단방향 화살표)
+  /// 두 노드 사이 화살표 그리기를 헬퍼에 위임하기 위한 콜백 생성
+  ArrowDrawCallback _arrowDrawCallback(Canvas canvas, Size size) {
+    return (
+      ExchangeNode from,
+      ExchangeNode to, {
+      ArrowPriority priority = ArrowPriority.verticalFirst,
+      double? arrowHeadSize,
+      String? text,
+      ArrowDirection direction = ArrowDirection.forward,
+      double lateralOffset = 0.0,
+    }) {
+      _drawArrowBetweenNodes(
+        canvas,
+        size,
+        from,
+        to,
+        priority: priority,
+        arrowHeadSize: arrowHeadSize,
+        text: text,
+        direction: direction,
+        lateralOffset: lateralOffset,
+      );
+    };
+  }
+
+  /// 1:1 교체 화살표 그리기
+  ///
+  /// - 단방향(기본): A→B, B→A 2개의 선을 각각 단방향 화살표로 그린다.
+  /// - 양방향: 1개의 선에 양쪽 화살표 머리(↔)와 중간 숫자 "1"을 그린다.
   void _drawOneToOneArrows(Canvas canvas, Size size) {
     final oneToOnePath = selectedPath as OneToOneExchangePath;
-    final sourceNode = oneToOnePath.sourceNode;
-    final targetNode = oneToOnePath.targetNode;
+    final draw = _arrowDrawCallback(canvas, size);
 
-    // A → B 방향 화살표 그리기 (세로 우선, 머리 사이즈 12)
-    _drawArrowBetweenNodes(
-      canvas,
-      size,
-      sourceNode,
-      targetNode,
-      priority: ArrowPriority.verticalFirst,
-      arrowHeadSize: 12.0,
-    );
-
-    // B → A 방향 화살표 그리기 (세로 우선, 머리 사이즈 12)
-    _drawArrowBetweenNodes(
-      canvas,
-      size,
-      targetNode,
-      sourceNode,
-      priority: ArrowPriority.verticalFirst,
-      arrowHeadSize: 12.0,
-    );
+    if (oneToOneArrowDirection == ArrowDirection.bidirectional) {
+      ExchangeArrowDrawHelper.drawStepArrows(
+        steps: [
+          ExchangeArrowStep(
+            fromNode: oneToOnePath.sourceNode,
+            toNode: oneToOnePath.targetNode,
+            stepNumber: 1,
+          ),
+        ],
+        direction: ArrowDirection.bidirectional,
+        drawArrow: draw,
+        arrowHeadSize: 12.0,
+      );
+    } else {
+      ExchangeArrowDrawHelper.drawSplitUnidirectional(
+        nodeA: oneToOnePath.sourceNode,
+        nodeB: oneToOnePath.targetNode,
+        drawArrow: draw,
+        arrowHeadSize: 12.0,
+      );
+    }
   }
 
   /// 순환 교체 화살표 그리기
@@ -127,25 +166,57 @@ class ExchangeArrowPainter extends CustomPainter {
   }
 
   /// 2중 교체 화살표 그리기
+  ///
+  /// 1:1 교체와 동일한 방향 의미를 따른다.
+  /// - 단방향: 각 교체를 A→B, B→A 2선으로 분리 (교체 2개 → 총 4선). 중간 숫자 없음.
+  /// - 양방향: 각 교체를 양쪽 머리(↔) 1선으로 (교체 2개 → 2선) + 중간 숫자 "1","2".
+  ///
+  /// 어느 방향이든 셀 모서리 단계 번호(1, 2)는 오버레이에서 별도로 표시된다.
   void _drawDualArrows(Canvas canvas, Size size) {
     final dualPath = selectedPath as DualExchangePath;
+    final steps = _dualPathToSteps(dualPath);
+    final draw = _arrowDrawCallback(canvas, size);
 
-    // 2중 교체의 각 단계별로 화살표 그리기 (세로 우선, 머리 사이즈 8, 단계별 텍스트)
+    if (dualArrowDirection == ArrowDirection.bidirectional) {
+      // 양방향: 각 교체를 ↔ 1선으로 (현재 기본 동작)
+      ExchangeArrowDrawHelper.drawStepArrows(
+        steps: steps,
+        direction: ArrowDirection.bidirectional,
+        drawArrow: draw,
+        arrowHeadSize: 8.0,
+      );
+    } else {
+      // 단방향: 각 교체를 A→B, B→A 2선으로 분리 (1:1 단방향과 동일한 방식)
+      for (final step in steps) {
+        ExchangeArrowDrawHelper.drawSplitUnidirectional(
+          nodeA: step.fromNode,
+          nodeB: step.toNode,
+          drawArrow: draw,
+          arrowHeadSize: 8.0,
+        );
+      }
+    }
+  }
+
+  /// 2중 교체 경로를 화살표 단계 목록으로 변환
+  ///
+  /// 'exchange' 타입 단계만 포함하며, 단계 번호는 1부터 순차 증가한다.
+  List<ExchangeArrowStep> _dualPathToSteps(DualExchangePath dualPath) {
+    final steps = <ExchangeArrowStep>[];
     int stepNumber = 1;
     for (final step in dualPath.steps) {
       if (step.stepType == 'exchange') {
-        _drawArrowBetweenNodes(
-          canvas,
-          size,
-          step.fromNode,
-          step.toNode,
-          priority: ArrowPriority.verticalFirst,
-          arrowHeadSize: 8.0,
-          text: "$stepNumber",
+        steps.add(
+          ExchangeArrowStep(
+            fromNode: step.fromNode,
+            toNode: step.toNode,
+            stepNumber: stepNumber,
+          ),
         );
         stepNumber++;
       }
     }
+    return steps;
   }
 
   /// 보강 화살표 그리기 (단방향 화살표)
@@ -256,6 +327,8 @@ class ExchangeArrowPainter extends CustomPainter {
     ArrowPriority priority = ArrowPriority.verticalFirst,
     double? arrowHeadSize,
     String? text,
+    ArrowDirection? direction,
+    double lateralOffset = 0.0,
   }) {
     // 교사 인덱스 찾기
     int sourceTeacherIndex = timetableData.teachers.indexWhere(
@@ -305,6 +378,33 @@ class ExchangeArrowPainter extends CustomPainter {
       edges['end']!,
     );
 
+    // 분리 단방향 화살표 겹침 방지:
+    // 같은 열(같은 교시) 또는 같은 행이면 두 화살표가 같은 직선 위에 겹치므로,
+    // 선 방향에 수직으로 좌표를 이동시켜 2개의 선으로 분리한다.
+    if (lateralOffset != 0) {
+      final bool isStraightLine =
+          sourceColumnIndex == targetColumnIndex ||
+          sourceTeacherIndex == targetTeacherIndex;
+      if (isStraightLine) {
+        final Offset delta = targetPos - sourcePos;
+        final double length = delta.distance;
+        if (length > 0) {
+          // 선 방향에 수직인 단위 벡터
+          Offset perpendicular = Offset(-delta.dy / length, delta.dx / length);
+          // 정준화: A→B와 B→A는 delta 방향이 반대라 수직 벡터도 반대가 된다.
+          // 부호(±lateralOffset)까지 반대이면 두 번 뒤집혀 같은 방향으로 이동하므로,
+          // 수직 벡터를 방향과 무관한 일정한 방향으로 고정한다.
+          if (perpendicular.dx < 0 ||
+              (perpendicular.dx == 0 && perpendicular.dy < 0)) {
+            perpendicular = -perpendicular;
+          }
+          final Offset shift = perpendicular * lateralOffset;
+          sourcePos += shift;
+          targetPos += shift;
+        }
+      }
+    }
+
     // 화면 영역 내에 화살표가 있는지 검사
     bool isVisible = _isArrowVisible(sourcePos, targetPos, size);
     if (!isVisible) {
@@ -315,7 +415,7 @@ class ExchangeArrowPainter extends CustomPainter {
     canvas.save();
     _applyFrozenAreaClipping(canvas, size);
 
-    // 교체 경로 타입에 따른 스타일 적용하여 화살표 그리기 (우선 방향, 머리 사이즈, 텍스트 지정)
+    // 교체 경로 타입에 따른 스타일 적용하여 화살표 그리기 (우선 방향, 머리 사이즈, 텍스트, 방향 지정)
     _drawStyledArrow(
       canvas,
       sourcePos,
@@ -323,6 +423,7 @@ class ExchangeArrowPainter extends CustomPainter {
       priority: priority,
       arrowHeadSize: arrowHeadSize,
       text: text,
+      direction: direction,
     );
 
     canvas.restore();
@@ -764,20 +865,20 @@ class ExchangeArrowPainter extends CustomPainter {
     ArrowPriority priority = ArrowPriority.verticalFirst,
     double? arrowHeadSize,
     String? text,
+    ArrowDirection? direction,
   }) {
     // 교체 경로 타입에 따른 스타일 결정
     ExchangeArrowStyle style = _getArrowStyle();
 
+    // 커스텀 스타일이 없을 때만 런타임 방향 적용
+    // (커스텀 스타일이 지정된 경우 해당 스타일의 방향을 그대로 존중)
+    if (customArrowStyle == null && direction != null) {
+      style = style.copyWith(direction: direction);
+    }
+
     // 커스텀 머리 사이즈가 있으면 스타일에 적용
     if (arrowHeadSize != null) {
-      style = ExchangeArrowStyle(
-        color: style.color,
-        strokeWidth: style.strokeWidth,
-        outlineColor: style.outlineColor,
-        outlineWidth: style.outlineWidth,
-        arrowHeadSize: arrowHeadSize,
-        direction: style.direction,
-      );
+      style = style.copyWith(arrowHeadSize: arrowHeadSize);
     }
 
     // 우선 방향에 따라 직각 화살표 그리기
@@ -1019,6 +1120,12 @@ class ExchangeArrowPainter extends CustomPainter {
 
     // 커스텀 화살표 스타일 변경 확인
     if (oldPainter.customArrowStyle != customArrowStyle) {
+      hasChanged = true;
+    }
+
+    // 화살표 방향 설정 변경 확인 (설정에서 단방향/양방향 전환 시 재그리기)
+    if (oldPainter.oneToOneArrowDirection != oneToOneArrowDirection ||
+        oldPainter.dualArrowDirection != dualArrowDirection) {
       hasChanged = true;
     }
 

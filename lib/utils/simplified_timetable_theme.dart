@@ -280,10 +280,8 @@ class SimplifiedTimetableTheme {
         isHeader: config.isHeader,
         isInCircularPath: config.isInCircularPath,
         circularPathStep: config.circularPathStep,
-        isInSelectedPath: config.isInSelectedPath,
         isSelected: config.isSelected,
-        isInDualPath: config.isInDualPath,
-        dualPathStep: config.dualPathStep,
+        pathStepNumber: config.pathStepNumber,
       ),
     );
   }
@@ -476,10 +474,8 @@ class SimplifiedTimetableTheme {
     required bool isHeader,
     required bool isInCircularPath,
     int? circularPathStep, // 순환교체 경로에서의 단계 (1, 2, 3...)
-    required bool isInSelectedPath, // 선택된 경로에 포함된 셀인지 여부
     required bool isSelected, // 셀이 선택된 상태인지 여부
-    required bool isInDualPath, // 2중교체 경로에 포함된 셀인지 여부
-    int? dualPathStep, // 2중교체 경로에서의 단계 (1, 2)
+    int? pathStepNumber, // 1:1·2중 경로 셀 모서리 단계 번호 (없으면 null)
   }) {
     // 교사명 열이거나 헤더인 경우 표시하지 않음
     if (isTeacherColumn || isHeader) {
@@ -494,19 +490,11 @@ class SimplifiedTimetableTheme {
       );
     }
 
-    // 2중교체 경로에 포함된 셀인 경우 단계별 숫자 오버레이
-    if (isInDualPath && dualPathStep != null) {
-      return createExchangeableOverlay(
-        color: overlayColorSelected, // 2중교체도 진한 빨간색
-        number: dualPathStep.toString(), // 단계별 숫자 (1, 2)
-      );
-    }
-
-    // 선택된 경로에 포함된 셀이면서 선택되지 않은 셀인 경우 진한 빨간색 오버레이
-    if (isInSelectedPath && !isSelected) {
+    // 1:1·2중 교체 경로 단계 번호 오버레이 (resolver가 결정한 단일 분기)
+    if (pathStepNumber != null) {
       return createExchangeableOverlay(
         color: overlayColorSelected, // 진한 빨간색
-        number: '1',
+        number: pathStepNumber.toString(), // 단계별 숫자 (1, 2)
       );
     }
 

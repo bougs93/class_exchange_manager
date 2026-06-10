@@ -20,7 +20,7 @@ class SimplifiedTimetableCell extends ConsumerWidget {
   final int? circularPathStep; // 순환교체 경로에서의 단계 (1, 2, 3...)
   final bool isInSelectedPath; // 선택된 경로에 포함된 셀인지 여부 (1:1 교체 모드)
   final bool isInDualPath; // 2중교체 경로에 포함된 셀인지 여부
-  final int? dualPathStep; // 2중교체 경로에서의 단계 (1, 2)
+  final int? pathStepNumber; // 셀 모서리에 표시할 단계 번호 (1:1·2중 공통)
   final bool isTargetCell; // 타겟 셀인지 여부 (교체 대상의 같은 행 셀)
   final bool isNonExchangeable; // 교체불가 셀인지 여부
   final bool isExchangedSourceCell; // 교체된 소스 셀인지 여부
@@ -42,7 +42,7 @@ class SimplifiedTimetableCell extends ConsumerWidget {
     this.circularPathStep,
     this.isInSelectedPath = false,
     this.isInDualPath = false,
-    this.dualPathStep,
+    this.pathStepNumber,
     this.isTargetCell = false,
     this.isNonExchangeable = false,
     this.isExchangedSourceCell = false, // 교체된 소스 셀 기본값은 false
@@ -68,7 +68,7 @@ class SimplifiedTimetableCell extends ConsumerWidget {
         circularPathStep: circularPathStep,
         isInSelectedPath: isInSelectedPath,
         isInDualPath: isInDualPath,
-        dualPathStep: dualPathStep,
+        pathStepNumber: pathStepNumber,
         isTargetCell: isTargetCell,
         isNonExchangeable: isNonExchangeable,
         isExchangedSourceCell: isExchangedSourceCell,

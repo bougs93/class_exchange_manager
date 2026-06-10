@@ -10,7 +10,7 @@ class CellStyleConfig {
   final int? circularPathStep;
   final bool isInSelectedPath;
   final bool isInDualPath;
-  final int? dualPathStep;
+  final int? pathStepNumber; // 셀 모서리에 표시할 단계 번호 (1:1·2중 공통)
   final bool isInSupplementPath;
   final bool isTargetCell;
   final bool isNonExchangeable;
@@ -31,7 +31,7 @@ class CellStyleConfig {
     this.circularPathStep,
     this.isInSelectedPath = false,
     this.isInDualPath = false,
-    this.dualPathStep,
+    this.pathStepNumber,
     this.isInSupplementPath = false,
     this.isTargetCell = false,
     this.isNonExchangeable = false,

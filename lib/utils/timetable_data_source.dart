@@ -9,9 +9,11 @@ import '../models/dual_exchange_path.dart';
 import '../models/supplement_exchange_path.dart';
 import '../ui/widgets/simplified_timetable_cell.dart';
 import '../providers/cell_selection_provider.dart';
+import '../providers/app_settings_provider.dart';
 import '../services/non_exchangeable_data_storage_service.dart';
 import '../services/app_settings_storage_service.dart';
 import 'exchange_algorithm.dart';
+import 'exchange_path_step_resolver.dart';
 import 'day_utils.dart';
 import 'non_exchangeable_manager.dart';
 import 'simplified_timetable_theme.dart';
@@ -28,7 +30,7 @@ class CellStateInfo {
   final int? circularPathStep;
   final bool isInSelectedPath;
   final bool isInDualPath;
-  final int? dualPathStep;
+  final int? pathStepNumber; // 셀 모서리에 표시할 단계 번호 (1:1·2중 공통)
   final bool isNonExchangeable;
   final bool isExchangedSourceCell; // 교체된 소스 셀인지 여부
   final bool isExchangedDestinationCell; // 교체된 목적지 셀인지 여부
@@ -45,7 +47,7 @@ class CellStateInfo {
     this.circularPathStep,
     required this.isInSelectedPath,
     required this.isInDualPath,
-    this.dualPathStep,
+    this.pathStepNumber,
     required this.isNonExchangeable,
     required this.isExchangedSourceCell,
     required this.isExchangedDestinationCell,
@@ -64,7 +66,7 @@ class CellStateInfo {
       circularPathStep: null,
       isInSelectedPath: false,
       isInDualPath: false,
-      dualPathStep: null,
+      pathStepNumber: null,
       isNonExchangeable: false,
       isExchangedSourceCell: false,
       isExchangedDestinationCell: false,
@@ -241,7 +243,7 @@ class TimetableDataSource extends DataGridSource {
               circularPathStep: cellState.circularPathStep,
               isInSelectedPath: cellState.isInSelectedPath,
               isInDualPath: cellState.isInDualPath,
-              dualPathStep: cellState.dualPathStep,
+              pathStepNumber: cellState.pathStepNumber,
               isTargetCell: cellState.isTargetCell,
               isNonExchangeable: cellState.isNonExchangeable,
               isExchangedSourceCell: cellState.isExchangedSourceCell,
@@ -313,7 +315,7 @@ class TimetableDataSource extends DataGridSource {
       isLastColumnOfDay: false,
       isFirstColumnOfDay: false,
       circularPathStep: null,
-      dualPathStep: null,
+      pathStepNumber: null,
       isTeacherNameSelected: isTeacherNameSelected, // 새로 추가
       isHighlightedTeacher: isHighlighted, // 새로 추가
     );
@@ -335,14 +337,29 @@ class TimetableDataSource extends DataGridSource {
     // 전역 Provider에서 상태 정보 가져오기
     final cellNotifier = ref.read(cellSelectionProvider.notifier);
 
+    // 셀 모서리 단계 번호 계산에 필요한 상태를 미리 구한다.
+    final bool isSelected = _getCachedOrCompute(
+      'cellSelection',
+      teacherName,
+      day,
+      period,
+      () => cellNotifier.isCellSelected(teacherName, day, period),
+    );
+    final bool isInDualPath = _getCachedOrCompute(
+      'dualPath',
+      teacherName,
+      day,
+      period,
+      () => cellNotifier.isInDualPath(teacherName, day, period),
+    );
+    final bool isInSelectedPath = cellNotifier.isInSelectedOneToOnePath(
+      teacherName,
+      day,
+      period,
+    );
+
     return CellStateInfo(
-      isSelected: _getCachedOrCompute(
-        'cellSelection',
-        teacherName,
-        day,
-        period,
-        () => cellNotifier.isCellSelected(teacherName, day, period),
-      ),
+      isSelected: isSelected,
       isTargetCell: _getCachedOrCompute(
         'cellTarget',
         teacherName,
@@ -364,18 +381,8 @@ class TimetableDataSource extends DataGridSource {
         period,
         () => cellNotifier.isInCircularPath(teacherName, day, period),
       ),
-      isInDualPath: _getCachedOrCompute(
-        'dualPath',
-        teacherName,
-        day,
-        period,
-        () => cellNotifier.isInDualPath(teacherName, day, period),
-      ),
-      isInSelectedPath: cellNotifier.isInSelectedOneToOnePath(
-        teacherName,
-        day,
-        period,
-      ),
+      isInDualPath: isInDualPath,
+      isInSelectedPath: isInSelectedPath,
       isNonExchangeable: _getCachedOrCompute(
         'nonExchangeable',
         teacherName,
@@ -400,7 +407,15 @@ class TimetableDataSource extends DataGridSource {
       isLastColumnOfDay: _isLastColumnOfDay(day, period),
       isFirstColumnOfDay: _isFirstColumnOfDay(day, period),
       circularPathStep: _getCircularPathStep(teacherName, day, period),
-      dualPathStep: _getDualPathStep(teacherName, day, period),
+      // 셀 모서리 단계 번호 (1:1·2중 공통)
+      // 1:1 화살표 방향 설정값에 따라 비선택 셀만(단방향) 또는 양쪽 셀(양방향)에 번호 표시
+      pathStepNumber: resolvePathStepNumber(
+        oneToOneArrowDirection: ref.read(oneToOneArrowDirectionProvider),
+        isInOneToOnePath: isInSelectedPath,
+        isInDualPath: isInDualPath,
+        isSelected: isSelected,
+        dualPathStep: _getDualPathStep(teacherName, day, period),
+      ),
       isTeacherNameSelected: false, // 데이터 셀은 교사 이름 선택 상태 적용 안함
       isHighlightedTeacher: _isHighlightedTeacher(teacherName), // 새로 추가
     );
