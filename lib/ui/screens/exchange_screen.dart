@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
@@ -92,9 +91,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   /// 앱 실행 후 홈 교사 행 자동 스크롤을 이미 수행했는지 (세션당 1회)
   bool _hasScrolledToHomeTeacherOnEntry = false;
 
-  /// 앱 세션당 저장된 교체 모드를 디스크에서 복원했는지
-  bool _hasLoadedPersistedExchangeMode = false;
-
   // Mixin에서 요구하는 getter들 - Service는 Provider에서, 나머지는 Proxy 사용
   @override
   ExchangeService get exchangeService => ref.read(exchangeServiceProvider);
@@ -162,83 +158,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   double get _loadingProgress => _stateProxy.loadingProgress;
   bool get _isSidebarVisible => _stateProxy.isSidebarVisible;
 
-  /// 설정에서 비활성화된 간접교체 모드는 1:1교체로 대체
-  ExchangeMode _resolveEnabledExchangeMode(ExchangeMode mode) {
-    if (mode == ExchangeMode.dualExchange &&
-        !ref.read(dualExchangeEnabledProvider)) {
-      return ExchangeMode.oneToOneExchange;
-    }
-    if (mode == ExchangeMode.circularExchange &&
-        !ref.read(circularExchangeEnabledProvider)) {
-      return ExchangeMode.oneToOneExchange;
-    }
-    return mode;
-  }
-
-  /// 현재 모드에 맞는 단계 필터 등만 보정 (모드 전환 없이)
-  void _ensureModeSetup(ExchangeMode mode) {
-    final notifier = ref.read(exchangeScreenProvider.notifier);
-    final state = ref.read(exchangeScreenProvider);
-
-    switch (mode) {
-      case ExchangeMode.oneToOneExchange:
-        if (state.availableSteps.length != 1 || state.availableSteps.first != 2) {
-          notifier.setAvailableSteps([2]);
-        }
-        break;
-      case ExchangeMode.circularExchange:
-        const circularSteps = [2, 3, 4, 5];
-        if (!listEquals(state.availableSteps, circularSteps)) {
-          notifier.setAvailableSteps(circularSteps);
-        }
-        break;
-      case ExchangeMode.dualExchange:
-        if (state.availableSteps.isNotEmpty) {
-          notifier.setAvailableSteps([]);
-        }
-        break;
-      case ExchangeMode.view:
-      case ExchangeMode.nonExchangeableEdit:
-      case ExchangeMode.supplementExchange:
-        break;
-    }
-  }
-
-  /// 교체 메뉴 진입 시 마지막 교체 모드 복원 (최초 실행만 1:1교체 기본)
-  Future<void> _restoreExchangeModeOnMenuEntry() async {
-    final currentMode = ref.read(exchangeScreenProvider).currentMode;
-
-    // 세션 중 재진입: Provider 상태 유지, 강제 1:1 전환 없음
-    if (_hasLoadedPersistedExchangeMode) {
-      _ensureModeSetup(currentMode);
-      AppLogger.exchangeDebug(
-        '✅ 교체관리 화면 재진입: ${currentMode.displayName} 모드 유지',
-      );
-      return;
-    }
-
-    _hasLoadedPersistedExchangeMode = true;
-
-    final savedMode = await AppSettingsStorageService().getLastExchangeMode();
-    final targetMode = _resolveEnabledExchangeMode(
-      savedMode ?? ExchangeMode.oneToOneExchange,
-    );
-
-    if (savedMode == null) {
-      AppLogger.exchangeDebug('🆕 교체관리 최초 진입: 1:1교체 모드 기본 적용');
-    } else {
-      AppLogger.exchangeDebug(
-        '💾 저장된 교체 모드 복원: ${targetMode.displayName}',
-      );
-    }
-
-    if (currentMode != targetMode) {
-      _changeMode(targetMode);
-    } else {
-      _ensureModeSetup(targetMode);
-    }
-  }
-
   /// 교체 화면 진입 시 홈 기본 교사명 행으로 스크롤 (앱 실행 후 최초 1회)
   Future<void> _scrollToHomeTeacherOnEntry() async {
     if (_hasScrolledToHomeTeacherOnEntry) {
@@ -300,11 +219,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
     // 즉시 모드 변경 (UI 반응성 향상)
     notifier.setCurrentMode(newMode);
-
-    // 교체 메뉴 탭 모드는 저장 (다른 화면 이동·앱 재시작 후 복원용)
-    if (newMode != ExchangeMode.view) {
-      AppSettingsStorageService().saveLastExchangeMode(newMode);
-    }
 
     // 무거운 작업들은 비동기로 처리
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -770,12 +684,11 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     // Provider에서 상태 읽기
     final screenState = ref.watch(exchangeScreenProvider);
 
-    // 교체 메뉴 탭 진입 시 마지막 교체 모드 복원 (최초 실행만 1:1 기본)
+    // 교체 메뉴 탭 진입 시 홈 교사 행 스크롤 (세션당 1회)
     ref.listen<int>(navigationProvider, (previous, next) {
       if (next == NavIndices.exchange && previous != NavIndices.exchange) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            _restoreExchangeModeOnMenuEntry();
             _scrollToHomeTeacherOnEntry();
           }
         });

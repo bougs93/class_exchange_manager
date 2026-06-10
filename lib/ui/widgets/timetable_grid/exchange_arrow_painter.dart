@@ -661,41 +661,48 @@ class ExchangeArrowPainter extends CustomPainter {
     return false;
   }
 
-  /// 셀의 정중앙 위치 계산 (보강 화살표 시작점 전용)
+  /// 컬럼 너비 (줌 배율 적용) — 0번 열은 교사명 고정열, 이후는 교시 열
+  double _columnWidth(int columnIndex) {
+    final base =
+        columnIndex == 0
+            ? AppConstants.teacherColumnWidth
+            : AppConstants.periodColumnWidth;
+    return base * zoomFactor;
+  }
+
+  /// 데이터 행 높이 (줌 배율 적용)
+  double get _rowHeight => AppConstants.dataRowHeight * zoomFactor;
+
+  /// 셀 좌상단 좌표 계산 (헤더·스크롤 오프셋·고정 영역 반영)
   ///
-  /// [columnIndex] 셀의 열 인덱스
-  /// [teacherIndex] 셀의 교사 인덱스
-  ///
-  /// Returns: Offset - 셀 가로·세로 중앙 좌표 (스크롤 오프셋 반영)
-  Offset _getCellCenterPosition(int columnIndex, int teacherIndex) {
+  /// 셀 중앙/경계면 좌표 계산의 공통 기준점이다.
+  /// 교사명 열(columnIndex == 0)은 고정 영역이므로 수평 스크롤을 적용하지 않는다.
+  Offset _getCellOrigin(int columnIndex, int teacherIndex) {
     double x = 0;
     for (int i = 0; i < columnIndex; i++) {
-      if (i == 0) {
-        x += AppConstants.teacherColumnWidth * zoomFactor;
-      } else {
-        x += AppConstants.periodColumnWidth * zoomFactor;
-      }
+      x += _columnWidth(i);
     }
 
     double y =
         AppConstants.headerRowHeight *
         GridLayoutConstants.headerRowsCount *
         zoomFactor;
-    y += teacherIndex * AppConstants.dataRowHeight * zoomFactor;
+    y += teacherIndex * _rowHeight;
 
-    final isFrozenColumn = columnIndex == 0;
-    x -= isFrozenColumn ? 0.0 : scrollOffset.dx;
+    // 교사명 열은 고정 영역이므로 수평 오프셋 미적용
+    final horizontalOffset = columnIndex == 0 ? 0.0 : scrollOffset.dx;
+    x -= horizontalOffset;
     y -= scrollOffset.dy;
 
-    if (columnIndex == 0) {
-      x += AppConstants.teacherColumnWidth * zoomFactor / 2;
-      y += AppConstants.dataRowHeight * zoomFactor / 2;
-    } else {
-      x += AppConstants.periodColumnWidth * zoomFactor / 2;
-      y += AppConstants.dataRowHeight * zoomFactor / 2;
-    }
-
     return Offset(x, y);
+  }
+
+  /// 셀의 정중앙 위치 계산 (보강 화살표 시작점 전용)
+  ///
+  /// Returns: Offset - 셀 가로·세로 중앙 좌표 (스크롤 오프셋 반영)
+  Offset _getCellCenterPosition(int columnIndex, int teacherIndex) {
+    final origin = _getCellOrigin(columnIndex, teacherIndex);
+    return origin + Offset(_columnWidth(columnIndex) / 2, _rowHeight / 2);
   }
 
   /// 셀의 경계면 중앙 위치 계산 (화살표 시작점/끝점용)
@@ -711,95 +718,21 @@ class ExchangeArrowPainter extends CustomPainter {
     int teacherIndex,
     ArrowEdge edge,
   ) {
-    // 기본 X 좌표 계산 (줌 배율 적용)
-    double x = 0;
-    for (int i = 0; i < columnIndex; i++) {
-      if (i == 0) {
-        // 교사명 열 너비 (고정 열) - 줌 배율 적용
-        x += AppConstants.teacherColumnWidth * zoomFactor;
-      } else {
-        // 교시 열 너비 - 줌 배율 적용
-        x += AppConstants.periodColumnWidth * zoomFactor;
-      }
+    final origin = _getCellOrigin(columnIndex, teacherIndex);
+    final cw = _columnWidth(columnIndex);
+    final rowH = _rowHeight;
+
+    // 좌상단 기준으로 각 경계면 중앙까지의 오프셋
+    switch (edge) {
+      case ArrowEdge.top: // 상단 가로 중앙
+        return origin + Offset(cw / 2, 0);
+      case ArrowEdge.bottom: // 하단 가로 중앙
+        return origin + Offset(cw / 2, rowH);
+      case ArrowEdge.left: // 왼쪽 경계 세로 중앙
+        return origin + Offset(0, rowH / 2);
+      case ArrowEdge.right: // 오른쪽 경계 세로 중앙
+        return origin + Offset(cw, rowH / 2);
     }
-
-    // 기본 Y 좌표 계산 (고정된 헤더 행들 고려, 줌 배율 적용)
-    double y =
-        AppConstants.headerRowHeight *
-        GridLayoutConstants.headerRowsCount *
-        zoomFactor; // 헤더 행 높이 - 줌 배율 적용
-    y +=
-        teacherIndex *
-        AppConstants.dataRowHeight *
-        zoomFactor; // 교사 인덱스에 따른 행 높이 - 줌 배율 적용
-
-    // 스크롤 오프셋 반영 (고정 영역 제외)
-    // 교사명 열(columnIndex == 0)은 고정 영역이므로 수평 오프셋 적용 안 함
-    final isFrozenColumn = columnIndex == 0;
-    final horizontalOffset = isFrozenColumn ? 0.0 : scrollOffset.dx;
-    final verticalOffset = scrollOffset.dy;
-
-    // 스크롤 오프셋을 좌표에 반영
-    x -= horizontalOffset;
-    y -= verticalOffset;
-
-    // 셀의 경계면 중앙 위치 계산
-    if (columnIndex == 0) {
-      // 교사명 열의 경우
-      switch (edge) {
-        case ArrowEdge.top:
-          x +=
-              AppConstants.teacherColumnWidth *
-              zoomFactor /
-              2; // 가로 중앙 - 줌 배율 적용
-          y += 0; // 상단
-          break;
-        case ArrowEdge.bottom:
-          x +=
-              AppConstants.teacherColumnWidth *
-              zoomFactor /
-              2; // 가로 중앙 - 줌 배율 적용
-          y += AppConstants.dataRowHeight * zoomFactor; // 하단 - 줌 배율 적용
-          break;
-        case ArrowEdge.left:
-          x += 0; // 왼쪽 경계
-          y += AppConstants.dataRowHeight * zoomFactor / 2; // 세로 중앙 - 줌 배율 적용
-          break;
-        case ArrowEdge.right:
-          x += AppConstants.teacherColumnWidth * zoomFactor; // 오른쪽 경계 - 줌 배율 적용
-          y += AppConstants.dataRowHeight * zoomFactor / 2; // 세로 중앙 - 줌 배율 적용
-          break;
-      }
-    } else {
-      // 교시 열의 경우
-      switch (edge) {
-        case ArrowEdge.top:
-          x +=
-              AppConstants.periodColumnWidth *
-              zoomFactor /
-              2; // 가로 중앙 - 줌 배율 적용
-          y += 0; // 상단
-          break;
-        case ArrowEdge.bottom:
-          x +=
-              AppConstants.periodColumnWidth *
-              zoomFactor /
-              2; // 가로 중앙 - 줌 배율 적용
-          y += AppConstants.dataRowHeight * zoomFactor; // 하단 - 줌 배율 적용
-          break;
-        case ArrowEdge.left:
-          x += 0; // 왼쪽 경계
-          y += AppConstants.dataRowHeight * zoomFactor / 2; // 세로 중앙 - 줌 배율 적용
-          break;
-        case ArrowEdge.right:
-          x += AppConstants.periodColumnWidth * zoomFactor; // 오른쪽 경계 - 줌 배율 적용
-          y += AppConstants.dataRowHeight * zoomFactor / 2; // 세로 중앙 - 줌 배율 적용
-          break;
-      }
-    }
-
-    // 실제 크기가 조정되므로 원본 좌표 사용 (클리핑은 실제 크기로 자동 조정됨)
-    return Offset(x, y);
   }
 
   /// 화살표의 시작점과 끝점 경계면을 결정하는 함수

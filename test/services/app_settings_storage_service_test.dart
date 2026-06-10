@@ -54,25 +54,6 @@ class FakeArrowDirectionSettingsStorage implements ArrowDirectionSettingsStorage
   }
 }
 
-/// 마지막 교체 모드 테스트용 in-memory 저장소
-class FakeLastExchangeModeStorage implements LastExchangeModeStorage {
-  Map<String, dynamic> settings = {};
-
-  @override
-  Future<ExchangeMode?> getLastExchangeMode() async {
-    return exchangeModeFromJson(settings['lastExchangeMode'] as String?);
-  }
-
-  @override
-  Future<bool> saveLastExchangeMode(ExchangeMode mode) async {
-    if (mode == ExchangeMode.view) {
-      return true;
-    }
-    settings['lastExchangeMode'] = exchangeModeToJson(mode);
-    return true;
-  }
-}
-
 void main() {
   group('AppSettingsDefaults', () {
     test('기타 설정 기본값 상수', () {
@@ -104,37 +85,6 @@ void main() {
 
     test('fromJson: 알 수 없는 값 → null', () {
       expect(exchangeModeFromJson('invalid_mode'), isNull);
-    });
-  });
-
-  group('LastExchangeModeStorage', () {
-    test('설정 없음 → null', () async {
-      final storage = FakeLastExchangeModeStorage();
-
-      expect(await storage.getLastExchangeMode(), isNull);
-    });
-
-    test('save 후 load → 저장값 반환', () async {
-      final storage = FakeLastExchangeModeStorage();
-
-      expect(
-        await storage.saveLastExchangeMode(ExchangeMode.dualExchange),
-        isTrue,
-      );
-      expect(await storage.getLastExchangeMode(), ExchangeMode.dualExchange);
-    });
-
-    test('view 모드는 저장하지 않음', () async {
-      final storage = FakeLastExchangeModeStorage()
-        ..settings['lastExchangeMode'] = exchangeModeToJson(
-          ExchangeMode.circularExchange,
-        );
-
-      expect(await storage.saveLastExchangeMode(ExchangeMode.view), isTrue);
-      expect(
-        await storage.getLastExchangeMode(),
-        ExchangeMode.circularExchange,
-      );
     });
   });
 

@@ -175,8 +175,7 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
               '• 2중 교체: 활성화\n'
               '• 순환 교체: 비활성화\n'
               '• 1:1 화살표: 양방향(1개)\n'
-              '• 2중 화살표: 양방향(1개)\n'
-              '• 마지막 교체 모드: 초기화\n\n'
+              '• 2중 화살표: 양방향(1개)\n\n'
               '언어·교사명·학교명은 변경되지 않습니다.',
             ),
             actions: [

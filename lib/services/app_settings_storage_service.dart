@@ -1,6 +1,5 @@
 import 'storage_service.dart';
 import '../constants/teacher_row_highlight_colors.dart';
-import '../models/exchange_mode.dart';
 import '../utils/logger.dart';
 import '../ui/widgets/timetable_grid/timetable_grid_constants.dart';
 
@@ -29,12 +28,6 @@ abstract class DualExchangeSettingsStorage {
 abstract class CircularExchangeSettingsStorage {
   Future<bool> getCircularExchangeEnabled();
   Future<bool> saveCircularExchangeEnabled(bool enabled);
-}
-
-/// 마지막 교체 모드 저장/로드 인터페이스 (테스트 mock 지원)
-abstract class LastExchangeModeStorage {
-  Future<ExchangeMode?> getLastExchangeMode();
-  Future<bool> saveLastExchangeMode(ExchangeMode mode);
 }
 
 /// 교체 화살표 방향 설정 저장/로드 인터페이스 (테스트 mock 지원)
@@ -69,7 +62,6 @@ class AppSettingsStorageService
     implements
         DualExchangeSettingsStorage,
         CircularExchangeSettingsStorage,
-        LastExchangeModeStorage,
         ArrowDirectionSettingsStorage {
   final StorageService _storageService = StorageService();
 
@@ -133,6 +125,41 @@ class AppSettingsStorageService
     }
   }
 
+  /// app_settings.json에 [patch]를 병합 저장하는 공통 처리 (merge 방식)
+  ///
+  /// 기존 설정을 로드해 [patch]의 키만 덮어쓰고 나머지는 유지합니다.
+  /// [logLabel]은 성공/실패/오류 로그 메시지의 접두어로 사용됩니다.
+  Future<bool> _mergeAndSaveSettings(
+    Map<String, dynamic> patch, {
+    required String logLabel,
+  }) async {
+    try {
+      final settings = await loadAppSettings();
+      final updatedSettings =
+          settings == null
+              ? <String, dynamic>{}
+              : Map<String, dynamic>.from(settings);
+
+      updatedSettings.addAll(patch);
+
+      final success = await _storageService.saveJson(
+        'app_settings.json',
+        updatedSettings,
+      );
+
+      if (success) {
+        AppLogger.info('$logLabel 저장 성공');
+      } else {
+        AppLogger.error('$logLabel 저장 실패');
+      }
+
+      return success;
+    } catch (e) {
+      AppLogger.error('$logLabel 저장 중 오류: $e', e);
+      return false;
+    }
+  }
+
   /// 언어 코드 가져오기
   ///
   /// 반환값:
@@ -165,41 +192,10 @@ class AppSettingsStorageService
     required String teacherName,
     required String schoolName,
   }) async {
-    try {
-      // 현재 설정 로드
-      final settings = await loadAppSettings();
-      Map<String, dynamic> updatedSettings;
-
-      if (settings == null) {
-        // 설정 파일이 없으면 새로 생성
-        updatedSettings = {};
-      } else {
-        updatedSettings = Map<String, dynamic>.from(settings);
-      }
-
-      // 교사명과 학교명 저장
-      updatedSettings['defaultTeacherName'] = teacherName;
-      updatedSettings['defaultSchoolName'] = schoolName;
-
-      // 저장
-      final success = await _storageService.saveJson(
-        'app_settings.json',
-        updatedSettings,
-      );
-
-      if (success) {
-        AppLogger.info(
-          '교사명과 학교명 저장 성공: teacherName=$teacherName, schoolName=$schoolName',
-        );
-      } else {
-        AppLogger.error('교사명과 학교명 저장 실패');
-      }
-
-      return success;
-    } catch (e) {
-      AppLogger.error('교사명과 학교명 저장 중 오류: $e', e);
-      return false;
-    }
+    return _mergeAndSaveSettings(
+      {'defaultTeacherName': teacherName, 'defaultSchoolName': schoolName},
+      logLabel: '교사명과 학교명(teacherName=$teacherName, schoolName=$schoolName)',
+    );
   }
 
   /// 교사명과 학교명 로드
@@ -235,38 +231,10 @@ class AppSettingsStorageService
   /// 반환값:
   /// - `Future<bool>`: 저장 성공 여부
   Future<bool> saveHighlightedTeacherColor(int colorValue) async {
-    try {
-      // 현재 설정 로드
-      final settings = await loadAppSettings();
-      Map<String, dynamic> updatedSettings;
-
-      if (settings == null) {
-        // 설정 파일이 없으면 새로 생성
-        updatedSettings = {};
-      } else {
-        updatedSettings = Map<String, dynamic>.from(settings);
-      }
-
-      // 하이라이트 색상 저장
-      updatedSettings['highlightedTeacherColor'] = colorValue;
-
-      // 저장
-      final success = await _storageService.saveJson(
-        'app_settings.json',
-        updatedSettings,
-      );
-
-      if (success) {
-        AppLogger.info('하이라이트 교사 행 색상 저장 성공: $colorValue');
-      } else {
-        AppLogger.error('하이라이트 교사 행 색상 저장 실패');
-      }
-
-      return success;
-    } catch (e) {
-      AppLogger.error('하이라이트 교사 행 색상 저장 중 오류: $e', e);
-      return false;
-    }
+    return _mergeAndSaveSettings(
+      {'highlightedTeacherColor': colorValue},
+      logLabel: '하이라이트 교사 행 색상($colorValue)',
+    );
   }
 
   /// 하이라이트된 교사 행 색상 로드
@@ -296,31 +264,10 @@ class AppSettingsStorageService
   /// 기존 설정은 merge 방식으로 유지합니다.
   @override
   Future<bool> saveDualExchangeEnabled(bool enabled) async {
-    try {
-      final settings = await loadAppSettings();
-      final updatedSettings =
-          settings == null
-              ? <String, dynamic>{}
-              : Map<String, dynamic>.from(settings);
-
-      updatedSettings['dualExchangeEnabled'] = enabled;
-
-      final success = await _storageService.saveJson(
-        'app_settings.json',
-        updatedSettings,
-      );
-
-      if (success) {
-        AppLogger.info('2중 교체 설정 저장 성공: enabled=$enabled');
-      } else {
-        AppLogger.error('2중 교체 설정 저장 실패');
-      }
-
-      return success;
-    } catch (e) {
-      AppLogger.error('2중 교체 설정 저장 중 오류: $e', e);
-      return false;
-    }
+    return _mergeAndSaveSettings(
+      {'dualExchangeEnabled': enabled},
+      logLabel: '2중 교체 설정(enabled=$enabled)',
+    );
   }
 
   /// 2중 교체 기능 사용 여부 로드
@@ -345,31 +292,10 @@ class AppSettingsStorageService
   /// 순환 교체 기능 사용 여부 저장
   @override
   Future<bool> saveCircularExchangeEnabled(bool enabled) async {
-    try {
-      final settings = await loadAppSettings();
-      final updatedSettings =
-          settings == null
-              ? <String, dynamic>{}
-              : Map<String, dynamic>.from(settings);
-
-      updatedSettings['circularExchangeEnabled'] = enabled;
-
-      final success = await _storageService.saveJson(
-        'app_settings.json',
-        updatedSettings,
-      );
-
-      if (success) {
-        AppLogger.info('순환 교체 설정 저장 성공: enabled=$enabled');
-      } else {
-        AppLogger.error('순환 교체 설정 저장 실패');
-      }
-
-      return success;
-    } catch (e) {
-      AppLogger.error('순환 교체 설정 저장 중 오류: $e', e);
-      return false;
-    }
+    return _mergeAndSaveSettings(
+      {'circularExchangeEnabled': enabled},
+      logLabel: '순환 교체 설정(enabled=$enabled)',
+    );
   }
 
   /// 순환 교체 기능 사용 여부 로드
@@ -409,7 +335,10 @@ class AppSettingsStorageService
   /// 1:1 교체 화살표 방향 저장 (기존 설정은 merge 방식 유지)
   @override
   Future<bool> saveOneToOneArrowDirection(ArrowDirection direction) async {
-    return _saveArrowDirection('oneToOneArrowDirection', direction, '1:1');
+    return _mergeAndSaveSettings(
+      {'oneToOneArrowDirection': arrowDirectionToJson(direction)},
+      logLabel: '1:1 화살표 방향(${arrowDirectionToJson(direction)})',
+    );
   }
 
   /// 2중 교체 화살표 방향 로드 (기본값: 양방향 bidirectional)
@@ -430,100 +359,15 @@ class AppSettingsStorageService
   /// 2중 교체 화살표 방향 저장 (기존 설정은 merge 방식 유지)
   @override
   Future<bool> saveDualArrowDirection(ArrowDirection direction) async {
-    return _saveArrowDirection('dualArrowDirection', direction, '2중');
-  }
-
-  /// 화살표 방향 설정 저장 공통 처리 (merge 방식)
-  Future<bool> _saveArrowDirection(
-    String key,
-    ArrowDirection direction,
-    String label,
-  ) async {
-    try {
-      final settings = await loadAppSettings();
-      final updatedSettings =
-          settings == null
-              ? <String, dynamic>{}
-              : Map<String, dynamic>.from(settings);
-
-      updatedSettings[key] = arrowDirectionToJson(direction);
-
-      final success = await _storageService.saveJson(
-        'app_settings.json',
-        updatedSettings,
-      );
-
-      if (success) {
-        AppLogger.info('$label 화살표 방향 저장 성공: ${arrowDirectionToJson(direction)}');
-      } else {
-        AppLogger.error('$label 화살표 방향 저장 실패');
-      }
-
-      return success;
-    } catch (e) {
-      AppLogger.error('$label 화살표 방향 저장 중 오류: $e', e);
-      return false;
-    }
-  }
-
-  /// 마지막으로 사용한 교체 모드 로드
-  ///
-  /// 반환값:
-  /// - `Future<ExchangeMode?>`: 저장된 모드 (최초 실행 등 저장 이력 없으면 null)
-  @override
-  Future<ExchangeMode?> getLastExchangeMode() async {
-    try {
-      final settings = await loadAppSettings();
-      if (settings == null) {
-        return null;
-      }
-
-      return exchangeModeFromJson(settings['lastExchangeMode'] as String?);
-    } catch (e) {
-      AppLogger.error('마지막 교체 모드 로드 중 오류: $e', e);
-      return null;
-    }
-  }
-
-  /// 마지막 교체 모드 저장 (기존 설정은 merge 방식 유지)
-  ///
-  /// [view] 모드는 교체 메뉴 탭 상태가 아니므로 저장하지 않습니다.
-  @override
-  Future<bool> saveLastExchangeMode(ExchangeMode mode) async {
-    if (mode == ExchangeMode.view) {
-      return true;
-    }
-
-    try {
-      final settings = await loadAppSettings();
-      final updatedSettings =
-          settings == null
-              ? <String, dynamic>{}
-              : Map<String, dynamic>.from(settings);
-
-      updatedSettings['lastExchangeMode'] = exchangeModeToJson(mode);
-
-      final success = await _storageService.saveJson(
-        'app_settings.json',
-        updatedSettings,
-      );
-
-      if (success) {
-        AppLogger.info('마지막 교체 모드 저장 성공: ${exchangeModeToJson(mode)}');
-      } else {
-        AppLogger.error('마지막 교체 모드 저장 실패');
-      }
-
-      return success;
-    } catch (e) {
-      AppLogger.error('마지막 교체 모드 저장 중 오류: $e', e);
-      return false;
-    }
+    return _mergeAndSaveSettings(
+      {'dualArrowDirection': arrowDirectionToJson(direction)},
+      logLabel: '2중 화살표 방향(${arrowDirectionToJson(direction)})',
+    );
   }
 
   /// 기타 설정을 기본값으로 복원
   ///
-  /// 하이라이트 색상·2중/순환 교체·화살표 방향·마지막 교체 모드를 초기화합니다.
+  /// 하이라이트 색상·2중/순환 교체·화살표 방향을 초기화합니다.
   /// [languageCode], [defaultTeacherName], [defaultSchoolName]은 유지합니다.
   Future<bool> restoreMiscSettingsToDefaults() async {
     try {
