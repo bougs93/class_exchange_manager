@@ -499,7 +499,8 @@ class CellThemeLegend extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         _buildLegendItem(
-          backgroundColor: SimplifiedTimetableTheme.defaultColor,
+          // 실제 셀과 동일: 빨간 테두리만 표시, 내부는 투명
+          backgroundColor: Colors.transparent,
           borderColor:
               SimplifiedTimetableTheme.selectedTeacherDestinationBorderColor,
           borderWidth:
