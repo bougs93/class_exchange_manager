@@ -157,12 +157,12 @@ class ArrowDirectionNotifier extends StateNotifier<ArrowDirection> {
   }
 }
 
-/// 1:1 교체 화살표 방향 Provider (기본값: 단방향)
+/// 1:1 교체 화살표 방향 Provider (기본값: 양방향)
 final oneToOneArrowDirectionProvider =
     StateNotifierProvider<ArrowDirectionNotifier, ArrowDirection>((ref) {
       final storage = AppSettingsStorageService();
       return ArrowDirectionNotifier(
-        initialDirection: ArrowDirection.forward,
+        initialDirection: ArrowDirection.bidirectional,
         loader: storage.getOneToOneArrowDirection,
         saver: storage.saveOneToOneArrowDirection,
       );

@@ -1,7 +1,23 @@
 import 'storage_service.dart';
+import '../constants/teacher_row_highlight_colors.dart';
 import '../models/exchange_mode.dart';
 import '../utils/logger.dart';
 import '../ui/widgets/timetable_grid/timetable_grid_constants.dart';
+
+/// 기타 설정(언어·하이라이트·간접교체·화살표 등)의 앱 기본값
+class AppSettingsDefaults {
+  AppSettingsDefaults._();
+
+  static const String languageCode = 'ko';
+  static const bool dualExchangeEnabled = true;
+  static const bool circularExchangeEnabled = false;
+  static const ArrowDirection oneToOneArrowDirection = ArrowDirection.bidirectional;
+  static const ArrowDirection dualArrowDirection = ArrowDirection.bidirectional;
+
+  /// 교사 행 하이라이트 기본색 (Teal 50)
+  static int get highlightedTeacherColorArgb =>
+      TeacherRowHighlightColors.defaultColor.toARGB32();
+}
 
 /// 2중 교체 설정 저장/로드 인터페이스 (테스트 mock 지원)
 abstract class DualExchangeSettingsStorage {
@@ -375,18 +391,18 @@ class AppSettingsStorageService
     }
   }
 
-  /// 1:1 교체 화살표 방향 로드 (기본값: 단방향 forward)
+  /// 1:1 교체 화살표 방향 로드 (기본값: 양방향 bidirectional)
   @override
   Future<ArrowDirection> getOneToOneArrowDirection() async {
     try {
       final settings = await loadAppSettings();
       return arrowDirectionFromJson(
         settings?['oneToOneArrowDirection'] as String?,
-        ArrowDirection.forward,
+        ArrowDirection.bidirectional,
       );
     } catch (e) {
       AppLogger.error('1:1 화살표 방향 로드 중 오류: $e', e);
-      return ArrowDirection.forward;
+      return ArrowDirection.bidirectional;
     }
   }
 
@@ -501,6 +517,55 @@ class AppSettingsStorageService
       return success;
     } catch (e) {
       AppLogger.error('마지막 교체 모드 저장 중 오류: $e', e);
+      return false;
+    }
+  }
+
+  /// 기타 설정을 기본값으로 복원
+  ///
+  /// 하이라이트 색상·2중/순환 교체·화살표 방향·마지막 교체 모드를 초기화합니다.
+  /// [languageCode], [defaultTeacherName], [defaultSchoolName]은 유지합니다.
+  Future<bool> restoreMiscSettingsToDefaults() async {
+    try {
+      final settings = await loadAppSettings();
+      final updatedSettings = <String, dynamic>{
+        'highlightedTeacherColor': AppSettingsDefaults.highlightedTeacherColorArgb,
+        'dualExchangeEnabled': AppSettingsDefaults.dualExchangeEnabled,
+        'circularExchangeEnabled': AppSettingsDefaults.circularExchangeEnabled,
+        'oneToOneArrowDirection': arrowDirectionToJson(
+          AppSettingsDefaults.oneToOneArrowDirection,
+        ),
+        'dualArrowDirection': arrowDirectionToJson(
+          AppSettingsDefaults.dualArrowDirection,
+        ),
+      };
+
+      if (settings != null) {
+        if (settings.containsKey('languageCode')) {
+          updatedSettings['languageCode'] = settings['languageCode'];
+        }
+        if (settings.containsKey('defaultTeacherName')) {
+          updatedSettings['defaultTeacherName'] = settings['defaultTeacherName'];
+        }
+        if (settings.containsKey('defaultSchoolName')) {
+          updatedSettings['defaultSchoolName'] = settings['defaultSchoolName'];
+        }
+      }
+
+      final success = await _storageService.saveJson(
+        'app_settings.json',
+        updatedSettings,
+      );
+
+      if (success) {
+        AppLogger.info('기타 설정 기본값 복원 성공');
+      } else {
+        AppLogger.error('기타 설정 기본값 복원 실패');
+      }
+
+      return success;
+    } catch (e) {
+      AppLogger.error('기타 설정 기본값 복원 중 오류: $e', e);
       return false;
     }
   }

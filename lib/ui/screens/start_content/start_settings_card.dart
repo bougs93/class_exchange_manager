@@ -44,6 +44,9 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
   // 데이터 초기화
   bool _isResetting = false;
 
+  // 기타 설정 기본값 복원
+  bool _isRestoringDefaults = false;
+
   // 데이터 저장 위치 표시
   final GlobalKey<DataStorageLocationSectionState> _dataStorageLocationKey =
       GlobalKey<DataStorageLocationSectionState>();
@@ -156,6 +159,69 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
         SimplifiedTimetableTheme.setHighlightedTeacherColor(color);
       },
     );
+  }
+
+  /// 기타 설정을 앱 기본값으로 복원 (언어·교사명·학교명은 유지)
+  Future<void> _restoreMiscSettingsToDefaults() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('기본값 복원'),
+            content: const Text(
+              '기타 설정을 기본값으로 되돌리시겠습니까?\n\n'
+              '복원되는 항목:\n'
+              '• 하이라이트 색상: 기본 청록\n'
+              '• 2중 교체: 활성화\n'
+              '• 순환 교체: 비활성화\n'
+              '• 1:1 화살표: 양방향(1개)\n'
+              '• 2중 화살표: 양방향(1개)\n'
+              '• 마지막 교체 모드: 초기화\n\n'
+              '언어·교사명·학교명은 변경되지 않습니다.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('취소'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('복원'),
+              ),
+            ],
+          ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isRestoringDefaults = true);
+
+    try {
+      final success =
+          await AppSettingsStorageService().restoreMiscSettingsToDefaults();
+
+      if (!mounted) return;
+
+      if (success) {
+        ref.invalidate(dualExchangeEnabledProvider);
+        ref.invalidate(circularExchangeEnabledProvider);
+        ref.invalidate(oneToOneArrowDirectionProvider);
+        ref.invalidate(dualArrowDirectionProvider);
+        await _loadSettings();
+        showSnackBar('기타 설정이 기본값으로 복원되었습니다.');
+      } else {
+        showSnackBar('기본값 복원에 실패했습니다.', isError: true);
+      }
+    } catch (e) {
+      AppLogger.error('기본값 복원 중 오류: $e', e);
+      if (mounted) {
+        showSnackBar('오류가 발생했습니다: $e', isError: true);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRestoringDefaults = false);
+      }
+    }
   }
 
   /// 모든 데이터 초기화
@@ -279,7 +345,7 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
                   compact: true,
                 ),
                 const SizedBox(height: 8),
-                _buildDataResetSection(),
+                _buildResponsiveActionCardsSection(),
               ],
             ),
           ),
@@ -325,44 +391,68 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
     );
   }
 
-  /// 간접교체 · 화살표 표시 섹션 (동일 너비, 넓으면 1행·좁으면 2행)
+  /// 2개 카드 섹션 배치 (넓으면 1행·높이 연동, 좁으면 2행)
   ///
-  /// ExpansionTile 자식은 세로 제약이 무한(unbounded)이므로
-  /// Row + CrossAxisAlignment.stretch 는 레이아웃 정지를 유발한다.
-  /// Wrap + 고정 너비 SizedBox 로 동일 폭·반응형 배치를 한다.
-  Widget _buildResponsiveExchangeSettingsSections() {
-    const spacing = 12.0;
-    const minSectionWidth = 280.0;
-
+  /// ExpansionTile 자식은 세로 max가 무한이므로 Row+stretch 단독 사용은 위험하다.
+  /// [IntrinsicHeight]로 행 높이를 먼저 확정한 뒤 stretch 한다.
+  Widget _buildResponsivePairedSections({
+    required Widget Function(bool stretchHeight) buildFirst,
+    required Widget Function(bool stretchHeight) buildSecond,
+    double minSectionWidth = 280,
+    double spacing = 12,
+  }) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final maxWidth = constraints.maxWidth;
-        final twoColumns = maxWidth >= minSectionWidth * 2 + spacing;
-        final sectionWidth =
-            twoColumns ? (maxWidth - spacing) / 2 : maxWidth;
+        final twoColumns =
+            constraints.maxWidth >= minSectionWidth * 2 + spacing;
+        final first = buildFirst(twoColumns);
+        final second = buildSecond(twoColumns);
 
-        return Wrap(
-          spacing: spacing,
-          runSpacing: spacing,
+        if (twoColumns) {
+          return IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: first),
+                SizedBox(width: spacing),
+                Expanded(child: second),
+              ],
+            ),
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SizedBox(
-              width: sectionWidth,
-              child: _buildIndirectExchangeGroupSection(),
-            ),
-            SizedBox(
-              width: sectionWidth,
-              child: _buildArrowDirectionSection(),
-            ),
+            first,
+            SizedBox(height: spacing),
+            second,
           ],
         );
       },
     );
   }
 
+  /// 간접교체 · 화살표 표시 섹션 (동일 너비·높이, 넓으면 1행·좁으면 2행)
+  Widget _buildResponsiveExchangeSettingsSections() {
+    return _buildResponsivePairedSections(
+      buildFirst:
+          (stretchHeight) =>
+              _buildIndirectExchangeGroupSection(stretchHeight: stretchHeight),
+      buildSecond:
+          (stretchHeight) =>
+              _buildArrowDirectionSection(stretchHeight: stretchHeight),
+    );
+  }
+
   /// 설정 그룹 공통 외곽 카드 (화살표 표시 · 간접교체)
-  Widget _buildSettingsGroupCard({required Widget child}) {
+  Widget _buildSettingsGroupCard({
+    required Widget child,
+    bool stretchHeight = false,
+  }) {
     return Container(
       width: double.infinity,
+      height: stretchHeight ? double.infinity : null,
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
@@ -374,7 +464,7 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
   }
 
   /// 화살표 표시 설정 섹션 (1:1·2중·연쇄 교체 화살표 방향)
-  Widget _buildArrowDirectionSection() {
+  Widget _buildArrowDirectionSection({bool stretchHeight = false}) {
     final oneToOneDir = ref.watch(oneToOneArrowDirectionProvider);
     final dualDir = ref.watch(dualArrowDirectionProvider);
     final isDualExchangeEnabled = ref.watch(dualExchangeEnabledProvider);
@@ -383,8 +473,10 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
     );
 
     return _buildSettingsGroupCard(
+      stretchHeight: stretchHeight,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: stretchHeight ? MainAxisSize.max : MainAxisSize.min,
         children: [
           const Text(
             '화살표 표시',
@@ -420,6 +512,7 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
               ),
             ],
           ),
+          if (stretchHeight) const Spacer(),
         ],
       ),
     );
@@ -540,10 +633,12 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
   }
 
   /// 간접교체 그룹 (2중 교체 · 순환 교체 메뉴 표시 설정)
-  Widget _buildIndirectExchangeGroupSection() {
+  Widget _buildIndirectExchangeGroupSection({bool stretchHeight = false}) {
     return _buildSettingsGroupCard(
+      stretchHeight: stretchHeight,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: stretchHeight ? MainAxisSize.max : MainAxisSize.min,
         children: [
           const Text(
             '간접교체',
@@ -574,6 +669,7 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
               ),
             ],
           ),
+          if (stretchHeight) const Spacer(),
         ],
       ),
     );
@@ -675,28 +771,81 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
     );
   }
 
-  /// 데이터 초기화 섹션
-  Widget _buildDataResetSection() {
+  /// 기본값 복원 · 데이터 초기화 카드 (넓으면 1행·높이 연동, 좁으면 2행)
+  Widget _buildResponsiveActionCardsSection() {
+    return _buildResponsivePairedSections(
+      buildFirst:
+          (stretchHeight) => _buildSettingsGroupCard(
+            stretchHeight: stretchHeight,
+            child: _buildRestoreDefaultsCardContent(stretchHeight: stretchHeight),
+          ),
+      buildSecond:
+          (stretchHeight) => _buildSettingsGroupCard(
+            stretchHeight: stretchHeight,
+            child: _buildDataResetCardContent(stretchHeight: stretchHeight),
+          ),
+    );
+  }
+
+  /// 기본값 복원 카드 내용
+  Widget _buildRestoreDefaultsCardContent({bool stretchHeight = false}) {
+    final theme = Theme.of(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: stretchHeight ? MainAxisSize.max : MainAxisSize.min,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Text(
-              '데이터 초기화',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                '모든 저장된 데이터를 삭제합니다.',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-              ),
-            ),
-          ],
+        const Text(
+          '기본값 복원',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 16),
+        if (stretchHeight) const Spacer() else const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed:
+                _isRestoringDefaults ? null : _restoreMiscSettingsToDefaults,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: theme.primaryColor,
+              side: BorderSide(color: theme.primaryColor.withValues(alpha: 0.5)),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+            icon:
+                _isRestoringDefaults
+                    ? SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          theme.primaryColor,
+                        ),
+                      ),
+                    )
+                    : Icon(Icons.restore, size: 18, color: theme.primaryColor),
+            label: const Text('기본값 복원', style: TextStyle(fontSize: 14)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 데이터 초기화 카드 내용
+  Widget _buildDataResetCardContent({bool stretchHeight = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: stretchHeight ? MainAxisSize.max : MainAxisSize.min,
+      children: [
+        const Text(
+          '데이터 초기화',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '모든 저장된 데이터를 삭제합니다.',
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+        ),
+        if (stretchHeight) const Spacer() else const SizedBox(height: 16),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(

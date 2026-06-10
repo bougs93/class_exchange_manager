@@ -36,7 +36,7 @@ class ExchangeArrowPainter extends CustomPainter {
     this.customArrowStyle,
     required this.zoomFactor, // 클리핑 계산용
     required this.scrollOffset, // 스크롤 오프셋
-    this.oneToOneArrowDirection = ArrowDirection.forward,
+    this.oneToOneArrowDirection = ArrowDirection.bidirectional,
     this.dualArrowDirection = ArrowDirection.bidirectional,
   }) : assert(columns.isNotEmpty, 'columns cannot be empty'),
        assert(zoomFactor > 0, 'zoomFactor must be positive');
@@ -179,15 +179,14 @@ class ExchangeArrowPainter extends CustomPainter {
   /// - 양방향: 각 교체를 양쪽 머리(↔) 1선으로 (교체 2개 → 2선) + 중간 숫자 "1","2".
   ///
   /// 1번 그룹(1단계)은 **점선**으로, 2번 그룹(2단계)은 실선으로 그려 단계를 구분한다.
-  /// 단방향에서는 2번 그룹을 셀 모서리를 따라 이동시켜 1번 그룹과 겹치지 않게 한다.
+  /// 단방향에서는 1번 그룹을 셀 모서리를 따라 이동시켜 2번 그룹과 겹치지 않게 한다.
   /// 어느 방향이든 셀 모서리 단계 번호(1, 2)는 오버레이에서 별도로 표시된다.
   void _drawDualArrows(Canvas canvas, Size size) {
     final dualPath = selectedPath as DualExchangePath;
     final steps = _dualPathToSteps(dualPath);
 
     for (final step in steps) {
-      final int groupIndex = step.stepNumber - 1; // 1번 그룹=0, 2번 그룹=1
-      final bool isFirstGroup = step.stepNumber == 1; // 1번 그룹은 점선
+      final bool isFirstGroup = step.stepNumber == 1; // 1번 그룹: 점선 + 오프셋
 
       if (dualArrowDirection == ArrowDirection.bidirectional) {
         // 양방향: 각 교체를 ↔ 1선으로
@@ -199,14 +198,15 @@ class ExchangeArrowPainter extends CustomPainter {
         );
       } else {
         // 단방향: 각 교체를 A→B, B→A 2선으로 분리
-        // 2번 그룹 이후 화살표는 1번 그룹과 겹치지 않도록 셀 모서리를 따라 이동한다.
+        // 1번 그룹 화살표를 셀 모서리를 따라 이동시켜 2번 그룹과 겹치지 않게 한다.
         final Offset groupOffset =
-            Offset(
-              ArrowConstants.dualSecondGroupOffsetX,
-              ArrowConstants.dualSecondGroupOffsetY,
-            ) *
-            zoomFactor *
-            groupIndex.toDouble();
+            isFirstGroup
+                ? Offset(
+                      ArrowConstants.dualFirstGroupOffsetX,
+                      ArrowConstants.dualFirstGroupOffsetY,
+                    ) *
+                    zoomFactor
+                : Offset.zero;
 
         ExchangeArrowDrawHelper.drawSplitUnidirectional(
           nodeA: step.fromNode,

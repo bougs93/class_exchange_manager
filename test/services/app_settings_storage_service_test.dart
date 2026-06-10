@@ -29,7 +29,7 @@ class FakeArrowDirectionSettingsStorage implements ArrowDirectionSettingsStorage
   Future<ArrowDirection> getOneToOneArrowDirection() async {
     return arrowDirectionFromJson(
       settings['oneToOneArrowDirection'] as String?,
-      ArrowDirection.forward,
+      ArrowDirection.bidirectional,
     );
   }
 
@@ -74,6 +74,23 @@ class FakeLastExchangeModeStorage implements LastExchangeModeStorage {
 }
 
 void main() {
+  group('AppSettingsDefaults', () {
+    test('기타 설정 기본값 상수', () {
+      expect(AppSettingsDefaults.languageCode, 'ko');
+      expect(AppSettingsDefaults.dualExchangeEnabled, isTrue);
+      expect(AppSettingsDefaults.circularExchangeEnabled, isFalse);
+      expect(
+        AppSettingsDefaults.oneToOneArrowDirection,
+        ArrowDirection.bidirectional,
+      );
+      expect(
+        AppSettingsDefaults.dualArrowDirection,
+        ArrowDirection.bidirectional,
+      );
+      expect(AppSettingsDefaults.highlightedTeacherColorArgb, 0xFFE0F2F1);
+    });
+  });
+
   group('ExchangeMode JSON 직렬화', () {
     test('toJson / fromJson 라운드트립', () {
       for (final mode in ExchangeMode.values) {
@@ -191,12 +208,12 @@ void main() {
   });
 
   group('ArrowDirectionSettingsStorage', () {
-    test('설정 없음 → 기본값 (1:1=forward, 2중=bidirectional)', () async {
+    test('설정 없음 → 기본값 (1:1·2중 모두 bidirectional)', () async {
       final storage = FakeArrowDirectionSettingsStorage();
 
       expect(
         await storage.getOneToOneArrowDirection(),
-        ArrowDirection.forward,
+        ArrowDirection.bidirectional,
       );
       expect(
         await storage.getDualArrowDirection(),
@@ -230,7 +247,7 @@ void main() {
 
       expect(
         await storage.getOneToOneArrowDirection(),
-        ArrowDirection.forward,
+        ArrowDirection.bidirectional,
       );
     });
   });
