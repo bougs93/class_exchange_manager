@@ -98,7 +98,6 @@ double estimateUnifiedToolbarMinWidth({
   bool withActionButtonLabels = false,
 }) {
   const horizontalPadding = 8.0;
-  const scrollToZoomGap = 8.0;
 
   var width = horizontalPadding;
   width += estimateModeSelectorWidth(
@@ -107,16 +106,33 @@ double estimateUnifiedToolbarMinWidth({
   );
   // 모드 선택 영역과 실행 도구 사이 구분선
   width += kToolbarGroupDividerWidth;
-  width += kZoomControlWidth;
-  width += scrollToZoomGap;
-  if (showTeacherCount) {
-    width += estimateTeacherCountWidth(teacherCount);
-    width += scrollToZoomGap;
-  }
-  width += estimateActionToolbarItemsWidth(
+  width += _estimateZoomTeacherActionWidth(
+    showTeacherCount: showTeacherCount,
     withButtonLabels: withActionButtonLabels,
+    teacherCount: teacherCount,
   );
   width += horizontalPadding;
+  return width;
+}
+
+/// [줌][교사수][실행 도구] 묶음의 최소 가로 폭
+///
+/// 1줄/2줄 레이아웃 모두 [_buildZoomTeacherAndActionItems] 위젯을 공유하므로
+/// 폭 추정도 이 헬퍼 하나로 통일해 양쪽이 어긋나지 않도록 합니다.
+double _estimateZoomTeacherActionWidth({
+  required bool showTeacherCount,
+  required bool withButtonLabels,
+  int teacherCount = 0,
+}) {
+  const gap = 8.0;
+
+  var width = kZoomControlWidth;
+  width += gap;
+  if (showTeacherCount) {
+    width += estimateTeacherCountWidth(teacherCount);
+    width += gap;
+  }
+  width += estimateActionToolbarItemsWidth(withButtonLabels: withButtonLabels);
   return width;
 }
 
@@ -126,18 +142,15 @@ double estimateActionToolbarRowMinWidth({
   required bool withButtonLabels,
   int teacherCount = 0,
 }) {
+  // 행 좌우 패딩(SizedBox 8px × 2)
   const horizontalPadding = 16.0;
-  const gap = 8.0;
 
-  var width = horizontalPadding;
-  width += kZoomControlWidth;
-  width += gap;
-  if (showTeacherCount) {
-    width += estimateTeacherCountWidth(teacherCount);
-    width += gap;
-  }
-  width += estimateActionToolbarItemsWidth(withButtonLabels: withButtonLabels);
-  return width;
+  return horizontalPadding +
+      _estimateZoomTeacherActionWidth(
+        showTeacherCount: showTeacherCount,
+        withButtonLabels: withButtonLabels,
+        teacherCount: teacherCount,
+      );
 }
 
 /// 실행 도구 버튼에 라벨을 표시할지 결정
@@ -257,11 +270,15 @@ double estimateActionToolbarItemsWidth({bool withButtonLabels = false}) {
   double labeledButtonWidth(String label) {
     final textWidth = _measureToolbarTextWidth(
       label,
-      fontSize: 11,
+      fontSize: kAdaptiveActionButtonFontSize,
       fontWeight: FontWeight.w600,
     );
-    // 아이콘(15) + 간격(4) + 텍스트 + 좌우 패딩(12)
-    return (15 + 4 + textWidth + 12).clamp(compactButtonSize, double.infinity);
+    // 아이콘 + 간격 + 텍스트 + 좌우 패딩 (위젯 실제 레이아웃과 동일 상수 사용)
+    return (kAdaptiveActionButtonIconSize +
+            kAdaptiveActionButtonIconLabelGap +
+            textWidth +
+            kAdaptiveActionButtonHPadding)
+        .clamp(compactButtonSize, double.infinity);
   }
 
   return switchPart +

@@ -9,6 +9,19 @@ const double kCompactToolbarHeight = 28.0;
 /// @deprecated 내부 호환용 — [kCompactToolbarHeight] 사용
 const double _kCompactToolbarHeight = kCompactToolbarHeight;
 
+/// 적응형 실행 도구 버튼 아이콘 크기 — [CompactToolbarAdaptiveLabelButton]
+/// 기본값과 폭 추정 계산이 공유 (한쪽만 바뀌어 추정이 어긋나는 것 방지)
+const double kAdaptiveActionButtonIconSize = 15.0;
+
+/// 적응형 실행 도구 버튼 글자 크기 — 위젯 기본값과 폭 추정 계산이 공유
+const double kAdaptiveActionButtonFontSize = 11.0;
+
+/// 적응형 라벨 버튼 좌우 패딩 합 ([CompactToolbarLabelButton] 좌우 각 6px)
+const double kAdaptiveActionButtonHPadding = 12.0;
+
+/// 적응형 라벨 버튼 아이콘-텍스트 간격
+const double kAdaptiveActionButtonIconLabelGap = 4.0;
+
 /// 탭 후 활성화처럼 보이는 하이라이트 유지 시간
 const Duration kCompactToolbarPressHighlightDuration = Duration(
   milliseconds: 250,
@@ -141,8 +154,8 @@ class CompactToolbarAdaptiveLabelButton extends StatelessWidget {
     required this.backgroundColor,
     required this.foregroundColor,
     required this.borderColor,
-    this.iconSize = 15,
-    this.fontSize = 11,
+    this.iconSize = kAdaptiveActionButtonIconSize,
+    this.fontSize = kAdaptiveActionButtonFontSize,
   });
 
   @override

@@ -68,7 +68,9 @@
       "Bash(git reset *)",
       "Bash(dart format *)",
       "Bash(grep -v '\\\\.dart$')",
-      "PowerShell(flutter *)"
+      "PowerShell(flutter *)",
+      "Bash(Select-String -Pattern \"error|warning|info|No issues\")",
+      "Bash(Select-Object -First 30)"
     ],
     "deny": [],
     "ask": []
