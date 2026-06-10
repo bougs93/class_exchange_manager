@@ -306,26 +306,40 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
         final bool hideTeacherCount = totalWidth < 600;
         final teacherCount = widget.timetableData?.teachers.length ?? 0;
 
-        // 고정 900px 대신 실제 콘텐츠 최소 폭으로 1줄 유지 여부 판단
         final layout = resolveUnifiedToolbarLayout(
           totalWidth: totalWidth,
           isDualExchangeEnabled: widget.isDualExchangeModeEnabled,
           showTeacherCount: !hideTeacherCount,
           teacherCount: teacherCount,
         );
-
+        // 2줄이어도 실행 도구 행에 공간이 있으면 라벨 표시
+        final showActionButtonLabels = shouldShowActionButtonLabels(
+          totalWidth: totalWidth,
+          useSingleRow: layout.useSingleRow,
+          isDualExchangeEnabled: widget.isDualExchangeModeEnabled,
+          showTeacherCount: !hideTeacherCount,
+          modeLabelStyle: layout.modeLabelStyle,
+          teacherCount: teacherCount,
+        );
         if (!layout.useSingleRow) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _buildModeSelectorRow(layout.modeLabelStyle),
               const SizedBox(height: 4),
-              _buildActionToolbarRow(hideTeacherCount),
+              _buildActionToolbarRow(
+                hideTeacherCount,
+                showActionButtonLabels,
+              ),
             ],
           );
         }
 
-        return _buildUnifiedToolbarRow(hideTeacherCount, layout.modeLabelStyle);
+        return _buildUnifiedToolbarRow(
+          hideTeacherCount,
+          layout.modeLabelStyle,
+          showActionButtonLabels,
+        );
       },
     );
   }
@@ -345,12 +359,11 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     );
   }
 
-  /// 통합 툴바 — [모드 | 실행 도구] (스크롤) + [zoom·교사수] (고정)
-  ///
-  /// Spacer()를 쓰지 않아 모드 버튼 영역이 zoom 왼쪽까지 전체 폭을 사용합니다.
+  /// 통합 툴바 — [모드 | 줌·교사수·실행 도구] (가로 스크롤, 모두 왼쪽 정렬)
   Widget _buildUnifiedToolbarRow(
     bool hideTeacherCount,
     ExchangeModeLabelStyle modeLabelStyle,
+    bool showActionButtonLabels,
   ) {
     return SizedBox(
       height: kExchangeUnifiedToolbarHeight,
@@ -363,6 +376,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
               scrollDirection: Axis.horizontal,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   ExchangeModeSelector(
                     currentMode: widget.currentMode,
@@ -370,49 +384,65 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
                     labelStyle: modeLabelStyle,
                   ),
                   const ToolbarGroupDivider(),
-                  ..._buildActionToolbarItems(),
+                  ..._buildZoomTeacherAndActionItems(
+                    hideTeacherCount,
+                    showActionButtonLabels,
+                  ),
                 ],
               ),
             ),
           ),
           const SizedBox(width: 8),
-          _buildZoomControl(),
-          const SizedBox(width: 8),
-          if (!hideTeacherCount) ...[
-            TeacherCountWidget(
-              teacherCount: widget.timetableData!.teachers.length,
-            ),
-            const SizedBox(width: 8),
-          ],
         ],
       ),
     );
   }
 
   /// 실행 도구 행 (좁은 화면용)
-  Widget _buildActionToolbarRow(bool hideTeacherCount) {
+  Widget _buildActionToolbarRow(
+    bool hideTeacherCount,
+    bool showActionButtonLabels,
+  ) {
     return SizedBox(
       height: kExchangeUnifiedToolbarHeight,
-      child: Row(
-        children: [
-          const SizedBox(width: 8),
-          ..._buildActionToolbarItems(),
-          const Spacer(),
-          _buildZoomControl(),
-          const SizedBox(width: 8),
-          if (!hideTeacherCount) ...[
-            TeacherCountWidget(
-              teacherCount: widget.timetableData!.teachers.length,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const SizedBox(width: 8),
+            ..._buildZoomTeacherAndActionItems(
+              hideTeacherCount,
+              showActionButtonLabels,
             ),
+            const SizedBox(width: 8),
           ],
-          const SizedBox(width: 8),
-        ],
+        ),
       ),
     );
   }
 
+  /// [줌][교사수] 원본[스위치] [전체 초기화][되돌리기][다시실행][선택교체 삭제]
+  List<Widget> _buildZoomTeacherAndActionItems(
+    bool hideTeacherCount,
+    bool showActionButtonLabels,
+  ) {
+    return [
+      _buildZoomControl(),
+      const SizedBox(width: 8),
+      if (!hideTeacherCount) ...[
+        TeacherCountWidget(
+          teacherCount: widget.timetableData!.teachers.length,
+        ),
+        const SizedBox(width: 8),
+      ],
+      ..._buildActionToolbarItems(showActionButtonLabels),
+    ];
+  }
+
   /// 교체 적용·초기화·undo/redo 버튼 그룹
-  List<Widget> _buildActionToolbarItems() {
+  List<Widget> _buildActionToolbarItems(bool showActionButtonLabels) {
     return [
       ExchangeViewCheckbox(
         isEnabled: ref.watch(isExchangeViewEnabledProvider),
@@ -428,9 +458,10 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       const SizedBox(width: 6),
       ResetExchangeListButton(
         onPressed: () => _showDeleteExchangeListDialog(context, ref),
+        showLabel: showActionButtonLabels,
       ),
       const SizedBox(width: 4),
-      _buildExchangeActionButtons(),
+      _buildExchangeActionButtons(showActionButtonLabels),
     ];
   }
 
@@ -466,7 +497,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
   }
 
   /// 되돌리기·다시 실행·삭제 버튼 그룹
-  Widget _buildExchangeActionButtons() {
+  Widget _buildExchangeActionButtons(bool showActionButtonLabels) {
     return Consumer(
       builder: (context, ref, child) {
         // 교체 리스트 변경 시 버튼 활성 상태 갱신
@@ -502,6 +533,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
                   ? () async => await _deleteExchangePath(currentSelectedPath)
                   : null,
           showDeleteButton: currentSelectedPath != null && isFromExchangedCell,
+          showLabel: showActionButtonLabels,
         );
       },
     );

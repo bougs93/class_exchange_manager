@@ -95,6 +95,7 @@ double estimateUnifiedToolbarMinWidth({
   required ExchangeModeLabelStyle labelStyle,
   required bool showTeacherCount,
   int teacherCount = 0,
+  bool withActionButtonLabels = false,
 }) {
   const horizontalPadding = 8.0;
   const scrollToZoomGap = 8.0;
@@ -106,15 +107,68 @@ double estimateUnifiedToolbarMinWidth({
   );
   // 모드 선택 영역과 실행 도구 사이 구분선
   width += kToolbarGroupDividerWidth;
-  width += estimateActionToolbarItemsWidth();
-  width += scrollToZoomGap;
   width += kZoomControlWidth;
+  width += scrollToZoomGap;
   if (showTeacherCount) {
-    width += scrollToZoomGap;
     width += estimateTeacherCountWidth(teacherCount);
+    width += scrollToZoomGap;
   }
+  width += estimateActionToolbarItemsWidth(
+    withButtonLabels: withActionButtonLabels,
+  );
   width += horizontalPadding;
   return width;
+}
+
+/// 실행 도구 2번째 행(줌·교사수·원본·초기화 등)만의 최소 가로 폭
+double estimateActionToolbarRowMinWidth({
+  required bool showTeacherCount,
+  required bool withButtonLabels,
+  int teacherCount = 0,
+}) {
+  const horizontalPadding = 16.0;
+  const gap = 8.0;
+
+  var width = horizontalPadding;
+  width += kZoomControlWidth;
+  width += gap;
+  if (showTeacherCount) {
+    width += estimateTeacherCountWidth(teacherCount);
+    width += gap;
+  }
+  width += estimateActionToolbarItemsWidth(withButtonLabels: withButtonLabels);
+  return width;
+}
+
+/// 실행 도구 버튼에 라벨을 표시할지 결정
+///
+/// - 2줄 레이아웃: 실행 도구 행만 전체 폭을 쓰므로 해당 행 기준으로 판단
+/// - 1줄 레이아웃: 모드 선택 + 실행 도구 전체 폭 기준으로 판단
+bool shouldShowActionButtonLabels({
+  required double totalWidth,
+  required bool useSingleRow,
+  required bool isDualExchangeEnabled,
+  required bool showTeacherCount,
+  required ExchangeModeLabelStyle modeLabelStyle,
+  int teacherCount = 0,
+}) {
+  if (!useSingleRow) {
+    return totalWidth >=
+        estimateActionToolbarRowMinWidth(
+          showTeacherCount: showTeacherCount,
+          withButtonLabels: true,
+          teacherCount: teacherCount,
+        );
+  }
+
+  return totalWidth >=
+      estimateUnifiedToolbarMinWidth(
+        isDualExchangeEnabled: isDualExchangeEnabled,
+        labelStyle: modeLabelStyle,
+        showTeacherCount: showTeacherCount,
+        teacherCount: teacherCount,
+        withActionButtonLabels: true,
+      );
 }
 
 /// [ExchangeModeSelector] 최소 폭 (내부 그룹 구분선 포함)
@@ -174,8 +228,8 @@ double estimateModeButtonWidth({
 }
 
 /// 원본 스위치 + 전체삭제 + undo/redo 그룹 최소 폭
-double estimateActionToolbarItemsWidth() {
-  final labelWidth = _measureToolbarTextWidth(
+double estimateActionToolbarItemsWidth({bool withButtonLabels = false}) {
+  final switchLabelWidth = _measureToolbarTextWidth(
     '교체',
     fontSize: 12,
     fontWeight: FontWeight.w500,
@@ -186,15 +240,38 @@ double estimateActionToolbarItemsWidth() {
   const compactButtonSize = kCompactToolbarHeight;
   const buttonGap = 4.0;
 
-  return labelWidth +
-      labelToSwitchGap +
-      switchAreaWidth +
-      checkboxToDeleteGap +
-      compactButtonSize +
+  final switchPart =
+      switchLabelWidth + labelToSwitchGap + switchAreaWidth + checkboxToDeleteGap;
+
+  if (!withButtonLabels) {
+    return switchPart +
+        compactButtonSize + // 전체 초기화
+        buttonGap +
+        compactButtonSize + // 되돌리기
+        buttonGap +
+        compactButtonSize + // 다시실행
+        buttonGap +
+        compactButtonSize; // 선택교체 삭제
+  }
+
+  double labeledButtonWidth(String label) {
+    final textWidth = _measureToolbarTextWidth(
+      label,
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+    );
+    // 아이콘(15) + 간격(4) + 텍스트 + 좌우 패딩(12)
+    return (15 + 4 + textWidth + 12).clamp(compactButtonSize, double.infinity);
+  }
+
+  return switchPart +
+      labeledButtonWidth('전체 초기화') +
       buttonGap +
-      compactButtonSize +
+      labeledButtonWidth('되돌리기') +
       buttonGap +
-      compactButtonSize;
+      labeledButtonWidth('다시실행') +
+      buttonGap +
+      labeledButtonWidth('선택교체 삭제');
 }
 
 /// 줌 컨트롤 ([ZoomControlWidget] IconButton constraints 합산)

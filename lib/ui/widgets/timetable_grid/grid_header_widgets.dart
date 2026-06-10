@@ -118,6 +118,62 @@ class _CompactToolbarIconButtonState extends State<CompactToolbarIconButton> {
   }
 }
 
+/// 가로 폭에 따라 아이콘만 / 버튼 안 아이콘+라벨 전환 (1:1교체 등과 동일 스타일)
+class CompactToolbarAdaptiveLabelButton extends StatelessWidget {
+  final VoidCallback? onPressed;
+  final IconData icon;
+  final String label;
+  final String tooltip;
+  final bool showLabel;
+  final Color backgroundColor;
+  final Color foregroundColor;
+  final Color borderColor;
+  final double iconSize;
+  final double fontSize;
+
+  const CompactToolbarAdaptiveLabelButton({
+    super.key,
+    required this.onPressed,
+    required this.icon,
+    required this.label,
+    required this.tooltip,
+    required this.showLabel,
+    required this.backgroundColor,
+    required this.foregroundColor,
+    required this.borderColor,
+    this.iconSize = 15,
+    this.fontSize = 11,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (!showLabel) {
+      return CompactToolbarIconButton(
+        onPressed: onPressed,
+        icon: icon,
+        tooltip: tooltip,
+        backgroundColor: backgroundColor,
+        foregroundColor: foregroundColor,
+        borderColor: borderColor,
+        iconSize: iconSize,
+      );
+    }
+
+    return CompactToolbarLabelButton(
+      onPressed: onPressed,
+      icon: icon,
+      label: label,
+      tooltip: tooltip,
+      backgroundColor: backgroundColor,
+      foregroundColor: foregroundColor,
+      borderColor: borderColor,
+      height: _kCompactToolbarHeight,
+      fontSize: fontSize,
+      iconSize: iconSize,
+    );
+  }
+}
+
 /// 아이콘 + 텍스트 라벨 (컴팩트 툴바용, 교체 실행 버튼 등)
 class CompactToolbarLabelButton extends StatefulWidget {
   final VoidCallback? onPressed;
@@ -275,15 +331,22 @@ class _CompactToolbarLabelButtonState extends State<CompactToolbarLabelButton> {
 /// 교체 리스트 전체 초기화 버튼
 class ResetExchangeListButton extends StatelessWidget {
   final VoidCallback onPressed;
+  final bool showLabel;
 
-  const ResetExchangeListButton({super.key, required this.onPressed});
+  const ResetExchangeListButton({
+    super.key,
+    required this.onPressed,
+    this.showLabel = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return CompactToolbarIconButton(
+    return CompactToolbarAdaptiveLabelButton(
       onPressed: onPressed,
       icon: Icons.clear,
+      label: '전체 초기화',
       tooltip: '결보강 전체 초기화',
+      showLabel: showLabel,
       backgroundColor: Colors.grey.shade100,
       foregroundColor: Colors.grey.shade700,
       borderColor: Colors.grey.shade400,
@@ -561,6 +624,7 @@ class ExchangeActionButtons extends StatelessWidget {
   final VoidCallback? onRepeat;
   final Future<void> Function()? onDelete;
   final bool showDeleteButton;
+  final bool showLabel;
 
   const ExchangeActionButtons({
     super.key,
@@ -568,6 +632,7 @@ class ExchangeActionButtons extends StatelessWidget {
     required this.onRepeat,
     this.onDelete,
     required this.showDeleteButton,
+    this.showLabel = false,
   });
 
   @override
@@ -575,29 +640,35 @@ class ExchangeActionButtons extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        CompactToolbarIconButton(
+        CompactToolbarAdaptiveLabelButton(
           onPressed: onUndo,
           icon: Icons.undo,
+          label: '되돌리기',
           tooltip: onUndo != null ? '되돌리기' : '되돌리기 (불가)',
+          showLabel: showLabel,
           backgroundColor: Colors.orange.shade100,
           foregroundColor: Colors.orange.shade700,
           borderColor: Colors.orange.shade300,
         ),
         const SizedBox(width: 4),
-        CompactToolbarIconButton(
+        CompactToolbarAdaptiveLabelButton(
           onPressed: onRepeat,
           icon: Icons.redo,
+          label: '다시실행',
           tooltip: onRepeat != null ? '다시 실행' : '다시 실행 (불가)',
+          showLabel: showLabel,
           backgroundColor: Colors.purple.shade100,
           foregroundColor: Colors.purple.shade700,
           borderColor: Colors.purple.shade300,
         ),
         const SizedBox(width: 4),
         if (showDeleteButton && onDelete != null)
-          CompactToolbarIconButton(
-            onPressed: () async => await onDelete!(),
+          CompactToolbarAdaptiveLabelButton(
+            onPressed: () => onDelete!(),
             icon: Icons.delete_outline,
+            label: '선택교체 삭제',
             tooltip: '선택 교체 삭제',
+            showLabel: showLabel,
             backgroundColor: Colors.red.shade100,
             foregroundColor: Colors.red.shade700,
             borderColor: Colors.red.shade300,
