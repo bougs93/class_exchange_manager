@@ -43,6 +43,13 @@ class ContentInputGridConfig {
   static const double headerFontSize = 12.0;
   static const double cellFontSize = 12.0;
 
+  /// SfDataGrid headerRowHeight 와 동일 (비고 2행 합침 높이 계산용)
+  static const double headerRowHeight = 35.0;
+
+  /// 헤더 1·2행 공통 배경·테두리 (스택 헤더·컬럼 헤더 동일)
+  static Color get _headerFillColor => Colors.grey.shade100;
+  static Color get _headerBorderColor => Colors.grey.shade300;
+
   /// 컬럼 정의
   static List<GridColumn> getColumns() {
     return [
@@ -118,7 +125,8 @@ class ContentInputGridConfig {
       ),
       GridColumn(
         columnName: 'remarks',
-        label: _buildHeaderLabel('비고'),
+        // 스택 헤더(1행)에만 '비고' 표시 — 2행은 빈 셀로 rowspan 효과
+        label: _buildEmptySubHeaderLabel(),
         width: 100,
       ),
     ];
@@ -149,10 +157,40 @@ class ContentInputGridConfig {
             'substitutionSubject',
             'substitutionTeacher',
           ], '수업 교체'),
-          _buildStackedHeaderCell(['remarks'], '비고'),
+          _buildMergedColumnStackedHeaderCell('remarks', '비고'),
         ],
       ),
     ];
+  }
+
+  /// 단일 열 스택 헤더 (1행에 텍스트, 2행은 빈 배경 — 가로선 없이 합쳐 보임)
+  static StackedHeaderCell _buildMergedColumnStackedHeaderCell(
+    String columnName,
+    String text,
+  ) {
+    return StackedHeaderCell(
+      columnNames: [columnName],
+      child: Container(
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: _headerFillColor,
+          border: Border(
+            left: BorderSide(color: _headerBorderColor),
+            top: BorderSide(color: _headerBorderColor),
+            right: BorderSide(color: _headerBorderColor),
+          ),
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: headerFontSize,
+            height: 1.2,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
   }
 
   /// 헤더 레이블 위젯 생성
@@ -161,8 +199,8 @@ class ContentInputGridConfig {
       padding: headerPadding,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        border: Border.all(color: Colors.grey.shade300),
+        color: _headerFillColor,
+        border: Border.all(color: _headerBorderColor),
       ),
       child: Text(
         text,
@@ -172,6 +210,21 @@ class ContentInputGridConfig {
           height: 1.0,
         ),
       ),
+    );
+  }
+
+  /// 비고 2행 — 배경만 채움 (1행과 같은 색, 위쪽 테두리 없음)
+  static Widget _buildEmptySubHeaderLabel() {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: _headerFillColor,
+        border: Border(
+          left: BorderSide(color: _headerBorderColor),
+          right: BorderSide(color: _headerBorderColor),
+          bottom: BorderSide(color: _headerBorderColor),
+        ),
+      ),
+      child: const SizedBox.expand(),
     );
   }
 
@@ -186,8 +239,8 @@ class ContentInputGridConfig {
         padding: headerPadding,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: Colors.grey.shade200,
-          border: Border.all(color: Colors.grey.shade400),
+          color: _headerFillColor,
+          border: Border.all(color: _headerBorderColor),
         ),
         child: Text(
           text,

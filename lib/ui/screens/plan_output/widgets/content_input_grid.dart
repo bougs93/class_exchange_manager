@@ -348,9 +348,10 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
           allowColumnsResizing: true,
           columnResizeMode: ColumnResizeMode.onResize,
           gridLinesVisibility: GridLinesVisibility.both,
-          headerGridLinesVisibility: GridLinesVisibility.both,
+          // 헤더 가로선은 컬럼 Container 테두리로만 표시 (비고 1·2행 사이 선 제거)
+          headerGridLinesVisibility: GridLinesVisibility.vertical,
           selectionMode: SelectionMode.single,
-          headerRowHeight: 35,
+          headerRowHeight: ContentInputGridConfig.headerRowHeight,
           rowHeight: 28,
           allowEditing: false,
           // 교체 관리 시간표와 동일한 스크롤 컨트롤러 적용 (공통 믹신 사용)
