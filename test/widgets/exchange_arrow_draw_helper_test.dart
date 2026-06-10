@@ -11,7 +11,6 @@ class _DrawCall {
   final String? text;
   final ArrowDirection direction;
   final double? arrowHeadSize;
-  final double lateralOffset;
 
   _DrawCall({
     required this.from,
@@ -19,7 +18,6 @@ class _DrawCall {
     required this.text,
     required this.direction,
     required this.arrowHeadSize,
-    required this.lateralOffset,
   });
 }
 
@@ -45,7 +43,6 @@ void main() {
       double? arrowHeadSize,
       String? text,
       ArrowDirection direction = ArrowDirection.forward,
-      double lateralOffset = 0.0,
     }) {
       calls.add(
         _DrawCall(
@@ -54,7 +51,6 @@ void main() {
           text: text,
           direction: direction,
           arrowHeadSize: arrowHeadSize,
-          lateralOffset: lateralOffset,
         ),
       );
     };
@@ -87,19 +83,6 @@ void main() {
       expect(calls[1].direction, ArrowDirection.forward);
       expect(calls[1].text, isNull);
     });
-
-    test('두 선은 겹치지 않도록 서로 반대 부호의 lateralOffset을 받는다', () {
-      ExchangeArrowDrawHelper.drawSplitUnidirectional(
-        nodeA: _node('교사A'),
-        nodeB: _node('교사B'),
-        drawArrow: recorder,
-        lateralOffset: 6.0,
-      );
-
-      expect(calls.length, 2);
-      expect(calls[0].lateralOffset, 6.0);
-      expect(calls[1].lateralOffset, -6.0);
-    });
   });
 
   group('drawStepArrows', () {
@@ -120,7 +103,6 @@ void main() {
       expect(calls[0].text, '1');
       expect(calls[0].direction, ArrowDirection.bidirectional);
       expect(calls[0].arrowHeadSize, 8.0);
-      expect(calls[0].lateralOffset, 0.0); // 양방향(↔)은 어긋남 없음
       expect(calls[1].text, '2');
       expect(calls[1].direction, ArrowDirection.bidirectional);
     });

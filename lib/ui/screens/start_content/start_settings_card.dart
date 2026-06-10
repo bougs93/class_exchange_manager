@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../constants/teacher_row_highlight_colors.dart';
 import '../../../providers/app_settings_provider.dart';
+import '../../widgets/timetable_grid/exchange_arrow_direction_icon.dart';
+import '../../widgets/timetable_grid/exchange_arrow_style.dart';
 import '../../../services/app_settings_storage_service.dart';
 import '../../../services/storage_service.dart';
 import '../../../utils/logger.dart';
@@ -270,9 +272,7 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
                 const SizedBox(height: 8),
                 _buildHighlightColorSection(),
                 const SizedBox(height: 8),
-                _buildArrowDirectionSection(),
-                const SizedBox(height: 8),
-                _buildIndirectExchangeGroupSection(),
+                _buildResponsiveExchangeSettingsSections(),
                 const SizedBox(height: 8),
                 DataStorageLocationSection(
                   key: _dataStorageLocationKey,
@@ -325,18 +325,60 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
     );
   }
 
-  /// 화살표 표시 설정 섹션 (1:1·2중 교체 화살표 방향)
-  Widget _buildArrowDirectionSection() {
-    final oneToOneDir = ref.watch(oneToOneArrowDirectionProvider);
-    final dualDir = ref.watch(dualArrowDirectionProvider);
+  /// 화살표 표시 · 간접교체 섹션 (동일 너비, 넓으면 1행·좁으면 2행)
+  ///
+  /// ExpansionTile 자식은 세로 제약이 무한(unbounded)이므로
+  /// Row + CrossAxisAlignment.stretch 는 레이아웃 정지를 유발한다.
+  /// Wrap + 고정 너비 SizedBox 로 동일 폭·반응형 배치를 한다.
+  Widget _buildResponsiveExchangeSettingsSections() {
+    const spacing = 12.0;
+    const minSectionWidth = 280.0;
 
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth;
+        final twoColumns = maxWidth >= minSectionWidth * 2 + spacing;
+        final sectionWidth =
+            twoColumns ? (maxWidth - spacing) / 2 : maxWidth;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            SizedBox(
+              width: sectionWidth,
+              child: _buildArrowDirectionSection(),
+            ),
+            SizedBox(
+              width: sectionWidth,
+              child: _buildIndirectExchangeGroupSection(),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 설정 그룹 공통 외곽 카드 (화살표 표시 · 간접교체)
+  Widget _buildSettingsGroupCard({required Widget child}) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         border: Border.all(color: Colors.grey.shade300),
         borderRadius: BorderRadius.circular(12),
       ),
+      child: child,
+    );
+  }
+
+  /// 화살표 표시 설정 섹션 (1:1·2중 교체 화살표 방향)
+  Widget _buildArrowDirectionSection() {
+    final oneToOneDir = ref.watch(oneToOneArrowDirectionProvider);
+    final dualDir = ref.watch(dualArrowDirectionProvider);
+
+    return _buildSettingsGroupCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -350,39 +392,23 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
             style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 8),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              // 카드 2개 + 간격이 들어갈 수 있으면 1행, 부족하면 2행으로 줄바꿈
-              const spacing = 12.0;
-              const minCardWidth = 168.0;
-              final maxWidth = constraints.maxWidth;
-              final twoColumns = maxWidth >= minCardWidth * 2 + spacing;
-              final cardWidth =
-                  twoColumns ? (maxWidth - spacing) / 2 : maxWidth;
-
-              return Wrap(
-                spacing: spacing,
-                runSpacing: 8,
-                children: [
-                  SizedBox(
-                    width: cardWidth,
-                    child: _buildArrowDirectionCard(
-                      label: '1:1 교체',
-                      value: oneToOneDir,
-                      onChanged: _saveOneToOneArrowDirection,
-                    ),
-                  ),
-                  SizedBox(
-                    width: cardWidth,
-                    child: _buildArrowDirectionCard(
-                      label: '2중 교체',
-                      value: dualDir,
-                      onChanged: _saveDualArrowDirection,
-                    ),
-                  ),
-                ],
-              );
-            },
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              _buildArrowDirectionCard(
+                label: '1:1 교체',
+                value: oneToOneDir,
+                arrowColor: ExchangeArrowStyle.oneToOne.color,
+                onChanged: _saveOneToOneArrowDirection,
+              ),
+              _buildArrowDirectionCard(
+                label: '2중 교체',
+                value: dualDir,
+                arrowColor: ExchangeArrowStyle.dual.color,
+                onChanged: _saveDualArrowDirection,
+              ),
+            ],
           ),
         ],
       ),
@@ -393,8 +419,16 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
   Widget _buildArrowDirectionCard({
     required String label,
     required ArrowDirection value,
+    required Color arrowColor,
     required ValueChanged<ArrowDirection> onChanged,
   }) {
+    Widget arrowIcon(ArrowDirection direction) {
+      return ExchangeArrowDirectionIcon(
+        direction: direction,
+        color: arrowColor,
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
@@ -402,27 +436,32 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
         border: Border.all(color: Colors.grey.shade300),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             label,
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(width: 6),
           DropdownButton<ArrowDirection>(
             value: value,
-            isExpanded: true,
             underline: const SizedBox.shrink(),
             isDense: true,
-            items: const [
+            iconSize: 18,
+            selectedItemBuilder:
+                (context) => [
+                  arrowIcon(ArrowDirection.forward),
+                  arrowIcon(ArrowDirection.bidirectional),
+                ],
+            items: [
               DropdownMenuItem(
                 value: ArrowDirection.forward,
-                child: Text('단방향(2개) 화살표', style: TextStyle(fontSize: 12)),
+                child: arrowIcon(ArrowDirection.forward),
               ),
               DropdownMenuItem(
                 value: ArrowDirection.bidirectional,
-                child: Text('양방향(1개) 화살표', style: TextStyle(fontSize: 12)),
+                child: arrowIcon(ArrowDirection.bidirectional),
               ),
             ],
             onChanged:
@@ -438,13 +477,7 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
 
   /// 간접교체 그룹 (2중 교체 · 순환 교체 메뉴 표시 설정)
   Widget _buildIndirectExchangeGroupSection() {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(12),
-      ),
+    return _buildSettingsGroupCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -458,41 +491,32 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
             style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 8),
-          _buildExchangeModeTogglesSection(),
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              _buildIndirectExchangeCard(
+                label: '2중교체',
+                description: '2회 간접 교체',
+                showRecommended: true,
+                isEnabled: ref.watch(dualExchangeEnabledProvider),
+                onChanged: _saveDualExchangeEnabled,
+              ),
+              _buildIndirectExchangeCard(
+                label: '순환교체',
+                description: '3~4회 간접 교체',
+                isEnabled: ref.watch(circularExchangeEnabledProvider),
+                onChanged: _saveCircularExchangeEnabled,
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  /// 2중교체 · 순환교체 토글을 한 줄에 가로 배치
-  Widget _buildExchangeModeTogglesSection() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: _buildIndirectExchangeToggle(
-            label: '2중교체',
-            description: '2회의 간접 교체',
-            showRecommended: true,
-            isEnabled: ref.watch(dualExchangeEnabledProvider),
-            onChanged: _saveDualExchangeEnabled,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildIndirectExchangeToggle(
-            label: '순환교체',
-            description: '3~4회의 간접 교체',
-            isEnabled: ref.watch(circularExchangeEnabledProvider),
-            onChanged: _saveCircularExchangeEnabled,
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// 간접교체 하위 메뉴 토글
-  Widget _buildIndirectExchangeToggle({
+  /// 간접교체 토글 카드 (화살표 설정 카드와 동일한 컴팩트 스타일)
+  Widget _buildIndirectExchangeCard({
     required String label,
     required String description,
     bool showRecommended = false,
@@ -501,37 +525,35 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
   }) {
     final theme = Theme.of(context);
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Transform.scale(
-          scale: 0.72,
-          alignment: Alignment.topLeft,
-          child: Switch(
-            value: isEnabled,
-            onChanged: onChanged,
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-        ),
-        const SizedBox(width: 2),
-        Expanded(
-          child: Column(
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     label,
                     style: const TextStyle(
                       fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   if (showRecommended) ...[
                     const SizedBox(width: 4),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
+                        horizontal: 4,
                         vertical: 1,
                       ),
                       decoration: BoxDecoration(
@@ -550,15 +572,24 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
                   ],
                 ],
               ),
-              const SizedBox(height: 2),
               Text(
                 description,
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
               ),
             ],
           ),
-        ),
-      ],
+          const SizedBox(width: 8),
+          Transform.scale(
+            scale: 0.72,
+            alignment: Alignment.center,
+            child: Switch(
+              value: isEnabled,
+              onChanged: onChanged,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

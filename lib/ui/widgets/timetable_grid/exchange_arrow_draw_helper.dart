@@ -14,7 +14,6 @@ typedef ArrowDrawCallback =
       double? arrowHeadSize,
       String? text,
       ArrowDirection direction,
-      double lateralOffset,
     });
 
 /// 1:1·2중 교체 화살표 그리기 전략을 공통화한 헬퍼
@@ -27,15 +26,12 @@ class ExchangeArrowDrawHelper {
   /// 분리 단방향 전략: A→B, B→A 2개의 선을 각각 단방향 화살표로 그린다.
   ///
   /// 1:1·2중 교체 **단방향**에서 사용한다. 중간 숫자는 표시하지 않는다.
-  /// 두 선이 같은 직선 위에 겹치는 경우(같은 열/행) [lateralOffset]만큼
-  /// 서로 반대 방향으로 어긋나게 그려 2개의 선으로 보이도록 한다.
   static void drawSplitUnidirectional({
     required ExchangeNode nodeA,
     required ExchangeNode nodeB,
     required ArrowDrawCallback drawArrow,
     ArrowPriority priority = ArrowPriority.verticalFirst,
     double arrowHeadSize = 12.0,
-    double lateralOffset = ArrowConstants.splitArrowLateralOffset,
   }) {
     drawArrow(
       nodeA,
@@ -43,7 +39,6 @@ class ExchangeArrowDrawHelper {
       priority: priority,
       arrowHeadSize: arrowHeadSize,
       direction: ArrowDirection.forward,
-      lateralOffset: lateralOffset,
     );
     drawArrow(
       nodeB,
@@ -51,7 +46,6 @@ class ExchangeArrowDrawHelper {
       priority: priority,
       arrowHeadSize: arrowHeadSize,
       direction: ArrowDirection.forward,
-      lateralOffset: -lateralOffset,
     );
   }
 

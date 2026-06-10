@@ -79,7 +79,6 @@ class ExchangeArrowPainter extends CustomPainter {
       double? arrowHeadSize,
       String? text,
       ArrowDirection direction = ArrowDirection.forward,
-      double lateralOffset = 0.0,
     }) {
       _drawArrowBetweenNodes(
         canvas,
@@ -90,7 +89,6 @@ class ExchangeArrowPainter extends CustomPainter {
         arrowHeadSize: arrowHeadSize,
         text: text,
         direction: direction,
-        lateralOffset: lateralOffset,
       );
     };
   }
@@ -328,7 +326,6 @@ class ExchangeArrowPainter extends CustomPainter {
     double? arrowHeadSize,
     String? text,
     ArrowDirection? direction,
-    double lateralOffset = 0.0,
   }) {
     // 교사 인덱스 찾기
     int sourceTeacherIndex = timetableData.teachers.indexWhere(
@@ -377,33 +374,6 @@ class ExchangeArrowPainter extends CustomPainter {
       targetTeacherIndex,
       edges['end']!,
     );
-
-    // 분리 단방향 화살표 겹침 방지:
-    // 같은 열(같은 교시) 또는 같은 행이면 두 화살표가 같은 직선 위에 겹치므로,
-    // 선 방향에 수직으로 좌표를 이동시켜 2개의 선으로 분리한다.
-    if (lateralOffset != 0) {
-      final bool isStraightLine =
-          sourceColumnIndex == targetColumnIndex ||
-          sourceTeacherIndex == targetTeacherIndex;
-      if (isStraightLine) {
-        final Offset delta = targetPos - sourcePos;
-        final double length = delta.distance;
-        if (length > 0) {
-          // 선 방향에 수직인 단위 벡터
-          Offset perpendicular = Offset(-delta.dy / length, delta.dx / length);
-          // 정준화: A→B와 B→A는 delta 방향이 반대라 수직 벡터도 반대가 된다.
-          // 부호(±lateralOffset)까지 반대이면 두 번 뒤집혀 같은 방향으로 이동하므로,
-          // 수직 벡터를 방향과 무관한 일정한 방향으로 고정한다.
-          if (perpendicular.dx < 0 ||
-              (perpendicular.dx == 0 && perpendicular.dy < 0)) {
-            perpendicular = -perpendicular;
-          }
-          final Offset shift = perpendicular * lateralOffset;
-          sourcePos += shift;
-          targetPos += shift;
-        }
-      }
-    }
 
     // 화면 영역 내에 화살표가 있는지 검사
     bool isVisible = _isArrowVisible(sourcePos, targetPos, size);
