@@ -325,7 +325,7 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
     );
   }
 
-  /// 화살표 표시 · 간접교체 섹션 (동일 너비, 넓으면 1행·좁으면 2행)
+  /// 간접교체 · 화살표 표시 섹션 (동일 너비, 넓으면 1행·좁으면 2행)
   ///
   /// ExpansionTile 자식은 세로 제약이 무한(unbounded)이므로
   /// Row + CrossAxisAlignment.stretch 는 레이아웃 정지를 유발한다.
@@ -347,11 +347,11 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
           children: [
             SizedBox(
               width: sectionWidth,
-              child: _buildArrowDirectionSection(),
+              child: _buildIndirectExchangeGroupSection(),
             ),
             SizedBox(
               width: sectionWidth,
-              child: _buildIndirectExchangeGroupSection(),
+              child: _buildArrowDirectionSection(),
             ),
           ],
         );
@@ -373,10 +373,14 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
     );
   }
 
-  /// 화살표 표시 설정 섹션 (1:1·2중 교체 화살표 방향)
+  /// 화살표 표시 설정 섹션 (1:1·2중·연쇄 교체 화살표 방향)
   Widget _buildArrowDirectionSection() {
     final oneToOneDir = ref.watch(oneToOneArrowDirectionProvider);
     final dualDir = ref.watch(dualArrowDirectionProvider);
+    final isDualExchangeEnabled = ref.watch(dualExchangeEnabledProvider);
+    final isCircularExchangeEnabled = ref.watch(
+      circularExchangeEnabledProvider,
+    );
 
     return _buildSettingsGroupCard(
       child: Column(
@@ -406,11 +410,57 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
                 label: '2중 교체',
                 value: dualDir,
                 arrowColor: ExchangeArrowStyle.dual.color,
+                enabled: isDualExchangeEnabled,
                 onChanged: _saveDualArrowDirection,
+              ),
+              _buildArrowDirectionStaticCard(
+                label: '연쇄교체',
+                arrowColor: ExchangeArrowStyle.circular.color,
+                enabled: isCircularExchangeEnabled,
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  /// 연쇄교체 화살표 표시 카드 (단방향 1개 고정, 선택 불가)
+  Widget _buildArrowDirectionStaticCard({
+    required String label,
+    required Color arrowColor,
+    bool enabled = true,
+  }) {
+    return Opacity(
+      opacity: enabled ? 1.0 : 0.4,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: enabled ? Colors.white : Colors.grey.shade100,
+          border: Border.all(
+            color: enabled ? Colors.grey.shade300 : Colors.grey.shade200,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: enabled ? Colors.black87 : Colors.grey.shade500,
+              ),
+            ),
+            const SizedBox(width: 6),
+            ExchangeArrowDirectionIcon(
+              direction: ArrowDirection.forward,
+              color: enabled ? arrowColor : Colors.grey.shade400,
+              singleLine: true,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -421,56 +471,70 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
     required ArrowDirection value,
     required Color arrowColor,
     required ValueChanged<ArrowDirection> onChanged,
+    bool enabled = true,
   }) {
+    final effectiveColor = enabled ? arrowColor : Colors.grey.shade400;
+
     Widget arrowIcon(ArrowDirection direction) {
       return ExchangeArrowDirectionIcon(
         direction: direction,
-        color: arrowColor,
+        color: effectiveColor,
       );
     }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+    return Opacity(
+      opacity: enabled ? 1.0 : 0.4,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: enabled ? Colors.white : Colors.grey.shade100,
+          border: Border.all(
+            color: enabled ? Colors.grey.shade300 : Colors.grey.shade200,
           ),
-          const SizedBox(width: 6),
-          DropdownButton<ArrowDirection>(
-            value: value,
-            underline: const SizedBox.shrink(),
-            isDense: true,
-            iconSize: 18,
-            selectedItemBuilder:
-                (context) => [
-                  arrowIcon(ArrowDirection.forward),
-                  arrowIcon(ArrowDirection.bidirectional),
-                ],
-            items: [
-              DropdownMenuItem(
-                value: ArrowDirection.forward,
-                child: arrowIcon(ArrowDirection.forward),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: enabled ? Colors.black87 : Colors.grey.shade500,
               ),
-              DropdownMenuItem(
-                value: ArrowDirection.bidirectional,
-                child: arrowIcon(ArrowDirection.bidirectional),
-              ),
-            ],
-            onChanged:
-                (newValue) =>
-                    newValue != null && newValue != value
-                        ? onChanged(newValue)
-                        : null,
-          ),
-        ],
+            ),
+            const SizedBox(width: 6),
+            DropdownButton<ArrowDirection>(
+              value: value,
+              underline: const SizedBox.shrink(),
+              isDense: true,
+              iconSize: 18,
+              selectedItemBuilder:
+                  (context) => [
+                    arrowIcon(ArrowDirection.forward),
+                    arrowIcon(ArrowDirection.bidirectional),
+                  ],
+              items: [
+                DropdownMenuItem(
+                  value: ArrowDirection.forward,
+                  child: arrowIcon(ArrowDirection.forward),
+                ),
+                DropdownMenuItem(
+                  value: ArrowDirection.bidirectional,
+                  child: arrowIcon(ArrowDirection.bidirectional),
+                ),
+              ],
+              onChanged:
+                  !enabled
+                      ? null
+                      : (newValue) =>
+                          newValue != null && newValue != value
+                              ? onChanged(newValue)
+                              : null,
+            ),
+          ],
+        ),
       ),
     );
   }

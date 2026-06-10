@@ -7,6 +7,15 @@ class ArrowConstants {
   static const double textFontSize = 12.0;
   static const double textBackgroundPadding = 1.0;
   static const double textOutlineWidth = 2.0;
+
+  // 2중 교체 단방향에서 2번 그룹(2단계) 화살표를 셀 모서리를 따라 이동시켜
+  // 1번 그룹과 겹치지 않게 하는 오프셋 (그리드 배율 적용 전 기준, px)
+  static const double dualSecondGroupOffsetX = 7.0;
+  static const double dualSecondGroupOffsetY = 7.0;
+
+  // 점선 화살표의 대시·간격 길이 (px) - 2중 교체 1번 그룹 구분용
+  static const double dashLength = 6.0;
+  static const double dashGapLength = 4.0;
 }
 
 /// 그리드 레이아웃 관련 상수

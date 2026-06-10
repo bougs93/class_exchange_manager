@@ -71,7 +71,14 @@ class ExchangeArrowPainter extends CustomPainter {
   }
 
   /// 두 노드 사이 화살표 그리기를 헬퍼에 위임하기 위한 콜백 생성
-  ArrowDrawCallback _arrowDrawCallback(Canvas canvas, Size size) {
+  /// [positionOffset]만큼 화살표 전체 좌표를 평행 이동시키는 콜백을 만든다.
+  /// (2중 교체에서 그룹 간 겹침을 피하기 위해 특정 그룹 전체를 이동할 때 사용)
+  ArrowDrawCallback _arrowDrawCallback(
+    Canvas canvas,
+    Size size, {
+    Offset positionOffset = Offset.zero,
+    bool dashed = false,
+  }) {
     return (
       ExchangeNode from,
       ExchangeNode to, {
@@ -89,6 +96,8 @@ class ExchangeArrowPainter extends CustomPainter {
         arrowHeadSize: arrowHeadSize,
         text: text,
         direction: direction,
+        positionOffset: positionOffset,
+        dashed: dashed,
       );
     };
   }
@@ -169,27 +178,45 @@ class ExchangeArrowPainter extends CustomPainter {
   /// - 단방향: 각 교체를 A→B, B→A 2선으로 분리 (교체 2개 → 총 4선). 중간 숫자 없음.
   /// - 양방향: 각 교체를 양쪽 머리(↔) 1선으로 (교체 2개 → 2선) + 중간 숫자 "1","2".
   ///
+  /// 1번 그룹(1단계)은 **점선**으로, 2번 그룹(2단계)은 실선으로 그려 단계를 구분한다.
+  /// 단방향에서는 2번 그룹을 셀 모서리를 따라 이동시켜 1번 그룹과 겹치지 않게 한다.
   /// 어느 방향이든 셀 모서리 단계 번호(1, 2)는 오버레이에서 별도로 표시된다.
   void _drawDualArrows(Canvas canvas, Size size) {
     final dualPath = selectedPath as DualExchangePath;
     final steps = _dualPathToSteps(dualPath);
-    final draw = _arrowDrawCallback(canvas, size);
 
-    if (dualArrowDirection == ArrowDirection.bidirectional) {
-      // 양방향: 각 교체를 ↔ 1선으로 (현재 기본 동작)
-      ExchangeArrowDrawHelper.drawStepArrows(
-        steps: steps,
-        direction: ArrowDirection.bidirectional,
-        drawArrow: draw,
-        arrowHeadSize: 8.0,
-      );
-    } else {
-      // 단방향: 각 교체를 A→B, B→A 2선으로 분리 (1:1 단방향과 동일한 방식)
-      for (final step in steps) {
+    for (final step in steps) {
+      final int groupIndex = step.stepNumber - 1; // 1번 그룹=0, 2번 그룹=1
+      final bool isFirstGroup = step.stepNumber == 1; // 1번 그룹은 점선
+
+      if (dualArrowDirection == ArrowDirection.bidirectional) {
+        // 양방향: 각 교체를 ↔ 1선으로
+        ExchangeArrowDrawHelper.drawStepArrows(
+          steps: [step],
+          direction: ArrowDirection.bidirectional,
+          drawArrow: _arrowDrawCallback(canvas, size, dashed: isFirstGroup),
+          arrowHeadSize: 8.0,
+        );
+      } else {
+        // 단방향: 각 교체를 A→B, B→A 2선으로 분리
+        // 2번 그룹 이후 화살표는 1번 그룹과 겹치지 않도록 셀 모서리를 따라 이동한다.
+        final Offset groupOffset =
+            Offset(
+              ArrowConstants.dualSecondGroupOffsetX,
+              ArrowConstants.dualSecondGroupOffsetY,
+            ) *
+            zoomFactor *
+            groupIndex.toDouble();
+
         ExchangeArrowDrawHelper.drawSplitUnidirectional(
           nodeA: step.fromNode,
           nodeB: step.toNode,
-          drawArrow: draw,
+          drawArrow: _arrowDrawCallback(
+            canvas,
+            size,
+            positionOffset: groupOffset,
+            dashed: isFirstGroup,
+          ),
           arrowHeadSize: 8.0,
         );
       }
@@ -326,6 +353,8 @@ class ExchangeArrowPainter extends CustomPainter {
     double? arrowHeadSize,
     String? text,
     ArrowDirection? direction,
+    Offset positionOffset = Offset.zero,
+    bool dashed = false,
   }) {
     // 교사 인덱스 찾기
     int sourceTeacherIndex = timetableData.teachers.indexWhere(
@@ -375,6 +404,14 @@ class ExchangeArrowPainter extends CustomPainter {
       edges['end']!,
     );
 
+    // 그룹 단위 분리 (2중 교체에서 2번 그룹을 1번 그룹과 분리)
+    // 시작/끝점이 셀 경계에서 떨어지지 않도록, 오프셋을 각 모서리의 접선 방향으로만 적용한다.
+    // (상/하단 모서리 → x 방향만, 좌/우 모서리 → y 방향만 이동)
+    if (positionOffset != Offset.zero) {
+      sourcePos += _offsetAlongEdge(edges['start']!, positionOffset);
+      targetPos += _offsetAlongEdge(edges['end']!, positionOffset);
+    }
+
     // 화면 영역 내에 화살표가 있는지 검사
     bool isVisible = _isArrowVisible(sourcePos, targetPos, size);
     if (!isVisible) {
@@ -385,7 +422,7 @@ class ExchangeArrowPainter extends CustomPainter {
     canvas.save();
     _applyFrozenAreaClipping(canvas, size);
 
-    // 교체 경로 타입에 따른 스타일 적용하여 화살표 그리기 (우선 방향, 머리 사이즈, 텍스트, 방향 지정)
+    // 교체 경로 타입에 따른 스타일 적용하여 화살표 그리기 (우선 방향, 머리 사이즈, 텍스트, 방향, 점선 지정)
     _drawStyledArrow(
       canvas,
       sourcePos,
@@ -394,9 +431,44 @@ class ExchangeArrowPainter extends CustomPainter {
       arrowHeadSize: arrowHeadSize,
       text: text,
       direction: direction,
+      dashed: dashed,
     );
 
     canvas.restore();
+  }
+
+  /// 주어진 경로를 대시(점선) 패턴으로 그린다.
+  ///
+  /// PathMetric으로 경로를 길이 기준으로 잘라 [ArrowConstants.dashLength]만큼
+  /// 그리고 [ArrowConstants.dashGapLength]만큼 띄우기를 반복한다.
+  void _drawDashedPath(Canvas canvas, Path path, Paint paint) {
+    final double dash = ArrowConstants.dashLength;
+    final double gap = ArrowConstants.dashGapLength;
+    for (final metric in path.computeMetrics()) {
+      double distance = 0.0;
+      while (distance < metric.length) {
+        final double end = math.min(distance + dash, metric.length);
+        canvas.drawPath(metric.extractPath(distance, end), paint);
+        distance += dash + gap;
+      }
+    }
+  }
+
+  /// 셀 모서리의 접선 방향으로만 오프셋을 적용한다.
+  ///
+  /// 끝점이 셀 경계(모서리) 위에 그대로 남도록, 모서리에 수직인 성분은 버리고
+  /// 모서리를 따라 미끄러지는 성분만 사용한다.
+  /// - 상/하단(수평) 모서리: x 성분만 적용
+  /// - 좌/우(수직) 모서리: y 성분만 적용
+  Offset _offsetAlongEdge(ArrowEdge edge, Offset offset) {
+    switch (edge) {
+      case ArrowEdge.top:
+      case ArrowEdge.bottom:
+        return Offset(offset.dx, 0);
+      case ArrowEdge.left:
+      case ArrowEdge.right:
+        return Offset(0, offset.dy);
+    }
   }
 
   /// 고정 영역 클리핑을 적용하는 메서드
@@ -836,6 +908,7 @@ class ExchangeArrowPainter extends CustomPainter {
     double? arrowHeadSize,
     String? text,
     ArrowDirection? direction,
+    bool dashed = false,
   }) {
     // 교체 경로 타입에 따른 스타일 결정
     ExchangeArrowStyle style = _getArrowStyle();
@@ -859,6 +932,7 @@ class ExchangeArrowPainter extends CustomPainter {
       style,
       priority: priority,
       text: text,
+      dashed: dashed,
     );
   }
 
@@ -890,6 +964,7 @@ class ExchangeArrowPainter extends CustomPainter {
     ExchangeArrowStyle style, {
     ArrowPriority priority = ArrowPriority.verticalFirst,
     String? text,
+    bool dashed = false,
   }) {
     // 우선 방향에 따라 중간점 계산
     Offset midPoint;
@@ -925,11 +1000,16 @@ class ExchangeArrowPainter extends CustomPainter {
     path.lineTo(midPoint.dx, midPoint.dy);
     path.lineTo(end.dx, end.dy);
 
-    // 외곽선 먼저 그리기
-    canvas.drawPath(path, outlinePaint);
-
-    // 내부선 그리기
-    canvas.drawPath(path, innerPaint);
+    if (dashed) {
+      // 점선: 외곽선·내부선을 같은 대시 패턴으로 그림 (화살표 머리는 실선 유지)
+      _drawDashedPath(canvas, path, outlinePaint);
+      _drawDashedPath(canvas, path, innerPaint);
+    } else {
+      // 외곽선 먼저 그리기
+      canvas.drawPath(path, outlinePaint);
+      // 내부선 그리기
+      canvas.drawPath(path, innerPaint);
+    }
 
     // 화살표 방향에 따른 머리 그리기
     switch (style.direction) {
