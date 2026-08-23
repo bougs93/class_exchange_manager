@@ -38,6 +38,19 @@ mixin ExchangeUIBuilder {
     );
   }
 
+  /// 교체·준비 화면 공통 — 하단 패딩이 적용된 오류 배너
+  Widget buildPaddedErrorMessageSection(
+    String? errorMessage,
+    VoidCallback onClearError,
+  ) {
+    if (errorMessage == null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: buildErrorMessageSection(errorMessage, onClearError),
+    );
+  }
+
   /// 사이드바 토글 버튼 빌드
   Widget? buildSidebarToggleButton({
     required bool isVisible,

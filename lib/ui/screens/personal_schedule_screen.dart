@@ -314,7 +314,7 @@ class _PersonalScheduleScreenState
           iconColor: Colors.grey,
           message: '시간표 데이터가 없습니다.',
           messageColor: Colors.grey,
-          subMessage: '시작 메뉴에서 시간표 파일을 먼저 선택해주세요.',
+          subMessage: '준비 메뉴에서 시간표 파일을 먼저 선택해주세요.',
           subMessageColor: Colors.grey,
         ),
       );

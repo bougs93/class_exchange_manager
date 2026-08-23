@@ -794,7 +794,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
               onCellTap: _onCellTap,
               getActualExchangeableCount: getActualExchangeableCount,
               getCurrentSelectedPath: getCurrentSelectedPath,
-              buildErrorMessageSection: buildErrorMessageSection,
+              buildPaddedErrorMessageSection: buildPaddedErrorMessageSection,
               onClearError: _clearError,
               onHeaderThemeUpdate: _updateHeaderTheme, // 헤더 테마 업데이트 콜백 전달
             ),

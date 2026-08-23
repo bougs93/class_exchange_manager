@@ -10,6 +10,7 @@ import 'excel_parsing/excel_header_finder.dart';
 import 'excel_parsing/excel_teacher_extractor.dart';
 import 'excel_parsing/excel_cell_parser.dart';
 import 'excel_parsing/excel_parsing_utils.dart';
+import 'excel_parsing/excel_shared_strings_normalizer.dart';
 
 /// 교사 이름 중복 예외 클래스
 ///
@@ -269,8 +270,9 @@ class ExcelService {
   /// - Excel?: 파싱된 엑셀 데이터 (실패 시 null)
   static Future<Excel?> readExcelFromBytes(List<int> bytes) async {
     try {
-      // bytes를 Excel 객체로 변환
-      Excel excel = Excel.decodeBytes(bytes);
+      // excel 패키지 sharedStrings 중복 버그 우회 후 디코딩
+      final normalized = ExcelSharedStringsNormalizer.normalize(bytes);
+      final excel = Excel.decodeBytes(normalized);
       return excel;
     } catch (e) {
       developer.log('엑셀 파일 파싱 실패: $e', name: 'ExcelService');
@@ -296,9 +298,13 @@ class ExcelService {
         return null;
       }
 
-      // 엑셀 파일 읽기
-      var bytes = await file.readAsBytes();
-      var excel = Excel.decodeBytes(bytes);
+      // 엑셀 파일 읽기 (sharedStrings 정규화 포함)
+      final bytes = await file.readAsBytes();
+      final excel = await readExcelFromBytes(bytes);
+      if (excel == null) {
+        developer.log('엑셀 파일 읽기 실패: ${file.path}', name: 'ExcelService');
+        return null;
+      }
 
       developer.log('엑셀 파일 읽기 성공: ${file.path}', name: 'ExcelService');
       return excel;

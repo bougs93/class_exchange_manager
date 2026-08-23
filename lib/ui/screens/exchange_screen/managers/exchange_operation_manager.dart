@@ -90,7 +90,8 @@ class ExchangeOperationManager {
       final bytes = result.files.first.bytes;
       if (bytes != null) {
         await processExcelBytes(bytes);
-        return true; // 파일 선택 성공
+        // 읽기·파싱 실패 시 false (에러 메시지는 processExcelBytes에서 설정)
+        return stateProxy.errorMessage == null && stateProxy.hasLoadedTimetable;
       }
     }
     return false; // 파일 선택 취소 또는 실패
@@ -100,9 +101,16 @@ class ExchangeOperationManager {
     File? file = await ExcelService.pickExcelFile();
 
     if (file != null) {
+      // 로드 실패 시 이전 파일로 되돌리기 위해 보관
+      final previousFile = stateProxy.selectedFile;
       stateProxy.setSelectedFile(file);
       await loadExcelData();
-      return true; // 파일 선택 성공
+
+      if (stateProxy.errorMessage != null || !stateProxy.hasLoadedTimetable) {
+        stateProxy.setSelectedFile(previousFile);
+        return false;
+      }
+      return true;
     }
     return false; // 파일 선택 취소
   }

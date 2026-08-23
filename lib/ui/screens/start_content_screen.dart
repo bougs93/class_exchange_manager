@@ -14,6 +14,7 @@ import '../widgets/app_content_card.dart';
 import '../widgets/selected_timetable_file_banner.dart';
 import 'start_content/start_settings_card.dart';
 import 'start_content/setting_save_mixin.dart';
+import 'handlers/exchange_ui_builder.dart';
 
 /// 시작 화면 콘텐츠
 ///
@@ -28,7 +29,7 @@ class StartContentScreen extends ConsumerStatefulWidget {
 }
 
 class _StartContentScreenState extends ConsumerState<StartContentScreen>
-    with SettingSaveMixin {
+    with SettingSaveMixin, ExchangeUIBuilder {
   // 엑셀 파일 선택 관련 상태 관리
   ExchangeScreenStateProxy? _stateProxy;
   ExchangeOperationManager? _operationManager;
@@ -175,6 +176,11 @@ class _StartContentScreenState extends ConsumerState<StartContentScreen>
     }
   }
 
+  /// 파일 로드 오류 메시지 닫기
+  void _clearFileError() {
+    ref.read(exchangeScreenProvider.notifier).setErrorMessage(null);
+  }
+
   /// 엑셀 파일 선택 해제 메서드 (확인 다이얼로그 포함)
   Future<void> _clearSelectedFile() async {
     // 확인 다이얼로그 표시
@@ -227,6 +233,7 @@ class _StartContentScreenState extends ConsumerState<StartContentScreen>
     final timetableFileName = screenState.timetableFileName;
     final hasLoadedTimetable = screenState.hasLoadedTimetable;
     final isLoading = screenState.isLoading;
+    final errorMessage = screenState.errorMessage;
 
     return Container(
       color: Colors.grey.shade50,
@@ -248,6 +255,7 @@ class _StartContentScreenState extends ConsumerState<StartContentScreen>
               timetableFileName,
               hasLoadedTimetable,
               isLoading,
+              errorMessage,
             ),
             const SizedBox(height: 16),
 
@@ -276,15 +284,20 @@ class _StartContentScreenState extends ConsumerState<StartContentScreen>
     String? timetableFileName,
     bool hasLoadedTimetable,
     bool isLoading,
+    String? errorMessage,
   ) {
+    // 로드 성공 시에만 파일명 배너 표시 (실패·오류 시에는 미표시)
+    final showFileBanner =
+        hasLoadedTimetable && errorMessage == null && !isLoading;
+
     return AppContentCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 교체 화면과 동일한 파란색 파일 배너 (엑셀 파일명 표시)
           SelectedTimetableFileBanner(
-            selectedFile: selectedFile,
-            displayFileName: timetableFileName,
+            selectedFile: showFileBanner ? selectedFile : null,
+            displayFileName: showFileBanner ? timetableFileName : null,
           ),
 
           // 하단: 파일 관리 버튼들
@@ -362,6 +375,9 @@ class _StartContentScreenState extends ConsumerState<StartContentScreen>
               ],
             ],
           ),
+
+          // 교체 화면과 동일: 하단 빨간 오류 배너
+          buildPaddedErrorMessageSection(errorMessage, _clearFileError),
         ],
       ),
     );

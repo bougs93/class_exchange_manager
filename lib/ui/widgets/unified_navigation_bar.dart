@@ -20,8 +20,8 @@ class UnifiedNavigationBar extends ConsumerWidget {
     {
       'index': NavIndices.start,
       'icon': Icons.play_circle_outline,
-      'label': '시작',
-      'tooltip': '시작',
+      'label': '준비',
+      'tooltip': '준비',
     },
     {
       'index': NavIndices.exchange,

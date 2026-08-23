@@ -23,7 +23,7 @@ class TimetableTabContent extends ConsumerWidget {
   final void Function(DataGridCellTapDetails) onCellTap;
   final int Function() getActualExchangeableCount;
   final ExchangePath? Function() getCurrentSelectedPath;
-  final Widget Function(String?, VoidCallback) buildErrorMessageSection;
+  final Widget Function(String?, VoidCallback) buildPaddedErrorMessageSection;
   final VoidCallback onClearError;
   final VoidCallback? onHeaderThemeUpdate; // 헤더 테마 업데이트 콜백
 
@@ -39,7 +39,7 @@ class TimetableTabContent extends ConsumerWidget {
     required this.onCellTap,
     required this.getActualExchangeableCount,
     required this.getCurrentSelectedPath,
-    required this.buildErrorMessageSection,
+    required this.buildPaddedErrorMessageSection,
     required this.onClearError,
     this.onHeaderThemeUpdate, // 헤더 테마 업데이트 콜백
   });
@@ -82,12 +82,8 @@ class TimetableTabContent extends ConsumerWidget {
           const Expanded(child: SizedBox.shrink()),
         ],
 
-        // 오류 메시지 표시
-        if (state.errorMessage != null)
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: buildErrorMessageSection(state.errorMessage, onClearError),
-          ),
+        // 오류 메시지 표시 (교체·준비 화면 공통 스타일)
+        buildPaddedErrorMessageSection(state.errorMessage, onClearError),
       ],
     );
   }
