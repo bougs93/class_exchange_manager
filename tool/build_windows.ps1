@@ -45,7 +45,7 @@ Write-Host "빌드 시각      : $builtAt"
 Write-Host "출력 폴더      : $distDir"
 Write-Host ""
 
-flutter build windows --release --build-name=$appVersion
+flutter build windows --release --build-name=$appVersion --dart-define="BUILD_STAMP=$dateStamp"
 if ($LASTEXITCODE -ne 0) {
     throw "flutter build windows 실패 (exit $LASTEXITCODE)"
 }

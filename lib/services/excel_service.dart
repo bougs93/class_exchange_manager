@@ -1115,7 +1115,7 @@ class ExcelService {
   ///
   /// 교사 행 개수에 따라 처리:
   /// - 1행: 현재 방식 (줄바꿈으로 구분)
-  /// - 2행 이상: 1행과 2행을 줄바꿈으로 합쳐서 처리, 3행 이후는 무시
+  /// - 2행 이상: 교사 블록 내 **비어 있지 않은 행**에서 학급·과목 추출 (순서 무관, 3행째 빈행 무시)
   static TimeSlot? _extractSingleTimeSlot(
     Sheet sheet,
     ExcelParsingConfig config,
@@ -1145,29 +1145,42 @@ class ExcelService {
         periodCol - 1,
       );
     } else {
-      // 2행 이상인 경우: 1행과 2행을 줄바꿈으로 합쳐서 처리, 3행 이후는 무시
-      List<String> rowValues = [];
+      // 교사 블록(rowCount행) 안에서 값이 있는 행만 수집 → 과목/학급 행 순서·중간 빈행 모두 허용
+      final rowValues = <String>[];
 
-      // 최대 2행만 사용 (3행 이후는 무시)
-      int rowsToUse = rowCount > 2 ? 2 : rowCount;
-
-      for (int i = 0; i < rowsToUse; i++) {
-        int currentRow = teacherRow + i - 1; // 0-based로 변환
-        String rowValue = ExcelParsingUtils.getCellValue(
+      for (int i = 0; i < rowCount; i++) {
+        final currentRow = teacherRow + i - 1; // 0-based
+        final rowValue = ExcelParsingUtils.getCellValue(
           sheet,
           currentRow,
           periodCol - 1,
-        );
-        rowValue = rowValue.trim();
+        ).trim();
 
-        // 빈 셀이 아닌 경우만 추가
         if (rowValue.isNotEmpty) {
           rowValues.add(rowValue);
         }
       }
 
-      // 줄바꿈으로 합치기
-      cellValue = rowValues.join('\n');
+      // 내용 기준으로 학급·과목 분리 (행 순서와 무관)
+      if (rowValues.isEmpty) {
+        cellValue = '';
+      } else if (rowValues.length == 1) {
+        cellValue = rowValues.first;
+      } else {
+        // 2줄 이상: 셀 파서에 줄 단위로 넘겨 내용 기준 분류 (전역 순서 패턴에 덜 의존)
+        final fields = ExcelCellParser.classifyByContent(rowValues);
+        if (fields['className'] != null || fields['subject'] != null) {
+          return TimeSlot(
+            teacher: teacher.name,
+            subject: fields['subject'],
+            className: fields['className'],
+            dayOfWeek: dayOfWeek,
+            period: period,
+            isExchangeable: true,
+          );
+        }
+        cellValue = rowValues.join('\n');
+      }
     }
 
     return ExcelCellParser.parseTimeSlotCell(
@@ -1175,7 +1188,9 @@ class ExcelService {
       teacher,
       dayOfWeek,
       period,
-      orderPattern: cellOrderPattern,
+      // 다중 행은 셀마다 내용 기준 분류 — 파일 전역 패턴 강제 적용 안 함
+      orderPattern:
+          rowCount >= 2 ? CellOrderPattern.unknown : cellOrderPattern,
     );
   }
 

@@ -47,6 +47,23 @@ class AppInfo {
     return value.isEmpty ? null : value;
   }
 
+  /// 빌드 스탬프 (빌드 시각, `YYYY-MM-DD_HHmm` 형태)
+  ///
+  /// 빌드 시 `--dart-define=BUILD_STAMP=2026-08-24_0135` 로 주입합니다.
+  /// IDE 실행 등 define 없이 실행하면 null 이므로 화면에 표시하지 않습니다.
+  static String? get buildStamp {
+    const value = String.fromEnvironment('BUILD_STAMP', defaultValue: '');
+    return value.isEmpty ? null : value;
+  }
+
+  /// UI 표시용 버전 라벨 — 빌드 스탬프가 있으면 버전 뒤에 붙인다.
+  ///
+  /// 예: `1.0.2 (2026-08-24 0135)` / 스탬프 없으면 `1.0.2`
+  static String get versionLabel {
+    final stamp = buildStamp;
+    return stamp == null ? version : '$version ($stamp)';
+  }
+
   // 프로그램 실행 제한 정보 (베타 버전 이용 안내 본문)
   static const String usageRestriction = '''
 수업 교체 도우미는 시간표·PDF 출력 등에 일부 상용 소프트웨어 라이브러리를 포함하고 있습니다.

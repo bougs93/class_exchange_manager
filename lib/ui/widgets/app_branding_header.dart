@@ -77,7 +77,7 @@ class AppBrandingHeader extends StatelessWidget {
               TextSpan(
                 children: [
                   TextSpan(text: 'Version : ', style: labelStyle),
-                  TextSpan(text: AppInfo.version, style: valueStyle),
+                  TextSpan(text: AppInfo.versionLabel, style: valueStyle),
                 ],
               ),
             ),

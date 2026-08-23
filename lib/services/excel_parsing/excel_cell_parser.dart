@@ -72,6 +72,28 @@ class ExcelCellParser {
     return CellOrderPattern.normal;
   }
 
+  /// 줄 목록에서 학급·과목을 **내용(패턴) 기준**으로 추출합니다.
+  ///
+  /// 교사당 2행(과목행+학급행) 또는 1셀 2줄 형식에서 **행/줄 순서가 바뀌어도** 동작합니다.
+  /// 예: ["국어", "1-1"] ↔ ["1-1", "국어"] 모두 동일 결과
+  static Map<String, String?> classifyByContent(List<String> lines) {
+    String? className;
+    String? subject;
+
+    for (final raw in lines) {
+      final line = raw.trim();
+      if (line.isEmpty) continue;
+
+      if (ExcelParsingUtils.isClassNamePattern(line)) {
+        className ??= ExcelParsingUtils.convertClassName(line);
+      } else if (ExcelParsingUtils.isSubjectPattern(line)) {
+        subject ??= line;
+      }
+    }
+
+    return {'className': className, 'subject': subject};
+  }
+
   /// 셀 내용에서 학급번호와 과목을 추출하는 헬퍼 메서드
   ///
   /// 순서 패턴에 따라 올바르게 추출합니다.
@@ -94,6 +116,20 @@ class ExcelCellParser {
     }
 
     if (lines.length >= 2) {
+      // 1순위: 내용 기준 분류 (과목/학급 행 순서 바뀜·빈 행 섞임에도 유연)
+      final byContent = classifyByContent(lines);
+      final hasClass = byContent['className'] != null;
+      final hasSubject = byContent['subject'] != null;
+      if (hasClass && hasSubject) {
+        return byContent;
+      }
+      // 한쪽만 패턴 매칭된 2줄(나머지 줄은 빈 값·특수 표기)도 내용 결과 우선
+      final nonEmptyCount = lines.where((l) => l.trim().isNotEmpty).length;
+      if (nonEmptyCount >= 2 && (hasClass || hasSubject)) {
+        return byContent;
+      }
+
+      // 2순위: 파일 전체 패턴(학급→과목 / 과목→학급) 기준 위치 해석
       if (pattern == CellOrderPattern.reversed) {
         // 바뀐 순서: 첫 번째 줄 = 과목, 두 번째 줄 = 학급번호
         subject = lines[0];
