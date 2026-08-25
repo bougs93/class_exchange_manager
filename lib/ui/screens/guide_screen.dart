@@ -5,6 +5,7 @@ import 'guide/program_info_content.dart';
 import '../widgets/app_content_card.dart';
 import '../widgets/exchange_control_panel.dart';
 import '../widgets/timetable_grid/grid_header_widgets.dart';
+import '../../theme/design_tokens.dart';
 import '../../utils/url_launcher_helper.dart';
 
 /// 도움말 화면
@@ -80,6 +81,7 @@ class _GuideScreenState extends State<GuideScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tokens = context.tokens;
 
     // AppBar 없음 — StartScreen 상단 UnifiedNavigationBar 사용
     // 서브 메뉴는 1차 메뉴 바로 아래 2번째 줄(가로 툴바)
@@ -87,11 +89,11 @@ class _GuideScreenState extends State<GuideScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildSubMenuBar(),
+          _buildSubMenuBar(tokens),
           Expanded(
             child: ColoredBox(
-              color: Colors.grey.shade50,
-              child: _buildContent(theme),
+              color: tokens.sectionBackground,
+              child: _buildContent(theme, tokens),
             ),
           ),
         ],
@@ -100,20 +102,21 @@ class _GuideScreenState extends State<GuideScreen> {
   }
 
   /// 메인 메뉴 하단 가로 서브 메뉴 — 교체/시간표 2차 툴바와 동일 패턴
-  Widget _buildSubMenuBar() {
+  Widget _buildSubMenuBar(DesignTokens tokens) {
     return Container(
       height: kExchangeUnifiedToolbarHeight,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: Colors.grey.shade200, width: 1),
-        ),
+        color: tokens.surface,
+        border: Border(bottom: BorderSide(color: tokens.cardBorder, width: 1)),
       ),
       child: Row(
         children: List.generate(_menuItems.length, (index) {
           final item = _menuItems[index];
           final isSelected = _selectedIndex == index;
+          // 플랫 모노(monochromeMenuAccents)에서는 메뉴별 색상 대신 틸 단색 사용
+          final accent =
+              tokens.monochromeMenuAccents ? tokens.primary : item.color;
 
           return Padding(
             padding: const EdgeInsets.only(right: 4),
@@ -128,10 +131,10 @@ class _GuideScreenState extends State<GuideScreen> {
               tooltip: item.label,
               backgroundColor:
                   isSelected
-                      ? item.color.withValues(alpha: 0.12)
-                      : Colors.grey.shade100,
-              foregroundColor: isSelected ? item.color : Colors.grey.shade700,
-              borderColor: isSelected ? item.color : Colors.grey.shade300,
+                      ? accent.withValues(alpha: 0.12)
+                      : tokens.sectionBackground,
+              foregroundColor: isSelected ? accent : tokens.textSecondary,
+              borderColor: isSelected ? accent : tokens.cardBorder,
               height: kExchangeUnifiedToolbarHeight - 8,
               fontSize: kModeButtonFontSize,
               iconSize: kModeButtonIconSize,
@@ -143,14 +146,14 @@ class _GuideScreenState extends State<GuideScreen> {
   }
 
   /// 선택된 서브 메뉴에 따른 콘텐츠
-  Widget _buildContent(ThemeData theme) {
+  Widget _buildContent(ThemeData theme, DesignTokens tokens) {
     switch (_selectedIndex) {
       case 0:
         return const ProgramInfoContent();
       case 1:
-        return _buildBasicUsageTab(theme);
+        return _buildBasicUsageTab(theme, tokens);
       case 2:
-        return _buildFormGuideTab(theme);
+        return _buildFormGuideTab(theme, tokens);
       default:
         return const ProgramInfoContent();
     }
@@ -163,7 +166,11 @@ class _GuideScreenState extends State<GuideScreen> {
   /// 마크다운 탭 빌드 (공통 메서드)
   ///
   /// [markdownContent]: 표시할 마크다운 내용
-  Widget _buildMarkdownTab(ThemeData theme, String markdownContent) {
+  Widget _buildMarkdownTab(
+    ThemeData theme,
+    String markdownContent,
+    DesignTokens tokens,
+  ) {
     if (_isLoading) {
       return const Center(
         child: Padding(
@@ -185,7 +192,7 @@ class _GuideScreenState extends State<GuideScreen> {
               child: MarkdownBody(
                 data: _processMarkdownWithYoutubeThumbnails(markdownContent),
                 selectable: false,
-                styleSheet: _buildMarkdownStyleSheet(theme),
+                styleSheet: _buildMarkdownStyleSheet(theme, tokens),
                 imageBuilder: (uri, title, alt) {
                   // URI에서 경로 추출
                   // flutter_markdown이 마크다운의 이미지 경로를 파싱할 때
@@ -222,7 +229,7 @@ class _GuideScreenState extends State<GuideScreen> {
                   if (uriString.contains('img.youtube.com')) {
                     final videoId = _extractVideoIdFromThumbnailUrl(uriString);
                     if (videoId != null) {
-                      return _buildYouTubeThumbnail(videoId, alt ?? '');
+                      return _buildYouTubeThumbnail(videoId, alt ?? '', tokens);
                     }
                   }
 
@@ -236,20 +243,17 @@ class _GuideScreenState extends State<GuideScreen> {
                         debugPrint('❌ 네트워크 이미지 로드 실패: $uriString, 오류: $error');
                         return Container(
                           padding: const EdgeInsets.all(8),
-                          color: Colors.grey.shade200,
+                          color: tokens.sectionBackground,
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
-                                Icons.broken_image,
-                                color: Colors.grey.shade400,
-                              ),
+                              Icon(Icons.broken_image, color: tokens.textMuted),
                               const SizedBox(height: 4),
                               Text(
                                 '이미지를 불러올 수 없습니다',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Colors.grey.shade600,
+                                  color: tokens.textSecondary,
                                 ),
                               ),
                             ],
@@ -305,20 +309,17 @@ class _GuideScreenState extends State<GuideScreen> {
 
                       return Container(
                         padding: const EdgeInsets.all(8),
-                        color: Colors.grey.shade200,
+                        color: tokens.sectionBackground,
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
-                              Icons.broken_image,
-                              color: Colors.grey.shade400,
-                            ),
+                            Icon(Icons.broken_image, color: tokens.textMuted),
                             const SizedBox(height: 4),
                             Text(
                               errorMessage,
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.grey.shade600,
+                                color: tokens.textSecondary,
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -342,13 +343,13 @@ class _GuideScreenState extends State<GuideScreen> {
   }
 
   /// "기본 사용법" 탭 컨텐츠
-  Widget _buildBasicUsageTab(ThemeData theme) {
-    return _buildMarkdownTab(theme, _basicUsageMarkdown);
+  Widget _buildBasicUsageTab(ThemeData theme, DesignTokens tokens) {
+    return _buildMarkdownTab(theme, _basicUsageMarkdown, tokens);
   }
 
   /// "PDF 양식 제작" 탭 콘텐츠
-  Widget _buildFormGuideTab(ThemeData theme) {
-    return _buildMarkdownTab(theme, _pdfFormGuideMarkdown);
+  Widget _buildFormGuideTab(ThemeData theme, DesignTokens tokens) {
+    return _buildMarkdownTab(theme, _pdfFormGuideMarkdown, tokens);
   }
 
   // ============================================================================
@@ -356,7 +357,10 @@ class _GuideScreenState extends State<GuideScreen> {
   // ============================================================================
 
   /// 마크다운 스타일 시트 생성
-  MarkdownStyleSheet _buildMarkdownStyleSheet(ThemeData theme) {
+  MarkdownStyleSheet _buildMarkdownStyleSheet(
+    ThemeData theme,
+    DesignTokens tokens,
+  ) {
     return MarkdownStyleSheet(
       // 제목 스타일
       h1: TextStyle(
@@ -378,7 +382,7 @@ class _GuideScreenState extends State<GuideScreen> {
         height: 1.4,
       ),
       // 본문 스타일
-      p: TextStyle(fontSize: 14, height: 1.6, color: Colors.grey.shade700),
+      p: TextStyle(fontSize: 14, height: 1.6, color: tokens.textSecondary),
       // 리스트 스타일
       listBullet: TextStyle(
         fontSize: 14,
@@ -411,16 +415,16 @@ class _GuideScreenState extends State<GuideScreen> {
       em: TextStyle(
         fontSize: 14,
         fontStyle: FontStyle.italic,
-        color: Colors.grey.shade700,
+        color: tokens.textSecondary,
       ),
       // 블록 인용 스타일
       blockquote: TextStyle(
         fontSize: 14,
         fontStyle: FontStyle.italic,
-        color: Colors.grey.shade600,
+        color: tokens.textSecondary,
       ),
       blockquoteDecoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: tokens.sectionBackground,
         border: Border(left: BorderSide(color: theme.primaryColor, width: 4)),
       ),
     );
@@ -494,7 +498,11 @@ class _GuideScreenState extends State<GuideScreen> {
   }
 
   /// 유튜브 썸네일 위젯 생성
-  Widget _buildYouTubeThumbnail(String videoId, String alt) {
+  Widget _buildYouTubeThumbnail(
+    String videoId,
+    String alt,
+    DesignTokens tokens,
+  ) {
     final thumbnailUrl =
         'https://img.youtube.com/vi/$videoId/maxresdefault.jpg';
     final videoUrl = 'https://www.youtube.com/watch?v=$videoId';
@@ -528,11 +536,11 @@ class _GuideScreenState extends State<GuideScreen> {
                   return Container(
                     width: double.infinity,
                     height: 200,
-                    color: Colors.grey.shade300,
-                    child: const Icon(
+                    color: tokens.sectionBackground,
+                    child: Icon(
                       Icons.play_circle_outline,
                       size: 64,
-                      color: Colors.grey,
+                      color: tokens.textMuted,
                     ),
                   );
                 },
@@ -541,7 +549,7 @@ class _GuideScreenState extends State<GuideScreen> {
                   return Container(
                     width: double.infinity,
                     height: 200,
-                    color: Colors.grey.shade200,
+                    color: tokens.sectionBackground,
                     child: Center(
                       child: CircularProgressIndicator(
                         value:

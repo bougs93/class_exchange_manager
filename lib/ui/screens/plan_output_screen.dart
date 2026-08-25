@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/plan_output_menu.dart';
 import '../../providers/plan_output_menu_provider.dart';
+import '../../theme/design_tokens.dart';
 import '../../ui/widgets/unified_navigation_bar.dart';
 import '../../utils/logger.dart';
 import 'plan_output/widgets/content_input_grid.dart';
@@ -46,9 +47,7 @@ class _PlanOutputScreenState extends ConsumerState<PlanOutputScreen> {
 
     // 파일 출력 탭으로 전환된 경우 결강기간 업데이트
     if (menu == PlanOutputMenu.substitutionOutput) {
-      AppLogger.exchangeDebug(
-        '메뉴 변경 감지: ${menu.displayName}',
-      );
+      AppLogger.exchangeDebug('메뉴 변경 감지: ${menu.displayName}');
       AppLogger.info('📄 파일 출력 메뉴 진입: 결강기간 업데이트 및 입력란 자동 채우기 요청');
 
       // 위젯이 생성될 때까지 대기 (다음 프레임에 실행)
@@ -78,7 +77,7 @@ class _PlanOutputScreenState extends ConsumerState<PlanOutputScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // 왼쪽 사이드바
-          _buildSidebar(selectedMenu),
+          _buildSidebar(context, selectedMenu),
 
           // 오른쪽 컨텐츠 영역 (상단부터 표시)
           Expanded(
@@ -94,14 +93,13 @@ class _PlanOutputScreenState extends ConsumerState<PlanOutputScreen> {
   }
 
   /// 왼쪽 사이드바 위젯
-  Widget _buildSidebar(PlanOutputMenu selectedMenu) {
+  Widget _buildSidebar(BuildContext context, PlanOutputMenu selectedMenu) {
+    final tokens = context.tokens;
     return Container(
       width: _sidebarWidth, // 사이드바 너비
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        border: Border(
-          right: BorderSide(color: Colors.grey.shade300, width: 1),
-        ),
+        color: tokens.sectionBackground,
+        border: Border(right: BorderSide(color: tokens.cardBorder, width: 1)),
       ),
       alignment: Alignment.topCenter,
       child: Padding(
@@ -113,6 +111,9 @@ class _PlanOutputScreenState extends ConsumerState<PlanOutputScreen> {
           children:
               PlanOutputMenu.values.map((type) {
                 final isSelected = selectedMenu == type;
+                // 플랫 모노(monochromeMenuAccents)에서는 메뉴별 색상 대신 틸 단색 사용
+                final accent =
+                    tokens.monochromeMenuAccents ? tokens.primary : type.color;
 
                 return Padding(
                   padding: const EdgeInsets.symmetric(
@@ -131,12 +132,12 @@ class _PlanOutputScreenState extends ConsumerState<PlanOutputScreen> {
                         decoration: BoxDecoration(
                           color:
                               isSelected
-                                  ? type.color.withValues(alpha: 0.1)
+                                  ? accent.withValues(alpha: 0.1)
                                   : Colors.transparent,
                           borderRadius: BorderRadius.circular(6),
                           border:
                               isSelected
-                                  ? Border.all(color: type.color, width: 1)
+                                  ? Border.all(color: accent, width: 1)
                                   : null,
                         ),
                         child: Row(
@@ -144,10 +145,7 @@ class _PlanOutputScreenState extends ConsumerState<PlanOutputScreen> {
                             Icon(
                               type.icon,
                               size: 18,
-                              color:
-                                  isSelected
-                                      ? type.color
-                                      : Colors.grey.shade600,
+                              color: isSelected ? accent : tokens.textSecondary,
                             ),
                             const SizedBox(width: 4),
                             Expanded(
@@ -161,8 +159,8 @@ class _PlanOutputScreenState extends ConsumerState<PlanOutputScreen> {
                                           : FontWeight.normal,
                                   color:
                                       isSelected
-                                          ? type.color
-                                          : Colors.grey.shade700,
+                                          ? accent
+                                          : tokens.textSecondary,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,

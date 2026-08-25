@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../constants/teacher_row_highlight_colors.dart';
+import '../../providers/theme_provider.dart';
 import '../../services/app_settings_storage_service.dart';
 import '../../services/storage_service.dart';
+import '../../theme/app_theme_type.dart';
+import '../../theme/design_tokens.dart';
 import '../../utils/logger.dart';
 import '../../utils/simplified_timetable_theme.dart';
 import '../../providers/exchange_screen_provider.dart';
@@ -383,6 +386,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _buildLanguageSection(),
           const SizedBox(height: 32),
 
+          // 디자인 테마 선택 섹션
+          _buildThemeSection(ref),
+          const SizedBox(height: 32),
+
           // 교사명, 학교명 입력 섹션
           _buildTeacherAndSchoolNameSection(),
           const SizedBox(height: 32),
@@ -430,6 +437,222 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
       ],
     );
+  }
+
+  /// 디자인 테마 선택 섹션
+  Widget _buildThemeSection(WidgetRef ref) {
+    final tokens = context.tokens;
+    final selectedTheme = ref.watch(appThemeTypeProvider);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: tokens.sectionBackground,
+        border: Border.all(color: tokens.cardBorder),
+        borderRadius: BorderRadius.circular(tokens.radiusMedium),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '디자인 테마',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '앱 전체의 디자인 스타일을 선택합니다. 즉시 적용됩니다.',
+            style: TextStyle(fontSize: 14, color: tokens.textMuted),
+          ),
+          const SizedBox(height: 16),
+
+          Row(
+            children: [
+              for (int i = 0; i < AppThemeType.displayOrder.length; i++) ...[
+                if (i > 0) const SizedBox(width: 12),
+                Expanded(
+                  child: _buildThemeOptionCard(
+                    ref,
+                    type: AppThemeType.displayOrder[i],
+                    isSelected: selectedTheme == AppThemeType.displayOrder[i],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 개별 테마 옵션 카드
+  Widget _buildThemeOptionCard(
+    WidgetRef ref, {
+    required AppThemeType type,
+    required bool isSelected,
+  }) {
+    final tokens = context.tokens;
+
+    return InkWell(
+      onTap: () => _selectTheme(ref, type),
+      borderRadius: BorderRadius.circular(tokens.radiusMedium),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: tokens.surface,
+          border: Border.all(
+            color: isSelected ? tokens.primary : tokens.cardBorder,
+            width: isSelected ? 2 : 1,
+          ),
+          borderRadius: BorderRadius.circular(tokens.radiusMedium),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 미리보기 (미니 화면 목업)
+            _buildThemePreview(type, isSelected: isSelected),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(
+                  isSelected
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
+                  size: 18,
+                  color: isSelected ? tokens.primary : tokens.textMuted,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    type.displayName,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: tokens.textPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              type.description,
+              style: TextStyle(fontSize: 12, color: tokens.textSecondary),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 테마 미리보기 미니 목업
+  Widget _buildThemePreview(AppThemeType type, {required bool isSelected}) {
+    final previewTokens = DesignTokens.of(type);
+
+    return Container(
+      height: 64,
+      decoration: BoxDecoration(
+        color: previewTokens.scaffoldBackground,
+        border: Border.all(color: previewTokens.cardBorder),
+        borderRadius: BorderRadius.circular(previewTokens.radiusMedium),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 상단 바 (AppBar 모양)
+          Container(
+            height: 16,
+            color: previewTokens.appBarBackground,
+            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.only(left: 6),
+            child: Container(
+              width: 28,
+              height: 3,
+              decoration: BoxDecoration(
+                color: previewTokens.appBarForeground.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          // 본문 (카드 모양)
+          Padding(
+            padding: const EdgeInsets.all(5),
+            child: Row(
+              children: [
+                Container(
+                  width: 22,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: previewTokens.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        height: 4,
+                        color: previewTokens.textPrimary.withValues(
+                          alpha: 0.35,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      FractionallySizedBox(
+                        widthFactor: 0.7,
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                          height: 4,
+                          color: previewTokens.textMuted.withValues(alpha: 0.4),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        width: 26,
+                        height: 9,
+                        decoration: BoxDecoration(
+                          color: previewTokens.primary,
+                          borderRadius: BorderRadius.circular(
+                            previewTokens.radiusMedium / 2,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 디자인 테마 선택 처리
+  Future<void> _selectTheme(WidgetRef ref, AppThemeType type) async {
+    final success = await ref.read(appThemeTypeProvider.notifier).select(type);
+
+    if (!mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('디자인 테마가 ${type.displayName}(으)로 변경되었습니다.'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('디자인 테마 변경에 실패했습니다.'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   /// 교사명, 학교명 입력 섹션

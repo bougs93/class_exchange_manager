@@ -7,6 +7,7 @@ import '../../../models/time_slot.dart';
 import '../../../providers/cell_selection_provider.dart';
 import '../../../providers/exchange_screen_provider.dart';
 import '../../../providers/services_provider.dart';
+import '../../../theme/design_tokens.dart';
 import '../../../utils/logger.dart';
 import '../../../utils/day_utils.dart';
 import '../empty_state_message.dart';
@@ -68,6 +69,8 @@ class _SupplementSidebarContentState
   Widget _buildSupplementContent() {
     return Consumer(
       builder: (context, ref, child) {
+        final tokens = context.tokens;
+
         // 선택된 셀 정보 가져오기
         final cellSelectionState = ref.watch(cellSelectionProvider);
         final hasSelectedCell =
@@ -82,18 +85,21 @@ class _SupplementSidebarContentState
             child: Column(
               children: [
                 // 선택된 셀 정보
-                _buildSelectedCellInfo(cellSelectionState),
+                _buildSelectedCellInfo(tokens, cellSelectionState),
 
                 const SizedBox(height: 8),
 
                 // 동일 교과목 필터 (보강 가능한 교사 목록 위)
-                _buildSupplementSubjectFilter(cellSelectionState),
+                _buildSupplementSubjectFilter(tokens, cellSelectionState),
 
                 const SizedBox(height: 8),
 
                 // 보강 가능한 교사 버튼 섹션
                 Expanded(
-                  child: _buildSupplementTeacherButtons(cellSelectionState),
+                  child: _buildSupplementTeacherButtons(
+                    tokens,
+                    cellSelectionState,
+                  ),
                 ),
               ],
             ),
@@ -105,7 +111,7 @@ class _SupplementSidebarContentState
           // 선택된 셀이 없는 경우: 안내 메시지 표시 (상단 간격 추가)
           return Padding(
             padding: const EdgeInsets.only(top: 16.0), // 헤더와 안내 메시지 사이 간격
-            child: _buildSupplementGuide(),
+            child: _buildSupplementGuide(tokens),
           );
         }
       },
@@ -113,19 +119,22 @@ class _SupplementSidebarContentState
   }
 
   /// 보강 선택 안내 메시지
-  Widget _buildSupplementGuide() {
+  Widget _buildSupplementGuide(DesignTokens tokens) {
     return EmptyStateMessage(
       icon: Icons.info_outline,
-      iconColor: Colors.blue.shade400,
+      iconColor: tokens.primary,
       message: '보강을 위해 빈 셀을 선택하거나\n교사명을 클릭해주세요',
-      messageColor: Colors.blue.shade600,
+      messageColor: tokens.primary,
       messageFontSize: SidebarFontSizes.emptyMessage,
       messageFontWeight: FontWeight.w500,
     );
   }
 
   /// 선택된 셀 정보 표시 (1:1 교체와 동일한 디자인)
-  Widget _buildSelectedCellInfo(CellSelectionState cellSelectionState) {
+  Widget _buildSelectedCellInfo(
+    DesignTokens tokens,
+    CellSelectionState cellSelectionState,
+  ) {
     final canExecute = _canExecuteSupplement();
 
     return Padding(
@@ -140,7 +149,7 @@ class _SupplementSidebarContentState
             borderRadius: BorderRadius.circular(6),
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: tokens.surface,
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
                   color:
@@ -165,7 +174,7 @@ class _SupplementSidebarContentState
                 child: Column(
                   children: [
                     // 상단: 보강할 교사(빈 수업) 또는 대기 문구
-                    _buildSupplementTopNode(),
+                    _buildSupplementTopNode(tokens),
 
                     // 화살표 (순환교체와 동일한 아래 방향, 단계 번호 없음)
                     Container(
@@ -177,7 +186,7 @@ class _SupplementSidebarContentState
                                 ? PathColorScheme.getScheme(
                                   ExchangePathType.supplement,
                                 ).primary
-                                : Colors.grey.shade500,
+                                : tokens.textMuted,
                         size: 12,
                       ),
                     ),
@@ -197,7 +206,7 @@ class _SupplementSidebarContentState
   }
 
   /// 보강 상단 노드 — 보강할 교사(빈수업) 또는 [빈 수업 대기]
-  Widget _buildSupplementTopNode() {
+  Widget _buildSupplementTopNode(DesignTokens tokens) {
     final path = widget.selectedPath;
     final colorScheme = PathColorScheme.getScheme(ExchangePathType.supplement);
 
@@ -216,6 +225,7 @@ class _SupplementSidebarContentState
           );
 
           return _buildSupplementTextBox(
+            tokens,
             label,
             colorScheme: colorScheme,
             isSelected: true,
@@ -226,6 +236,7 @@ class _SupplementSidebarContentState
     }
 
     return _buildSupplementTextBox(
+      tokens,
       '빈 수업 대기',
       colorScheme: colorScheme,
       isPlaceholder: true,
@@ -240,7 +251,7 @@ class _SupplementSidebarContentState
         final timetableData = ref.watch(exchangeScreenProvider).timetableData;
 
         if (timetableData == null) {
-          return _buildEmptyNode('시간표 데이터 없음');
+          return _buildEmptyNode(context.tokens, '시간표 데이터 없음');
         }
 
         // 선택된 셀의 TimeSlot 찾기
@@ -315,6 +326,7 @@ class _SupplementSidebarContentState
 
   /// 보강 전용 텍스트 박스 (대기 문구·보강 교사 라벨)
   Widget _buildSupplementTextBox(
+    DesignTokens tokens,
     String label, {
     required PathColorScheme colorScheme,
     bool isSelected = false,
@@ -327,13 +339,13 @@ class _SupplementSidebarContentState
       decoration: BoxDecoration(
         color:
             isPlaceholder
-                ? Colors.grey.shade100
+                ? tokens.sectionBackground
                 : colorScheme.backgroundFor(isSelected, false, isHighlighted),
         borderRadius: BorderRadius.circular(3),
         border: Border.all(
           color:
               isPlaceholder
-                  ? Colors.grey.shade300
+                  ? tokens.cardBorder
                   : colorScheme.borderFor(isSelected, false, isHighlighted),
           width: isSelected && !isPlaceholder ? 2 : 1,
         ),
@@ -353,7 +365,7 @@ class _SupplementSidebarContentState
           fontWeight: FontWeight.w500,
           color:
               isPlaceholder
-                  ? Colors.grey.shade600
+                  ? tokens.textSecondary
                   : colorScheme.textFor(isSelected, false, isHighlighted),
         ),
         textAlign: TextAlign.center,
@@ -391,7 +403,8 @@ class _SupplementSidebarContentState
   }
 
   /// 보강 동일 교과목 필터 버튼 — ExchangeFilterWidget 요일/단계 버튼과 동일한 칩 형태
-  Widget _buildSupplementSubjectFilterButton({
+  Widget _buildSupplementSubjectFilterButton(
+    DesignTokens tokens, {
     required String label,
     required bool isEnabled,
     required bool isSelected,
@@ -406,17 +419,17 @@ class _SupplementSidebarContentState
         decoration: BoxDecoration(
           color:
               !isEnabled
-                  ? Colors.grey.shade100
+                  ? tokens.sectionBackground
                   : isSelected
                   ? scheme.nodeBackground
-                  : Colors.grey.shade100,
+                  : tokens.sectionBackground,
           border: Border.all(
             color:
                 !isEnabled
-                    ? Colors.grey.shade300
+                    ? tokens.cardBorder
                     : isSelected
                     ? scheme.nodeBorder
-                    : Colors.grey.shade300,
+                    : tokens.cardBorder,
             width: 1,
           ),
           borderRadius: BorderRadius.circular(4),
@@ -428,10 +441,10 @@ class _SupplementSidebarContentState
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
             color:
                 !isEnabled
-                    ? Colors.grey.shade400
+                    ? tokens.textMuted
                     : isSelected
                     ? scheme.nodeText
-                    : Colors.grey.shade700,
+                    : tokens.textSecondary,
           ),
         ),
       ),
@@ -440,7 +453,10 @@ class _SupplementSidebarContentState
 
   /// 동일 교과목 필터 — 다른 교체 모드 검색 필터 헤더와 동일한 1줄 레이아웃
   /// [아이콘] [필터] [기가 (1명) 버튼]
-  Widget _buildSupplementSubjectFilter(CellSelectionState cellSelectionState) {
+  Widget _buildSupplementSubjectFilter(
+    DesignTokens tokens,
+    CellSelectionState cellSelectionState,
+  ) {
     return Consumer(
       builder: (context, ref, child) {
         final timetableData = ref.watch(exchangeScreenProvider).timetableData;
@@ -476,26 +492,27 @@ class _SupplementSidebarContentState
           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            border: Border.all(color: Colors.grey.shade200, width: 1),
+            color: tokens.sectionBackground,
+            border: Border.all(color: tokens.cardBorder, width: 1),
             borderRadius: BorderRadius.circular(6),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(Icons.filter_list, size: 14, color: Colors.grey.shade600),
+              Icon(Icons.filter_list, size: 14, color: tokens.textSecondary),
               const SizedBox(width: 6),
               Text(
                 '필터',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade700,
+                  color: tokens.textSecondary,
                 ),
               ),
               const SizedBox(width: 8),
               // 동일 교과목 필터 토글 버튼
               _buildSupplementSubjectFilterButton(
+                tokens,
                 label: subjectBadge,
                 isEnabled: isEnabled,
                 isSelected: isFilterActive,
@@ -517,7 +534,10 @@ class _SupplementSidebarContentState
   }
 
   /// 보강 가능한 교사 버튼 섹션
-  Widget _buildSupplementTeacherButtons(CellSelectionState cellSelectionState) {
+  Widget _buildSupplementTeacherButtons(
+    DesignTokens tokens,
+    CellSelectionState cellSelectionState,
+  ) {
     return Consumer(
       builder: (context, ref, child) {
         // ExchangeService에서 보강 가능한 교사 목록 가져오기
@@ -577,7 +597,7 @@ class _SupplementSidebarContentState
                 itemCount: teachersToShow.length,
                 itemBuilder: (context, index) {
                   final teacher = teachersToShow[index];
-                  return _buildTeacherButton(teacher, index);
+                  return _buildTeacherButton(tokens, teacher, index);
                 },
               ),
             ),
@@ -602,7 +622,11 @@ class _SupplementSidebarContentState
   }
 
   /// 교사 버튼 구성
-  Widget _buildTeacherButton(Map<String, dynamic> teacher, int index) {
+  Widget _buildTeacherButton(
+    DesignTokens tokens,
+    Map<String, dynamic> teacher,
+    int index,
+  ) {
     final teacherName = teacher['teacherName'] as String;
     final day = teacher['day'] as String;
     final period = teacher['period'] as int;
@@ -634,7 +658,7 @@ class _SupplementSidebarContentState
                     ? PathColorScheme.pathBackground(
                       ExchangePathType.supplement,
                     )
-                    : Colors.white,
+                    : tokens.surface,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
               color:
@@ -767,21 +791,21 @@ class _SupplementSidebarContentState
   }
 
   /// 빈 노드 생성 (에러 처리용)
-  Widget _buildEmptyNode(String message) {
+  Widget _buildEmptyNode(DesignTokens tokens, String message) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: tokens.sectionBackground,
         borderRadius: BorderRadius.circular(3),
-        border: Border.all(color: Colors.grey.shade300, width: 1),
+        border: Border.all(color: tokens.cardBorder, width: 1),
       ),
       child: Text(
         message,
         style: TextStyle(
           fontSize: SidebarFontSizes.nodeText,
           fontWeight: FontWeight.w500,
-          color: Colors.grey.shade600,
+          color: tokens.textSecondary,
         ),
         textAlign: TextAlign.center,
       ),

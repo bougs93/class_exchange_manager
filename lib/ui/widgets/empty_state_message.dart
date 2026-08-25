@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/design_tokens.dart';
+
 /// 빈 상태 안내 위젯 (아이콘 + 메시지 + 선택적 보조 메시지)
 ///
 /// 데이터 없음·검색 결과 없음·선택 안내 등 여러 화면에서 반복되던
@@ -57,12 +59,14 @@ class EmptyStateMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
+
     return Center(
       child: Column(
         mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: iconSize, color: iconColor ?? Colors.grey.shade400),
+          Icon(icon, size: iconSize, color: iconColor ?? tokens.textMuted),
           SizedBox(height: iconSpacing),
           Text(
             message,
@@ -70,7 +74,7 @@ class EmptyStateMessage extends StatelessWidget {
             style: TextStyle(
               fontSize: messageFontSize,
               fontWeight: messageFontWeight,
-              color: messageColor ?? Colors.grey.shade600,
+              color: messageColor ?? tokens.textSecondary,
             ),
           ),
           if (subMessage != null) ...[
@@ -80,7 +84,7 @@ class EmptyStateMessage extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: subMessageFontSize,
-                color: subMessageColor ?? Colors.grey.shade500,
+                color: subMessageColor ?? tokens.textMuted,
               ),
             ),
           ],

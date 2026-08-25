@@ -1,7 +1,8 @@
 import 'storage_service.dart';
 import '../constants/teacher_row_highlight_colors.dart';
-import '../utils/logger.dart';
+import '../theme/app_theme_type.dart';
 import '../ui/widgets/timetable_grid/timetable_grid_constants.dart';
+import '../utils/logger.dart';
 
 /// 기타 설정(언어·하이라이트·간접교체·화살표 등)의 앱 기본값
 class AppSettingsDefaults {
@@ -10,8 +11,12 @@ class AppSettingsDefaults {
   static const String languageCode = 'ko';
   static const bool dualExchangeEnabled = true;
   static const bool circularExchangeEnabled = false;
-  static const ArrowDirection oneToOneArrowDirection = ArrowDirection.bidirectional;
+  static const ArrowDirection oneToOneArrowDirection =
+      ArrowDirection.bidirectional;
   static const ArrowDirection dualArrowDirection = ArrowDirection.bidirectional;
+
+  /// 디자인 테마 기본값 (기존 클래식 디자인)
+  static const AppThemeType appThemeType = AppThemeType.classic;
 
   /// 교사 행 하이라이트 기본색 (Teal 50)
   static int get highlightedTeacherColorArgb =>
@@ -40,7 +45,9 @@ abstract class ArrowDirectionSettingsStorage {
 
 /// ArrowDirection ↔ JSON 문자열 변환
 String arrowDirectionToJson(ArrowDirection direction) {
-  return direction == ArrowDirection.bidirectional ? 'bidirectional' : 'forward';
+  return direction == ArrowDirection.bidirectional
+      ? 'bidirectional'
+      : 'forward';
 }
 
 /// JSON 문자열 → ArrowDirection (알 수 없는 값이면 [fallback])
@@ -192,10 +199,10 @@ class AppSettingsStorageService
     required String teacherName,
     required String schoolName,
   }) async {
-    return _mergeAndSaveSettings(
-      {'defaultTeacherName': teacherName, 'defaultSchoolName': schoolName},
-      logLabel: '교사명과 학교명(teacherName=$teacherName, schoolName=$schoolName)',
-    );
+    return _mergeAndSaveSettings({
+      'defaultTeacherName': teacherName,
+      'defaultSchoolName': schoolName,
+    }, logLabel: '교사명과 학교명(teacherName=$teacherName, schoolName=$schoolName)');
   }
 
   /// 교사명과 학교명 로드
@@ -231,10 +238,9 @@ class AppSettingsStorageService
   /// 반환값:
   /// - `Future<bool>`: 저장 성공 여부
   Future<bool> saveHighlightedTeacherColor(int colorValue) async {
-    return _mergeAndSaveSettings(
-      {'highlightedTeacherColor': colorValue},
-      logLabel: '하이라이트 교사 행 색상($colorValue)',
-    );
+    return _mergeAndSaveSettings({
+      'highlightedTeacherColor': colorValue,
+    }, logLabel: '하이라이트 교사 행 색상($colorValue)');
   }
 
   /// 하이라이트된 교사 행 색상 로드
@@ -264,10 +270,9 @@ class AppSettingsStorageService
   /// 기존 설정은 merge 방식으로 유지합니다.
   @override
   Future<bool> saveDualExchangeEnabled(bool enabled) async {
-    return _mergeAndSaveSettings(
-      {'dualExchangeEnabled': enabled},
-      logLabel: '2중 교체 설정(enabled=$enabled)',
-    );
+    return _mergeAndSaveSettings({
+      'dualExchangeEnabled': enabled,
+    }, logLabel: '2중 교체 설정(enabled=$enabled)');
   }
 
   /// 2중 교체 기능 사용 여부 로드
@@ -292,10 +297,9 @@ class AppSettingsStorageService
   /// 순환 교체 기능 사용 여부 저장
   @override
   Future<bool> saveCircularExchangeEnabled(bool enabled) async {
-    return _mergeAndSaveSettings(
-      {'circularExchangeEnabled': enabled},
-      logLabel: '순환 교체 설정(enabled=$enabled)',
-    );
+    return _mergeAndSaveSettings({
+      'circularExchangeEnabled': enabled,
+    }, logLabel: '순환 교체 설정(enabled=$enabled)');
   }
 
   /// 순환 교체 기능 사용 여부 로드
@@ -335,10 +339,9 @@ class AppSettingsStorageService
   /// 1:1 교체 화살표 방향 저장 (기존 설정은 merge 방식 유지)
   @override
   Future<bool> saveOneToOneArrowDirection(ArrowDirection direction) async {
-    return _mergeAndSaveSettings(
-      {'oneToOneArrowDirection': arrowDirectionToJson(direction)},
-      logLabel: '1:1 화살표 방향(${arrowDirectionToJson(direction)})',
-    );
+    return _mergeAndSaveSettings({
+      'oneToOneArrowDirection': arrowDirectionToJson(direction),
+    }, logLabel: '1:1 화살표 방향(${arrowDirectionToJson(direction)})');
   }
 
   /// 2중 교체 화살표 방향 로드 (기본값: 양방향 bidirectional)
@@ -359,10 +362,30 @@ class AppSettingsStorageService
   /// 2중 교체 화살표 방향 저장 (기존 설정은 merge 방식 유지)
   @override
   Future<bool> saveDualArrowDirection(ArrowDirection direction) async {
-    return _mergeAndSaveSettings(
-      {'dualArrowDirection': arrowDirectionToJson(direction)},
-      logLabel: '2중 화살표 방향(${arrowDirectionToJson(direction)})',
-    );
+    return _mergeAndSaveSettings({
+      'dualArrowDirection': arrowDirectionToJson(direction),
+    }, logLabel: '2중 화살표 방향(${arrowDirectionToJson(direction)})');
+  }
+
+  /// 디자인 테마 유형 로드 (기본값: 클래식)
+  Future<AppThemeType> getAppThemeType() async {
+    try {
+      final settings = await loadAppSettings();
+      return AppThemeType.fromJson(
+        settings?['appTheme'] as String?,
+        AppSettingsDefaults.appThemeType,
+      );
+    } catch (e) {
+      AppLogger.error('디자인 테마 로드 중 오류: $e', e);
+      return AppSettingsDefaults.appThemeType;
+    }
+  }
+
+  /// 디자인 테마 유형 저장 (기존 설정은 merge 방식 유지)
+  Future<bool> saveAppThemeType(AppThemeType type) async {
+    return _mergeAndSaveSettings({
+      'appTheme': type.toJson(),
+    }, logLabel: '디자인 테마(${type.name})');
   }
 
   /// 기타 설정을 기본값으로 복원
@@ -373,7 +396,8 @@ class AppSettingsStorageService
     try {
       final settings = await loadAppSettings();
       final updatedSettings = <String, dynamic>{
-        'highlightedTeacherColor': AppSettingsDefaults.highlightedTeacherColorArgb,
+        'highlightedTeacherColor':
+            AppSettingsDefaults.highlightedTeacherColorArgb,
         'dualExchangeEnabled': AppSettingsDefaults.dualExchangeEnabled,
         'circularExchangeEnabled': AppSettingsDefaults.circularExchangeEnabled,
         'oneToOneArrowDirection': arrowDirectionToJson(
@@ -389,7 +413,8 @@ class AppSettingsStorageService
           updatedSettings['languageCode'] = settings['languageCode'];
         }
         if (settings.containsKey('defaultTeacherName')) {
-          updatedSettings['defaultTeacherName'] = settings['defaultTeacherName'];
+          updatedSettings['defaultTeacherName'] =
+              settings['defaultTeacherName'];
         }
         if (settings.containsKey('defaultSchoolName')) {
           updatedSettings['defaultSchoolName'] = settings['defaultSchoolName'];

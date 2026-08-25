@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../providers/personal_schedule_provider.dart';
+import '../../../theme/design_tokens.dart';
 import '../../../utils/week_date_calculator.dart';
 import 'exchange_week_collector.dart';
 import 'teacher_card_grid_constants.dart';
@@ -20,6 +21,7 @@ class ExchangeWeekToolbar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final notifier = ref.read(personalScheduleProvider.notifier);
     final theme = Theme.of(context);
+    final tokens = context.tokens;
     final hasWeeks = exchangeWeeks.isNotEmpty;
 
     final previousWeek =
@@ -88,9 +90,7 @@ class ExchangeWeekToolbar extends ConsumerWidget {
                   Icons.event_available,
                   size: 16,
                   color:
-                      hasWeeks
-                          ? theme.colorScheme.primary
-                          : Colors.grey.shade400,
+                      hasWeeks ? theme.colorScheme.primary : tokens.textMuted,
                 ),
                 const SizedBox(width: 4),
                 Text(
@@ -99,18 +99,14 @@ class ExchangeWeekToolbar extends ConsumerWidget {
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                     color:
-                        hasWeeks
-                            ? theme.colorScheme.primary
-                            : Colors.grey.shade500,
+                        hasWeeks ? theme.colorScheme.primary : tokens.textMuted,
                   ),
                 ),
                 Icon(
                   Icons.arrow_drop_down,
                   size: 18,
                   color:
-                      hasWeeks
-                          ? theme.colorScheme.primary
-                          : Colors.grey.shade400,
+                      hasWeeks ? theme.colorScheme.primary : tokens.textMuted,
                 ),
               ],
             ),
@@ -165,6 +161,7 @@ class ExchangeWeekChipRow extends ConsumerWidget {
 
     final notifier = ref.read(personalScheduleProvider.notifier);
     final theme = Theme.of(context);
+    final tokens = context.tokens;
     final chipLabels = ExchangeWeekCollector.buildChipLabels(exchangeWeeks);
 
     final chipRow = SingleChildScrollView(
@@ -200,7 +197,7 @@ class ExchangeWeekChipRow extends ConsumerWidget {
                     color:
                         selected
                             ? theme.colorScheme.primary
-                            : Colors.grey.shade300,
+                            : tokens.cardBorder,
                   ),
                   visualDensity: VisualDensity.compact,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,

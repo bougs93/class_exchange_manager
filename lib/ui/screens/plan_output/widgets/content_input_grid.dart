@@ -10,6 +10,7 @@ import '../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../../providers/exchange_screen_provider.dart';
 import '../../../../providers/services_provider.dart';
 import '../../../../providers/state_reset_provider.dart';
+import '../../../../theme/design_tokens.dart';
 import '../../../../ui/widgets/content_toolbar_layout.dart';
 import '../../../../ui/widgets/content_usage_hint_bar.dart';
 import '../../../../ui/widgets/empty_state_message.dart';
@@ -156,7 +157,10 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
         children: [
           ContentUsageHintBar(
             message: ScreenUsageHints.contentInput,
-            accentColor: PlanOutputMenu.contentInput.color,
+            accentColor:
+                context.tokens.monochromeMenuAccents
+                    ? context.tokens.primary
+                    : PlanOutputMenu.contentInput.color,
           ),
           ContentToolbarLayout.hintToToolbarSpacer,
           _buildActionButtons(context, ref, viewModel),
@@ -173,6 +177,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     SubstitutionPlanViewModel viewModel,
   ) {
     const buttonHeight = ContentToolbarLayout.buttonHeight;
+    final tokens = context.tokens;
 
     return Row(
       children: [
@@ -194,9 +199,13 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
                   },
                   icon: Icons.refresh,
                   tooltip: '새로고침',
-                  backgroundColor: ContentToolbarLayout.neutralButtonBackground,
-                  foregroundColor: ContentToolbarLayout.neutralButtonForeground,
-                  borderColor: ContentToolbarLayout.neutralButtonBorder,
+                  backgroundColor: ContentToolbarLayout.neutralButtonBackground(
+                    tokens,
+                  ),
+                  foregroundColor: ContentToolbarLayout.neutralButtonForeground(
+                    tokens,
+                  ),
+                  borderColor: ContentToolbarLayout.neutralButtonBorder(tokens),
                   iconSize: ContentToolbarLayout.buttonIconSize,
                   size: buttonHeight,
                 ),
@@ -206,9 +215,13 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
                   icon: Icons.clear,
                   label: '날짜 초기화',
                   tooltip: '날짜 초기화',
-                  backgroundColor: ContentToolbarLayout.neutralButtonBackground,
-                  foregroundColor: ContentToolbarLayout.neutralButtonForeground,
-                  borderColor: ContentToolbarLayout.neutralButtonBorder,
+                  backgroundColor: ContentToolbarLayout.neutralButtonBackground(
+                    tokens,
+                  ),
+                  foregroundColor: ContentToolbarLayout.neutralButtonForeground(
+                    tokens,
+                  ),
+                  borderColor: ContentToolbarLayout.neutralButtonBorder(tokens),
                   height: buttonHeight,
                   fontSize: ContentToolbarLayout.buttonFontSize,
                   iconSize: ContentToolbarLayout.buttonIconSize,
@@ -219,9 +232,13 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
                   icon: Icons.clear,
                   label: '결보강 초기화',
                   tooltip: '결보강 전체 초기화',
-                  backgroundColor: ContentToolbarLayout.neutralButtonBackground,
-                  foregroundColor: ContentToolbarLayout.neutralButtonForeground,
-                  borderColor: ContentToolbarLayout.neutralButtonBorder,
+                  backgroundColor: ContentToolbarLayout.neutralButtonBackground(
+                    tokens,
+                  ),
+                  foregroundColor: ContentToolbarLayout.neutralButtonForeground(
+                    tokens,
+                  ),
+                  borderColor: ContentToolbarLayout.neutralButtonBorder(tokens),
                   height: buttonHeight,
                   fontSize: ContentToolbarLayout.buttonFontSize,
                   iconSize: ContentToolbarLayout.buttonIconSize,
@@ -237,9 +254,9 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
           icon: Icons.copy,
           label: '엑셀서식 복사',
           tooltip: '엑셀서식 복사',
-          backgroundColor: ContentToolbarLayout.neutralButtonBackground,
-          foregroundColor: ContentToolbarLayout.neutralButtonForeground,
-          borderColor: ContentToolbarLayout.neutralButtonBorder,
+          backgroundColor: ContentToolbarLayout.neutralButtonBackground(tokens),
+          foregroundColor: ContentToolbarLayout.neutralButtonForeground(tokens),
+          borderColor: ContentToolbarLayout.neutralButtonBorder(tokens),
           height: buttonHeight,
           fontSize: ContentToolbarLayout.buttonFontSize,
           iconSize: ContentToolbarLayout.buttonIconSize,
@@ -343,8 +360,10 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
       child: wrapWithDragScroll(
         SfDataGrid(
           source: dataSource,
-          columns: ContentInputGridConfig.getColumns(),
-          stackedHeaderRows: ContentInputGridConfig.getStackedHeaders(),
+          columns: ContentInputGridConfig.getColumns(context.tokens),
+          stackedHeaderRows: ContentInputGridConfig.getStackedHeaders(
+            context.tokens,
+          ),
           allowColumnsResizing: true,
           columnResizeMode: ColumnResizeMode.onResize,
           gridLinesVisibility: GridLinesVisibility.both,
@@ -366,7 +385,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     return Expanded(
       child: Container(
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
+          border: Border.all(color: context.tokens.cardBorder),
           borderRadius: BorderRadius.circular(4),
         ),
         child: const Center(child: CircularProgressIndicator()),
@@ -378,7 +397,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     return Expanded(
       child: Container(
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
+          border: Border.all(color: context.tokens.cardBorder),
           borderRadius: BorderRadius.circular(4),
         ),
         child: const Padding(
@@ -588,11 +607,11 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
               targetWeekday.isNotEmpty
                   ? (date) => _isTargetWeekday(date, targetWeekday)
                   : null,
-          selectedDayHighlightColor: Colors.blue.shade600,
+          selectedDayHighlightColor: context.tokens.primary,
           okButton: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.blue.shade600,
+              color: context.tokens.primary,
               borderRadius: BorderRadius.circular(6),
             ),
             child: const Text('확인', style: TextStyle(color: Colors.white)),
@@ -600,10 +619,13 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
           cancelButton: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.grey.shade200,
+              color: context.tokens.cardBorder,
               borderRadius: BorderRadius.circular(6),
             ),
-            child: Text('취소', style: TextStyle(color: Colors.grey.shade600)),
+            child: Text(
+              '취소',
+              style: TextStyle(color: context.tokens.textSecondary),
+            ),
           ),
         ),
         dialogSize: const Size(350, 360),

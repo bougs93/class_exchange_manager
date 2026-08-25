@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../widgets/input_decoration_helper.dart';
 import '../../../../widgets/clear_icon_button.dart';
+import '../../../../../theme/design_tokens.dart';
 
 /// PDF 추가 필드 입력 섹션
 ///
@@ -88,12 +89,13 @@ class _PdfFieldInputsSectionState extends State<PdfFieldInputsSection> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: tokens.sectionBackground,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: tokens.cardBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -101,14 +103,14 @@ class _PdfFieldInputsSectionState extends State<PdfFieldInputsSection> {
           // 섹션 제목
           Row(
             children: [
-              Icon(Icons.edit_note, size: 20, color: Colors.grey.shade700),
+              Icon(Icons.edit_note, size: 20, color: tokens.textSecondary),
               const SizedBox(width: 8),
               Text(
                 '추가 필드 입력',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade800,
+                  color: tokens.textPrimary,
                 ),
               ),
             ],
@@ -120,6 +122,7 @@ class _PdfFieldInputsSectionState extends State<PdfFieldInputsSection> {
             controller: widget.teacherNameController,
             label: '결강교사',
             hint: '결강한 교사 이름을 입력하세요',
+            tokens: tokens,
           ),
           const SizedBox(height: 12),
 
@@ -128,6 +131,7 @@ class _PdfFieldInputsSectionState extends State<PdfFieldInputsSection> {
             controller: widget.absencePeriodController,
             label: '결강기간',
             hint: '예: 2024.01.15 ~ 2024.01.19',
+            tokens: tokens,
           ),
           const SizedBox(height: 12),
 
@@ -136,6 +140,7 @@ class _PdfFieldInputsSectionState extends State<PdfFieldInputsSection> {
             controller: widget.workStatusController,
             label: '근무상황',
             hint: '예: 출장, 연가, 병가 등',
+            tokens: tokens,
           ),
           const SizedBox(height: 12),
 
@@ -144,6 +149,7 @@ class _PdfFieldInputsSectionState extends State<PdfFieldInputsSection> {
             controller: widget.reasonForAbsenceController,
             label: '결강사유',
             hint: '결강 사유를 입력하세요',
+            tokens: tokens,
           ),
           const SizedBox(height: 12),
 
@@ -152,6 +158,7 @@ class _PdfFieldInputsSectionState extends State<PdfFieldInputsSection> {
             controller: widget.schoolNameController,
             label: '학교명',
             hint: '학교명을 입력하세요',
+            tokens: tokens,
           ),
           const SizedBox(height: 12),
 
@@ -161,6 +168,7 @@ class _PdfFieldInputsSectionState extends State<PdfFieldInputsSection> {
             label: '설명',
             hint: '설명를 입력하세요 (여러 줄 가능)',
             maxLines: 6,
+            tokens: tokens,
           ),
         ],
       ),
@@ -172,6 +180,7 @@ class _PdfFieldInputsSectionState extends State<PdfFieldInputsSection> {
     required TextEditingController controller,
     required String label,
     required String hint,
+    required DesignTokens tokens,
     int maxLines = 1,
   }) {
     // 여러 줄 입력인 경우 세로로 배치
@@ -184,7 +193,7 @@ class _PdfFieldInputsSectionState extends State<PdfFieldInputsSection> {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: Colors.grey.shade700,
+              color: tokens.textSecondary,
             ),
           ),
           const SizedBox(height: 6),
@@ -194,6 +203,7 @@ class _PdfFieldInputsSectionState extends State<PdfFieldInputsSection> {
             style: const TextStyle(fontSize: 13),
             decoration: InputDecorationHelper.buildStandard(
               hintText: hint,
+              tokens: tokens,
             ).copyWith(
               suffixIcon: ClearIconButton(controller: controller),
               suffixIconConstraints: const BoxConstraints(
@@ -217,7 +227,7 @@ class _PdfFieldInputsSectionState extends State<PdfFieldInputsSection> {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: Colors.grey.shade700,
+              color: tokens.textSecondary,
             ),
           ),
         ),
@@ -230,6 +240,7 @@ class _PdfFieldInputsSectionState extends State<PdfFieldInputsSection> {
             decoration: InputDecorationHelper.buildStandard(
               hintText: hint,
               isDense: true,
+              tokens: tokens,
             ).copyWith(
               suffixIcon: ClearIconButton(controller: controller),
               suffixIconConstraints: const BoxConstraints(

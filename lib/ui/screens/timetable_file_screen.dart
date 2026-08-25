@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../providers/state_reset_provider.dart';
 import '../../models/exchange_mode.dart';
+import '../../theme/design_tokens.dart';
 import 'exchange_screen/exchange_screen_state_proxy.dart';
 import 'exchange_screen/managers/exchange_operation_manager.dart';
 
@@ -121,12 +122,13 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tokens = context.tokens;
     final screenState = ref.watch(exchangeScreenProvider);
     final selectedFile = screenState.selectedFile;
     final isLoading = screenState.isLoading;
 
     return Container(
-      color: Colors.grey.shade50,
+      color: tokens.sectionBackground,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -151,10 +153,12 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
     ThemeData theme,
     File? selectedFile,
   ) {
+    final tokens = context.tokens;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: tokens.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: theme.primaryColor.withValues(alpha: 0.2),
@@ -188,7 +192,7 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Colors.grey.shade800,
+                        color: tokens.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -197,7 +201,7 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
                         selectedFile.path.split(Platform.pathSeparator).last,
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey.shade600,
+                          color: tokens.textSecondary,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -207,7 +211,7 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
                         '선택된 파일이 없습니다',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey.shade400,
+                          color: tokens.textMuted,
                           fontStyle: FontStyle.italic,
                         ),
                       ),

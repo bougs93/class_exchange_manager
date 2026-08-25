@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/design_tokens.dart';
+
 /// TextField의 지우기 아이콘 버튼
 ///
 /// TextEditingController의 텍스트가 비어있지 않을 때만 표시됩니다.
@@ -10,13 +12,15 @@ class ClearIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
+
     // 텍스트가 비어있으면 아무것도 표시하지 않음
     if (controller.text.isEmpty) {
       return const SizedBox.shrink();
     }
 
     return IconButton(
-      icon: Icon(Icons.clear, size: 16, color: Colors.grey.shade600),
+      icon: Icon(Icons.clear, size: 16, color: tokens.textSecondary),
       onPressed: controller.clear,
       constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
       visualDensity: VisualDensity.compact,

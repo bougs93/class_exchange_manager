@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../constants/screen_usage_hints.dart';
 import '../../models/notice_message.dart';
 import '../../providers/notice_message_provider.dart';
+import '../../theme/design_tokens.dart';
 import 'content_toolbar_layout.dart';
 import 'content_usage_hint_bar.dart';
 import 'timetable_grid/grid_header_widgets.dart';
@@ -60,6 +61,7 @@ class NoticeControlPanel extends ConsumerWidget {
     final noticeNotifier = ref.read(noticeMessageProvider.notifier);
     final currentOption = _getCurrentMessageOption(noticeState);
     final optionButtons = _availableMessageOptionButtons();
+    final tokens = context.tokens;
     const buttonHeight = ContentToolbarLayout.buttonHeight;
 
     return Card(
@@ -71,7 +73,7 @@ class NoticeControlPanel extends ConsumerWidget {
           children: [
             ContentUsageHintBar(
               message: _usageHintMessage,
-              accentColor: refreshButtonColor ?? Colors.blue,
+              accentColor: refreshButtonColor ?? tokens.primary,
               padded: true,
             ),
             ContentToolbarLayout.hintToToolbarSpacer,
@@ -84,9 +86,9 @@ class NoticeControlPanel extends ConsumerWidget {
                     onPressed: () => noticeNotifier.refreshAllMessages(),
                     icon: Icons.refresh,
                     tooltip: '새로고침',
-                    backgroundColor: _neutralActionColors.background,
-                    foregroundColor: _neutralActionColors.foreground,
-                    borderColor: _neutralActionColors.border,
+                    backgroundColor: _neutralActionColors(tokens).background,
+                    foregroundColor: _neutralActionColors(tokens).foreground,
+                    borderColor: _neutralActionColors(tokens).border,
                     iconSize: ContentToolbarLayout.buttonIconSize,
                     size: buttonHeight,
                   ),
@@ -113,6 +115,7 @@ class NoticeControlPanel extends ConsumerWidget {
                                 currentOption: currentOption,
                                 buttonHeight: buttonHeight,
                                 showLabel: showLabels,
+                                tokens: tokens,
                                 onSelected:
                                     (option) => _setMessageOption(
                                       noticeNotifier,
@@ -136,9 +139,9 @@ class NoticeControlPanel extends ConsumerWidget {
                     onPressed: () => _copyAllMessages(context, noticeState),
                     icon: Icons.copy,
                     tooltip: '전체 복사',
-                    backgroundColor: _neutralActionColors.background,
-                    foregroundColor: _neutralActionColors.foreground,
-                    borderColor: _neutralActionColors.border,
+                    backgroundColor: _neutralActionColors(tokens).background,
+                    foregroundColor: _neutralActionColors(tokens).foreground,
+                    borderColor: _neutralActionColors(tokens).border,
                     iconSize: ContentToolbarLayout.buttonIconSize,
                     size: buttonHeight,
                   ),
@@ -176,16 +179,16 @@ class NoticeControlPanel extends ConsumerWidget {
     required MessageOption currentOption,
     required double buttonHeight,
     required bool showLabel,
+    required DesignTokens tokens,
     required ValueChanged<MessageOption> onSelected,
   }) {
     final isSelected = currentOption == option;
-    final selectedColors = _refreshColors;
+    final selectedColors = _refreshColors(tokens);
     final backgroundColor =
-        isSelected ? selectedColors.background : Colors.grey.shade100;
+        isSelected ? selectedColors.background : tokens.sectionBackground;
     final foregroundColor =
-        isSelected ? selectedColors.foreground : Colors.grey.shade700;
-    final borderColor =
-        isSelected ? selectedColors.border : Colors.grey.shade300;
+        isSelected ? selectedColors.foreground : tokens.textSecondary;
+    final borderColor = isSelected ? selectedColors.border : tokens.cardBorder;
 
     // 가로 폭 부족: 아이콘만 표시 (Tooltip으로 라벨 제공)
     if (!showLabel) {
@@ -217,15 +220,20 @@ class NoticeControlPanel extends ConsumerWidget {
   }
 
   /// 일반 동작 버튼(새로고침·복사) — 문서 툴바와 동일한 중립 색
-  ({Color background, Color foreground, Color border})
-  get _neutralActionColors => (
-    background: ContentToolbarLayout.neutralButtonBackground,
-    foreground: ContentToolbarLayout.neutralButtonForeground,
-    border: ContentToolbarLayout.neutralButtonBorder,
-  );
+  ({Color background, Color foreground, Color border}) _neutralActionColors(
+    DesignTokens tokens,
+  ) {
+    return (
+      background: ContentToolbarLayout.neutralButtonBackground(tokens),
+      foreground: ContentToolbarLayout.neutralButtonForeground(tokens),
+      border: ContentToolbarLayout.neutralButtonBorder(tokens),
+    );
+  }
 
   /// 선택된 안내 방식 버튼 강조 색 (탭별 주황·초록 등)
-  ({Color background, Color foreground, Color border}) get _refreshColors {
+  ({Color background, Color foreground, Color border}) _refreshColors(
+    DesignTokens tokens,
+  ) {
     final color = refreshButtonColor;
     if (color == Colors.green) {
       return (
@@ -242,9 +250,9 @@ class NoticeControlPanel extends ConsumerWidget {
       );
     }
     return (
-      background: Colors.blue.shade100,
-      foreground: Colors.blue.shade700,
-      border: Colors.blue.shade300,
+      background: tokens.primary.withValues(alpha: 0.2),
+      foreground: tokens.primary,
+      border: tokens.cardBorder,
     );
   }
 

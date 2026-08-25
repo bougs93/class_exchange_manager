@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../theme/design_tokens.dart';
 import 'personal_schedule_constants.dart';
 
 /// 교사 선택 다이얼로그 위젯
@@ -41,6 +42,7 @@ class _TeacherSelectionDialogState extends State<TeacherSelectionDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Dialog(
       child: Container(
         width: PersonalScheduleConstants.teacherSelectionDialogWidth,
@@ -76,7 +78,7 @@ class _TeacherSelectionDialogState extends State<TeacherSelectionDialog> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 filled: true,
-                fillColor: Colors.grey.shade100,
+                fillColor: tokens.sectionBackground,
               ),
               onChanged: (value) {
                 setState(() {
@@ -98,7 +100,7 @@ class _TeacherSelectionDialogState extends State<TeacherSelectionDialog> {
                             Icon(
                               Icons.search_off,
                               size: 48,
-                              color: Colors.grey.shade400,
+                              color: tokens.textMuted,
                             ),
                             const SizedBox(height: 16),
                             Text(
@@ -106,7 +108,7 @@ class _TeacherSelectionDialogState extends State<TeacherSelectionDialog> {
                                   ? '교사 목록이 비어있습니다'
                                   : '검색 결과가 없습니다',
                               style: TextStyle(
-                                color: Colors.grey.shade600,
+                                color: tokens.textSecondary,
                                 fontSize: 14,
                               ),
                             ),
@@ -152,7 +154,7 @@ class _TeacherSelectionDialogState extends State<TeacherSelectionDialog> {
                 padding: const EdgeInsets.only(top: 8.0),
                 child: Text(
                   '총 ${widget.teacherNames.length}명의 교사',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 12, color: tokens.textSecondary),
                 ),
               ),
           ],

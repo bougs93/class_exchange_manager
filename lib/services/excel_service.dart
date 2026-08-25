@@ -208,7 +208,7 @@ class ExcelService {
   static Future<File?> pickExcelFile() async {
     try {
       // 파일 선택 다이얼로그 표시
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
+      FilePickerResult? result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: [
           'xlsx',
@@ -1150,11 +1150,12 @@ class ExcelService {
 
       for (int i = 0; i < rowCount; i++) {
         final currentRow = teacherRow + i - 1; // 0-based
-        final rowValue = ExcelParsingUtils.getCellValue(
-          sheet,
-          currentRow,
-          periodCol - 1,
-        ).trim();
+        final rowValue =
+            ExcelParsingUtils.getCellValue(
+              sheet,
+              currentRow,
+              periodCol - 1,
+            ).trim();
 
         if (rowValue.isNotEmpty) {
           rowValues.add(rowValue);
@@ -1189,8 +1190,7 @@ class ExcelService {
       dayOfWeek,
       period,
       // 다중 행은 셀마다 내용 기준 분류 — 파일 전역 패턴 강제 적용 안 함
-      orderPattern:
-          rowCount >= 2 ? CellOrderPattern.unknown : cellOrderPattern,
+      orderPattern: rowCount >= 2 ? CellOrderPattern.unknown : cellOrderPattern,
     );
   }
 

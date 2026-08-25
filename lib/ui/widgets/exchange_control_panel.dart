@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/exchange_mode.dart';
 import '../../providers/app_settings_provider.dart';
+import '../../theme/design_tokens.dart';
 import 'timetable_grid/grid_header_widgets.dart';
 
 /// 통합 툴바 공통 높이 (1차 메뉴와 동일하게 맞춤)
@@ -254,7 +255,10 @@ double estimateActionToolbarItemsWidth({bool withButtonLabels = false}) {
   const buttonGap = 4.0;
 
   final switchPart =
-      switchLabelWidth + labelToSwitchGap + switchAreaWidth + checkboxToDeleteGap;
+      switchLabelWidth +
+      labelToSwitchGap +
+      switchAreaWidth +
+      checkboxToDeleteGap;
 
   if (!withButtonLabels) {
     return switchPart +
@@ -456,10 +460,13 @@ class _ModeToolbarButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final backgroundColor =
-        isSelected ? mode.color.withValues(alpha: 0.12) : Colors.grey.shade100;
-    final foregroundColor = isSelected ? mode.color : Colors.grey.shade700;
-    final borderColor = isSelected ? mode.color : Colors.grey.shade300;
+        isSelected
+            ? mode.color.withValues(alpha: 0.12)
+            : tokens.sectionBackground;
+    final foregroundColor = isSelected ? mode.color : tokens.textSecondary;
+    final borderColor = isSelected ? mode.color : tokens.cardBorder;
     final visibleLabel = _visibleLabel;
 
     // 축약 모드 + 조회/편집: 아이콘만
@@ -517,11 +524,12 @@ class ToolbarGroupDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Container(
       width: 1,
       height: 24,
       margin: const EdgeInsets.symmetric(horizontal: 6),
-      color: Colors.grey.shade500,
+      color: tokens.textMuted,
     );
   }
 }
@@ -549,14 +557,15 @@ class ExchangeControlPanel extends StatelessWidget {
         final labelStyle = resolveModeLabelStyle(
           totalWidth: constraints.maxWidth,
         );
+        final tokens = context.tokens;
 
         return Container(
           height: kExchangeUnifiedToolbarHeight,
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: tokens.surface,
             border: Border(
-              bottom: BorderSide(color: Colors.grey.shade200, width: 1),
+              bottom: BorderSide(color: tokens.cardBorder, width: 1),
             ),
           ),
           child: ExchangeModeSelector(

@@ -7,6 +7,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:printing/printing.dart';
 
+import '../../../theme/design_tokens.dart';
+
 /// 출력 미리 보기 화면
 ///
 /// PDF 파일을 화면에 표시하고 줌, 저장, 인쇄 기능을 제공합니다.
@@ -114,7 +116,8 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(appBar: _buildAppBar(), body: _buildBody());
+    final tokens = context.tokens;
+    return Scaffold(appBar: _buildAppBar(), body: _buildBody(tokens));
   }
 
   /// AppBar 생성
@@ -169,7 +172,7 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
   }
 
   /// Body 생성
-  Widget _buildBody() {
+  Widget _buildBody(DesignTokens tokens) {
     if (_isLoading) {
       return const Center(
         child: Column(
@@ -184,14 +187,14 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
     }
 
     if (_hasError) {
-      return _buildErrorView();
+      return _buildErrorView(tokens);
     }
 
-    return _buildPdfViewer();
+    return _buildPdfViewer(tokens);
   }
 
   /// 오류 화면
-  Widget _buildErrorView() {
+  Widget _buildErrorView(DesignTokens tokens) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -212,7 +215,7 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
             Text(
               _errorMessage,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+              style: TextStyle(fontSize: 14, color: tokens.textSecondary),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
@@ -227,7 +230,7 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
   }
 
   /// PDF 뷰어
-  Widget _buildPdfViewer() {
+  Widget _buildPdfViewer(DesignTokens tokens) {
     try {
       _pdfViewerController ??= PdfViewerController();
       return SfPdfViewer.file(
@@ -248,12 +251,12 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
       );
     } catch (e) {
       developer.log('PDF 뷰어 초기화 실패: $e');
-      return _buildFallbackView();
+      return _buildFallbackView(tokens);
     }
   }
 
   /// 폴백 화면 (PDF 뷰어 초기화 실패 시)
-  Widget _buildFallbackView() {
+  Widget _buildFallbackView(DesignTokens tokens) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -271,10 +274,10 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'PDF 뷰어를 초기화할 수 없습니다.\nPDF는 저장되었으므로 파일 탐색기에서 확인할 수 있습니다.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Colors.grey),
+              style: TextStyle(fontSize: 14, color: tokens.textMuted),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
@@ -430,7 +433,7 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
         return;
       }
 
-      String? outputPath = await FilePicker.platform.saveFile(
+      String? outputPath = await FilePicker.saveFile(
         dialogTitle: 'PDF 파일 저장',
         fileName: _getSaveFileName(),
         type: FileType.custom,

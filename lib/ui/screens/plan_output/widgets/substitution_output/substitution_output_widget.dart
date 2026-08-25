@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../../../../constants/screen_usage_hints.dart';
 import '../../../../../models/plan_output_menu.dart';
 import '../../../../../providers/substitution_plan_viewmodel.dart';
+import '../../../../../theme/design_tokens.dart';
 import '../../../../widgets/content_toolbar_layout.dart';
 import '../../../../widgets/content_usage_hint_bar.dart';
 import '../../../../widgets/timetable_grid/grid_header_widgets.dart';
@@ -508,7 +509,10 @@ class SubstitutionOutputWidgetState
           children: [
             ContentUsageHintBar(
               message: ScreenUsageHints.substitutionOutput,
-              accentColor: PlanOutputMenu.substitutionOutput.color,
+              accentColor:
+                  context.tokens.monochromeMenuAccents
+                      ? context.tokens.primary
+                      : PlanOutputMenu.substitutionOutput.color,
             ),
             ContentToolbarLayout.hintToToolbarSpacer,
             // PDF 출력 버튼 (콘텐츠 영역 최상단)

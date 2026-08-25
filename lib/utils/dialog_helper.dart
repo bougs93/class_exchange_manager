@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/design_tokens.dart';
 
 /// 다이얼로그 표시를 위한 헬퍼 클래스
 ///
@@ -37,6 +38,7 @@ class DialogHelper {
     String cancelText = '취소',
     bool isDangerous = false,
   }) {
+    final tokens = context.tokens;
     return showDialog<bool>(
       context: context,
       builder:
@@ -48,7 +50,7 @@ class DialogHelper {
                 onPressed: () => Navigator.pop(context, false),
                 child: Text(
                   cancelText,
-                  style: TextStyle(color: Colors.grey.shade600),
+                  style: TextStyle(color: tokens.textSecondary),
                 ),
               ),
               TextButton(
@@ -56,10 +58,7 @@ class DialogHelper {
                 child: Text(
                   confirmText,
                   style: TextStyle(
-                    color:
-                        isDangerous
-                            ? Colors.red.shade600
-                            : Colors.blue.shade600,
+                    color: isDangerous ? Colors.red.shade600 : tokens.primary,
                   ),
                 ),
               ),
@@ -87,6 +86,7 @@ class DialogHelper {
     required String message,
     String buttonText = '확인',
   }) {
+    final tokens = context.tokens;
     return showDialog<void>(
       context: context,
       builder:
@@ -98,7 +98,7 @@ class DialogHelper {
                 onPressed: () => Navigator.pop(context),
                 child: Text(
                   buttonText,
-                  style: TextStyle(color: Colors.blue.shade600),
+                  style: TextStyle(color: tokens.primary),
                 ),
               ),
             ],

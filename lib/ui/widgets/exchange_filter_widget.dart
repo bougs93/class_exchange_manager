@@ -5,6 +5,7 @@ import '../../models/circular_exchange_path.dart';
 import '../../models/dual_exchange_path.dart';
 import '../../models/one_to_one_exchange_path.dart';
 import '../../models/supplement_exchange_path.dart';
+import '../../theme/design_tokens.dart';
 
 /// 교체 경로 필터 위젯
 /// 순환교체, 2중교체, 1:1교체, 보강 등 모든 교체 모드에서 공용으로 사용하는 필터 위젯
@@ -65,40 +66,41 @@ class ExchangeFilterWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        border: Border.all(color: Colors.grey.shade200, width: 1),
+        color: tokens.sectionBackground,
+        border: Border.all(color: tokens.cardBorder, width: 1),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 필터 그룹 제목
-          _buildFilterHeader(),
+          _buildFilterHeader(tokens),
           const SizedBox(height: 4),
 
           // 단계 필터 (순환교체에서만 2~5단계 표시, 다른 모드는 조건부 표시)
           if (_shouldShowStepFilter()) ...[
-            _buildStepFilter(),
+            _buildStepFilter(tokens),
             const SizedBox(height: 4),
           ],
 
           // 요일 필터
-          _buildDayFilter(),
+          _buildDayFilter(tokens),
 
           // 교사 필터 (향후 확장용)
           if (availableTeachers != null && availableTeachers!.isNotEmpty) ...[
             const SizedBox(height: 4),
-            _buildTeacherFilter(),
+            _buildTeacherFilter(tokens),
           ],
 
           // 과목 필터 (향후 확장용)
           if (availableSubjects != null && availableSubjects!.isNotEmpty) ...[
             const SizedBox(height: 4),
-            _buildSubjectFilter(),
+            _buildSubjectFilter(tokens),
           ],
         ],
       ),
@@ -138,7 +140,7 @@ class ExchangeFilterWidget extends StatelessWidget {
   }
 
   /// 필터 헤더 구성 — 「검색 필터 (N개 경로)」
-  Widget _buildFilterHeader() {
+  Widget _buildFilterHeader(DesignTokens tokens) {
     final String title;
     if (isLoading) {
       title = '검색 필터 (탐색 중...)';
@@ -150,7 +152,7 @@ class ExchangeFilterWidget extends StatelessWidget {
 
     return Row(
       children: [
-        Icon(Icons.filter_list, size: 14, color: Colors.grey.shade600),
+        Icon(Icons.filter_list, size: 14, color: tokens.textSecondary),
         const SizedBox(width: 4),
         Expanded(
           child: Text(
@@ -158,7 +160,7 @@ class ExchangeFilterWidget extends StatelessWidget {
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700,
+              color: tokens.textSecondary,
             ),
             overflow: TextOverflow.ellipsis,
           ),
@@ -168,7 +170,7 @@ class ExchangeFilterWidget extends StatelessWidget {
   }
 
   /// 단계 필터 구성
-  Widget _buildStepFilter() {
+  Widget _buildStepFilter(DesignTokens tokens) {
     return Row(
       children: [
         // 각 단계별 버튼을 Expanded로 감싸서 전체 너비 채우기
@@ -183,6 +185,7 @@ class ExchangeFilterWidget extends StatelessWidget {
                 label: _getStepLabel(step),
                 step: step,
                 isSelected: selectedStep == step,
+                tokens: tokens,
               ),
             ),
           ),
@@ -280,15 +283,16 @@ class ExchangeFilterWidget extends StatelessWidget {
     required String label,
     required int step,
     required bool isSelected,
+    required DesignTokens tokens,
   }) {
     return GestureDetector(
       onTap: () => onStepChanged?.call(isSelected ? null : step),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.blue.shade100 : Colors.grey.shade100,
+          color: isSelected ? Colors.blue.shade100 : tokens.sectionBackground,
           border: Border.all(
-            color: isSelected ? Colors.blue.shade300 : Colors.grey.shade300,
+            color: isSelected ? Colors.blue.shade300 : tokens.cardBorder,
             width: 1,
           ),
           borderRadius: BorderRadius.circular(4),
@@ -298,7 +302,7 @@ class ExchangeFilterWidget extends StatelessWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-            color: isSelected ? Colors.blue.shade700 : Colors.grey.shade700,
+            color: isSelected ? Colors.blue.shade700 : tokens.textSecondary,
           ),
           textAlign: TextAlign.center,
         ),
@@ -307,7 +311,7 @@ class ExchangeFilterWidget extends StatelessWidget {
   }
 
   /// 요일 필터 구성
-  Widget _buildDayFilter() {
+  Widget _buildDayFilter(DesignTokens tokens) {
     final List<String> days = ['월', '화', '수', '목', '금'];
 
     return Column(
@@ -319,7 +323,7 @@ class ExchangeFilterWidget extends StatelessWidget {
           runSpacing: 3,
           children: [
             // 각 요일별 버튼
-            ...days.map((day) => _buildDayButton(day)),
+            ...days.map((day) => _buildDayButton(day, tokens)),
           ],
         ),
       ],
@@ -327,7 +331,7 @@ class ExchangeFilterWidget extends StatelessWidget {
   }
 
   /// 요일 선택 버튼 구성
-  Widget _buildDayButton(String day) {
+  Widget _buildDayButton(String day, DesignTokens tokens) {
     final bool isSelected = selectedDay == day;
 
     return GestureDetector(
@@ -335,9 +339,9 @@ class ExchangeFilterWidget extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 6),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.green.shade100 : Colors.grey.shade100,
+          color: isSelected ? Colors.green.shade100 : tokens.sectionBackground,
           border: Border.all(
-            color: isSelected ? Colors.green.shade300 : Colors.grey.shade300,
+            color: isSelected ? Colors.green.shade300 : tokens.cardBorder,
             width: 1,
           ),
           borderRadius: BorderRadius.circular(3),
@@ -347,7 +351,7 @@ class ExchangeFilterWidget extends StatelessWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-            color: isSelected ? Colors.green.shade700 : Colors.grey.shade700,
+            color: isSelected ? Colors.green.shade700 : tokens.textSecondary,
           ),
         ),
       ),
@@ -355,7 +359,7 @@ class ExchangeFilterWidget extends StatelessWidget {
   }
 
   /// 교사 필터 구성 (향후 확장용)
-  Widget _buildTeacherFilter() {
+  Widget _buildTeacherFilter(DesignTokens tokens) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -364,7 +368,7 @@ class ExchangeFilterWidget extends StatelessWidget {
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w600,
-            color: Colors.grey.shade700,
+            color: tokens.textSecondary,
           ),
         ),
         const SizedBox(height: 2),
@@ -373,7 +377,7 @@ class ExchangeFilterWidget extends StatelessWidget {
           runSpacing: 3,
           children: [
             ...availableTeachers!.map(
-              (teacher) => _buildTeacherButton(teacher),
+              (teacher) => _buildTeacherButton(teacher, tokens),
             ),
           ],
         ),
@@ -382,7 +386,7 @@ class ExchangeFilterWidget extends StatelessWidget {
   }
 
   /// 교사 선택 버튼 구성 (향후 확장용)
-  Widget _buildTeacherButton(String teacher) {
+  Widget _buildTeacherButton(String teacher, DesignTokens tokens) {
     final bool isSelected = selectedTeacher == teacher;
 
     return GestureDetector(
@@ -390,9 +394,9 @@ class ExchangeFilterWidget extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 6),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.purple.shade100 : Colors.grey.shade100,
+          color: isSelected ? Colors.purple.shade100 : tokens.sectionBackground,
           border: Border.all(
-            color: isSelected ? Colors.purple.shade300 : Colors.grey.shade300,
+            color: isSelected ? Colors.purple.shade300 : tokens.cardBorder,
             width: 1,
           ),
           borderRadius: BorderRadius.circular(3),
@@ -402,7 +406,7 @@ class ExchangeFilterWidget extends StatelessWidget {
           style: TextStyle(
             fontSize: 10,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-            color: isSelected ? Colors.purple.shade700 : Colors.grey.shade700,
+            color: isSelected ? Colors.purple.shade700 : tokens.textSecondary,
           ),
         ),
       ),
@@ -410,7 +414,7 @@ class ExchangeFilterWidget extends StatelessWidget {
   }
 
   /// 과목 필터 구성 (향후 확장용)
-  Widget _buildSubjectFilter() {
+  Widget _buildSubjectFilter(DesignTokens tokens) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -419,7 +423,7 @@ class ExchangeFilterWidget extends StatelessWidget {
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w600,
-            color: Colors.grey.shade700,
+            color: tokens.textSecondary,
           ),
         ),
         const SizedBox(height: 2),
@@ -428,7 +432,7 @@ class ExchangeFilterWidget extends StatelessWidget {
           runSpacing: 3,
           children: [
             ...availableSubjects!.map(
-              (subject) => _buildSubjectButton(subject),
+              (subject) => _buildSubjectButton(subject, tokens),
             ),
           ],
         ),
@@ -437,7 +441,7 @@ class ExchangeFilterWidget extends StatelessWidget {
   }
 
   /// 과목 선택 버튼 구성 (향후 확장용)
-  Widget _buildSubjectButton(String subject) {
+  Widget _buildSubjectButton(String subject, DesignTokens tokens) {
     final bool isSelected = selectedSubject == subject;
 
     return GestureDetector(
@@ -445,9 +449,9 @@ class ExchangeFilterWidget extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 6),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.orange.shade100 : Colors.grey.shade100,
+          color: isSelected ? Colors.orange.shade100 : tokens.sectionBackground,
           border: Border.all(
-            color: isSelected ? Colors.orange.shade300 : Colors.grey.shade300,
+            color: isSelected ? Colors.orange.shade300 : tokens.cardBorder,
             width: 1,
           ),
           borderRadius: BorderRadius.circular(3),
@@ -457,7 +461,7 @@ class ExchangeFilterWidget extends StatelessWidget {
           style: TextStyle(
             fontSize: 10,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-            color: isSelected ? Colors.orange.shade700 : Colors.grey.shade700,
+            color: isSelected ? Colors.orange.shade700 : tokens.textSecondary,
           ),
         ),
       ),

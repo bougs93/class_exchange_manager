@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../constants/app_info.dart';
+import '../../../theme/design_tokens.dart';
 import '../../../utils/url_launcher_helper.dart';
 import '../../widgets/app_branding_header.dart';
 import '../../widgets/app_content_card.dart';
@@ -13,6 +14,7 @@ class ProgramInfoContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tokens = context.tokens;
 
     return SelectionArea(
       child: SingleChildScrollView(
@@ -22,9 +24,9 @@ class ProgramInfoContent extends StatelessWidget {
           children: [
             _buildHeaderCard(),
             const SizedBox(height: 16),
-            _buildBasicInfoCard(),
+            _buildBasicInfoCard(tokens),
             const SizedBox(height: 16),
-            _buildDetailInfoCard(theme),
+            _buildDetailInfoCard(theme, tokens),
           ],
         ),
       ),
@@ -37,7 +39,7 @@ class ProgramInfoContent extends StatelessWidget {
     );
   }
 
-  Widget _buildBasicInfoCard() {
+  Widget _buildBasicInfoCard(DesignTokens tokens) {
     return AppContentCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -46,21 +48,23 @@ class ProgramInfoContent extends StatelessWidget {
             icon: Icons.person_outline,
             label: 'Developer :',
             value: AppInfo.developer,
+            tokens: tokens,
           ),
           const SizedBox(height: 12),
-          _buildDivider(),
+          _buildDivider(tokens),
           const SizedBox(height: 16),
           _buildInfoRow(
             icon: Icons.business_outlined,
             label: 'Company :',
             value: AppInfo.affiliation,
+            tokens: tokens,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDetailInfoCard(ThemeData theme) {
+  Widget _buildDetailInfoCard(ThemeData theme, DesignTokens tokens) {
     return AppContentCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -69,32 +73,32 @@ class ProgramInfoContent extends StatelessWidget {
             theme,
             Icons.description_outlined,
             '프로그램 소개',
-            _buildSectionContentAsList(AppInfo.description.trim()),
+            _buildSectionContentAsList(AppInfo.description.trim(), tokens),
           ),
-          _buildSectionSpacer(),
-          _buildUsageRestrictionSection(theme),
-          _buildSectionSpacer(),
+          _buildSectionSpacer(tokens),
+          _buildUsageRestrictionSection(theme, tokens),
+          _buildSectionSpacer(tokens),
           if (AppInfo.homepageLinks.isNotEmpty) ...[
             _buildSection(
               theme,
               Icons.link,
               '홈페이지',
-              _buildHomepageLinksAsList(theme),
+              _buildHomepageLinksAsList(theme, tokens),
             ),
-            _buildSectionSpacer(),
+            _buildSectionSpacer(tokens),
           ],
           _buildSection(
             theme,
             Icons.contact_support_outlined,
             'Noah Lab 정보',
-            _buildSectionContentAsList(AppInfo.contact.trim()),
+            _buildSectionContentAsList(AppInfo.contact.trim(), tokens),
           ),
-          _buildSectionSpacer(),
+          _buildSectionSpacer(tokens),
           _buildSection(
             theme,
             Icons.copyright_outlined,
             '라이센스',
-            _buildSectionContentAsList(AppInfo.license.trim()),
+            _buildSectionContentAsList(AppInfo.license.trim(), tokens),
           ),
         ],
       ),
@@ -123,15 +127,16 @@ class ProgramInfoContent extends StatelessWidget {
     required IconData icon,
     required String label,
     required String value,
+    required DesignTokens tokens,
   }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Icon(icon, size: 20, color: Colors.grey.shade600),
+        Icon(icon, size: 20, color: tokens.textSecondary),
         const SizedBox(width: 12),
         Text(
           label,
-          style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+          style: TextStyle(fontSize: 14, color: tokens.textSecondary),
         ),
         const SizedBox(width: 8),
         Expanded(
@@ -179,7 +184,7 @@ class ProgramInfoContent extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionContentAsList(String content) {
+  Widget _buildSectionContentAsList(String content, DesignTokens tokens) {
     final lines =
         content
             .split('\n')
@@ -197,16 +202,17 @@ class ProgramInfoContent extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   height: 1.6,
-                  color: Colors.grey.shade700,
+                  color: tokens.textSecondary,
                 ),
               ),
+              tokens,
             );
           }).toList(),
     );
   }
 
   /// 불릿(•) + 내용을 한 줄로 묶는 공통 레이아웃
-  Widget _buildBulletRow(Widget child) {
+  Widget _buildBulletRow(Widget child, DesignTokens tokens) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
@@ -218,7 +224,7 @@ class ProgramInfoContent extends StatelessWidget {
               '•',
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey.shade700,
+                color: tokens.textSecondary,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -229,7 +235,7 @@ class ProgramInfoContent extends StatelessWidget {
     );
   }
 
-  Widget _buildUsageRestrictionSection(ThemeData theme) {
+  Widget _buildUsageRestrictionSection(ThemeData theme, DesignTokens tokens) {
     final daysUntilExpiry = AppInfo.getDaysUntilExpiry();
     final isExpired = AppInfo.isExpired();
     final color =
@@ -249,12 +255,12 @@ class ProgramInfoContent extends StatelessWidget {
           color: color,
         ),
         const SizedBox(height: 6),
-        _buildSectionContentAsList(AppInfo.usageRestriction.trim()),
+        _buildSectionContentAsList(AppInfo.usageRestriction.trim(), tokens),
       ],
     );
   }
 
-  Widget _buildHomepageLinksAsList(ThemeData theme) {
+  Widget _buildHomepageLinksAsList(ThemeData theme, DesignTokens tokens) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children:
@@ -283,22 +289,23 @@ class ProgramInfoContent extends StatelessWidget {
                   ),
                 ),
               ),
+              tokens,
             );
           }).toList(),
     );
   }
 
-  Widget _buildSectionSpacer() {
+  Widget _buildSectionSpacer(DesignTokens tokens) {
     return Column(
       children: [
         const SizedBox(height: 6),
-        _buildDivider(),
+        _buildDivider(tokens),
         const SizedBox(height: 6),
       ],
     );
   }
 
-  Widget _buildDivider() {
-    return Divider(height: 1, thickness: 1, color: Colors.grey.shade300);
+  Widget _buildDivider(DesignTokens tokens) {
+    return Divider(height: 1, thickness: 1, color: tokens.cardBorder);
   }
 }

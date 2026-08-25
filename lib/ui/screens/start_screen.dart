@@ -7,6 +7,7 @@ import 'start_content_screen.dart';
 import 'guide_screen.dart';
 import 'notice_screen.dart';
 import '../../providers/navigation_provider.dart';
+import '../../constants/nav_indices.dart';
 import '../widgets/unified_navigation_bar.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../providers/services_provider.dart';
@@ -35,6 +36,15 @@ class _StartScreenState extends ConsumerState<StartScreen> {
   ExchangeScreenStateProxy? _stateProxy;
   ExchangeOperationManager? _operationManager;
 
+  /// 한 번이라도 연 탭만 실제 위젯을 유지 (시작 시 전체 탭 생성으로 UI가 멈추는 것 방지)
+  final Set<int> _activatedTabIndices = {NavIndices.start};
+
+  /// 탭별 위젯 캐시 (재생성 시 상태 유실 방지)
+  final List<Widget?> _cachedTabWidgets = List<Widget?>.filled(
+    NavIndices.screenCount,
+    null,
+  );
+
   @override
   void initState() {
     super.initState();
@@ -58,8 +68,10 @@ class _StartScreenState extends ConsumerState<StartScreen> {
       },
     );
 
-    // 프로그램 시작 시 저장된 데이터 자동 로드
-    _loadSavedData();
+    // 첫 프레임(준비 화면)을 그린 뒤 저장 데이터 로드 — 시작 멈춤 완화
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadSavedData();
+    });
   }
 
   /// 저장된 데이터 자동 로드
@@ -205,18 +217,45 @@ class _StartScreenState extends ConsumerState<StartScreen> {
     }
   }
 
-  /// 상단 네비게이션 탭 1~5 (0은 StartContentScreen)
-  List<Widget> _tabScreens() => const [
-    ExchangeScreen(),
-    PlanOutputScreen(),
-    NoticeScreen(),
-    PersonalScheduleScreen(),
-    GuideScreen(),
-  ];
+  /// 탭 인덱스에 해당하는 화면 위젯 (최초 1회만 생성해 캐시)
+  Widget _buildTabWidget(int index) {
+    final cached = _cachedTabWidgets[index];
+    if (cached != null) return cached;
+
+    // 초보 개발자용: switch로 탭 번호와 화면을 1:1로 연결합니다.
+    final Widget widget;
+    switch (index) {
+      case NavIndices.start:
+        widget = const StartContentScreen();
+        break;
+      case NavIndices.exchange:
+        widget = const ExchangeScreen();
+        break;
+      case NavIndices.planOutput:
+        widget = const PlanOutputScreen();
+        break;
+      case NavIndices.notice:
+        widget = const NoticeScreen();
+        break;
+      case NavIndices.personalSchedule:
+        widget = const PersonalScheduleScreen();
+        break;
+      case NavIndices.guide:
+        widget = const GuideScreen();
+        break;
+      default:
+        widget = const SizedBox.shrink();
+    }
+    _cachedTabWidgets[index] = widget;
+    return widget;
+  }
 
   @override
   Widget build(BuildContext context) {
     final selectedIndex = ref.watch(navigationProvider);
+
+    // 현재 탭을 활성화 목록에 추가 (처음 연 탭부터 위젯 생성)
+    _activatedTabIndices.add(selectedIndex);
 
     return Scaffold(
       // 앱바 및 Drawer 제거됨
@@ -225,11 +264,17 @@ class _StartScreenState extends ConsumerState<StartScreen> {
           // 통합 네비게이션 바 (모든 화면에서 표시)
           const UnifiedNavigationBar(),
 
-          // 본문 내용
+          // 본문: 방문한 탭만 실제 화면, 나머지는 빈 자리 유지
           Expanded(
             child: IndexedStack(
               index: selectedIndex,
-              children: [const StartContentScreen(), ..._tabScreens()],
+              children: List.generate(NavIndices.screenCount, (index) {
+                if (_activatedTabIndices.contains(index)) {
+                  return _buildTabWidget(index);
+                }
+                // 아직 안 연 탭은 만들지 않음 → 준비 화면 첫 진입이 가벼워짐
+                return const SizedBox.shrink();
+              }),
             ),
           ),
         ],

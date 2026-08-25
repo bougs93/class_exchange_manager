@@ -5,6 +5,7 @@ import '../../../providers/personal_schedule_provider.dart';
 import '../../../providers/plan_output_menu_provider.dart';
 import '../../../providers/substitution_plan_viewmodel.dart';
 import '../../../services/excel_service.dart';
+import '../../../theme/design_tokens.dart';
 import '../../../utils/personal_exchange_info_extractor.dart';
 import '../../../providers/zoom_provider.dart';
 import '../../../ui/mixins/scroll_management_mixin.dart';
@@ -57,8 +58,11 @@ class _TeacherCardGridViewState extends ConsumerState<TeacherCardGridView>
   @override
   Widget build(BuildContext context) {
     if (widget.targets.isEmpty) {
-      return const Center(
-        child: Text('표시할 교사가 없습니다.', style: TextStyle(color: Colors.grey)),
+      return Center(
+        child: Text(
+          '표시할 교사가 없습니다.',
+          style: TextStyle(color: context.tokens.textMuted),
+        ),
       );
     }
 

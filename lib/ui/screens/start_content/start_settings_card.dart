@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../constants/teacher_row_highlight_colors.dart';
 import '../../../providers/app_settings_provider.dart';
+import '../../../providers/theme_provider.dart';
+import '../../../theme/app_theme_type.dart';
+import '../../../theme/design_tokens.dart';
 import '../../widgets/timetable_grid/exchange_arrow_direction_icon.dart';
 import '../../widgets/timetable_grid/exchange_arrow_style.dart';
 import '../../../services/app_settings_storage_service.dart';
@@ -296,60 +299,221 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tokens = context.tokens;
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: tokens.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: theme.primaryColor.withValues(alpha: 0.2),
           width: 1,
         ),
       ),
-      child: ExpansionTile(
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(0),
-              decoration: BoxDecoration(
-                color: theme.primaryColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+      child: Material(
+        // ExpansionTile 내부 ListTile이 배경색 있는 Container에 가려지지 않도록
+        // 잉크를 그릴 자체 Material 제공 (Flutter 디버그 assertion 요구)
+        color: Colors.transparent,
+        child: ExpansionTile(
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(0),
+                decoration: BoxDecoration(
+                  color: theme.primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.settings,
+                  color: theme.primaryColor,
+                  size: 14,
+                ),
               ),
-              child: Icon(Icons.settings, color: theme.primaryColor, size: 14),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              '기타 설정',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              const SizedBox(width: 12),
+              const Text(
+                '기타 설정',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 4.0,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildLanguageSection(),
+                  const SizedBox(height: 8),
+                  _buildThemeSection(),
+                  const SizedBox(height: 8),
+                  _buildHighlightColorSection(),
+                  const SizedBox(height: 8),
+                  _buildResponsiveExchangeSettingsSections(),
+                  const SizedBox(height: 8),
+                  DataStorageLocationSection(
+                    key: _dataStorageLocationKey,
+                    compact: true,
+                  ),
+                  const SizedBox(height: 8),
+                  _buildResponsiveActionCardsSection(),
+                ],
+              ),
             ),
           ],
         ),
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 4.0,
+      ),
+    );
+  }
+
+  /// 디자인 테마 선택 섹션 (클래식 / 머티리얼 3)
+  Widget _buildThemeSection() {
+    final selectedTheme = ref.watch(appThemeTypeProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '디자인 테마',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            for (int i = 0; i < AppThemeType.displayOrder.length; i++) ...[
+              if (i > 0) const SizedBox(width: 8),
+              Expanded(
+                child: _buildThemeOptionCard(
+                  AppThemeType.displayOrder[i],
+                  isSelected: selectedTheme == AppThemeType.displayOrder[i],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// 개별 디자인 테마 옵션 카드
+  Widget _buildThemeOptionCard(AppThemeType type, {required bool isSelected}) {
+    final tokens = context.tokens;
+    final previewTokens = DesignTokens.of(type);
+
+    return InkWell(
+      onTap: () => _selectTheme(type),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: tokens.sectionBackground,
+          border: Border.all(
+            color: isSelected ? previewTokens.primary : tokens.cardBorder,
+            width: isSelected ? 2 : 1,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            _buildThemePreviewSwatch(previewTokens),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        isSelected
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
+                        size: 14,
+                        color:
+                            isSelected
+                                ? previewTokens.primary
+                                : tokens.textMuted,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          type.displayName,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    type.description,
+                    style: TextStyle(fontSize: 10, color: tokens.textSecondary),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 테마 미리보기 스와치 (미니 화면 목업)
+  Widget _buildThemePreviewSwatch(DesignTokens t) {
+    return Container(
+      width: 36,
+      height: 30,
+      decoration: BoxDecoration(
+        color: t.scaffoldBackground,
+        border: Border.all(color: t.cardBorder),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(height: 7, color: t.appBarBackground),
+          Padding(
+            padding: const EdgeInsets.all(3),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildLanguageSection(),
-                const SizedBox(height: 8),
-                _buildHighlightColorSection(),
-                const SizedBox(height: 8),
-                _buildResponsiveExchangeSettingsSections(),
-                const SizedBox(height: 8),
-                DataStorageLocationSection(
-                  key: _dataStorageLocationKey,
-                  compact: true,
+                FractionallySizedBox(
+                  widthFactor: 0.8,
+                  child: Container(
+                    height: 3,
+                    color: t.textPrimary.withValues(alpha: 0.35),
+                  ),
                 ),
-                const SizedBox(height: 8),
-                _buildResponsiveActionCardsSection(),
+                const SizedBox(height: 2),
+                Container(
+                  width: 14,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: t.primary.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  /// 디자인 테마 선택 저장
+  Future<void> _selectTheme(AppThemeType type) async {
+    await saveSetting(
+      saver: () => ref.read(appThemeTypeProvider.notifier).select(type),
+      successMessage: '디자인 테마가 ${type.displayName}(으)로 변경되었습니다.',
     );
   }
 
@@ -422,11 +586,7 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            first,
-            SizedBox(height: spacing),
-            second,
-          ],
+          children: [first, SizedBox(height: spacing), second],
         );
       },
     );
@@ -449,13 +609,15 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
     required Widget child,
     bool stretchHeight = false,
   }) {
+    final tokens = context.tokens;
+
     return Container(
       width: double.infinity,
       height: stretchHeight ? double.infinity : null,
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        border: Border.all(color: Colors.grey.shade300),
+        color: tokens.sectionBackground,
+        border: Border.all(color: tokens.cardBorder),
         borderRadius: BorderRadius.circular(12),
       ),
       child: child,
@@ -464,6 +626,7 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
 
   /// 화살표 표시 설정 섹션 (1:1·2중·연쇄 교체 화살표 방향)
   Widget _buildArrowDirectionSection({bool stretchHeight = false}) {
+    final tokens = context.tokens;
     final oneToOneDir = ref.watch(oneToOneArrowDirectionProvider);
     final dualDir = ref.watch(dualArrowDirectionProvider);
     final isDualExchangeEnabled = ref.watch(dualExchangeEnabledProvider);
@@ -484,7 +647,7 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
           const SizedBox(height: 4),
           Text(
             '교체 화면 시간표에 표시되는 화살표 방향을 설정합니다.',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 12, color: tokens.textSecondary),
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -523,15 +686,15 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
     required Color arrowColor,
     bool enabled = true,
   }) {
+    final tokens = context.tokens;
+
     return Opacity(
       opacity: enabled ? 1.0 : 0.4,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: enabled ? Colors.white : Colors.grey.shade100,
-          border: Border.all(
-            color: enabled ? Colors.grey.shade300 : Colors.grey.shade200,
-          ),
+          color: enabled ? tokens.surface : tokens.sectionBackground,
+          border: Border.all(color: tokens.cardBorder),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
@@ -542,13 +705,13 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: enabled ? Colors.black87 : Colors.grey.shade500,
+                color: enabled ? Colors.black87 : tokens.textMuted,
               ),
             ),
             const SizedBox(width: 6),
             ExchangeArrowDirectionIcon(
               direction: ArrowDirection.forward,
-              color: enabled ? arrowColor : Colors.grey.shade400,
+              color: enabled ? arrowColor : tokens.textMuted,
               singleLine: true,
             ),
           ],
@@ -565,7 +728,8 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
     required ValueChanged<ArrowDirection> onChanged,
     bool enabled = true,
   }) {
-    final effectiveColor = enabled ? arrowColor : Colors.grey.shade400;
+    final tokens = context.tokens;
+    final effectiveColor = enabled ? arrowColor : tokens.textMuted;
 
     Widget arrowIcon(ArrowDirection direction) {
       return ExchangeArrowDirectionIcon(
@@ -579,10 +743,8 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: enabled ? Colors.white : Colors.grey.shade100,
-          border: Border.all(
-            color: enabled ? Colors.grey.shade300 : Colors.grey.shade200,
-          ),
+          color: enabled ? tokens.surface : tokens.sectionBackground,
+          border: Border.all(color: tokens.cardBorder),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
@@ -593,7 +755,7 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: enabled ? Colors.black87 : Colors.grey.shade500,
+                color: enabled ? Colors.black87 : tokens.textMuted,
               ),
             ),
             const SizedBox(width: 6),
@@ -633,6 +795,8 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
 
   /// 간접교체 그룹 (2중 교체 · 순환 교체 메뉴 표시 설정)
   Widget _buildIndirectExchangeGroupSection({bool stretchHeight = false}) {
+    final tokens = context.tokens;
+
     return _buildSettingsGroupCard(
       stretchHeight: stretchHeight,
       child: Column(
@@ -646,7 +810,7 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
           const SizedBox(height: 4),
           Text(
             '1:1 교체가 어려울 때 교체 화면에 표시할 메뉴를 설정합니다.',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 12, color: tokens.textSecondary),
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -683,12 +847,13 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
     required ValueChanged<bool> onChanged,
   }) {
     final theme = Theme.of(context);
+    final tokens = context.tokens;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.grey.shade300),
+        color: tokens.surface,
+        border: Border.all(color: tokens.cardBorder),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -733,7 +898,7 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
               ),
               Text(
                 description,
-                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 10, color: tokens.textSecondary),
               ),
             ],
           ),
@@ -776,7 +941,9 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
       buildFirst:
           (stretchHeight) => _buildSettingsGroupCard(
             stretchHeight: stretchHeight,
-            child: _buildRestoreDefaultsCardContent(stretchHeight: stretchHeight),
+            child: _buildRestoreDefaultsCardContent(
+              stretchHeight: stretchHeight,
+            ),
           ),
       buildSecond:
           (stretchHeight) => _buildSettingsGroupCard(
@@ -806,7 +973,9 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
                 _isRestoringDefaults ? null : _restoreMiscSettingsToDefaults,
             style: OutlinedButton.styleFrom(
               foregroundColor: theme.primaryColor,
-              side: BorderSide(color: theme.primaryColor.withValues(alpha: 0.5)),
+              side: BorderSide(
+                color: theme.primaryColor.withValues(alpha: 0.5),
+              ),
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
             icon:
@@ -831,6 +1000,8 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
 
   /// 데이터 초기화 카드 내용
   Widget _buildDataResetCardContent({bool stretchHeight = false}) {
+    final tokens = context.tokens;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: stretchHeight ? MainAxisSize.max : MainAxisSize.min,
@@ -842,7 +1013,7 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
         const SizedBox(height: 4),
         Text(
           '모든 저장된 데이터를 삭제합니다.',
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          style: TextStyle(fontSize: 12, color: tokens.textSecondary),
         ),
         if (stretchHeight) const Spacer() else const SizedBox(height: 16),
         SizedBox(

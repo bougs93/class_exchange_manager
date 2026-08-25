@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/storage_service.dart';
+import '../../theme/design_tokens.dart';
 import '../../utils/logger.dart';
 
 /// 데이터 JSON 저장 폴더 경로를 표시하는 공통 위젯
@@ -82,57 +83,74 @@ class DataStorageLocationSectionState
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final titleSize = widget.compact ? 12.0 : 16.0;
     final bodySize = widget.compact ? 11.0 : 14.0;
     final pathSize = widget.compact ? 11.0 : 13.0;
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        border: Border.all(color: Colors.grey.shade300),
+        color: tokens.sectionBackground,
+        border: Border.all(color: tokens.cardBorder),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          initiallyExpanded: false,
-          onExpansionChanged: _onExpansionChanged,
-          tilePadding: EdgeInsets.symmetric(
-            horizontal: widget.compact ? 8 : 12,
-            vertical: widget.compact ? 0 : 4,
+        child: Material(
+          // ExpansionTile 내부 ListTile이 배경색 있는 Container에 가려지지 않도록
+          // 잉크를 그릴 자체 Material 제공 (Flutter 디버그 assertion 요구)
+          color: Colors.transparent,
+          child: ExpansionTile(
+            initiallyExpanded: false,
+            onExpansionChanged: _onExpansionChanged,
+            tilePadding: EdgeInsets.symmetric(
+              horizontal: widget.compact ? 8 : 12,
+              vertical: widget.compact ? 0 : 4,
+            ),
+            childrenPadding: EdgeInsets.fromLTRB(
+              widget.compact ? 8 : 16,
+              0,
+              widget.compact ? 8 : 16,
+              widget.compact ? 8 : 12,
+            ),
+            leading: Icon(
+              Icons.folder_outlined,
+              size: widget.compact ? 18 : 22,
+              color: tokens.primary,
+            ),
+            title: Text(
+              '데이터 저장 위치',
+              style: TextStyle(
+                fontSize: titleSize,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            subtitle:
+                widget.compact
+                    ? Text(
+                      '탭하여 경로 확인',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: tokens.textSecondary,
+                      ),
+                    )
+                    : Text(
+                      '탭하여 JSON 저장 폴더 경로 확인',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: tokens.textSecondary,
+                      ),
+                    ),
+            children: [_buildExpandedContent(bodySize, pathSize)],
           ),
-          childrenPadding: EdgeInsets.fromLTRB(
-            widget.compact ? 8 : 16,
-            0,
-            widget.compact ? 8 : 16,
-            widget.compact ? 8 : 12,
-          ),
-          leading: Icon(
-            Icons.folder_outlined,
-            size: widget.compact ? 18 : 22,
-            color: Colors.blue.shade700,
-          ),
-          title: Text(
-            '데이터 저장 위치',
-            style: TextStyle(fontSize: titleSize, fontWeight: FontWeight.bold),
-          ),
-          subtitle:
-              widget.compact
-                  ? Text(
-                    '탭하여 경로 확인',
-                    style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-                  )
-                  : Text(
-                    '탭하여 JSON 저장 폴더 경로 확인',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                  ),
-          children: [_buildExpandedContent(bodySize, pathSize)],
         ),
       ),
     );
   }
 
   Widget _buildExpandedContent(double bodySize, double pathSize) {
+    final tokens = context.tokens;
+
     if (_isLoading) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 16),
@@ -153,7 +171,7 @@ class DataStorageLocationSectionState
                 _dataLocationDescription,
                 style: TextStyle(
                   fontSize: bodySize,
-                  color: Colors.grey.shade700,
+                  color: tokens.textSecondary,
                   height: 1.35,
                 ),
               ),
@@ -172,8 +190,8 @@ class DataStorageLocationSectionState
           width: double.infinity,
           padding: EdgeInsets.all(widget.compact ? 8 : 12),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: Colors.grey.shade300),
+            color: tokens.surface,
+            border: Border.all(color: tokens.cardBorder),
             borderRadius: BorderRadius.circular(8),
           ),
           child: SelectableText(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../constants/teacher_row_highlight_colors.dart';
+import '../../../theme/design_tokens.dart';
 
 /// 교사 행 하이라이트 색상 선택기 (순수 표현 위젯)
 ///
@@ -20,11 +21,13 @@ class HighlightColorPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
+
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        border: Border.all(color: Colors.grey.shade300),
+        color: tokens.sectionBackground,
+        border: Border.all(color: tokens.cardBorder),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -37,7 +40,7 @@ class HighlightColorPicker extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             '교체 화면 범례(선택·채움·교체불가 등)와 구분되는 색상입니다.',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 12, color: tokens.textSecondary),
           ),
           const SizedBox(height: 8),
 
@@ -46,7 +49,7 @@ class HighlightColorPicker extends StatelessWidget {
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
               color: currentColor,
-              border: Border.all(color: Colors.grey.shade300),
+              border: Border.all(color: tokens.cardBorder),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -81,7 +84,7 @@ class HighlightColorPicker extends StatelessWidget {
             runSpacing: 4,
             children:
                 TeacherRowHighlightColors.presets
-                    .map(_buildColorOption)
+                    .map((color) => _buildColorOption(color, tokens))
                     .toList(),
           ),
         ],
@@ -90,7 +93,7 @@ class HighlightColorPicker extends StatelessWidget {
   }
 
   /// 색상 옵션 버튼
-  Widget _buildColorOption(Color color) {
+  Widget _buildColorOption(Color color, DesignTokens tokens) {
     final isSelected = currentColor.toARGB32() == color.toARGB32();
 
     return InkWell(
@@ -102,7 +105,7 @@ class HighlightColorPicker extends StatelessWidget {
         decoration: BoxDecoration(
           color: color,
           border: Border.all(
-            color: isSelected ? Colors.blue : Colors.grey.shade300,
+            color: isSelected ? tokens.primary : tokens.cardBorder,
             width: isSelected ? 3 : 1,
           ),
           borderRadius: BorderRadius.circular(8),

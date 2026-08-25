@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../constants/app_assets.dart';
 import '../../constants/app_info.dart';
+import '../../theme/design_tokens.dart';
 import 'usage_period_compact_text.dart';
 
 /// 앱 아이콘 + 프로그램명 헤더 (카드 안에 배치 — [AppContentCard]와 함께 사용)
@@ -14,6 +15,7 @@ class AppBrandingHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tokens = context.tokens;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -28,13 +30,13 @@ class AppBrandingHeader extends StatelessWidget {
         Expanded(
           child:
               showVersionAndPeriod
-                  ? _buildTitleWithPeriodInfo(theme)
+                  ? _buildTitleWithPeriodInfo(theme, tokens)
                   : Text(
                     AppInfo.programName,
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Colors.grey.shade800,
+                      color: tokens.textPrimary,
                     ),
                   ),
         ),
@@ -43,16 +45,16 @@ class AppBrandingHeader extends StatelessWidget {
   }
 
   /// 프로그램명 + 버전·기간 정보 (도움말 > 프로그램 정보 헤더용)
-  Widget _buildTitleWithPeriodInfo(ThemeData theme) {
+  Widget _buildTitleWithPeriodInfo(ThemeData theme, DesignTokens tokens) {
     const metaFontSize = 12.0;
     final labelStyle = TextStyle(
       fontSize: metaFontSize,
-      color: Colors.grey.shade700,
+      color: tokens.textSecondary,
       fontWeight: FontWeight.w500,
     );
     final valueStyle = TextStyle(
       fontSize: metaFontSize,
-      color: Colors.grey.shade800,
+      color: tokens.textPrimary,
       fontWeight: FontWeight.w600,
     );
 
@@ -64,7 +66,7 @@ class AppBrandingHeader extends StatelessWidget {
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: Colors.grey.shade800,
+            color: tokens.textPrimary,
           ),
         ),
         const SizedBox(height: 4),

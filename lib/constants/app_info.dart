@@ -23,7 +23,13 @@ class AppInfo {
   static const String programName = '수업 교체 도우미 Beta';
 
   /// 앱 버전 (이 값만 수정 — pubspec.yaml은 tool/bump_version.dart가 자동 동기화)
-  static const String version = '1.0.2';
+  static const String version = '1.0.3';
+
+  /// 마지막 수정 일시 (빌드 정보).
+  ///
+  /// 커밋 시 tool/bump_version.dart가 자동 갱신하므로 수동 편집 금지.
+  /// 빌드 시 --dart-define=BUILD_STAMP 가 없으면 이 값을 화면에 표시한다.
+  static const String lastUpdated = '2026.08.26 00:18';
 
   // 소속
   static const String affiliation = '기술쿠키 & Noah Lab 후원';
@@ -58,10 +64,11 @@ class AppInfo {
 
   /// UI 표시용 버전 라벨 — 빌드 스탬프가 있으면 버전 뒤에 붙인다.
   ///
-  /// 예: `1.0.2 (2026-08-24 0135)` / 스탬프 없으면 `1.0.2`
+  /// 예: `1.0.2 (2026-08-24 0135)` / 스탬프 없으면 커밋 시 자동 갱신되는
+  /// [lastUpdated] 를 표시한다 (예: `1.0.2 (2026.08.24 02:40)`).
   static String get versionLabel {
-    final stamp = buildStamp;
-    return stamp == null ? version : '$version ($stamp)';
+    final stamp = buildStamp ?? lastUpdated;
+    return '$version ($stamp)';
   }
 
   // 프로그램 실행 제한 정보 (베타 버전 이용 안내 본문)

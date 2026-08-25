@@ -17,6 +17,7 @@ import '../../services/excel_service.dart';
 import '../../utils/personal_exchange_info_extractor.dart';
 import '../../providers/cell_status_symbol_visibility_provider.dart';
 import '../../providers/zoom_provider.dart';
+import '../../theme/design_tokens.dart';
 import '../../utils/simplified_timetable_theme.dart';
 import '../widgets/cell_status_legend_item.dart';
 import '../widgets/exchanged_cell_status_overlay.dart';
@@ -246,6 +247,7 @@ class _PersonalScheduleScreenState
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     // X·O 오버레이 토글 시 개인 시간표 카드 그리드 갱신
     ref.watch(cellStatusSymbolVisibilityProvider);
 
@@ -288,17 +290,17 @@ class _PersonalScheduleScreenState
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.person_outline, size: 64, color: Colors.grey),
+              Icon(Icons.person_outline, size: 64, color: tokens.textMuted),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 '교사명이 설정되지 않았습니다.',
-                style: TextStyle(fontSize: 16, color: Colors.grey),
+                style: TextStyle(fontSize: 16, color: tokens.textMuted),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 '우측 상단 버튼을 눌러 교사를 선택하거나,\n설정 화면에서 교사명을 입력해주세요.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: Colors.grey),
+                style: TextStyle(fontSize: 14, color: tokens.textMuted),
               ),
             ],
           ),
@@ -309,13 +311,13 @@ class _PersonalScheduleScreenState
     if (timetableData == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('시간표')),
-        body: const EmptyStateMessage(
+        body: EmptyStateMessage(
           icon: Icons.table_chart_outlined,
-          iconColor: Colors.grey,
+          iconColor: tokens.textMuted,
           message: '시간표 데이터가 없습니다.',
-          messageColor: Colors.grey,
+          messageColor: tokens.textMuted,
           subMessage: '준비 메뉴에서 시간표 파일을 먼저 선택해주세요.',
-          subMessageColor: Colors.grey,
+          subMessageColor: tokens.textMuted,
         ),
       );
     }
@@ -504,7 +506,7 @@ class _PersonalScheduleScreenState
                   ),
                   color:
                       _isCurrentWeek(scheduleState.currentWeekMonday)
-                          ? Colors.grey
+                          ? tokens.textMuted
                           : null,
                 ),
                 if (showDateRange) ...[
@@ -534,6 +536,7 @@ class _PersonalScheduleScreenState
                 exchangeWeeks: exchangeWeeks,
                 scheduleState: scheduleState,
                 weekDates: weekDates,
+                tokens: tokens,
               ),
               Expanded(
                 child: TeacherCardGridView(
@@ -638,6 +641,7 @@ class _PersonalScheduleScreenState
     required List<DateTime> exchangeWeeks,
     required PersonalScheduleState scheduleState,
     required List<DateTime> weekDates,
+    required DesignTokens tokens,
   }) {
     final hasChips = exchangeWeeks.isNotEmpty;
 
@@ -706,7 +710,7 @@ class _PersonalScheduleScreenState
             },
           ),
         ),
-        Divider(height: 1, thickness: 1, color: Colors.grey.shade200),
+        Divider(height: 1, thickness: 1, color: tokens.cardBorder),
       ],
     );
   }

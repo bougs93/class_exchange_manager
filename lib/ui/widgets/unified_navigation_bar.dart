@@ -2,6 +2,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../constants/nav_indices.dart';
 import '../../providers/navigation_provider.dart';
+import '../../theme/design_tokens.dart';
 
 /// 1차 메뉴 바 공통 높이 (아이콘+텍스트 가로 배치)
 const double kUnifiedNavBarHeight = 40.0;
@@ -58,13 +59,14 @@ class UnifiedNavigationBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedIndex = ref.watch(navigationProvider);
+    final tokens = context.tokens;
 
     return Container(
       height: kUnifiedNavBarHeight,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: tokens.navBarBackground,
         border: Border(
-          bottom: BorderSide(color: Colors.grey.shade300, width: 1),
+          bottom: BorderSide(color: tokens.navBarBorderColor, width: 1),
         ),
         boxShadow: [
           BoxShadow(
@@ -91,6 +93,7 @@ class UnifiedNavigationBar extends ConsumerWidget {
                   label: label,
                   tooltip: tooltip,
                   isSelected: isSelected,
+                  tokens: tokens,
                 ),
               );
             }).toList(),
@@ -106,7 +109,14 @@ class UnifiedNavigationBar extends ConsumerWidget {
     required String label,
     required String tooltip,
     required bool isSelected,
+    required DesignTokens tokens,
   }) {
+    // 플랫 모노(navBarIndicatorRadius > 0)에서는 pill(알약) 인디케이터,
+    // 클래식·머티리얼 3에서는 기존 하단 보더 스타일을 유지한다.
+    final isPillIndicator = tokens.navBarIndicatorRadius > 0;
+    final showBottomBorder =
+        isSelected && !isPillIndicator && tokens.navBarShowSelectedBorder;
+
     return Tooltip(
       message: tooltip,
       child: Material(
@@ -117,13 +127,24 @@ class UnifiedNavigationBar extends ConsumerWidget {
           },
           child: Container(
             height: kUnifiedNavBarHeight,
+            margin:
+                isPillIndicator
+                    ? const EdgeInsets.symmetric(horizontal: 6, vertical: 5)
+                    : null,
             decoration: BoxDecoration(
-              color: isSelected ? Colors.blue.shade50 : Colors.transparent,
-              border:
+              color:
                   isSelected
+                      ? tokens.navBarSelectedBackground
+                      : Colors.transparent,
+              borderRadius:
+                  isPillIndicator
+                      ? BorderRadius.circular(tokens.navBarIndicatorRadius)
+                      : null,
+              border:
+                  showBottomBorder
                       ? Border(
                         bottom: BorderSide(
-                          color: Colors.blue.shade700,
+                          color: tokens.navBarSelectedColor,
                           width: 2,
                         ),
                       )
@@ -137,7 +158,9 @@ class UnifiedNavigationBar extends ConsumerWidget {
                   icon,
                   size: 18,
                   color:
-                      isSelected ? Colors.blue.shade700 : Colors.grey.shade600,
+                      isSelected
+                          ? tokens.navBarSelectedColor
+                          : tokens.navBarUnselectedIconColor,
                 ),
                 const SizedBox(width: 4),
                 Flexible(
@@ -149,8 +172,8 @@ class UnifiedNavigationBar extends ConsumerWidget {
                           isSelected ? FontWeight.bold : FontWeight.normal,
                       color:
                           isSelected
-                              ? Colors.blue.shade700
-                              : Colors.grey.shade700,
+                              ? tokens.navBarSelectedColor
+                              : tokens.navBarUnselectedTextColor,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

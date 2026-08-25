@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/design_tokens.dart';
 
 /// SnackBar 표시를 위한 헬퍼 클래스
 ///
@@ -52,7 +53,7 @@ class SnackBarHelper {
     );
   }
 
-  /// 정보 메시지 표시 (파란색 또는 커스텀 색상)
+  /// 정보 메시지 표시 (브랜드 강조색 또는 커스텀 색상)
   ///
   /// 일반적인 정보나 안내 메시지를 표시할 때 사용합니다.
   ///
@@ -71,7 +72,7 @@ class SnackBarHelper {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: backgroundColor ?? Colors.blue.shade600,
+        backgroundColor: backgroundColor ?? context.tokens.primary,
         duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
       ),

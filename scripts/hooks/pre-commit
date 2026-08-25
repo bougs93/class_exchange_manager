@@ -1,0 +1,3 @@
+#!/bin/sh
+# Git runs the extension-less "pre-commit" file. Delegate to the .bat.
+exec "$(dirname "$0")/pre-commit.bat"

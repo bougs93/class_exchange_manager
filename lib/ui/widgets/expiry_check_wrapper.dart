@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../constants/app_info.dart';
+import '../../theme/design_tokens.dart';
 import '../screens/start_screen.dart';
 
 /// 만료일 체크 래퍼 위젯
@@ -117,6 +118,8 @@ class _ExpiryCheckWrapperState extends State<ExpiryCheckWrapper> {
   ///
   /// 시스템 날짜 조작이 감지된 경우 경고 메시지를 표시하고 프로그램을 종료합니다.
   void _showTimeManipulationDialog(String message) {
+    final tokens = context.tokens;
+
     showDialog(
       context: context,
       barrierDismissible: false, // 외부 터치로 닫기 불가능
@@ -158,9 +161,9 @@ class _ExpiryCheckWrapperState extends State<ExpiryCheckWrapper> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     '보안상의 이유로 프로그램을 종료합니다.',
-                    style: TextStyle(fontSize: 14, color: Colors.grey),
+                    style: TextStyle(fontSize: 14, color: tokens.textMuted),
                   ),
                 ],
               ),
@@ -197,6 +200,8 @@ class _ExpiryCheckWrapperState extends State<ExpiryCheckWrapper> {
   ///
   /// 사용자에게 만료 메시지를 표시하고 확인 버튼 클릭 시 프로그램을 종료합니다.
   void _showExpiryDialog() {
+    final tokens = context.tokens;
+
     showDialog(
       context: context,
       barrierDismissible: false, // 외부 터치로 닫기 불가능
@@ -233,14 +238,14 @@ class _ExpiryCheckWrapperState extends State<ExpiryCheckWrapper> {
                   const SizedBox(height: 12),
                   Text(
                     '만료일: ${AppInfo.expiryDate}',
-                    style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+                    style: TextStyle(fontSize: 14, color: tokens.textSecondary),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     AppInfo.usageRestriction,
                     style: TextStyle(
                       fontSize: 13,
-                      color: Colors.grey.shade600,
+                      color: tokens.textSecondary,
                       height: 1.5,
                     ),
                   ),
@@ -291,13 +296,15 @@ class _ExpiryCheckWrapperState extends State<ExpiryCheckWrapper> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
+
     // 만료 여부와 관계없이 일단 로딩 화면을 표시
     // 만료된 경우 다이얼로그가 표시되고, 만료되지 않은 경우 StartScreen으로 전환
     if (AppInfo.expiryDate != null && AppInfo.isExpired()) {
       // 만료된 경우 빈 화면 (다이얼로그가 표시됨)
       return Scaffold(
         body: Container(
-          color: Colors.white,
+          color: tokens.surface,
           child: const Center(child: CircularProgressIndicator()),
         ),
       );

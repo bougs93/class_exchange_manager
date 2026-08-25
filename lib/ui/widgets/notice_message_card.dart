@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/notice_message.dart';
+import '../../theme/design_tokens.dart';
 import 'content_toolbar_layout.dart';
 import 'timetable_grid/grid_header_widgets.dart';
 
@@ -27,6 +28,7 @@ class NoticeMessageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Card(
       elevation: 2,
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -41,7 +43,7 @@ class NoticeMessageCard extends StatelessWidget {
             const SizedBox(height: 4),
 
             // 메시지 내용
-            _buildMessageContent(),
+            _buildMessageContent(tokens),
           ],
         ),
       ),
@@ -99,9 +101,13 @@ class NoticeMessageCard extends StatelessWidget {
           onPressed: () => _copyToClipboard(context),
           icon: Icons.copy,
           tooltip: '클립보드에 복사',
-          backgroundColor: ContentToolbarLayout.neutralButtonBackground,
-          foregroundColor: ContentToolbarLayout.neutralButtonForeground,
-          borderColor: ContentToolbarLayout.neutralButtonBorder,
+          backgroundColor: ContentToolbarLayout.neutralButtonBackground(
+            context.tokens,
+          ),
+          foregroundColor: ContentToolbarLayout.neutralButtonForeground(
+            context.tokens,
+          ),
+          borderColor: ContentToolbarLayout.neutralButtonBorder(context.tokens),
           iconSize: 20,
           size: 36,
         ),
@@ -110,14 +116,14 @@ class NoticeMessageCard extends StatelessWidget {
   }
 
   /// 메시지 내용 위젯 생성
-  Widget _buildMessageContent() {
+  Widget _buildMessageContent(DesignTokens tokens) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: tokens.sectionBackground,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: tokens.cardBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -141,7 +147,7 @@ class NoticeMessageCard extends StatelessWidget {
                     // 마지막 메시지가 아니면 구분선 추가
                     if (message != messageGroup.messages.last) ...[
                       const SizedBox(height: 8),
-                      Divider(height: 1, color: Colors.grey.shade300),
+                      Divider(height: 1, color: tokens.cardBorder),
                     ],
                   ],
                 ),
@@ -267,8 +273,9 @@ class NoticeMessageCardList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     if (messageGroups.isEmpty) {
-      return _buildEmptyState();
+      return _buildEmptyState(tokens);
     }
 
     return ListView.builder(
@@ -285,25 +292,25 @@ class NoticeMessageCardList extends StatelessWidget {
   }
 
   /// 빈 상태 위젯 생성
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(DesignTokens tokens) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(emptyIcon, size: 64, color: Colors.grey.shade400),
+          Icon(emptyIcon, size: 64, color: tokens.textMuted),
           const SizedBox(height: 16),
           Text(
             emptyMessage,
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w500,
-              color: Colors.grey.shade600,
+              color: tokens.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             '교체를 실행하면 여기에 안내 메시지가 표시됩니다.',
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+            style: TextStyle(fontSize: 14, color: tokens.textMuted),
             textAlign: TextAlign.center,
           ),
         ],

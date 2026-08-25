@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../theme/design_tokens.dart';
+
 /// 모든 플랫폼에서 공통으로 사용하는 AppBar 위젯
 ///
 /// 특징:
@@ -43,6 +45,9 @@ class CommonAppBar extends ConsumerWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 디자인 토큰 기반 기본색 (테마에 따라 자동 교체)
+    final tokens = context.tokens;
+
     // 모든 플랫폼에서 동일한 스타일 적용
     return AppBar(
       // leading: null이면 자동으로 처리 (Drawer가 있으면 메뉴 아이콘, 없으면 뒤로가기)
@@ -66,11 +71,11 @@ class CommonAppBar extends ConsumerWidget implements PreferredSizeWidget {
         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
       ),
 
-      // 배경색 (기본값: 파란색)
-      backgroundColor: backgroundColor ?? Colors.blue,
+      // 배경색
+      backgroundColor: backgroundColor ?? tokens.appBarBackground,
 
-      // 전경색 (기본값: 흰색)
-      foregroundColor: foregroundColor ?? Colors.white,
+      // 전경색
+      foregroundColor: foregroundColor ?? tokens.appBarForeground,
 
       // 그림자 효과
       elevation: elevation ?? 0,
@@ -83,13 +88,13 @@ class CommonAppBar extends ConsumerWidget implements PreferredSizeWidget {
 
       // 아이콘 테마 (모든 플랫폼에서 동일)
       iconTheme: IconThemeData(
-        color: foregroundColor ?? Colors.white,
+        color: foregroundColor ?? tokens.appBarForeground,
         size: 24,
       ),
 
       // 제목 텍스트 스타일
       titleTextStyle: TextStyle(
-        color: foregroundColor ?? Colors.white,
+        color: foregroundColor ?? tokens.appBarForeground,
         fontSize: 18,
         fontWeight: FontWeight.w600,
       ),

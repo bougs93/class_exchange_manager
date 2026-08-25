@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../theme/design_tokens.dart';
+
 /// 선택된 시간표(엑셀) 파일 정보 배너
 ///
 /// 교체 화면에서 사용하던 파란색 파일 표시 스타일을 홈 등에서 공통으로 사용합니다.
@@ -20,8 +22,11 @@ class SelectedTimetableFileBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
+
     if (selectedFile != null) {
       return _buildFileBanner(
+        tokens,
         selectedFile!.path.split(Platform.pathSeparator).last,
         subtitle: null,
       );
@@ -29,44 +34,48 @@ class SelectedTimetableFileBanner extends StatelessWidget {
 
     final name = displayFileName?.trim();
     if (name != null && name.isNotEmpty) {
-      return _buildFileBanner(name, subtitle: '저장된 시간표 데이터에서 불러옴');
+      return _buildFileBanner(tokens, name, subtitle: '저장된 시간표 데이터에서 불러옴');
     }
 
-    return _buildNoFileBanner();
+    return _buildNoFileBanner(tokens);
   }
 
   /// 파일 미선택 안내 (회색 배너)
-  Widget _buildNoFileBanner() {
+  Widget _buildNoFileBanner(DesignTokens tokens) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: tokens.sectionBackground,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: tokens.cardBorder),
       ),
       child: Text(
         '시간표가 포함된 엑셀 파일(.xlsx, .xls, .xlsm)을 선택하세요.',
-        style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+        style: TextStyle(fontSize: 14, color: tokens.textSecondary),
         textAlign: TextAlign.center,
       ),
     );
   }
 
   /// 선택된 파일명 표시 (파란색 배너)
-  Widget _buildFileBanner(String fileName, {String? subtitle}) {
+  Widget _buildFileBanner(
+    DesignTokens tokens,
+    String fileName, {
+    String? subtitle,
+  }) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
+        color: tokens.primary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blue.shade200),
+        border: Border.all(color: tokens.primary.withValues(alpha: 0.3)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.description, color: Colors.blue.shade600, size: 20),
+          Icon(Icons.description, color: tokens.primary, size: 20),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -77,7 +86,7 @@ class SelectedTimetableFileBanner extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
-                    color: Colors.blue.shade700,
+                    color: tokens.primary,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -86,7 +95,7 @@ class SelectedTimetableFileBanner extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: TextStyle(fontSize: 12, color: Colors.blue.shade600),
+                    style: TextStyle(fontSize: 12, color: tokens.primary),
                   ),
                 ],
               ],

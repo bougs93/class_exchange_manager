@@ -328,10 +328,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
             children: [
               _buildModeSelectorRow(layout.modeLabelStyle),
               const SizedBox(height: 4),
-              _buildActionToolbarRow(
-                hideTeacherCount,
-                showActionButtonLabels,
-              ),
+              _buildActionToolbarRow(hideTeacherCount, showActionButtonLabels),
             ],
           );
         }
@@ -433,9 +430,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       _buildZoomControl(),
       const SizedBox(width: 8),
       if (!hideTeacherCount) ...[
-        TeacherCountWidget(
-          teacherCount: widget.timetableData!.teachers.length,
-        ),
+        TeacherCountWidget(teacherCount: widget.timetableData!.teachers.length),
         const SizedBox(width: 8),
       ],
       ..._buildActionToolbarItems(showActionButtonLabels),

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:flutter/material.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
+import '../../../../theme/design_tokens.dart';
 import '../../../../utils/logger.dart';
 import '../../../../utils/data_grid_extensions.dart';
 import '../../../../utils/date_format_utils.dart';
@@ -46,118 +47,128 @@ class ContentInputGridConfig {
   /// SfDataGrid headerRowHeight 와 동일 (비고 2행 합침 높이 계산용)
   static const double headerRowHeight = 35.0;
 
-  /// 헤더 1·2행 공통 배경·테두리 (스택 헤더·컬럼 헤더 동일)
-  static Color get _headerFillColor => Colors.grey.shade100;
-  static Color get _headerBorderColor => Colors.grey.shade300;
+  /// 헤더 1·2행 공통 테두리 (스택 헤더·컬럼 헤더 동일)
+  ///
+  /// 배경색은 디자인 토큰([DesignTokens.sectionBackground])으로 제공됩니다.
+  static Color _headerBorderColor(DesignTokens tokens) => tokens.cardBorder;
 
   /// 컬럼 정의
-  static List<GridColumn> getColumns() {
+  static List<GridColumn> getColumns(DesignTokens tokens) {
     return [
       GridColumn(
         columnName: 'absenceDate',
-        label: _buildHeaderLabel('결강일'),
+        label: _buildHeaderLabel('결강일', tokens),
         width: 60,
       ),
       GridColumn(
         columnName: 'absenceDay',
-        label: _buildHeaderLabel('요일'),
+        label: _buildHeaderLabel('요일', tokens),
         width: 35,
       ),
       GridColumn(
         columnName: 'period',
-        label: _buildHeaderLabel('교시'),
+        label: _buildHeaderLabel('교시', tokens),
         width: 35,
       ),
       GridColumn(
         columnName: 'grade',
-        label: _buildHeaderLabel('학년'),
+        label: _buildHeaderLabel('학년', tokens),
         width: 35,
       ),
       GridColumn(
         columnName: 'className',
-        label: _buildHeaderLabel('반'),
+        label: _buildHeaderLabel('반', tokens),
         width: 35,
       ),
       GridColumn(
         columnName: 'subject',
-        label: _buildHeaderLabel('과목'),
+        label: _buildHeaderLabel('과목', tokens),
         width: 60,
       ),
       GridColumn(
         columnName: 'teacher',
-        label: _buildHeaderLabel('교사'),
+        label: _buildHeaderLabel('교사', tokens),
         width: 60,
       ),
       GridColumn(
         columnName: 'supplementSubject',
-        label: _buildHeaderLabel('과목'),
+        label: _buildHeaderLabel('과목', tokens),
         width: 60,
       ),
       GridColumn(
         columnName: 'supplementTeacher',
-        label: _buildHeaderLabel('성명'),
+        label: _buildHeaderLabel('성명', tokens),
         width: 70,
       ),
       GridColumn(
         columnName: 'substitutionDate',
-        label: _buildHeaderLabel('교체일'),
+        label: _buildHeaderLabel('교체일', tokens),
         width: 60,
       ),
       GridColumn(
         columnName: 'substitutionDay',
-        label: _buildHeaderLabel('요일'),
+        label: _buildHeaderLabel('요일', tokens),
         width: 35,
       ),
       GridColumn(
         columnName: 'substitutionPeriod',
-        label: _buildHeaderLabel('교시'),
+        label: _buildHeaderLabel('교시', tokens),
         width: 35,
       ),
       GridColumn(
         columnName: 'substitutionSubject',
-        label: _buildHeaderLabel('과목'),
+        label: _buildHeaderLabel('과목', tokens),
         width: 60,
       ),
       GridColumn(
         columnName: 'substitutionTeacher',
-        label: _buildHeaderLabel('교사'),
+        label: _buildHeaderLabel('교사', tokens),
         width: 70,
       ),
       GridColumn(
         columnName: 'remarks',
         // 스택 헤더(1행)에만 '비고' 표시 — 2행은 빈 셀로 rowspan 효과
-        label: _buildEmptySubHeaderLabel(),
+        label: _buildEmptySubHeaderLabel(tokens),
         width: 100,
       ),
     ];
   }
 
   /// 스택 헤더 정의
-  static List<StackedHeaderRow> getStackedHeaders() {
+  static List<StackedHeaderRow> getStackedHeaders(DesignTokens tokens) {
     return [
       StackedHeaderRow(
         cells: [
-          _buildStackedHeaderCell([
-            'absenceDate',
-            'absenceDay',
-            'period',
-            'grade',
-            'className',
-            'subject',
-            'teacher',
-          ], '결강'),
-          _buildStackedHeaderCell([
-            'supplementSubject',
-            'supplementTeacher',
-          ], '보강/수업변경'),
-          _buildStackedHeaderCell([
-            'substitutionDate',
-            'substitutionDay',
-            'substitutionPeriod',
-            'substitutionSubject',
-            'substitutionTeacher',
-          ], '수업 교체'),
-          _buildMergedColumnStackedHeaderCell('remarks', '비고'),
+          _buildStackedHeaderCell(
+            [
+              'absenceDate',
+              'absenceDay',
+              'period',
+              'grade',
+              'className',
+              'subject',
+              'teacher',
+            ],
+            '결강',
+            tokens,
+          ),
+          _buildStackedHeaderCell(
+            ['supplementSubject', 'supplementTeacher'],
+            '보강/수업변경',
+            tokens,
+          ),
+          _buildStackedHeaderCell(
+            [
+              'substitutionDate',
+              'substitutionDay',
+              'substitutionPeriod',
+              'substitutionSubject',
+              'substitutionTeacher',
+            ],
+            '수업 교체',
+            tokens,
+          ),
+          _buildMergedColumnStackedHeaderCell('remarks', '비고', tokens),
         ],
       ),
     ];
@@ -167,17 +178,18 @@ class ContentInputGridConfig {
   static StackedHeaderCell _buildMergedColumnStackedHeaderCell(
     String columnName,
     String text,
+    DesignTokens tokens,
   ) {
     return StackedHeaderCell(
       columnNames: [columnName],
       child: Container(
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: _headerFillColor,
+          color: tokens.sectionBackground,
           border: Border(
-            left: BorderSide(color: _headerBorderColor),
-            top: BorderSide(color: _headerBorderColor),
-            right: BorderSide(color: _headerBorderColor),
+            left: BorderSide(color: _headerBorderColor(tokens)),
+            top: BorderSide(color: _headerBorderColor(tokens)),
+            right: BorderSide(color: _headerBorderColor(tokens)),
           ),
         ),
         child: Text(
@@ -194,13 +206,13 @@ class ContentInputGridConfig {
   }
 
   /// 헤더 레이블 위젯 생성
-  static Widget _buildHeaderLabel(String text) {
+  static Widget _buildHeaderLabel(String text, DesignTokens tokens) {
     return Container(
       padding: headerPadding,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: _headerFillColor,
-        border: Border.all(color: _headerBorderColor),
+        color: tokens.sectionBackground,
+        border: Border.all(color: _headerBorderColor(tokens)),
       ),
       child: Text(
         text,
@@ -214,14 +226,14 @@ class ContentInputGridConfig {
   }
 
   /// 비고 2행 — 배경만 채움 (1행과 같은 색, 위쪽 테두리 없음)
-  static Widget _buildEmptySubHeaderLabel() {
+  static Widget _buildEmptySubHeaderLabel(DesignTokens tokens) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: _headerFillColor,
+        color: tokens.sectionBackground,
         border: Border(
-          left: BorderSide(color: _headerBorderColor),
-          right: BorderSide(color: _headerBorderColor),
-          bottom: BorderSide(color: _headerBorderColor),
+          left: BorderSide(color: _headerBorderColor(tokens)),
+          right: BorderSide(color: _headerBorderColor(tokens)),
+          bottom: BorderSide(color: _headerBorderColor(tokens)),
         ),
       ),
       child: const SizedBox.expand(),
@@ -232,6 +244,7 @@ class ContentInputGridConfig {
   static StackedHeaderCell _buildStackedHeaderCell(
     List<String> columnNames,
     String text,
+    DesignTokens tokens,
   ) {
     return StackedHeaderCell(
       columnNames: columnNames,
@@ -239,8 +252,8 @@ class ContentInputGridConfig {
         padding: headerPadding,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: _headerFillColor,
-          border: Border.all(color: _headerBorderColor),
+          color: tokens.sectionBackground,
+          border: Border.all(color: _headerBorderColor(tokens)),
         ),
         child: Text(
           text,

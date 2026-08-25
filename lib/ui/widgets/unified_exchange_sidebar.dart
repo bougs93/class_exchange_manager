@@ -14,6 +14,7 @@ import '../../providers/exchange_view_provider.dart';
 import '../../providers/state_reset_provider.dart';
 import 'empty_state_message.dart';
 import 'exchange_filter_widget.dart';
+import '../../theme/design_tokens.dart';
 import 'timetable_grid/exchange_executor.dart';
 import 'timetable_grid/grid_header_widgets.dart';
 import 'exchange_sidebar/sidebar_constants.dart';
@@ -86,12 +87,13 @@ class _UnifiedExchangeSidebarState
     extends ConsumerState<UnifiedExchangeSidebar> {
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       width: widget.width,
       height: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: tokens.surface,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.1),
@@ -102,7 +104,7 @@ class _UnifiedExchangeSidebarState
       ),
       child: Column(
         children: [
-          _buildHeader(),
+          _buildHeader(tokens),
           // 보강 모드가 아닌 경우에만 검색바 표시
           if (widget.mode != ExchangePathType.supplement) _buildSearchBar(),
           // 순환교체, 1:1 교체, 2중교체 모드에서 검색 필터 그룹 표시
@@ -121,19 +123,20 @@ class _UnifiedExchangeSidebarState
               selectedDay: widget.selectedDay,
               onDayChanged: widget.onDayChanged,
             ),
-          Expanded(child: _buildContent()),
+          Expanded(child: _buildContent(tokens)),
         ],
       ),
     );
   }
 
   /// 헤더 구성 — [교체 실행] | [닫기]  (경로 개수는 검색 필터 헤더에 표시)
-  Widget _buildHeader() {
+  Widget _buildHeader(DesignTokens tokens) {
     // 보강: 경로 미선택 시 안내, 선택 시 다른 모드와 동일하게 [교체 실행] 표시
     if (widget.mode == ExchangePathType.supplement &&
         widget.selectedPath == null) {
       final headerText = widget.isLoading ? '보강 준비 중...' : '보강 선택';
       return _buildHeaderContainer(
+        tokens,
         child: Row(
           children: [
             Expanded(
@@ -141,12 +144,12 @@ class _UnifiedExchangeSidebarState
                 headerText,
                 style: TextStyle(
                   fontSize: SidebarFontSizes.headerText,
-                  color: Colors.blue.shade500,
+                  color: tokens.primary,
                 ),
                 textAlign: TextAlign.center,
               ),
             ),
-            _buildCloseButton(),
+            _buildCloseButton(tokens),
           ],
         ),
       );
@@ -175,6 +178,7 @@ class _UnifiedExchangeSidebarState
             widget.mode == ExchangePathType.supplement ? '보강 실행' : '교체 실행';
 
         return _buildHeaderContainer(
+          tokens,
           child: Row(
             children: [
               CompactToolbarLabelButton(
@@ -186,12 +190,12 @@ class _UnifiedExchangeSidebarState
                 height: 33,
                 fontSize: 12,
                 iconSize: 18,
-                backgroundColor: Colors.blue.shade100,
-                foregroundColor: Colors.blue.shade700,
-                borderColor: Colors.blue.shade300,
+                backgroundColor: tokens.primary.withValues(alpha: 0.2),
+                foregroundColor: tokens.primary,
+                borderColor: tokens.primary,
               ),
               const Spacer(),
-              _buildCloseButton(),
+              _buildCloseButton(tokens),
             ],
           ),
         );
@@ -200,23 +204,23 @@ class _UnifiedExchangeSidebarState
   }
 
   /// 헤더 공통 컨테이너
-  Widget _buildHeaderContainer({required Widget child}) {
+  Widget _buildHeaderContainer(DesignTokens tokens, {required Widget child}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 3.0),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        border: Border(bottom: BorderSide(color: Colors.blue.shade200)),
+        color: tokens.appBarSubtleBackground,
+        border: Border(bottom: BorderSide(color: tokens.cardBorder)),
       ),
       child: child,
     );
   }
 
   /// 사이드바 닫기 버튼
-  Widget _buildCloseButton() {
+  Widget _buildCloseButton(DesignTokens tokens) {
     return IconButton(
       icon: const Icon(Icons.close),
       onPressed: widget.onToggleSidebar,
-      color: Colors.blue.shade600,
+      color: tokens.primary,
       iconSize: 16,
       padding: const EdgeInsets.all(3),
       constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
@@ -370,9 +374,9 @@ class _UnifiedExchangeSidebarState
   }
 
   /// 메인 콘텐츠 구성
-  Widget _buildContent() {
+  Widget _buildContent(DesignTokens tokens) {
     if (widget.isLoading) {
-      return _buildLoadingContent();
+      return _buildLoadingContent(tokens);
     }
 
     if (widget.filteredPaths.isEmpty) {
@@ -383,20 +387,20 @@ class _UnifiedExchangeSidebarState
       padding: const EdgeInsets.symmetric(horizontal: 6), // 12 → 6으로 축소
       itemCount: widget.filteredPaths.length,
       itemBuilder: (context, index) {
-        return _buildPathItem(widget.filteredPaths[index], index);
+        return _buildPathItem(widget.filteredPaths[index], index, tokens);
       },
     );
   }
 
   /// 로딩 콘텐츠 구성
-  Widget _buildLoadingContent() {
+  Widget _buildLoadingContent(DesignTokens tokens) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           CircularProgressIndicator(
             value: widget.loadingProgress,
-            color: Colors.blue.shade600,
+            color: tokens.primary,
           ),
           const SizedBox(height: 12),
           Text(
@@ -404,7 +408,7 @@ class _UnifiedExchangeSidebarState
                 ? '보강 준비 중...'
                 : '경로 탐색 중...',
             style: TextStyle(
-              color: Colors.blue.shade600,
+              color: tokens.primary,
               fontSize: SidebarFontSizes.loadingMessage,
             ),
           ),
@@ -412,7 +416,7 @@ class _UnifiedExchangeSidebarState
           Text(
             '${(widget.loadingProgress * 100).toInt()}%',
             style: TextStyle(
-              color: Colors.blue.shade400,
+              color: tokens.primary,
               fontSize: SidebarFontSizes.loadingProgress,
             ),
           ),
@@ -446,12 +450,16 @@ class _UnifiedExchangeSidebarState
   }
 
   /// 경로 아이템 구성 (공통 디자인, 색상과 화살표만 차별화)
-  Widget _buildPathItem(ExchangePath path, int index) {
-    return _buildCommonPathItem(path, index);
+  Widget _buildPathItem(ExchangePath path, int index, DesignTokens tokens) {
+    return _buildCommonPathItem(path, index, tokens);
   }
 
   /// 공통 경로 아이템 구성 (1:1교체와 순환교체 통합)
-  Widget _buildCommonPathItem(ExchangePath path, int index) {
+  Widget _buildCommonPathItem(
+    ExchangePath path,
+    int index,
+    DesignTokens tokens,
+  ) {
     bool isSelected = widget.selectedPath == path;
 
     // 경로 타입별 색상 스키마 가져오기
@@ -465,14 +473,14 @@ class _UnifiedExchangeSidebarState
         color:
             isSelected
                 ? PathColorScheme.pathBackground(path.type)
-                : Colors.grey.shade50,
+                : tokens.sectionBackground,
         border: Border.all(
           // 선택 상태에 따른 테두리색
           // 선택됨: 각 경로 타입별 색상, 선택안됨: 더 진한 회색으로 통일
           color:
               isSelected
                   ? PathColorScheme.pathBorder(path.type)
-                  : Colors.grey.shade600,
+                  : tokens.textSecondary,
           width: isSelected ? 2 : 1,
         ),
         borderRadius: BorderRadius.circular(6),
@@ -496,7 +504,7 @@ class _UnifiedExchangeSidebarState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // 노드들 표시 (타입별 분기)
-              _buildPathNodes(path, index, isSelected, colorScheme),
+              _buildPathNodes(path, index, isSelected, colorScheme, tokens),
             ],
           ),
         ),
@@ -510,6 +518,7 @@ class _UnifiedExchangeSidebarState
     int index,
     bool isSelected,
     PathColorScheme colorScheme,
+    DesignTokens tokens,
   ) {
     if (path.type == ExchangePathType.oneToOne) {
       return _buildOneToOneNodes(
@@ -517,6 +526,7 @@ class _UnifiedExchangeSidebarState
         index,
         isSelected,
         colorScheme,
+        tokens,
       );
     } else if (path.type == ExchangePathType.circular) {
       return _buildCircularNodes(
@@ -524,6 +534,7 @@ class _UnifiedExchangeSidebarState
         index,
         isSelected,
         colorScheme,
+        tokens,
       );
     } else {
       return _buildDualNodes(
@@ -531,6 +542,7 @@ class _UnifiedExchangeSidebarState
         index,
         isSelected,
         colorScheme,
+        tokens,
       );
     }
   }
@@ -541,7 +553,8 @@ class _UnifiedExchangeSidebarState
   /// [badgeColor] 선택 시 배지 색상(2중: 빨강, 순환: 경로색),
   /// [arrowColor] 선택 시 화살표 색상(2중은 배지와 달리 경로색을 쓰므로 분리).
   ///   생략 시 [badgeColor]와 동일. [number] 단계 번호. 미선택 시 회색으로 통일된다.
-  Widget _buildArrowWithBadge({
+  Widget _buildArrowWithBadge(
+    DesignTokens tokens, {
     required IconData arrow,
     required double arrowSize,
     required String number,
@@ -550,9 +563,9 @@ class _UnifiedExchangeSidebarState
     Color? arrowColor,
     EdgeInsets margin = const EdgeInsets.symmetric(vertical: 2),
   }) {
-    final effectiveBadgeColor = isSelected ? badgeColor : Colors.grey.shade500;
+    final effectiveBadgeColor = isSelected ? badgeColor : tokens.textMuted;
     final effectiveArrowColor =
-        isSelected ? (arrowColor ?? badgeColor) : Colors.grey.shade500;
+        isSelected ? (arrowColor ?? badgeColor) : tokens.textMuted;
 
     return Container(
       margin: margin,
@@ -591,6 +604,7 @@ class _UnifiedExchangeSidebarState
     int index,
     bool isSelected,
     PathColorScheme colorScheme,
+    DesignTokens tokens,
   ) {
     return Column(
       children: [
@@ -609,7 +623,7 @@ class _UnifiedExchangeSidebarState
           margin: const EdgeInsets.symmetric(vertical: 2),
           child: Icon(
             Icons.swap_vert,
-            color: isSelected ? colorScheme.primary : Colors.grey.shade500,
+            color: isSelected ? colorScheme.primary : tokens.textMuted,
             size: 14,
           ),
         ),
@@ -635,6 +649,7 @@ class _UnifiedExchangeSidebarState
     int index,
     bool isSelected,
     PathColorScheme colorScheme,
+    DesignTokens tokens,
   ) {
     List<Widget> nodeWidgets = [];
 
@@ -656,6 +671,7 @@ class _UnifiedExchangeSidebarState
     // 1단계 양방향 화살표와 빨간색 숫자 박스
     nodeWidgets.add(
       _buildArrowWithBadge(
+        tokens,
         arrow: Icons.swap_vert,
         arrowSize: 14,
         number: '1',
@@ -680,7 +696,7 @@ class _UnifiedExchangeSidebarState
       Container(
         margin: const EdgeInsets.symmetric(vertical: 4),
         height: 1,
-        color: Colors.grey.shade300,
+        color: tokens.cardBorder,
       ),
     );
 
@@ -698,6 +714,7 @@ class _UnifiedExchangeSidebarState
     // 2단계 양방향 화살표와 빨간색 숫자 박스
     nodeWidgets.add(
       _buildArrowWithBadge(
+        tokens,
         arrow: Icons.swap_vert,
         arrowSize: 14,
         number: '2',
@@ -727,6 +744,7 @@ class _UnifiedExchangeSidebarState
     int index,
     bool isSelected,
     PathColorScheme colorScheme,
+    DesignTokens tokens,
   ) {
     List<Widget> nodeWidgets = [];
 
@@ -752,7 +770,7 @@ class _UnifiedExchangeSidebarState
             children: [
               Icon(
                 Icons.swap_vert, // 상하 화살표
-                color: isSelected ? colorScheme.primary : Colors.grey.shade500,
+                color: isSelected ? colorScheme.primary : tokens.textMuted,
                 size: 14,
               ),
             ],
@@ -779,6 +797,7 @@ class _UnifiedExchangeSidebarState
         // 단방향 화살표와 숫자 (순환교체 특징)
         nodeWidgets.add(
           _buildArrowWithBadge(
+            tokens,
             arrow: Icons.arrow_downward,
             arrowSize: 12,
             number: '$i',
@@ -807,6 +826,7 @@ class _UnifiedExchangeSidebarState
         // 마지막 화살표와 숫자
         nodeWidgets.add(
           _buildArrowWithBadge(
+            tokens,
             arrow: Icons.arrow_downward,
             arrowSize: 12,
             number: '${path.nodes.length - 1}',

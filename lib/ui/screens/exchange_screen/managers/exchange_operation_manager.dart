@@ -13,6 +13,7 @@ import '../../../../utils/snackbar_helper.dart';
 import '../../../../models/exchange_mode.dart';
 import '../../../../providers/exchange_screen_provider.dart';
 import '../../../../providers/services_provider.dart';
+import '../../../../theme/design_tokens.dart';
 import '../../../../ui/dialogs/exchange_data_reset_dialog.dart';
 import '../exchange_screen_state_proxy.dart';
 
@@ -80,7 +81,7 @@ class ExchangeOperationManager {
   }
 
   Future<bool> _selectExcelFileWeb() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
+    FilePickerResult? result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['xlsx', 'xls', 'xlsm'], // xlsm: 매크로 포함 Excel 파일 지원
       allowMultiple: false,
@@ -338,7 +339,7 @@ class ExchangeOperationManager {
 
   /// 스낵바 피드백 표시 (템플릿 메서드 패턴)
   void _showFeedback(String message, {Color? backgroundColor}) {
-    if (backgroundColor == Colors.blue) {
+    if (backgroundColor == context.tokens.primary) {
       SnackBarHelper.showInfo(
         context,
         message,
@@ -415,7 +416,7 @@ class ExchangeOperationManager {
     if (stateProxy.isCircularExchangeModeEnabled) {
       _showFeedback(
         '순환교체 모드가 활성화되었습니다. 여러 교사의 시간을 순환 교체할 수 있습니다.',
-        backgroundColor: Colors.blue,
+        backgroundColor: context.tokens.primary,
       );
     }
   }

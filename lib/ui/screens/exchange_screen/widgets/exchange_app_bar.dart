@@ -8,6 +8,7 @@ import '../../../../models/exchange_mode.dart';
 import '../../../../models/circular_exchange_path.dart';
 import '../../../../models/one_to_one_exchange_path.dart';
 import '../../../../utils/exchange_path_utils.dart';
+import '../../../../theme/design_tokens.dart';
 import '../../../../utils/logger.dart';
 
 /// 교체 화면 AppBar 위젯
@@ -27,7 +28,7 @@ class ExchangeAppBar extends ConsumerWidget implements PreferredSizeWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return AppBar(
       title: const Text('교체'),
-      backgroundColor: Colors.blue.shade50,
+      backgroundColor: context.tokens.appBarSubtleBackground,
       elevation: 0,
       actions: [
         // 🧪 테스트 버튼 (개발용)

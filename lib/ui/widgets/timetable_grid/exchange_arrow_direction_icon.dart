@@ -121,17 +121,19 @@ class _ExchangeArrowDirectionIconPainter extends CustomPainter {
     const innerWidth = 2.0;
     const outlineWidth = 3.2;
 
-    final outlinePaint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = outlineWidth
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+    final outlinePaint =
+        Paint()
+          ..color = Colors.white
+          ..strokeWidth = outlineWidth
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round;
 
-    final innerPaint = Paint()
-      ..color = color
-      ..strokeWidth = innerWidth
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+    final innerPaint =
+        Paint()
+          ..color = color
+          ..strokeWidth = innerWidth
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round;
 
     canvas.drawLine(start, end, outlinePaint);
     canvas.drawLine(start, end, innerPaint);
@@ -162,17 +164,19 @@ class _ExchangeArrowDirectionIconPainter extends CustomPainter {
       to.dy - headLength * math.sin(angle + headAngle),
     );
 
-    final outlinePaint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = outlineWidth
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+    final outlinePaint =
+        Paint()
+          ..color = Colors.white
+          ..strokeWidth = outlineWidth
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round;
 
-    final innerPaint = Paint()
-      ..color = color
-      ..strokeWidth = innerWidth
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+    final innerPaint =
+        Paint()
+          ..color = color
+          ..strokeWidth = innerWidth
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round;
 
     for (final paint in [outlinePaint, innerPaint]) {
       canvas.drawLine(to, p1, paint);

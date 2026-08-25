@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../../models/time_slot.dart';
+import '../../../theme/design_tokens.dart';
 import '../../../utils/personal_exchange_info_extractor.dart';
 import '../../../utils/personal_timetable_helper.dart';
 import '../../../utils/snackbar_helper.dart';
@@ -102,6 +103,7 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
     );
 
     final theme = Theme.of(context);
+    final tokens = context.tokens;
     final highlightColor = theme.colorScheme.primary;
     final borderRadius = BorderRadius.circular(
       TeacherCardGridConstants.cardBorderRadius,
@@ -111,7 +113,7 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
       side:
           widget.isHighlighted
               ? BorderSide(color: highlightColor, width: 1.5)
-              : BorderSide(color: Colors.grey.shade300),
+              : BorderSide(color: tokens.cardBorder),
     );
 
     // 그림자는 RepaintBoundary 밖 — 이미지 복사 시 검정 테두리(그림자) 제외
@@ -133,9 +135,9 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
             key: _captureKey,
             // 둥근 모서리 바깥 영역을 흰색으로 채워 캡처 시 투명(검정) 픽셀 방지
             child: ColoredBox(
-              color: Colors.white,
+              color: tokens.surface,
               child: Material(
-                color: Colors.white,
+                color: tokens.surface,
                 elevation: 0,
                 surfaceTintColor: Colors.transparent,
                 shape: cardShape,
@@ -240,6 +242,7 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
 
   /// 카드 상단 — 교사명·담당 과목
   Widget _buildCardHeader(BuildContext context, Color highlightColor) {
+    final tokens = context.tokens;
     final subject = widget.subject?.trim();
     final hasSubject = subject != null && subject.isNotEmpty;
     final roleLabel = widget.roleLabel?.trim();
@@ -257,15 +260,15 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
         color:
             widget.isHighlighted
                 ? highlightColor.withValues(alpha: 0.08)
-                : Colors.grey.shade50,
-        border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+                : tokens.sectionBackground,
+        border: Border(bottom: BorderSide(color: tokens.cardBorder)),
       ),
       child: Row(
         children: [
           Icon(
             Icons.person,
             size: 16,
-            color: widget.isHighlighted ? highlightColor : Colors.grey.shade600,
+            color: widget.isHighlighted ? highlightColor : tokens.textSecondary,
           ),
           const SizedBox(width: 6),
           // 교사명 + 교체·보강·날짜 미지정 — 왼쪽 우선 배치
@@ -281,7 +284,7 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
                       color:
                           widget.isHighlighted
                               ? highlightColor
-                              : Colors.grey.shade800,
+                              : tokens.textPrimary,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -305,7 +308,7 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
             Flexible(
               child: Text(
                 subject,
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 11, color: tokens.textSecondary),
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.end,
               ),
@@ -348,10 +351,7 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(4),
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: badge,
-        ),
+        child: MouseRegion(cursor: SystemMouseCursors.click, child: badge),
       ),
     );
   }

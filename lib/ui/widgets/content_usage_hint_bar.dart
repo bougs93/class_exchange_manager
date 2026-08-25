@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/design_tokens.dart';
 import 'content_toolbar_layout.dart';
 
 /// 화면 상단 사용 안내 바
@@ -24,6 +25,7 @@ class ContentUsageHintBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final trimmed = message.trim();
     if (trimmed.isEmpty) {
       return const SizedBox.shrink();
@@ -52,7 +54,7 @@ class ContentUsageHintBar extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 height: 1.45,
-                color: Colors.grey.shade800,
+                color: tokens.textPrimary,
               ),
             ),
           ),

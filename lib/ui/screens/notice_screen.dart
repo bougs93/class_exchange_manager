@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/design_tokens.dart';
 import 'notice/widgets/class_notice_widget.dart';
 import 'notice/widgets/teacher_notice_widget.dart';
 import '../widgets/unified_navigation_bar.dart';
@@ -34,11 +35,12 @@ class _NoticeScreenState extends State<NoticeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Scaffold(
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildSidebar(),
+          _buildSidebar(tokens),
           Expanded(
             child: Align(
               alignment: Alignment.topLeft,
@@ -52,14 +54,12 @@ class _NoticeScreenState extends State<NoticeScreen> {
   }
 
   /// 왼쪽 사이드바 — 문서 화면과 동일한 레이아웃·스타일
-  Widget _buildSidebar() {
+  Widget _buildSidebar(DesignTokens tokens) {
     return Container(
       width: _sidebarWidth,
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        border: Border(
-          right: BorderSide(color: Colors.grey.shade300, width: 1),
-        ),
+        color: tokens.sectionBackground,
+        border: Border(right: BorderSide(color: tokens.cardBorder, width: 1)),
       ),
       alignment: Alignment.topCenter,
       child: Padding(
@@ -70,6 +70,9 @@ class _NoticeScreenState extends State<NoticeScreen> {
           children: List.generate(_menuItems.length, (index) {
             final item = _menuItems[index];
             final isSelected = _selectedIndex == index;
+            // 플랫 모노(monochromeMenuAccents)에서는 메뉴별 색상 대신 틸 단색 사용
+            final accent =
+                tokens.monochromeMenuAccents ? tokens.primary : item.color;
 
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -84,12 +87,12 @@ class _NoticeScreenState extends State<NoticeScreen> {
                     decoration: BoxDecoration(
                       color:
                           isSelected
-                              ? item.color.withValues(alpha: 0.1)
+                              ? accent.withValues(alpha: 0.1)
                               : Colors.transparent,
                       borderRadius: BorderRadius.circular(6),
                       border:
                           isSelected
-                              ? Border.all(color: item.color, width: 1)
+                              ? Border.all(color: accent, width: 1)
                               : null,
                     ),
                     child: Row(
@@ -97,7 +100,7 @@ class _NoticeScreenState extends State<NoticeScreen> {
                         Icon(
                           item.icon,
                           size: 18,
-                          color: isSelected ? item.color : Colors.grey.shade600,
+                          color: isSelected ? accent : tokens.textSecondary,
                         ),
                         const SizedBox(width: 4),
                         Expanded(
@@ -109,10 +112,7 @@ class _NoticeScreenState extends State<NoticeScreen> {
                                   isSelected
                                       ? FontWeight.bold
                                       : FontWeight.normal,
-                              color:
-                                  isSelected
-                                      ? item.color
-                                      : Colors.grey.shade700,
+                              color: isSelected ? accent : tokens.textSecondary,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,

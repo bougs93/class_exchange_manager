@@ -1,6 +1,9 @@
 // 버전은 lib/constants/app_info.dart 한 곳에서만 관리합니다.
 // pubspec.yaml은 Flutter 빌드용으로 이 스크립트가 자동 동기화합니다.
 //
+// bump 시 AppInfo.version(패치 +1)과 AppInfo.lastUpdated(빌드 정보)를 함께
+// 갱신하고 pubspec.yaml version 줄을 동기화합니다.
+//
 // 사용:
 //   dart tool/bump_version.dart       → 패치 +1 (커밋 hook)
 //   dart tool/bump_version.dart sync  → app_info → pubspec 동기화만 (수동 변경 후)
@@ -14,6 +17,10 @@ final _versionInAppInfo = RegExp(
   r"static const String version = '(\d+)\.(\d+)\.(\d+)';",
 );
 
+final _lastUpdatedInAppInfo = RegExp(
+  r"(static const String lastUpdated = ')([^']*)(';)",
+);
+
 void main(List<String> args) {
   if (args.contains('sync')) {
     final version = _readVersionFromAppInfo();
@@ -24,11 +31,22 @@ void main(List<String> args) {
 
   final (major, minor, patch) = _readVersionPartsFromAppInfo();
   final nextVersion = '$major.$minor.${patch + 1}';
+  final nowStamp = _nowStamp();
 
   _writeVersionToAppInfo(nextVersion);
+  _writeLastUpdatedToAppInfo(nowStamp);
   _writeVersionToPubspec(nextVersion);
 
   stdout.writeln('버전 업데이트: $nextVersion');
+  stdout.writeln('빌드 정보 업데이트: $nowStamp');
+}
+
+/// `yyyy.MM.dd HH:mm` 형태의 빌드 정보 스탬프.
+String _nowStamp() {
+  final n = DateTime.now();
+  String two(int v) => v.toString().padLeft(2, '0');
+  return '${n.year}.${two(n.month)}.${two(n.day)} '
+      '${two(n.hour)}:${two(n.minute)}';
 }
 
 String _readVersionFromAppInfo() {
@@ -65,6 +83,20 @@ void _writeVersionToAppInfo(String version) {
     "static const String version = '$version';",
   );
   appInfo.writeAsStringSync(updated);
+}
+
+void _writeLastUpdatedToAppInfo(String stamp) {
+  final appInfo = File(_appInfoPath);
+  final text = appInfo.readAsStringSync();
+  if (!_lastUpdatedInAppInfo.hasMatch(text)) {
+    stderr.writeln("$_appInfoPath에서 lastUpdated 상수를 찾을 수 없습니다.");
+    exit(1);
+  }
+  appInfo.writeAsStringSync(
+    text.replaceFirstMapped(_lastUpdatedInAppInfo, (m) {
+      return '${m.group(1)}$stamp${m.group(3)}';
+    }),
+  );
 }
 
 void _writeVersionToPubspec(String version) {

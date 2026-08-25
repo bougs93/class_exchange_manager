@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../constants/app_info.dart';
+import '../../theme/design_tokens.dart';
 
 /// 사용 기간을 한 줄로 컴팩트하게 표시하는 위젯
 ///
@@ -13,17 +14,18 @@ class UsagePeriodCompactText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final labelStyle = TextStyle(
       fontSize: fontSize,
-      color: Colors.grey.shade700,
+      color: tokens.textSecondary,
       fontWeight: FontWeight.w500,
     );
     final valueStyle = TextStyle(
       fontSize: fontSize,
-      color: Colors.grey.shade800,
+      color: tokens.textPrimary,
       fontWeight: FontWeight.w600,
     );
-    final remainingColor = _remainingPeriodColor();
+    final remainingColor = _remainingPeriodColor(tokens);
 
     // 기한이 없으면 한 번만 표시
     if (AppInfo.expiryDate == null) {
@@ -55,7 +57,7 @@ class UsagePeriodCompactText extends StatelessWidget {
     );
   }
 
-  Color _remainingPeriodColor() {
+  Color _remainingPeriodColor(DesignTokens tokens) {
     switch (AppInfo.remainingPeriodStatus) {
       case RemainingPeriodStatus.unlimited:
       case RemainingPeriodStatus.normal:
@@ -65,7 +67,7 @@ class UsagePeriodCompactText extends StatelessWidget {
       case RemainingPeriodStatus.urgent:
         return Colors.orange.shade700;
       case RemainingPeriodStatus.unknown:
-        return Colors.grey.shade700;
+        return tokens.textSecondary;
     }
   }
 }

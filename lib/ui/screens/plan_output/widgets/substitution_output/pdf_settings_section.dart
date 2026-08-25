@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../../../constants/korean_fonts.dart';
+import '../../../../../theme/design_tokens.dart';
 import '../../../../../utils/pdf_field_config.dart';
 
 /// PDF 양식 선택 섹션
@@ -26,6 +27,7 @@ class PdfSettingsSection extends StatelessWidget {
 
   /// PDF 양식 파일 선택
   Widget _buildTemplateSelector(BuildContext context) {
+    final tokens = context.tokens;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -34,7 +36,7 @@ class PdfSettingsSection extends StatelessWidget {
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: Colors.grey.shade800,
+            color: tokens.textPrimary,
           ),
         ),
         const SizedBox(height: 8),
@@ -46,7 +48,7 @@ class PdfSettingsSection extends StatelessWidget {
                 height: 37,
                 padding: const EdgeInsets.symmetric(horizontal: 5),
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
+                  border: Border.all(color: tokens.cardBorder),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 alignment: Alignment.centerLeft,
@@ -93,7 +95,7 @@ class PdfSettingsSection extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             selectedTemplateFilePath!,
-            style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
+            style: TextStyle(fontSize: 12, color: tokens.primary),
           ),
           const SizedBox(height: 2),
           Text(
@@ -148,7 +150,7 @@ class PdfSettingsSection extends StatelessWidget {
 
   /// PDF 템플릿 파일 선택
   Future<void> _pickPdfTemplate(BuildContext context) async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
       allowMultiple: false,
@@ -199,51 +201,52 @@ class PdfFontSettingsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: tokens.sectionBackground,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: tokens.cardBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.font_download, size: 20, color: Colors.grey.shade700),
+              Icon(Icons.font_download, size: 20, color: tokens.textSecondary),
               const SizedBox(width: 8),
               Text(
                 '폰트 설정',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade800,
+                  color: tokens.textPrimary,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          _buildFontTypeSelector(),
+          _buildFontTypeSelector(tokens),
           const SizedBox(height: 16),
-          _buildFontSizeRow(),
+          _buildFontSizeRow(tokens),
         ],
       ),
     );
   }
 
   /// 폰트 종류 선택 (좁은 폭에서는 라벨·드롭다운을 세로 배치)
-  Widget _buildFontTypeSelector() {
+  Widget _buildFontTypeSelector(DesignTokens tokens) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final dropdown = _buildFontDropdown();
+        final dropdown = _buildFontDropdown(tokens);
         if (constraints.maxWidth < _kFontSizeRowCompactBreakpoint) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 '폰트 종류',
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                style: TextStyle(fontSize: 13, color: tokens.textSecondary),
               ),
               const SizedBox(height: 8),
               SizedBox(width: _kFontTypeDropdownWidth, child: dropdown),
@@ -256,7 +259,7 @@ class PdfFontSettingsSection extends StatelessWidget {
               width: 64,
               child: Text(
                 '폰트 종류',
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                style: TextStyle(fontSize: 13, color: tokens.textSecondary),
               ),
             ),
             const SizedBox(width: 12),
@@ -267,11 +270,11 @@ class PdfFontSettingsSection extends StatelessWidget {
     );
   }
 
-  Widget _buildFontDropdown() {
+  Widget _buildFontDropdown(DesignTokens tokens) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: tokens.cardBorder),
         borderRadius: BorderRadius.circular(8),
       ),
       child: DropdownButton<String>(
@@ -298,7 +301,7 @@ class PdfFontSettingsSection extends StatelessWidget {
   }
 
   /// 폰트 사이즈 행 — 넓을 때 가로, 좁을 때 세로 배치
-  Widget _buildFontSizeRow() {
+  Widget _buildFontSizeRow(DesignTokens tokens) {
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < _kFontSizeRowCompactBreakpoint) {
@@ -310,6 +313,7 @@ class PdfFontSettingsSection extends StatelessWidget {
                 fontSize,
                 fontSizeOptions,
                 onFontSizeChanged,
+                tokens,
               ),
               const SizedBox(height: 12),
               _buildFontSizeDropdown(
@@ -317,9 +321,10 @@ class PdfFontSettingsSection extends StatelessWidget {
                 remarksFontSize,
                 remarksFontSizeOptions,
                 onRemarksFontSizeChanged,
+                tokens,
               ),
               const SizedBox(height: 8),
-              _buildIncludeRemarksCheckbox(),
+              _buildIncludeRemarksCheckbox(tokens),
             ],
           );
         }
@@ -332,13 +337,14 @@ class PdfFontSettingsSection extends StatelessWidget {
               fontSize,
               fontSizeOptions,
               onFontSizeChanged,
+              tokens,
             ),
             Container(
               width: 1,
               height: 25,
               margin: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
-                color: Colors.grey.shade300,
+                color: tokens.cardBorder,
                 borderRadius: BorderRadius.circular(0.5),
               ),
             ),
@@ -347,16 +353,17 @@ class PdfFontSettingsSection extends StatelessWidget {
               remarksFontSize,
               remarksFontSizeOptions,
               onRemarksFontSizeChanged,
+              tokens,
             ),
             const SizedBox(width: 12),
-            _buildIncludeRemarksCheckbox(),
+            _buildIncludeRemarksCheckbox(tokens),
           ],
         );
       },
     );
   }
 
-  Widget _buildIncludeRemarksCheckbox() {
+  Widget _buildIncludeRemarksCheckbox(DesignTokens tokens) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -370,7 +377,7 @@ class PdfFontSettingsSection extends StatelessWidget {
         ),
         Text(
           '비고 출력',
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+          style: TextStyle(fontSize: 12, color: tokens.textSecondary),
         ),
       ],
     );
@@ -382,6 +389,7 @@ class PdfFontSettingsSection extends StatelessWidget {
     double value,
     List<double> options,
     ValueChanged<double> onChanged,
+    DesignTokens tokens,
   ) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -390,7 +398,7 @@ class PdfFontSettingsSection extends StatelessWidget {
           width: 40,
           child: Text(
             label,
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+            style: TextStyle(fontSize: 13, color: tokens.textSecondary),
           ),
         ),
         const SizedBox(width: 8),
@@ -399,7 +407,7 @@ class PdfFontSettingsSection extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
+              border: Border.all(color: tokens.cardBorder),
               borderRadius: BorderRadius.circular(8),
             ),
             child: DropdownButton<double>(

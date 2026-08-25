@@ -6,6 +6,7 @@ import '../../providers/personal_schedule_provider.dart';
 import '../../providers/state_reset_provider.dart';
 import '../../models/exchange_mode.dart';
 import '../../services/app_settings_storage_service.dart';
+import '../../theme/design_tokens.dart';
 import '../../utils/logger.dart';
 import 'exchange_screen/exchange_screen_state_proxy.dart';
 import 'exchange_screen/managers/exchange_operation_manager.dart';
@@ -228,6 +229,7 @@ class _StartContentScreenState extends ConsumerState<StartContentScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tokens = context.tokens;
     final screenState = ref.watch(exchangeScreenProvider);
     final selectedFile = screenState.selectedFile;
     final timetableFileName = screenState.timetableFileName;
@@ -236,7 +238,7 @@ class _StartContentScreenState extends ConsumerState<StartContentScreen>
     final errorMessage = screenState.errorMessage;
 
     return Container(
-      color: Colors.grey.shade50,
+      color: tokens.sectionBackground,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -390,6 +392,7 @@ class _StartContentScreenState extends ConsumerState<StartContentScreen>
 
   /// 기본 정보 입력 폼 (제목·교사명·학교명·저장 한 줄)
   Widget _buildBasicInfoForm(ThemeData theme) {
+    final tokens = context.tokens;
     const titleStyle = TextStyle(fontSize: 12, fontWeight: FontWeight.bold);
 
     if (_isLoadingNames) {
@@ -397,7 +400,7 @@ class _StartContentScreenState extends ConsumerState<StartContentScreen>
         children: [
           Text(
             '기본 정보',
-            style: titleStyle.copyWith(color: Colors.grey.shade700),
+            style: titleStyle.copyWith(color: tokens.textSecondary),
           ),
           const Spacer(),
           const SizedBox(
@@ -412,7 +415,7 @@ class _StartContentScreenState extends ConsumerState<StartContentScreen>
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text('기본 정보', style: titleStyle.copyWith(color: Colors.grey.shade700)),
+        Text('기본 정보', style: titleStyle.copyWith(color: tokens.textSecondary)),
         const SizedBox(width: 10),
         Expanded(
           flex: 3,
@@ -480,6 +483,8 @@ class _StartContentScreenState extends ConsumerState<StartContentScreen>
     required TextInputAction textInputAction,
     void Function(String)? onSubmitted,
   }) {
+    final tokens = context.tokens;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -498,14 +503,14 @@ class _StartContentScreenState extends ConsumerState<StartContentScreen>
             // 아이콘을 TextField 밖에 두어 prefix 여백 문제를 방지
             child: DecoratedBox(
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade400),
+                border: Border.all(color: tokens.cardBorder),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Row(
                 children: [
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: Icon(icon, size: 14, color: Colors.grey.shade600),
+                    child: Icon(icon, size: 14, color: tokens.textSecondary),
                   ),
                   Expanded(
                     child: TextField(
@@ -515,7 +520,7 @@ class _StartContentScreenState extends ConsumerState<StartContentScreen>
                         hintText: hintText,
                         hintStyle: TextStyle(
                           fontSize: 13,
-                          color: Colors.grey.shade400,
+                          color: tokens.textMuted,
                         ),
                         border: InputBorder.none,
                         isDense: true,
