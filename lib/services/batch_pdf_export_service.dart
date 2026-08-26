@@ -87,7 +87,9 @@ class BatchPdfExportService {
       final baseName = _buildBaseFileName(item);
       try {
         final profile = item.profile;
-        final templateIndex = profile?.templateIndex ?? defaultSettings.templateIndex;
+        // 양식 인덱스 범위 검증 (잘못된 값 시 기본 양식으로 폴백)
+        final rawIndex = profile?.templateIndex ?? defaultSettings.templateIndex;
+        final templateIndex = rawIndex.clamp(0, kPdfTemplates.length - 1);
 
         // 템플릿 경로 결정 (사용자 지정 파일이 유효하면 우선)
         String templatePath;
@@ -100,7 +102,7 @@ class BatchPdfExportService {
           templatePath = kPdfTemplates[templateIndex].assetPath;
         }
 
-        final outputPath = _buildOutputPath(
+        final outputPath = await _buildOutputPath(
           outputDirectory,
           baseName,
           usedFileNames,
@@ -200,15 +202,21 @@ class BatchPdfExportService {
     return cleaned.isEmpty ? '_' : cleaned;
   }
 
-  /// 중복되지 않는 출력 경로 생성 (중복 시 _2, _3 접미사)
-  String _buildOutputPath(
+  /// 중복되지 않는 출력 경로 생성
+  ///
+  /// 실행 내 중복과 디스크에 이미 존재하는 파일 모두 회피합니다
+  /// (중복 시 _2, _3 접미사 — 기존 출력물 덮어쓰기 방지).
+  Future<String> _buildOutputPath(
     String directory,
     String baseName,
     Set<String> usedNames,
-  ) {
+  ) async {
     var candidate = baseName;
     var counter = 2;
-    while (usedNames.contains(candidate)) {
+    while (usedNames.contains(candidate) ||
+        await File(
+          '$directory${Platform.pathSeparator}$candidate.pdf',
+        ).exists()) {
       candidate = '${baseName}_$counter';
       counter++;
     }

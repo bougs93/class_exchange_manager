@@ -1,9 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/timetable_registry.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../providers/timetable_registry_provider.dart';
-import '../../services/timetable_storage_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/logger.dart';
 import 'exchange_screen/exchange_screen_state_proxy.dart';
@@ -54,6 +55,9 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
   }
 
   /// 시간표 추가: 엑셀 파일 선택 → 파싱/저장 → 이름 지정 → 레지스트리 등록 → 활성 전환
+  ///
+  /// 동일 파일 경로의 항목이 이미 있으면 새 항목을 만들지 않고 그 항목을
+  /// 갱신(내용 변경 시 스코프 교체 데이터 정리)한 뒤 전환합니다.
   Future<void> _addTimetable() async {
     if (_isAdding) return;
     setState(() => _isAdding = true);
@@ -63,33 +67,62 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
       final fileSelected = await _operationManager!.selectExcelFile();
       if (!fileSelected || !mounted) return;
 
-      // 2. 방금 저장된 메타데이터로 레지스트리 등록
-      final metadata = await TimetableStorageService().getFileMetadata();
-      final hash = metadata?['hash'] as String?;
-      if (metadata == null || hash == null || hash.isEmpty) {
+      // 2. 방금 저장된 시간표 해시 정보로 레지스트리 처리
+      final hashes = _operationManager!.lastSavedTimetableHashes;
+      final selectedFile = _stateProxy?.selectedFile;
+      if (hashes == null || selectedFile == null) {
         _showSnackBar('시간표 저장 정보를 확인할 수 없습니다.', isError: true);
         return;
       }
 
-      final fileName = (metadata['fileName'] as String?) ?? '';
-      final defaultName = fileName.replaceAll(RegExp(r'\.(xlsx|xls)$'), '');
+      final filePath = selectedFile.path;
+      final fileName = filePath.split(Platform.pathSeparator).last;
+      final hash = hashes.hash;
+      final contentHash = hashes.contentHash;
 
-      // 3. 이름 지정 (기본값: 파일명)
+      // 3. 동일 파일 경로의 기존 항목 확인 → 있으면 갱신 후 전환
+      final registry = ref.read(timetableRegistryProvider).valueOrNull;
+      final existing = registry?.timetables
+          .where((e) => e.filePath == filePath && filePath.isNotEmpty)
+          .firstOrNull;
+
+      if (existing != null) {
+        final updated = await ref
+            .read(timetableRegistryProvider.notifier)
+            .updateTimetableSource(
+              existing.id,
+              fileName: fileName,
+              filePath: filePath,
+              hash: hash,
+              contentHash: contentHash,
+            );
+        if (!mounted) return;
+        _showSnackBar(
+          updated
+              ? "시간표 '${existing.name}'이(가) 갱신되었습니다."
+              : '시간표 갱신에 실패했습니다.',
+          isError: !updated,
+        );
+        return;
+      }
+
+      // 4. 신규 등록: 이름 지정 (기본값: 파일명, 취소 없음 — 등록이 필수)
+      final defaultName = fileName.replaceAll(RegExp(r'\.(xlsx|xls)$'), '');
       final name = await _showNameDialog(
         title: '시간표 이름',
         initialValue: defaultName,
+        showCancel: false,
       );
       if (!mounted) return;
 
-      // 4. 레지스트리 등록
       final entry = await ref
           .read(timetableRegistryProvider.notifier)
           .registerTimetable(
-            name: name ?? defaultName,
+            name: (name != null && name.isNotEmpty) ? name : defaultName,
             fileName: fileName,
-            filePath: (metadata['filePath'] as String?) ?? '',
+            filePath: filePath,
             hash: hash,
-            contentHash: (metadata['contentHash'] as String?) ?? '',
+            contentHash: contentHash,
           );
 
       if (entry == null) {
@@ -103,7 +136,7 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
           .switchActive(entry.id);
 
       if (mounted) {
-        _showSnackBar("시간표 '$name'이(가) 등록되었습니다.");
+        _showSnackBar("시간표 '${entry.name}'이(가) 등록되었습니다.");
       }
     } catch (e) {
       AppLogger.error('시간표 추가 실패: $e', e);
@@ -119,10 +152,11 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
 
   /// 시간표 이름 입력 다이얼로그
   ///
-  /// 취소 시 null 반환.
+  /// [showCancel]이 true면 취소 버튼을 표시하고 취소 시 null을 반환합니다.
   Future<String?> _showNameDialog({
     required String title,
     required String initialValue,
+    bool showCancel = true,
   }) {
     final controller = TextEditingController(text: initialValue);
     return showDialog<String>(
@@ -142,10 +176,11 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
                 Navigator.of(dialogContext).pop(value.trim()),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('취소'),
-            ),
+            if (showCancel)
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('취소'),
+              ),
             ElevatedButton(
               onPressed: () =>
                   Navigator.of(dialogContext).pop(controller.text.trim()),

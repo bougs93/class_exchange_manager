@@ -254,6 +254,15 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     if (mounted) setState(() {});
   }
 
+  /// 현재 planData에 실제로 존재하는 선택 그룹 수 (삭제된 그룹 카운트 제외)
+  int _validCheckedCount(List<SubstitutionPlanData> planData) {
+    final validGroupIds = planData
+        .map((d) => d.groupId)
+        .whereType<String>()
+        .toSet();
+    return _checkedGroupIds.where(validGroupIds.contains).length;
+  }
+
   /// 선택 건 일괄 출력
   Future<void> _batchPrint(
     BuildContext context,
@@ -501,7 +510,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
                   ? null
                   : () => _batchPrint(context, ref, planData),
           icon: Icons.print,
-          label: '${_checkedGroupIds.length}건 일괄 출력',
+          label: '${_validCheckedCount(planData)}건 일괄 출력',
           tooltip: '선택한 교체 건을 지정된 계획서로 일괄 PDF 출력',
           backgroundColor: Colors.purple.shade50,
           foregroundColor: Colors.purple.shade600,

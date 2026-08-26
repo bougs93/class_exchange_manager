@@ -56,6 +56,8 @@ void main() {
   setUp(() {
     service = ExchangeHistoryService();
     service.resetForTesting();
+    // 시간표 스코프 지정 (스코프 없으면 저장이 건너뛰어짐)
+    service.timetableId = 'tt_test_scope';
   });
 
   group('ExchangeHistoryService undo/redo', () {

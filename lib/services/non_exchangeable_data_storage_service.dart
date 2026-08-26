@@ -1,6 +1,5 @@
 import 'storage_service.dart';
 import '../services/timetable_registry_service.dart';
-import '../services/timetable_storage_service.dart';
 import '../models/time_slot.dart';
 import '../utils/logger.dart';
 
@@ -8,11 +7,9 @@ import '../utils/logger.dart';
 ///
 /// 교체불가 셀 데이터만 별도 파일로 저장하고 로드합니다.
 /// 시간표별로 별도 파일을 관리합니다.
-/// 해시는 레지스트리의 활성 시간표를 우선 사용하며(시간표 단위 공유),
-/// 활성이 없으면 레거시 메타데이터로 폴백합니다.
+/// 해시는 레지스트리의 활성 시간표를 사용합니다(시간표 단위 공유).
 class NonExchangeableDataStorageService {
   final StorageService _storageService = StorageService();
-  final TimetableStorageService _timetableStorage = TimetableStorageService();
 
   // 싱글톤 인스턴스
   static final NonExchangeableDataStorageService _instance =
@@ -22,20 +19,17 @@ class NonExchangeableDataStorageService {
 
   NonExchangeableDataStorageService._internal();
 
-  /// 현재 시간표의 해시값 가져오기
+  /// 현재 시간표의 해시값 가져오기 (레지스트리 활성 시간표 기준)
   Future<String?> _getCurrentTimetableHash() async {
     try {
-      // 1. 레지스트리 활성 시간표 우선 (시간표 전환 대응)
       final activeEntry = await TimetableRegistryService()
           .loadRegistry()
           .then((registry) => registry.activeEntry);
-      if (activeEntry != null && activeEntry.hash.isNotEmpty) {
-        return activeEntry.hash;
+      if (activeEntry == null || activeEntry.hash.isEmpty) {
+        AppLogger.warning('활성 시간표가 없어 교체불가 데이터 해시를 확인할 수 없습니다.');
+        return null;
       }
-
-      // 2. 레거시 폴백 (레지스트리 도입 전 데이터)
-      final metadata = await _timetableStorage.getFileMetadata();
-      return metadata?['hash'] as String?;
+      return activeEntry.hash;
     } catch (e) {
       AppLogger.error('시간표 해시값 가져오기 실패: $e', e);
       return null;

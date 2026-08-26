@@ -543,9 +543,31 @@ class SubstitutionOutputWidgetState
     }
     _selectedTeacher = teacher;
 
-    final profiles = teacher != null ? store.byTeacher(teacher) : <PrintProfile>[];
+    // 마이그레이션된 계획서(교사 미지정 '')를 첫 교사에게 자동 편입해
+    // UI에서 보이도록 처리 (1회성). 역순 저장으로 '양식 1'이 마지막 사용
+    // 계획서가 되어 기본 선택되도록 합니다.
+    if (teacher != null && store.byTeacher(teacher).isEmpty) {
+      final orphans = store.profiles
+          .where((p) => p.teacherName.isEmpty)
+          .toList()
+          .reversed
+          .toList();
+      for (final orphan in orphans) {
+        await ref
+            .read(printProfileStoreProvider.notifier)
+            .saveProfile(orphan.copyWith(teacherName: teacher));
+      }
+      if (orphans.isNotEmpty) {
+        AppLogger.info('교사 미지정 계획서 ${orphans.length}개를 "$teacher"에게 편입');
+      }
+    }
+
+    final updatedStore = ref.read(printProfileStoreProvider);
+    final profiles = teacher != null
+        ? updatedStore.byTeacher(teacher)
+        : <PrintProfile>[];
     if (profiles.isNotEmpty) {
-      final lastUsed = store.getById(store.lastUsedProfileId);
+      final lastUsed = updatedStore.getById(updatedStore.lastUsedProfileId);
       final selected =
           (lastUsed != null && lastUsed.teacherName == teacher)
           ? lastUsed

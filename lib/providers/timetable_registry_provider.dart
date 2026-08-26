@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/timetable_registry.dart';
 import '../services/exchange_list_storage_service.dart';
 import '../services/print_profile_storage_service.dart';
-import '../services/storage_migration_service.dart';
 import '../services/substitution_plan_storage_service.dart';
 import '../services/timetable_registry_service.dart';
 import '../utils/logger.dart';
@@ -19,19 +18,12 @@ final timetableRegistryServiceProvider = Provider<TimetableRegistryService>((
   return TimetableRegistryService();
 });
 
-/// 저장소 마이그레이션 서비스 Provider
-final storageMigrationServiceProvider = Provider<StorageMigrationService>((
-  ref,
-) {
-  return StorageMigrationService();
-});
-
 /// 활성 시간표 전환 버전 (전환 시 증가 → 화면 데이터 재로드 트리거)
 final timetableSwitchVersionProvider = StateProvider<int>((ref) => 0);
 
 /// 시간표 레지스트리 상태 Notifier
 ///
-/// 앱 시작 시 마이그레이션(멱등) → 레지스트리 로드 → 활성 시간표 스코프를
+/// 앱 시작 시 레지스트리를 로드하고 활성 시간표 스코프를
 /// 교체 이력·결보강 서비스에 적용합니다.
 /// 시간표 전환 시 스코프 재적용 + 데이터 재로드를 오케스트레이션합니다.
 class TimetableRegistryNotifier
@@ -44,10 +36,10 @@ class TimetableRegistryNotifier
 
   final Completer<void> _initCompleter = Completer<void>();
 
-  /// 초기화(마이그레이션+로드+스코프 적용) 완료 대기
+  /// 초기화(로드+스코프 적용) 완료 대기
   ///
   /// 데이터 로드 전 반드시 호출해야 스코프가 올바르게 적용됩니다.
-  /// 실패 시에도 완료 처리되어 레거시 동작으로 진행됩니다.
+  /// 실패 시에도 완료 처리되어 빈 상태로 진행됩니다.
   Future<void> ensureInitialized() => _initCompleter.future;
 
   TimetableRegistryService get _service =>
@@ -55,21 +47,11 @@ class TimetableRegistryNotifier
 
   Future<void> _initialize() async {
     try {
-      // 1. 마이그레이션 (레지스트리가 있으면 스킵 — 멱등)
-      final result = await _ref
-          .read(storageMigrationServiceProvider)
-          .migrateIfNeeded();
-      if (result.migrated) {
-        AppLogger.info(
-          '저장소 마이그레이션 수행됨: ${result.steps.join(' / ')}',
-        );
-      }
-
-      // 2. 레지스트리 로드
+      // 레지스트리 로드
       final registry = await _service.loadRegistry();
       state = AsyncValue.data(registry);
 
-      // 3. 활성 시간표 스코프 적용 (데이터 로드는 각 화면의 기존 흐름이 수행)
+      // 활성 시간표 스코프 적용 (데이터 로드는 각 화면의 기존 흐름이 수행)
       _applyScope(registry.activeId, reload: false);
     } catch (e, st) {
       AppLogger.error('시간표 레지스트리 초기화 실패: $e', e);
@@ -186,6 +168,78 @@ class TimetableRegistryNotifier
         ),
       );
     }
+    return true;
+  }
+
+  /// 시간표 원본 파일 갱신 (동일 파일 재선택 시)
+  ///
+  /// 내용 해시가 변경된 경우 해당 시간표의 교체 목록·결보강 데이터는
+  /// 내용과 불일치하므로 스코프 파일을 정리합니다. 계획서는 유지됩니다.
+  /// 처리 후 해당 시간표를 활성으로 전환합니다.
+  Future<bool> updateTimetableSource(
+    String id, {
+    required String fileName,
+    required String filePath,
+    required String hash,
+    required String contentHash,
+  }) async {
+    await ensureInitialized();
+    final current = state.valueOrNull;
+    final entry = current?.getById(id);
+    if (entry == null) {
+      return false;
+    }
+
+    final contentChanged =
+        entry.contentHash.isNotEmpty && entry.contentHash != contentHash;
+
+    final success = await _service.updateTimetableData(
+      id,
+      fileName: fileName,
+      filePath: filePath,
+      hash: hash,
+      contentHash: contentHash,
+    );
+    if (!success) {
+      return false;
+    }
+
+    // 내용이 바뀐 경우: 교체 목록·결보강 스코프 데이터 정리 (계획서는 유지)
+    if (contentChanged) {
+      await ExchangeListStorageService().clearExchangeList(timetableId: id);
+      await SubstitutionPlanStorageService().clearSubstitutionPlanData(
+        timetableId: id,
+      );
+      AppLogger.info('시간표 내용 변경 감지 → 스코프 교체 데이터 정리: $id');
+    }
+
+    // 상태 갱신
+    final next = current!.copyWith(
+      timetables: current.timetables
+          .map(
+            (e) => e.id == id
+                ? e.copyWith(
+                    fileName: fileName,
+                    filePath: filePath,
+                    hash: hash,
+                    contentHash: contentHash,
+                  )
+                : e,
+          )
+          .toList(),
+    );
+    state = AsyncValue.data(next);
+
+    // 해당 시간표로 전환 (이미 활성이면 내부에서 무시됨)
+    if (next.activeId != id) {
+      await switchActive(id);
+    } else {
+      // 이미 활성인 경우에도 데이터 재로드가 필요 (내용이 바뀌었을 수 있음)
+      _applyScope(id, reload: true);
+      await _ref.read(exchangeHistoryServiceProvider).loadFromLocalStorage();
+      _ref.read(timetableSwitchVersionProvider.notifier).state++;
+    }
+
     return true;
   }
 

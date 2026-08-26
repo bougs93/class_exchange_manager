@@ -7,7 +7,6 @@ import '../utils/logger.dart';
 /// 사용자가 입력한 날짜 정보(`absenceDate`, `substitutionDate`)와
 /// 보강 과목 정보를 시간표별 파일
 /// (`substitution_plan_data_{timetableId}.json`)로 저장하고 로드합니다.
-/// [timetableId]를 지정하지 않으면 기존 전역 파일을 사용합니다.
 class SubstitutionPlanStorageService {
   final StorageService _storageService = StorageService();
 
@@ -19,30 +18,27 @@ class SubstitutionPlanStorageService {
 
   SubstitutionPlanStorageService._internal();
 
-  // 레거시 전역 파일명
-  static const String _legacyFilename = 'substitution_plan_data.json';
-
   /// 시간표별 파일명
   static String fileNameFor(String timetableId) =>
       'substitution_plan_data_$timetableId.json';
-
-  /// 스코프에 대응하는 파일명
-  static String _resolveFilename(String? timetableId) =>
-      timetableId != null ? fileNameFor(timetableId) : _legacyFilename;
 
   /// 결보강 계획서 날짜 정보 저장
   ///
   /// 매개변수:
   /// - `state`: 저장할 SubstitutionPlanState
-  /// - `timetableId`: 시간표 ID (미지정 시 레거시 전역 파일)
+  /// - `timetableId`: 시간표 ID (필수 — 없으면 저장 건너뜀)
   ///
   /// 반환값:
   /// - `Future<bool>`: 저장 성공 여부
   Future<bool> saveSubstitutionPlanData(
     SubstitutionPlanState state, {
-    String? timetableId,
+    required String? timetableId,
   }) async {
-    final filename = _resolveFilename(timetableId);
+    if (timetableId == null || timetableId.isEmpty) {
+      AppLogger.warning('시간표 스코프가 없어 결보강 데이터 저장을 건너뜁니다.');
+      return false;
+    }
+    final filename = fileNameFor(timetableId);
     try {
       // SubstitutionPlanState를 JSON으로 변환
       final jsonData = state.toJson();
@@ -68,12 +64,18 @@ class SubstitutionPlanStorageService {
   /// 결보강 계획서 날짜 정보 로드
   ///
   /// 매개변수:
-  /// - `timetableId`: 시간표 ID (미지정 시 레거시 전역 파일)
+  /// - `timetableId`: 시간표 ID (필수 — 없으면 null 반환)
   ///
   /// 반환값:
   /// - `Future<SubstitutionPlanState?>`: 로드된 상태 (없으면 null)
-  Future<SubstitutionPlanState?> loadSubstitutionPlanData({String? timetableId}) async {
-    final filename = _resolveFilename(timetableId);
+  Future<SubstitutionPlanState?> loadSubstitutionPlanData({
+    required String? timetableId,
+  }) async {
+    if (timetableId == null || timetableId.isEmpty) {
+      AppLogger.warning('시간표 스코프가 없어 결보강 데이터 로드를 건너뜁니다.');
+      return null;
+    }
+    final filename = fileNameFor(timetableId);
     try {
       // JSON 파일 로드
       final jsonData = await _storageService.loadJson(filename);
@@ -100,12 +102,16 @@ class SubstitutionPlanStorageService {
   /// 결보강 계획서 날짜 정보 삭제
   ///
   /// 매개변수:
-  /// - `timetableId`: 시간표 ID (미지정 시 레거시 전역 파일)
+  /// - `timetableId`: 시간표 ID (필수 — 없으면 건너뜀)
   ///
   /// 반환값:
   /// - `Future<bool>`: 삭제 성공 여부
-  Future<bool> clearSubstitutionPlanData({String? timetableId}) async {
-    final filename = _resolveFilename(timetableId);
+  Future<bool> clearSubstitutionPlanData({required String? timetableId}) async {
+    if (timetableId == null || timetableId.isEmpty) {
+      AppLogger.warning('시간표 스코프가 없어 결보강 데이터 삭제를 건너뜁니다.');
+      return false;
+    }
+    final filename = fileNameFor(timetableId);
     try {
       final success = await _storageService.deleteFile(filename);
       if (success) {

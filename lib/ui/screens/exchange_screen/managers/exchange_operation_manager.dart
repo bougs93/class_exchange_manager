@@ -42,6 +42,9 @@ class ExchangeOperationManager {
   late final NonExchangeableManager _nonExchangeableManager;
   late final TimetableStorageService _timetableStorageService;
 
+  /// 마지막으로 저장된 시간표 해시 정보 (레지스트리 등록·갱신용)
+  ({String hash, String contentHash})? lastSavedTimetableHashes;
+
   ExchangeOperationManager({
     required this.context,
     required this.ref,
@@ -263,17 +266,15 @@ class ExchangeOperationManager {
 
   /// 시간표 데이터 저장 및 적용
   Future<void> _saveAndApplyTimetableData(TimetableData timetableData) async {
-    // 데이터 저장 (Native 플랫폼만)
+    // 데이터 저장 (Native 플랫폼만) — 레지스트리 모드 저장
     final selectedFile = stateProxy.selectedFile;
     if (selectedFile != null) {
       final filePath = selectedFile.path;
       final fileName = filePath.split(Platform.pathSeparator).last;
 
-      await _timetableStorageService.saveTimetableData(
-        timetableData,
-        filePath,
-        fileName,
-      );
+      final hashes = await _timetableStorageService
+          .saveTimetableDataForRegistry(timetableData, filePath, fileName);
+      lastSavedTimetableHashes = hashes;
     }
 
     // 교체불가 관리자에 데이터 설정

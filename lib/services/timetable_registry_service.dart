@@ -101,6 +101,39 @@ class TimetableRegistryService {
     return saveRegistry(registry.withActive(id));
   }
 
+  /// 시간표 원본 데이터 갱신 (동일 파일 재선택 시 사용)
+  ///
+  /// 항목을 새로 만들지 않고 해시·경로 정보만 최신화합니다.
+  Future<bool> updateTimetableData(
+    String id, {
+    required String fileName,
+    required String filePath,
+    required String hash,
+    required String contentHash,
+  }) async {
+    final registry = await loadRegistry();
+    if (registry.getById(id) == null) {
+      AppLogger.warning('갱신 대상 시간표를 찾을 수 없음: $id');
+      return false;
+    }
+
+    final updated = registry.copyWith(
+      timetables: registry.timetables
+          .map(
+            (e) => e.id == id
+                ? e.copyWith(
+                    fileName: fileName,
+                    filePath: filePath,
+                    hash: hash,
+                    contentHash: contentHash,
+                  )
+                : e,
+          )
+          .toList(),
+    );
+    return saveRegistry(updated);
+  }
+
   /// 시간표 제거 (활성이었다면 활성 해제)
   ///
   /// 주의: 시간표 본문·교체 목록 등 스코프 데이터 삭제는 호출자(Provider)가 담당.

@@ -345,7 +345,12 @@ class SelectCellRenderer {
 }
 
 /// 계획서(인쇄 프로파일) 지정 셀 렌더러 — 해당 행 교사의 계획서만 표시
+///
+/// '미지정' 옵트아웃을 제공하며, 삭제된 계획서 ID는 미지정으로 표시됩니다.
 class ProfileCellRenderer {
+  /// 미지정 선택 값 (빈 문자열)
+  static const String unassignedValue = '';
+
   static Widget build(
     DataGridRow row, {
     required List<PrintProfile> Function(String teacher)? optionsFor,
@@ -357,36 +362,44 @@ class ProfileCellRenderer {
     final options = optionsFor != null ? optionsFor(teacher) : <PrintProfile>[];
     final selectedId = selectedIdFor != null ? selectedIdFor(groupId) : null;
     final hasSelection = options.any((p) => p.id == selectedId);
+    // 드롭다운 값: 지정됨 → 프로필 ID, 미지정 → 빈 문자열
+    final currentValue = hasSelection ? selectedId : unassignedValue;
 
     return Container(
       alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: DropdownButton<String>(
-        value: hasSelection ? selectedId : null,
+        value: currentValue,
         isDense: true,
         isExpanded: true,
         underline: const SizedBox.shrink(),
-        hint: const Text(
-          '미지정',
-          style: TextStyle(fontSize: 11),
-          overflow: TextOverflow.ellipsis,
-        ),
-        items: options
-            .map(
-              (p) => DropdownMenuItem<String>(
-                value: p.id,
-                child: Text(
-                  p.name,
-                  style: const TextStyle(fontSize: 11),
-                  overflow: TextOverflow.ellipsis,
-                ),
+        items: [
+          const DropdownMenuItem<String>(
+            value: unassignedValue,
+            child: Text(
+              '미지정',
+              style: TextStyle(fontSize: 11, color: Colors.grey),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          ...options.map(
+            (p) => DropdownMenuItem<String>(
+              value: p.id,
+              child: Text(
+                p.name,
+                style: const TextStyle(fontSize: 11),
+                overflow: TextOverflow.ellipsis,
               ),
-            )
-            .toList(),
+            ),
+          ),
+        ],
         onChanged:
             groupId.isEmpty || onChanged == null
                 ? null
-                : (value) => onChanged(groupId, value),
+                : (value) => onChanged(
+                  groupId,
+                  (value == null || value == unassignedValue) ? null : value,
+                ),
       ),
     );
   }

@@ -5,14 +5,9 @@ import '../utils/logger.dart';
 /// 교체 리스트 저장 서비스
 ///
 /// 교체 리스트를 시간표별 파일(`exchange_list_{timetableId}.json`)로 저장합니다.
-/// [timetableId]를 지정하지 않으면 기존 전역 파일(`exchange_list.json`)을 사용합니다.
-///
 /// 시간표 안의 교체 목록은 모든 교사·계획서가 공유하는
 /// 누적 교체 상태(단일 진실원본)입니다.
 class ExchangeListStorageService {
-  /// 전역 파일명 (레거시 호환)
-  static const String legacyFilename = 'exchange_list.json';
-
   /// 시간표별 파일명
   static String fileNameFor(String timetableId) =>
       'exchange_list_$timetableId.json';
@@ -27,23 +22,23 @@ class ExchangeListStorageService {
 
   ExchangeListStorageService._internal();
 
-  /// 스코프에 대응하는 파일명
-  static String _resolveFilename(String? timetableId) =>
-      timetableId != null ? fileNameFor(timetableId) : legacyFilename;
-
   /// 교체 리스트 저장
   ///
   /// 매개변수:
   /// - `exchangeList`: 저장할 교체 리스트
-  /// - `timetableId`: 시간표 ID (미지정 시 레거시 전역 파일)
+  /// - `timetableId`: 시간표 ID (필수 — 없으면 저장 건너뜀)
   ///
   /// 반환값:
   /// - `Future<bool>`: 저장 성공 여부
   Future<bool> saveExchangeList(
     List<ExchangeHistoryItem> exchangeList, {
-    String? timetableId,
+    required String? timetableId,
   }) async {
-    final filename = _resolveFilename(timetableId);
+    if (timetableId == null || timetableId.isEmpty) {
+      AppLogger.warning('시간표 스코프가 없어 교체 리스트 저장을 건너뜁니다.');
+      return false;
+    }
+    final filename = fileNameFor(timetableId);
     try {
       // ExchangeHistoryItem 리스트를 JSON 배열로 변환
       final jsonArray = exchangeList.map((item) => item.toJson()).toList();
@@ -67,12 +62,18 @@ class ExchangeListStorageService {
   /// 교체 리스트 로드
   ///
   /// 매개변수:
-  /// - `timetableId`: 시간표 ID (미지정 시 레거시 전역 파일)
+  /// - `timetableId`: 시간표 ID (필수 — 없으면 빈 리스트 반환)
   ///
   /// 반환값:
   /// - `Future<List<ExchangeHistoryItem>>`: 로드된 교체 리스트 (없으면 빈 리스트)
-  Future<List<ExchangeHistoryItem>> loadExchangeList({String? timetableId}) async {
-    final filename = _resolveFilename(timetableId);
+  Future<List<ExchangeHistoryItem>> loadExchangeList({
+    required String? timetableId,
+  }) async {
+    if (timetableId == null || timetableId.isEmpty) {
+      AppLogger.warning('시간표 스코프가 없어 교체 리스트 로드를 건너뜁니다.');
+      return [];
+    }
+    final filename = fileNameFor(timetableId);
     try {
       // JSON 배열 파일 로드
       final jsonArray = await _storageService.loadJsonArray(filename);
@@ -109,12 +110,16 @@ class ExchangeListStorageService {
   /// 교체 리스트 삭제
   ///
   /// 매개변수:
-  /// - `timetableId`: 시간표 ID (미지정 시 레거시 전역 파일)
+  /// - `timetableId`: 시간표 ID (필수 — 없으면 건너뜀)
   ///
   /// 반환값:
   /// - `Future<bool>`: 삭제 성공 여부
-  Future<bool> clearExchangeList({String? timetableId}) async {
-    final filename = _resolveFilename(timetableId);
+  Future<bool> clearExchangeList({required String? timetableId}) async {
+    if (timetableId == null || timetableId.isEmpty) {
+      AppLogger.warning('시간표 스코프가 없어 교체 리스트 삭제를 건너뜁니다.');
+      return false;
+    }
+    final filename = fileNameFor(timetableId);
     try {
       final success = await _storageService.deleteFile(filename);
       if (success) {
