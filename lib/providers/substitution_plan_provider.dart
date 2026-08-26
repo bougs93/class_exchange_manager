@@ -103,7 +103,32 @@ class SubstitutionPlanNotifier extends StateNotifier<SubstitutionPlanState> {
   final SubstitutionPlanStorageService _storageService =
       SubstitutionPlanStorageService();
 
+  /// 현재 스코프 시간표 ID
+  ///
+  /// null이면 레거시 전역 파일을 사용합니다.
+  /// 활성 시간표 전환 시 레지스트리 Provider에서 설정하고 재로드합니다.
+  String? _timetableId;
+
   SubstitutionPlanNotifier() : super(const SubstitutionPlanState());
+
+  /// 스코프 시간표 설정 후 데이터 재로드
+  Future<void> setTimetableScope(String? timetableId) async {
+    _timetableId = timetableId;
+    await loadFromStorage();
+  }
+
+  /// 스코프 시간표만 설정 (재로드 없음 — 앱 시작 시 화면 로드 흐름이 사용)
+  void setTimetableScopeWithoutReload(String? timetableId) {
+    _timetableId = timetableId;
+  }
+
+  /// 메모리 상태만 초기화 (파일은 건드리지 않음)
+  ///
+  /// 활성 시간표가 모두 삭제된 경우 레거시 파일의 고스트 데이터가
+  /// 로드되지 않도록 스코프 해제와 함께 사용합니다.
+  void clearInMemory() {
+    state = const SubstitutionPlanState();
+  }
 
   /// 날짜 정보 저장 (자동 저장 포함)
   void saveDate(String exchangeId, String columnName, String date) {
@@ -210,7 +235,10 @@ class SubstitutionPlanNotifier extends StateNotifier<SubstitutionPlanState> {
     // 비동기로 실행하여 UI 블로킹 방지
     Future.microtask(() async {
       try {
-        await _storageService.saveSubstitutionPlanData(state);
+        await _storageService.saveSubstitutionPlanData(
+          state,
+          timetableId: _timetableId,
+        );
       } catch (e) {
         AppLogger.error('결보강 계획서 날짜 정보 자동 저장 실패: $e', e);
       }
@@ -222,7 +250,9 @@ class SubstitutionPlanNotifier extends StateNotifier<SubstitutionPlanState> {
   /// 프로그램 시작 시 호출되어 저장된 날짜 정보를 복원합니다.
   Future<void> loadFromStorage() async {
     try {
-      final loadedState = await _storageService.loadSubstitutionPlanData();
+      final loadedState = await _storageService.loadSubstitutionPlanData(
+        timetableId: _timetableId,
+      );
       if (loadedState != null) {
         state = loadedState;
         AppLogger.info(

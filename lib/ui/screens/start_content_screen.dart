@@ -3,19 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../providers/personal_schedule_provider.dart';
-import '../../providers/state_reset_provider.dart';
-import '../../models/exchange_mode.dart';
 import '../../services/app_settings_storage_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/logger.dart';
-import 'exchange_screen/exchange_screen_state_proxy.dart';
-import 'exchange_screen/managers/exchange_operation_manager.dart';
 import '../widgets/app_branding_header.dart';
 import '../widgets/app_content_card.dart';
 import '../widgets/selected_timetable_file_banner.dart';
 import 'start_content/start_settings_card.dart';
 import 'start_content/setting_save_mixin.dart';
 import 'handlers/exchange_ui_builder.dart';
+import 'timetable_file_screen.dart';
+import '../../providers/timetable_registry_provider.dart';
 
 /// 시작 화면 콘텐츠
 ///
@@ -31,10 +29,6 @@ class StartContentScreen extends ConsumerStatefulWidget {
 
 class _StartContentScreenState extends ConsumerState<StartContentScreen>
     with SettingSaveMixin, ExchangeUIBuilder {
-  // 엑셀 파일 선택 관련 상태 관리
-  ExchangeScreenStateProxy? _stateProxy;
-  ExchangeOperationManager? _operationManager;
-
   // 교사명, 학교명 입력 필드
   final TextEditingController _teacherNameController = TextEditingController();
   final TextEditingController _schoolNameController = TextEditingController();
@@ -49,7 +43,6 @@ class _StartContentScreenState extends ConsumerState<StartContentScreen>
     _teacherNameController.addListener(_onBasicInfoControllersChanged);
     _schoolNameController.addListener(_onBasicInfoControllersChanged);
 
-    // StateProxy 초기화는 build에서 ref를 사용할 수 있으므로 나중에 수행
     _loadSettings();
   }
 
@@ -128,101 +121,19 @@ class _StartContentScreenState extends ConsumerState<StartContentScreen>
     }
   }
 
-  /// StateProxy와 OperationManager 초기화
-  void _initializeManagers() {
-    if (_stateProxy == null) {
-      _stateProxy = ExchangeScreenStateProxy(ref);
-
-      _operationManager = ExchangeOperationManager(
-        context: context,
-        ref: ref,
-        stateProxy: _stateProxy!,
-        onCreateSyncfusionGridData: () {
-          if (mounted) setState(() {});
-        },
-        onClearAllExchangeStates: () {
-          if (mounted) setState(() {});
-        },
-        onRefreshHeaderTheme: () {
-          if (mounted) setState(() {});
-        },
-      );
-    }
-  }
-
-  /// 엑셀 파일 선택 메서드
-  Future<void> _selectExcelFile() async {
-    _initializeManagers();
-
-    if (_operationManager != null) {
-      // 파일 선택 시도
-      bool fileSelected = await _operationManager!.selectExcelFile();
-
-      // 파일 선택이 성공한 경우에만 초기화 수행
-      if (fileSelected) {
-        // 파일 선택 후 보기 모드로 전환
-        final globalNotifier = ref.read(exchangeScreenProvider.notifier);
-        globalNotifier.setCurrentMode(ExchangeMode.view);
-
-        // 파일 선택 후 Level 3 초기화
-        ref
-            .read(stateResetProvider.notifier)
-            .resetAllStates(reason: '파일 선택 후 전체 상태 초기화');
-
-        if (mounted) {
-          setState(() {});
-        }
-      }
-      // 파일 선택이 취소된 경우 아무 동작하지 않음
-    }
-  }
-
   /// 파일 로드 오류 메시지 닫기
   void _clearFileError() {
     ref.read(exchangeScreenProvider.notifier).setErrorMessage(null);
   }
 
-  /// 엑셀 파일 선택 해제 메서드 (확인 다이얼로그 포함)
-  Future<void> _clearSelectedFile() async {
-    // 확인 다이얼로그 표시
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: Row(
-            children: [
-              Icon(
-                Icons.warning_amber_rounded,
-                color: Colors.orange.shade700,
-                size: 28,
-              ),
-              const SizedBox(width: 12),
-              const Expanded(child: Text('파일 선택 해제')),
-            ],
-          ),
-          content: const Text(
-            '선택된 시간표 파일을 해제하시겠습니까?\n해제하면 현재 로드된 시간표 정보가 삭제됩니다.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('취소'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('해제'),
-            ),
-          ],
-        );
-      },
-    );
-
-    // 확인 버튼을 눌렀을 때만 파일 해제
-    if (confirm == true && mounted) {
-      _initializeManagers();
-      _operationManager?.clearSelectedFile();
-      if (mounted) setState(() {});
+  /// 엑셀 파일 선택 → 시간표 관리 화면으로 연결
+  ///
+  /// 시간표 추가/전환은 레지스트리 스코프가 적용된 관리 화면에서만 수행합니다.
+  /// (홈에서 직접 로드하면 활성 시간표 스코프와 불일치가 발생하므로 우회를 막음)
+  Future<void> _selectExcelFile() async {
+    await _openTimetableManager();
+    if (mounted) {
+      setState(() {}); // 복귀 시 배너·파일 정보 갱신
     }
   }
 
@@ -279,6 +190,50 @@ class _StartContentScreenState extends ConsumerState<StartContentScreen>
     );
   }
 
+  /// 활성 시간표(학기) 배너 + 시간표 관리 화면 진입 버튼
+  Widget _buildActiveTimetableBanner() {
+    final tokens = context.tokens;
+    final activeEntry = ref.watch(activeTimetableEntryProvider);
+    final name = activeEntry?.name;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Icon(
+            Icons.table_chart_outlined,
+            size: 18,
+            color: name != null ? tokens.primary : tokens.textMuted,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              name != null ? '현재 시간표: $name' : '등록된 시간표가 없습니다',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: name != null ? tokens.primary : tokens.textMuted,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          TextButton(
+            onPressed: _openTimetableManager,
+            child: const Text('변경 >'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 시간표 관리 화면 열기
+  Future<void> _openTimetableManager() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const TimetableFileScreen()),
+    );
+  }
+
   /// 시간표 파일 선택 카드
   Widget _buildFileSelectionCard(
     ThemeData theme,
@@ -296,6 +251,9 @@ class _StartContentScreenState extends ConsumerState<StartContentScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 활성 시간표(학기) 배너 + 시간표 관리 진입
+          _buildActiveTimetableBanner(),
+
           // 교체 화면과 동일한 파란색 파일 배너 (엑셀 파일명 표시)
           SelectedTimetableFileBanner(
             selectedFile: showFileBanner ? selectedFile : null,
@@ -306,7 +264,7 @@ class _StartContentScreenState extends ConsumerState<StartContentScreen>
           const SizedBox(height: 16),
           Row(
             children: [
-              // 파일 선택/변경 버튼
+              // 시간표 관리(추가·전환) 버튼 — 레지스트리 스코프가 적용된 관리 화면으로 연결
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: isLoading ? null : _selectExcelFile,
@@ -324,11 +282,11 @@ class _StartContentScreenState extends ConsumerState<StartContentScreen>
                           )
                           : Icon(
                             hasLoadedTimetable
-                                ? Icons.refresh
+                                ? Icons.swap_horiz
                                 : Icons.upload_file,
                           ),
                   label: Text(
-                    hasLoadedTimetable ? '다른 파일 선택' : '시간표 파일 선택',
+                    hasLoadedTimetable ? '시간표 변경/추가' : '시간표 파일 선택',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -344,37 +302,6 @@ class _StartContentScreenState extends ConsumerState<StartContentScreen>
                   ),
                 ),
               ),
-
-              // 파일 해제 버튼 (시간표가 로드된 경우 표시)
-              if (hasLoadedTimetable) ...[
-                const SizedBox(width: 12),
-                OutlinedButton.icon(
-                  onPressed: isLoading ? null : _clearSelectedFile,
-                  icon:
-                      isLoading
-                          ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                          : const Icon(Icons.delete_outline),
-                  label: const Text(
-                    '해제',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red,
-                    side: const BorderSide(color: Colors.red, width: 1.5),
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 12,
-                      horizontal: 16,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ],
             ],
           ),
 

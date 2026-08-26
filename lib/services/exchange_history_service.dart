@@ -40,6 +40,12 @@ class ExchangeHistoryService {
   // 이 값이 변경되면 교체 리스트가 변경된 것으로 간주합니다.
   int _exchangeListVersion = 0;
 
+  /// 현재 스코프 시간표 ID
+  ///
+  /// null이면 레거시 전역 파일(`exchange_list.json`)을 사용합니다.
+  /// 활성 시간표 전환 시 Provider 계층에서 설정하고 재로드합니다.
+  String? timetableId;
+
   // 버전 변경 콜백 (외부에서 설정하여 버전 변경 시 알림을 받을 수 있음)
   void Function()? _onVersionChanged;
 
@@ -355,7 +361,10 @@ class ExchangeHistoryService {
   void _saveToLocalStorage(ExchangeHistoryItem item) async {
     try {
       // 전체 교체 리스트를 저장
-      await _storageService.saveExchangeList(_exchangeList);
+      await _storageService.saveExchangeList(
+        _exchangeList,
+        timetableId: timetableId,
+      );
     } catch (e) {
       AppLogger.error('교체 항목 저장 실패: $e', e);
     }
@@ -367,7 +376,10 @@ class ExchangeHistoryService {
   void _removeFromLocalStorage(String itemId) async {
     try {
       // 전체 교체 리스트를 저장
-      await _storageService.saveExchangeList(_exchangeList);
+      await _storageService.saveExchangeList(
+        _exchangeList,
+        timetableId: timetableId,
+      );
     } catch (e) {
       AppLogger.error('교체 항목 삭제 저장 실패: $e', e);
     }
@@ -379,7 +391,10 @@ class ExchangeHistoryService {
   void _updateInLocalStorage(ExchangeHistoryItem item) async {
     try {
       // 전체 교체 리스트를 저장
-      await _storageService.saveExchangeList(_exchangeList);
+      await _storageService.saveExchangeList(
+        _exchangeList,
+        timetableId: timetableId,
+      );
     } catch (e) {
       AppLogger.error('교체 항목 업데이트 저장 실패: $e', e);
     }
@@ -388,18 +403,57 @@ class ExchangeHistoryService {
   /// 로컬 저장소에서 교체 리스트 전체 삭제
   void _clearLocalStorage() async {
     try {
-      await _storageService.clearExchangeList();
+      await _storageService.clearExchangeList(timetableId: timetableId);
     } catch (e) {
       AppLogger.error('교체 리스트 삭제 실패: $e', e);
     }
   }
 
+  /// 교체 건에 인쇄 프로파일(계획서) 지정
+  ///
+  /// 메모리 항목을 갱신하고 로컬 저장소에 즉시 반영합니다.
+  /// [profileId]가 null이면 미지정(기본 계획서 사용)으로 해제합니다.
+  void assignProfile(String itemId, String? profileId) {
+    final index = _exchangeList.indexWhere((item) => item.id == itemId);
+    if (index == -1) {
+      AppLogger.warning('프로파일 지정 대상 교체 건을 찾을 수 없음: $itemId');
+      return;
+    }
+
+    _exchangeList[index] = _exchangeList[index].copyWithProfileId(profileId);
+    _exchangeListVersion++;
+    _notifyVersionChanged();
+    _saveToLocalStorage(_exchangeList[index]);
+    AppLogger.info('교체 건 프로파일 지정: $itemId → $profileId');
+  }
+
+  /// 메모리 상태만 초기화 (파일은 건드리지 않음)
+  ///
+  /// 활성 시간표가 모두 삭제된 경우 레거시 파일의 고스트 데이터가
+  /// 로드되지 않도록 스코프 해제와 함께 사용합니다.
+  void resetInMemoryState() {
+    _exchangeList.clear();
+    _undoStack.clear();
+    _redoStack.clear();
+    _exchangeListVersion++;
+    _notifyVersionChanged();
+    AppLogger.info('교체 리스트 메모리 상태 초기화 (파일 미변경)');
+  }
+
   /// 로컬 저장소에서 교체 리스트 로드
   ///
   /// 프로그램 시작 시 호출되어 저장된 교체 리스트를 메모리로 로드합니다.
+  /// 시간표 스코프 전환 시에도 호출되므로, 되돌리기/다시실행 스택도 함께
+  /// 초기화합니다 (다른 시간표의 셀을 되돌리는 사고 방지).
   Future<void> loadFromLocalStorage() async {
     try {
-      final loadedList = await _storageService.loadExchangeList();
+      // 스코프 전환 대비: 이전 시간표의 undo/redo 스택 초기화
+      _undoStack.clear();
+      _redoStack.clear();
+
+      final loadedList = await _storageService.loadExchangeList(
+        timetableId: timetableId,
+      );
 
       // 메모리 교체 리스트를 로드된 데이터로 교체
       _exchangeList.clear();

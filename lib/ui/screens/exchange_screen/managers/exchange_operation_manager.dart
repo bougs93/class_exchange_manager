@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:excel/excel.dart' hide Border;
 import '../../../../services/excel_service.dart';
 import '../../../../services/exchange_history_service.dart';
+import '../../../../services/timetable_registry_service.dart';
 import '../../../../services/timetable_storage_service.dart';
 import '../../../../utils/logger.dart';
 import '../../../../utils/non_exchangeable_manager.dart';
@@ -206,13 +207,32 @@ class ExchangeOperationManager {
 
   /// 파일 변경 감지 및 사용자 확인 처리
   ///
+  /// 활성 시간표와 동일한 파일 경로에서 내용이 변경된 경우에만 초기화를 확인합니다.
+  /// 다른 파일을 선택한 경우(새 시간표 추가 흐름) 활성 시간표의 데이터를 건드리지 않습니다.
+  ///
   /// 반환값: 계속 진행 여부 (true: 계속, false: 중단)
   Future<bool> _handleFileModification() async {
     final selectedFile = stateProxy.selectedFile;
     if (selectedFile == null) return true; // Web 플랫폼
 
-    final filePath = selectedFile.path;
-    final isModified = await _timetableStorageService.isFileModified(filePath);
+    // 활성 시간표 확인 (레지스트리)
+    final activeEntry = await TimetableRegistryService()
+        .loadRegistry()
+        .then((registry) => registry.activeEntry);
+
+    // 활성 시간표가 없거나 다른 파일이면: 새 시간표 추가 흐름 → 초기화 확인 불필요
+    if (activeEntry == null || activeEntry.filePath != selectedFile.path) {
+      return true;
+    }
+
+    // 동일 파일: 내용 해시를 레지스트리 항목과 직접 비교
+    final currentHash = await _timetableStorageService.calculateContentHash(
+      selectedFile.path,
+    );
+    final isModified =
+        currentHash != null &&
+        activeEntry.contentHash.isNotEmpty &&
+        currentHash != activeEntry.contentHash;
 
     if (!isModified) return true; // 변경되지 않음
 

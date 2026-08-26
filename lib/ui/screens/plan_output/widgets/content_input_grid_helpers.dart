@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:flutter/material.dart';
+import '../../../../models/print_profile.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../../theme/design_tokens.dart';
 import '../../../../utils/logger.dart';
@@ -55,6 +56,16 @@ class ContentInputGridConfig {
   /// 컬럼 정의
   static List<GridColumn> getColumns(DesignTokens tokens) {
     return [
+      GridColumn(
+        columnName: 'select',
+        label: _buildHeaderLabel('선택', tokens),
+        width: 40,
+      ),
+      GridColumn(
+        columnName: 'profile',
+        label: _buildHeaderLabel('계획서', tokens),
+        width: 95,
+      ),
       GridColumn(
         columnName: 'absenceDate',
         label: _buildHeaderLabel('결강일', tokens),
@@ -139,6 +150,8 @@ class ContentInputGridConfig {
     return [
       StackedHeaderRow(
         cells: [
+          _buildMergedColumnStackedHeaderCell('select', '선택', tokens),
+          _buildMergedColumnStackedHeaderCell('profile', '계획서', tokens),
           _buildStackedHeaderCell(
             [
               'absenceDate',
@@ -276,8 +289,24 @@ class CellRendererFactory {
     DataGridRow row, {
     Function(String, String)? onDateCellTap,
     Function(String)? onSupplementSubjectTap,
+    bool Function(String groupId)? isSelected,
+    ValueChanged<String>? onToggleSelect,
+    List<PrintProfile> Function(String teacher)? profileOptions,
+    String? Function(String groupId)? selectedProfileId,
+    Function(String groupId, String? profileId)? onProfileChanged,
   }) {
     return switch (cell.columnName) {
+      'select' => SelectCellRenderer.build(
+        row,
+        isSelected: isSelected,
+        onToggle: onToggleSelect,
+      ),
+      'profile' => ProfileCellRenderer.build(
+        row,
+        optionsFor: profileOptions,
+        selectedIdFor: selectedProfileId,
+        onChanged: onProfileChanged,
+      ),
       'absenceDate' ||
       'substitutionDate' => DateCellRenderer.build(cell, row, onDateCellTap),
       'supplementSubject' => SupplementSubjectCellRenderer.build(
@@ -287,6 +316,79 @@ class CellRendererFactory {
       ),
       _ => NormalCellRenderer.build(cell),
     };
+  }
+}
+
+/// 선택(체크박스) 셀 렌더러 — 상태는 그룹(교체 건) 단위로 공유
+class SelectCellRenderer {
+  static Widget build(
+    DataGridRow row, {
+    required bool Function(String groupId)? isSelected,
+    required ValueChanged<String>? onToggle,
+  }) {
+    final groupId = row.extractCellValue('_groupId');
+    return Center(
+      child: SizedBox(
+        width: 26,
+        height: 26,
+        child: Checkbox(
+          value: isSelected != null && groupId.isNotEmpty && isSelected(groupId),
+          onChanged: (groupId.isEmpty || onToggle == null)
+              ? null
+              : (_) => onToggle(groupId),
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: VisualDensity.compact,
+        ),
+      ),
+    );
+  }
+}
+
+/// 계획서(인쇄 프로파일) 지정 셀 렌더러 — 해당 행 교사의 계획서만 표시
+class ProfileCellRenderer {
+  static Widget build(
+    DataGridRow row, {
+    required List<PrintProfile> Function(String teacher)? optionsFor,
+    required String? Function(String groupId)? selectedIdFor,
+    required Function(String groupId, String? profileId)? onChanged,
+  }) {
+    final groupId = row.extractCellValue('_groupId');
+    final teacher = row.extractCellValue('teacher');
+    final options = optionsFor != null ? optionsFor(teacher) : <PrintProfile>[];
+    final selectedId = selectedIdFor != null ? selectedIdFor(groupId) : null;
+    final hasSelection = options.any((p) => p.id == selectedId);
+
+    return Container(
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: DropdownButton<String>(
+        value: hasSelection ? selectedId : null,
+        isDense: true,
+        isExpanded: true,
+        underline: const SizedBox.shrink(),
+        hint: const Text(
+          '미지정',
+          style: TextStyle(fontSize: 11),
+          overflow: TextOverflow.ellipsis,
+        ),
+        items: options
+            .map(
+              (p) => DropdownMenuItem<String>(
+                value: p.id,
+                child: Text(
+                  p.name,
+                  style: const TextStyle(fontSize: 11),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            )
+            .toList(),
+        onChanged:
+            groupId.isEmpty || onChanged == null
+                ? null
+                : (value) => onChanged(groupId, value),
+      ),
+    );
   }
 }
 

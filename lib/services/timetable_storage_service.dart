@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'storage_service.dart';
 import 'excel_service.dart';
+import 'timetable_registry_service.dart';
 import '../utils/logger.dart';
 
 /// 시간표 저장 서비스 설정값
@@ -165,14 +166,15 @@ class TimetableStorageService {
   /// 시간표 데이터 로드
   ///
   /// 저장된 시간표 데이터를 로드합니다.
-  /// 메타데이터에서 해시값을 찾아 해당 파일을 로드합니다.
+  /// [timetableId]를 지정하면 레지스트리의 해당 항목을 사용하고,
+  /// 미지정 시 기존 단일 메타데이터 파일을 사용합니다.
   ///
   /// 반환값:
   /// - `Future<TimetableData?>`: 로드된 시간표 데이터 (없으면 null)
-  Future<TimetableData?> loadTimetableData() async {
+  Future<TimetableData?> loadTimetableData({String? timetableId}) async {
     try {
       // 메타데이터에서 해시값 찾기
-      final metadata = await _loadFileMetadata();
+      final metadata = await _resolveMetadata(timetableId: timetableId);
       if (metadata == null) {
         AppLogger.info('시간표 메타데이터가 없습니다.');
         return null;
@@ -257,6 +259,35 @@ class TimetableStorageService {
     }
   }
 
+  /// 스코프에 대응하는 메타데이터 해석
+  ///
+  /// [timetableId]가 지정되면 레지스트리 항목에서 메타데이터를 구성하고,
+  /// 미지정이면 기존 단일 메타데이터 파일을 반환합니다.
+  Future<Map<String, dynamic>?> _resolveMetadata({String? timetableId}) async {
+    if (timetableId == null) {
+      return _loadFileMetadata();
+    }
+
+    try {
+      final entry = await TimetableRegistryService()
+          .loadRegistry()
+          .then((registry) => registry.getById(timetableId));
+      if (entry == null) {
+        AppLogger.warning('레지스트리에 없는 시간표 ID: $timetableId');
+        return null;
+      }
+      return {
+        'filePath': entry.filePath,
+        'fileName': entry.fileName,
+        'hash': entry.hash,
+        'contentHash': entry.contentHash,
+      };
+    } catch (e) {
+      AppLogger.error('레지스트리 메타데이터 해석 실패: $e', e);
+      return null;
+    }
+  }
+
   /// 파일 메타데이터 가져오기 (public)
   ///
   /// 다른 서비스에서 해시값을 가져올 때 사용합니다.
@@ -331,11 +362,14 @@ class TimetableStorageService {
 
   /// 저장된 파일명 가져오기
   ///
+  /// 매개변수:
+  /// - `timetableId`: 시간표 ID (미지정 시 레거시 메타데이터)
+  ///
   /// 반환값:
   /// - `Future<String?>`: 저장된 파일명 (없으면 null)
-  Future<String?> getSavedFileName() async {
+  Future<String?> getSavedFileName({String? timetableId}) async {
     try {
-      final metadata = await _loadFileMetadata();
+      final metadata = await _resolveMetadata(timetableId: timetableId);
       return metadata?['fileName'] as String?;
     } catch (e) {
       AppLogger.error('저장된 파일명 가져오기 실패: $e', e);
@@ -345,11 +379,14 @@ class TimetableStorageService {
 
   /// 저장된 파일 경로 가져오기
   ///
+  /// 매개변수:
+  /// - `timetableId`: 시간표 ID (미지정 시 레거시 메타데이터)
+  ///
   /// 반환값:
   /// - `Future<String?>`: 저장된 파일 경로 (없으면 null)
-  Future<String?> getSavedFilePath() async {
+  Future<String?> getSavedFilePath({String? timetableId}) async {
     try {
-      final metadata = await _loadFileMetadata();
+      final metadata = await _resolveMetadata(timetableId: timetableId);
       return metadata?['filePath'] as String?;
     } catch (e) {
       AppLogger.error('저장된 파일 경로 가져오기 실패: $e', e);

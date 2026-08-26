@@ -3,10 +3,11 @@ import 'dart:convert';
 import 'package:path_provider/path_provider.dart';
 import '../constants/storage_config.dart';
 import '../utils/logger.dart';
+import 'json_storage.dart';
 
 /// 기본 저장소 서비스 클래스
 /// JSON 파일 읽기/쓰기 유틸리티를 제공합니다.
-class StorageService {
+class StorageService implements JsonStorage {
   // 싱글톤 인스턴스
   static final StorageService _instance = StorageService._internal();
 
@@ -173,6 +174,7 @@ class StorageService {
   ///
   /// 예외:
   /// - 저장 실패 시 예외를 throw하지 않고 false를 반환합니다.
+  @override
   Future<bool> saveJson(String filename, dynamic data) async {
     try {
       final filePath = await _getFilePath(filename);
@@ -202,6 +204,7 @@ class StorageService {
   ///
   /// 예외:
   /// - 파일이 없거나 읽기 실패 시 null을 반환합니다.
+  @override
   Future<Map<String, dynamic>?> loadJson(String filename) async {
     try {
       final filePath = await _getFilePath(filename);
@@ -237,6 +240,7 @@ class StorageService {
   ///
   /// 예외:
   /// - 파일이 없거나 읽기 실패 시 null을 반환합니다.
+  @override
   Future<List<dynamic>?> loadJsonArray(String filename) async {
     try {
       final filePath = await _getFilePath(filename);
@@ -269,6 +273,7 @@ class StorageService {
   ///
   /// 반환값:
   /// - `Future<bool>`: 파일 존재 여부
+  @override
   Future<bool> fileExists(String filename) async {
     try {
       final filePath = await _getFilePath(filename);
@@ -287,6 +292,7 @@ class StorageService {
   ///
   /// 반환값:
   /// - `Future<bool>`: 삭제 성공 여부
+  @override
   Future<bool> deleteFile(String filename) async {
     try {
       final filePath = await _getFilePath(filename);
@@ -309,6 +315,7 @@ class StorageService {
   ///
   /// 반환값:
   /// - `Future<List<String>>`: 파일명 목록
+  @override
   Future<List<String>> listJsonFiles() async {
     try {
       final directory = await _getAppDataDirectory();

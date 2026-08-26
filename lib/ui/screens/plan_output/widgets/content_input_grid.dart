@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import 'package:calendar_date_picker2/calendar_date_picker2.dart';
 import 'package:flutter/services.dart';
 import '../../../../constants/screen_usage_hints.dart';
 import '../../../../models/plan_output_menu.dart';
+import '../../../../models/print_profile.dart';
+import '../../../../providers/print_profile_provider.dart';
 import '../../../../providers/substitution_plan_provider.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../../providers/exchange_screen_provider.dart';
 import '../../../../providers/services_provider.dart';
 import '../../../../providers/state_reset_provider.dart';
+import '../../../../services/batch_pdf_export_service.dart';
 import '../../../../theme/design_tokens.dart';
 import '../../../../ui/widgets/content_toolbar_layout.dart';
 import '../../../../ui/widgets/content_usage_hint_bar.dart';
@@ -29,10 +33,30 @@ class SubstitutionPlanDataSource extends DataGridSource {
   final Function(String, String)? onDateCellTap;
   final Function(String)? onSupplementSubjectTap;
 
+  /// 그룹(교체 건) 선택 상태 조회
+  final bool Function(String groupId)? isSelected;
+
+  /// 그룹 선택 토글
+  final ValueChanged<String>? onToggleSelect;
+
+  /// 행 교사의 계획서 목록 조회
+  final List<PrintProfile> Function(String teacher)? profileOptions;
+
+  /// 그룹의 지정 계획서 ID 조회
+  final String? Function(String groupId)? selectedProfileId;
+
+  /// 계획서 지정 변경
+  final Function(String groupId, String? profileId)? onProfileChanged;
+
   SubstitutionPlanDataSource(
     this.planData, {
     this.onDateCellTap,
     this.onSupplementSubjectTap,
+    this.isSelected,
+    this.onToggleSelect,
+    this.profileOptions,
+    this.selectedProfileId,
+    this.onProfileChanged,
   });
 
   @override
@@ -44,6 +68,11 @@ class SubstitutionPlanDataSource extends DataGridSource {
             DataGridCell<String>(
               columnName: '_exchangeId',
               value: data.exchangeId,
+            ),
+            // groupId (교체 건 ID) 숨김 컬럼 — 선택·계획서 지정은 그룹 단위
+            DataGridCell<String>(
+              columnName: '_groupId',
+              value: data.groupId ?? '',
             ),
             DataGridCell<String>(
               columnName: 'absenceDate',
@@ -96,11 +125,43 @@ class SubstitutionPlanDataSource extends DataGridSource {
 
   @override
   DataGridRowAdapter buildRow(DataGridRow row) {
-    // exchangeId 컬럼을 제외한 나머지 셀들만 렌더링
+    // select·profile 컬럼은 그룹(교체 건) 단위 상태를 공유하는 위젯 셀
+    final selectCell = CellRendererFactory.build(
+      row.getCells().firstWhere(
+        (c) => c.columnName == 'select',
+        orElse: () => const DataGridCell<String>(columnName: 'select', value: ''),
+      ),
+      row,
+      isSelected: isSelected,
+      onToggleSelect: onToggleSelect,
+      profileOptions: profileOptions,
+      selectedProfileId: selectedProfileId,
+      onProfileChanged: onProfileChanged,
+    );
+    final profileCell = CellRendererFactory.build(
+      row.getCells().firstWhere(
+        (c) => c.columnName == 'profile',
+        orElse: () => const DataGridCell<String>(columnName: 'profile', value: ''),
+      ),
+      row,
+      isSelected: isSelected,
+      onToggleSelect: onToggleSelect,
+      profileOptions: profileOptions,
+      selectedProfileId: selectedProfileId,
+      onProfileChanged: onProfileChanged,
+    );
+
+    // exchangeId·groupId 컬럼을 제외한 나머지 셀들만 렌더링
     final cells =
         row
             .getCells()
-            .where((cell) => cell.columnName != '_exchangeId')
+            .where(
+              (cell) =>
+                  cell.columnName != '_exchangeId' &&
+                  cell.columnName != '_groupId' &&
+                  cell.columnName != 'select' &&
+                  cell.columnName != 'profile',
+            )
             .map<Widget>((cell) {
               return CellRendererFactory.build(
                 cell,
@@ -111,7 +172,7 @@ class SubstitutionPlanDataSource extends DataGridSource {
             })
             .toList();
 
-    return DataGridRowAdapter(cells: cells);
+    return DataGridRowAdapter(cells: [selectCell, profileCell, ...cells]);
   }
 }
 
@@ -125,6 +186,9 @@ class ContentInputGrid extends ConsumerStatefulWidget {
 
 class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     with ScrollManagementMixin {
+  /// 일괄 출력 선택 상태 (그룹 = 교체 건 ID 기준)
+  final Set<String> _checkedGroupIds = {};
+
   @override
   void initState() {
     super.initState();
@@ -137,6 +201,170 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     // 공통 스크롤 관리 믹신 해제
     disposeScrollControllers();
     super.dispose();
+  }
+
+  /// 그룹(교체 건)의 지정 계획서 ID 조회 (삭제된 계획서면 null → 미지정)
+  String? _selectedProfileIdForGroup(String groupId) {
+    final item = ref
+        .read(exchangeHistoryServiceProvider)
+        .getExchangeList()
+        .where((h) => h.id == groupId)
+        .firstOrNull;
+    if (item == null) return null;
+    final store = ref.read(printProfileStoreProvider);
+    return store.getById(item.profileId)?.id;
+  }
+
+  /// 행 교사의 계획서 목록
+  List<PrintProfile> _profileOptionsForTeacher(String teacher) {
+    return ref.read(printProfileStoreProvider).byTeacher(teacher);
+  }
+
+  /// 그룹 선택 토글
+  void _toggleGroupSelection(String groupId) {
+    setState(() {
+      if (_checkedGroupIds.contains(groupId)) {
+        _checkedGroupIds.remove(groupId);
+      } else {
+        _checkedGroupIds.add(groupId);
+      }
+    });
+  }
+
+  /// 전체 선택/해제 토글
+  void _toggleSelectAll(List<SubstitutionPlanData> planData) {
+    final allGroupIds = planData
+        .map((d) => d.groupId)
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toSet();
+
+    setState(() {
+      if (_checkedGroupIds.containsAll(allGroupIds) && allGroupIds.isNotEmpty) {
+        _checkedGroupIds.clear();
+      } else {
+        _checkedGroupIds.addAll(allGroupIds);
+      }
+    });
+  }
+
+  /// 계획서 지정 변경 → 교체 건에 즉시 저장
+  void _onGroupProfileChanged(String groupId, String? profileId) {
+    ref.read(exchangeHistoryServiceProvider).assignProfile(groupId, profileId);
+    if (mounted) setState(() {});
+  }
+
+  /// 선택 건 일괄 출력
+  Future<void> _batchPrint(
+    BuildContext context,
+    WidgetRef ref,
+    List<SubstitutionPlanData> planData,
+  ) async {
+    if (_checkedGroupIds.isEmpty) {
+      SnackBarHelper.showError(context, '출력할 교체 건을 선택하세요.');
+      return;
+    }
+
+    // 1. 요청 구성 (그룹별 행 수집 + 지정 계획서 조회)
+    final history = ref.read(exchangeHistoryServiceProvider).getExchangeList();
+    final store = ref.read(printProfileStoreProvider);
+    final items = <BatchExportItem>[];
+
+    for (final groupId in _checkedGroupIds) {
+      final rows = planData.where((d) => d.groupId == groupId).toList();
+      if (rows.isEmpty) continue;
+
+      final exchangeItem = history
+          .where((h) => h.id == groupId)
+          .firstOrNull;
+      final profile = store.getById(exchangeItem?.profileId);
+
+      items.add(
+        BatchExportItem(itemId: groupId, rows: rows, profile: profile),
+      );
+    }
+
+    if (items.isEmpty) {
+      SnackBarHelper.showError(context, '출력 가능한 교체 건이 없습니다.');
+      return;
+    }
+
+    // 2. 저장 폴더 선택 (1회)
+    final directory = await FilePicker.getDirectoryPath(
+      dialogTitle: 'PDF 저장 폴더 선택',
+    );
+    if (directory == null || !context.mounted) return;
+
+    // 3. 일괄 출력 실행
+    SnackBarHelper.showSuccess(context, '${items.length}건 출력 중...');
+
+    final result = await BatchPdfExportService().exportAll(
+      items: items,
+      outputDirectory: directory,
+    );
+
+    if (!context.mounted) return;
+
+    // 4. 결과 다이얼로그
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('일괄 출력 완료'),
+          content: SizedBox(
+            width: 360,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  result.allSucceeded
+                      ? '${result.successCount}/${result.totalCount}건 출력 성공'
+                      : '${result.successCount}/${result.totalCount}건 성공, ${result.errors.length}건 실패',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: result.allSucceeded ? Colors.green : Colors.orange,
+                  ),
+                ),
+                if (result.errors.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  const Text('실패 내역:', style: TextStyle(fontSize: 13)),
+                  const SizedBox(height: 4),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: result.errors
+                            .map(
+                              (e) => Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Text(
+                                  e,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.red,
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('확인'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -163,7 +391,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
                     : PlanOutputMenu.contentInput.color,
           ),
           ContentToolbarLayout.hintToToolbarSpacer,
-          _buildActionButtons(context, ref, viewModel),
+          _buildActionButtons(context, ref, viewModel, planData),
           const SizedBox(height: 10),
           _buildDataGrid(context, ref, planData, isLoading, viewModel),
         ],
@@ -175,6 +403,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     BuildContext context,
     WidgetRef ref,
     SubstitutionPlanViewModel viewModel,
+    List<SubstitutionPlanData> planData,
   ) {
     const buttonHeight = ContentToolbarLayout.buttonHeight;
     final tokens = context.tokens;
@@ -208,6 +437,23 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
                   borderColor: ContentToolbarLayout.neutralButtonBorder(tokens),
                   iconSize: ContentToolbarLayout.buttonIconSize,
                   size: buttonHeight,
+                ),
+                const SizedBox(width: ContentToolbarLayout.buttonGap),
+                CompactToolbarLabelButton(
+                  onPressed: () => _toggleSelectAll(planData),
+                  icon: Icons.checklist,
+                  label: _checkedGroupIds.isNotEmpty ? '선택 해제' : '전체선택',
+                  tooltip: '일괄 출력 대상 전체 선택/해제',
+                  backgroundColor: ContentToolbarLayout.neutralButtonBackground(
+                    tokens,
+                  ),
+                  foregroundColor: ContentToolbarLayout.neutralButtonForeground(
+                    tokens,
+                  ),
+                  borderColor: ContentToolbarLayout.neutralButtonBorder(tokens),
+                  height: buttonHeight,
+                  fontSize: ContentToolbarLayout.buttonFontSize,
+                  iconSize: ContentToolbarLayout.buttonIconSize,
                 ),
                 const SizedBox(width: ContentToolbarLayout.buttonGap),
                 CompactToolbarLabelButton(
@@ -248,7 +494,23 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
           ),
         ),
         const SizedBox(width: ContentToolbarLayout.buttonGap),
-        // 오른쪽: 엑셀서식 복사
+        // 오른쪽: 일괄 출력 + 엑셀서식 복사
+        CompactToolbarLabelButton(
+          onPressed:
+              _checkedGroupIds.isEmpty
+                  ? null
+                  : () => _batchPrint(context, ref, planData),
+          icon: Icons.print,
+          label: '${_checkedGroupIds.length}건 일괄 출력',
+          tooltip: '선택한 교체 건을 지정된 계획서로 일괄 PDF 출력',
+          backgroundColor: Colors.purple.shade50,
+          foregroundColor: Colors.purple.shade600,
+          borderColor: Colors.purple.shade600,
+          height: buttonHeight,
+          fontSize: ContentToolbarLayout.buttonFontSize,
+          iconSize: ContentToolbarLayout.buttonIconSize,
+        ),
+        const SizedBox(width: ContentToolbarLayout.buttonGap),
         CompactToolbarLabelButton(
           onPressed: () => _copyTableToClipboard(context, ref),
           icon: Icons.copy,
@@ -354,6 +616,11 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
             exchangeId,
             planData,
           ),
+      isSelected: (groupId) => _checkedGroupIds.contains(groupId),
+      onToggleSelect: _toggleGroupSelection,
+      profileOptions: _profileOptionsForTeacher,
+      selectedProfileId: _selectedProfileIdForGroup,
+      onProfileChanged: _onGroupProfileChanged,
     );
 
     return Expanded(

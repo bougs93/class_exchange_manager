@@ -11,7 +11,9 @@ import '../../constants/nav_indices.dart';
 import '../widgets/unified_navigation_bar.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../providers/services_provider.dart';
+import '../../providers/state_reset_provider.dart';
 import '../../providers/substitution_plan_provider.dart';
+import '../../providers/timetable_registry_provider.dart';
 import '../../ui/screens/exchange_screen/exchange_screen_state_proxy.dart';
 import '../../ui/screens/exchange_screen/managers/exchange_operation_manager.dart';
 import '../../utils/simplified_timetable_theme.dart';
@@ -86,16 +88,33 @@ class _StartScreenState extends ConsumerState<StartScreen> {
     try {
       AppLogger.info('프로그램 시작: 저장된 데이터 로드 중...');
 
+      // 0. 시간표 레지스트리 초기화 (마이그레이션 + 활성 시간표 스코프 적용)
+      //    이후 교체 목록·결보강 로드는 활성 시간표 스코프 파일에서 수행됩니다.
+      await ref.read(timetableRegistryProvider.notifier).ensureInitialized();
+
       // 1. 시간표 테마 설정 로드
       await SimplifiedTimetableTheme.loadThemeSettings();
 
-      // 2. 교체 리스트 로드 (Provider 사용)
+      // 2. 교체 리스트 로드 (Provider 사용 — 활성 시간표 스코프)
+      final activeEntry = ref.read(activeTimetableEntryProvider);
+      final activeTimetableId = activeEntry?.id;
+
+      // 활성 시간표가 없으면(전체 삭제 등) 레거시 파일의 고스트 데이터를
+      // 로드하지 않고 빈 상태로 유지합니다.
+      if (activeEntry == null) {
+        AppLogger.info('등록된 시간표가 없습니다. 데이터 로드를 건너뜁니다.');
+        ref.read(exchangeScreenProvider.notifier).setTimetableData(null);
+        return;
+      }
+
       final exchangeHistoryService = ref.read(exchangeHistoryServiceProvider);
       await exchangeHistoryService.loadFromLocalStorage();
 
-      // 3. 시간표 데이터 로드 (Provider 사용)
+      // 3. 시간표 데이터 로드 (Provider 사용 — 활성 시간표 스코프)
       final timetableStorage = ref.read(timetableStorageServiceProvider);
-      final timetableData = await timetableStorage.loadTimetableData();
+      final timetableData = await timetableStorage.loadTimetableData(
+        timetableId: activeTimetableId,
+      );
 
       if (timetableData == null || !mounted) {
         AppLogger.info('저장된 시간표 데이터가 없습니다.');
@@ -111,8 +130,12 @@ class _StartScreenState extends ConsumerState<StartScreen> {
       // 저장된 파일 경로·파일명 설정
       // - 로컬 xlsm이 있으면 selectedFile 설정
       // - Setup 설치 PC 등 JSON 캐시만 있으면 metadata.fileName으로 표시
-      final savedFilePath = await timetableStorage.getSavedFilePath();
-      final savedFileName = await timetableStorage.getSavedFileName();
+      final savedFilePath = await timetableStorage.getSavedFilePath(
+        timetableId: activeTimetableId,
+      );
+      final savedFileName = await timetableStorage.getSavedFileName(
+        timetableId: activeTimetableId,
+      );
       if (savedFilePath != null) {
         final file = File(savedFilePath);
         if (await file.exists()) {
@@ -253,6 +276,18 @@ class _StartScreenState extends ConsumerState<StartScreen> {
   @override
   Widget build(BuildContext context) {
     final selectedIndex = ref.watch(navigationProvider);
+
+    // 활성 시간표 전환 시 저장 데이터(시간표 본문·교체 목록·그리드) 재로드
+    ref.listen<int>(timetableSwitchVersionProvider, (previous, next) {
+      if (previous != null && previous != next) {
+        AppLogger.info('활성 시간표 전환 감지: 저장 데이터 재로드');
+        // 이전 시간표의 UI 상태(선택 경로·화살표 등)를 먼저 리셋
+        ref
+            .read(stateResetProvider.notifier)
+            .resetAllStates(reason: '활성 시간표 전환');
+        _loadSavedData();
+      }
+    });
 
     // 현재 탭을 활성화 목록에 추가 (처음 연 탭부터 위젯 생성)
     _activatedTabIndices.add(selectedIndex);

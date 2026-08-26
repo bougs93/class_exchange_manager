@@ -31,6 +31,9 @@ class ExchangeHistoryItem {
   /// 태그 목록
   final List<String> tags;
 
+  /// 지정된 인쇄 프로파일(계획서) ID (미지정 시 null → 기본 계획서 사용)
+  final String? profileId;
+
   /// 되돌리기 여부
   bool isReverted;
 
@@ -44,6 +47,7 @@ class ExchangeHistoryItem {
     required this.metadata,
     this.notes,
     required this.tags,
+    this.profileId,
     this.isReverted = false,
   });
 
@@ -131,6 +135,7 @@ class ExchangeHistoryItem {
       metadata: metadata,
       notes: notes,
       tags: tags,
+      profileId: profileId,
       isReverted: reverted,
     );
   }
@@ -146,6 +151,7 @@ class ExchangeHistoryItem {
       metadata: metadata,
       notes: newNotes,
       tags: tags,
+      profileId: profileId,
       isReverted: isReverted,
     );
   }
@@ -161,6 +167,7 @@ class ExchangeHistoryItem {
       metadata: metadata,
       notes: notes,
       tags: newTags,
+      profileId: profileId,
       isReverted: isReverted,
     );
   }
@@ -176,6 +183,23 @@ class ExchangeHistoryItem {
       metadata: {...metadata, ...newMetadata},
       notes: notes,
       tags: tags,
+      profileId: profileId,
+      isReverted: isReverted,
+    );
+  }
+
+  /// 인쇄 프로파일(계획서) 지정 업데이트
+  ExchangeHistoryItem copyWithProfileId(String? newProfileId) {
+    return ExchangeHistoryItem(
+      id: id,
+      timestamp: timestamp,
+      originalPath: originalPath,
+      description: description,
+      type: type,
+      metadata: metadata,
+      notes: notes,
+      tags: tags,
+      profileId: newProfileId,
       isReverted: isReverted,
     );
   }
@@ -239,6 +263,7 @@ class ExchangeHistoryItem {
       'metadata': metadata,
       'notes': notes,
       'tags': tags,
+      'profileId': profileId,
       'isReverted': isReverted,
       'originalPath':
           originalPath.toJson(), // ExchangePath는 타입 정보를 포함한 JSON으로 저장
@@ -300,6 +325,7 @@ class ExchangeHistoryItem {
       metadata: Map<String, dynamic>.from(json['metadata'] as Map),
       notes: json['notes'] as String?,
       tags: List<String>.from(json['tags'] as List),
+      profileId: json['profileId'] as String?,
       isReverted: json['isReverted'] as bool? ?? false,
     );
   }

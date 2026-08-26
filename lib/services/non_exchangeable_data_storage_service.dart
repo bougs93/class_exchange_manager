@@ -1,4 +1,5 @@
 import 'storage_service.dart';
+import '../services/timetable_registry_service.dart';
 import '../services/timetable_storage_service.dart';
 import '../models/time_slot.dart';
 import '../utils/logger.dart';
@@ -7,6 +8,8 @@ import '../utils/logger.dart';
 ///
 /// 교체불가 셀 데이터만 별도 파일로 저장하고 로드합니다.
 /// 시간표별로 별도 파일을 관리합니다.
+/// 해시는 레지스트리의 활성 시간표를 우선 사용하며(시간표 단위 공유),
+/// 활성이 없으면 레거시 메타데이터로 폴백합니다.
 class NonExchangeableDataStorageService {
   final StorageService _storageService = StorageService();
   final TimetableStorageService _timetableStorage = TimetableStorageService();
@@ -22,6 +25,15 @@ class NonExchangeableDataStorageService {
   /// 현재 시간표의 해시값 가져오기
   Future<String?> _getCurrentTimetableHash() async {
     try {
+      // 1. 레지스트리 활성 시간표 우선 (시간표 전환 대응)
+      final activeEntry = await TimetableRegistryService()
+          .loadRegistry()
+          .then((registry) => registry.activeEntry);
+      if (activeEntry != null && activeEntry.hash.isNotEmpty) {
+        return activeEntry.hash;
+      }
+
+      // 2. 레거시 폴백 (레지스트리 도입 전 데이터)
       final metadata = await _timetableStorage.getFileMetadata();
       return metadata?['hash'] as String?;
     } catch (e) {
