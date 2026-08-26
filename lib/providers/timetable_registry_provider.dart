@@ -121,6 +121,8 @@ class TimetableRegistryNotifier
     required String filePath,
     required String hash,
     required String contentHash,
+    String? myTeacherName,
+    String? schoolName,
   }) async {
     await ensureInitialized();
     try {
@@ -130,6 +132,8 @@ class TimetableRegistryNotifier
         filePath: filePath,
         hash: hash,
         contentHash: contentHash,
+        myTeacherName: myTeacherName,
+        schoolName: schoolName,
       );
 
       final current = state.valueOrNull ?? const TimetableRegistry();
@@ -148,6 +152,57 @@ class TimetableRegistryNotifier
       AppLogger.error('시간표 등록 실패: $e', e);
       return null;
     }
+  }
+
+  /// 활성 시간표의 교사·학교명 갱신
+  ///
+  /// 교사는 엑셀 교사 목록에서 고른 값이어야 합니다(자유 입력 금지).
+  /// 빈 문자열을 넘기면 미지정으로 되돌립니다.
+  Future<bool> updateTeacherAndSchool(
+    String id, {
+    String? myTeacherName,
+    String? schoolName,
+  }) async {
+    await ensureInitialized();
+    final current = state.valueOrNull;
+    if (current == null || current.getById(id) == null) {
+      return false;
+    }
+
+    final teacher = myTeacherName?.trim();
+    final school = schoolName?.trim();
+    final clearTeacher = myTeacherName != null && (teacher?.isEmpty ?? true);
+    final clearSchool = schoolName != null && (school?.isEmpty ?? true);
+
+    final success = await _service.updateTeacherAndSchool(
+      id,
+      myTeacherName: clearTeacher ? null : teacher,
+      schoolName: clearSchool ? null : school,
+      clearTeacher: clearTeacher,
+      clearSchool: clearSchool,
+    );
+    if (!success) {
+      return false;
+    }
+
+    state = AsyncValue.data(
+      current.copyWith(
+        timetables: current.timetables
+            .map(
+              (e) => e.id == id
+                  ? e.copyWith(
+                      myTeacherName: clearTeacher ? null : teacher,
+                      schoolName: clearSchool ? null : school,
+                      clearMyTeacherName: clearTeacher,
+                      clearSchoolName: clearSchool,
+                    )
+                  : e,
+            )
+            .toList(),
+      ),
+    );
+    AppLogger.info('시간표 교사·학교명 갱신: $id (교사=$teacher, 학교=$school)');
+    return true;
   }
 
   /// 시간표 이름 변경
@@ -298,4 +353,17 @@ final timetableRegistryProvider =
 final activeTimetableEntryProvider = Provider<TimetableRegistryEntry?>((ref) {
   final async = ref.watch(timetableRegistryProvider);
   return async.valueOrNull?.activeEntry;
+});
+
+/// 활성 시간표에 설정된 교사명 (미지정이면 빈 문자열)
+///
+/// 교체 화면 행 하이라이트·개인 시간표 기본 교사·계획서 교사명의 단일 출처입니다.
+/// 전역 설정(defaultTeacherName)을 대체합니다.
+final activeTeacherNameProvider = Provider<String>((ref) {
+  return ref.watch(activeTimetableEntryProvider)?.myTeacherName ?? '';
+});
+
+/// 활성 시간표의 학교명 (미입력이면 빈 문자열)
+final activeSchoolNameProvider = Provider<String>((ref) {
+  return ref.watch(activeTimetableEntryProvider)?.schoolName ?? '';
 });

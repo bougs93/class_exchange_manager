@@ -42,7 +42,7 @@ class ExchangeHistoryService {
 
   /// 현재 스코프 시간표 ID
   ///
-  /// null이면 레거시 전역 파일(`exchange_list.json`)을 사용합니다.
+  /// null이면 교체 리스트 저장/로드가 건너뛰어집니다 (스코프 필수 정책).
   /// 활성 시간표 전환 시 Provider 계층에서 설정하고 재로드합니다.
   String? timetableId;
 

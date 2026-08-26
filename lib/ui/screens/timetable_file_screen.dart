@@ -126,7 +126,9 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
           );
 
       if (entry == null) {
-        _showSnackBar('시간표 등록에 실패했습니다.', isError: true);
+        if (mounted) {
+          _showSnackBar('시간표 등록에 실패했습니다.', isError: true);
+        }
         return;
       }
 
@@ -320,11 +322,14 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
     final screenState = ref.watch(exchangeScreenProvider);
     final isLoading = screenState.isLoading || _isAdding;
 
-    return Container(
-      color: tokens.sectionBackground,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
+    return Scaffold(
+      // 뒤로가기 버튼이 있는 상단 바 (메인 화면 복귀 경로)
+      appBar: AppBar(title: const Text('시간표 관리')),
+      body: Container(
+        color: tokens.sectionBackground,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 시간표 추가 버튼
@@ -415,6 +420,7 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

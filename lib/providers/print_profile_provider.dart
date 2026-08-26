@@ -110,8 +110,3 @@ final printProfileStoreProvider =
       final activeId = ref.watch(activeTimetableEntryProvider)?.id;
       return PrintProfileStoreNotifier(activeId);
     });
-
-/// 선택된 계획서를 안전하게 조회 (삭제된 ID면 null → 미지정 처리)
-PrintProfile? resolveSelectedProfile(PrintProfileStore store, String? profileId) {
-  return store.getById(profileId);
-}

@@ -579,11 +579,14 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
           .read(stateResetProvider.notifier)
           .resetExchangeStates(reason: '교체목록 전체 초기화');
 
-      // 5. 보강계획서 데이터 자동 새로고침
+      // 5. 일괄 출력 선택 상태 초기화 (삭제된 교체 건 참조 제거)
+      _checkedGroupIds.clear();
+
+      // 6. 보강계획서 데이터 자동 새로고침
       final viewModel = ref.read(substitutionPlanViewModelProvider.notifier);
       viewModel.loadPlanData();
 
-      // 6. 성공 메시지 표시
+      // 7. 성공 메시지 표시
       SnackBarHelper.showSuccess(context, '교체목록이 초기화되었습니다.');
     } catch (e) {
       // 오류 메시지 표시

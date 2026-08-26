@@ -516,9 +516,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   /// Excel 파일 선택 (OperationManager 위임)
   Future<bool> selectExcelFile() => _operationManager.selectExcelFile();
 
-  /// 엑셀 파일 선택 해제 (OperationManager 위임)
-  void clearSelectedFile() => _operationManager.clearSelectedFile();
-
   /// 교체불가 관리자 접근 (OperationManager 위임)
   NonExchangeableManager get nonExchangeableManager =>
       _operationManager.nonExchangeableManager;

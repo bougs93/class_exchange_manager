@@ -518,8 +518,11 @@ class SubstitutionOutputWidgetState
   // ===== 계획서(교사별 인쇄 프로파일) 흐름 =====
 
   /// 현재 시간표의 교사 목록 (가나다순)
+  ///
+  /// build 외부에서도 호출되므로 read를 사용합니다.
+  /// build에서의 갱신 반응성은 build의 select watch가 담당합니다.
   List<String> _availableTeachers() {
-    final teachers = ref.watch(exchangeScreenProvider).timetableData?.teachers;
+    final teachers = ref.read(exchangeScreenProvider).timetableData?.teachers;
     if (teachers == null) return const [];
     final names = teachers.map((t) => t.name).where((n) => n.isNotEmpty).toList()
       ..sort();
@@ -528,11 +531,26 @@ class SubstitutionOutputWidgetState
 
   /// 계획서 선택 흐름 초기화
   ///
-  /// 스토어 로드 → 마지막 교사/계획서 복원 → 설정 로드.
+  /// 스토어 로드 → 교사 목록 로드 대기 → 마지막 교사/계획서 복원 → 설정 로드.
   /// 계획서가 없으면 레거시 양식 설정 흐름으로 폴백합니다.
+  ///
+  /// 재진입 가드: 초기화 대기 중 시간표가 다시 전환되면 이전 흐름을 중단시킵니다.
+  int _profileFlowRunId = 0;
+
   Future<void> _initializeProfileFlow() async {
+    final runId = ++_profileFlowRunId;
+    bool isStale() => !mounted || runId != _profileFlowRunId;
+
     await ref.read(printProfileStoreProvider.notifier).ensureLoaded();
-    if (!mounted) return;
+    if (isStale()) return;
+
+    // 교사 목록은 시간표 데이터 로드 후 채워집니다 (시작·전환 직후에는 비어 있을 수
+    // 있음). 최대 3초까지 대기해 올바른 교사를 복원합니다.
+    for (var i = 0; i < 30 && mounted; i++) {
+      if (_availableTeachers().isNotEmpty) break;
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+    if (isStale()) return;
 
     final store = ref.read(printProfileStoreProvider);
     final teachers = _availableTeachers();
@@ -561,6 +579,7 @@ class SubstitutionOutputWidgetState
         AppLogger.info('교사 미지정 계획서 ${orphans.length}개를 "$teacher"에게 편입');
       }
     }
+    if (isStale()) return;
 
     final updatedStore = ref.read(printProfileStoreProvider);
     final profiles = teacher != null
@@ -583,10 +602,10 @@ class SubstitutionOutputWidgetState
     }
   }
 
-  /// 활성 시간표 전환 후 재초기화 (start_screen이 데이터 재로드한 뒤 호출됨)
+  /// 활성 시간표 전환 후 재초기화
+  ///
+  /// 교사 목록 대기는 [_initializeProfileFlow]의 폴링이 담당합니다.
   Future<void> _reinitAfterTimetableSwitch() async {
-    // 시간표 데이터 재로드가 먼저 끝나도록 한 프레임 대기
-    await WidgetsBinding.instance.endOfFrame;
     if (!mounted) return;
     _selectedTeacher = null;
     _selectedProfileId = null;
@@ -670,6 +689,9 @@ class SubstitutionOutputWidgetState
     await ref
         .read(printProfileStoreProvider.notifier)
         .setLastSelectedTeacher(teacher);
+
+    // 대기 중 다른 교사로 전환되었으면 이전 교사의 계획서를 적용하지 않음
+    if (!mounted || _selectedTeacher != teacher) return;
 
     if (profiles.isNotEmpty) {
       _applyProfileToUi(profiles.first);
@@ -864,7 +886,7 @@ class SubstitutionOutputWidgetState
 
   @override
   Widget build(BuildContext context) {
-    // 활성 시간표 전환 감지 → 계획서 흐름 재초기화 (교체불가·교체 상태는 시간표 단위 공유)
+    // 활성 시간표 전환 감지 → 계획서 바 재초기화 (교체불가·교체 상태는 시간표 단위 공유)
     ref.listen<TimetableRegistryEntry?>(activeTimetableEntryProvider, (
       previous,
       next,
@@ -874,6 +896,11 @@ class SubstitutionOutputWidgetState
         _reinitAfterTimetableSwitch();
       }
     });
+
+    // 시간표 데이터 변경 감지 → 교사 드롭다운 갱신 (select로 재빌드 최소화)
+    ref.watch(
+      exchangeScreenProvider.select((state) => state.timetableData),
+    );
 
     // build는 PlanOutputScreen의 TabController 리스너에서 호출되는 updateAbsencePeriod()로 처리
     // 여기서는 UI만 렌더링
@@ -918,12 +945,12 @@ class SubstitutionOutputWidgetState
               selectedTemplateIndex: _selectedTemplateIndex,
               selectedTemplateFilePath: _selectedTemplateFilePath,
               onTemplateIndexChanged: (index) async {
-                // 양식 변경 시: 먼저 현재 양식의 메모리 상 설정을 디스크에 저장한 후, 새 양식의 설정을 로드
+                // 양식 변경 시: 현재 설정을 저장한 뒤 양식 인덱스만 갱신한다.
 
-                // 현재 양식의 설정 저장 (메모리 → 디스크)
+                // 현재 설정 저장 (계획서 선택 중이면 계획서에, 미지정이면 레거시 양식에)
                 await _saveCurrentSettings();
 
-                // 양식 인덱스 업데이트 (로드 전에 업데이트하여 올바른 양식의 설정을 로드)
+                // 양식 인덱스 업데이트
                 setState(() {
                   _selectedTemplateIndex = index;
                 });
@@ -931,7 +958,18 @@ class SubstitutionOutputWidgetState
                 // 마지막 선택된 양식 인덱스 저장
                 await _pdfSettingsStorage.saveLastSelectedTemplateIndex(index);
 
-                // 새 양식의 설정 로드 (디스크 → 메모리)
+                if (ref.read(printProfileStoreProvider).getById(
+                      _selectedProfileId,
+                    ) !=
+                    null) {
+                  // 계획서 선택 중: 다른 설정(폰트·비고·입력값)은 계획서 것을
+                  // 유지하고 양식만 메모리에서 변경한다. 레거시 양식 설정을
+                  // 로드하면 계획서 값이 덮어써지므로 로드하지 않는다.
+                  AppLogger.info('양식 변경: 양식 ${index + 1} (계획서 선택 중, 설정 유지)');
+                  return;
+                }
+
+                // 미지정: 새 양식의 레거시 설정 로드 (디스크 → 메모리)
                 // _loadSavedSettings 내부에서 setState를 호출하여 모든 메모리 변수와 Controller 값을 업데이트함
                 await _loadSavedSettings(templateIndex: index);
 

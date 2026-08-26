@@ -192,7 +192,13 @@ class ExchangeOperationManager {
 
       // 파일 변경 감지 및 사용자 확인
       final shouldContinue = await _handleFileModification();
-      if (!shouldContinue) return;
+      if (!shouldContinue) {
+        // 사용자가 초기화를 거부해 로드를 중단한 경우:
+        // 이전 파일이 그대로 로드된 상태라 selectExcelFile이 성공으로 오판하지
+        // 않도록 오류를 설정한다 (호출부가 selectedFile을 원래대로 되돌림).
+        stateProxy.setErrorMessage('파일 로드가 취소되었습니다.');
+        return;
+      }
 
       // 데이터 저장 및 적용
       await _saveAndApplyTimetableData(timetableData);
@@ -304,25 +310,6 @@ class ExchangeOperationManager {
     } catch (e) {
       AppLogger.error('상태 초기화 중 오류 발생: $e');
     }
-  }
-
-  /// 엑셀 파일 선택 해제 (모든 상태 초기화)
-  void clearSelectedFile() {
-    // 히스토리와 교체목록 초기화
-    _clearHistoryAndExchangeList();
-
-    // 파일 관련 상태 초기화
-    stateProxy.setSelectedFile(null);
-    stateProxy.setTimetableData(null);
-    stateProxy.setErrorMessage(null);
-
-    // 교체 관련 상태 초기화
-    onClearAllExchangeStates();
-
-    // 파일 선택 해제 후 보기 모드로 전환
-    stateProxy.setCurrentMode(ExchangeMode.view);
-
-    AppLogger.exchangeInfo('엑셀 파일 선택이 해제되고 보기 모드로 전환되었습니다.');
   }
 
   /// 교체불가 관리자 접근 (외부에서 사용)

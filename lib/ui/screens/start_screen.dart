@@ -84,80 +84,95 @@ class _StartScreenState extends ConsumerState<StartScreen> {
   /// - 시간표 테마 설정
   /// - 결보강 계획서 날짜 정보 (absenceDate, substitutionDate, 보강 과목)
   /// (PDF 출력 설정은 SubstitutionOutputWidget에서 로드)
+  ///
+  /// 재진입 가드: 로드 중 빠른 시간표 연속 전환으로 두 로드가 겹치면
+  /// 상태가 섞이므로, 실행 토큰으로 이전 로드를 중단시킵니다.
+  int _loadRunId = 0;
+
   Future<void> _loadSavedData() async {
+    final runId = ++_loadRunId;
+    bool isStale() => !mounted || runId != _loadRunId;
+
     try {
       AppLogger.info('프로그램 시작: 저장된 데이터 로드 중...');
 
-      // 0. 시간표 레지스트리 초기화 (마이그레이션 + 활성 시간표 스코프 적용)
+      // 0. 시간표 레지스트리 초기화 (활성 시간표 스코프 적용)
       //    이후 교체 목록·결보강 로드는 활성 시간표 스코프 파일에서 수행됩니다.
       await ref.read(timetableRegistryProvider.notifier).ensureInitialized();
+      if (isStale()) return;
 
       // 1. 시간표 테마 설정 로드
       await SimplifiedTimetableTheme.loadThemeSettings();
+      if (isStale()) return;
 
       // 2. 교체 리스트 로드 (Provider 사용 — 활성 시간표 스코프)
       final activeEntry = ref.read(activeTimetableEntryProvider);
       final activeTimetableId = activeEntry?.id;
 
-      // 활성 시간표가 없으면(전체 삭제 등) 레거시 파일의 고스트 데이터를
-      // 로드하지 않고 빈 상태로 유지합니다.
-      if (activeEntry == null) {
-        AppLogger.info('등록된 시간표가 없습니다. 데이터 로드를 건너뜁니다.');
-        ref.read(exchangeScreenProvider.notifier).setTimetableData(null);
-        return;
-      }
+      if (activeEntry != null) {
+        final exchangeHistoryService = ref.read(exchangeHistoryServiceProvider);
+        await exchangeHistoryService.loadFromLocalStorage();
+        if (isStale()) return;
 
-      final exchangeHistoryService = ref.read(exchangeHistoryServiceProvider);
-      await exchangeHistoryService.loadFromLocalStorage();
+        // 3. 시간표 데이터 로드 (Provider 사용 — 활성 시간표 스코프)
+        final timetableStorage = ref.read(timetableStorageServiceProvider);
+        final timetableData = await timetableStorage.loadTimetableData(
+          timetableId: activeTimetableId,
+        );
+        if (isStale()) return;
 
-      // 3. 시간표 데이터 로드 (Provider 사용 — 활성 시간표 스코프)
-      final timetableStorage = ref.read(timetableStorageServiceProvider);
-      final timetableData = await timetableStorage.loadTimetableData(
-        timetableId: activeTimetableId,
-      );
+        if (timetableData != null && mounted) {
+          // 교체불가 셀 데이터 로드 및 적용
+          await _applyNonExchangeableCells(timetableData);
+          if (isStale()) return;
 
-      if (timetableData == null || !mounted) {
-        AppLogger.info('저장된 시간표 데이터가 없습니다.');
-        return;
-      }
+          // Provider에 데이터 설정
+          ref
+              .read(exchangeScreenProvider.notifier)
+              .setTimetableData(timetableData);
 
-      // 교체불가 셀 데이터 로드 및 적용
-      await _applyNonExchangeableCells(timetableData);
+          // 저장된 파일 경로·파일명 설정
+          // - 로컬 xlsm이 있으면 selectedFile 설정
+          // - Setup 설치 PC 등 JSON 캐시만 있으면 metadata.fileName으로 표시
+          final savedFilePath = await timetableStorage.getSavedFilePath(
+            timetableId: activeTimetableId,
+          );
+          final savedFileName = await timetableStorage.getSavedFileName(
+            timetableId: activeTimetableId,
+          );
+          if (isStale()) return;
 
-      // Provider에 데이터 설정
-      ref.read(exchangeScreenProvider.notifier).setTimetableData(timetableData);
+          if (savedFilePath != null) {
+            final file = File(savedFilePath);
+            if (await file.exists()) {
+              _stateProxy?.setSelectedFile(file);
+            } else if (savedFileName != null && savedFileName.isNotEmpty) {
+              _stateProxy?.setTimetableFileName(savedFileName);
+            }
+          } else if (savedFileName != null && savedFileName.isNotEmpty) {
+            _stateProxy?.setTimetableFileName(savedFileName);
+          }
 
-      // 저장된 파일 경로·파일명 설정
-      // - 로컬 xlsm이 있으면 selectedFile 설정
-      // - Setup 설치 PC 등 JSON 캐시만 있으면 metadata.fileName으로 표시
-      final savedFilePath = await timetableStorage.getSavedFilePath(
-        timetableId: activeTimetableId,
-      );
-      final savedFileName = await timetableStorage.getSavedFileName(
-        timetableId: activeTimetableId,
-      );
-      if (savedFilePath != null) {
-        final file = File(savedFilePath);
-        if (await file.exists()) {
-          _stateProxy?.setSelectedFile(file);
-        } else if (savedFileName != null && savedFileName.isNotEmpty) {
-          _stateProxy?.setTimetableFileName(savedFileName);
+          // 시간표 그리드 데이터 생성
+          _operationManager?.onCreateSyncfusionGridData();
+
+          // 교체된 셀 테마 복원
+          if (exchangeHistoryService.getExchangeList().isNotEmpty) {
+            ExchangeExecutor.restoreExchangedCells(ref);
+            final dataSource = ref.read(exchangeScreenProvider).dataSource;
+            dataSource?.notifyDataChanged();
+          }
+        } else {
+          AppLogger.info('저장된 시간표 데이터가 없습니다.');
         }
-      } else if (savedFileName != null && savedFileName.isNotEmpty) {
-        _stateProxy?.setTimetableFileName(savedFileName);
-      }
-
-      // 시간표 그리드 데이터 생성
-      _operationManager?.onCreateSyncfusionGridData();
-
-      // 교체된 셀 테마 복원
-      if (exchangeHistoryService.getExchangeList().isNotEmpty) {
-        ExchangeExecutor.restoreExchangedCells(ref);
-        final dataSource = ref.read(exchangeScreenProvider).dataSource;
-        dataSource?.notifyDataChanged();
+      } else {
+        // 활성 시간표가 없으면(전체 삭제 등) 어떤 파일도 로드하지 않고 빈 상태 유지
+        AppLogger.info('등록된 시간표가 없습니다. 시간표 데이터 로드를 건너뜁니다.');
+        ref.read(exchangeScreenProvider.notifier).setTimetableData(null);
       }
 
       // 4. 결보강 계획서 날짜 정보 로드
+      //    (스코프가 없으면 저장소가 건너뛰므로 항상 호출)
       try {
         final substitutionPlanNotifier = ref.read(
           substitutionPlanProvider.notifier,
@@ -166,6 +181,7 @@ class _StartScreenState extends ConsumerState<StartScreen> {
       } catch (e) {
         AppLogger.error('결보강 계획서 날짜 정보 로드 중 오류: $e', e);
       }
+      if (isStale()) return;
 
       // 5. 앱 설정 로드 (언어 설정)
       try {

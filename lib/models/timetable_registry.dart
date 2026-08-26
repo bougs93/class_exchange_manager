@@ -18,6 +18,15 @@ class TimetableRegistryEntry {
   /// 내용 해시 (무결성 검증용)
   final String contentHash;
 
+  /// 이 시간표에서의 교사 이름 (엑셀 교사 목록에서 선택, 미선택 시 null)
+  ///
+  /// 교체 화면 행 하이라이트·개인 시간표 기본 교사·계획서 교사명의 기준값입니다.
+  /// 전역 설정이 아니라 시간표 속성인 이유는 문서 §2 참조.
+  final String? myTeacherName;
+
+  /// 이 시간표의 학교명 (계획서 인쇄용, 미입력 시 null)
+  final String? schoolName;
+
   /// 등록 시각
   final DateTime registeredAt;
 
@@ -28,8 +37,14 @@ class TimetableRegistryEntry {
     required this.filePath,
     required this.hash,
     required this.contentHash,
+    this.myTeacherName,
+    this.schoolName,
     required this.registeredAt,
   });
+
+  /// 교사가 지정되어 있는지
+  bool get hasMyTeacher =>
+      myTeacherName != null && myTeacherName!.trim().isNotEmpty;
 
   /// 고유 ID 생성 (동일 시각 연속 등록 충돌 방지를 위해 마이크로초+시퀀스 포함)
   static int _idSequence = 0;
@@ -51,6 +66,10 @@ class TimetableRegistryEntry {
     String? filePath,
     String? hash,
     String? contentHash,
+    String? myTeacherName,
+    String? schoolName,
+    bool clearMyTeacherName = false,
+    bool clearSchoolName = false,
   }) {
     return TimetableRegistryEntry(
       id: id,
@@ -59,6 +78,10 @@ class TimetableRegistryEntry {
       filePath: filePath ?? this.filePath,
       hash: hash ?? this.hash,
       contentHash: contentHash ?? this.contentHash,
+      myTeacherName: clearMyTeacherName
+          ? null
+          : (myTeacherName ?? this.myTeacherName),
+      schoolName: clearSchoolName ? null : (schoolName ?? this.schoolName),
       registeredAt: registeredAt,
     );
   }
@@ -70,6 +93,8 @@ class TimetableRegistryEntry {
     'filePath': filePath,
     'hash': hash,
     'contentHash': contentHash,
+    if (myTeacherName != null) 'myTeacherName': myTeacherName,
+    if (schoolName != null) 'schoolName': schoolName,
     'registeredAt': registeredAt.toIso8601String(),
   };
 
@@ -81,10 +106,18 @@ class TimetableRegistryEntry {
       filePath: (json['filePath'] as String?) ?? '',
       hash: (json['hash'] as String?) ?? '',
       contentHash: (json['contentHash'] as String?) ?? '',
+      myTeacherName: _trimOrNull(json['myTeacherName'] as String?),
+      schoolName: _trimOrNull(json['schoolName'] as String?),
       registeredAt:
           DateTime.tryParse(json['registeredAt'] as String? ?? '') ??
           DateTime.now(),
     );
+  }
+
+  /// 빈 문자열을 null로 정규화 (미지정과 빈 입력을 같게 취급)
+  static String? _trimOrNull(String? value) {
+    final trimmed = value?.trim();
+    return (trimmed == null || trimmed.isEmpty) ? null : trimmed;
   }
 
   @override

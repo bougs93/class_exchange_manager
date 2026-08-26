@@ -55,6 +55,8 @@ class TimetableRegistryService {
     required String filePath,
     required String hash,
     required String contentHash,
+    String? myTeacherName,
+    String? schoolName,
   }) async {
     final registry = await loadRegistry();
     final entry = TimetableRegistryEntry(
@@ -64,6 +66,8 @@ class TimetableRegistryService {
       filePath: filePath,
       hash: hash,
       contentHash: contentHash,
+      myTeacherName: myTeacherName,
+      schoolName: schoolName,
       registeredAt: DateTime.now(),
     );
 
@@ -126,6 +130,40 @@ class TimetableRegistryService {
                     filePath: filePath,
                     hash: hash,
                     contentHash: contentHash,
+                  )
+                : e,
+          )
+          .toList(),
+    );
+    return saveRegistry(updated);
+  }
+
+  /// 시간표의 교사·학교명 갱신
+  ///
+  /// 계층 정의상 교사는 시간표에 종속되므로 전역 설정이 아닌 이 항목에 저장합니다.
+  /// [clearTeacher]/[clearSchool]이 true면 해당 값을 미지정으로 되돌립니다.
+  Future<bool> updateTeacherAndSchool(
+    String id, {
+    String? myTeacherName,
+    String? schoolName,
+    bool clearTeacher = false,
+    bool clearSchool = false,
+  }) async {
+    final registry = await loadRegistry();
+    if (registry.getById(id) == null) {
+      AppLogger.warning('교사·학교명 갱신 대상 시간표를 찾을 수 없음: $id');
+      return false;
+    }
+
+    final updated = registry.copyWith(
+      timetables: registry.timetables
+          .map(
+            (e) => e.id == id
+                ? e.copyWith(
+                    myTeacherName: myTeacherName,
+                    schoolName: schoolName,
+                    clearMyTeacherName: clearTeacher,
+                    clearSchoolName: clearSchool,
                   )
                 : e,
           )
