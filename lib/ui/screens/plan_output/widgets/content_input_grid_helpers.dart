@@ -58,7 +58,7 @@ class ContentInputGridConfig {
     return [
       GridColumn(
         columnName: 'select',
-        label: _buildHeaderLabel('선택', tokens),
+        label: _buildEmptySubHeaderLabel(tokens),
         width: 40,
       ),
       GridColumn(

@@ -252,11 +252,16 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
   ///
   /// 계획서가 0개인 교사 행에서 결보강 출력 탭까지 왕복하지 않도록,
   /// 그 자리에서 만들고 해당 행에 즉시 지정합니다(문서 §3④).
-  Future<void> _createProfileForRow(String groupId, String teacher) async {
+  Future<void> _createProfileForRow(
+    String groupId,
+    String teacher, {
+    String? initialName,
+  }) async {
     if (teacher.isEmpty) return;
 
     final store = ref.read(printProfileStoreProvider);
-    final defaultName = '계획서${store.byTeacher(teacher).length + 1}';
+    final defaultName =
+        initialName ?? '계획서${store.byTeacher(teacher).length + 1}';
     final controller = TextEditingController(text: defaultName);
 
     final name = await showDialog<String>(
@@ -524,11 +529,14 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
   Widget _buildPlanManagementBar(List<SubstitutionPlanData> planData) {
     final store = ref.watch(printProfileStoreProvider);
     final profiles = store.profiles;
-    final selectedId = profiles.any((p) => p.id == _selectedPlanId)
-        ? _selectedPlanId
-        : (profiles.any((p) => p.id == store.lastUsedProfileId)
-            ? store.lastUsedProfileId
-            : null);
+    final selectedId =
+        profiles.any((p) => p.id == _selectedPlanId)
+            ? _selectedPlanId
+            : (profiles.any((p) => p.id == store.lastUsedProfileId)
+                ? store.lastUsedProfileId
+                : (profiles.isNotEmpty
+                    ? profiles.first.id
+                    : (planData.isEmpty ? null : '__default__')));
     final defaultName = _defaultPlanName(planData);
 
     return Row(
@@ -537,15 +545,27 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
         const SizedBox(width: 8),
         SizedBox(
           width: 190,
+          height: 34,
           child: DropdownButtonFormField<String>(
-            value: selectedId,
+            initialValue: selectedId,
             isDense: true,
             decoration: InputDecoration(
               hintText: defaultName,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-              border: const OutlineInputBorder(),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 6,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+              ),
             ),
             items: [
+              if (planData.isNotEmpty)
+                DropdownMenuItem<String>(
+                  value: '__default__',
+                  child: Text(defaultName),
+                ),
               for (final profile in profiles)
                 DropdownMenuItem<String>(
                   value: profile.id,
@@ -555,23 +575,42 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
             onChanged: (id) {
               if (id == null) return;
               setState(() => _selectedPlanId = id);
-              _applyPlanToAllRows(id, planData);
+              if (id != '__default__') {
+                _applyPlanToAllRows(id, planData);
+              }
             },
           ),
         ),
         const SizedBox(width: 6),
         TextButton(
-          onPressed: planData.isEmpty
-              ? null
-              : () => _createPlanFromFirstRow(planData),
+          onPressed:
+              planData.isEmpty ? null : () => _createPlanFromFirstRow(planData),
+          style: TextButton.styleFrom(
+            minimumSize: const Size(0, 34),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
           child: const Text('새 계획서'),
         ),
         TextButton(
-          onPressed: selectedId == null ? null : () => _renamePlan(selectedId),
+          onPressed:
+              selectedId == null
+                  ? null
+                  : () => _renamePlan(selectedId, planData),
+          style: TextButton.styleFrom(
+            minimumSize: const Size(0, 34),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
           child: const Text('수정'),
         ),
         TextButton(
           onPressed: selectedId == null ? null : () => _deletePlan(selectedId),
+          style: TextButton.styleFrom(
+            minimumSize: const Size(0, 34),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
           child: const Text('삭제'),
         ),
       ],
@@ -610,35 +649,71 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
       orElse: () => planData.first,
     );
     if (first.groupId == null || first.groupId!.isEmpty) return;
-    await _createProfileForRow(first.groupId!, first.teacher);
+    final planName = _defaultPlanName(planData);
+    await _createProfileForRow(
+      first.groupId!,
+      first.teacher,
+      initialName: planName,
+    );
+    final created =
+        ref
+            .read(printProfileStoreProvider)
+            .profiles
+            .where(
+              (profile) =>
+                  profile.name == planName &&
+                  profile.teacherName == first.teacher,
+            )
+            .lastOrNull;
+    if (created != null) {
+      _selectedPlanId = created.id;
+      _applyPlanToAllRows(created.id, planData);
+    }
   }
 
-  Future<void> _renamePlan(String profileId) async {
+  Future<void> _renamePlan(
+    String profileId,
+    List<SubstitutionPlanData> planData,
+  ) async {
     final profile = ref.read(printProfileStoreProvider).getById(profileId);
-    if (profile == null || !mounted) return;
+    if (profile == null) {
+      if (profileId == '__default__') {
+        await _createPlanFromFirstRow(planData);
+      }
+      return;
+    }
+    if (!mounted) return;
     final controller = TextEditingController(text: profile.name);
     final name = await showDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('계획서 이름 수정'),
-        content: TextField(controller: controller, autofocus: true),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('취소'),
+      builder:
+          (dialogContext) => AlertDialog(
+            title: const Text('계획서 이름 수정'),
+            content: TextField(controller: controller, autofocus: true),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('취소'),
+              ),
+              ElevatedButton(
+                onPressed:
+                    () => Navigator.pop(dialogContext, controller.text.trim()),
+                child: const Text('저장'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
-            child: const Text('저장'),
-          ),
-        ],
-      ),
     );
     if (name == null || name.isEmpty) return;
-    await ref.read(printProfileStoreProvider.notifier).renameProfile(profileId, name);
+    await ref
+        .read(printProfileStoreProvider.notifier)
+        .renameProfile(profileId, name);
   }
 
   Future<void> _deletePlan(String profileId) async {
+    if (profileId == '__default__') {
+      SnackBarHelper.showError(context, '저장된 계획서가 없습니다.');
+      return;
+    }
     final confirmed = await DialogHelper.showConfirmDialog(
       context,
       title: '계획서 삭제',
