@@ -12,6 +12,10 @@ mixin ScrollManagementMixin<T extends ConsumerStatefulWidget>
   late final ScrollController horizontalScrollController;
   late final ScrollController verticalScrollController;
 
+  /// true면 교체 화면 화살표용 전역 scrollProvider에 오프셋을 올립니다.
+  /// 시간표 카드 그리드처럼 다른 화면은 false 로 두세요.
+  bool get syncScrollToGlobalProvider => true;
+
   // 마우스 오른쪽 버튼 및 두 손가락 드래그 상태
   Offset? _rightClickDragStart;
   double? _rightClickScrollStartH;
@@ -44,6 +48,8 @@ mixin ScrollManagementMixin<T extends ConsumerStatefulWidget>
 
   /// 스크롤 변경 시 호출되는 콜백
   void _onScrollChanged() {
+    if (!syncScrollToGlobalProvider) return;
+
     final horizontalOffset =
         horizontalScrollController.hasClients
             ? horizontalScrollController.offset
@@ -57,6 +63,11 @@ mixin ScrollManagementMixin<T extends ConsumerStatefulWidget>
     ref
         .read(scrollProvider.notifier)
         .updateOffset(horizontalOffset, verticalOffset);
+  }
+
+  void _setGlobalScrolling(bool isScrolling) {
+    if (!syncScrollToGlobalProvider) return;
+    ref.read(scrollProvider.notifier).setScrolling(isScrolling);
   }
 
   /// 현재 스크롤 오프셋 가져오기
@@ -95,7 +106,9 @@ mixin ScrollManagementMixin<T extends ConsumerStatefulWidget>
   /// 스크롤 상태 리셋
   void resetScrollPosition() {
     scrollToPosition(horizontal: 0.0, vertical: 0.0);
-    ref.read(scrollProvider.notifier).reset();
+    if (syncScrollToGlobalProvider) {
+      ref.read(scrollProvider.notifier).reset();
+    }
   }
 
   /// 드래그 스크롤이 적용된 위젯으로 감싸기
@@ -114,7 +127,7 @@ mixin ScrollManagementMixin<T extends ConsumerStatefulWidget>
               verticalScrollController.hasClients
                   ? verticalScrollController.offset
                   : 0.0;
-          ref.read(scrollProvider.notifier).setScrolling(true);
+          _setGlobalScrolling(true);
         }
       },
       onScaleUpdate: (details) {
@@ -153,7 +166,7 @@ mixin ScrollManagementMixin<T extends ConsumerStatefulWidget>
         _rightClickDragStart = null;
         _rightClickScrollStartH = null;
         _rightClickScrollStartV = null;
-        ref.read(scrollProvider.notifier).setScrolling(false);
+        _setGlobalScrolling(false);
       },
       child: Listener(
         // 마우스 오른쪽 버튼 스크롤 (데스크톱)
@@ -168,7 +181,7 @@ mixin ScrollManagementMixin<T extends ConsumerStatefulWidget>
                 verticalScrollController.hasClients
                     ? verticalScrollController.offset
                     : 0.0;
-            ref.read(scrollProvider.notifier).setScrolling(true);
+            _setGlobalScrolling(true);
           }
         },
         onPointerMove: (event) {
@@ -202,7 +215,7 @@ mixin ScrollManagementMixin<T extends ConsumerStatefulWidget>
             _rightClickDragStart = null;
             _rightClickScrollStartH = null;
             _rightClickScrollStartV = null;
-            ref.read(scrollProvider.notifier).setScrolling(false);
+            _setGlobalScrolling(false);
           }
         },
         child: child,

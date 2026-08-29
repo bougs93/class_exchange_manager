@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../../models/time_slot.dart';
@@ -27,13 +28,17 @@ class PersonalTimetableDataSource extends DataGridSource {
     List<ExchangeCellInfo>? exchangeInfoList,
     bool? isExchangeViewEnabled,
   }) {
+    final nextExchange = exchangeInfoList ?? _exchangeInfoList;
+    final nextEnabled = isExchangeViewEnabled ?? _isExchangeViewEnabled;
+    // 내용이 같으면 SfDataGrid를 다시 그리지 않습니다.
+    if (identical(_rows, newRows) &&
+        _isExchangeViewEnabled == nextEnabled &&
+        listEquals(_exchangeInfoList, nextExchange)) {
+      return;
+    }
     _rows = newRows;
-    if (exchangeInfoList != null) {
-      _exchangeInfoList = exchangeInfoList;
-    }
-    if (isExchangeViewEnabled != null) {
-      _isExchangeViewEnabled = isExchangeViewEnabled;
-    }
+    _exchangeInfoList = nextExchange;
+    _isExchangeViewEnabled = nextEnabled;
     notifyListeners();
   }
 

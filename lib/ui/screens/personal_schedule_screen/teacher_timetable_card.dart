@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../../models/time_slot.dart';
@@ -57,6 +58,12 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
   final GlobalKey _captureKey = GlobalKey();
 
   PersonalTimetableDataSource? _dataSource;
+  List<GridColumn>? _columns;
+  List<StackedHeaderRow>? _stackedHeaders;
+  double _headerHeight = 0;
+  double _rowHeight = 0;
+  double _gridHeight = 0;
+  double _gridWidth = 0;
   int _lastRowCount = 0;
   bool _isCopyingImage = false;
 
@@ -64,32 +71,35 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
   void initState() {
     super.initState();
     // build 중 notifyListeners를 부르면 프레임마다 다시 그려져 앱이 멈춥니다.
-    _dataSource = _createDataSource();
+    _rebuildCachedLayout();
   }
 
   @override
   void didUpdateWidget(TeacherTimetableCard oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // 내용이 바뀐 뒤에만 DataSource를 갱신합니다 (build 안이 아님).
     final teacherChanged = oldWidget.teacherName != widget.teacherName;
     final zoomChanged = oldWidget.zoomFactor != widget.zoomFactor;
     final exchangeViewChanged =
         oldWidget.isExchangeViewEnabled != widget.isExchangeViewEnabled;
     final slotsChanged = !identical(oldWidget.timeSlots, widget.timeSlots);
     final datesChanged = !_sameDates(oldWidget.weekDates, widget.weekDates);
-    final exchangeInfoChanged = !identical(
+    final exchangeInfoChanged = !listEquals(
       oldWidget.exchangeInfoList,
       widget.exchangeInfoList,
     );
 
-    if (teacherChanged ||
-        zoomChanged ||
-        slotsChanged ||
-        datesChanged ||
-        exchangeViewChanged ||
-        exchangeInfoChanged) {
-      _syncDataSourceAfterWidgetUpdate();
+    if (teacherChanged || zoomChanged || slotsChanged || datesChanged) {
+      _rebuildCachedLayout();
+      return;
+    }
+
+    if (exchangeViewChanged || exchangeInfoChanged) {
+      _dataSource?.updateRows(
+        _dataSource!.rows,
+        exchangeInfoList: widget.exchangeInfoList,
+        isExchangeViewEnabled: widget.isExchangeViewEnabled,
+      );
     }
   }
 
@@ -102,22 +112,19 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
     return true;
   }
 
-  PersonalTimetableDataSource _createDataSource() {
-    final result = PersonalTimetableHelper.convertToPersonalTimetableData(
-      widget.timeSlots,
-      widget.teacherName,
-      widget.weekDates,
-      zoomFactor: widget.zoomFactor,
-    );
-    _lastRowCount = result.rows.length;
+  PersonalTimetableDataSource _createDataSource(
+    List<DataGridRow> rows,
+  ) {
+    _lastRowCount = rows.length;
     return PersonalTimetableDataSource(
-      rows: result.rows,
+      rows: rows,
       exchangeInfoList: widget.exchangeInfoList,
       isExchangeViewEnabled: widget.isExchangeViewEnabled,
     );
   }
 
-  void _syncDataSourceAfterWidgetUpdate() {
+  /// 교사·주차·줌이 바뀔 때만 1568칸을 다시 변환합니다.
+  void _rebuildCachedLayout() {
     final result = PersonalTimetableHelper.convertToPersonalTimetableData(
       widget.timeSlots,
       widget.teacherName,
@@ -125,65 +132,48 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
       zoomFactor: widget.zoomFactor,
     );
 
+    _columns = GridScalingHelper.scaleColumns(
+      result.columns,
+      widget.zoomFactor,
+    );
+    _stackedHeaders = GridScalingHelper.scaleStackedHeaders(
+      result.stackedHeaders,
+      widget.zoomFactor,
+    );
+    _headerHeight =
+        GridScalingHelper.scaleHeaderHeight(widget.zoomFactor) *
+        TeacherCardGridConstants.personalTimetableSizeMultiplier;
+    _rowHeight =
+        GridScalingHelper.scaleRowHeight(widget.zoomFactor) *
+        TeacherCardGridConstants.personalTimetableSizeMultiplier;
+    _gridHeight =
+        _headerHeight * (_stackedHeaders!.length + 1) +
+        _rowHeight * result.rows.length;
+    _gridWidth = _columns!.fold<double>(
+      0,
+      (sum, column) => sum + column.width,
+    );
+
     if (_dataSource == null || _lastRowCount != result.rows.length) {
-      _dataSource = PersonalTimetableDataSource(
-        rows: result.rows,
+      _dataSource = _createDataSource(result.rows);
+    } else {
+      _dataSource!.updateRows(
+        result.rows,
         exchangeInfoList: widget.exchangeInfoList,
         isExchangeViewEnabled: widget.isExchangeViewEnabled,
       );
-      _lastRowCount = result.rows.length;
-      return;
     }
-
-    _dataSource!.updateRows(
-      result.rows,
-      exchangeInfoList: widget.exchangeInfoList,
-      isExchangeViewEnabled: widget.isExchangeViewEnabled,
-    );
+    _lastRowCount = result.rows.length;
   }
 
   @override
   Widget build(BuildContext context) {
-    final result = PersonalTimetableHelper.convertToPersonalTimetableData(
-      widget.timeSlots,
-      widget.teacherName,
-      widget.weekDates,
-      zoomFactor: widget.zoomFactor,
-    );
-
-    // build에서는 DataSource를 만들기만 하고, notifyListeners는 호출하지 않습니다.
-    _dataSource ??= PersonalTimetableDataSource(
-      rows: result.rows,
-      exchangeInfoList: widget.exchangeInfoList,
-      isExchangeViewEnabled: widget.isExchangeViewEnabled,
-    );
-    _lastRowCount = result.rows.length;
-
-    final scaledColumns = GridScalingHelper.scaleColumns(
-      result.columns,
-      widget.zoomFactor,
-    );
-    final scaledStackedHeaders = GridScalingHelper.scaleStackedHeaders(
-      result.stackedHeaders,
-      widget.zoomFactor,
-    );
-
-    final headerHeight =
-        GridScalingHelper.scaleHeaderHeight(widget.zoomFactor) *
-        TeacherCardGridConstants.personalTimetableSizeMultiplier;
-    final rowHeight =
-        GridScalingHelper.scaleRowHeight(widget.zoomFactor) *
-        TeacherCardGridConstants.personalTimetableSizeMultiplier;
-
-    // 스택 헤더(날짜) + 컬럼 헤더(요일) + 데이터 행
-    final gridHeight =
-        headerHeight * (scaledStackedHeaders.length + 1) +
-        rowHeight * result.rows.length;
-
-    final gridWidth = scaledColumns.fold<double>(
-      0,
-      (sum, column) => sum + column.width,
-    );
+    final scaledColumns = _columns!;
+    final scaledStackedHeaders = _stackedHeaders!;
+    final headerHeight = _headerHeight;
+    final rowHeight = _rowHeight;
+    final gridHeight = _gridHeight;
+    final gridWidth = _gridWidth;
 
     final cardWidth = gridWidth.clamp(
       200.0,

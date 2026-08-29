@@ -20,4 +20,14 @@ class DebugConfig {
   /// true: 셀 매칭 실패/성공 정보를 로깅
   /// false: 셀 매칭 로그 비활성화 (프로덕션 권장)
   static const bool enableCellMatchingDebugLogs = false;
+
+  /// Provider가 바뀔 때마다 이름을 출력합니다.
+  /// 시간표 화면이 멈출 때 true로 바꾸고, 콘솔에서 반복되는 Provider를 찾습니다.
+  ///
+  /// 원인을 찾은 뒤에는 반드시 false로 되돌리세요 (로그가 매우 많습니다).
+  static const bool enableProviderUpdateLogs = false;
+
+  /// 시간표 화면 build 횟수를 출력합니다.
+  /// 1초에 수십 번이면 무한 리빌드, 1~2번이면 다른 원인(로드 대기 등)입니다.
+  static const bool enableTimetableRebuildLogs = false;
 }

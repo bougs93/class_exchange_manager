@@ -37,6 +37,18 @@ class ScrollState {
   String toString() {
     return 'ScrollState(h: ${horizontalOffset.toStringAsFixed(1)}, v: ${verticalOffset.toStringAsFixed(1)}, scrolling: $isScrolling)';
   }
+
+  @override
+  bool operator ==(Object other) {
+    return other is ScrollState &&
+        other.horizontalOffset == horizontalOffset &&
+        other.verticalOffset == verticalOffset &&
+        other.isScrolling == isScrolling;
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(horizontalOffset, verticalOffset, isScrolling);
 }
 
 /// 스크롤 상태 관리 Notifier
@@ -47,6 +59,12 @@ class ScrollNotifier extends StateNotifier<ScrollState> {
   /// 스크롤 오프셋 업데이트
   /// ScrollController의 리스너에서 호출됨
   void updateOffset(double horizontal, double vertical) {
+    // 값이 같으면 알리지 않습니다. (같으면 IndexedStack 뒤의 교체 화면이
+    // 매 레이아웃마다 다시 그려져 앱이 멈춥니다.)
+    if (state.horizontalOffset == horizontal &&
+        state.verticalOffset == vertical) {
+      return;
+    }
     state = state.copyWith(
       horizontalOffset: horizontal,
       verticalOffset: vertical,
@@ -56,6 +74,7 @@ class ScrollNotifier extends StateNotifier<ScrollState> {
   /// 스크롤 중 상태 설정
   /// 마우스 오른쪽 버튼 드래그 또는 두 손가락 터치 시작/종료 시 호출
   void setScrolling(bool isScrolling) {
+    if (state.isScrolling == isScrolling) return;
     state = state.copyWith(isScrolling: isScrolling);
   }
 

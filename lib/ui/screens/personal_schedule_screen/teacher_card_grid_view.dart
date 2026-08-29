@@ -42,6 +42,9 @@ class TeacherCardGridView extends ConsumerStatefulWidget {
 
 class _TeacherCardGridViewState extends ConsumerState<TeacherCardGridView>
     with ScrollManagementMixin {
+  /// 시간표 카드 스크롤은 교체 화면 화살표용 전역 provider에 올리지 않습니다.
+  @override
+  bool get syncScrollToGlobalProvider => false;
   @override
   void initState() {
     super.initState();
