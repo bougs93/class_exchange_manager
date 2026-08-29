@@ -14,3 +14,10 @@ void navigateToPlanDateSelection(WidgetRef ref) {
   ref.read(planOutputMenuProvider.notifier).state = PlanOutputMenu.contentInput;
   ref.read(navigationProvider.notifier).state = NavIndices.planOutput;
 }
+
+/// [계획서] 탭의 [결보강 출력] 서브 메뉴로 이동합니다.
+void navigateToPlanSubstitutionOutput(WidgetRef ref) {
+  ref.read(planOutputMenuProvider.notifier).state =
+      PlanOutputMenu.substitutionOutput;
+  ref.read(navigationProvider.notifier).state = NavIndices.planOutput;
+}

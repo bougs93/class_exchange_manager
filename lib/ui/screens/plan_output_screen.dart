@@ -80,6 +80,15 @@ class _PlanOutputScreenState extends ConsumerState<PlanOutputScreen> {
   Widget build(BuildContext context) {
     final selectedMenu = ref.watch(planOutputMenuProvider);
 
+    // 사이드바뿐 아니라 '0건 일괄 출력' 등 provider 직접 전환도 동기화
+    ref.listen<PlanOutputMenu>(planOutputMenuProvider, (previous, next) {
+      if (next != PlanOutputMenu.substitutionOutput) return;
+      if (previous == next) return;
+      AppLogger.info('결보강 출력 메뉴 진입 → 준비 교사 동기화 요청');
+      setState(() => _substitutionTabActivated = true);
+      _scheduleSubstitutionSync();
+    });
+
     // 상단 네비에서 계획서 탭으로 들어올 때마다 준비 교사 재동기화
     ref.listen<int>(navigationProvider, (previous, next) {
       if (next != NavIndices.planOutput) return;

@@ -33,6 +33,12 @@ class PrintProfile {
   /// 사용자 지정 PDF 템플릿 파일 경로 (선택)
   final String? selectedTemplateFilePath;
 
+  /// 결보강 출력에서 제외할 교체 건(그룹) ID 목록
+  ///
+  /// 비어 있으면 모든 건이 선택된 상태입니다(기본값).
+  /// 체크를 해제하면 해당 groupId가 이 목록에 들어가 파일에 저장됩니다.
+  final List<String> deselectedGroupIds;
+
   const PrintProfile({
     required this.id,
     required this.name,
@@ -44,6 +50,7 @@ class PrintProfile {
     required this.includeRemarks,
     this.additionalFields = const {},
     this.selectedTemplateFilePath,
+    this.deselectedGroupIds = const [],
   });
 
   /// 고유 ID 생성 (동일 시각 연속 생성 충돌 방지를 위해 마이크로초+시퀀스 포함)
@@ -71,6 +78,7 @@ class PrintProfile {
     Map<String, String>? additionalFields,
     String? selectedTemplateFilePath,
     bool clearTemplateFilePath = false,
+    List<String>? deselectedGroupIds,
   }) {
     return PrintProfile(
       id: id,
@@ -85,6 +93,7 @@ class PrintProfile {
       selectedTemplateFilePath: clearTemplateFilePath
           ? null
           : (selectedTemplateFilePath ?? this.selectedTemplateFilePath),
+      deselectedGroupIds: deselectedGroupIds ?? this.deselectedGroupIds,
     );
   }
 
@@ -100,6 +109,8 @@ class PrintProfile {
     'additionalFields': additionalFields,
     if (selectedTemplateFilePath != null)
       'selectedTemplateFilePath': selectedTemplateFilePath,
+    if (deselectedGroupIds.isNotEmpty)
+      'deselectedGroupIds': deselectedGroupIds,
   };
 
   factory PrintProfile.fromJson(Map<String, dynamic> json) {
@@ -110,6 +121,16 @@ class PrintProfile {
       rawFields.forEach((key, value) {
         fields[key.toString()] = value?.toString() ?? '';
       });
+    }
+
+    // 구버전 파일에는 필드가 없음 → 빈 목록 = 전체 선택
+    final rawDeselected = json['deselectedGroupIds'];
+    final deselected = <String>[];
+    if (rawDeselected is List) {
+      for (final item in rawDeselected) {
+        final id = item?.toString().trim() ?? '';
+        if (id.isNotEmpty) deselected.add(id);
+      }
     }
 
     return PrintProfile(
@@ -123,8 +144,13 @@ class PrintProfile {
       includeRemarks: json['includeRemarks'] as bool? ?? false,
       additionalFields: fields,
       selectedTemplateFilePath: json['selectedTemplateFilePath'] as String?,
+      deselectedGroupIds: deselected,
     );
   }
+
+  /// 해당 교체 건이 결보강 출력 대상인지
+  bool isGroupSelected(String groupId) =>
+      !deselectedGroupIds.contains(groupId);
 
   /// 설정 내용이 같은지 비교 (id·name·teacherName 제외)
   ///

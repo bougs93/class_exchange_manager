@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../../../constants/korean_fonts.dart';
 import 'package:calendar_date_picker2/calendar_date_picker2.dart';
@@ -10,14 +9,14 @@ import 'package:flutter/services.dart';
 import '../../../../constants/screen_usage_hints.dart';
 import '../../../../models/plan_output_menu.dart';
 import '../../../../models/print_profile.dart';
+import '../../../../providers/plan_output_menu_provider.dart';
 import '../../../../providers/print_profile_provider.dart';
 import '../../../../providers/substitution_plan_provider.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../../providers/exchange_screen_provider.dart';
 import '../../../../providers/services_provider.dart';
 import '../../../../providers/state_reset_provider.dart';
-import '../../../../services/batch_pdf_export_service.dart';
-import 'batch_export_progress_dialog.dart';
+import '../../../../providers/timetable_registry_provider.dart';
 import '../../../../theme/design_tokens.dart';
 import '../../../../ui/widgets/content_toolbar_layout.dart';
 import '../../../../ui/widgets/content_usage_hint_bar.dart';
@@ -183,9 +182,14 @@ class ContentInputGrid extends ConsumerStatefulWidget {
 
 class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     with ScrollManagementMixin {
-  /// 일괄 출력 선택 상태 (그룹 = 교체 건 ID 기준)
+  /// 결보강 출력 대상 선택 상태 (그룹 = 교체 건 ID 기준)
+  ///
+  /// 기본은 전체 선택. 변경 시 현재 계획서의 deselectedGroupIds에 즉시 저장합니다.
   final Set<String> _checkedGroupIds = {};
   String? _selectedPlanId;
+
+  /// 체크 UI를 계획서에서 한 번 이상 맞췄는지 (초기 전체선택 동기화용)
+  bool _selectionHydrated = false;
 
   @override
   void initState() {
@@ -219,7 +223,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     return ref.read(printProfileStoreProvider).byTeacher(teacher);
   }
 
-  /// 그룹 선택 토글
+  /// 그룹 선택 토글 — 즉시 현재 계획서 파일에 저장
   void _toggleGroupSelection(String groupId) {
     setState(() {
       if (_checkedGroupIds.contains(groupId)) {
@@ -228,24 +232,213 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
         _checkedGroupIds.add(groupId);
       }
     });
+    unawaited(_persistSelectionToCurrentPlan());
   }
 
-  /// 전체 선택/해제 토글
+  /// 전체 선택/해제 토글 — 즉시 저장
   void _toggleSelectAll(List<SubstitutionPlanData> planData) {
-    final allGroupIds =
-        planData
-            .map((d) => d.groupId)
-            .whereType<String>()
-            .where((id) => id.isNotEmpty)
-            .toSet();
+    final allGroupIds = _allGroupIds(planData);
 
     setState(() {
       if (_checkedGroupIds.containsAll(allGroupIds) && allGroupIds.isNotEmpty) {
         _checkedGroupIds.clear();
       } else {
-        _checkedGroupIds.addAll(allGroupIds);
+        _checkedGroupIds
+          ..clear()
+          ..addAll(allGroupIds);
       }
     });
+    unawaited(_persistSelectionToCurrentPlan());
+  }
+
+  Set<String> _allGroupIds(List<SubstitutionPlanData> planData) {
+    return planData
+        .map((d) => d.groupId)
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toSet();
+  }
+
+  /// 상단 드롭다운에 표시할 현재 계획서 ID (저장된 계획서만, 없으면 null)
+  String? _resolveSelectedPlanId(
+    PrintProfileStore store,
+    List<SubstitutionPlanData> planData,
+  ) {
+    // 삭제된 ID가 _selectedPlanId에 남아 있으면 무시
+    if (_selectedPlanId != null &&
+        _selectedPlanId != '__default__' &&
+        store.profiles.any((p) => p.id == _selectedPlanId)) {
+      return _selectedPlanId;
+    }
+    if (store.profiles.any((p) => p.id == store.lastUsedProfileId)) {
+      return store.lastUsedProfileId;
+    }
+    if (store.profiles.isNotEmpty) return store.profiles.first.id;
+    // 저장된 계획서가 없으면 null — 결강일 기반 임시 이름을 계획서처럼 보여주지 않음
+    return null;
+  }
+
+  PrintProfile? _currentProfile(PrintProfileStore store) {
+    final id = _selectedPlanId ?? store.lastUsedProfileId;
+    if (id == null || id == '__default__') return null;
+    return store.getById(id);
+  }
+
+  /// 계획서의 제외 목록 → 체크 UI 반영 (기본: 모두 선택)
+  void _hydrateSelectionFromPlan(
+    PrintProfileStore store,
+    List<SubstitutionPlanData> planData,
+  ) {
+    final allIds = _allGroupIds(planData);
+    final profile = _currentProfile(store);
+    final deselected = profile?.deselectedGroupIds.toSet() ?? const <String>{};
+
+    final next = allIds.where((id) => !deselected.contains(id)).toSet();
+    final same =
+        next.length == _checkedGroupIds.length &&
+        next.containsAll(_checkedGroupIds);
+    if (same && _selectionHydrated) return;
+
+    _checkedGroupIds
+      ..clear()
+      ..addAll(next);
+    _selectionHydrated = true;
+  }
+
+  /// 체크 상태를 현재 계획서에 저장 (없으면 준비 교사 기준으로 계획서 생성)
+  Future<void> _persistSelectionToCurrentPlan() async {
+    final planData = ref.read(substitutionPlanViewModelProvider).planData;
+    final allIds = _allGroupIds(planData);
+    final deselected =
+        allIds.where((id) => !_checkedGroupIds.contains(id)).toList()..sort();
+
+    var store = ref.read(printProfileStoreProvider);
+    var profile = _currentProfile(store);
+
+    // 계획서가 없으면 선택 저장을 위해 하나 만듦
+    if (profile == null) {
+      profile = await _ensurePlanExists(planData, nameHint: null);
+      if (profile == null) return;
+      store = ref.read(printProfileStoreProvider);
+    }
+
+    // 내용이 같으면 디스크 쓰기 생략
+    if (_listEquals(profile.deselectedGroupIds, deselected)) return;
+
+    await ref
+        .read(printProfileStoreProvider.notifier)
+        .saveProfile(profile.copyWith(deselectedGroupIds: deselected));
+  }
+
+  bool _listEquals(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  /// 현재 계획서가 없으면 생성하고, 있으면 그대로 반환
+  ///
+  /// 교사명은 준비 화면 교사를 우선합니다. 기존 계획서의 teacherName이
+  /// 비어 있거나 다르면 준비 교사로 맞춰 결보강 출력 목록에 보이게 합니다.
+  Future<PrintProfile?> _ensurePlanExists(
+    List<SubstitutionPlanData> planData, {
+    String? nameHint,
+  }) async {
+    final store = ref.read(printProfileStoreProvider);
+    final existing = _currentProfile(store);
+    final teacher = _resolvePlanTeacherName(planData);
+    if (teacher.isEmpty) {
+      AppLogger.warning('계획서 생성 실패: 교사명이 없습니다');
+      return null;
+    }
+
+    if (existing != null) {
+      // 교사 귀속이 비어 있거나 준비 교사와 다르면 맞춤 (목록 누락 방지)
+      if (existing.teacherName.trim() != teacher) {
+        final fixed = existing.copyWith(teacherName: teacher);
+        final ok = await ref
+            .read(printProfileStoreProvider.notifier)
+            .saveProfile(fixed);
+        if (!ok) return existing;
+        AppLogger.info(
+          "계획서 '${existing.name}' 교사 귀속 보정: "
+          "'${existing.teacherName}' → '$teacher'",
+        );
+        return fixed;
+      }
+      return existing;
+    }
+
+    final name =
+        nameHint ??
+        (planData.isNotEmpty &&
+                planData.first.absenceDate.isNotEmpty &&
+                planData.first.absenceDate != '선택'
+            ? DateFormatUtils.toSubstitutionPlanNameFromStored(
+              planData.first.absenceDate,
+            )
+            : '결보강');
+
+    final allIds = _allGroupIds(planData);
+    final deselected =
+        allIds.where((id) => !_checkedGroupIds.contains(id)).toList()..sort();
+
+    final profile = PrintProfile(
+      id: PrintProfile.generateId(),
+      name: name,
+      teacherName: teacher,
+      templateIndex: 0,
+      fontSize: 10.0,
+      remarksFontSize: 7.0,
+      selectedFont: KoreanFontConstants.defaultFont,
+      includeRemarks: false,
+      additionalFields: {'teacherName': teacher},
+      deselectedGroupIds: deselected,
+    );
+
+    final ok = await ref
+        .read(printProfileStoreProvider.notifier)
+        .saveProfile(profile);
+    if (!ok) return null;
+
+    setState(() => _selectedPlanId = profile.id);
+    _applyPlanToAllRows(profile.id, planData);
+    await ref
+        .read(printProfileStoreProvider.notifier)
+        .setLastUsedProfile(profile.id);
+    return profile;
+  }
+
+  /// 계획서에 귀속시킬 교사명 (준비 교사 → 없으면 첫 행 결강 교사)
+  String _resolvePlanTeacherName(List<SubstitutionPlanData> planData) {
+    final prepared = ref.read(activeTeacherNameProvider).trim();
+    if (prepared.isNotEmpty) return prepared;
+    if (planData.isNotEmpty && planData.first.teacher.trim().isNotEmpty) {
+      return planData.first.teacher.trim();
+    }
+    return '';
+  }
+
+  /// 결강일 선택 시 현재 계획서 이름을 "결보강 YY.MM.DD"로 변경
+  Future<void> _renameSelectedPlanToAbsenceDate(
+    DateTime date,
+    List<SubstitutionPlanData> planData,
+  ) async {
+    final name = DateFormatUtils.toSubstitutionPlanName(date);
+    final profile = await _ensurePlanExists(planData, nameHint: name);
+    if (profile == null) return;
+
+    if (profile.name != name) {
+      await ref
+          .read(printProfileStoreProvider.notifier)
+          .renameProfile(profile.id, name);
+    }
+    // 이름만 바꾼 뒤에도 교사 귀속을 한 번 더 맞춤
+    final synced = await _ensurePlanExists(planData, nameHint: name);
+    if (!mounted) return;
+    setState(() => _selectedPlanId = (synced ?? profile).id);
   }
 
   /// 행 드롭다운에서 새 계획서 만들기
@@ -329,169 +522,6 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     if (mounted) setState(() {});
   }
 
-  /// 현재 planData에 실제로 존재하는 선택 그룹 수 (삭제된 그룹 카운트 제외)
-  int _validCheckedCount(List<SubstitutionPlanData> planData) {
-    final validGroupIds =
-        planData.map((d) => d.groupId).whereType<String>().toSet();
-    return _checkedGroupIds.where(validGroupIds.contains).length;
-  }
-
-  /// 선택 건 일괄 출력
-  Future<void> _batchPrint(
-    BuildContext context,
-    WidgetRef ref,
-    List<SubstitutionPlanData> planData,
-  ) async {
-    if (_checkedGroupIds.isEmpty) {
-      SnackBarHelper.showError(context, '출력할 교체 건을 선택하세요.');
-      return;
-    }
-
-    // 1. 요청 구성 (그룹별 행 수집 + 지정 계획서 조회)
-    final history = ref.read(exchangeHistoryServiceProvider).getExchangeList();
-    final store = ref.read(printProfileStoreProvider);
-    final items = <BatchExportItem>[];
-
-    for (final groupId in _checkedGroupIds) {
-      final rows = planData.where((d) => d.groupId == groupId).toList();
-      if (rows.isEmpty) continue;
-
-      final exchangeItem = history.where((h) => h.id == groupId).firstOrNull;
-      final profile = store.getById(exchangeItem?.profileId);
-
-      items.add(BatchExportItem(itemId: groupId, rows: rows, profile: profile));
-    }
-
-    if (items.isEmpty) {
-      SnackBarHelper.showError(context, '출력 가능한 교체 건이 없습니다.');
-      return;
-    }
-
-    // 2. 저장 폴더 선택 (1회)
-    final directory = await FilePicker.getDirectoryPath(
-      dialogTitle: 'PDF 저장 폴더 선택',
-    );
-    if (directory == null || !context.mounted) return;
-
-    // 3. 일괄 출력 실행 (진행률 + 취소)
-    final progressController =
-        StreamController<BatchExportProgress>.broadcast();
-    bool cancelRequested = false;
-
-    // ignore: use_build_context_synchronously
-    unawaited(
-      showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder:
-            (dialogContext) => BatchExportProgressDialog(
-              initialTotal: items.length,
-              progressStream: progressController.stream,
-              onCancel: () => cancelRequested = true,
-            ),
-      ),
-    );
-
-    BatchPdfExportResult result;
-    try {
-      result = await BatchPdfExportService().exportAll(
-        items: items,
-        outputDirectory: directory,
-        onProgress: (done, total, fileName) {
-          if (!progressController.isClosed) {
-            progressController.add(
-              BatchExportProgress(done: done, total: total, fileName: fileName),
-            );
-          }
-        },
-        isCancelled: () => cancelRequested,
-      );
-    } catch (e) {
-      // 설정 로드 등에서 실패해도 진행 다이얼로그가 남지 않도록 한다
-      AppLogger.error('일괄 출력 중 오류: $e', e);
-      result = BatchPdfExportResult(
-        successCount: 0,
-        totalCount: items.length,
-        errors: ['일괄 출력을 시작하지 못했습니다: $e'],
-      );
-    } finally {
-      await progressController.close();
-      if (context.mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-      }
-    }
-
-    if (!context.mounted) return;
-
-    // 4. 결과 다이얼로그
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('일괄 출력 완료'),
-          content: SizedBox(
-            width: 360,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  result.allSucceeded
-                      ? '${result.successCount}/${result.totalCount}건 출력 성공'
-                      : [
-                        '${result.successCount}/${result.totalCount}건 성공',
-                        if (result.errors.isNotEmpty)
-                          '${result.errors.length}건 실패',
-                        if (result.cancelledCount > 0)
-                          '${result.cancelledCount}건 취소됨',
-                      ].join(', '),
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: result.allSucceeded ? Colors.green : Colors.orange,
-                  ),
-                ),
-                if (result.errors.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  const Text('실패 내역:', style: TextStyle(fontSize: 13)),
-                  const SizedBox(height: 4),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children:
-                            result.errors
-                                .map(
-                                  (e) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 4),
-                                    child: Text(
-                                      e,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.red,
-                                      ),
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          actions: [
-            ElevatedButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('확인'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     // Riverpod select 패턴 사용 - 필요한 상태만 구독
@@ -501,7 +531,24 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     final isLoading = ref.watch(
       substitutionPlanViewModelProvider.select((state) => state.isLoading),
     );
+    final store = ref.watch(printProfileStoreProvider);
     final viewModel = ref.read(substitutionPlanViewModelProvider.notifier);
+
+    // 마지막 사용 계획서·저장된 체크 상태를 UI에 맞춤 (기본: 모두 선택)
+    final resolvedId = _resolveSelectedPlanId(store, planData);
+    if (resolvedId != null &&
+        resolvedId != '__default__' &&
+        _selectedPlanId != resolvedId &&
+        _selectedPlanId == null) {
+      _selectedPlanId = resolvedId;
+    }
+    _hydrateSelectionFromPlan(store, planData);
+
+    // 현재 계획서 교사 귀속이 준비 교사와 다르면 보정 (결보강 출력 목록 누락 방지)
+    ref.listen<String>(activeTeacherNameProvider, (previous, next) {
+      if (next.trim().isEmpty || next == previous) return;
+      unawaited(_ensurePlanExists(planData));
+    });
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -529,15 +576,9 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
   Widget _buildPlanManagementBar(List<SubstitutionPlanData> planData) {
     final store = ref.watch(printProfileStoreProvider);
     final profiles = store.profiles;
-    final selectedId =
-        profiles.any((p) => p.id == _selectedPlanId)
-            ? _selectedPlanId
-            : (profiles.any((p) => p.id == store.lastUsedProfileId)
-                ? store.lastUsedProfileId
-                : (profiles.isNotEmpty
-                    ? profiles.first.id
-                    : (planData.isEmpty ? null : '__default__')));
-    final defaultName = _defaultPlanName(planData);
+    final selectedId = _resolveSelectedPlanId(store, planData);
+    final selectedProfile = store.getById(selectedId);
+    final hasSavedPlans = profiles.isNotEmpty;
 
     return Row(
       children: [
@@ -546,40 +587,75 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
         SizedBox(
           width: 190,
           height: 34,
-          child: DropdownButtonFormField<String>(
-            initialValue: selectedId,
-            isDense: true,
-            decoration: InputDecoration(
-              hintText: defaultName,
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 6,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-              ),
-            ),
-            items: [
-              if (planData.isNotEmpty)
-                DropdownMenuItem<String>(
-                  value: '__default__',
-                  child: Text(defaultName),
-                ),
-              for (final profile in profiles)
-                DropdownMenuItem<String>(
-                  value: profile.id,
-                  child: Text(profile.name, overflow: TextOverflow.ellipsis),
-                ),
-            ],
-            onChanged: (id) {
-              if (id == null) return;
-              setState(() => _selectedPlanId = id);
-              if (id != '__default__') {
-                _applyPlanToAllRows(id, planData);
-              }
-            },
-          ),
+          // 항목 0개인 DropdownButtonFormField는 레이아웃 예외를 낼 수 있어
+          // 저장된 계획서가 없을 때는 단순 표시 위젯을 씁니다.
+          child:
+              hasSavedPlans
+                  ? DropdownButtonFormField<String>(
+                    key: ValueKey(
+                      'plan-dd-${selectedId ?? 'none'}-${selectedProfile?.name ?? 'empty'}-${profiles.length}',
+                    ),
+                    initialValue: selectedId,
+                    isDense: true,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    items: [
+                      for (final profile in profiles)
+                        DropdownMenuItem<String>(
+                          value: profile.id,
+                          child: Text(
+                            profile.name,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: (id) {
+                      if (id == null) return;
+                      setState(() {
+                        _selectedPlanId = id;
+                        _selectionHydrated = false;
+                      });
+                      _applyPlanToAllRows(id, planData);
+                      unawaited(
+                        ref
+                            .read(printProfileStoreProvider.notifier)
+                            .setLastUsedProfile(id),
+                      );
+                      _hydrateSelectionFromPlan(
+                        ref.read(printProfileStoreProvider),
+                        planData,
+                      );
+                      setState(() {});
+                    },
+                  )
+                  : InputDecorator(
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    child: Text(
+                      '계획서 없음',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: context.tokens.textMuted,
+                      ),
+                    ),
+                  ),
         ),
         const SizedBox(width: 6),
         TextButton(
@@ -594,9 +670,9 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
         ),
         TextButton(
           onPressed:
-              selectedId == null
+              selectedProfile == null
                   ? null
-                  : () => _renamePlan(selectedId, planData),
+                  : () => _renamePlan(selectedProfile.id, planData),
           style: TextButton.styleFrom(
             minimumSize: const Size(0, 34),
             padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -605,7 +681,10 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
           child: const Text('수정'),
         ),
         TextButton(
-          onPressed: selectedId == null ? null : () => _deletePlan(selectedId),
+          onPressed:
+              selectedProfile == null
+                  ? null
+                  : () => _deletePlan(selectedProfile.id),
           style: TextButton.styleFrom(
             minimumSize: const Size(0, 34),
             padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -618,13 +697,14 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
   }
 
   String _defaultPlanName(List<SubstitutionPlanData> planData) {
-    if (planData.isEmpty || planData.first.absenceDate.isEmpty) {
-      return '계획서';
+    if (planData.isEmpty ||
+        planData.first.absenceDate.isEmpty ||
+        planData.first.absenceDate == '선택') {
+      return '결보강';
     }
-    final date = planData.first.absenceDate.replaceAll('-', '.');
-    return date.split('.').length == 2
-        ? '${DateTime.now().year.toString().substring(2)}.$date'
-        : date;
+    return DateFormatUtils.toSubstitutionPlanNameFromStored(
+      planData.first.absenceDate,
+    );
   }
 
   void _applyPlanToAllRows(
@@ -638,6 +718,9 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
         history.assignProfile(groupId, profileId);
       }
     }
+    unawaited(
+      ref.read(printProfileStoreProvider.notifier).setLastUsedProfile(profileId),
+    );
     setState(() {});
   }
 
@@ -821,15 +904,12 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
           ),
         ),
         const SizedBox(width: ContentToolbarLayout.buttonGap),
-        // 오른쪽: 일괄 출력 + 엑셀서식 복사
+        // 오른쪽: 결보강 출력 이동 + 엑셀서식 복사
         CompactToolbarLabelButton(
-          onPressed:
-              _checkedGroupIds.isEmpty
-                  ? null
-                  : () => _batchPrint(context, ref, planData),
+          onPressed: () => navigateToPlanSubstitutionOutput(ref),
           icon: Icons.print,
-          label: '${_validCheckedCount(planData)}건 일괄 출력',
-          tooltip: '선택한 교체 건을 지정된 계획서로 일괄 PDF 출력',
+          label: '결보강 출력',
+          tooltip: '결보강 출력으로 이동하여 PDF 미리보기·인쇄',
           backgroundColor: Colors.purple.shade50,
           foregroundColor: Colors.purple.shade600,
           borderColor: Colors.purple.shade600,
@@ -897,8 +977,9 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
           .read(stateResetProvider.notifier)
           .resetExchangeStates(reason: '교체목록 전체 초기화');
 
-      // 5. 일괄 출력 선택 상태 초기화 (삭제된 교체 건 참조 제거)
+      // 5. 선택 상태 초기화 (삭제된 교체 건 참조 제거)
       _checkedGroupIds.clear();
+      _selectionHydrated = false;
 
       // 6. 보강계획서 데이터 자동 새로고침
       final viewModel = ref.read(substitutionPlanViewModelProvider.notifier);
@@ -1258,6 +1339,11 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
         final formattedDate = DateFormatUtils.toYearMonthDay(selectedDate);
         AppLogger.exchangeInfo('날짜 업데이트: $formattedDate');
         viewModel.updateDate(exchangeId, columnName, formattedDate);
+
+        // 결강일 선택 → 현재 계획서 이름을 "결보강 YY.MM.DD"로 (여러 건이면 마지막 선택이 기준)
+        if (columnName == 'absenceDate' && mounted) {
+          await _renameSelectedPlanToAbsenceDate(selectedDate, planData);
+        }
       } else {
         AppLogger.exchangeDebug('날짜 선택 취소됨');
       }

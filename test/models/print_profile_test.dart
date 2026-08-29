@@ -31,7 +31,10 @@ void main() {
     });
 
     test('JSON 직렬화/역직렬화 왕복', () {
-      final restored = PrintProfile.fromJson(profile().toJson());
+      final original = profile().copyWith(
+        deselectedGroupIds: const ['ex_1', 'ex_2'],
+      );
+      final restored = PrintProfile.fromJson(original.toJson());
 
       expect(restored.id, 'pp_1');
       expect(restored.name, '계획서1');
@@ -43,6 +46,7 @@ void main() {
       expect(restored.includeRemarks, isTrue);
       expect(restored.additionalFields, {'notes': '비고 내용', 'teacherName': '홍길동'});
       expect(restored.selectedTemplateFilePath, 'D:/templates/a.pdf');
+      expect(restored.deselectedGroupIds, ['ex_1', 'ex_2']);
     });
 
     test('fromJson은 additionalFields의 동적 값을 문자열로 강제한다', () {
@@ -65,6 +69,13 @@ void main() {
       expect(restored.selectedFont, 'hanbatang.ttf');
       expect(restored.includeRemarks, isFalse);
       expect(restored.selectedTemplateFilePath, isNull);
+      expect(restored.deselectedGroupIds, isEmpty);
+    });
+
+    test('isGroupSelected는 제외 목록에 없으면 true', () {
+      final p = profile().copyWith(deselectedGroupIds: const ['a']);
+      expect(p.isGroupSelected('a'), isFalse);
+      expect(p.isGroupSelected('b'), isTrue);
     });
 
     test('copyWith clearTemplateFilePath는 경로를 제거한다', () {

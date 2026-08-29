@@ -6,9 +6,28 @@ import 'day_utils.dart';
 /// - 내부 저장: 년.월.일 형식 (예: "2025.11.24")
 /// - UI 표시/출력: 월.일 형식 (예: "11.24")
 class DateFormatUtils {
+  /// DateTime을 결보강 계획서 이름 형식으로 변환
+  ///
+  /// 예: DateTime(2026, 8, 31) → "결보강 26.08.31"
+  static String toSubstitutionPlanName(DateTime date) {
+    final yy = (date.year % 100).toString().padLeft(2, '0');
+    final mm = date.month.toString().padLeft(2, '0');
+    final dd = date.day.toString().padLeft(2, '0');
+    return '결보강 $yy.$mm.$dd';
+  }
+
+  /// 년.월.일 문자열을 결보강 계획서 이름으로 변환
+  ///
+  /// 예: "2026.08.31" → "결보강 26.08.31"
+  static String toSubstitutionPlanNameFromStored(String yearMonthDay) {
+    final parsed = parseYearMonthDay(normalizePlanDate(yearMonthDay));
+    if (parsed == null) return '결보강';
+    return toSubstitutionPlanName(parsed);
+  }
+
   /// DateTime을 년.월.일 형식으로 변환
   ///
-  /// 예: DateTime(2025, 11, 24) → "2025.11.24
+  /// 예: DateTime(2025, 11, 24) → "2025.11.24"
   static String toYearMonthDay(DateTime date) {
     return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
   }
