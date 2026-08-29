@@ -10,8 +10,8 @@ import '../models/supplement_exchange_path.dart';
 import '../ui/widgets/simplified_timetable_cell.dart';
 import '../providers/cell_selection_provider.dart';
 import '../providers/app_settings_provider.dart';
+import '../providers/timetable_registry_provider.dart';
 import '../services/non_exchangeable_data_storage_service.dart';
-import '../services/app_settings_storage_service.dart';
 import 'exchange_algorithm.dart';
 import 'exchange_path_step_resolver.dart';
 import 'day_utils.dart';
@@ -423,7 +423,7 @@ class TimetableDataSource extends DataGridSource {
 
   /// 하이라이트된 교사인지 확인
   ///
-  /// 설정에서 저장한 defaultTeacherName과 현재 교사명을 비교합니다.
+  /// 활성 시간표에 지정된 교사와 현재 교사명을 비교합니다.
   /// 결과는 캐시하여 성능을 최적화합니다.
   bool _isHighlightedTeacher(String teacherName) {
     // 교사명 비교 (빈 문자열이면 하이라이트 안함)
@@ -436,35 +436,25 @@ class TimetableDataSource extends DataGridSource {
 
   /// 하이라이트할 교사명 로드
   ///
-  /// 설정에서 defaultTeacherName을 로드합니다.
-  /// 비동기로 로드하며, 완료되면 캐시를 갱신하고 UI를 업데이트합니다.
+  /// 활성 시간표의 교사(TimetableRegistryEntry.teacherName)를 읽습니다.
+  /// 전역 설정이 아니라 시간표 속성이므로 동기 조회가 가능하며,
+  /// 시간표를 전환하면 하이라이트 대상도 함께 바뀝니다(문서 §2).
   void _loadHighlightedTeacherName() {
     if (_highlightedTeacherNameLoaded) {
       return; // 이미 로드 완료
     }
 
     try {
-      final appSettings = AppSettingsStorageService();
-      // 비동기 로드
-      appSettings
-          .loadTeacherAndSchoolName()
-          .then((defaults) {
-            final newTeacherName = defaults['defaultTeacherName'] ?? '';
-            if (_highlightedTeacherName != newTeacherName) {
-              _highlightedTeacherName =
-                  newTeacherName.isEmpty ? null : newTeacherName;
-              _highlightedTeacherNameLoaded = true;
-              // UI 업데이트 (캐시 초기화)
-              _clearCacheAndNotify();
-            } else {
-              _highlightedTeacherNameLoaded = true;
-            }
-          })
-          .catchError((e) {
-            AppLogger.error('하이라이트 교사명 로드 중 오류: $e', e);
-            _highlightedTeacherName = null;
-            _highlightedTeacherNameLoaded = true;
-          });
+      final teacherName = ref.read(activeTeacherNameProvider).trim();
+      final resolved = teacherName.isEmpty ? null : teacherName;
+      final changed = _highlightedTeacherName != resolved;
+
+      _highlightedTeacherName = resolved;
+      _highlightedTeacherNameLoaded = true;
+
+      if (changed) {
+        _clearCacheAndNotify();
+      }
     } catch (e) {
       AppLogger.error('하이라이트 교사명 로드 중 오류: $e', e);
       _highlightedTeacherName = null;
@@ -474,7 +464,7 @@ class TimetableDataSource extends DataGridSource {
 
   /// 하이라이트 교사명 캐시 초기화
   ///
-  /// 설정에서 교사명이 변경되었을 때 호출하여 캐시를 갱신합니다.
+  /// 시간표의 교사가 바뀌거나 시간표를 전환했을 때 호출해 캐시를 갱신합니다.
   void refreshHighlightedTeacherName() {
     _highlightedTeacherNameLoaded = false;
     _highlightedTeacherName = null;

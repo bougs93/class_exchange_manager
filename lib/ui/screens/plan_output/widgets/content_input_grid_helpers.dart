@@ -292,6 +292,7 @@ class CellRendererFactory {
     bool Function(String groupId)? isSelected,
     ValueChanged<String>? onToggleSelect,
     List<PrintProfile> Function(String teacher)? profileOptions,
+    void Function(String groupId, String teacher)? onCreateProfile,
     String? Function(String groupId)? selectedProfileId,
     Function(String groupId, String? profileId)? onProfileChanged,
   }) {
@@ -304,6 +305,7 @@ class CellRendererFactory {
       'profile' => ProfileCellRenderer.build(
         row,
         optionsFor: profileOptions,
+        onCreateProfile: onCreateProfile,
         selectedIdFor: selectedProfileId,
         onChanged: onProfileChanged,
       ),
@@ -351,11 +353,18 @@ class ProfileCellRenderer {
   /// 미지정 선택 값 (빈 문자열)
   static const String unassignedValue = '';
 
+  /// '새 계획서 만들기' 선택 값
+  ///
+  /// 계획서가 0개인 교사 행에서 이 항목이 없으면 결보강 출력 탭까지 왕복해야
+  /// 하므로, 그 자리에서 만들 수 있게 한다(문서 §3④).
+  static const String createValue = '__create__';
+
   static Widget build(
     DataGridRow row, {
     required List<PrintProfile> Function(String teacher)? optionsFor,
     required String? Function(String groupId)? selectedIdFor,
     required Function(String groupId, String? profileId)? onChanged,
+    void Function(String groupId, String teacher)? onCreateProfile,
   }) {
     final groupId = row.extractCellValue('_groupId');
     final teacher = row.extractCellValue('teacher');
@@ -392,14 +401,28 @@ class ProfileCellRenderer {
               ),
             ),
           ),
+          if (onCreateProfile != null && teacher.isNotEmpty)
+            const DropdownMenuItem<String>(
+              value: createValue,
+              child: Text(
+                '＋ 새 계획서…',
+                style: TextStyle(fontSize: 11, color: Colors.blue),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
         ],
-        onChanged:
-            groupId.isEmpty || onChanged == null
-                ? null
-                : (value) => onChanged(
+        onChanged: groupId.isEmpty || onChanged == null
+            ? null
+            : (value) {
+                if (value == createValue) {
+                  onCreateProfile?.call(groupId, teacher);
+                  return;
+                }
+                onChanged(
                   groupId,
                   (value == null || value == unassignedValue) ? null : value,
-                ),
+                );
+              },
       ),
     );
   }

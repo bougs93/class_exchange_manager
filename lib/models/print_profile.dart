@@ -126,6 +126,36 @@ class PrintProfile {
     );
   }
 
+  /// 설정 내용이 같은지 비교 (id·name·teacherName 제외)
+  ///
+  /// 화면 값이 저장된 계획서와 달라졌는지(dirty) 판정하는 데 사용합니다.
+  /// [operator ==]는 id만 비교하므로 이 목적에는 쓸 수 없습니다.
+  ///
+  /// [ignoreFields]에 넣은 `additionalFields` 키는 비교에서 제외합니다
+  /// (예: 결강기간처럼 사용자가 편집하지 않아도 자동으로 다시 계산되는 값).
+  /// 값이 없는 키와 빈 문자열은 같게 취급합니다.
+  bool contentEquals(PrintProfile other, {Set<String> ignoreFields = const {}}) {
+    if (templateIndex != other.templateIndex ||
+        fontSize != other.fontSize ||
+        remarksFontSize != other.remarksFontSize ||
+        selectedFont != other.selectedFont ||
+        includeRemarks != other.includeRemarks ||
+        selectedTemplateFilePath != other.selectedTemplateFilePath) {
+      return false;
+    }
+
+    // 비교 대상 키 합집합 — 한쪽에만 있는 키도 빠짐없이 본다
+    final keys = {...additionalFields.keys, ...other.additionalFields.keys}
+      ..removeAll(ignoreFields);
+
+    for (final key in keys) {
+      if ((additionalFields[key] ?? '') != (other.additionalFields[key] ?? '')) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) || other is PrintProfile && other.id == id;

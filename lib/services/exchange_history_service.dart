@@ -355,58 +355,68 @@ class ExchangeHistoryService {
   final ExchangeListStorageService _storageService =
       ExchangeListStorageService();
 
+  // Serialize file mutations. The public history API is synchronous, and
+  // overlapping unawaited writes can otherwise race on Windows.
+  Future<void> _storageQueue = Future<void>.value();
+
+  Future<void> _enqueueStorageOperation(
+    Future<void> Function() operation,
+    String errorMessage,
+  ) {
+    _storageQueue = _storageQueue.then((_) => operation()).catchError((error) {
+      AppLogger.error('$errorMessage: $error', error);
+    });
+    return _storageQueue;
+  }
+
+  void _enqueueExchangeListSave(String errorMessage) {
+    final snapshot = List<ExchangeHistoryItem>.from(_exchangeList);
+    final scopedTimetableId = timetableId;
+    _enqueueStorageOperation(
+      () => _storageService.saveExchangeList(
+        snapshot,
+        timetableId: scopedTimetableId,
+      ),
+      errorMessage,
+    );
+  }
+
   /// 교체 항목을 로컬 저장소에 저장
   ///
   /// 교체 리스트 전체를 다시 저장합니다.
-  void _saveToLocalStorage(ExchangeHistoryItem item) async {
-    try {
-      // 전체 교체 리스트를 저장
-      await _storageService.saveExchangeList(
-        _exchangeList,
-        timetableId: timetableId,
-      );
-    } catch (e) {
-      AppLogger.error('교체 항목 저장 실패: $e', e);
-    }
+  void _saveToLocalStorage(ExchangeHistoryItem item) {
+    _enqueueExchangeListSave('교체 항목 저장 실패');
   }
 
   /// 교체 항목을 로컬 저장소에서 삭제
   ///
   /// 교체 리스트 전체를 다시 저장합니다.
-  void _removeFromLocalStorage(String itemId) async {
-    try {
-      // 전체 교체 리스트를 저장
-      await _storageService.saveExchangeList(
-        _exchangeList,
-        timetableId: timetableId,
-      );
-    } catch (e) {
-      AppLogger.error('교체 항목 삭제 저장 실패: $e', e);
-    }
+  void _removeFromLocalStorage(String itemId) {
+    _enqueueExchangeListSave('교체 항목 삭제 저장 실패');
   }
 
   /// 교체 항목을 로컬 저장소에서 업데이트
   ///
   /// 교체 리스트 전체를 다시 저장합니다.
-  void _updateInLocalStorage(ExchangeHistoryItem item) async {
-    try {
-      // 전체 교체 리스트를 저장
-      await _storageService.saveExchangeList(
-        _exchangeList,
-        timetableId: timetableId,
-      );
-    } catch (e) {
-      AppLogger.error('교체 항목 업데이트 저장 실패: $e', e);
-    }
+  void _updateInLocalStorage(ExchangeHistoryItem item) {
+    _enqueueExchangeListSave('교체 항목 업데이트 저장 실패');
   }
 
   /// 로컬 저장소에서 교체 리스트 전체 삭제
-  void _clearLocalStorage() async {
-    try {
-      await _storageService.clearExchangeList(timetableId: timetableId);
-    } catch (e) {
-      AppLogger.error('교체 리스트 삭제 실패: $e', e);
-    }
+  void _clearLocalStorage() {
+    final scopedTimetableId = timetableId;
+    _enqueueStorageOperation(
+      () => _storageService.clearExchangeList(timetableId: scopedTimetableId),
+      '교체 리스트 삭제 실패',
+    );
+  }
+
+  /// 예약된 저장을 마친 뒤 특정 시간표의 교체 목록 파일을 삭제합니다.
+  Future<void> clearStoredDataForTimetable(String timetableId) {
+    return _enqueueStorageOperation(
+      () => _storageService.clearExchangeList(timetableId: timetableId),
+      '교체 리스트 삭제 실패',
+    );
   }
 
   /// 교체 건에 인쇄 프로파일(계획서) 지정
@@ -447,15 +457,25 @@ class ExchangeHistoryService {
   /// 초기화합니다 (다른 시간표의 셀을 되돌리는 사고 방지).
   Future<void> loadFromLocalStorage() async {
     try {
-      // 스코프 전환 대비: 이전 시간표의 undo/redo 스택 초기화
-      _undoStack.clear();
-      _redoStack.clear();
+      final requestedTimetableId = timetableId;
 
+      // A scope can be switched immediately after a synchronous history
+      // mutation. Read only after all earlier writes for that scope finish.
+      await _storageQueue;
+
+      // 스코프 전환 대비: 이전 시간표의 undo/redo 스택 초기화
       final loadedList = await _storageService.loadExchangeList(
-        timetableId: timetableId,
+        timetableId: requestedTimetableId,
       );
 
+      // Ignore a slow load when another timetable became active meanwhile.
+      if (timetableId != requestedTimetableId) {
+        return;
+      }
+
       // 메모리 교체 리스트를 로드된 데이터로 교체
+      _undoStack.clear();
+      _redoStack.clear();
       _exchangeList.clear();
       _exchangeList.addAll(loadedList);
 

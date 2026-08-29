@@ -1,8 +1,8 @@
 # 시간표 다중화 & 교사별 계획서(인쇄 프로파일) 설계
 
 > 작성일: 2026-08-26
-> 최종 수정: 2026-08-26 (구현 대조 검토 반영)
-> 상태: 확정 (구현 완료, UI 사용성 보완 사항 §8에 정리)
+> 최종 수정: 2026-08-26 (UI 개편 구현 반영)
+> 상태: 구현 완료 (반영 결과는 §8)
 
 ## 1. 요구사항
 
@@ -58,7 +58,7 @@ data/  (기존 → 신규)
 │                                              "filePath": "D:/...",
 │                                              "hash":     "월계중_a1b2...",
 │                                              "contentHash": "a1b2...",
-│                                              "myTeacherName": "정원길",   ← 신규
+│                                              "teacherName": "정원길",   ← 신규
 │                                              "schoolName":    "월계중학교", ← 신규
 │                                              "registeredAt": "2026-08-26T14:30:00" }
 │                                          ]
@@ -91,7 +91,7 @@ data/  (기존 → 신규)
 └── timetable_theme.json                (유지 — 전역)
 
 app_settings.json
-  - defaultTeacherName  ──→ 제거. TimetableRegistryEntry.myTeacherName로 이관
+  - defaultTeacherName  ──→ 제거. TimetableRegistryEntry.teacherName로 이관
   - defaultSchoolName   ──→ 제거. TimetableRegistryEntry.schoolName으로 이관
   - languageCode / 색상 등 나머지는 전역 유지
 
@@ -119,8 +119,8 @@ ExchangeHistoryItem: + profileId (String?, nullable) 필드 추가
 | 개인 시간표 기본 교사 | `personal_schedule_screen.dart` | 초기 표시 교사 |
 | 계획서 교사명 자동 입력 | `substitution_output_widget.dart` | PDF 교사명·학교명 |
 
-개인 시간표 화면은 `myTeacherName`을 **기본값으로만** 쓰고, 거기서 다른 교사를 골라도
-`myTeacherName`을 덮어쓰지 않는다 — 남의 시간표를 잠깐 보는 것이 그 화면의 용도다.
+개인 시간표 화면은 `teacherName`을 **기본값으로만** 쓰고, 거기서 다른 교사를 골라도
+`teacherName`을 덮어쓰지 않는다 — 남의 시간표를 잠깐 보는 것이 그 화면의 용도다.
 
 - ID 규칙
   - 시간표: `tt_{yyyyMMdd_HHmmss}`
@@ -342,10 +342,10 @@ ExchangeHistoryItem: + profileId (String?, nullable) 필드 추가
   [기본 규칙]
   - 교사 목록 출처: 현재 활성 시간표의 교사 목록 (TimetableData.teachers,
     엑셀 파싱 결과, 가나다순 정렬) — 별도 등록/삭제 없음
-  - **기본 선택은 시간표에 설정된 교사(`myTeacherName`)**. 다른 교사의 계획서를
-    만들 때만 바꾼다. 여기서 다른 교사를 골라도 `myTeacherName`은 덮어쓰지 않는다
+  - **기본 선택은 시간표에 설정된 교사(`teacherName`)**. 다른 교사의 계획서를
+    만들 때만 바꾼다. 여기서 다른 교사를 골라도 `teacherName`은 덮어쓰지 않는다
     (탭 안에서만 유효한 국소 전환. §3⑥과 동일 원칙)
-  - 교사명·학교명 입력란은 활성 시간표의 `myTeacherName`·`schoolName`으로 자동
+  - 교사명·학교명 입력란은 활성 시간표의 `teacherName`·`schoolName`으로 자동
     채워진다 → 사용자가 매번 타이핑할 일이 없다
   - 교사 드롭다운은 **검색 입력을 지원**하고 항목마다 **계획서 개수를 표시**한다
     (중학교 기준 교사 50~80명. 단순 스크롤 목록이면 하나씩 눌러봐야
@@ -500,7 +500,7 @@ ExchangeHistoryItem: + profileId (String?, nullable) 필드 추가
 
   [＋ 시간표 추가] → 엑셀 선택 → 파싱 완료
     │
-    ├─ 직전 시간표의 myTeacherName("정원길")이 새 시간표의 교사 목록에 있음
+    ├─ 직전 시간표의 teacherName("정원길")이 새 시간표의 교사 목록에 있음
     │    → 자동 선택. 사용자가 손댈 것 없음
     │      ┌────────────────────────────────────────────┐
     │      │ '월계중1학기'이(가) 등록되었습니다.        │
@@ -574,7 +574,7 @@ ExchangeHistoryItem: + profileId (String?, nullable) 필드 추가
 7. **미지정 폴백 대상**: 절대 `lastUsedProfileId`(교사 무관 전역값)를 쓰지 않는다 — 다른 교사 이름이 찍힌 PDF가 나옴 (§4)
 8. **다행 교체 건의 파일명**: 첫 행만으로 이름을 만들면 다교시·다일자 건이 서로 구분되지 않는다 — 범위·건수 표기 필요 (§3④)
 9. **전역 교사명 잔존 금지**: `defaultTeacherName`/`defaultSchoolName`을 읽는 코드가 한 곳이라도 남으면 진실원본이 둘이 되어 시간표별 값과 어긋난다 — 소비처 3곳을 모두 옮기고 저장·읽기 코드를 함께 제거할 것 (§2)
-10. **교사 선택의 국소성**: 결보강 출력 탭·개인 시간표 화면에서 다른 교사를 골라도 `myTeacherName`을 덮어쓰지 않는다 — 남의 시간표 열람이 내 설정을 바꾸면 안 된다
+10. **교사 선택의 국소성**: 결보강 출력 탭·개인 시간표 화면에서 다른 교사를 골라도 `teacherName`을 덮어쓰지 않는다 — 남의 시간표 열람이 내 설정을 바꾸면 안 된다
 
 ## 7. 검증 결과 보완 사항 (점검 확정 동작)
 
@@ -587,49 +587,94 @@ ExchangeHistoryItem: + profileId (String?, nullable) 필드 추가
 7. **일괄 출력 안전장치**: 양식 인덱스 범위 검증, 사용자 지정 템플릿 파일 존재 확인, 출력 파일명이 실행 내 중복 + 디스크 기존 파일 모두 회피 (덮어쓰기 방지)
 8. **레거시 폴백 제거**: 구 단일 메타데이터·전역 파일 참조 코드 전면 제거 (마이그레이션 불필요 정책 반영). 단 `pdf_export_settings_template_{0|1}.json`은 **계획서 미지정 건의 인쇄 설정 폴백**으로 계속 사용하므로 제거 대상이 아니다.
 
-## 8. 구현 대조 검토 (2026-08-26) — 미반영 사항
+## 8. 구현 반영 결과 (2026-08-26)
 
-구현(`timetable_registry_*`, `print_profile_*`, `batch_pdf_export_service`,
-`substitution_output_widget`, `content_input_grid`, `timetable_file_screen`)과
-본 문서를 대조한 결과. 위 §1~§7은 이미 수정 반영된 최종 사양이며,
-아래 표는 **현재 코드가 그 사양과 다른 지점**이다.
+§1~§7 사양을 구현에 반영 완료. `flutter analyze` 이슈 없음, `flutter test` 122건 통과.
 
-| # | 항목 | 현재 구현 | 요구 사양 | 우선순위 |
-|---|---|---|---|---|
-| 1 | 동일 파일 재선택 시 초기화 | 확인 없이 교체 목록·결보강 삭제 후 사후 스낵바 | 삭제 대상 건수 표시 확인 다이얼로그, [취소] 가능 (§3①) | **높음(데이터 손실)** |
-| 2 | 미저장 변경 보호 | dirty 추적 없음. 교사·계획서 전환 시 즉시 덮어씀 | ● 표시 + 전환 시 저장 여부 확인 (§3③) | **높음(데이터 손실)** |
-| 3 | 계획서 삭제 후 선택 | `_selectedProfileId = null` → 안내도 저장 버튼도 없는 무선택 상태 | 남은 계획서 첫 번째 자동 선택, 없으면 미지정 안내 (§3③) | 높음 |
-| 4 | 다행 교체 건 파일명 | 첫 행만 사용 → 다교시 건이 서로 구분 안 됨 | 범위·건수 표기 (§3④) | 중간 |
-| 5 | 그리드 계획서 드롭다운 | '＋ 새 계획서…' 항목 없음 → 탭 왕복 필요 | 드롭다운에서 즉시 생성 (§3④) | 중간 |
-| 6 | 교사 드롭다운 | 단순 `DropdownButton`, 계획서 유무 표시 없음 | 검색 입력 + 계획서 개수 뱃지 (§3③) | 중간 |
-| 7 | 일괄 출력 진행 표시 | `'N건 출력 중…'` 스낵바 후 블로킹, 취소 불가 | 진행 다이얼로그(n/N, 파일명, [취소]) (§3④) | 중간 |
-| 8 | 계획서 바의 '미지정' | hint로만 존재 → 선택 후 되돌릴 수 없음 | 드롭다운에 명시적 '미지정' 항목 (§3③, §7-6) | 중간 |
-| 9 | 0건 일괄 출력 버튼 | 활성 상태 → 클릭 시 에러 스낵바 | 0건이면 비활성화 (§3④) | 낮음 |
-| 10 | 시간표 이름 중복 | 검사 없음 | 등록·이름 변경 시 경고 (§2) | 낮음 |
-| 11 | 시간표 삭제 다이얼로그 | 건수·전환 대상 미표시 | 삭제 대상 건수 + 전환 대상 고지 (§3①) | 낮음 |
-| 12 | 교사명·학교명 저장 위치 | 앱 전역 설정에 자유 입력 문자열 | `TimetableRegistryEntry.myTeacherName`·`schoolName` (§2) | **높음(계층 불일치)** |
-| 13 | 교사 입력 방식 | 자유 텍스트 → 오타 시 3개 화면이 동시에 빗나감 | 엑셀 교사 목록 드롭다운 (§3②A) | **높음** |
-| 14 | 홈 화면 구조 | 전역 '기본 정보' 카드가 시간표와 무관하게 나열 | 시간표 카드 안에 교사·학교명·계획서 중첩 (§3②A) | 높음 |
-| 15 | 시간표 진입점 | `변경 >` · 파일 배너 · `시간표 변경/추가` 3중 중복 | 카드 내 전환 드롭다운 하나로 통합 (§3②B) | 중간 |
-| 16 | 교사 자동 추정 | 없음 | 등록 시 직전 시간표 값으로 자동 채움 (§4) | 중간 |
-| 17 | 빈 상태 처리 | 시간표 없어도 교사·학교명 입력란 표시 | 시간표 없으면 해당 영역 미표시 (§3②C·D) | 중간 |
-| 18 | 관리 화면 계층 | 파일명·등록일만 나열 | 활성 항목 트리(교사 → 계획서) + 시간표 단위 건수 (§3①) | 낮음 |
+### 반영 완료
 
-### 구현 순서 권장
+| # | 항목 | 반영 내용 | 주요 파일 |
+|---|---|---|---|
+| 1 | 동일 파일 재선택 확인 | 내용 변경 시 "삭제됨/유지됨" 건수를 명시한 확인 다이얼로그. [취소] 시 `reloadActive()`로 원래 시간표 복구 | `timetable_file_screen.dart`, `timetable_registry_provider.dart` |
+| 2 | 미저장 변경 보호 | `PrintProfile.contentEquals`로 dirty 판정 → 계획서명 옆 ● + 교사·계획서 전환 시 `[취소][저장 안 함][저장]` 확인 | `print_profile.dart`, `substitution_output_widget.dart` |
+| 3 | 계획서 삭제 후 선택 | 같은 교사의 남은 계획서 첫 번째 자동 선택, 없으면 미지정 + 안내 | `substitution_output_widget.dart` |
+| 4 | 다행 건 파일명 | 날짜 범위 + `외N건` 접미사 (`홍길동_0827-0828_3교시수학외4건.pdf`) | `batch_pdf_export_service.dart` |
+| 5 | 그리드에서 계획서 생성 | 행 드롭다운에 `＋ 새 계획서…` → 그 자리에서 생성 후 즉시 지정 | `content_input_grid_helpers.dart`, `content_input_grid.dart` |
+| 6 | 교사 드롭다운 계획서 수 | 항목마다 `계획서 N` / `계획서 없음`(주황) 표시 | `substitution_output_widget.dart` |
+| 7 | 일괄 출력 진행률·취소 | `BatchExportProgressDialog`(n/N·파일명·[취소]), 취소 시 진행 중 1건만 마치고 중단 | `batch_export_progress_dialog.dart`, `batch_pdf_export_service.dart` |
+| 8 | 계획서 바 '미지정' 항목 | 드롭다운에 명시적 '미지정 (양식 설정 사용)' 추가 → 되돌리기 가능 | `substitution_output_widget.dart` |
+| 9 | 0건 일괄 출력 | 선택 0건이면 버튼 비활성 (기존 구현 확인) | `content_input_grid.dart` |
+| 11 | 시간표 삭제 다이얼로그 | 삭제 대상 건수 + 전환 대상 이름 고지 | `timetable_file_screen.dart` |
+| 12 | 교사·학교명 저장 위치 | `TimetableRegistryEntry.teacherName`·`schoolName`으로 이관. 전역 `defaultTeacherName`/`defaultSchoolName` **저장·읽기 코드 전면 제거** | `timetable_registry.dart`, `app_settings_storage_service.dart` |
+| 13 | 교사 입력 방식 | 자유 입력 → 엑셀 교사 목록 드롭다운 (`activeTimetableTeachersProvider`) | `timetable_summary_card.dart`, `timetable_teachers_provider.dart` |
+| 14 | 홈 화면 구조 | `TimetableSummaryCard` — 시간표 카드 안에 교사·학교명·계획서 중첩. `기본 정보` 카드 제거, [저장] 버튼 제거(선택 즉시 / 포커스 이탈 시 자동 저장) | `timetable_summary_card.dart`, `start_content_screen.dart` |
+| 15 | 진입점 통합 | 카드 내 전환 드롭다운 하나로 통합, `변경 >`·`시간표 변경/추가` 제거 | `timetable_summary_card.dart` |
+| 16 | 교사 자동 추정 | 등록 시 직전 시간표의 교사가 새 교사 목록에 있으면 자동 선택, 없으면 미지정 + 안내 | `timetable_file_screen.dart` |
+| 17 | 빈 상태 처리 | 시간표 없으면 교사·학교명·계획서 영역 미표시. 교사 미선택 시 계획서 줄 비활성 | `timetable_summary_card.dart` |
+| 18 | 관리 화면 계층 | 활성 항목만 교사 → 계획서 트리 전개, 비활성은 한 줄 요약. 건수는 시간표 아래 배치 | `timetable_file_screen.dart` |
 
-1. `TimetableRegistryEntry`에 `myTeacherName`·`schoolName` 추가 + 등록 시 자동 추정 (12·16)
-2. 소비처 3곳을 활성 엔트리 참조로 교체 (12) — §2 표 참조
-3. 홈 카드 재구성 + 기존 `기본 정보` 카드 제거 + 진입점 통합 (13·14·15·17)
-4. `defaultTeacherName`/`defaultSchoolName` 저장·읽기 코드 전면 제거 (설정 화면 중복 입력란 포함)
-5. 데이터 손실 항목 (1·2·3) — 확인 다이얼로그·dirty 추적·삭제 후 선택
-6. 나머지 (4~11·18)
+### 신규 파일
 
-### 문서 대비 구현이 옳았던 부분 (문서를 구현에 맞춰 수정함)
+| 파일 | 역할 |
+|---|---|
+| `lib/providers/timetable_teachers_provider.dart` | 활성 시간표의 교사 목록 (가나다순, 단일 출처) |
+| `lib/providers/timetable_summary_provider.dart` | 시간표별 교체·결보강·계획서 건수 집계 |
+| `lib/ui/screens/start_content/timetable_summary_card.dart` | 홈 시간표 카드 (§3② A~D) |
+| `lib/ui/screens/plan_output/widgets/batch_export_progress_dialog.dart` | 일괄 출력 진행 다이얼로그 |
+| `test/models/timetable_registry_teacher_test.dart` | 교사·학교명 저장·정규화 검증 |
+| `test/models/print_profile_dirty_test.dart` | dirty 판정·ID 충돌 방지 검증 |
 
-- **미지정 건 폴백**: 문서 초안은 `lastUsedProfileId` 사용이라고 적었으나, 이 값은
-  교사 무관 전역값이라 다른 교사 이름이 찍힌 PDF가 나온다. 구현대로
-  레거시 양식 설정을 쓰는 것이 맞아 §4를 정정했다.
-- **계획서 ID 생성 규칙**: 구현은 마이크로초+시퀀스를 포함해 동일 초 충돌을 막는다.
-  §2의 ID 규칙을 실제 형식으로 정정했다.
-- **삭제된 계획서 참조 처리**: 구현은 `profileId`를 즉시 지우지 않고 조회 시 무시한다.
-  ID가 재사용되지 않으므로 안전하며, §3③ 문구를 "조회 시 미지정 처리"로 정정했다.
+### 사양과 다르게 구현한 부분
+
+1. **교사 드롭다운 검색 미구현** — §3③은 검색 입력을 규정했으나, 계획서 개수 뱃지만 넣었다.
+   드롭다운 항목이 곧 교사 목록(수십 명)이라 검색이 유용하지만, Flutter `DropdownButton`에
+   검색을 넣으려면 `DropdownMenu`로 교체해야 해 범위를 키운다. 뱃지만으로도 "계획서 없는 교사를
+   눌러봐야 아는" 문제는 해소되므로 후순위로 남긴다.
+2. **시간표 전환 드롭다운 검색 미구현** — 등록되는 시간표는 학기당 1개 수준(보통 2~5개)이라
+   검색이 필요한 규모가 아니다. 6개를 넘으면 추가한다.
+3. **결보강 "행 수"를 "입력 건수"로 표기** — `SubstitutionPlanState`는 행 목록이 아니라
+   저장된 날짜·보강 과목 맵이라 행 수를 셀 수 없다. `결보강 입력 N건`으로 표기한다.
+
+### 변수명 규칙
+
+- `TimetableRegistryEntry.teacherName` — 이 시간표를 쓰는 사용자 본인의 교사
+- `PrintProfile.teacherName` — 계획서가 귀속된 교사
+
+이름은 같지만 의미가 다르므로 모델 주석에 명시했다. UI 라벨은 양쪽 모두 **「교사」**로 통일한다
+(소유격 "내 ~"는 쓰지 않는다).
+
+## 9. 구현 점검 (2026-08-27)
+
+§8 반영 직후 문서 대비 코드를 재점검해 **결함 7건**을 찾아 수정했다.
+`flutter analyze` 이슈 없음, `flutter test` 130건 통과.
+
+### 발견·수정한 결함
+
+| # | 증상 | 원인 | 수정 |
+|---|---|---|---|
+| 1 | 홈에서 교사를 골라도 교체 화면 행 하이라이트가 안 바뀜 | `refreshHighlightedTeacherName()`의 **호출자가 사라짐**. 전역 설정 제거 시 유일한 호출 지점(`start_content_screen`)을 함께 지웠는데 대체 경로를 만들지 않음. DataSource가 교사명을 캐시하므로 영구히 이전 값 유지 | `exchange_screen`에 `ref.listen(activeTeacherNameProvider)` 추가 → 교사 변경·시간표 전환 모두 커버 |
+| 2 | 아무것도 안 고쳐도 ● 표시 + 전환할 때마다 "저장하지 않은 변경" 확인창 | 저장값과 화면값을 직접 비교했는데, `_applyProfileToUi`가 **결강기간을 채우지 않고** 비고가 없으면 **기본 문구를 채움** → 적용 직후부터 항상 불일치. 그리드에서 만든 계획서(필드 1개)는 특히 심함 | **적용 직후 화면 상태를 스냅샷**으로 잡아 비교. `contentEquals`에 `ignoreFields` 추가해 결강기간 제외(건별로 자동 재계산되는 값) |
+| 3 | 일괄 출력이 시작 단계에서 실패하면 진행 다이얼로그가 닫히지 않아 앱이 잠김 | `exportAll` 바깥 예외(설정 로드 실패 등)에 대한 처리 없음 | `try/catch/finally`로 감싸 항상 닫고, 실패 사유를 결과 요약에 표시 |
+| 4 | 원본 파일이 바뀌어 교사가 사라지면 드롭다운은 "선택하세요"인데 계획서 행은 활성 | 드롭다운은 목록 대조 후 null, 계획서 행은 `entry.hasTeacher`(저장값)만 확인 | `_resolvedTeacher()`로 판정을 한 곳에 모아 양쪽이 같은 값을 쓰게 함 |
+| 5 | 계획서를 만들거나 지워도 목록·전환 메뉴의 "계획서 N"이 그대로 | `timetableSummaryProvider`가 시간표 전환 버전만 감시 | `printProfileStoreProvider`도 함께 감시 |
+| 6 | 데이터 초기화 후에도 홈 카드에 삭제된 시간표가 남음 | `deleteAllJsonFiles()`가 `timetable_registry.json`까지 지우지만 **Provider 메모리 상태는 그대로** (§7-4 고스트 데이터 차단 위반) | 초기화 성공 시 레지스트리 invalidate + 교체 이력·결보강 메모리 정리 + 전환 버전 증가 |
+| 7 | 홈 카드 라벨에서 `RenderFlex` 오버플로 (`계획서` 라벨이 옆 문구 위에 겹쳐 그려짐) | 라벨 칼럼 고정 폭 54px가 아이콘(16)+간격(6)+한글 3자를 담지 못함 | 폭 76px로 확대 + `Flexible`·ellipsis로 폭과 무관하게 오버플로 자체를 차단. 들여쓰기를 라벨 폭에 연동 |
+
+### 점검했고 문제 없던 항목
+
+- **§7-2 갱신 취소 복구**: `reloadActive()` → `timetableSwitchVersionProvider` 증가 →
+  `start_screen`의 리스너가 `resetAllStates` 후 저장 데이터 재로드. 관리 화면이 위에 push된
+  상태에서도 `start_screen`이 살아 있어 리스너가 동작함
+- **§7-4 고스트 데이터 차단**: `_loadSavedData()`가 `activeEntry != null`을 확인한 뒤에만
+  파일을 읽음
+- **§7-5 전환 시 정리**: 전환 리스너가 `stateResetProvider.resetAllStates()`를 선행 호출
+- **교체불가 데이터**: 시간표 삭제 시 `non_exchangeable_data_{hash}.json`을 지우지 않는 것이
+  맞음 — 해시가 같은(내용이 같은) 다른 시간표가 공유할 수 있기 때문
+- **교사 자동 추정 순서**: `selectExcelFile()` 이후 교사 목록이 새 파일 기준으로 갱신되고,
+  레지스트리에는 아직 새 항목이 없으므로 `activeEntry`가 "직전 시간표"로 올바르게 잡힘
+
+### 남은 제약
+
+- 위젯 테스트는 한글 글리프 폭을 실제와 동일하게 재현하지 못한다(테스트 환경 폰트 폴백).
+  레이아웃 테스트는 오버플로 예외 발생 여부만 검증하며, 라벨이 말줄임되는지는
+  실제 실행으로 확인해야 한다.

@@ -88,25 +88,23 @@ class PrintProfileStoreNotifier extends StateNotifier<PrintProfileStore> {
       teacherName,
     );
     if (success) {
-      state = state.copyWith(lastSelectedTeacher: teacherName);
+      state = await _storage.loadStore(_timetableId);
     }
   }
 
   /// 마지막 사용 계획서 갱신 (디스크 저장 포함)
   Future<void> setLastUsedProfile(String profileId) async {
     if (_timetableId == null) return;
-    final store = await _storage.loadStore(_timetableId);
-    final updated = store.copyWith(lastUsedProfileId: profileId);
-    await _storage.saveStore(_timetableId, updated);
-    state = updated;
+    final success = await _storage.setLastUsedProfile(_timetableId, profileId);
+    if (success) {
+      state = await _storage.loadStore(_timetableId);
+    }
   }
 }
 
 /// 계획서 스토어 Provider — 활성 시간표가 바뀌면 재생성되어 새로 로드
 final printProfileStoreProvider =
-    StateNotifierProvider<PrintProfileStoreNotifier, PrintProfileStore>((
-      ref,
-    ) {
+    StateNotifierProvider<PrintProfileStoreNotifier, PrintProfileStore>((ref) {
       final activeId = ref.watch(activeTimetableEntryProvider)?.id;
       return PrintProfileStoreNotifier(activeId);
     });

@@ -102,6 +102,7 @@ class SubstitutionPlanNotifier extends StateNotifier<SubstitutionPlanState> {
   // 저장 서비스 인스턴스
   final SubstitutionPlanStorageService _storageService =
       SubstitutionPlanStorageService();
+  Future<void> _storageQueue = Future<void>.value();
 
   /// 현재 스코프 시간표 ID
   ///
@@ -128,6 +129,20 @@ class SubstitutionPlanNotifier extends StateNotifier<SubstitutionPlanState> {
   /// 로드되지 않도록 스코프 해제와 함께 사용합니다.
   void clearInMemory() {
     state = const SubstitutionPlanState();
+  }
+
+  /// 예약된 자동 저장을 마친 뒤 특정 시간표의 저장 파일을 삭제합니다.
+  Future<void> clearStoredDataForTimetable(String timetableId) {
+    _storageQueue = _storageQueue.then((_) async {
+      try {
+        await _storageService.clearSubstitutionPlanData(
+          timetableId: timetableId,
+        );
+      } catch (e) {
+        AppLogger.error('결보강 계획서 저장 데이터 삭제 실패: $e', e);
+      }
+    });
+    return _storageQueue;
   }
 
   /// 날짜 정보 저장 (자동 저장 포함)
@@ -232,12 +247,13 @@ class SubstitutionPlanNotifier extends StateNotifier<SubstitutionPlanState> {
   /// 날짜나 보강 과목이 변경될 때마다 자동으로 호출됩니다.
   /// 비동기로 실행하여 UI 블로킹을 방지합니다.
   void _saveToStorage() {
-    // 비동기로 실행하여 UI 블로킹 방지
-    Future.microtask(() async {
+    final stateSnapshot = state;
+    final timetableIdSnapshot = _timetableId;
+    _storageQueue = _storageQueue.then((_) async {
       try {
         await _storageService.saveSubstitutionPlanData(
-          state,
-          timetableId: _timetableId,
+          stateSnapshot,
+          timetableId: timetableIdSnapshot,
         );
       } catch (e) {
         AppLogger.error('결보강 계획서 날짜 정보 자동 저장 실패: $e', e);
@@ -250,15 +266,21 @@ class SubstitutionPlanNotifier extends StateNotifier<SubstitutionPlanState> {
   /// 프로그램 시작 시 호출되어 저장된 날짜 정보를 복원합니다.
   Future<void> loadFromStorage() async {
     try {
+      final requestedTimetableId = _timetableId;
+      await _storageQueue;
+
       final loadedState = await _storageService.loadSubstitutionPlanData(
-        timetableId: _timetableId,
+        timetableId: requestedTimetableId,
       );
-      if (loadedState != null) {
-        state = loadedState;
-        AppLogger.info(
-          '결보강 계획서 날짜 정보 로드 완료: ${state.savedDates.length}개 날짜, ${state.savedSupplementSubjects.length}개 보강 과목',
-        );
+
+      if (_timetableId != requestedTimetableId) {
+        return;
       }
+
+      state = loadedState ?? const SubstitutionPlanState();
+      AppLogger.info(
+        '결보강 계획서 날짜 정보 로드 완료: ${state.savedDates.length}개 날짜, ${state.savedSupplementSubjects.length}개 보강 과목',
+      );
     } catch (e) {
       AppLogger.error('결보강 계획서 날짜 정보 로드 실패: $e', e);
     }

@@ -71,6 +71,7 @@ class AppSettingsStorageService
         CircularExchangeSettingsStorage,
         ArrowDirectionSettingsStorage {
   final StorageService _storageService = StorageService();
+  Future<void> _settingsWriteQueue = Future<void>.value();
 
   // 싱글톤 인스턴스
   static final AppSettingsStorageService _instance =
@@ -87,26 +88,10 @@ class AppSettingsStorageService
   ///
   /// 반환값:
   /// - `Future<bool>`: 저장 성공 여부
-  Future<bool> saveAppSettings({required String languageCode}) async {
-    try {
-      final settings = {'languageCode': languageCode};
-
-      final success = await _storageService.saveJson(
-        'app_settings.json',
-        settings,
-      );
-
-      if (success) {
-        AppLogger.info('앱 설정 저장 성공: languageCode=$languageCode');
-      } else {
-        AppLogger.error('앱 설정 저장 실패');
-      }
-
-      return success;
-    } catch (e) {
-      AppLogger.error('앱 설정 저장 중 오류: $e', e);
-      return false;
-    }
+  Future<bool> saveAppSettings({required String languageCode}) {
+    return _mergeAndSaveSettings({
+      'languageCode': languageCode,
+    }, logLabel: '앱 설정(languageCode=$languageCode)');
   }
 
   /// 앱 설정 로드
@@ -137,6 +122,17 @@ class AppSettingsStorageService
   /// 기존 설정을 로드해 [patch]의 키만 덮어쓰고 나머지는 유지합니다.
   /// [logLabel]은 성공/실패/오류 로그 메시지의 접두어로 사용됩니다.
   Future<bool> _mergeAndSaveSettings(
+    Map<String, dynamic> patch, {
+    required String logLabel,
+  }) {
+    final operation = _settingsWriteQueue.then(
+      (_) => _performMergeAndSaveSettings(patch, logLabel: logLabel),
+    );
+    _settingsWriteQueue = operation.then<void>((_) {});
+    return operation;
+  }
+
+  Future<bool> _performMergeAndSaveSettings(
     Map<String, dynamic> patch, {
     required String logLabel,
   }) async {
@@ -182,49 +178,6 @@ class AppSettingsStorageService
     } catch (e) {
       AppLogger.error('언어 코드 가져오기 실패: $e', e);
       return 'ko'; // 기본값: 한국어
-    }
-  }
-
-  /// 교사명과 학교명 저장
-  ///
-  /// 설정 화면에서 입력한 기본 교사명과 학교명을 저장합니다.
-  ///
-  /// 매개변수:
-  /// - `teacherName`: 기본 교사명
-  /// - `schoolName`: 기본 학교명
-  ///
-  /// 반환값:
-  /// - `Future<bool>`: 저장 성공 여부
-  Future<bool> saveTeacherAndSchoolName({
-    required String teacherName,
-    required String schoolName,
-  }) async {
-    return _mergeAndSaveSettings({
-      'defaultTeacherName': teacherName,
-      'defaultSchoolName': schoolName,
-    }, logLabel: '교사명과 학교명(teacherName=$teacherName, schoolName=$schoolName)');
-  }
-
-  /// 교사명과 학교명 로드
-  ///
-  /// 설정 화면에서 저장한 기본 교사명과 학교명을 로드합니다.
-  ///
-  /// 반환값:
-  /// - `Future<Map<String, String>>`: 기본값 맵 (키: defaultTeacherName, defaultSchoolName)
-  Future<Map<String, String>> loadTeacherAndSchoolName() async {
-    try {
-      final settings = await loadAppSettings();
-      if (settings == null) {
-        return {'defaultTeacherName': '', 'defaultSchoolName': ''};
-      }
-
-      return {
-        'defaultTeacherName': (settings['defaultTeacherName'] as String?) ?? '',
-        'defaultSchoolName': (settings['defaultSchoolName'] as String?) ?? '',
-      };
-    } catch (e) {
-      AppLogger.error('교사명과 학교명 로드 중 오류: $e', e);
-      return {'defaultTeacherName': '', 'defaultSchoolName': ''};
     }
   }
 
@@ -391,51 +344,21 @@ class AppSettingsStorageService
   /// 기타 설정을 기본값으로 복원
   ///
   /// 하이라이트 색상·2중/순환 교체·화살표 방향을 초기화합니다.
-  /// [languageCode], [defaultTeacherName], [defaultSchoolName]은 유지합니다.
-  Future<bool> restoreMiscSettingsToDefaults() async {
-    try {
-      final settings = await loadAppSettings();
-      final updatedSettings = <String, dynamic>{
-        'highlightedTeacherColor':
-            AppSettingsDefaults.highlightedTeacherColorArgb,
-        'dualExchangeEnabled': AppSettingsDefaults.dualExchangeEnabled,
-        'circularExchangeEnabled': AppSettingsDefaults.circularExchangeEnabled,
-        'oneToOneArrowDirection': arrowDirectionToJson(
-          AppSettingsDefaults.oneToOneArrowDirection,
-        ),
-        'dualArrowDirection': arrowDirectionToJson(
-          AppSettingsDefaults.dualArrowDirection,
-        ),
-      };
-
-      if (settings != null) {
-        if (settings.containsKey('languageCode')) {
-          updatedSettings['languageCode'] = settings['languageCode'];
-        }
-        if (settings.containsKey('defaultTeacherName')) {
-          updatedSettings['defaultTeacherName'] =
-              settings['defaultTeacherName'];
-        }
-        if (settings.containsKey('defaultSchoolName')) {
-          updatedSettings['defaultSchoolName'] = settings['defaultSchoolName'];
-        }
-      }
-
-      final success = await _storageService.saveJson(
-        'app_settings.json',
-        updatedSettings,
-      );
-
-      if (success) {
-        AppLogger.info('기타 설정 기본값 복원 성공');
-      } else {
-        AppLogger.error('기타 설정 기본값 복원 실패');
-      }
-
-      return success;
-    } catch (e) {
-      AppLogger.error('기타 설정 기본값 복원 중 오류: $e', e);
-      return false;
-    }
+  /// [languageCode]는 유지합니다.
+  ///
+  /// 교사명·학교명은 전역 설정이 아니라 시간표 속성이므로 여기서 다루지 않습니다.
+  Future<bool> restoreMiscSettingsToDefaults() {
+    return _mergeAndSaveSettings({
+      'highlightedTeacherColor':
+          AppSettingsDefaults.highlightedTeacherColorArgb,
+      'dualExchangeEnabled': AppSettingsDefaults.dualExchangeEnabled,
+      'circularExchangeEnabled': AppSettingsDefaults.circularExchangeEnabled,
+      'oneToOneArrowDirection': arrowDirectionToJson(
+        AppSettingsDefaults.oneToOneArrowDirection,
+      ),
+      'dualArrowDirection': arrowDirectionToJson(
+        AppSettingsDefaults.dualArrowDirection,
+      ),
+    }, logLabel: '기타 설정 기본값 복원');
   }
 }

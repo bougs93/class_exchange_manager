@@ -3,9 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/timetable_registry.dart';
-import '../services/exchange_list_storage_service.dart';
 import '../services/print_profile_storage_service.dart';
-import '../services/substitution_plan_storage_service.dart';
 import '../services/timetable_registry_service.dart';
 import '../utils/logger.dart';
 import 'services_provider.dart';
@@ -52,7 +50,7 @@ class TimetableRegistryNotifier
       state = AsyncValue.data(registry);
 
       // 활성 시간표 스코프 적용 (데이터 로드는 각 화면의 기존 흐름이 수행)
-      _applyScope(registry.activeId, reload: false);
+      await _applyScope(registry.activeId, reload: false);
     } catch (e, st) {
       AppLogger.error('시간표 레지스트리 초기화 실패: $e', e);
       state = AsyncValue.error(e, st);
@@ -66,13 +64,13 @@ class TimetableRegistryNotifier
   /// 활성 시간표 스코프를 서비스 계층에 적용
   ///
   /// [reload]가 true면 스코프 데이터(교체 목록·결보강)도 즉시 재로드합니다.
-  void _applyScope(String? timetableId, {required bool reload}) {
+  Future<void> _applyScope(String? timetableId, {required bool reload}) async {
     final historyService = _ref.read(exchangeHistoryServiceProvider);
     historyService.timetableId = timetableId;
 
     final substitutionNotifier = _ref.read(substitutionPlanProvider.notifier);
     if (reload) {
-      substitutionNotifier.setTimetableScope(timetableId);
+      await substitutionNotifier.setTimetableScope(timetableId);
     } else {
       // 초기화 시: 재로드 없이 스코프만 설정 (start_screen이 로드)
       substitutionNotifier.setTimetableScopeWithoutReload(timetableId);
@@ -101,7 +99,7 @@ class TimetableRegistryNotifier
     state = AsyncValue.data(current.withActive(id));
 
     // 스코프 재적용 + 스코프 데이터 재로드
-    _applyScope(id, reload: true);
+    await _applyScope(id, reload: true);
     await _ref.read(exchangeHistoryServiceProvider).loadFromLocalStorage();
 
     // 화면(시간표 본문·그리드) 재로드 트리거
@@ -121,7 +119,7 @@ class TimetableRegistryNotifier
     required String filePath,
     required String hash,
     required String contentHash,
-    String? myTeacherName,
+    String? teacherName,
     String? schoolName,
   }) async {
     await ensureInitialized();
@@ -132,7 +130,7 @@ class TimetableRegistryNotifier
         filePath: filePath,
         hash: hash,
         contentHash: contentHash,
-        myTeacherName: myTeacherName,
+        teacherName: teacherName,
         schoolName: schoolName,
       );
 
@@ -142,7 +140,7 @@ class TimetableRegistryNotifier
 
       // 첫 시간표면 활성 스코프 적용
       if (isFirst) {
-        _applyScope(entry.id, reload: true);
+        await _applyScope(entry.id, reload: true);
         await _ref.read(exchangeHistoryServiceProvider).loadFromLocalStorage();
         _ref.read(timetableSwitchVersionProvider.notifier).state++;
       }
@@ -154,13 +152,29 @@ class TimetableRegistryNotifier
     }
   }
 
+  /// 활성 시간표 데이터 재로드
+  ///
+  /// 전환 없이 현재 활성 시간표의 저장 데이터를 다시 읽어 화면을 되돌립니다.
+  /// (동일 파일 재선택을 사용자가 취소했을 때, 이미 메모리에 올라온 새 파일
+  ///  내용을 버리고 원래 시간표 상태로 복구하는 용도)
+  Future<void> reloadActive() async {
+    await ensureInitialized();
+    final activeId = state.valueOrNull?.activeId;
+    if (activeId == null) return;
+
+    await _applyScope(activeId, reload: true);
+    await _ref.read(exchangeHistoryServiceProvider).loadFromLocalStorage();
+    _ref.read(timetableSwitchVersionProvider.notifier).state++;
+    AppLogger.info('활성 시간표 재로드: $activeId');
+  }
+
   /// 활성 시간표의 교사·학교명 갱신
   ///
   /// 교사는 엑셀 교사 목록에서 고른 값이어야 합니다(자유 입력 금지).
   /// 빈 문자열을 넘기면 미지정으로 되돌립니다.
   Future<bool> updateTeacherAndSchool(
     String id, {
-    String? myTeacherName,
+    String? teacherName,
     String? schoolName,
   }) async {
     await ensureInitialized();
@@ -169,14 +183,14 @@ class TimetableRegistryNotifier
       return false;
     }
 
-    final teacher = myTeacherName?.trim();
+    final teacher = teacherName?.trim();
     final school = schoolName?.trim();
-    final clearTeacher = myTeacherName != null && (teacher?.isEmpty ?? true);
+    final clearTeacher = teacherName != null && (teacher?.isEmpty ?? true);
     final clearSchool = schoolName != null && (school?.isEmpty ?? true);
 
     final success = await _service.updateTeacherAndSchool(
       id,
-      myTeacherName: clearTeacher ? null : teacher,
+      teacherName: clearTeacher ? null : teacher,
       schoolName: clearSchool ? null : school,
       clearTeacher: clearTeacher,
       clearSchool: clearSchool,
@@ -187,18 +201,20 @@ class TimetableRegistryNotifier
 
     state = AsyncValue.data(
       current.copyWith(
-        timetables: current.timetables
-            .map(
-              (e) => e.id == id
-                  ? e.copyWith(
-                      myTeacherName: clearTeacher ? null : teacher,
-                      schoolName: clearSchool ? null : school,
-                      clearMyTeacherName: clearTeacher,
-                      clearSchoolName: clearSchool,
-                    )
-                  : e,
-            )
-            .toList(),
+        timetables:
+            current.timetables
+                .map(
+                  (e) =>
+                      e.id == id
+                          ? e.copyWith(
+                            teacherName: clearTeacher ? null : teacher,
+                            schoolName: clearSchool ? null : school,
+                            clearTeacherName: clearTeacher,
+                            clearSchoolName: clearSchool,
+                          )
+                          : e,
+                )
+                .toList(),
       ),
     );
     AppLogger.info('시간표 교사·학교명 갱신: $id (교사=$teacher, 학교=$school)');
@@ -217,9 +233,10 @@ class TimetableRegistryNotifier
     if (current != null) {
       state = AsyncValue.data(
         current.copyWith(
-          timetables: current.timetables
-              .map((e) => e.id == id ? e.copyWith(name: newName) : e)
-              .toList(),
+          timetables:
+              current.timetables
+                  .map((e) => e.id == id ? e.copyWith(name: newName) : e)
+                  .toList(),
         ),
       );
     }
@@ -261,27 +278,31 @@ class TimetableRegistryNotifier
 
     // 내용이 바뀐 경우: 교체 목록·결보강 스코프 데이터 정리 (계획서는 유지)
     if (contentChanged) {
-      await ExchangeListStorageService().clearExchangeList(timetableId: id);
-      await SubstitutionPlanStorageService().clearSubstitutionPlanData(
-        timetableId: id,
-      );
+      await _ref
+          .read(exchangeHistoryServiceProvider)
+          .clearStoredDataForTimetable(id);
+      await _ref
+          .read(substitutionPlanProvider.notifier)
+          .clearStoredDataForTimetable(id);
       AppLogger.info('시간표 내용 변경 감지 → 스코프 교체 데이터 정리: $id');
     }
 
     // 상태 갱신
     final next = current!.copyWith(
-      timetables: current.timetables
-          .map(
-            (e) => e.id == id
-                ? e.copyWith(
-                    fileName: fileName,
-                    filePath: filePath,
-                    hash: hash,
-                    contentHash: contentHash,
-                  )
-                : e,
-          )
-          .toList(),
+      timetables:
+          current.timetables
+              .map(
+                (e) =>
+                    e.id == id
+                        ? e.copyWith(
+                          fileName: fileName,
+                          filePath: filePath,
+                          hash: hash,
+                          contentHash: contentHash,
+                        )
+                        : e,
+              )
+              .toList(),
     );
     state = AsyncValue.data(next);
 
@@ -290,7 +311,7 @@ class TimetableRegistryNotifier
       await switchActive(id);
     } else {
       // 이미 활성인 경우에도 데이터 재로드가 필요 (내용이 바뀌었을 수 있음)
-      _applyScope(id, reload: true);
+      await _applyScope(id, reload: true);
       await _ref.read(exchangeHistoryServiceProvider).loadFromLocalStorage();
       _ref.read(timetableSwitchVersionProvider.notifier).state++;
     }
@@ -315,10 +336,12 @@ class TimetableRegistryNotifier
     }
 
     // 스코프 데이터 삭제
-    await ExchangeListStorageService().clearExchangeList(timetableId: id);
-    await SubstitutionPlanStorageService().clearSubstitutionPlanData(
-      timetableId: id,
-    );
+    await _ref
+        .read(exchangeHistoryServiceProvider)
+        .clearStoredDataForTimetable(id);
+    await _ref
+        .read(substitutionPlanProvider.notifier)
+        .clearStoredDataForTimetable(id);
     await PrintProfileStorageService().clearStore(id);
 
     final next = current.withoutEntry(id);
@@ -330,7 +353,7 @@ class TimetableRegistryNotifier
     } else if (next.activeId == null) {
       // 마지막 시간표 삭제: 레거시 파일의 고스트 데이터가 로드되지 않도록
       // 메모리만 초기화 (재로드 금지)
-      _applyScope(null, reload: false);
+      await _applyScope(null, reload: false);
       _ref.read(exchangeHistoryServiceProvider).resetInMemoryState();
       _ref.read(substitutionPlanProvider.notifier).clearInMemory();
       _ref.read(timetableSwitchVersionProvider.notifier).state++;
@@ -341,13 +364,12 @@ class TimetableRegistryNotifier
 }
 
 /// 시간표 레지스트리 Provider
-final timetableRegistryProvider =
-    StateNotifierProvider<
-      TimetableRegistryNotifier,
-      AsyncValue<TimetableRegistry>
-    >((ref) {
-      return TimetableRegistryNotifier(ref);
-    });
+final timetableRegistryProvider = StateNotifierProvider<
+  TimetableRegistryNotifier,
+  AsyncValue<TimetableRegistry>
+>((ref) {
+  return TimetableRegistryNotifier(ref);
+});
 
 /// 현재 활성 시간표 항목 Provider (없으면 null)
 final activeTimetableEntryProvider = Provider<TimetableRegistryEntry?>((ref) {
@@ -360,7 +382,7 @@ final activeTimetableEntryProvider = Provider<TimetableRegistryEntry?>((ref) {
 /// 교체 화면 행 하이라이트·개인 시간표 기본 교사·계획서 교사명의 단일 출처입니다.
 /// 전역 설정(defaultTeacherName)을 대체합니다.
 final activeTeacherNameProvider = Provider<String>((ref) {
-  return ref.watch(activeTimetableEntryProvider)?.myTeacherName ?? '';
+  return ref.watch(activeTimetableEntryProvider)?.teacherName?.trim() ?? '';
 });
 
 /// 활성 시간표의 학교명 (미입력이면 빈 문자열)

@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
+import '../../../../constants/korean_fonts.dart';
 import 'package:calendar_date_picker2/calendar_date_picker2.dart';
 import 'package:flutter/services.dart';
 import '../../../../constants/screen_usage_hints.dart';
@@ -14,6 +17,7 @@ import '../../../../providers/exchange_screen_provider.dart';
 import '../../../../providers/services_provider.dart';
 import '../../../../providers/state_reset_provider.dart';
 import '../../../../services/batch_pdf_export_service.dart';
+import 'batch_export_progress_dialog.dart';
 import '../../../../theme/design_tokens.dart';
 import '../../../../ui/widgets/content_toolbar_layout.dart';
 import '../../../../ui/widgets/content_usage_hint_bar.dart';
@@ -42,6 +46,9 @@ class SubstitutionPlanDataSource extends DataGridSource {
   /// 행 교사의 계획서 목록 조회
   final List<PrintProfile> Function(String teacher)? profileOptions;
 
+  /// 행 드롭다운의 '＋ 새 계획서…' 선택 콜백
+  final void Function(String groupId, String teacher)? onCreateProfile;
+
   /// 그룹의 지정 계획서 ID 조회
   final String? Function(String groupId)? selectedProfileId;
 
@@ -55,6 +62,7 @@ class SubstitutionPlanDataSource extends DataGridSource {
     this.isSelected,
     this.onToggleSelect,
     this.profileOptions,
+    this.onCreateProfile,
     this.selectedProfileId,
     this.onProfileChanged,
   });
@@ -135,6 +143,7 @@ class SubstitutionPlanDataSource extends DataGridSource {
       isSelected: isSelected,
       onToggleSelect: onToggleSelect,
       profileOptions: profileOptions,
+      onCreateProfile: onCreateProfile,
       selectedProfileId: selectedProfileId,
       onProfileChanged: onProfileChanged,
     );
@@ -147,6 +156,7 @@ class SubstitutionPlanDataSource extends DataGridSource {
       isSelected: isSelected,
       onToggleSelect: onToggleSelect,
       profileOptions: profileOptions,
+      onCreateProfile: onCreateProfile,
       selectedProfileId: selectedProfileId,
       onProfileChanged: onProfileChanged,
     );
@@ -248,6 +258,76 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     });
   }
 
+  /// 행 드롭다운에서 새 계획서 만들기
+  ///
+  /// 계획서가 0개인 교사 행에서 결보강 출력 탭까지 왕복하지 않도록,
+  /// 그 자리에서 만들고 해당 행에 즉시 지정합니다(문서 §3④).
+  Future<void> _createProfileForRow(String groupId, String teacher) async {
+    if (teacher.isEmpty) return;
+
+    final store = ref.read(printProfileStoreProvider);
+    final defaultName = '계획서${store.byTeacher(teacher).length + 1}';
+    final controller = TextEditingController(text: defaultName);
+
+    final name = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text("'$teacher'의 새 계획서"),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: '계획서 이름',
+              hintText: '예: 계획서1',
+            ),
+            onSubmitted: (value) =>
+                Navigator.of(dialogContext).pop(value.trim()),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('취소'),
+            ),
+            ElevatedButton(
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(controller.text.trim()),
+              child: const Text('만들기'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (name == null || name.isEmpty || !mounted) return;
+
+    // 기본값으로 생성 — 세부 설정은 결보강 출력 탭에서 편집한다
+    final profile = PrintProfile(
+      id: PrintProfile.generateId(),
+      name: name,
+      teacherName: teacher,
+      templateIndex: 0,
+      fontSize: 10.0,
+      remarksFontSize: 7.0,
+      selectedFont: KoreanFontConstants.defaultFont,
+      includeRemarks: false,
+      additionalFields: {'teacherName': teacher},
+    );
+
+    final success = await ref
+        .read(printProfileStoreProvider.notifier)
+        .saveProfile(profile);
+    if (!mounted) return;
+
+    if (success) {
+      _onGroupProfileChanged(groupId, profile.id);
+      SnackBarHelper.showSuccess(context, "계획서 '$name'을(를) 만들어 지정했습니다.");
+    } else {
+      SnackBarHelper.showError(context, '계획서 생성에 실패했습니다.');
+    }
+  }
+
   /// 계획서 지정 변경 → 교체 건에 즉시 저장
   void _onGroupProfileChanged(String groupId, String? profileId) {
     ref.read(exchangeHistoryServiceProvider).assignProfile(groupId, profileId);
@@ -304,13 +384,52 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     );
     if (directory == null || !context.mounted) return;
 
-    // 3. 일괄 출력 실행
-    SnackBarHelper.showSuccess(context, '${items.length}건 출력 중...');
+    // 3. 일괄 출력 실행 (진행률 + 취소)
+    final progressController =
+        StreamController<BatchExportProgress>.broadcast();
+    bool cancelRequested = false;
 
-    final result = await BatchPdfExportService().exportAll(
-      items: items,
-      outputDirectory: directory,
+    // ignore: use_build_context_synchronously
+    unawaited(
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => BatchExportProgressDialog(
+          initialTotal: items.length,
+          progressStream: progressController.stream,
+          onCancel: () => cancelRequested = true,
+        ),
+      ),
     );
+
+    BatchPdfExportResult result;
+    try {
+      result = await BatchPdfExportService().exportAll(
+        items: items,
+        outputDirectory: directory,
+        onProgress: (done, total, fileName) {
+          if (!progressController.isClosed) {
+            progressController.add(
+              BatchExportProgress(done: done, total: total, fileName: fileName),
+            );
+          }
+        },
+        isCancelled: () => cancelRequested,
+      );
+    } catch (e) {
+      // 설정 로드 등에서 실패해도 진행 다이얼로그가 남지 않도록 한다
+      AppLogger.error('일괄 출력 중 오류: $e', e);
+      result = BatchPdfExportResult(
+        successCount: 0,
+        totalCount: items.length,
+        errors: ['일괄 출력을 시작하지 못했습니다: $e'],
+      );
+    } finally {
+      await progressController.close();
+      if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+    }
 
     if (!context.mounted) return;
 
@@ -329,7 +448,13 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
                 Text(
                   result.allSucceeded
                       ? '${result.successCount}/${result.totalCount}건 출력 성공'
-                      : '${result.successCount}/${result.totalCount}건 성공, ${result.errors.length}건 실패',
+                      : [
+                          '${result.successCount}/${result.totalCount}건 성공',
+                          if (result.errors.isNotEmpty)
+                            '${result.errors.length}건 실패',
+                          if (result.cancelledCount > 0)
+                            '${result.cancelledCount}건 취소됨',
+                        ].join(', '),
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -631,6 +756,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
       isSelected: (groupId) => _checkedGroupIds.contains(groupId),
       onToggleSelect: _toggleGroupSelection,
       profileOptions: _profileOptionsForTeacher,
+      onCreateProfile: _createProfileForRow,
       selectedProfileId: _selectedProfileIdForGroup,
       onProfileChanged: _onGroupProfileChanged,
     );

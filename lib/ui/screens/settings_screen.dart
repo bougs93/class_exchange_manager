@@ -8,14 +8,13 @@ import '../../theme/app_theme_type.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/logger.dart';
 import '../../utils/simplified_timetable_theme.dart';
-import '../../providers/exchange_screen_provider.dart';
 import '../widgets/data_storage_location_section.dart';
 
 /// 설정 화면
 ///
 /// 앱의 전역 설정을 관리하는 화면입니다.
 /// - 언어 설정: 앱 언어 선택
-/// - 데이터 초기화: PDF 출력 설정의 교사명과 학교명 초기화
+/// - 데이터 초기화: 저장된 데이터 파일 삭제
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
@@ -31,11 +30,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   // 데이터 초기화 관련
   bool _isResetting = false;
 
-  // 교사명, 학교명 입력 필드
-  final TextEditingController _teacherNameController = TextEditingController();
-  final TextEditingController _schoolNameController = TextEditingController();
-  bool _isLoadingNames = true;
-  bool _isSavingNames = false;
 
   // 하이라이트 색상 관련
   Color _highlightedTeacherColor = TeacherRowHighlightColors.defaultColor;
@@ -49,14 +43,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void initState() {
     super.initState();
     _loadSettings();
-    _loadTeacherAndSchoolName();
     _loadHighlightColor();
   }
 
   @override
   void dispose() {
-    _teacherNameController.dispose();
-    _schoolNameController.dispose();
     super.dispose();
   }
 
@@ -78,24 +69,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  /// 저장된 교사명과 학교명 로드 (기본값)
-  Future<void> _loadTeacherAndSchoolName() async {
-    try {
-      final appSettings = AppSettingsStorageService();
-      final defaults = await appSettings.loadTeacherAndSchoolName();
-
-      setState(() {
-        _teacherNameController.text = defaults['defaultTeacherName'] ?? '';
-        _schoolNameController.text = defaults['defaultSchoolName'] ?? '';
-        _isLoadingNames = false;
-      });
-    } catch (e) {
-      AppLogger.error('교사명과 학교명 로드 중 오류: $e', e);
-      setState(() {
-        _isLoadingNames = false;
-      });
-    }
-  }
 
   /// 하이라이트 색상 로드
   Future<void> _loadHighlightColor() async {
@@ -157,66 +130,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  /// 교사명과 학교명 저장 (기본값으로 저장)
-  Future<void> _saveTeacherAndSchoolName() async {
-    setState(() {
-      _isSavingNames = true;
-    });
-
-    try {
-      final appSettings = AppSettingsStorageService();
-      // 기본값으로 저장 (PDF 출력 화면에서 입력 필드가 비어있을 때 사용)
-      final success = await appSettings.saveTeacherAndSchoolName(
-        teacherName: _teacherNameController.text.trim(),
-        schoolName: _schoolNameController.text.trim(),
-      );
-
-      if (mounted) {
-        if (success) {
-          // 교체관리 화면의 테마 업데이트 (교사 행 하이라이트 적용)
-          try {
-            final dataSource = ref.read(exchangeScreenProvider).dataSource;
-            dataSource?.refreshHighlightedTeacherName();
-          } catch (e) {
-            // DataSource가 아직 생성되지 않았을 수 있음 (정상적인 경우)
-            AppLogger.debug('교체관리 화면 DataSource가 아직 없습니다: $e');
-          }
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('교사명과 학교명이 저장되었습니다.'),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('저장에 실패했습니다.'),
-              backgroundColor: Colors.red,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      AppLogger.error('교사명과 학교명 저장 중 오류: $e', e);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('오류가 발생했습니다: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSavingNames = false;
-        });
-      }
-    }
-  }
 
   /// 언어 설정 저장
   Future<void> _saveLanguage(String languageCode) async {
@@ -325,12 +238,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               duration: const Duration(seconds: 3),
             ),
           );
-
-          // 교사명과 학교명 필드도 초기화
-          setState(() {
-            _teacherNameController.clear();
-            _schoolNameController.clear();
-          });
         } else if (totalCount == 0) {
           // 삭제할 파일이 없음
           ScaffoldMessenger.of(context).showSnackBar(
@@ -388,10 +295,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           // 디자인 테마 선택 섹션
           _buildThemeSection(ref),
-          const SizedBox(height: 32),
-
-          // 교사명, 학교명 입력 섹션
-          _buildTeacherAndSchoolNameSection(),
           const SizedBox(height: 32),
 
           // 하이라이트 색상 설정 섹션
@@ -655,103 +558,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  /// 교사명, 학교명 입력 섹션
-  Widget _buildTeacherAndSchoolNameSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          '기본 정보',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 12),
-
-        if (_isLoadingNames)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.all(16.0),
-              child: CircularProgressIndicator(),
-            ),
-          )
-        else
-          Column(
-            children: [
-              // 교사명 입력 필드 (레이블과 입력 필드를 한 행에)
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Text('교사명 :', style: TextStyle(fontSize: 16)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _teacherNameController,
-                      decoration: const InputDecoration(
-                        hintText: '교사명을 입력하세요',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.person),
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                      ),
-                      textInputAction: TextInputAction.next,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // 학교명 입력 필드 (레이블과 입력 필드를 한 행에)
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Text('학교명 :', style: TextStyle(fontSize: 16)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _schoolNameController,
-                      decoration: const InputDecoration(
-                        hintText: '학교명을 입력하세요',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.school),
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                      ),
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (_) => _saveTeacherAndSchoolName(),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // 저장 버튼
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isSavingNames ? null : _saveTeacherAndSchoolName,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child:
-                      _isSavingNames
-                          ? const SizedBox(
-                            height: 18,
-                            width: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                          : const Text('저장', style: TextStyle(fontSize: 15)),
-                ),
-              ),
-            ],
-          ),
-      ],
-    );
-  }
 
   /// 하이라이트 색상 설정 섹션
   Widget _buildHighlightColorSection() {

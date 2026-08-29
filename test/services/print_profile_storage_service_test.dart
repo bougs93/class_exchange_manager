@@ -9,7 +9,11 @@ void main() {
   late PrintProfileStorageService service;
   const timetableId = 'tt_20260826_143000_100';
 
-  PrintProfile profile(String id, {String teacher = '홍길동', String name = '계획서1'}) {
+  PrintProfile profile(
+    String id, {
+    String teacher = '홍길동',
+    String name = '계획서1',
+  }) {
     return PrintProfile(
       id: id,
       name: name,
@@ -82,21 +86,30 @@ void main() {
 
     test('saveProfile은 새 계획서를 추가한다', () async {
       await service.saveProfile(timetableId, profile('pp_1'));
-      await service.saveProfile(
-        timetableId,
-        profile('pp_2', name: '계획서2'),
-      );
+      await service.saveProfile(timetableId, profile('pp_2', name: '계획서2'));
 
       final store = await service.loadStore(timetableId);
       expect(store.profiles.map((p) => p.id), ['pp_1', 'pp_2']);
     });
 
+    test('서로 다른 서비스 인스턴스의 동시 저장도 모두 유지한다', () async {
+      final otherService = PrintProfileStorageService(storage: storage);
+
+      await Future.wait([
+        service.saveProfile(timetableId, profile('pp_concurrent_1')),
+        otherService.saveProfile(timetableId, profile('pp_concurrent_2')),
+      ]);
+
+      final loaded = await service.loadStore(timetableId);
+      expect(
+        loaded.profiles.map((item) => item.id),
+        containsAll(['pp_concurrent_1', 'pp_concurrent_2']),
+      );
+    });
+
     test('saveProfile은 같은 ID면 갱신한다', () async {
       await service.saveProfile(timetableId, profile('pp_1'));
-      await service.saveProfile(
-        timetableId,
-        profile('pp_1', name: '수정된이름'),
-      );
+      await service.saveProfile(timetableId, profile('pp_1', name: '수정된이름'));
 
       final store = await service.loadStore(timetableId);
       expect(store.profiles.length, 1);
@@ -151,6 +164,28 @@ void main() {
       expect(store.lastSelectedTeacher, '김철수');
     });
 
+    test('마지막 사용 계획서 갱신과 동시 추가가 서로의 변경을 보존한다', () async {
+      await service.saveProfile(timetableId, profile('pp_1'));
+      final otherService = PrintProfileStorageService(storage: storage);
+
+      await Future.wait([
+        service.setLastUsedProfile(timetableId, 'pp_1'),
+        otherService.saveProfile(timetableId, profile('pp_2')),
+      ]);
+
+      final store = await service.loadStore(timetableId);
+      expect(
+        store.profiles.map((item) => item.id),
+        containsAll(['pp_1', 'pp_2']),
+      );
+      expect(store.lastUsedProfileId, 'pp_2');
+    });
+
+    test('존재하지 않는 계획서는 마지막 사용으로 지정하지 않는다', () async {
+      expect(await service.setLastUsedProfile(timetableId, 'missing'), isFalse);
+      expect((await service.loadStore(timetableId)).lastUsedProfileId, isNull);
+    });
+
     test('clearStore는 스코프 파일을 삭제한다', () async {
       await service.saveStore(
         timetableId,
@@ -159,7 +194,10 @@ void main() {
 
       await service.clearStore(timetableId);
 
-      expect(await storage.fileExists('print_profiles_$timetableId.json'), isFalse);
+      expect(
+        await storage.fileExists('print_profiles_$timetableId.json'),
+        isFalse,
+      );
     });
   });
 }

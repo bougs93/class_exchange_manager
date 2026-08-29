@@ -37,13 +37,17 @@ class BatchPdfExportResult {
   /// 실패 건 설명 ("파일명: 사유")
   final List<String> errors;
 
+  /// 사용자가 취소해 실행하지 못한 건수
+  final int cancelledCount;
+
   const BatchPdfExportResult({
     required this.successCount,
     required this.totalCount,
     this.errors = const [],
+    this.cancelledCount = 0,
   });
 
-  bool get allSucceeded => errors.isEmpty;
+  bool get allSucceeded => errors.isEmpty && cancelledCount == 0;
 }
 
 /// 미지정 교체 건의 기본 인쇄 설정 (레거시 양식 설정에서 로드)
@@ -74,17 +78,37 @@ class BatchPdfExportService {
       PdfExportSettingsStorageService();
 
   /// 일괄 출력 실행
+  ///
+  /// [onProgress]는 건별 처리 직전에 (완료 수, 전체 수, 파일명)으로 호출됩니다.
+  /// [isCancelled]가 true를 반환하면 진행 중인 건까지만 마치고 중단합니다
+  /// (건당 수 초가 걸릴 수 있어 진행률과 취소가 필요 — 문서 §3④).
   Future<BatchPdfExportResult> exportAll({
     required List<BatchExportItem> items,
     required String outputDirectory,
+    void Function(int done, int total, String fileName)? onProgress,
+    bool Function()? isCancelled,
   }) async {
     final defaultSettings = await _loadDefaultSettings();
     final usedFileNames = <String>{};
     int successCount = 0;
+    int processed = 0;
     final errors = <String>[];
 
     for (final item in items) {
+      if (isCancelled?.call() ?? false) {
+        AppLogger.info('일괄 출력 취소됨: ${items.length - processed}건 남음');
+        return BatchPdfExportResult(
+          successCount: successCount,
+          totalCount: items.length,
+          errors: errors,
+          cancelledCount: items.length - processed,
+        );
+      }
+
       final baseName = _buildBaseFileName(item);
+      onProgress?.call(processed, items.length, '$baseName.pdf');
+      processed++;
+
       try {
         final profile = item.profile;
         // 양식 인덱스 범위 검증 (잘못된 값 시 기본 양식으로 폴백)
@@ -179,7 +203,13 @@ class BatchPdfExportService {
     );
   }
 
-  /// 파일명 기본 이름 생성: {교사명}_{결강일}_{교시교시과목}
+  /// 파일명 기본 이름 생성: {교사명}_{결강일}_{교시과목}
+  ///
+  /// 한 교체 건이 여러 행(다교시·다일자)이면 첫 행만으로는 서로 구분되지 않으므로
+  /// 날짜 범위와 나머지 건수를 덧붙입니다(문서 §3④).
+  ///   단일 행      : 홍길동_0827_3교시수학
+  ///   같은 날 여러 : 홍길동_0827_3교시수학외2건
+  ///   여러 날짜    : 홍길동_0827-0828_3교시수학외4건
   String _buildBaseFileName(BatchExportItem item) {
     final row = item.firstRow;
     if (row == null) {
@@ -187,13 +217,39 @@ class BatchPdfExportService {
     }
 
     final teacher = _sanitize(row.teacher.isNotEmpty ? row.teacher : '교사없음');
-    final date = _sanitize(
-      date_utils.DateFormatUtils.toMonthDay(row.absenceDate).replaceAll('.', ''),
-    );
     final periodSubject =
         '${row.period}교시${_sanitize(row.subject.isNotEmpty ? row.subject : '무과목')}';
 
-    return '${teacher}_${date}_$periodSubject';
+    // 결강일 범위 (빈 날짜는 제외하고 정렬)
+    final dates =
+        item.rows
+            .map((r) => _toCompactDate(r.absenceDate))
+            .where((d) => d.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+
+    final String datePart;
+    if (dates.isEmpty) {
+      datePart = _toCompactDate(row.absenceDate);
+    } else if (dates.length == 1) {
+      datePart = dates.first;
+    } else {
+      datePart = '${dates.first}-${dates.last}';
+    }
+
+    final extra = item.rows.length - 1;
+    final suffix = extra > 0 ? '외$extra건' : '';
+
+    return '${teacher}_${datePart}_$periodSubject$suffix';
+  }
+
+  /// 'M.d' 형태의 날짜를 파일명용 'MMdd'로 변환 (빈 값이면 빈 문자열)
+  String _toCompactDate(String absenceDate) {
+    if (absenceDate.isEmpty) return '';
+    return _sanitize(
+      date_utils.DateFormatUtils.toMonthDay(absenceDate).replaceAll('.', ''),
+    );
   }
 
   /// 파일명 금지 문자 치환

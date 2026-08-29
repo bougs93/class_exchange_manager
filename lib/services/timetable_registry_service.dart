@@ -55,7 +55,7 @@ class TimetableRegistryService {
     required String filePath,
     required String hash,
     required String contentHash,
-    String? myTeacherName,
+    String? teacherName,
     String? schoolName,
   }) async {
     final registry = await loadRegistry();
@@ -66,7 +66,7 @@ class TimetableRegistryService {
       filePath: filePath,
       hash: hash,
       contentHash: contentHash,
-      myTeacherName: myTeacherName,
+      teacherName: teacherName,
       schoolName: schoolName,
       registeredAt: DateTime.now(),
     );
@@ -144,7 +144,7 @@ class TimetableRegistryService {
   /// [clearTeacher]/[clearSchool]이 true면 해당 값을 미지정으로 되돌립니다.
   Future<bool> updateTeacherAndSchool(
     String id, {
-    String? myTeacherName,
+    String? teacherName,
     String? schoolName,
     bool clearTeacher = false,
     bool clearSchool = false,
@@ -160,9 +160,9 @@ class TimetableRegistryService {
           .map(
             (e) => e.id == id
                 ? e.copyWith(
-                    myTeacherName: myTeacherName,
+                    teacherName: teacherName,
                     schoolName: schoolName,
-                    clearMyTeacherName: clearTeacher,
+                    clearTeacherName: clearTeacher,
                     clearSchoolName: clearSchool,
                   )
                 : e,

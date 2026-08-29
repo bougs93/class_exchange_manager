@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
+import '../../providers/timetable_registry_provider.dart';
 import '../../services/excel_service.dart';
 import '../../services/exchange_service.dart';
 import '../../services/circular_exchange_service.dart';
@@ -37,7 +38,6 @@ import '../../providers/state_reset_provider.dart';
 import '../../providers/zoom_provider.dart';
 import '../../providers/app_settings_provider.dart';
 import '../../providers/teacher_scroll_provider.dart';
-import '../../services/app_settings_storage_service.dart';
 import 'helpers/circular_path_finder.dart';
 import 'helpers/dual_path_finder.dart';
 import 'helpers/one_to_one_path_generator.dart';
@@ -172,11 +172,10 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     }
 
     try {
-      final defaults =
-          await AppSettingsStorageService().loadTeacherAndSchoolName();
-      final teacherName = (defaults['defaultTeacherName'] ?? '').trim();
+      // 교사는 활성 시간표의 속성이다(전역 설정 아님) — 문서 §2
+      final teacherName = ref.read(activeTeacherNameProvider).trim();
       if (teacherName.isEmpty) {
-        AppLogger.exchangeDebug('⏭️ [교사 스크롤] 홈 교사명 없음 — 스크롤 건너뜀');
+        AppLogger.exchangeDebug('⏭️ [교사 스크롤] 시간표에 교사 미지정 — 스크롤 건너뜀');
         return;
       }
 
@@ -680,6 +679,15 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   Widget build(BuildContext context) {
     // Provider에서 상태 읽기
     final screenState = ref.watch(exchangeScreenProvider);
+
+    // 시간표의 교사가 바뀌면(홈에서 선택하거나 시간표를 전환하면)
+    // 그리드 행 하이라이트 캐시를 갱신한다.
+    // DataSource가 교사명을 캐시하므로 이 갱신이 없으면 이전 교사가 계속 강조된다.
+    ref.listen<String>(activeTeacherNameProvider, (previous, next) {
+      if (previous == next) return;
+      AppLogger.info('시간표 교사 변경 감지: 하이라이트 갱신 ($previous → $next)');
+      ref.read(exchangeScreenProvider).dataSource?.refreshHighlightedTeacherName();
+    });
 
     // 교체 메뉴 탭 진입 시 홈 교사 행 스크롤 (세션당 1회)
     ref.listen<int>(navigationProvider, (previous, next) {

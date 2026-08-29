@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../constants/teacher_row_highlight_colors.dart';
 import '../../../providers/app_settings_provider.dart';
 import '../../../providers/theme_provider.dart';
+import '../../../providers/services_provider.dart';
+import '../../../providers/substitution_plan_provider.dart';
+import '../../../providers/timetable_registry_provider.dart';
 import '../../../theme/app_theme_type.dart';
 import '../../../theme/design_tokens.dart';
 import '../../widgets/timetable_grid/exchange_arrow_direction_icon.dart';
@@ -18,16 +21,15 @@ import 'setting_save_mixin.dart';
 
 /// 시작 화면 설정 카드 (언어 · 2중 교체 · 하이라이트 색상 · 저장 위치 · 데이터 초기화)
 ///
-/// 설정 관련 상태(언어·색상·초기화)를 스스로 로드/저장하여 시작 화면 본체의
-/// 기본 정보(교사명·학교명) 관리와 책임을 분리한다.
+/// 설정 관련 상태(언어·색상·초기화)를 스스로 로드/저장한다.
 ///
-/// 펼침 상태는 부모가 제어한다([expanded]/[onExpansionChanged]) — 교사명이
-/// 비어 있을 때 자동으로 펼치는 등의 판단을 부모(기본 정보 로더)가 담당하기 때문이다.
-/// 데이터 초기화 성공 시 [onDataReset]으로 부모에 알려 교사명/학교명을 비우게 한다.
+/// 교사명·학교명은 활성 시간표의 속성이므로 이 카드가 관여하지 않는다(문서 §2).
+/// 데이터 초기화 성공 시 [onDataReset]으로 부모에 알린다(선택).
 class StartSettingsCard extends ConsumerStatefulWidget {
-  final VoidCallback onDataReset;
+  /// 전체 데이터 초기화 완료 알림 (필요 없으면 생략)
+  final VoidCallback? onDataReset;
 
-  const StartSettingsCard({super.key, required this.onDataReset});
+  const StartSettingsCard({super.key, this.onDataReset});
 
   @override
   ConsumerState<StartSettingsCard> createState() => _StartSettingsCardState();
@@ -272,8 +274,11 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
 
       if (mounted) {
         if (failedFiles.isEmpty && totalCount > 0) {
+          // timetable_registry.json도 함께 지워졌으므로 메모리 상태를 비운다.
+          // 그러지 않으면 삭제된 시간표가 홈 카드에 계속 남는다(문서 §7-4).
+          _resetInMemoryTimetableState();
           showSnackBar('모든 데이터가 삭제되었습니다. ($totalCount개 파일)');
-          widget.onDataReset(); // 부모의 교사명/학교명 비우기
+          widget.onDataReset?.call();
         } else if (totalCount == 0) {
           showSnackBar('삭제할 데이터가 없습니다.');
         } else {
@@ -294,6 +299,16 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
         await _dataStorageLocationKey.currentState?.reload();
       }
     }
+  }
+
+  /// 데이터 초기화 후 시간표 관련 메모리 상태 비우기
+  ///
+  /// 디스크 파일만 지우면 Provider와 서비스에 남은 값이 다시 화면에 나타난다.
+  void _resetInMemoryTimetableState() {
+    ref.read(exchangeHistoryServiceProvider).resetInMemoryState();
+    ref.read(substitutionPlanProvider.notifier).clearInMemory();
+    ref.invalidate(timetableRegistryProvider);
+    ref.read(timetableSwitchVersionProvider.notifier).state++;
   }
 
   @override

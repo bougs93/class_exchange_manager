@@ -1,10 +1,12 @@
 # HWPX 문서 수정 방법
 
+> **2026-08-29 검토 메모:** 이 문서의 `replaceAll` 코드는 개념 PoC이다. 제품 방향, HOP/rhwp의 최신 역할, ZIP/XML 안전성 보완사항과 단계별 채택 기준은 [HWP 출력 추가를 위한 HOP 검토 및 구현 방향](./hwp_output_hop_feasibility.md)을 우선 참고한다.
+
 ## 📋 개요
 
 본 문서는 **수업 교체 도우미** 앱에서 HWPX(한글 Open XML) 문서를 자동으로 채워 출력하는 방법을 정리합니다.
 
-현재 앱은 PDF 양식(`Syncfusion`) + AcroForm 필드 방식으로 결보강 계획서를 출력합니다. HWPX 출력을 검토할 때, **Flutter만으로 구현 가능한 가장 단순한 방법**은 **플레이스홀더(`{{필드명}}`) + ZIP/XML 문자열 치환**입니다.
+현재 앱은 PDF 양식(`Syncfusion`) + AcroForm 필드 방식으로 결보강 계획서를 출력합니다. Flutter만으로 구현 가능한 가장 단순한 방법은 플레이스홀더 치환이지만, 긴 플레이스홀더가 템플릿 레이아웃을 바꾸는 문제가 있습니다. 현재 권고는 **한/글의 이름 있는 누름틀 + rhwp 이름 기반 치환**이며, 이 문서의 플레이스홀더 방식은 fallback/개념 PoC로 취급합니다.
 
 **핵심 개념:**
 
@@ -28,8 +30,9 @@
 | 방식 | Flutter만으로 가능? | 난이도 | 비고 |
 |------|---------------------|--------|------|
 | 한컴 **누름틀(필드)** — `PutFieldText` 등 | ❌ 불가 | 높음 | Dart/HWPX 전용 라이브러리 없음 |
-| **플레이스홀더** `{{date.0}}` + ZIP/XML 치환 | ✅ 가능 | **낮음** | **본 문서의 추천 방식** |
-| Node + `@rhwp/editor` | ✅ 가능 | 중 | rhwp hwpctl API 사용 |
+| 이름 있는 **누름틀** + rhwp 치환 | 직접 Dart만으로는 불가 | 중상 | **현재 추천 방식**, 안내문과 내부 이름 분리 |
+| **플레이스홀더** `{{date.0}}` + ZIP/XML 치환 | ✅ 가능 | 낮음 | Flutter-only fallback |
+| `@rhwp/core` WASM/Rust | bridge 필요 | 중상 | 필드 조회·치환·미리보기·export |
 | Python + `python-hwpx` | ✅ 가능 | 중 | CLI/스크립트 연동 |
 
 **가장 간단한 Flutter 방식 = 필드 API가 아니라 문자열 치환입니다.**
@@ -320,8 +323,8 @@ Flutter용 **HWPX 네이티브 뷰어 패키지는 없습니다.** 미리보기 
 | 도구 | 용도 | 링크 |
 |------|------|------|
 | `python-hwpx` | HWPX 읽기/쓰기, 필드·표 편집 | [GitHub](https://github.com/airmang/python-hwpx) |
-| `@rhwp/editor` | hwpctl `PutFieldText`, `exportHwpx()` | [npm](https://www.npmjs.com/package/@rhwp/editor) |
-| HOP | HWP/HWPX 데스크톱 뷰어/편집기 (앱 임베드 아님) | [GitHub](https://github.com/golbin/hop) |
+| rhwp | Rust/WASM HWP/HWPX 엔진, hwpctl 호환 Field API | [GitHub](https://github.com/edwardkim/rhwp) |
+| HOP | rhwp 기반 HWP/HWPX 데스크톱 앱. 외부 생성 SDK/CLI가 아니므로 결과 검증·열기 용도로 사용 | [GitHub](https://github.com/golbin/hop) |
 | 한컴 한글 SDK | 상용, 공식 HWP/HWPX API | [한컴 SDK](https://hancom.com/product/sdk/hwpSdk) |
 
 ---
@@ -366,4 +369,4 @@ Flutter용 **HWPX 네이티브 뷰어 패키지는 없습니다.** 미리보기 
 
 **문서 버전:** 1.0  
 **작성 목적:** HWPX 출력 PoC — Flutter 단독 플레이스홀더 치환 방식 정리  
-**최종 업데이트:** 2026-05-27
+**최종 업데이트:** 2026-08-29 (HOP/rhwp 최신 검토 문서 연결)

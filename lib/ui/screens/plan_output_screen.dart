@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../constants/nav_indices.dart';
 import '../../models/plan_output_menu.dart';
+import '../../providers/navigation_provider.dart';
 import '../../providers/plan_output_menu_provider.dart';
 import '../../theme/design_tokens.dart';
 import '../../ui/widgets/unified_navigation_bar.dart';
@@ -24,16 +26,36 @@ class _PlanOutputScreenState extends ConsumerState<PlanOutputScreen> {
   // 사이드바 너비 (원하는 값으로 변경 가능)
   static const double _sidebarWidth = 135.0;
 
-  /// 파일 출력 위젯 업데이트 헬퍼 메서드
+  // 결보강 출력 탭을 한 번이라도 열면 위젯을 유지해 준비→교사 동기화 listen이 끊기지 않게 함
+  bool _substitutionTabActivated = false;
+
+  /// 결보강 출력 위젯: 결강기간 + 준비 교사 강제 동기화
   void _updateSubstitutionOutputWidget() {
     final widgetState = _substitutionOutputWidgetKey.currentState;
     if (widgetState != null) {
       widgetState.updateAbsencePeriod();
       widgetState.loadDefaultValuesIfEmpty();
-      AppLogger.exchangeDebug('결강기간 업데이트 및 입력란 자동 채우기 완료');
+      // 빈 칸 채우기와 별도로, 준비 화면 교사를 매번 반영 (2회차 이후 동기화 핵심)
+      widgetState.syncPreferredTeacherFromPrepare();
+      AppLogger.exchangeDebug('결강기간 업데이트 및 준비 교사 동기화 완료');
     } else {
       AppLogger.warning('⚠️ SubstitutionOutputWidgetState를 찾을 수 없습니다.');
     }
+  }
+
+  /// 위젯이 아직 없을 수 있어 다음 프레임·짧은 지연으로 재시도
+  void _scheduleSubstitutionSync() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _updateSubstitutionOutputWidget();
+      }
+    });
+
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        _updateSubstitutionOutputWidget();
+      }
+    });
   }
 
   /// 메뉴 선택 시 호출
@@ -45,30 +67,34 @@ class _PlanOutputScreenState extends ConsumerState<PlanOutputScreen> {
 
     ref.read(planOutputMenuProvider.notifier).state = menu;
 
-    // 파일 출력 탭으로 전환된 경우 결강기간 업데이트
+    // 파일 출력 탭으로 전환된 경우 결강기간·교사 동기화
     if (menu == PlanOutputMenu.substitutionOutput) {
       AppLogger.exchangeDebug('메뉴 변경 감지: ${menu.displayName}');
-      AppLogger.info('📄 파일 출력 메뉴 진입: 결강기간 업데이트 및 입력란 자동 채우기 요청');
-
-      // 위젯이 생성될 때까지 대기 (다음 프레임에 실행)
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _updateSubstitutionOutputWidget();
-        }
-      });
-
-      // 100ms 후 재시도 (위젯이 아직 생성되지 않은 경우 대비)
-      Future.delayed(const Duration(milliseconds: 100), () {
-        if (mounted) {
-          _updateSubstitutionOutputWidget();
-        }
-      });
+      AppLogger.info('📄 파일 출력 메뉴 진입: 결강기간 업데이트 및 준비 교사 동기화 요청');
+      setState(() => _substitutionTabActivated = true);
+      _scheduleSubstitutionSync();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final selectedMenu = ref.watch(planOutputMenuProvider);
+
+    // 상단 네비에서 계획서 탭으로 들어올 때마다 준비 교사 재동기화
+    ref.listen<int>(navigationProvider, (previous, next) {
+      if (next != NavIndices.planOutput) return;
+      if (ref.read(planOutputMenuProvider) !=
+          PlanOutputMenu.substitutionOutput) {
+        return;
+      }
+      AppLogger.info('계획서 탭 재진입 → 준비 교사 동기화 요청');
+      _scheduleSubstitutionSync();
+    });
+
+    // 결보강 메뉴가 선택되면 캐시 활성화 (첫 진입)
+    if (selectedMenu == PlanOutputMenu.substitutionOutput) {
+      _substitutionTabActivated = true;
+    }
 
     return Scaffold(
       // AppBar 제거 - StartScreen의 공통 AppBar 사용
@@ -179,17 +205,24 @@ class _PlanOutputScreenState extends ConsumerState<PlanOutputScreen> {
   }
 
   /// 오른쪽 컨텐츠 영역
+  ///
+  /// IndexedStack으로 결보강 위젯을 유지해, 내용 입력으로 다녀와도
+  /// 준비>교사 listen이 끊기지 않습니다.
   Widget _buildContent(PlanOutputMenu selectedType) {
-    return _buildTabContent(selectedType);
-  }
+    final showSubstitution = selectedType == PlanOutputMenu.substitutionOutput;
 
-  /// 문서 타입에 따른 탭 컨텐츠 생성
-  Widget _buildTabContent(PlanOutputMenu type) {
-    switch (type) {
-      case PlanOutputMenu.contentInput:
-        return const ContentInputGrid();
-      case PlanOutputMenu.substitutionOutput:
-        return SubstitutionOutputWidget(key: _substitutionOutputWidgetKey);
-    }
+    return IndexedStack(
+      index: showSubstitution ? 1 : 0,
+      sizing: StackFit.expand,
+      children: [
+        // 0: 내용 입력 (항상)
+        const ContentInputGrid(),
+        // 1: 결보강 출력 (한 번 활성화된 뒤부터 유지)
+        if (_substitutionTabActivated)
+          SubstitutionOutputWidget(key: _substitutionOutputWidgetKey)
+        else
+          const SizedBox.shrink(),
+      ],
+    );
   }
 }

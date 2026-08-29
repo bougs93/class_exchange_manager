@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../services/app_settings_storage_service.dart';
+import '../../providers/timetable_registry_provider.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../providers/personal_schedule_provider.dart';
 import '../../utils/personal_timetable_helper.dart';
@@ -124,9 +124,10 @@ class _PersonalScheduleScreenState
     _isCheckingTeacherName = true;
 
     try {
-      final appSettings = AppSettingsStorageService();
-      final defaults = await appSettings.loadTeacherAndSchoolName();
-      final teacherName = defaults['defaultTeacherName'] ?? '';
+      // 활성 시간표에 지정된 교사를 기본값으로 사용한다.
+      // 이 화면에서 다른 교사를 골라도 시간표의 교사는 덮어쓰지 않는다
+      // (남의 시간표 열람이 내 설정을 바꾸면 안 됨 — 문서 §6-10).
+      final teacherName = ref.read(activeTeacherNameProvider);
 
       if (isInitialLoad) {
         setState(() {
@@ -213,18 +214,12 @@ class _PersonalScheduleScreenState
           ),
     );
 
-    // 교사 선택 시 Provider 업데이트 및 설정 파일에 저장
+    // 교사 선택 시 Provider만 갱신한다.
+    //
+    // 이 화면의 교사 전환은 "남의 시간표를 잠깐 보는" 국소 동작이므로
+    // 활성 시간표에 지정된 교사(TimetableRegistryEntry.teacherName)는
+    // 덮어쓰지 않는다(문서 §6-10).
     if (selectedTeacherName != null && selectedTeacherName.isNotEmpty) {
-      // 설정 파일에 저장
-      final appSettings = AppSettingsStorageService();
-      final defaults = await appSettings.loadTeacherAndSchoolName();
-      final currentSchoolName = defaults['defaultSchoolName'] ?? '';
-
-      await appSettings.saveTeacherAndSchoolName(
-        teacherName: selectedTeacherName,
-        schoolName: currentSchoolName,
-      );
-
       // Provider 업데이트
       ref
           .read(personalScheduleProvider.notifier)

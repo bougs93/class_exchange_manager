@@ -18,7 +18,6 @@ import '../../../../../utils/pdf_field_config.dart';
 import '../../../../../utils/date_format_utils.dart';
 import '../../../../../services/pdf_export_service.dart';
 import '../../../../../services/pdf_export_settings_storage_service.dart';
-import '../../../../../services/app_settings_storage_service.dart';
 import '../../../../../constants/korean_fonts.dart';
 import '../../../../../constants/pdf_notes_template.dart';
 import '../../../../../utils/logger.dart';
@@ -101,6 +100,98 @@ class SubstitutionOutputWidgetState
   /// 현재 선택 계획서 ID (null이면 미지정 → 레거시 양식 설정 사용)
   String? _selectedProfileId;
 
+  /// 계획서 설정에 반영되는 입력 컨트롤러 목록 (dirty 감지용)
+  List<TextEditingController> get _profileFieldControllers => [
+    _teacherNameController,
+    _absencePeriodController,
+    _workStatusController,
+    _reasonForAbsenceController,
+    _schoolNameController,
+    _notesController,
+  ];
+
+  /// 계획서를 화면에 적용한 직후의 스냅샷 (dirty 비교 기준)
+  ///
+  /// 저장된 계획서와 직접 비교하면 안 된다. [_applyProfileToUi]는 결강기간을
+  /// 건드리지 않고 비고(notes)가 없으면 기본 문구를 채우므로, 사용자가 아무것도
+  /// 고치지 않아도 저장값과 화면값이 달라진다. 적용 직후 화면 상태를 기준으로
+  /// 삼아야 "실제로 사용자가 바꾼 것"만 잡아낸다.
+  PrintProfile? _appliedSnapshot;
+
+  /// dirty 비교에서 제외할 필드
+  ///
+  /// 결강기간은 사용자가 편집하지 않아도 교체 목록 변경에 따라 자동으로 다시
+  /// 계산되고, 출력 시에도 건별로 재계산되므로 미저장 변경으로 볼 수 없다.
+  static const Set<String> _dirtyIgnoredFields = {'absencePeriod'};
+
+  /// 화면 값이 선택된 계획서와 달라졌는지 (저장하지 않은 변경)
+  ///
+  /// 계획서 설정은 [이 계획서에 저장]을 눌러야 기록되므로, 이 상태에서 교사·계획서를
+  /// 전환하면 편집 내용이 조용히 사라진다. 따라서 ● 표시 + 전환 시 확인이 필요하다
+  /// (문서 §3③ "미저장 변경 보호").
+  bool get _hasUnsavedChanges {
+    final snapshot = _appliedSnapshot;
+    if (snapshot == null || _selectedProfileId == null) return false;
+    if (snapshot.id != _selectedProfileId) return false;
+
+    return !snapshot.contentEquals(
+      _collectProfileFromUi(snapshot),
+      ignoreFields: _dirtyIgnoredFields,
+    );
+  }
+
+  /// 입력값 변경 시 ● 표시 갱신
+  void _onProfileFieldChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// 미저장 변경이 있으면 저장 여부를 확인한다
+  ///
+  /// 반환값: 전환을 계속해도 되면 true, 사용자가 취소했으면 false.
+  Future<bool> _confirmDiscardChanges() async {
+    final store = ref.read(printProfileStoreProvider);
+    final selected = store.getById(_selectedProfileId);
+    if (selected == null || !_hasUnsavedChanges) return true;
+
+    final choice = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('저장하지 않은 변경이 있습니다'),
+          content: Text("'${selected.name}'의 변경 내용을 저장할까요?"),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop('cancel'),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop('discard'),
+              child: const Text('저장 안 함'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop('save'),
+              child: const Text('저장'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (choice == 'save') {
+      final updated = _collectProfileFromUi(selected);
+      await ref
+          .read(printProfileStoreProvider.notifier)
+          .saveProfile(updated);
+      _appliedSnapshot = updated;
+      return true;
+    }
+    return choice == 'discard';
+  }
+
+  /// 준비 화면 교사 변경 구독 (build의 ref.listen은 재빌드 타이밍에 끊길 수 있음)
+  ProviderSubscription<String>? _prepareTeacherSubscription;
+
   @override
   void initState() {
     super.initState();
@@ -108,6 +199,24 @@ class SubstitutionOutputWidgetState
 
     // 결강기간 필드 변경 감지 (사용자가 직접 수정한 경우 플래그 설정)
     _absencePeriodController.addListener(_onAbsencePeriodChanged);
+
+    // 입력값이 바뀌면 계획서 이름 옆 ● (미저장 변경) 표시를 즉시 갱신
+    for (final controller in _profileFieldControllers) {
+      controller.addListener(_onProfileFieldChanged);
+    }
+
+    // 준비 > 교사 변경을 위젯이 살아 있는 동안 항상 구독
+    // (계획서 탭이 IndexedStack에 남아 있어도 build가 안 돌면 listen이 놓칠 수 있음)
+    _prepareTeacherSubscription = ref.listenManual<String>(
+      activeTeacherNameProvider,
+      (previous, next) {
+        final teacher = next.trim();
+        if (teacher.isEmpty) return;
+        if (teacher == previous?.trim()) return;
+        AppLogger.info('준비 화면 교사 변경 감지 → 결보강 출력 즉시 동기화: $teacher');
+        _syncTeacherFromPrepare(teacher);
+      },
+    );
 
     // 계획서 선택 흐름: 스토어 로드 → 마지막 교사/계획서 복원 → 설정 로드
     _initializeProfileFlow().then((_) {
@@ -123,6 +232,9 @@ class SubstitutionOutputWidgetState
 
   @override
   void dispose() {
+    _prepareTeacherSubscription?.close();
+    _prepareTeacherSubscription = null;
+
     // 프로그램 종료 시 현재 양식의 설정 저장
     _saveCurrentSettings();
 
@@ -130,6 +242,9 @@ class SubstitutionOutputWidgetState
     _pdfSettingsStorage.saveLastSelectedTemplateIndex(_selectedTemplateIndex);
 
     // Controller 정리
+    for (final controller in _profileFieldControllers) {
+      controller.removeListener(_onProfileFieldChanged);
+    }
     _teacherNameController.dispose();
     _absencePeriodController.dispose();
     _workStatusController.dispose();
@@ -138,6 +253,20 @@ class SubstitutionOutputWidgetState
     _notesController.dispose();
 
     super.dispose();
+  }
+
+  /// 준비 화면의 현재 교사를 결보강 출력(교사 드롭다운 + 결강교사)에 반영
+  ///
+  /// 메뉴/탭 재진입 시 호출합니다. listen이 놓친 변경도 여기서 맞춥니다.
+  Future<void> syncPreferredTeacherFromPrepare() async {
+    if (!mounted) return;
+
+    final teachers = _availableTeachers();
+    final preferred = _resolvePreferredTeacher(teachers);
+    if (preferred == null || preferred.isEmpty) return;
+
+    AppLogger.info('결보강 출력 진입 → 준비 교사 강제 동기화: $preferred');
+    await _syncTeacherFromPrepare(preferred);
   }
 
   /// 현재 설정을 디스크에 저장
@@ -467,35 +596,33 @@ class SubstitutionOutputWidgetState
     }
   }
 
-  /// 설정에서 교사명, 학교명 로드 (입력란이 비어있을 때만 사용)
+  /// 활성 시간표의 교사명·학교명으로 입력란 채우기 (비어있을 때만)
   ///
-  /// 설정 화면에서 저장한 교사명, 학교명을 가져와서
-  /// 입력란이 비어있는 경우에만 자동으로 입력합니다.
+  /// 교사명·학교명은 전역 설정이 아니라 활성 시간표의 속성입니다(문서 §2).
+  /// 사용자가 매번 타이핑하지 않도록 비어 있는 칸만 자동으로 채웁니다.
   ///
   /// 외부에서 호출 가능한 public 메서드입니다.
   /// 결보강 문서 탭 클릭 시 호출됩니다.
   Future<void> loadDefaultValuesIfEmpty() async {
     try {
-      final appSettings = AppSettingsStorageService();
-      final defaults = await appSettings.loadTeacherAndSchoolName();
+      final entry = ref.read(activeTimetableEntryProvider);
 
       setState(() {
-        // 결강교사 입력란이 비어있으면 설정에서 가져온 값으로 채우기
+        // 결강교사 입력란이 비어있으면 시간표에 지정된 교사로 채우기
         if (_teacherNameController.text.trim().isEmpty) {
-          final defaultTeacherName =
-              defaults['defaultTeacherName']?.trim() ?? '';
-          if (defaultTeacherName.isNotEmpty) {
-            _teacherNameController.text = defaultTeacherName;
-            AppLogger.info('설정에서 교사명 자동 입력: $defaultTeacherName');
+          final teacherName = entry?.teacherName?.trim() ?? '';
+          if (teacherName.isNotEmpty) {
+            _teacherNameController.text = teacherName;
+            AppLogger.info('시간표 설정에서 교사명 자동 입력: $teacherName');
           }
         }
 
-        // 학교명 입력란이 비어있으면 설정에서 가져온 값으로 채우기
+        // 학교명 입력란이 비어있으면 시간표에 지정된 학교명으로 채우기
         if (_schoolNameController.text.trim().isEmpty) {
-          final defaultSchoolName = defaults['defaultSchoolName']?.trim() ?? '';
-          if (defaultSchoolName.isNotEmpty) {
-            _schoolNameController.text = defaultSchoolName;
-            AppLogger.info('설정에서 학교명 자동 입력: $defaultSchoolName');
+          final schoolName = entry?.schoolName?.trim() ?? '';
+          if (schoolName.isNotEmpty) {
+            _schoolNameController.text = schoolName;
+            AppLogger.info('시간표 설정에서 학교명 자동 입력: $schoolName');
           }
         }
       });
@@ -524,14 +651,43 @@ class SubstitutionOutputWidgetState
   List<String> _availableTeachers() {
     final teachers = ref.read(exchangeScreenProvider).timetableData?.teachers;
     if (teachers == null) return const [];
-    final names = teachers.map((t) => t.name).where((n) => n.isNotEmpty).toList()
+    // 준비 화면(activeTimetableTeachersProvider)과 동일하게 trim 후 비교
+    final names = teachers
+        .map((t) => t.name.trim())
+        .where((n) => n.isNotEmpty)
+        .toSet()
+        .toList()
       ..sort();
     return names;
   }
 
+  /// 결보강 출력 '교사' 드롭다운의 초기/우선 교사
+  ///
+  /// 우선순위:
+  /// 1. 준비 화면(활성 시간표)에서 고른 교사
+  /// 2. 계획서에서 마지막으로 고른 교사
+  /// 3. 시간표 교사 목록의 첫 번째
+  String? _resolvePreferredTeacher(List<String> teachers) {
+    if (teachers.isEmpty) return null;
+
+    // 준비 > 교사 선택이 단일 출처 (activeTeacherNameProvider)
+    final prepared =
+        ref.read(activeTimetableEntryProvider)?.teacherName?.trim() ?? '';
+    if (prepared.isNotEmpty && teachers.contains(prepared)) {
+      return prepared;
+    }
+
+    final last = ref.read(printProfileStoreProvider).lastSelectedTeacher;
+    if (last != null && teachers.contains(last)) {
+      return last;
+    }
+
+    return teachers.first;
+  }
+
   /// 계획서 선택 흐름 초기화
   ///
-  /// 스토어 로드 → 교사 목록 로드 대기 → 마지막 교사/계획서 복원 → 설정 로드.
+  /// 스토어 로드 → 교사 목록 로드 대기 → 준비 화면 교사 우선 복원 → 설정 로드.
   /// 계획서가 없으면 레거시 양식 설정 흐름으로 폴백합니다.
   ///
   /// 재진입 가드: 초기화 대기 중 시간표가 다시 전환되면 이전 흐름을 중단시킵니다.
@@ -555,13 +711,18 @@ class SubstitutionOutputWidgetState
     final store = ref.read(printProfileStoreProvider);
     final teachers = _availableTeachers();
 
-    var teacher = store.lastSelectedTeacher;
-    if (teacher == null || !teachers.contains(teacher)) {
-      teacher = teachers.isNotEmpty ? teachers.first : null;
-    }
+    // 준비 화면에서 고른 교사(예: 정원길)를 우선 선택
+    final teacher = _resolvePreferredTeacher(teachers);
     _selectedTeacher = teacher;
 
-    // 마이그레이션된 계획서(교사 미지정 '')를 첫 교사에게 자동 편입해
+    // 준비 화면 교사와 계획서 lastSelectedTeacher를 맞춰 둔다
+    if (teacher != null && store.lastSelectedTeacher != teacher) {
+      await ref
+          .read(printProfileStoreProvider.notifier)
+          .setLastSelectedTeacher(teacher);
+    }
+
+    // 마이그레이션된 계획서(교사 미지정 '')를 선택 교사에게 자동 편입해
     // UI에서 보이도록 처리 (1회성). 역순 저장으로 '양식 1'이 마지막 사용
     // 계획서가 되어 기본 선택되도록 합니다.
     if (teacher != null && store.byTeacher(teacher).isEmpty) {
@@ -593,12 +754,25 @@ class SubstitutionOutputWidgetState
           : profiles.first;
       _selectedProfileId = selected.id;
       _applyProfileToUi(selected);
-      if (mounted) setState(() {});
+      // 결강교사 = 준비 화면(또는 선택) 교사로 맞춤
+      if (mounted && teacher != null) {
+        _teacherNameController.text = teacher;
+        if (_appliedSnapshot != null) {
+          _appliedSnapshot = _collectProfileFromUi(_appliedSnapshot!);
+        }
+        setState(() {});
+      }
       AppLogger.info("계획서 복원: 교사=$teacher, 계획서='${selected.name}'");
     } else {
       // 선택 교사의 계획서가 없으면 미지정 → 레거시 양식 설정 로드
       _selectedProfileId = null;
       await _loadLastSelectedTemplateIndex();
+      // 결강교사 입력란도 준비 화면 교사로 채움
+      if (mounted && teacher != null) {
+        setState(() => _teacherNameController.text = teacher);
+      } else {
+        await loadDefaultValuesIfEmpty();
+      }
     }
   }
 
@@ -653,6 +827,9 @@ class SubstitutionOutputWidgetState
           profile.additionalFields['schoolName'] ?? '';
       _notesController.text = defaultNotes;
     });
+
+    // 적용 직후 화면 상태를 dirty 비교 기준으로 삼는다
+    _appliedSnapshot = _collectProfileFromUi(profile);
   }
 
   /// 현재 화면 설정 → 계획서 객체로 수집
@@ -679,13 +856,57 @@ class SubstitutionOutputWidgetState
   Future<void> _onTeacherChanged(String? teacher) async {
     if (teacher == null || teacher == _selectedTeacher) return;
 
+    // 미저장 변경이 있으면 먼저 저장 여부를 묻는다
+    if (!await _confirmDiscardChanges() || !mounted) return;
+
+    await _applyTeacherSelection(teacher, syncAbsenceTeacherField: true);
+  }
+
+  /// 준비 화면에서 교사가 바뀌었을 때 — 확인 없이 즉시 동기화
+  ///
+  /// - 상단 '교사' 드롭다운
+  /// - 추가 필드 입력 > 결강교사
+  Future<void> _syncTeacherFromPrepare(String teacher) async {
+    if (!mounted) return;
+
+    final trimmed = teacher.trim();
+    if (trimmed.isEmpty) return;
+
+    // 교사 목록이 아직 없으면 드롭다운 value 오류를 피하기 위해 대기 후 재시도
+    final teachers = _availableTeachers();
+    if (teachers.isNotEmpty && !teachers.contains(trimmed)) {
+      AppLogger.warning(
+        '준비 교사 "$trimmed"가 시간표 교사 목록에 없어 동기화 생략',
+      );
+      return;
+    }
+
+    if (trimmed == _selectedTeacher &&
+        _teacherNameController.text.trim() == trimmed) {
+      return;
+    }
+
+    AppLogger.info('준비→결보강 출력 교사 즉시 동기화: $trimmed');
+    await _applyTeacherSelection(trimmed, syncAbsenceTeacherField: true);
+  }
+
+  /// 교사 선택 적용 (드롭다운 + 해당 교사 계획서 + 선택 시 결강교사 필드)
+  Future<void> _applyTeacherSelection(
+    String teacher, {
+    required bool syncAbsenceTeacherField,
+  }) async {
     final store = ref.read(printProfileStoreProvider);
     final profiles = store.byTeacher(teacher);
 
     setState(() {
       _selectedTeacher = teacher;
       _selectedProfileId = profiles.isNotEmpty ? profiles.first.id : null;
+      if (syncAbsenceTeacherField) {
+        // 추가 필드 입력 > 결강교사
+        _teacherNameController.text = teacher;
+      }
     });
+
     await ref
         .read(printProfileStoreProvider.notifier)
         .setLastSelectedTeacher(teacher);
@@ -695,24 +916,48 @@ class SubstitutionOutputWidgetState
 
     if (profiles.isNotEmpty) {
       _applyProfileToUi(profiles.first);
+      // 계획서 additionalFields의 옛 결강교사가 덮어쓸 수 있으므로 항상 재적용
+      if (syncAbsenceTeacherField) {
+        setState(() => _teacherNameController.text = teacher);
+      }
+      // 준비 화면 동기화로 맞춘 값은 '미저장 변경'으로 보지 않음
+      if (_appliedSnapshot != null) {
+        _appliedSnapshot = _collectProfileFromUi(_appliedSnapshot!);
+      }
     } else {
       // 계획서가 없는 교사: 미지정 → 레거시 양식 설정 로드
+      _appliedSnapshot = null;
       await _loadSavedSettings();
+      // 레거시 설정의 옛 교사명이 덮어쓰므로 동기화 시 항상 재적용
+      if (mounted && syncAbsenceTeacherField) {
+        setState(() => _teacherNameController.text = teacher);
+      }
     }
   }
 
   /// 계획서 전환: 해당 계획서의 설정을 화면에 적용
+  ///
+  /// [profileId]가 null이면 '미지정'(레거시 양식 설정)으로 되돌립니다.
   Future<void> _onProfileChanged(String? profileId) async {
+    if (profileId == _selectedProfileId) return;
+
+    // 미저장 변경이 있으면 먼저 저장 여부를 묻는다
+    if (!await _confirmDiscardChanges() || !mounted) return;
+
     final store = ref.read(printProfileStoreProvider);
     final profile = store.getById(profileId);
 
-    setState(() => _selectedProfileId = profileId);
+    setState(() => _selectedProfileId = profile?.id);
 
     if (profile != null) {
       _applyProfileToUi(profile);
       await ref
           .read(printProfileStoreProvider.notifier)
           .setLastUsedProfile(profile.id);
+    } else {
+      // 미지정: 양식 설정 흐름으로 되돌린다
+      _appliedSnapshot = null;
+      await _loadSavedSettings();
     }
   }
 
@@ -758,6 +1003,7 @@ class SubstitutionOutputWidgetState
 
     if (success) {
       setState(() => _selectedProfileId = seed.id);
+      _appliedSnapshot = seed;
       _showSnackBar("계획서 '$name'이(가) 생성되었습니다.", Colors.green);
     } else {
       _showSnackBar('계획서 생성에 실패했습니다.', Colors.red);
@@ -825,7 +1071,21 @@ class SubstitutionOutputWidgetState
     if (!mounted) return;
 
     if (success) {
-      setState(() => _selectedProfileId = null);
+      // 무선택 상태로 두면 안내도 저장 버튼도 없는 사각지대가 된다.
+      // 같은 교사의 남은 계획서 중 첫 번째를 자동 선택한다(문서 §3③).
+      final teacher = _selectedTeacher;
+      final remaining = teacher != null
+          ? ref.read(printProfileStoreProvider).byTeacher(teacher)
+          : const <PrintProfile>[];
+
+      if (remaining.isNotEmpty) {
+        setState(() => _selectedProfileId = remaining.first.id);
+        _applyProfileToUi(remaining.first);
+      } else {
+        setState(() => _selectedProfileId = null);
+        await _loadSavedSettings();
+      }
+      if (!mounted) return;
       _showSnackBar("계획서 '${selected.name}'이(가) 삭제되었습니다.", Colors.green);
     } else {
       _showSnackBar('삭제에 실패했습니다.', Colors.red);
@@ -838,9 +1098,13 @@ class SubstitutionOutputWidgetState
     final selected = store.getById(_selectedProfileId);
     if (selected == null) return;
 
+    final updated = _collectProfileFromUi(selected);
     final success = await ref
         .read(printProfileStoreProvider.notifier)
-        .saveProfile(_collectProfileFromUi(selected));
+        .saveProfile(updated);
+    if (success) {
+      _appliedSnapshot = updated; // 저장했으므로 dirty 해제
+    }
     if (mounted) {
       _showSnackBar(
         success ? "계획서 '${selected.name}'에 저장되었습니다." : '저장에 실패했습니다.',
@@ -886,7 +1150,7 @@ class SubstitutionOutputWidgetState
 
   @override
   Widget build(BuildContext context) {
-    // 활성 시간표 전환 감지 → 계획서 바 재초기화 (교체불가·교체 상태는 시간표 단위 공유)
+    // 활성 시간표 전환 감지 → 계획서 바 재초기화
     ref.listen<TimetableRegistryEntry?>(activeTimetableEntryProvider, (
       previous,
       next,
@@ -896,6 +1160,9 @@ class SubstitutionOutputWidgetState
         _reinitAfterTimetableSwitch();
       }
     });
+
+    // 준비 교사명이 바뀌면 이 화면도 다시 그려 드롭다운이 최신 값을 반영
+    ref.watch(activeTeacherNameProvider);
 
     // 시간표 데이터 변경 감지 → 교사 드롭다운 갱신 (select로 재빌드 최소화)
     ref.watch(
@@ -1037,6 +1304,7 @@ class SubstitutionOutputWidgetState
     final teacher = _selectedTeacher;
     final profiles = teacher != null ? store.byTeacher(teacher) : <PrintProfile>[];
     final selectedProfile = store.getById(_selectedProfileId);
+    final isDirty = _hasUnsavedChanges;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1061,18 +1329,33 @@ class SubstitutionOutputWidgetState
                   isExpanded: true,
                   underline: const SizedBox.shrink(),
                   hint: const Text('교사 선택', style: TextStyle(fontSize: 13)),
-                  items: teachers
-                      .map(
-                        (name) => DropdownMenuItem<String>(
-                          value: name,
-                          child: Text(
-                            name,
-                            style: const TextStyle(fontSize: 13),
-                            overflow: TextOverflow.ellipsis,
+                  items: teachers.map((name) {
+                    // 계획서 개수를 함께 보여 하나씩 눌러보지 않아도 알 수 있게 한다
+                    final count = store.byTeacher(name).length;
+                    return DropdownMenuItem<String>(
+                      value: name,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              name,
+                              style: const TextStyle(fontSize: 13),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
-                      )
-                      .toList(),
+                          Text(
+                            count > 0 ? '계획서 $count' : '계획서 없음',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: count > 0
+                                  ? tokens.textMuted
+                                  : Colors.orange,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
                   onChanged: _onTeacherChanged,
                 ),
               ),
@@ -1096,18 +1379,44 @@ class SubstitutionOutputWidgetState
                   isExpanded: true,
                   underline: const SizedBox.shrink(),
                   hint: const Text('미지정 (양식 설정 사용)', style: TextStyle(fontSize: 13)),
-                  items: profiles
-                      .map(
-                        (p) => DropdownMenuItem<String>(
-                          value: p.id,
-                          child: Text(
-                            p.name,
-                            style: const TextStyle(fontSize: 13),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                  items: [
+                    // 계획서를 고른 뒤에도 언제든 양식 설정으로 되돌릴 수 있어야 한다
+                    const DropdownMenuItem<String>(
+                      value: null,
+                      child: Text(
+                        '미지정 (양식 설정 사용)',
+                        style: TextStyle(fontSize: 13),
+                      ),
+                    ),
+                    ...profiles.map(
+                      (p) => DropdownMenuItem<String>(
+                        value: p.id,
+                        child: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                p.name,
+                                style: const TextStyle(fontSize: 13),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            // 저장하지 않은 변경 표시
+                            if (p.id == _selectedProfileId && isDirty)
+                              const Padding(
+                                padding: EdgeInsets.only(left: 4),
+                                child: Text(
+                                  '●',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.orange,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
-                      )
-                      .toList(),
+                      ),
+                    ),
+                  ],
                   onChanged: _onProfileChanged,
                 ),
               ),
@@ -1158,8 +1467,13 @@ class SubstitutionOutputWidgetState
                 onPressed: _saveToSelectedProfile,
                 icon: const Icon(Icons.save_outlined, size: 16),
                 label: Text(
-                  "이 계획서에 저장 ('${selectedProfile.name}')",
-                  style: const TextStyle(fontSize: 12),
+                  isDirty
+                      ? "● 이 계획서에 저장 ('${selectedProfile.name}')"
+                      : "이 계획서에 저장 ('${selectedProfile.name}')",
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isDirty ? FontWeight.w700 : FontWeight.normal,
+                  ),
                 ),
               ),
             ),

@@ -192,15 +192,6 @@ class _StartScreenState extends ConsumerState<StartScreen> {
         AppLogger.error('앱 설정 로드 중 오류: $e', e);
       }
 
-      // 6. 기본 교사명과 학교명 로드 (설정 화면 표시용)
-      try {
-        final appSettings = AppSettingsStorageService();
-        await appSettings.loadTeacherAndSchoolName(); // 설정 캐시를 위해 미리 로드
-        AppLogger.info('기본 교사명과 학교명 로드 완료');
-      } catch (e) {
-        AppLogger.error('기본 교사명과 학교명 로드 중 오류: $e', e);
-      }
-
       setState(() {});
       AppLogger.info('저장된 데이터 로드 완료');
     } catch (e) {
