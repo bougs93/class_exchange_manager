@@ -79,16 +79,29 @@ class PersonalExchangeInfoExtractor {
   ) {
     var count = 0;
     for (final plan in planData) {
-      if (!_isRelatedToTeacher(plan, teacherName)) continue;
+      if (!isRelatedToTeacher(plan, teacherName)) continue;
       if (!_planHasAssignedDate(plan)) count++;
     }
     return count;
   }
 
-  static bool _isRelatedToTeacher(SubstitutionPlanData plan, String teacher) {
-    return plan.teacher == teacher ||
-        plan.substitutionTeacher == teacher ||
-        plan.supplementTeacher == teacher;
+  /// 결강·교체·보강 교사 중 하나라도 [teacher]이면 그 교사의 교체 건입니다.
+  static bool isRelatedToTeacher(SubstitutionPlanData plan, String teacher) {
+    final name = teacher.trim();
+    if (name.isEmpty) return false;
+    return plan.teacher.trim() == name ||
+        plan.substitutionTeacher.trim() == name ||
+        plan.supplementTeacher.trim() == name;
+  }
+
+  /// [teacherName]이 결강·교체·보강으로 들어 있는 계획서 행만 남깁니다.
+  static List<SubstitutionPlanData> plansRelatedToTeacher(
+    List<SubstitutionPlanData> planData,
+    String teacherName,
+  ) {
+    return planData
+        .where((plan) => isRelatedToTeacher(plan, teacherName))
+        .toList();
   }
 
   static bool _planHasAssignedDate(SubstitutionPlanData plan) {

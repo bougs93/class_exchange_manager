@@ -61,6 +61,88 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
   bool _isCopyingImage = false;
 
   @override
+  void initState() {
+    super.initState();
+    // build 중 notifyListeners를 부르면 프레임마다 다시 그려져 앱이 멈춥니다.
+    _dataSource = _createDataSource();
+  }
+
+  @override
+  void didUpdateWidget(TeacherTimetableCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // 내용이 바뀐 뒤에만 DataSource를 갱신합니다 (build 안이 아님).
+    final teacherChanged = oldWidget.teacherName != widget.teacherName;
+    final zoomChanged = oldWidget.zoomFactor != widget.zoomFactor;
+    final exchangeViewChanged =
+        oldWidget.isExchangeViewEnabled != widget.isExchangeViewEnabled;
+    final slotsChanged = !identical(oldWidget.timeSlots, widget.timeSlots);
+    final datesChanged = !_sameDates(oldWidget.weekDates, widget.weekDates);
+    final exchangeInfoChanged = !identical(
+      oldWidget.exchangeInfoList,
+      widget.exchangeInfoList,
+    );
+
+    if (teacherChanged ||
+        zoomChanged ||
+        slotsChanged ||
+        datesChanged ||
+        exchangeViewChanged ||
+        exchangeInfoChanged) {
+      _syncDataSourceAfterWidgetUpdate();
+    }
+  }
+
+  bool _sameDates(List<DateTime> a, List<DateTime> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  PersonalTimetableDataSource _createDataSource() {
+    final result = PersonalTimetableHelper.convertToPersonalTimetableData(
+      widget.timeSlots,
+      widget.teacherName,
+      widget.weekDates,
+      zoomFactor: widget.zoomFactor,
+    );
+    _lastRowCount = result.rows.length;
+    return PersonalTimetableDataSource(
+      rows: result.rows,
+      exchangeInfoList: widget.exchangeInfoList,
+      isExchangeViewEnabled: widget.isExchangeViewEnabled,
+    );
+  }
+
+  void _syncDataSourceAfterWidgetUpdate() {
+    final result = PersonalTimetableHelper.convertToPersonalTimetableData(
+      widget.timeSlots,
+      widget.teacherName,
+      widget.weekDates,
+      zoomFactor: widget.zoomFactor,
+    );
+
+    if (_dataSource == null || _lastRowCount != result.rows.length) {
+      _dataSource = PersonalTimetableDataSource(
+        rows: result.rows,
+        exchangeInfoList: widget.exchangeInfoList,
+        isExchangeViewEnabled: widget.isExchangeViewEnabled,
+      );
+      _lastRowCount = result.rows.length;
+      return;
+    }
+
+    _dataSource!.updateRows(
+      result.rows,
+      exchangeInfoList: widget.exchangeInfoList,
+      isExchangeViewEnabled: widget.isExchangeViewEnabled,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final result = PersonalTimetableHelper.convertToPersonalTimetableData(
       widget.timeSlots,
@@ -69,7 +151,13 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
       zoomFactor: widget.zoomFactor,
     );
 
-    _ensureDataSource(result.rows);
+    // build에서는 DataSource를 만들기만 하고, notifyListeners는 호출하지 않습니다.
+    _dataSource ??= PersonalTimetableDataSource(
+      rows: result.rows,
+      exchangeInfoList: widget.exchangeInfoList,
+      isExchangeViewEnabled: widget.isExchangeViewEnabled,
+    );
+    _lastRowCount = result.rows.length;
 
     final scaledColumns = GridScalingHelper.scaleColumns(
       result.columns,
@@ -218,25 +306,6 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
           ),
         ],
       ),
-    );
-  }
-
-  /// DataSource를 생성하거나 행 수 변경 시 재생성, 그 외에는 갱신만 합니다.
-  void _ensureDataSource(List<DataGridRow> rows) {
-    if (_dataSource == null || _lastRowCount != rows.length) {
-      _dataSource = PersonalTimetableDataSource(
-        rows: rows,
-        exchangeInfoList: widget.exchangeInfoList,
-        isExchangeViewEnabled: widget.isExchangeViewEnabled,
-      );
-      _lastRowCount = rows.length;
-      return;
-    }
-
-    _dataSource!.updateRows(
-      rows,
-      exchangeInfoList: widget.exchangeInfoList,
-      isExchangeViewEnabled: widget.isExchangeViewEnabled,
     );
   }
 

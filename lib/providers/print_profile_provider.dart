@@ -84,9 +84,13 @@ class PrintProfileStoreNotifier extends StateNotifier<PrintProfileStore> {
   /// 마지막 선택 교사 저장 (탭 재진입 시 복원용)
   Future<void> setLastSelectedTeacher(String teacherName) async {
     if (_timetableId == null) return;
+    final trimmed = teacherName.trim();
+    // 값이 같으면 디스크/상태 갱신 생략 → 불필요한 전역 리빌드 방지
+    if (state.lastSelectedTeacher == trimmed) return;
+
     final success = await _storage.setLastSelectedTeacher(
       _timetableId,
-      teacherName,
+      trimmed,
     );
     if (success) {
       state = await _storage.loadStore(_timetableId);
@@ -96,10 +100,47 @@ class PrintProfileStoreNotifier extends StateNotifier<PrintProfileStore> {
   /// 마지막 사용 계획서 갱신 (디스크 저장 포함)
   Future<void> setLastUsedProfile(String profileId) async {
     if (_timetableId == null) return;
+    // 이미 마지막 사용이면 저장·notify 생략 (ProxyElement 무한 갱신 방지)
+    if (state.lastUsedProfileId == profileId &&
+        state.getById(profileId) != null) {
+      return;
+    }
+
     final success = await _storage.setLastUsedProfile(_timetableId, profileId);
     if (success) {
       state = await _storage.loadStore(_timetableId);
     }
+  }
+
+  /// 여러 계획서의 교사 귀속을 한 번에 갱신 (디스크 쓰기 1회)
+  ///
+  /// 연속 saveProfile 호출은 UI를 멈추게 할 수 있어 배치로 처리합니다.
+  Future<bool> reassignTeacherBulk(
+    Iterable<String> profileIds,
+    String teacherName,
+  ) async {
+    if (_timetableId == null) return false;
+    final ids = profileIds.toSet();
+    if (ids.isEmpty) return true;
+
+    final teacher = teacherName.trim();
+    if (teacher.isEmpty) return false;
+
+    final current = state;
+    final updated = current.profiles
+        .map(
+          (p) => ids.contains(p.id) ? p.copyWith(teacherName: teacher) : p,
+        )
+        .toList();
+
+    final success = await _storage.saveStore(
+      _timetableId,
+      current.copyWith(profiles: updated),
+    );
+    if (success) {
+      state = await _storage.loadStore(_timetableId);
+    }
+    return success;
   }
 }
 
@@ -119,16 +160,21 @@ final checkedSubstitutionPlanDataProvider =
       final planData = ref.watch(
         substitutionPlanViewModelProvider.select((s) => s.planData),
       );
-      final store = ref.watch(printProfileStoreProvider);
-      final profile = store.getById(store.lastUsedProfileId);
-      final deselected = profile?.deselectedGroupIds.toSet() ?? const <String>{};
+      // lastUsed + 제외 목록만 구독 (스토어의 다른 필드 변경으로 리빌드되지 않음)
+      final selection = ref.watch(
+        printProfileStoreProvider.select((store) {
+          final id = store.lastUsedProfileId;
+          final deselected =
+              store.getById(id)?.deselectedGroupIds ?? const <String>[];
+          return (id, deselected);
+        }),
+      );
+      final deselected = selection.$2.toSet();
 
-      // 계획서가 없거나 제외 목록이 비면 전체 (기본: 모두 선택)
       if (deselected.isEmpty) return planData;
 
       return planData.where((row) {
         final groupId = row.groupId;
-        // groupId가 없는 행은 제외 목록에 넣을 수 없으므로 포함
         if (groupId == null || groupId.isEmpty) return true;
         return !deselected.contains(groupId);
       }).toList();

@@ -3,10 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/timetable_registry_provider.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../providers/personal_schedule_provider.dart';
-import '../../utils/personal_timetable_helper.dart';
 import '../../utils/week_date_calculator.dart';
 import '../../utils/logger.dart';
-import '../../utils/day_utils.dart';
 import '../../models/time_slot.dart';
 import '../../ui/widgets/timetable_grid/grid_header_widgets.dart';
 import '../../ui/widgets/exchange_control_panel.dart';
@@ -21,9 +19,7 @@ import '../../theme/design_tokens.dart';
 import '../../utils/simplified_timetable_theme.dart';
 import '../widgets/cell_status_legend_item.dart';
 import '../widgets/exchanged_cell_status_overlay.dart';
-import '../../config/debug_config.dart';
 import 'personal_schedule_screen/teacher_selection_dialog.dart';
-import 'personal_schedule_screen/personal_schedule_constants.dart';
 import 'personal_schedule_screen/teacher_card_grid_view.dart';
 import 'personal_schedule_screen/teacher_card_teacher_collector.dart';
 import 'personal_schedule_screen/exchange_week_collector.dart';
@@ -32,7 +28,7 @@ import 'personal_schedule_screen/teacher_card_grid_constants.dart';
 
 /// 개인 시간표 화면
 ///
-/// 설정에서 저장한 교사 + 결보강 계획서의 교체·보강 교사 시간표를 카드 그리드로 표시합니다.
+/// 설정에서 저장한 교사와, 그 교사의 교체·보강 상대 시간표만 카드로 표시합니다.
 /// - 세로행: 교시
 /// - 가로행: 요일 (날짜 포함)
 /// - 교체 뷰 스위치로 교체관리와 동일한 기능 제공
@@ -56,7 +52,10 @@ class _PersonalScheduleScreenState
   List<TimeSlot>? _originalTimeSlots;
   int? _lastFileLoadId;
   bool _isLoadingPristineTimeSlots = false;
-  DateTime? _lastCheckTime; // 마지막 확인 시간 (중복 호출 방지)
+  /// 원본 슬롯 새로고침 콜백이 이미 예약됐는지 (매 빌드 중복 예약 방지)
+  bool _pristineRefreshScheduled = false;
+  /// 교체 뷰 초기화 콜백 중복 예약 방지
+  bool _exchangeViewInitScheduled = false;
   bool _isCheckingTeacherName = false; // 교사명 확인 중 플래그 (중복 실행 방지)
 
   @override
@@ -105,8 +104,11 @@ class _PersonalScheduleScreenState
         _lastFileLoadId = fileLoadId;
       });
     } finally {
-      if (mounted) {
+      // 이미 false면 setState로 불필요 리빌드하지 않음
+      if (mounted && _isLoadingPristineTimeSlots) {
         setState(() => _isLoadingPristineTimeSlots = false);
+      } else {
+        _isLoadingPristineTimeSlots = false;
       }
     }
   }
@@ -164,10 +166,6 @@ class _PersonalScheduleScreenState
       }
     } finally {
       _isCheckingTeacherName = false;
-      // 마지막 확인 시간 업데이트 (성공/실패 관계없이)
-      if (!isInitialLoad) {
-        _lastCheckTime = DateTime.now();
-      }
     }
   }
 
@@ -247,20 +245,17 @@ class _PersonalScheduleScreenState
     ref.watch(cellStatusSymbolVisibilityProvider);
 
     final scheduleState = ref.watch(personalScheduleProvider);
-    final timetableData = ref.watch(exchangeScreenProvider).timetableData;
+    // 교체 화면 전체(30+ 필드)가 아니라 시간표 본문만 구독 — 불필요 리빌드 방지
+    final timetableData = ref.watch(
+      exchangeScreenProvider.select((s) => s.timetableData),
+    );
     final teacherName = scheduleState.teacherName;
 
-    // 화면이 표시될 때마다 교사명 확인 (중복 호출 방지)
-    final now = DateTime.now();
-    if (_lastCheckTime == null ||
-        now.difference(_lastCheckTime!).inMilliseconds >
-            PersonalScheduleConstants.teacherNameCheckThrottleMs) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _checkAndLoadTeacherName(isInitialLoad: false);
-        }
-      });
-    }
+    // 준비 화면 교사 변경만 반영 (매 빌드 폴링 제거 → 무한 리빌드 방지)
+    ref.listen<String>(activeTeacherNameProvider, (previous, next) {
+      if (previous == next) return;
+      _checkAndLoadTeacherName(isInitialLoad: false);
+    });
 
     // 로딩 중인 경우 처리
     if (_isLoadingTeacherName) {
@@ -320,9 +315,18 @@ class _PersonalScheduleScreenState
     final fileLoadId = ref.watch(
       exchangeScreenProvider.select((s) => s.fileLoadId),
     );
-    if (_lastFileLoadId != fileLoadId || _originalTimeSlots == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _refreshPristineTimeSlots(fileLoadId, timetableData);
+    if ((_lastFileLoadId != fileLoadId || _originalTimeSlots == null) &&
+        !_pristineRefreshScheduled &&
+        !_isLoadingPristineTimeSlots) {
+      _pristineRefreshScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        try {
+          if (mounted) {
+            await _refreshPristineTimeSlots(fileLoadId, timetableData);
+          }
+        } finally {
+          _pristineRefreshScheduled = false;
+        }
       });
     }
 
@@ -345,102 +349,34 @@ class _PersonalScheduleScreenState
     );
 
     // 최초 진입 시 교체 뷰 기본 활성화
-    if (!_hasInitializedExchangeView) {
+    if (!_hasInitializedExchangeView && !_exchangeViewInitScheduled) {
+      _exchangeViewInitScheduled = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _ensureExchangeViewEnabled(
-          timetableData,
-          scheduleState.currentWeekMonday,
-        );
+        if (mounted) {
+          _ensureExchangeViewEnabled(
+            timetableData,
+            scheduleState.currentWeekMonday,
+          );
+        }
       });
     }
 
-    // 주의: 헤더 폰트 사이즈는 Consumer 내부에서 줌 팩터를 반영하여 재생성됨
-    final result = PersonalTimetableHelper.convertToPersonalTimetableData(
-      timeSlotsToUse,
-      teacherName,
-      weekDates,
-    );
-
-    // 교체 정보 추출 (결보강 계획서 planData 기준)
+    // 선택 교사 + 그 교사의 교체·보강 상대만 카드로 표시
     final planData = ref.watch(
       substitutionPlanViewModelProvider.select((state) => state.planData),
     );
-    final exchangeInfoList = PersonalExchangeInfoExtractor.extractExchangeInfo(
-      planData: planData,
-      teacherName: teacherName,
-      weekDates: weekDates,
+    final relatedPlanData = PersonalExchangeInfoExtractor.plansRelatedToTeacher(
+      planData,
+      teacherName,
     );
-
-    // 교체 정보 추출 결과 디버그 로그 (조건부)
-    if (DebugConfig.enableExchangeInfoDebugLogs) {
-      AppLogger.info('\n=== [개인시간표] 교체 정보 추출 결과 ===');
-      AppLogger.info('교사명: $teacherName');
-
-      // 현재 주 표시: "11.10(월), 11.11(화), ..." 형식
-      final weekDisplay = weekDates
-          .map((d) {
-            final dayOfWeek = d.weekday; // 1=월요일, 7=일요일
-            final dayName = DayUtils.getDayName(dayOfWeek); // DayUtils 사용
-            return '${d.month}.${d.day}($dayName)';
-          })
-          .join(', ');
-      AppLogger.info('현재 주: $weekDisplay');
-      AppLogger.info('추출된 교체 정보: ${exchangeInfoList.length}개');
-
-      if (exchangeInfoList.isNotEmpty) {
-        // 현재 주의 날짜 문자열 리스트 생성 (YYYY.MM.DD 형식)
-        final weekDateStrings =
-            weekDates
-                .map(
-                  (d) =>
-                      '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}',
-                )
-                .toList();
-
-        // 시간표에 실제로 존재하는 셀 정보 수집 (columnName 기준)
-        final existingCells = <String>{};
-        for (final row in result.rows) {
-          for (final cell in row.getCells()) {
-            final columnName = cell.columnName;
-            if (columnName != 'period' && columnName.contains('_')) {
-              existingCells.add(columnName);
-            }
-          }
-        }
-
-        for (int i = 0; i < exchangeInfoList.length; i++) {
-          final info = exchangeInfoList[i];
-          final absenceOrClass = info.isAbsence ? '결강' : '수업';
-
-          // 적용 여부 확인
-          final applyStatus = _getExchangeApplyStatus(
-            info,
-            weekDateStrings,
-            existingCells,
-          );
-
-          AppLogger.info(
-            '  [$i] $absenceOrClass - ${info.date} ${info.day} ${info.period}교시 ${info.subject ?? ''} ${info.className ?? ''}$applyStatus',
-          );
-        }
-      } else {
-        AppLogger.info('  (교체 정보 없음)');
-      }
-      AppLogger.info('교체 뷰 상태: ${_isExchangeViewEnabled ? "활성화" : "비활성화"}');
-      AppLogger.info('=== 교체 정보 추출 완료 ===\n');
-    }
-
-    // DataSource 생성 또는 업데이트 — TeacherTimetableCard 내부에서 처리
-
-    // 저장 교사 + 결보강 계획서(교체·보강) 교사 카드 목록
     final cardTargets = TeacherCardTeacherCollector.collect(
       savedTeacherName: teacherName,
-      planData: planData,
+      planData: relatedPlanData,
     );
 
-    // 결보강 계획서에 지정된 교체·결강 날짜가 속한 주차 목록
+    // 선택 교사와 관련된 결강·교체 날짜가 속한 주차만 표시
     final exchangeWeeks = ExchangeWeekCollector.collectWeekMondays(
-      planData,
+      relatedPlanData,
       referenceDate: scheduleState.currentWeekMonday,
     );
 
@@ -870,28 +806,5 @@ class _PersonalScheduleScreenState
     } catch (e) {
       AppLogger.error('개인 시간표 교체 뷰 비활성화 중 오류: $e', e);
     }
-  }
-
-  /// 교체 정보 적용 여부 확인 (디버그용)
-  ///
-  /// 매개변수:
-  /// - [info]: 교체 정보
-  /// - [weekDateStrings]: 현재 주의 날짜 문자열 리스트 (YYYY.MM.DD)
-  /// - [existingCells]: 시간표에 실제로 존재하는 셀 정보
-  ///
-  /// 반환값: 적용 상태 문자열 (' [적용됨]', ' [다른 주]', ' [셀 없음]', '')
-  static String _getExchangeApplyStatus(
-    ExchangeCellInfo info,
-    List<String> weekDateStrings,
-    Set<String> existingCells,
-  ) {
-    final isInCurrentWeek = weekDateStrings.contains(info.date);
-    final expectedColumnName = '${info.day}_${info.period}_${info.date}';
-    final hasCell = existingCells.contains(expectedColumnName);
-
-    if (isInCurrentWeek && hasCell) return ' [적용됨]';
-    if (!isInCurrentWeek) return ' [다른 주]';
-    if (!hasCell) return ' [셀 없음]';
-    return '';
   }
 }

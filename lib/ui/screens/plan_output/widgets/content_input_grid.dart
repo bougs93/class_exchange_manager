@@ -435,10 +435,8 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
           .read(printProfileStoreProvider.notifier)
           .renameProfile(profile.id, name);
     }
-    // 이름만 바꾼 뒤에도 교사 귀속을 한 번 더 맞춤
-    final synced = await _ensurePlanExists(planData, nameHint: name);
     if (!mounted) return;
-    setState(() => _selectedPlanId = (synced ?? profile).id);
+    setState(() => _selectedPlanId = profile.id);
   }
 
   /// 행 드롭다운에서 새 계획서 만들기
@@ -543,12 +541,6 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
       _selectedPlanId = resolvedId;
     }
     _hydrateSelectionFromPlan(store, planData);
-
-    // 현재 계획서 교사 귀속이 준비 교사와 다르면 보정 (결보강 출력 목록 누락 방지)
-    ref.listen<String>(activeTeacherNameProvider, (previous, next) {
-      if (next.trim().isEmpty || next == previous) return;
-      unawaited(_ensurePlanExists(planData));
-    });
 
     return Container(
       padding: const EdgeInsets.all(16),

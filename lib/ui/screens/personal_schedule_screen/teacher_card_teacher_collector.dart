@@ -1,9 +1,13 @@
 import '../../../providers/substitution_plan_viewmodel.dart';
+import '../../../utils/personal_exchange_info_extractor.dart';
 
 /// 시간표 카드에 표시할 교사 역할
 enum TeacherCardRole {
-  /// 설정 기본 정보에 저장된 교사
+  /// 현재 선택한(저장) 교사
   saved,
+
+  /// 선택 교사의 결보강 계획서 — 결강 교사 (선택 교사가 교체 상대일 때)
+  absence,
 
   /// 결보강 계획서 — 수업 교체 교사
   substitution,
@@ -27,14 +31,16 @@ class TeacherCardTarget {
   });
 
   bool get isSaved => roles.contains(TeacherCardRole.saved);
+  bool get isAbsence => roles.contains(TeacherCardRole.absence);
   bool get isSubstitution => roles.contains(TeacherCardRole.substitution);
   bool get isSupplement => roles.contains(TeacherCardRole.supplement);
 
-  /// 카드 헤더에 표시할 역할 라벨 (저장 교사는 강조 테두리로 구분)
+  /// 카드 헤더에 표시할 역할 라벨 (선택 교사는 강조 테두리로 구분)
   String? get roleLabel {
     if (isSaved) return null;
 
     final labels = <String>[];
+    if (isAbsence) labels.add('결강');
     if (isSubstitution) labels.add('교체');
     if (isSupplement) labels.add('보강');
     return labels.isEmpty ? null : labels.join('·');
@@ -44,11 +50,14 @@ class TeacherCardTarget {
   String? get dateStatusMessage => hasUnspecifiedDate ? '날짜 미지정' : null;
 }
 
-/// 저장 교사 + 결보강 계획서의 교체·보강 교사 목록을 수집합니다.
+/// 선택 교사 + 그 교사의 교체·보강 상대만 카드 목록으로 모읍니다.
+///
+/// 계획서 전체의 다른 교사 카드는 넣지 않습니다.
+/// (다인 카드가 한꺼번에 그려지면 시간표 화면이 멈출 수 있습니다.)
 class TeacherCardTeacherCollector {
   TeacherCardTeacherCollector._();
 
-  /// [savedTeacherName]을 먼저, 이후 계획서의 교체·보강 교사를 중복 없이 추가합니다.
+  /// [savedTeacherName]을 맨 앞에 두고, 그 교사와 연결된 결강·교체·보강 교사만 추가합니다.
   static List<TeacherCardTarget> collect({
     required String? savedTeacherName,
     required List<SubstitutionPlanData> planData,
@@ -66,11 +75,20 @@ class TeacherCardTeacherCollector {
       }
     }
 
-    if (savedTeacherName != null) {
-      addRole(savedTeacherName, TeacherCardRole.saved);
+    final selected = savedTeacherName?.trim() ?? '';
+    if (selected.isNotEmpty) {
+      addRole(selected, TeacherCardRole.saved);
     }
 
-    for (final plan in planData) {
+    // 선택 교사가 들어 있는 행만 사용합니다.
+    final relatedPlans = PersonalExchangeInfoExtractor.plansRelatedToTeacher(
+      planData,
+      selected,
+    );
+
+    for (final plan in relatedPlans) {
+      // 선택 교사가 교체 상대일 때, 결강 교사 카드도 보여 줍니다.
+      addRole(plan.teacher, TeacherCardRole.absence);
       addRole(plan.substitutionTeacher, TeacherCardRole.substitution);
       addRole(plan.supplementTeacher, TeacherCardRole.supplement);
     }
@@ -80,7 +98,7 @@ class TeacherCardTeacherCollector {
           (name) => TeacherCardTarget(
             name: name,
             roles: Set.unmodifiable(roleMap[name] ?? {}),
-            hasUnspecifiedDate: _hasUnspecifiedDate(name, planData),
+            hasUnspecifiedDate: _hasUnspecifiedDate(name, relatedPlans),
           ),
         )
         .toList();

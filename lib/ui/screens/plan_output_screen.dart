@@ -43,15 +43,9 @@ class _PlanOutputScreenState extends ConsumerState<PlanOutputScreen> {
     }
   }
 
-  /// 위젯이 아직 없을 수 있어 다음 프레임·짧은 지연으로 재시도
+  /// 위젯이 아직 없을 수 있어 다음 프레임에 한 번만 동기화
   void _scheduleSubstitutionSync() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _updateSubstitutionOutputWidget();
-      }
-    });
-
-    Future.delayed(const Duration(milliseconds: 100), () {
       if (mounted) {
         _updateSubstitutionOutputWidget();
       }

@@ -67,8 +67,14 @@ class _TeacherCardGridViewState extends ConsumerState<TeacherCardGridView>
     }
 
     final zoomFactor = ref.watch(zoomProvider.select((s) => s.zoomFactor));
-    final planData = ref.read(
+    final selectedTeacher = widget.scheduleState.teacherName ?? '';
+    final allPlanData = ref.read(
       substitutionPlanViewModelProvider.select((s) => s.planData),
+    );
+    // 선택 교사와 관련된 교체 건만 셀 하이라이트에 사용합니다.
+    final planData = PersonalExchangeInfoExtractor.plansRelatedToTeacher(
+      allPlanData,
+      selectedTeacher,
     );
 
     // 오른쪽 버튼 드래그로 스크롤 가능하도록 믹신으로 감쌉니다.

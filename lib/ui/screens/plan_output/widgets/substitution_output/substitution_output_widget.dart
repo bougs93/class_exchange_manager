@@ -143,6 +143,8 @@ class SubstitutionOutputWidgetState
 
   /// 입력값 변경 시 ● 표시 갱신
   void _onProfileFieldChanged() {
+    // 결강기간 자동 갱신 중 setState가 쌓이면 프레임마다 리빌드됨
+    if (_absencePeriodMode == AbsencePeriodUpdateMode.updating) return;
     if (mounted) setState(() {});
   }
 
@@ -259,19 +261,33 @@ class SubstitutionOutputWidgetState
   /// 준비 화면의 현재 교사를 결보강 출력(교사 드롭다운 + 결강교사)에 반영
   ///
   /// 메뉴/탭 재진입 시 호출합니다. listen이 놓친 변경도 여기서 맞춥니다.
+  bool _isSyncingFromPrepare = false;
+
   Future<void> syncPreferredTeacherFromPrepare() async {
-    if (!mounted) return;
+    if (!mounted || _isSyncingFromPrepare) return;
+    _isSyncingFromPrepare = true;
+    try {
+      final teachers = _availableTeachers();
+      final preferred = _resolvePreferredTeacher(teachers);
+      if (preferred == null || preferred.isEmpty) return;
 
-    final teachers = _availableTeachers();
-    final preferred = _resolvePreferredTeacher(teachers);
-    if (preferred == null || preferred.isEmpty) return;
+      // 이미 같은 교사·계획서가 선택돼 있으면 저장/리빌드 유발 작업 생략
+      final store = ref.read(printProfileStoreProvider);
+      final hasProfileForTeacher = store.byTeacher(preferred).isNotEmpty;
+      if (_selectedTeacher == preferred &&
+          _selectedProfileId != null &&
+          hasProfileForTeacher) {
+        return;
+      }
 
-    // 날짜 선택 계획서가 교사 귀속 불일치로 안 보이는 경우 편입
-    await _attachOrphanProfilesToTeacher(preferred);
-    if (!mounted) return;
+      await _attachOrphanProfilesToTeacher(preferred);
+      if (!mounted) return;
 
-    AppLogger.info('결보강 출력 진입 → 준비 교사 강제 동기화: $preferred');
-    await _syncTeacherFromPrepare(preferred);
+      AppLogger.info('결보강 출력 진입 → 준비 교사 강제 동기화: $preferred');
+      await _syncTeacherFromPrepare(preferred);
+    } finally {
+      _isSyncingFromPrepare = false;
+    }
   }
 
   /// 현재 설정을 디스크에 저장
@@ -356,50 +372,32 @@ class SubstitutionOutputWidgetState
   /// 결강기간 자동 계산 및 업데이트 (외부에서 호출 가능한 public 메서드)
   /// 탭 진입 시 PlanOutputScreen에서 호출됩니다.
   void updateAbsencePeriod() {
-    AppLogger.info('📅 [결강기간] updateAbsencePeriod() 호출됨');
     // 날짜 선택에서 체크된 건만 결강기간에 반영
     final planData = ref.read(checkedSubstitutionPlanDataProvider);
-    AppLogger.exchangeDebug('결강기간 계산 대상: ${planData.length}개 항목');
     _updateAbsencePeriod(planData);
   }
 
   /// 결강기간 자동 계산 및 업데이트 (내부 메서드)
   void _updateAbsencePeriod(List<SubstitutionPlanData> planData) {
-    AppLogger.exchangeDebug('결강기간 업데이트 시작 - 모드: $_absencePeriodMode');
-
     // 사용자가 수동으로 수정한 경우 자동 업데이트하지 않음
     if (_absencePeriodMode == AbsencePeriodUpdateMode.manualOverride) {
-      AppLogger.exchangeDebug('결강기간 자동 업데이트 건너뜀: 사용자가 수동 수정함');
       return;
     }
 
     final absenceDates = planData.map((data) => data.absenceDate).toList();
-    AppLogger.exchangeDebug('결강일 목록: ${absenceDates.join(", ")}');
-
     final absencePeriod = DateFormatUtils.calculateAbsencePeriod(absenceDates);
-    AppLogger.exchangeDebug(
-      '계산된 결강기간: "$absencePeriod" (현재 값: "${_absencePeriodController.text}")',
-    );
 
     // Controller 값이 다를 때만 업데이트 (무한 루프 방지)
     if (_absencePeriodController.text != absencePeriod) {
-      // 업데이트 진행 중 모드로 설정 (리스너가 무시하도록)
       _absencePeriodMode = AbsencePeriodUpdateMode.updating;
-
       _absencePeriodController.text = absencePeriod;
-      AppLogger.info('✅ [결강기간] 자동 업데이트 완료: "$absencePeriod"');
+      AppLogger.exchangeDebug('결강기간 자동 업데이트: "$absencePeriod"');
 
-      // UI 업데이트를 위해 setState 호출
       if (mounted) {
         setState(() {});
       }
 
-      // 자동 업데이트 모드로 복원 (다음 프레임에 복원하여 리스너가 정상 작동하도록)
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _absencePeriodMode = AbsencePeriodUpdateMode.autoUpdate;
-      });
-    } else {
-      AppLogger.exchangeDebug('결강기간 업데이트 건너뜀: 값이 동일함');
+      _absencePeriodMode = AbsencePeriodUpdateMode.autoUpdate;
     }
   }
 
@@ -772,47 +770,47 @@ class SubstitutionOutputWidgetState
 
   /// 날짜 선택에서 만든 계획서를 현재 준비 교사에게 편입
   ///
-  /// byTeacher(준비교사)가 비어 있을 때:
-  /// - 교사명 비어 있는 계획서
+  /// byTeacher(준비교사)가 비어 있을 때만:
+  /// - 교사명이 비어 있는 계획서
   /// - 마지막 사용 계획서(교사명이 다른 경우)
-  /// - 그래도 없으면 스토어의 모든 계획서(날짜 선택 목록과 맞춤)
+  ///
+  /// 주의: 전체 계획서를 일괄 재지정하지 않습니다(앱 멈춤·데이터 혼선 원인).
+  bool _isAttachingOrphans = false;
+
   Future<void> _attachOrphanProfilesToTeacher(String teacher) async {
-    final store = ref.read(printProfileStoreProvider);
-    if (store.byTeacher(teacher).isNotEmpty) return;
-    if (store.profiles.isEmpty) return;
+    if (_isAttachingOrphans) return;
+    _isAttachingOrphans = true;
+    try {
+      final store = ref.read(printProfileStoreProvider);
+      if (store.byTeacher(teacher).isNotEmpty) return;
+      if (store.profiles.isEmpty) return;
 
-    final lastUsed = store.getById(store.lastUsedProfileId);
-    final toFix = <PrintProfile>[];
+      final toFixIds = <String>{};
 
-    for (final p in store.profiles) {
-      if (p.teacherName.trim().isEmpty) {
-        toFix.add(p);
+      for (final p in store.profiles) {
+        if (p.teacherName.trim().isEmpty) {
+          toFixIds.add(p.id);
+        }
       }
-    }
-    if (lastUsed != null &&
-        lastUsed.teacherName.trim() != teacher &&
-        !toFix.any((p) => p.id == lastUsed.id)) {
-      toFix.add(lastUsed);
-    }
 
-    // 여전히 이 교사 소속이 하나도 없으면, 날짜 선택에 보이는 계획서 전체를 편입
-    if (toFix.isEmpty) {
-      toFix.addAll(
-        store.profiles.where((p) => p.teacherName.trim() != teacher),
-      );
-    }
+      final lastUsed = store.getById(store.lastUsedProfileId);
+      if (lastUsed != null && lastUsed.teacherName.trim() != teacher) {
+        toFixIds.add(lastUsed.id);
+      }
 
-    if (toFix.isEmpty) return;
+      if (toFixIds.isEmpty) return;
 
-    for (final orphan in toFix.reversed) {
-      await ref
+      final ok = await ref
           .read(printProfileStoreProvider.notifier)
-          .saveProfile(orphan.copyWith(teacherName: teacher));
+          .reassignTeacherBulk(toFixIds, teacher);
+      if (ok) {
+        AppLogger.info(
+          '계획서 ${toFixIds.length}개를 준비 교사 "$teacher"에게 편입(배치)',
+        );
+      }
+    } finally {
+      _isAttachingOrphans = false;
     }
-    AppLogger.info(
-      '계획서 ${toFix.length}개를 준비 교사 "$teacher"에게 편입 '
-      '(${toFix.map((p) => p.name).join(', ')})',
-    );
   }
 
   /// 활성 시간표 전환 후 재초기화
@@ -960,9 +958,12 @@ class SubstitutionOutputWidgetState
       }
     });
 
-    await ref
-        .read(printProfileStoreProvider.notifier)
-        .setLastSelectedTeacher(teacher);
+    // 이미 같은 교사면 디스크 저장을 건너뛰어 UI 멈춤 방지
+    if (store.lastSelectedTeacher != teacher) {
+      await ref
+          .read(printProfileStoreProvider.notifier)
+          .setLastSelectedTeacher(teacher);
+    }
 
     // 대기 중 다른 교사로 전환되었으면 이전 교사의 계획서를 적용하지 않음
     if (!mounted || _selectedTeacher != teacher) return;
@@ -1051,14 +1052,16 @@ class SubstitutionOutputWidgetState
     // 준비 교사명이 바뀌면 이 화면도 다시 그려 드롭다운이 최신 값을 반영
     ref.watch(activeTeacherNameProvider);
 
-    // 날짜 선택 체크 변경 → 결강기간 재계산
-    ref.listen<List<SubstitutionPlanData>>(
-      checkedSubstitutionPlanDataProvider,
+    // 체크 선택(제외 목록)이 바뀔 때만 결강기간 재계산
+    ref.listen<(String?, List<String>)>(
+      printProfileStoreProvider.select((store) {
+        final id = store.lastUsedProfileId;
+        final deselected =
+            store.getById(id)?.deselectedGroupIds ?? const <String>[];
+        return (id, deselected);
+      }),
       (previous, next) {
-        if (previous?.length == next.length &&
-            identical(previous, next)) {
-          return;
-        }
+        if (previous == next) return;
         updateAbsencePeriod();
       },
     );
@@ -1231,7 +1234,9 @@ class SubstitutionOutputWidgetState
               const SizedBox(width: 8),
               Expanded(
                 child: DropdownButton<String>(
-                  value: teacher,
+                  value: (teacher != null && teachers.contains(teacher))
+                      ? teacher
+                      : null,
                   isExpanded: true,
                   underline: const SizedBox.shrink(),
                   hint: const Text('교사 선택', style: TextStyle(fontSize: 13)),
