@@ -62,11 +62,6 @@ class ContentInputGridConfig {
         width: 40,
       ),
       GridColumn(
-        columnName: 'profile',
-        label: _buildHeaderLabel('계획서', tokens),
-        width: 95,
-      ),
-      GridColumn(
         columnName: 'absenceDate',
         label: _buildHeaderLabel('결강일', tokens),
         width: 60,
@@ -151,7 +146,6 @@ class ContentInputGridConfig {
       StackedHeaderRow(
         cells: [
           _buildMergedColumnStackedHeaderCell('select', '선택', tokens),
-          _buildMergedColumnStackedHeaderCell('profile', '계획서', tokens),
           _buildStackedHeaderCell(
             [
               'absenceDate',
@@ -334,10 +328,12 @@ class SelectCellRenderer {
         width: 26,
         height: 26,
         child: Checkbox(
-          value: isSelected != null && groupId.isNotEmpty && isSelected(groupId),
-          onChanged: (groupId.isEmpty || onToggle == null)
-              ? null
-              : (_) => onToggle(groupId),
+          value:
+              isSelected != null && groupId.isNotEmpty && isSelected(groupId),
+          onChanged:
+              (groupId.isEmpty || onToggle == null)
+                  ? null
+                  : (_) => onToggle(groupId),
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           visualDensity: VisualDensity.compact,
         ),
@@ -411,18 +407,19 @@ class ProfileCellRenderer {
               ),
             ),
         ],
-        onChanged: groupId.isEmpty || onChanged == null
-            ? null
-            : (value) {
-                if (value == createValue) {
-                  onCreateProfile?.call(groupId, teacher);
-                  return;
-                }
-                onChanged(
-                  groupId,
-                  (value == null || value == unassignedValue) ? null : value,
-                );
-              },
+        onChanged:
+            groupId.isEmpty || onChanged == null
+                ? null
+                : (value) {
+                  if (value == createValue) {
+                    onCreateProfile?.call(groupId, teacher);
+                    return;
+                  }
+                  onChanged(
+                    groupId,
+                    (value == null || value == unassignedValue) ? null : value,
+                  );
+                },
       ),
     );
   }

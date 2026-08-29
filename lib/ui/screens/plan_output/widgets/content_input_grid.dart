@@ -133,24 +133,11 @@ class SubstitutionPlanDataSource extends DataGridSource {
 
   @override
   DataGridRowAdapter buildRow(DataGridRow row) {
-    // select·profile 컬럼은 그룹(교체 건) 단위 상태를 공유하는 위젯 셀
     final selectCell = CellRendererFactory.build(
       row.getCells().firstWhere(
         (c) => c.columnName == 'select',
-        orElse: () => const DataGridCell<String>(columnName: 'select', value: ''),
-      ),
-      row,
-      isSelected: isSelected,
-      onToggleSelect: onToggleSelect,
-      profileOptions: profileOptions,
-      onCreateProfile: onCreateProfile,
-      selectedProfileId: selectedProfileId,
-      onProfileChanged: onProfileChanged,
-    );
-    final profileCell = CellRendererFactory.build(
-      row.getCells().firstWhere(
-        (c) => c.columnName == 'profile',
-        orElse: () => const DataGridCell<String>(columnName: 'profile', value: ''),
+        orElse:
+            () => const DataGridCell<String>(columnName: 'select', value: ''),
       ),
       row,
       isSelected: isSelected,
@@ -182,7 +169,7 @@ class SubstitutionPlanDataSource extends DataGridSource {
             })
             .toList();
 
-    return DataGridRowAdapter(cells: [selectCell, profileCell, ...cells]);
+    return DataGridRowAdapter(cells: [selectCell, ...cells]);
   }
 }
 
@@ -198,6 +185,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     with ScrollManagementMixin {
   /// 일괄 출력 선택 상태 (그룹 = 교체 건 ID 기준)
   final Set<String> _checkedGroupIds = {};
+  String? _selectedPlanId;
 
   @override
   void initState() {
@@ -215,11 +203,12 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
 
   /// 그룹(교체 건)의 지정 계획서 ID 조회 (삭제된 계획서면 null → 미지정)
   String? _selectedProfileIdForGroup(String groupId) {
-    final item = ref
-        .read(exchangeHistoryServiceProvider)
-        .getExchangeList()
-        .where((h) => h.id == groupId)
-        .firstOrNull;
+    final item =
+        ref
+            .read(exchangeHistoryServiceProvider)
+            .getExchangeList()
+            .where((h) => h.id == groupId)
+            .firstOrNull;
     if (item == null) return null;
     final store = ref.read(printProfileStoreProvider);
     return store.getById(item.profileId)?.id;
@@ -243,11 +232,12 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
 
   /// 전체 선택/해제 토글
   void _toggleSelectAll(List<SubstitutionPlanData> planData) {
-    final allGroupIds = planData
-        .map((d) => d.groupId)
-        .whereType<String>()
-        .where((id) => id.isNotEmpty)
-        .toSet();
+    final allGroupIds =
+        planData
+            .map((d) => d.groupId)
+            .whereType<String>()
+            .where((id) => id.isNotEmpty)
+            .toSet();
 
     setState(() {
       if (_checkedGroupIds.containsAll(allGroupIds) && allGroupIds.isNotEmpty) {
@@ -282,8 +272,8 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
               labelText: '계획서 이름',
               hintText: '예: 계획서1',
             ),
-            onSubmitted: (value) =>
-                Navigator.of(dialogContext).pop(value.trim()),
+            onSubmitted:
+                (value) => Navigator.of(dialogContext).pop(value.trim()),
           ),
           actions: [
             TextButton(
@@ -291,8 +281,8 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
               child: const Text('취소'),
             ),
             ElevatedButton(
-              onPressed: () =>
-                  Navigator.of(dialogContext).pop(controller.text.trim()),
+              onPressed:
+                  () => Navigator.of(dialogContext).pop(controller.text.trim()),
               child: const Text('만들기'),
             ),
           ],
@@ -336,10 +326,8 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
 
   /// 현재 planData에 실제로 존재하는 선택 그룹 수 (삭제된 그룹 카운트 제외)
   int _validCheckedCount(List<SubstitutionPlanData> planData) {
-    final validGroupIds = planData
-        .map((d) => d.groupId)
-        .whereType<String>()
-        .toSet();
+    final validGroupIds =
+        planData.map((d) => d.groupId).whereType<String>().toSet();
     return _checkedGroupIds.where(validGroupIds.contains).length;
   }
 
@@ -363,14 +351,10 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
       final rows = planData.where((d) => d.groupId == groupId).toList();
       if (rows.isEmpty) continue;
 
-      final exchangeItem = history
-          .where((h) => h.id == groupId)
-          .firstOrNull;
+      final exchangeItem = history.where((h) => h.id == groupId).firstOrNull;
       final profile = store.getById(exchangeItem?.profileId);
 
-      items.add(
-        BatchExportItem(itemId: groupId, rows: rows, profile: profile),
-      );
+      items.add(BatchExportItem(itemId: groupId, rows: rows, profile: profile));
     }
 
     if (items.isEmpty) {
@@ -394,11 +378,12 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
       showDialog<void>(
         context: context,
         barrierDismissible: false,
-        builder: (dialogContext) => BatchExportProgressDialog(
-          initialTotal: items.length,
-          progressStream: progressController.stream,
-          onCancel: () => cancelRequested = true,
-        ),
+        builder:
+            (dialogContext) => BatchExportProgressDialog(
+              initialTotal: items.length,
+              progressStream: progressController.stream,
+              onCancel: () => cancelRequested = true,
+            ),
       ),
     );
 
@@ -449,12 +434,12 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
                   result.allSucceeded
                       ? '${result.successCount}/${result.totalCount}건 출력 성공'
                       : [
-                          '${result.successCount}/${result.totalCount}건 성공',
-                          if (result.errors.isNotEmpty)
-                            '${result.errors.length}건 실패',
-                          if (result.cancelledCount > 0)
-                            '${result.cancelledCount}건 취소됨',
-                        ].join(', '),
+                        '${result.successCount}/${result.totalCount}건 성공',
+                        if (result.errors.isNotEmpty)
+                          '${result.errors.length}건 실패',
+                        if (result.cancelledCount > 0)
+                          '${result.cancelledCount}건 취소됨',
+                      ].join(', '),
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -469,20 +454,21 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
                     child: SingleChildScrollView(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: result.errors
-                            .map(
-                              (e) => Padding(
-                                padding: const EdgeInsets.only(bottom: 4),
-                                child: Text(
-                                  e,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.red,
+                        children:
+                            result.errors
+                                .map(
+                                  (e) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 4),
+                                    child: Text(
+                                      e,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.red,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                            )
-                            .toList(),
+                                )
+                                .toList(),
                       ),
                     ),
                   ),
@@ -525,12 +511,144 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
                     : PlanOutputMenu.contentInput.color,
           ),
           ContentToolbarLayout.hintToToolbarSpacer,
+          _buildPlanManagementBar(planData),
+          const SizedBox(height: 8),
           _buildActionButtons(context, ref, viewModel, planData),
           const SizedBox(height: 10),
           _buildDataGrid(context, ref, planData, isLoading, viewModel),
         ],
       ),
     );
+  }
+
+  Widget _buildPlanManagementBar(List<SubstitutionPlanData> planData) {
+    final store = ref.watch(printProfileStoreProvider);
+    final profiles = store.profiles;
+    final selectedId = profiles.any((p) => p.id == _selectedPlanId)
+        ? _selectedPlanId
+        : (profiles.any((p) => p.id == store.lastUsedProfileId)
+            ? store.lastUsedProfileId
+            : null);
+    final defaultName = _defaultPlanName(planData);
+
+    return Row(
+      children: [
+        const Text('계획서 이름 :', style: TextStyle(fontSize: 13)),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 190,
+          child: DropdownButtonFormField<String>(
+            value: selectedId,
+            isDense: true,
+            decoration: InputDecoration(
+              hintText: defaultName,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+              border: const OutlineInputBorder(),
+            ),
+            items: [
+              for (final profile in profiles)
+                DropdownMenuItem<String>(
+                  value: profile.id,
+                  child: Text(profile.name, overflow: TextOverflow.ellipsis),
+                ),
+            ],
+            onChanged: (id) {
+              if (id == null) return;
+              setState(() => _selectedPlanId = id);
+              _applyPlanToAllRows(id, planData);
+            },
+          ),
+        ),
+        const SizedBox(width: 6),
+        TextButton(
+          onPressed: planData.isEmpty
+              ? null
+              : () => _createPlanFromFirstRow(planData),
+          child: const Text('새 계획서'),
+        ),
+        TextButton(
+          onPressed: selectedId == null ? null : () => _renamePlan(selectedId),
+          child: const Text('수정'),
+        ),
+        TextButton(
+          onPressed: selectedId == null ? null : () => _deletePlan(selectedId),
+          child: const Text('삭제'),
+        ),
+      ],
+    );
+  }
+
+  String _defaultPlanName(List<SubstitutionPlanData> planData) {
+    if (planData.isEmpty || planData.first.absenceDate.isEmpty) {
+      return '계획서';
+    }
+    final date = planData.first.absenceDate.replaceAll('-', '.');
+    return date.split('.').length == 2
+        ? '${DateTime.now().year.toString().substring(2)}.$date'
+        : date;
+  }
+
+  void _applyPlanToAllRows(
+    String profileId,
+    List<SubstitutionPlanData> planData,
+  ) {
+    final history = ref.read(exchangeHistoryServiceProvider);
+    for (final row in planData) {
+      final groupId = row.groupId;
+      if (groupId != null && groupId.isNotEmpty) {
+        history.assignProfile(groupId, profileId);
+      }
+    }
+    setState(() {});
+  }
+
+  Future<void> _createPlanFromFirstRow(
+    List<SubstitutionPlanData> planData,
+  ) async {
+    final first = planData.firstWhere(
+      (row) => row.groupId != null && row.groupId!.isNotEmpty,
+      orElse: () => planData.first,
+    );
+    if (first.groupId == null || first.groupId!.isEmpty) return;
+    await _createProfileForRow(first.groupId!, first.teacher);
+  }
+
+  Future<void> _renamePlan(String profileId) async {
+    final profile = ref.read(printProfileStoreProvider).getById(profileId);
+    if (profile == null || !mounted) return;
+    final controller = TextEditingController(text: profile.name);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('계획서 이름 수정'),
+        content: TextField(controller: controller, autofocus: true),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('취소'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
+            child: const Text('저장'),
+          ),
+        ],
+      ),
+    );
+    if (name == null || name.isEmpty) return;
+    await ref.read(printProfileStoreProvider.notifier).renameProfile(profileId, name);
+  }
+
+  Future<void> _deletePlan(String profileId) async {
+    final confirmed = await DialogHelper.showConfirmDialog(
+      context,
+      title: '계획서 삭제',
+      message: '선택한 계획서를 삭제하시겠습니까?',
+      confirmText: '삭제',
+      isDangerous: true,
+    );
+    if (confirmed != true) return;
+    await ref.read(printProfileStoreProvider.notifier).deleteProfile(profileId);
+    if (mounted) setState(() => _selectedPlanId = null);
   }
 
   Widget _buildActionButtons(
