@@ -236,7 +236,8 @@ class _UnifiedExchangeSidebarState
     ref
         .read(exchangeViewProvider.notifier)
         .enableExchangeView(
-          timeSlots: screenState.dataSource!.timeSlots,
+          // 원본을 넘긴다 — dataSource가 든 것은 합성본이라 이중 적용된다(§10.2.1)
+          timeSlots: screenState.timetableData!.timeSlots,
           teachers: screenState.timetableData!.teachers,
           dataSource: screenState.dataSource!,
         );

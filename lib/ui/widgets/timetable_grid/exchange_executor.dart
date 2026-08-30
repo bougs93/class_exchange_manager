@@ -7,7 +7,6 @@ import '../../../models/circular_exchange_path.dart';
 import '../../../models/dual_exchange_path.dart';
 import '../../../models/supplement_exchange_path.dart';
 import '../../../models/exchange_history_item.dart';
-import '../../../services/exchange_service.dart';
 import '../../../utils/logger.dart';
 import '../../../utils/timetable_data_source.dart';
 import '../../../providers/cell_selection_provider.dart';
@@ -17,6 +16,7 @@ import '../../../providers/exchange_view_provider.dart';
 import '../../../providers/exchange_screen_provider.dart';
 import '../../../providers/selected_week_provider.dart';
 import '../../../utils/day_utils.dart';
+import '../../screens/personal_schedule_screen/exchange_week_collector.dart';
 
 /// 교체 실행 관리 클래스
 class ExchangeExecutor {
@@ -368,6 +368,18 @@ class ExchangeExecutor {
     final item = historyService.undoLastExchange();
 
     if (item != null) {
+      // §10.5 확정: 되돌리기는 '전체 최근 1건'을 되돌리되, 그 교체가 속한 주로
+      // 화면을 자동 이동한다. 다른 주의 교체를 되돌리면 화면이 점프하므로
+      // 안내가 필수다 — 없으면 "버튼을 눌렀더니 화면이 멋대로 바뀌었다"가 된다.
+      final jumpedToOtherWeek =
+          !ExchangeWeekCollector.isSameWeek(
+            ref.read(selectedWeekProvider),
+            item.weekMonday,
+          );
+      if (jumpedToOtherWeek) {
+        ref.read(selectedWeekProvider.notifier).state = item.weekMonday;
+      }
+
       _applyExchangeStateAfterHistoryChange(item);
 
       historyService.printExchangeList();
@@ -380,9 +392,14 @@ class ExchangeExecutor {
 
       dataSource?.notifyDataChanged();
 
+      final weekLabel = ExchangeWeekCollector.monthWeekLabel(item.weekMonday);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('교체 "${item.description}"가 되돌려졌습니다'),
+          content: Text(
+            jumpedToOtherWeek
+                ? '$weekLabel의 교체를 되돌렸습니다'
+                : '교체 "${item.description}"가 되돌려졌습니다',
+          ),
           backgroundColor: Colors.orange,
           duration: const Duration(seconds: 2),
         ),
@@ -398,32 +415,6 @@ class ExchangeExecutor {
     }
   }
 
-  /// 보강 다시 실행 처리
-  void _redoSupplementExchange(ExchangeHistoryItem item) {
-    if (dataSource?.timeSlots == null) return;
-    if (item.originalPath is! SupplementExchangePath) return;
-
-    final supplementPath = item.originalPath as SupplementExchangePath;
-    final sourceNode = supplementPath.sourceNode;
-    final targetNode = supplementPath.targetNode;
-
-    final exchangeService = ExchangeService();
-    final success = exchangeService.performSupplementExchange(
-      dataSource!.timeSlots,
-      sourceNode.teacherName,
-      sourceNode.day,
-      sourceNode.period,
-      targetNode.teacherName,
-      targetNode.day,
-      targetNode.period,
-    );
-
-    if (success) {
-      AppLogger.exchangeDebug(
-        '보강 다시 실행 성공: ${targetNode.teacherName} ${targetNode.day}${targetNode.period}교시',
-      );
-    }
-  }
 
   /// 다시 실행 기능 (되돌리기 후 1단계 복구)
   void redoLastExchange(BuildContext context) {
@@ -463,76 +454,35 @@ class ExchangeExecutor {
   }
 
   /// 되돌리기/다시 실행 후 시간표·셀 스타일 동기화
+  ///
+  /// §10.2.1 전환 후에는 교체 유형별 특수 처리가 필요 없다. 되돌린 항목은
+  /// `isReverted`가 true가 되어 [ResolvedWeek] 합성에서 자동으로 빠지므로,
+  /// "현재 보고 있는 주를 다시 합성해 그린다" 하나로 모든 유형이 처리된다.
+  /// (기존의 보강 전용 undo/redo 경로는 이 때문에 제거했다.)
   void _applyExchangeStateAfterHistoryChange(
     ExchangeHistoryItem item, {
     bool isRedo = false,
   }) {
-    final isExchangeViewEnabled = ref.read(isExchangeViewEnabledProvider);
-
-    if (isExchangeViewEnabled) {
-      _syncExchangeViewIfEnabled();
-    } else if (item.type == ExchangePathType.supplement) {
-      if (isRedo) {
-        _redoSupplementExchange(item);
-      } else {
-        _undoSupplementExchange(item);
-      }
-    }
-
+    _refreshExchangeView();
     _updateExchangedCells();
-    _checkExchangeViewStatus();
   }
 
-  /// 교체 뷰 ON 상태에서 활성 교체만 시간표에 다시 반영
-  void _syncExchangeViewIfEnabled() {
+  /// 교체 뷰가 켜져 있으면 현재 주 기준으로 다시 합성해 그린다.
+  ///
+  /// **원본**(`timetableData.timeSlots`)을 넘긴다 — `dataSource`가 든 것은
+  /// 합성본이라 그것을 base로 쓰면 교체가 이중 적용된다(§10.2.1).
+  void _refreshExchangeView() {
     final screenState = ref.read(exchangeScreenProvider);
     if (screenState.timetableData == null || dataSource == null) return;
 
-    final timeSlots = dataSource!.timeSlots;
-    final teachers = screenState.timetableData!.teachers;
-    final notifier = ref.read(exchangeViewProvider.notifier);
-
-    Future.microtask(() async {
-      await notifier.disableExchangeView(
-        timeSlots: timeSlots,
-        teachers: teachers,
-        dataSource: dataSource!,
-      );
-      await notifier.enableExchangeView(
-        timeSlots: timeSlots,
-        teachers: teachers,
-        dataSource: dataSource!,
-      );
-      dataSource?.notifyDataChanged();
-    });
-  }
-
-  /// 보강 되돌리기 처리
-  void _undoSupplementExchange(ExchangeHistoryItem item) {
-    if (dataSource?.timeSlots == null) return;
-
-    if (item.originalPath is SupplementExchangePath) {
-      final supplementPath = item.originalPath as SupplementExchangePath;
-      final targetNode = supplementPath.targetNode;
-
-      final exchangeService = ExchangeService();
-      final success = exchangeService.undoSupplementExchange(
-        dataSource!.timeSlots,
-        targetNode.teacherName,
-        targetNode.day,
-        targetNode.period,
-      );
-
-      if (success) {
-        AppLogger.exchangeDebug(
-          '보강 되돌리기 성공: ${targetNode.teacherName} ${targetNode.day}${targetNode.period}교시',
+    ref
+        .read(exchangeViewProvider.notifier)
+        .refreshIfEnabled(
+          timeSlots: screenState.timetableData!.timeSlots,
+          teachers: screenState.timetableData!.teachers,
+          dataSource: dataSource!,
         );
-      } else {
-        AppLogger.exchangeDebug(
-          '보강 되돌리기 실패: ${targetNode.teacherName} ${targetNode.day}${targetNode.period}교시',
-        );
-      }
-    }
+    dataSource?.notifyDataChanged();
   }
 
   /// 교체 뷰 활성화 여부 검사 및 처리 (공통 메서드)

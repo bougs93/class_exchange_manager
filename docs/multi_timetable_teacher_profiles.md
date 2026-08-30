@@ -694,13 +694,49 @@ ExchangeHistoryItem: + profileId (String?, nullable) 필드 추가
 | 요소 | 날짜 개념 | 근거 |
 |---|---|---|
 | `TimeSlot` | **없음**. `dayOfWeek 1~5` + `period`뿐 | `lib/models/time_slot.dart:13-14` |
-| 교체 실행 | `TimeSlot.moveTime()` — 마스터 슬롯을 **제자리에서 파괴적 변형**(원본 `clear()`) | `exchange_service.dart:373, 490, 815` |
+| 교체 실행 | **"교체 뷰" 토글 시** `TimeSlot.moveTime()`으로 마스터 슬롯을 제자리에서 파괴적 변형하고, 원본은 `backupData`에 백업 → 토글 해제 시 백업으로 복원 (아래 §10.2.1 정정 참조) | `exchange_service.dart:373, 490, 815` / `exchange_view_provider.dart:91, 201` |
 | `ExchangeHistoryItem` | `timestamp`는 **실행 시각**일 뿐. 결강일 필드 없음 | `exchange_history_item.dart:14` |
 | 결강일·교체일 | `SubstitutionPlanState.savedDates`에 `"{exchangeId}_{컬럼명}" → "2026.08.27"` **문자열 맵**으로만 존재 | `substitution_plan_provider.dart:9, 149` |
 | 개인 시간표 | **날짜 있음.** 주차 칩 + 컬럼명 `월_5_2026.06.10` + base·overlay 합성 | `exchange_week_collector.dart`, `personal_timetable_datasource.dart:73` |
 
 ⇒ **날짜는 이미 시스템 안에 있다.** 다만 *시간표 모델*이 아니라 *인쇄 데이터*에 붙어 있고,
    개인 시간표만 그것을 읽어 주차별로 그린다. **진실원본이 둘로 갈라져 있다.**
+
+#### 10.2.1 정정 — 교체 적용은 "영구 변형"이 아니라 "토글되는 오버레이"였다 (2026-08-30, 4단계 착수 시 발견)
+
+§10.2 최초 작성 시 `exchange_service.dart`의 `moveTime` 호출만 보고 "교체 실행이
+마스터 시간표를 영구히 변형한다"고 적었으나, 4단계에서 호출부를 추적한 결과
+**실제 구조는 이미 토글 가능한 오버레이였다.**
+
+```
+평소                  마스터 timeSlots = 엑셀 원본 그대로
+  ↓ 교체 뷰 ON  (enableExchangeView, exchange_view_provider.dart:91)
+     1) 활성 교체 목록 전체를 순회하며 원본 셀을 backupData에 백업
+     2) 같은 목록을 timeSlots에 moveTime으로 파괴적 적용
+  ↓ 교체 뷰 OFF (disableExchangeView, :201)
+     backupData를 역순으로 복원 → 원본 상태로 되돌아감
+```
+
+**그래서 P1~P3의 진짜 원인은 "파괴적 변형" 자체가 아니라, 그 오버레이가
+"전체 활성 교체"를 대상으로 하고 주(週) 개념이 없다는 점이다.** 교체 뷰를 켜면
+8/27 교체와 9/3 교체가 **동시에** 같은 날짜 없는 그리드에 겹쳐 적용된다.
+
+이 정정은 B안의 방향을 바꾸지 않는다 — 오히려 **전환을 더 쉽게 만든다**:
+
+| | 기존 | B안 전환 후 |
+|---|---|---|
+| 표시 상태 생성 | 백업 → 파괴적 적용 → 복원 (3단계, 상태 있음) | `ResolvedWeek.of(base, events, week)` (1단계, 순수 함수) |
+| 대상 범위 | 전체 활성 교체 | 그 주의 이벤트만 |
+| 백업/복원 코드 | 필요 (`backupData`, `backedUpCount` 증분 관리) | **전부 불필요 — 원본을 건드리지 않으므로** |
+
+⇒ 4단계의 실질적 핵심은 "`moveTime` 제거"보다 **"백업/복원 메커니즘을 `ResolvedWeek`
+합성으로 대체"**다. `exchange_view_provider.dart`의 백업 관련 코드 약 260줄
+(`_backupOriginalSlotInfo`~`_findTimeSlotByBackupInfo`)이 삭제 대상이 된다.
+
+**추가 발견 — 실행 로직 중복**: `exchange_view_provider.dart`와
+`personal_exchange_view_manager.dart`에 `_executeOneToOne/Circular/Dual/Supplement`
+4개 메서드가 거의 동일하게 중복되어 있다. `ResolvedWeek`로 전환하면 양쪽 모두
+같은 합성 함수를 쓰게 되어 이 중복도 함께 사라진다.
 
 ### 10.3 이 구조에서 실제로 터지는 것
 
@@ -1003,8 +1039,9 @@ exchange_list_{timetableId}.json
 | **1** | ✅ **완료 (2026-08-30)** — 날짜 승격 + `schemaVersion` 가드. 아래 「1단계 반영 결과」 참조 | `exchange_history_item.dart`, `exchange_history_service.dart`, `exchange_list_storage_service.dart`, `selected_week_provider.dart`(신규), `exchange_executor.dart`, `state_reset_provider.dart` |
 | **2** | ✅ **완료 (2026-08-30)** — 학기 기간. 아래 「2단계 반영 결과」 참조 | `timetable_registry.dart`, `timetable_registry_service.dart`, `timetable_registry_provider.dart`, `timetable_file_screen.dart`, `date_format_utils.dart`, `exchange_week_collector.dart`, `personal_schedule_provider.dart`, `personal_schedule_screen.dart` |
 | **3** | ✅ **완료 (2026-08-30)** — `ResolvedWeek` 합성 함수. 아래 「3단계 반영 결과」 참조 | 신규 `lib/utils/resolved_week.dart` |
-| **4** | 검증 로직 전환: `moveTime` 제거, 교체 가능성 판정을 `ResolvedWeek` 기준으로 | `exchange_service.dart`, `circular_exchange_service.dart`, `dual_exchange_service.dart` |
-| **5** | 교체 화면 UI: 주차 바(칩 건수는 결강일 기준), 날짜 헤더(`목 (8/27)`), 교체 실행 시 날짜 선행 확정, 되돌리기 후 해당 주 자동 이동 + 안내 | `exchange_screen.dart`, `timetable_grid_section.dart`, `exchange_week_selector.dart` |
+| **4a** | ✅ **완료 (2026-08-30)** — 순환·2중 교체의 `CellMove` 분해 (3단계 이월분) | `resolved_week.dart` |
+| **4c+5** | ✅ **완료 (2026-08-30)** — 표시 경로를 `ResolvedWeek`로 전환(백업/복원 제거) + 주차 바·날짜 헤더. 아래 「4단계 반영 결과」 참조 | `exchange_view_provider.dart`, `exchange_executor.dart`, `exchange_week_bar.dart`(신규), `exchange_week_summary_provider.dart`(신규), `fixed_header_style_manager.dart`, `timetable_tab_content.dart` |
+| **4d** | ⏸ **미착수** — 교체 가능성 **판정**을 `ResolvedWeek` 기준으로 전환 (P3 완전 해소) | `exchange_service.dart`, `circular_exchange_service.dart`, `dual_exchange_service.dart` |
 | **6** | 교체 목록 주차 그룹핑 + 소유 교사 열 + 주차별 일괄 출력 | `content_input_grid.dart`, `batch_pdf_export_service.dart` |
 | **7** | 교체불가 셀 날짜 스코프 (`date?`) | `non_exchangeable` 저장 계층 |
 | **8** | 전체 검증: `flutter analyze` / `flutter test` / 전 흐름 점검 | — |
@@ -1166,6 +1203,63 @@ toDay, toPeriod}` 하나의 원시 연산으로 표현된다. `fromTeacher == to
 4단계의 실질적인 첫 작업이 된다. 이 두 타입은 `moveTime` 제거 작업 자체와 맞물려
 있어 어차피 4단계에서 함께 검증해야 했다 — 3단계에서 억지로 끝내지 않은 덕분에
 4단계 작업 범위가 오히려 명확해졌다.
+
+#### 4단계 반영 결과 (2026-08-30) — 4a + 4c + 5
+
+`flutter analyze` 이슈 없음, `flutter test` 170건 전체 통과(신규 2건 포함).
+
+**단계 구성을 바꾼 이유**
+
+문서 원안은 4(검증 전환)와 5(주차 바 UI)를 다른 단계로 나눴으나, 착수 후
+**분리 출시가 불가능**함을 확인했다. 표시 경로를 `ResolvedWeek`로 바꾸면 화면은
+`selectedWeekProvider`가 가리키는 주만 보여주는데, 주차 바가 없으면 사용자가 그
+값을 바꿀 수 없어 **다른 주의 교체를 볼 방법이 사라진다**(기능 퇴행). `moveTime`
+제거를 순수 내부 변경으로 가정한 것이 설계 실수였다 — 실제로는 "무엇을 보여줄지"를
+바꾸는 변경이다.
+
+⇒ 4를 **4a / 4c / 4d**로 쪼개고, **4c와 5를 한 묶음**으로 함께 반영했다.
+
+**4a — 순환·2중 교체 분해 (3단계 이월분)**
+
+실제 실행 코드를 대조해 두 유형을 `CellMove`로 분해했다. 이제 네 유형 모두 지원한다.
+
+| 유형 | 근거 | 분해 |
+|---|---|---|
+| 순환 | `exchange_service.dart:782-823` | 자기-이동 (N-1)건. 조회·이동 모두 `currentNode.teacherName`을 쓴다(다음 노드의 교사가 아니다). 마지막 복귀 노드는 이동을 만들지 않는다 |
+| 2중 | `exchange_view_provider.dart:658-686`(전환 전) | 1:1 스왑 2회. **순서가 의미를 갖는다** — 1단계(node1↔node2)가 node2 자리를 비운 뒤에야 2단계(nodeA↔nodeB)가 성립한다 |
+
+**4c — 표시 경로 전환 (§10.2.1의 실제 이행)**
+
+| 파일 | 변경 |
+|---|---|
+| `exchange_view_provider.dart` | **742줄 → 210줄.** 백업/복원 전체(`ExchangeBackupInfo` 관리, `_backup*` 6개 메서드, `_execute*` 4개 메서드) 삭제. `enableExchangeView`는 `ResolvedWeek.of(...)` 합성 결과를 그리드에 넘기고, `disableExchangeView`는 원본을 넘긴다. 주 전환·교체·되돌리기 후 재합성용 `refreshIfEnabled()` 추가 |
+| `resolved_week.dart` | `toTimeSlots(base)` 추가 — 합성 결과를 base와 **같은 순서**의 새 리스트로 반환(그리드가 순서에 의존). base 원소는 하나도 변경하지 않는다 |
+| `exchange_executor.dart` | 보강 전용 undo/redo 경로(`_undoSupplementExchange`/`_redoSupplementExchange`) **삭제** — 되돌린 항목은 `isReverted`로 합성에서 자동 제외되므로 유형별 특수 처리가 불필요해졌다. `disable→enable` 왕복을 `refreshIfEnabled` 1회로 대체 |
+| `timetable_grid_section.dart`, `unified_exchange_sidebar.dart` | `enableExchangeView`에 **원본**(`timetableData.timeSlots`)을 넘기도록 수정 |
+
+⚠️ **가장 중요한 수정**: 호출부가 `dataSource.timeSlots`를 넘기고 있었다.
+전환 후 그 값은 **합성본**이므로 그대로 두면 교체가 이중 적용된다. `grid_header_manager.dart:142`가
+`globalTimetableData.timeSlots`를 그대로 넘기고 `_initializeData`가 복사 없이
+참조를 저장하기 때문에(`_timeSlots = timeSlots`) 전환 전에는 두 값이 같은 객체였고,
+그래서 이 버그가 드러나지 않았다.
+
+**5 — 주차 바·날짜 헤더**
+
+| 파일 | 내용 |
+|---|---|
+| `exchange_week_summary_provider.dart` (신규) | 주차별 교체 건수 집계. **결강일 기준(A안)** — `event.weekMonday`로만 센다 |
+| `exchange_week_bar.dart` (신규) | 칩(라벨+건수 배지) + `◀ ▶`. 교체가 없는 주로도 이동 가능(새 교체를 만들려면 빈 주로도 가야 한다). 선택 주에 교체가 0건이면 그 주 칩을 별도로 표시해 "지금 어디를 보는지"가 항상 드러나게 했다 |
+| `fixed_header_style_manager.dart` | `buildDayHeaderCell(day, date:)` — `목 (8/27)` 형식. `weekMonday`가 null이면 기존처럼 요일만 표시(하위 호환) |
+| `timetable_tab_content.dart` | 그리드 위에 주차 바 배치. 주 변경 시 `refreshIfEnabled`로 재합성 |
+| `exchange_executor.dart` | **되돌리기 시 그 교체가 속한 주로 자동 이동 + 스낵바 안내**(§10.5 확정). 다른 주로 점프한 경우에만 `"9월1주의 교체를 되돌렸습니다"`로 이유를 밝힌다 |
+
+**아직 남은 것 — 4d(검증 전환)**
+
+교체 **가능성 판정**은 여전히 마스터 `timeSlots`(= 원본)를 기준으로 한다. 전환 후
+원본은 항상 깨끗하므로 **판정이 "원본 기준"으로 일관**되며, 전환 전처럼 다른 주의
+교체에 오염되지는 않는다. 다만 **같은 주 안의 선행 교체도 반영하지 않으므로**,
+"이미 그 주에 교체된 칸"을 다시 교체 대상으로 제시할 수 있다. P3의 완전한 해소와
+§10.5의 "같은 주 충돌 경고"는 4d에서 다룬다.
 
 ### 10.9 리스크
 

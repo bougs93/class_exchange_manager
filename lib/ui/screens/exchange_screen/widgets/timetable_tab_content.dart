@@ -6,8 +6,10 @@ import '../../../../models/exchange_mode.dart';
 import '../../../../services/excel_service.dart';
 import '../../../../utils/timetable_data_source.dart';
 import '../../../../providers/exchange_screen_provider.dart';
+import '../../../../providers/exchange_view_provider.dart';
 import '../../../widgets/exchange_control_panel.dart';
 import '../../../widgets/timetable_grid_section.dart';
+import 'exchange_week_bar.dart';
 
 /// 시간표 탭 컨텐츠 위젯
 class TimetableTabContent extends ConsumerWidget {
@@ -48,6 +50,21 @@ class TimetableTabContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       children: [
+        // 주차 선택 바 (§10.5) — 지금 어느 주를 보고 있는지 항상 화면에 둔다
+        if (timetableData != null)
+          ExchangeWeekBar(
+            onWeekChanged: () {
+              // 주가 바뀌면 그 주 기준으로 그리드를 다시 합성한다
+              if (dataSource == null) return;
+              ref
+                  .read(exchangeViewProvider.notifier)
+                  .refreshIfEnabled(
+                    timeSlots: timetableData!.timeSlots,
+                    teachers: timetableData!.teachers,
+                    dataSource: dataSource!,
+                  );
+            },
+          ),
         // 시간표 그리드 (모드 선택 + 실행 도구가 그리드 헤더에 통합됨)
         if (timetableData != null)
           Expanded(

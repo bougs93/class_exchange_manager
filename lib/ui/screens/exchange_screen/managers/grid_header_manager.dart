@@ -3,6 +3,7 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 
 import '../../../../models/exchange_mode.dart';
 import '../../../../providers/exchange_screen_provider.dart';
+import '../../../../providers/selected_week_provider.dart';
 import '../../../../providers/services_provider.dart';
 import '../../../../services/exchange_service.dart';
 import '../../../../services/circular_exchange_service.dart';
@@ -113,6 +114,7 @@ class GridHeaderManager {
       selectedOneToOnePath: stateProxy.selectedOneToOnePath, // 선택된 1:1 교체 경로 전달
       selectedDualPath: stateProxy.selectedDualPath, // 선택된 2중교체 경로 전달
       selectedSupplementPath: stateProxy.selectedSupplementPath, // 선택된 보강 경로 전달
+      weekMonday: ref.read(selectedWeekProvider), // 요일 헤더 날짜 표시(§10.5)
     );
 
     // Provider를 통해 그리드 데이터 업데이트 (변경이 필요한 경우에만 호출하여 성능 최적화)

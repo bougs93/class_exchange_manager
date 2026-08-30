@@ -1531,7 +1531,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     ref
         .read(exchangeViewProvider.notifier)
         .enableExchangeView(
-          timeSlots: widget.dataSource!.timeSlots,
+          // 원본을 넘긴다 — dataSource가 든 것은 합성본이라 이중 적용된다(§10.2.1)
+          timeSlots: widget.timetableData!.timeSlots,
           teachers: widget.timetableData!.teachers,
           dataSource: widget.dataSource!,
         );
@@ -1636,7 +1637,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     ref
         .read(exchangeViewProvider.notifier)
         .disableExchangeView(
-          timeSlots: widget.dataSource!.timeSlots,
+          timeSlots: widget.timetableData!.timeSlots,
           teachers: widget.timetableData!.teachers,
           dataSource: widget.dataSource!,
         );

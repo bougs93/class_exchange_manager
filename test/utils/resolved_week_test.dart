@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:class_exchange_manager/models/exchange_history_item.dart';
 import 'package:class_exchange_manager/models/exchange_node.dart';
 import 'package:class_exchange_manager/models/circular_exchange_path.dart';
+import 'package:class_exchange_manager/models/dual_exchange_path.dart';
 import 'package:class_exchange_manager/models/one_to_one_exchange_path.dart';
 import 'package:class_exchange_manager/models/supplement_exchange_path.dart';
 import 'package:class_exchange_manager/models/time_slot.dart';
@@ -237,34 +238,162 @@ void main() {
     });
   });
 
-  group('ResolvedWeek — 미구현 경로 타입', () {
-    test('CircularExchangePath는 아직 지원하지 않아 명시적으로 예외를 던진다', () {
-      final nodes = [
-        ExchangeNode(
-          teacherName: 'A',
-          day: '월',
-          period: 1,
-          className: '1-1',
-          subjectName: '수학',
-        ),
-        ExchangeNode(
-          teacherName: 'B',
-          day: '화',
-          period: 2,
-          className: '1-2',
-          subjectName: '영어',
-        ),
-        ExchangeNode(
-          teacherName: 'C',
-          day: '수',
-          period: 3,
-          className: '1-3',
-          subjectName: '과학',
-        ),
-      ];
-      final path = CircularExchangePath.fromNodes([...nodes, nodes.first]);
+  group('ResolvedWeek — 순환 교체 (§10.8 4단계)', () {
+    ExchangeNode node(String teacher, String day, int period, String subject) {
+      return ExchangeNode(
+        teacherName: teacher,
+        day: day,
+        period: period,
+        className: '1-1',
+        subjectName: subject,
+      );
+    }
 
-      expect(() => exchangePathMoves(path), throwsA(isA<UnimplementedError>()));
+    test('각 교사가 자기 행 안에서 다음 노드의 시간으로 이동한다', () {
+      // A월1 → B화2 → C수3 → (A월1로 복귀)
+      final a = node('A', '월', 1, '수학');
+      final b = node('B', '화', 2, '영어');
+      final c = node('C', '수', 3, '과학');
+      final path = CircularExchangePath.fromNodes([a, b, c, a]);
+
+      final moves = exchangePathMoves(path);
+
+      // 마지막 복귀 노드는 이동을 만들지 않으므로 3건
+      expect(moves.length, 3);
+
+      // A는 자기 월1 → 자기 화2 (다음 노드의 '시간'만 가져오고 교사는 자기 자신)
+      expect(moves[0].fromTeacher, 'A');
+      expect(moves[0].toTeacher, 'A');
+      expect(moves[0].fromDay, 1);
+      expect(moves[0].fromPeriod, 1);
+      expect(moves[0].toDay, 2);
+      expect(moves[0].toPeriod, 2);
+
+      // B는 자기 화2 → 자기 수3
+      expect(moves[1].fromTeacher, 'B');
+      expect(moves[1].toTeacher, 'B');
+      expect(moves[1].toDay, 3);
+      expect(moves[1].toPeriod, 3);
+
+      // C는 자기 수3 → 자기 월1 (복귀 노드의 시간)
+      expect(moves[2].fromTeacher, 'C');
+      expect(moves[2].toTeacher, 'C');
+      expect(moves[2].toDay, 1);
+      expect(moves[2].toPeriod, 1);
+    });
+
+    test('3인 순환 교체가 합성 결과에 올바르게 반영된다', () {
+      final a = node('A', '월', 1, '수학');
+      final b = node('B', '화', 2, '영어');
+      final c = node('C', '수', 3, '과학');
+      final path = CircularExchangePath.fromNodes([a, b, c, a]);
+
+      final base = [
+        TimeSlot(
+          teacher: 'A',
+          subject: '수학',
+          className: '1-1',
+          dayOfWeek: 1,
+          period: 1,
+        ),
+        TimeSlot(teacher: 'A', dayOfWeek: 2, period: 2),
+        TimeSlot(
+          teacher: 'B',
+          subject: '영어',
+          className: '1-1',
+          dayOfWeek: 2,
+          period: 2,
+        ),
+        TimeSlot(teacher: 'B', dayOfWeek: 3, period: 3),
+        TimeSlot(
+          teacher: 'C',
+          subject: '과학',
+          className: '1-1',
+          dayOfWeek: 3,
+          period: 3,
+        ),
+        TimeSlot(teacher: 'C', dayOfWeek: 1, period: 1),
+      ];
+
+      final resolved = ResolvedWeek.of(
+        base: base,
+        events: [
+          ExchangeHistoryItem.fromExchangePath(
+            path,
+            absenceDate: DateTime(2026, 8, 24),
+            substitutionDate: DateTime(2026, 8, 25),
+          ),
+        ],
+        weekMonday: DateTime(2026, 8, 24),
+      );
+
+      // 각 교사의 수업이 다음 노드의 시간으로 옮겨가고 원래 자리는 빈다
+      expect(resolved.cellFor('A', 1, 1)?.subject, isNull);
+      expect(resolved.cellFor('A', 2, 2)?.subject, '수학');
+      expect(resolved.cellFor('B', 2, 2)?.subject, isNull);
+      expect(resolved.cellFor('B', 3, 3)?.subject, '영어');
+      expect(resolved.cellFor('C', 3, 3)?.subject, isNull);
+      expect(resolved.cellFor('C', 1, 1)?.subject, '과학');
+    });
+  });
+
+  group('ResolvedWeek — 2중 교체 (§10.8 4단계)', () {
+    test('1단계(node1↔node2) 다음 2단계(nodeA↔nodeB) 순서로 분해된다', () {
+      // nodeA(이숙희 월1 결강) / nodeB(손혜옥 월4 대체)
+      // node2 = A교사(이숙희)의 B시간(월4) 수업 → 1단계로 비워야 함
+      // node1 = node2와 교체할 상대(박지혜 월5)
+      final nodeA = ExchangeNode(
+        teacherName: '이숙희',
+        day: '월',
+        period: 1,
+        className: '1-1',
+        subjectName: '국어',
+      );
+      final nodeB = ExchangeNode(
+        teacherName: '손혜옥',
+        day: '월',
+        period: 4,
+        className: '1-1',
+        subjectName: '국어',
+      );
+      final node2 = ExchangeNode(
+        teacherName: '이숙희',
+        day: '월',
+        period: 4,
+        className: '2-1',
+        subjectName: '국어',
+      );
+      final node1 = ExchangeNode(
+        teacherName: '박지혜',
+        day: '월',
+        period: 5,
+        className: '2-1',
+        subjectName: '국어',
+      );
+
+      final path = DualExchangePath.build(
+        nodeA: nodeA,
+        nodeB: nodeB,
+        node1: node1,
+        node2: node2,
+      );
+
+      final moves = exchangePathMoves(path);
+
+      // 1:1 스왑 2회 = 자기-이동 4건
+      expect(moves.length, 4);
+
+      // 앞 2건은 1단계(node1 ↔ node2)
+      expect(moves[0].fromTeacher, '박지혜');
+      expect(moves[1].fromTeacher, '이숙희');
+      expect(moves[1].fromPeriod, 4); // node2 자리를 비운다
+      expect(moves[1].toPeriod, 5);
+
+      // 뒤 2건은 2단계(nodeA ↔ nodeB)
+      expect(moves[2].fromTeacher, '이숙희');
+      expect(moves[2].fromPeriod, 1); // 결강 셀
+      expect(moves[2].toPeriod, 4); // 1단계에서 비워진 자리로
+      expect(moves[3].fromTeacher, '손혜옥');
     });
   });
 }

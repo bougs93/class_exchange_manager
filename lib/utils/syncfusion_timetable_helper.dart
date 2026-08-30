@@ -37,6 +37,7 @@ class SyncfusionTimetableHelper {
     OneToOneExchangePath? selectedOneToOnePath, // 선택된 1:1 교체 경로
     DualExchangePath? selectedDualPath, // 선택된 2중교체 경로
     SupplementExchangePath? selectedSupplementPath, // 선택된 보강 경로
+    DateTime? weekMonday, // 표시 중인 주 — 요일 헤더에 날짜를 붙인다(§10.5)
   }) {
     // 요일별로 데이터 그룹화
     Map<String, Map<int, Map<String, TimeSlot?>>> groupedData =
@@ -87,6 +88,7 @@ class SyncfusionTimetableHelper {
       FixedHeaderStyleManager.buildStackedHeaderRow(
         days: days,
         groupedData: groupedData,
+        weekMonday: weekMonday,
       ),
     ];
 

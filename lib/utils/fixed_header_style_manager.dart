@@ -4,6 +4,7 @@ import '../ui/widgets/cell_status_border_overlay.dart';
 import 'simplified_timetable_theme.dart';
 import 'constants.dart';
 import 'cell_style_config.dart';
+import 'day_utils.dart';
 import 'logger.dart';
 
 /// 시간표 테이블의 고정 헤더(1행: 요일, 2행: 교시) 스타일 통합 관리 클래스
@@ -76,7 +77,12 @@ class FixedHeaderStyleManager {
   }
 
   /// 요일 행의 요일 셀 스타일 위젯 생성
-  static Widget buildDayHeaderCell(String dayName) {
+  ///
+  /// [date]가 주어지면 `목 (8/27)`처럼 날짜를 함께 표시한다(§10.5) —
+  /// 지금 보고 있는 것이 며칠인지 그리드 위에 항상 드러내기 위함이다.
+  static Widget buildDayHeaderCell(String dayName, {DateTime? date}) {
+    final label =
+        date == null ? dayName : '$dayName (${date.month}/${date.day})';
     return Container(
       padding: EdgeInsets.zero,
       alignment: Alignment.center,
@@ -89,7 +95,7 @@ class FixedHeaderStyleManager {
         ),
       ),
       child: Text(
-        dayName,
+        label,
         style: TextStyle(
           fontSize:
               AppConstants.headerFontSize *
@@ -194,9 +200,11 @@ class FixedHeaderStyleManager {
   ///
   /// [days] 요일 목록
   /// [groupedData] 요일별 교시 데이터
+  /// [weekMonday]가 주어지면 각 요일 헤더에 그 주의 날짜를 함께 표시한다(§10.5).
   static StackedHeaderRow buildStackedHeaderRow({
     required List<String> days,
     required Map<String, Map<int, Map<String, dynamic>>> groupedData,
+    DateTime? weekMonday,
   }) {
     List<StackedHeaderCell> headerCells = [];
 
@@ -216,7 +224,12 @@ class FixedHeaderStyleManager {
 
       headerCells.add(
         StackedHeaderCell(
-          child: buildDayHeaderCell(day),
+          child: buildDayHeaderCell(
+            day,
+            date: weekMonday?.add(
+              Duration(days: DayUtils.getDayNumber(day) - 1),
+            ),
+          ),
           columnNames: dayColumnNames,
         ),
       );

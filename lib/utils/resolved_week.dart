@@ -1,3 +1,5 @@
+import '../models/circular_exchange_path.dart';
+import '../models/dual_exchange_path.dart';
 import '../models/exchange_history_item.dart';
 import '../models/exchange_node.dart';
 import '../models/exchange_path.dart';
@@ -36,16 +38,17 @@ class CellMove {
 
 /// [ExchangePath]를 [CellMove] 목록으로 분해한다.
 ///
-/// **구현 범위 (3단계)**: `OneToOneExchangePath`, `SupplementExchangePath`만
-/// 지원한다. 두 타입 모두 `exchange_service.dart`의 실제 실행 코드를 직접
-/// 대조해 검증했다.
+/// 네 가지 교체 유형 모두 지원하며, 각각 실제 실행 코드를 직접 대조해 검증했다:
 ///
-/// **미구현 (4단계 예정)**: `CircularExchangePath`, `DualExchangePath`.
-/// 이 둘은 노드가 3개 이상이며, 실제 노드 체인이 어떻게 구성되는지
-/// (`circular_exchange_service.dart`/`dual_exchange_service.dart`의 경로 탐색
-/// 코드)까지 함께 검증해야 안전하게 일반화할 수 있다 — 스왑 실행 코드만
-/// 보고 추정하면 노드 순서를 잘못 해석할 위험이 있다. 4단계에서 두 서비스의
-/// 경로 생성 코드를 검토한 뒤 이 함수에 케이스를 추가한다.
+/// | 유형 | 근거 코드 | 분해 결과 |
+/// |---|---|---|
+/// | 1:1 | `exchange_service.dart:373-381` | 자기-이동 2건 |
+/// | 보강 | `exchange_service.dart:490` | 교사 간 이동 1건 |
+/// | 순환 | `exchange_service.dart:782-823` | 자기-이동 (N-1)건 |
+/// | 2중 | `exchange_view_provider.dart:658-686` | 1:1 스왑 2회(순서 있음) |
+///
+/// 반환 순서가 곧 적용 순서다 — 2중 교체는 1단계가 자리를 비운 뒤에야
+/// 2단계가 성립하므로 순서를 바꾸면 결과가 달라진다.
 List<CellMove> exchangePathMoves(ExchangePath path) {
   if (path is OneToOneExchangePath) {
     return _twoWaySwap(path.sourceNode, path.targetNode);
@@ -53,10 +56,46 @@ List<CellMove> exchangePathMoves(ExchangePath path) {
   if (path is SupplementExchangePath) {
     return _oneWayMove(path.sourceNode, path.targetNode);
   }
-  throw UnimplementedError(
-    '${path.runtimeType}의 셀 이동 분해는 아직 구현되지 않았습니다 '
-    '(§10.8 4단계에서 CircularExchangePath/DualExchangePath 지원 예정)',
-  );
+  if (path is CircularExchangePath) {
+    return _circularMoves(path.nodes);
+  }
+  if (path is DualExchangePath) {
+    // exchange_view_provider._executeDualExchange와 동일한 순서:
+    // 1단계 node1↔node2로 node2 자리를 비운 뒤, 2단계 nodeA↔nodeB.
+    return [
+      ..._twoWaySwap(path.node1, path.node2),
+      ..._twoWaySwap(path.nodeA, path.nodeB),
+    ];
+  }
+  throw UnimplementedError('${path.runtimeType}의 셀 이동 분해는 구현되지 않았습니다');
+}
+
+/// 순환 교체: 각 노드의 교사가 **자기 행 안에서** 다음 노드의 시간으로 이동한다.
+///
+/// `performCircularExchange`(`exchange_service.dart:782-823`)와 동일하게
+/// 마지막 노드는 순회에서 제외한다 — `nodes.first == nodes.last`인 순환
+/// 표현에서 마지막은 "시작점 복귀" 표시일 뿐 별도의 이동이 아니다.
+/// 조회·이동 모두 `currentNode.teacherName`을 쓴다는 점이 핵심이다
+/// (다음 노드의 교사가 아니다).
+List<CellMove> _circularMoves(List<ExchangeNode> nodes) {
+  if (nodes.length < 2) return const [];
+
+  final moves = <CellMove>[];
+  for (int i = 0; i < nodes.length - 1; i++) {
+    final current = nodes[i];
+    final next = nodes[i + 1];
+    moves.add(
+      CellMove(
+        fromTeacher: current.teacherName,
+        fromDay: DayUtils.getDayNumber(current.day),
+        fromPeriod: current.period,
+        toTeacher: current.teacherName,
+        toDay: DayUtils.getDayNumber(next.day),
+        toPeriod: next.period,
+      ),
+    );
+  }
+  return moves;
 }
 
 /// 1:1 교체: 두 교사가 각자 자기 셀을 상대의 시간으로 옮긴다 (자기 행 안에서의 이동 2건)
@@ -114,6 +153,23 @@ class ResolvedWeek {
   /// 특정 교사·요일·교시의 합성된 셀 (원본에 없으면 null)
   TimeSlot? cellFor(String teacherName, int dayOfWeek, int period) {
     return _cells[_key(teacherName, dayOfWeek, period)];
+  }
+
+  /// 합성 결과를 [base]와 **같은 순서**의 새 리스트로 반환한다.
+  ///
+  /// `TimetableDataSource.updateData()`에 넘기기 위한 어댑터다. 그리드는 리스트
+  /// 순서에 의존하므로 순서를 그대로 유지하며, [base]의 원소는 하나도 변경하지
+  /// 않는다(항상 새 객체를 만든다).
+  List<TimeSlot> toTimeSlots(List<TimeSlot> base) {
+    return base.map((slot) {
+      final teacher = slot.teacher;
+      final day = slot.dayOfWeek;
+      final period = slot.period;
+      if (teacher == null || day == null || period == null) {
+        return slot.copy();
+      }
+      return _cells[_key(teacher, day, period)] ?? slot.copy();
+    }).toList();
   }
 
   /// [base](원본 시간표) 위에 [events] 중 [weekMonday]가 속한 주에 해당하는
