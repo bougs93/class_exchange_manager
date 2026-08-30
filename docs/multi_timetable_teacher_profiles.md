@@ -1002,7 +1002,7 @@ exchange_list_{timetableId}.json
 |---|---|---|
 | **1** | ✅ **완료 (2026-08-30)** — 날짜 승격 + `schemaVersion` 가드. 아래 「1단계 반영 결과」 참조 | `exchange_history_item.dart`, `exchange_history_service.dart`, `exchange_list_storage_service.dart`, `selected_week_provider.dart`(신규), `exchange_executor.dart`, `state_reset_provider.dart` |
 | **2** | ✅ **완료 (2026-08-30)** — 학기 기간. 아래 「2단계 반영 결과」 참조 | `timetable_registry.dart`, `timetable_registry_service.dart`, `timetable_registry_provider.dart`, `timetable_file_screen.dart`, `date_format_utils.dart`, `exchange_week_collector.dart`, `personal_schedule_provider.dart`, `personal_schedule_screen.dart` |
-| **3** | `ResolvedWeek` 합성 함수 + 단위 테스트 (원본 불변 보장, 주 간 독립 보장) | 신규 `lib/utils/resolved_week.dart` |
+| **3** | ✅ **완료 (2026-08-30)** — `ResolvedWeek` 합성 함수. 아래 「3단계 반영 결과」 참조 | 신규 `lib/utils/resolved_week.dart` |
 | **4** | 검증 로직 전환: `moveTime` 제거, 교체 가능성 판정을 `ResolvedWeek` 기준으로 | `exchange_service.dart`, `circular_exchange_service.dart`, `dual_exchange_service.dart` |
 | **5** | 교체 화면 UI: 주차 바(칩 건수는 결강일 기준), 날짜 헤더(`목 (8/27)`), 교체 실행 시 날짜 선행 확정, 되돌리기 후 해당 주 자동 이동 + 안내 | `exchange_screen.dart`, `timetable_grid_section.dart`, `exchange_week_selector.dart` |
 | **6** | 교체 목록 주차 그룹핑 + 소유 교사 열 + 주차별 일괄 출력 | `content_input_grid.dart`, `batch_pdf_export_service.dart` |
@@ -1105,6 +1105,67 @@ exchange_list_{timetableId}.json
 - `test/exchange_history_service_test.dart` (기존 유지 + 확장) — 날짜 필드 3건 추가
   (weekMonday 계산, 서로 다른 주의 독립성, **§10.5 A안**: 결강 금요일 → 보강 다음 주
   월요일이어도 `weekMonday`는 결강일 기준이라는 것을 명시적으로 검증)
+
+#### 3단계 반영 결과 (2026-08-30)
+
+`flutter analyze` 이슈 없음, `flutter test` 168건 전체 통과(신규 6건 포함).
+
+**구현 전 검증한 것 — 스왑의 실제 원시 연산**
+
+`ResolvedWeek`가 각 교체 유형을 정확히 재현하려면 `exchange_service.dart`의 실제
+스왑 코드를 먼저 읽어야 했다(추측으로 일반화하면 조용히 틀린 합성 결과가 나온다 —
+색상 판정을 속이는 버그가 된다). 직접 대조한 결과:
+
+- **1:1 교체**(`performOneToOneExchange`:373-381): `moveTime(slot1s, slot1t)` +
+  `moveTime(slot2s, slot2t)` — **두 교사가 각자 자기 행 안에서** 셀을 상대의 시간으로
+  옮긴다. 교사 간 셀을 직접 바꿔치기하는 게 아니라, "교사 A가 자기 셀을 B의 시간으로
+  이동" + "교사 B가 자기 셀을 A의 시간으로 이동"이 동시에 일어나는 것이다
+- **보강**(`performSupplementExchange`:490): `findTimeSlot(sourceTeacher,...)`와
+  `findTimeSlot(targetTeacher,...)`가 **서로 다른 교사**를 가리킨다 — 1:1과 달리
+  진짜 교사 간 이동(source 비우고 target 채움) 1건이다
+- **순환 교체**(`performCircularExchange`:782-823): 반복문 안에서 source·target
+  조회 모두 `currentNode.teacherName`을 쓴다 — 즉 각 단계도 "한 교사가 자기 행
+  안에서" 셀을 옮기는 이동이며, N단계 순환은 이런 자기-이동 N건의 사슬이다.
+  다만 이 사슬이 실제로 어떻게 구성되는지는 `circular_exchange_service.dart`의
+  경로 탐색 코드까지 함께 봐야 안전하게 일반화할 수 있어 3단계 범위에서는
+  **제외**했다(아래 참조)
+
+⇒ 결론: 모든 교체 유형은 `CellMove{fromTeacher, fromDay, fromPeriod, toTeacher,
+toDay, toPeriod}` 하나의 원시 연산으로 표현된다. `fromTeacher == toTeacher`면
+자기-이동(1:1·순환), 다르면 교사 간 이동(보강)이다.
+
+**구현 범위**
+
+| 항목 | 상태 |
+|---|---|
+| `ResolvedWeek.of(base, events, weekMonday)` | ✅ 구현 — 원본을 절대 변경하지 않고(`TimeSlot.copy()`), 그 주에 속한 활성 이벤트만 적용 |
+| `exchangePathMoves(ExchangePath)` — `OneToOneExchangePath` | ✅ 구현·검증 완료 |
+| `exchangePathMoves(ExchangePath)` — `SupplementExchangePath` | ✅ 구현·검증 완료 |
+| `exchangePathMoves(ExchangePath)` — `CircularExchangePath` | ⏸ **미구현.** 호출 시 `UnimplementedError`를 명시적으로 던진다(조용히 틀린 결과를 내지 않는다) |
+| `exchangePathMoves(ExchangePath)` — `DualExchangePath` | ⏸ **미구현.** 순환과 같은 이유로 4단계로 미룸(2단계 1:1 스왑의 조합으로 보이나, `dual_exchange_service.dart`의 실제 경로 생성 코드까지 대조해야 확신할 수 있다) |
+
+**주(週) 판정에 `ExchangeWeekCollector.isSameWeek`를 재사용**했다 — §10.7이 예고한
+"이미 있는 것 재사용" 그대로다. `ExchangeHistoryItem.weekMonday`(1단계)와
+`selectedWeekProvider`가 서로 다른 시각 성분을 가질 수 있어(하나는 날짜만, 하나는
+`DateTime.now()` 기반) 직접 `==` 비교 대신 이 함수의 날짜 정규화를 썼다.
+
+**테스트 (`test/utils/resolved_week_test.dart`, 6건)**
+
+- 원본 `TimeSlot` 객체가 합성 후에도 값이 그대로인지(불변성)
+- **이벤트가 속한 주에서는 교체가 반영되고 다른 주는 원본 그대로**(P1·P3 해소를
+  직접 검증하는 회귀 테스트 — 이 프로젝트의 핵심 주장이 그대로 테스트 이름이 됨)
+- 같은 요일·교시라도 이벤트가 없는 주는 항상 원본과 동일(P2 회귀 방지)
+- 보강의 교사 간 이동(source 비움, target 채움)
+- 되돌린(`isReverted`) 이벤트는 합성에서 제외
+- `CircularExchangePath`는 `UnimplementedError`를 던진다는 것 자체를 검증(경계를
+  테스트로 고정 — 나중에 실수로 조용히 틀린 기본 동작이 끼어드는 것을 막는다)
+
+**4단계로 이월되는 것**
+
+`exchangePathMoves`에 `CircularExchangePath`/`DualExchangePath` 케이스 추가가
+4단계의 실질적인 첫 작업이 된다. 이 두 타입은 `moveTime` 제거 작업 자체와 맞물려
+있어 어차피 4단계에서 함께 검증해야 했다 — 3단계에서 억지로 끝내지 않은 덕분에
+4단계 작업 범위가 오히려 명확해졌다.
 
 ### 10.9 리스크
 
