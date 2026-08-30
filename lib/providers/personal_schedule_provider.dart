@@ -3,6 +3,7 @@ import '../ui/screens/personal_schedule_screen/exchange_week_collector.dart';
 import '../utils/week_date_calculator.dart';
 import '../providers/exchange_screen_provider.dart';
 import '../providers/substitution_plan_viewmodel.dart';
+import '../providers/timetable_registry_provider.dart';
 import '../services/excel_service.dart';
 
 /// 개인 시간표 상태 클래스
@@ -73,9 +74,12 @@ class PersonalScheduleNotifier extends StateNotifier<PersonalScheduleState> {
   /// planData 기준으로 교체 주 동기화
   void _syncWeekFromPlanData() {
     final planData = _ref.read(substitutionPlanViewModelProvider).planData;
+    final activeEntry = _ref.read(activeTimetableEntryProvider);
     final target = ExchangeWeekCollector.defaultWeekMonday(
       planData,
       referenceDate: state.currentWeekMonday,
+      semesterStart: activeEntry?.semesterStart,
+      semesterEnd: activeEntry?.semesterEnd,
     );
     if (ExchangeWeekCollector.isSameWeek(target, state.currentWeekMonday)) {
       return;

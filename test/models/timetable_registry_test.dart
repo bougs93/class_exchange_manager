@@ -75,6 +75,53 @@ void main() {
       expect(renamed.hash, entry.hash);
       expect(renamed.registeredAt, entry.registeredAt);
     });
+
+    test('학기 기간(semesterStart/End) JSON 왕복 (§10.6)', () {
+      final entry = TimetableRegistryEntry(
+        id: 'tt_1',
+        name: '월계중2학기',
+        fileName: 'a.xlsx',
+        filePath: '/a.xlsx',
+        hash: 'h1',
+        contentHash: 'c1',
+        semesterStart: DateTime(2026, 9, 1),
+        semesterEnd: DateTime(2027, 2, 28),
+        registeredAt: DateTime(2026, 1, 1),
+      );
+
+      expect(entry.hasSemesterRange, isTrue);
+
+      final restored = TimetableRegistryEntry.fromJson(entry.toJson());
+      expect(restored.semesterStart, DateTime(2026, 9, 1));
+      expect(restored.semesterEnd, DateTime(2027, 2, 28));
+    });
+
+    test('학기 기간 미입력 시 null이고 hasSemesterRange는 false다', () {
+      final entry = TimetableRegistryEntry.fromJson({'id': 'tt_1'});
+
+      expect(entry.semesterStart, isNull);
+      expect(entry.semesterEnd, isNull);
+      expect(entry.hasSemesterRange, isFalse);
+    });
+
+    test('copyWith(clearSemesterRange: true)는 학기 기간을 지운다', () {
+      final entry = TimetableRegistryEntry(
+        id: 'tt_1',
+        name: '이름',
+        fileName: 'a.xlsx',
+        filePath: '/a.xlsx',
+        hash: 'h1',
+        contentHash: 'c1',
+        semesterStart: DateTime(2026, 3, 1),
+        semesterEnd: DateTime(2026, 8, 1),
+        registeredAt: DateTime(2026, 1, 1),
+      );
+
+      final cleared = entry.copyWith(clearSemesterRange: true);
+
+      expect(cleared.semesterStart, isNull);
+      expect(cleared.semesterEnd, isNull);
+    });
   });
 
   group('TimetableRegistry', () {

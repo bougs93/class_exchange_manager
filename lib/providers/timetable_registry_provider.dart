@@ -121,6 +121,8 @@ class TimetableRegistryNotifier
     required String contentHash,
     String? teacherName,
     String? schoolName,
+    DateTime? semesterStart,
+    DateTime? semesterEnd,
   }) async {
     await ensureInitialized();
     try {
@@ -132,6 +134,8 @@ class TimetableRegistryNotifier
         contentHash: contentHash,
         teacherName: teacherName,
         schoolName: schoolName,
+        semesterStart: semesterStart,
+        semesterEnd: semesterEnd,
       );
 
       final current = state.valueOrNull ?? const TimetableRegistry();

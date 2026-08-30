@@ -15,6 +15,8 @@ import '../../../providers/state_reset_provider.dart';
 import '../../../providers/services_provider.dart';
 import '../../../providers/exchange_view_provider.dart';
 import '../../../providers/exchange_screen_provider.dart';
+import '../../../providers/selected_week_provider.dart';
+import '../../../utils/day_utils.dart';
 
 /// 교체 실행 관리 클래스
 class ExchangeExecutor {
@@ -94,6 +96,53 @@ class ExchangeExecutor {
     );
   }
 
+  /// 특정 요일(node.day)에 해당하는 실제 날짜를 계산합니다.
+  ///
+  /// [selectedWeekProvider]가 가리키는 주(週)의 월요일에 요일 오프셋을 더합니다.
+  DateTime _dateForNode(DateTime weekMonday, ExchangeNode node) {
+    final dayNumber = DayUtils.getDayNumber(node.day); // 1=월 ~ 5=금
+    return weekMonday.add(Duration(days: dayNumber - 1));
+  }
+
+  /// ExchangePath에서 결강일·교체일을 계산합니다 (§10.4 날짜 선행 확정).
+  ///
+  /// 결강 기준 노드(비게 되는 수업)와 교체 기준 노드(보강/이동되는 수업)는
+  /// 경로 타입마다 다르므로, 스낵바 메시지를 만들 때 쓰는 것과 같은
+  /// "대표 노드 2개" 선택 규칙을 그대로 따릅니다.
+  ({DateTime absenceDate, DateTime substitutionDate}) _computeExchangeDates(
+    ExchangePath exchangePath,
+  ) {
+    final weekMonday = ref.read(selectedWeekProvider);
+
+    final ExchangeNode absenceNode;
+    final ExchangeNode substitutionNode;
+    if (exchangePath is OneToOneExchangePath) {
+      absenceNode = exchangePath.sourceNode;
+      substitutionNode = exchangePath.targetNode;
+    } else if (exchangePath is DualExchangePath) {
+      absenceNode = exchangePath.nodeA;
+      substitutionNode = exchangePath.nodeB;
+    } else if (exchangePath is CircularExchangePath) {
+      absenceNode = exchangePath.nodes.first;
+      substitutionNode =
+          exchangePath.nodes.length > 1
+              ? exchangePath.nodes[1]
+              : exchangePath.nodes.first;
+    } else if (exchangePath is SupplementExchangePath) {
+      absenceNode = exchangePath.sourceNode;
+      substitutionNode = exchangePath.targetNode;
+    } else {
+      throw ArgumentError(
+        '알 수 없는 ExchangePath 타입: ${exchangePath.runtimeType}',
+      );
+    }
+
+    return (
+      absenceDate: _dateForNode(weekMonday, absenceNode),
+      substitutionDate: _dateForNode(weekMonday, substitutionNode),
+    );
+  }
+
   /// 교체 노드를 "교사명 요일N교시" 형식으로 표시합니다.
   String _formatExchangeNodeSlot(ExchangeNode node) {
     return '${node.teacherName} ${node.day}${node.period}교시';
@@ -150,8 +199,12 @@ class ExchangeExecutor {
       stepCount = exchangePath.nodes.length; // 노드 수 = 단계 수
     }
 
+    final dates = _computeExchangeDates(exchangePath);
+
     historyService.executeExchange(
       exchangePath,
+      absenceDate: dates.absenceDate,
+      substitutionDate: dates.substitutionDate,
       customDescription: '교체 실행: ${exchangePath.displayTitle}',
       additionalMetadata: {
         'executionTime': DateTime.now().toIso8601String(),
@@ -199,8 +252,12 @@ class ExchangeExecutor {
     );
 
     // 교체 실행
+    final dates = _computeExchangeDates(supplementPath);
+
     historyService.executeExchange(
       supplementPath,
+      absenceDate: dates.absenceDate,
+      substitutionDate: dates.substitutionDate,
       customDescription:
           '보강 예약: $targetTeacherName → $sourceTeacher($sourceDay$sourcePeriod교시)',
       additionalMetadata: {

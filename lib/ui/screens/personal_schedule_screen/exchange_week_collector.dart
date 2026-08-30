@@ -7,16 +7,26 @@ class ExchangeWeekCollector {
   ExchangeWeekCollector._();
 
   /// 결강일·교체일에서 주차(월요일)를 추출해 정렬·중복 제거합니다.
+  ///
+  /// [semesterStart]/[semesterEnd]를 넘기면(활성 시간표의 학기 기간, §10.6)
+  /// 연도 없는 날짜 문자열의 연도를 그 범위 안에서 정확히 확정합니다.
   static List<DateTime> collectWeekMondays(
     List<SubstitutionPlanData> planData, {
     DateTime? referenceDate,
+    DateTime? semesterStart,
+    DateTime? semesterEnd,
   }) {
     final ref = referenceDate ?? DateTime.now();
     final mondayKeys = <String, DateTime>{};
 
     for (final plan in planData) {
       for (final rawDate in [plan.absenceDate, plan.substitutionDate]) {
-        final date = _parsePlanDate(rawDate, referenceDate: ref);
+        final date = _parsePlanDate(
+          rawDate,
+          referenceDate: ref,
+          semesterStart: semesterStart,
+          semesterEnd: semesterEnd,
+        );
         if (date == null) continue;
 
         final monday = WeekDateCalculator.getWeekMonday(date);
@@ -118,8 +128,15 @@ class ExchangeWeekCollector {
   static DateTime defaultWeekMonday(
     List<SubstitutionPlanData> planData, {
     DateTime? referenceDate,
+    DateTime? semesterStart,
+    DateTime? semesterEnd,
   }) {
-    final weeks = collectWeekMondays(planData, referenceDate: referenceDate);
+    final weeks = collectWeekMondays(
+      planData,
+      referenceDate: referenceDate,
+      semesterStart: semesterStart,
+      semesterEnd: semesterEnd,
+    );
     if (weeks.isNotEmpty) {
       final first = weeks.first;
       return DateTime(first.year, first.month, first.day);
@@ -140,20 +157,21 @@ class ExchangeWeekCollector {
   }
 
   /// 계획서 날짜 문자열 → DateTime (년.월.일 / 월.일 형식 지원)
+  ///
+  /// [semesterStart]/[semesterEnd]가 있으면 연도 추정에 그 범위를 우선 사용한다
+  /// (§10.6 — `DateFormatUtils.normalizePlanDate` 참조).
   static DateTime? _parsePlanDate(
     String raw, {
     required DateTime referenceDate,
+    DateTime? semesterStart,
+    DateTime? semesterEnd,
   }) {
-    final trimmed = raw.trim();
-    if (trimmed.isEmpty || trimmed == '선택') return null;
-
-    final parsed = DateFormatUtils.parseYearMonthDay(trimmed);
-    if (parsed != null) return parsed;
-
-    final withYear = DateFormatUtils.toYearMonthDayFromMonthDay(
-      trimmed,
+    final normalized = DateFormatUtils.normalizePlanDate(
+      raw,
       referenceDate: referenceDate,
+      semesterStart: semesterStart,
+      semesterEnd: semesterEnd,
     );
-    return DateFormatUtils.parseYearMonthDay(withYear);
+    return DateFormatUtils.parseYearMonthDay(normalized);
   }
 }

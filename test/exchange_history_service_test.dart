@@ -5,6 +5,12 @@ import 'package:class_exchange_manager/models/time_slot.dart';
 import 'package:class_exchange_manager/services/exchange_history_service.dart';
 import 'package:class_exchange_manager/utils/exchange_algorithm.dart';
 
+/// 테스트 기본 결강일 (월요일)
+final DateTime _testAbsenceDate = DateTime(2026, 8, 24);
+
+/// 테스트 기본 교체일 (화요일, 같은 주)
+final DateTime _testSubstitutionDate = DateTime(2026, 8, 25);
+
 /// 테스트용 1:1 교체 경로 생성
 OneToOneExchangePath _createTestPath(String label) {
   final targetSlot = TimeSlot(
@@ -40,6 +46,23 @@ OneToOneExchangePath _createTestPath(String label) {
   );
 }
 
+/// 테스트용 교체 추가 — absenceDate/substitutionDate가 필수가 된 이후
+/// (§10) 매 호출마다 반복 지정하지 않도록 기본 날짜를 채워주는 헬퍼.
+void _addTestExchange(
+  ExchangeHistoryService service,
+  String label, {
+  required String description,
+  DateTime? absenceDate,
+  DateTime? substitutionDate,
+}) {
+  service.addExchange(
+    _createTestPath(label),
+    customDescription: description,
+    absenceDate: absenceDate ?? _testAbsenceDate,
+    substitutionDate: substitutionDate ?? _testSubstitutionDate,
+  );
+}
+
 /// 활성 교체 설명 목록 (순서 유지)
 List<String> _activeDescriptions(ExchangeHistoryService service) {
   return service
@@ -62,9 +85,9 @@ void main() {
 
   group('ExchangeHistoryService undo/redo', () {
     test('교체 3건 추가 후 undo 3회 → 모두 되돌림', () {
-      service.addExchange(_createTestPath('1'), customDescription: 'A');
-      service.addExchange(_createTestPath('2'), customDescription: 'B');
-      service.addExchange(_createTestPath('3'), customDescription: 'C');
+      _addTestExchange(service, '1', description: 'A');
+      _addTestExchange(service, '2', description: 'B');
+      _addTestExchange(service, '3', description: 'C');
 
       expect(_activeDescriptions(service), ['A', 'B', 'C']);
       expect(service.canUndo, isTrue);
@@ -89,9 +112,9 @@ void main() {
     });
 
     test('undo 3회 후 redo 3회 → 원래 상태 복구', () {
-      service.addExchange(_createTestPath('1'), customDescription: 'A');
-      service.addExchange(_createTestPath('2'), customDescription: 'B');
-      service.addExchange(_createTestPath('3'), customDescription: 'C');
+      _addTestExchange(service, '1', description: 'A');
+      _addTestExchange(service, '2', description: 'B');
+      _addTestExchange(service, '3', description: 'C');
 
       service.undoLastExchange();
       service.undoLastExchange();
@@ -110,9 +133,9 @@ void main() {
     });
 
     test('undo 2회 → redo 1회 → undo 1회 → 교차 동작', () {
-      service.addExchange(_createTestPath('1'), customDescription: 'A');
-      service.addExchange(_createTestPath('2'), customDescription: 'B');
-      service.addExchange(_createTestPath('3'), customDescription: 'C');
+      _addTestExchange(service, '1', description: 'A');
+      _addTestExchange(service, '2', description: 'B');
+      _addTestExchange(service, '3', description: 'C');
 
       service.undoLastExchange(); // C 되돌림
       service.undoLastExchange(); // B 되돌림
@@ -127,20 +150,20 @@ void main() {
     });
 
     test('undo 후 새 교체 실행 → redo 스택 초기화', () {
-      service.addExchange(_createTestPath('1'), customDescription: 'A');
-      service.addExchange(_createTestPath('2'), customDescription: 'B');
+      _addTestExchange(service, '1', description: 'A');
+      _addTestExchange(service, '2', description: 'B');
 
       service.undoLastExchange();
       expect(service.canRedo, isTrue);
 
-      service.addExchange(_createTestPath('3'), customDescription: 'C');
+      _addTestExchange(service, '3', description: 'C');
       expect(service.canRedo, isFalse);
       expect(_activeDescriptions(service), ['A', 'C']);
     });
 
     test('clearExchangeList → undo/redo 모두 불가', () {
-      service.addExchange(_createTestPath('1'), customDescription: 'A');
-      service.addExchange(_createTestPath('2'), customDescription: 'B');
+      _addTestExchange(service, '1', description: 'A');
+      _addTestExchange(service, '2', description: 'B');
       service.undoLastExchange();
 
       service.clearExchangeList();
@@ -151,8 +174,8 @@ void main() {
     });
 
     test('removeFromExchangeList → 스택에서도 제거', () {
-      service.addExchange(_createTestPath('1'), customDescription: 'A');
-      service.addExchange(_createTestPath('2'), customDescription: 'B');
+      _addTestExchange(service, '1', description: 'A');
+      _addTestExchange(service, '2', description: 'B');
       final itemB = service.getExchangeList().last;
 
       service.removeFromExchangeList(itemB.id);
@@ -165,7 +188,7 @@ void main() {
 
     test('maxUndoItems(10) 초과 시 스택은 10개만 유지', () {
       for (var i = 1; i <= 11; i++) {
-        service.addExchange(_createTestPath('$i'), customDescription: 'E$i');
+        _addTestExchange(service, '$i', description: 'E$i');
       }
 
       expect(service.getExchangeList().length, 11);
@@ -184,8 +207,8 @@ void main() {
     });
 
     test('되돌린 항목은 getActiveExchangeList에서 제외', () {
-      service.addExchange(_createTestPath('1'), customDescription: 'A');
-      service.addExchange(_createTestPath('2'), customDescription: 'B');
+      _addTestExchange(service, '1', description: 'A');
+      _addTestExchange(service, '2', description: 'B');
 
       service.undoLastExchange();
 
@@ -198,6 +221,66 @@ void main() {
         }),
         isTrue,
       );
+    });
+  });
+
+  group('ExchangeHistoryService 날짜 필드 (§10)', () {
+    test('addExchange로 만든 항목은 지정한 absenceDate/substitutionDate를 그대로 가진다', () {
+      _addTestExchange(service, '1', description: 'A');
+
+      final item = service.getExchangeList().single;
+      expect(item.absenceDate, _testAbsenceDate);
+      expect(item.substitutionDate, _testSubstitutionDate);
+    });
+
+    test('weekMonday는 absenceDate가 속한 주의 월요일이다 (주중 아무 날짜든)', () {
+      // 2026-08-27(목)이 결강일이면 그 주 월요일은 2026-08-24
+      _addTestExchange(
+        service,
+        '1',
+        description: 'A',
+        absenceDate: DateTime(2026, 8, 27),
+        substitutionDate: DateTime(2026, 8, 28),
+      );
+
+      final item = service.getExchangeList().single;
+      expect(item.weekMonday, DateTime(2026, 8, 24));
+    });
+
+    test('결강일이 다른 주면 weekMonday도 다르다 — 주 사이의 독립을 보장', () {
+      _addTestExchange(
+        service,
+        '1',
+        description: '8월4주',
+        absenceDate: DateTime(2026, 8, 27),
+        substitutionDate: DateTime(2026, 8, 28),
+      );
+      _addTestExchange(
+        service,
+        '2',
+        description: '9월1주',
+        absenceDate: DateTime(2026, 9, 3),
+        substitutionDate: DateTime(2026, 9, 4),
+      );
+
+      final weeks =
+          service.getExchangeList().map((item) => item.weekMonday).toSet();
+      expect(weeks, {DateTime(2026, 8, 24), DateTime(2026, 8, 31)});
+    });
+
+    test('결강일이 금요일, 교체일이 다음 주 월요일이어도 weekMonday는 결강일 기준이다 (§10.5 A안)', () {
+      // 결강 금(2026-09-04), 보강 다음주 월(2026-09-07)
+      _addTestExchange(
+        service,
+        '1',
+        description: '주 경계',
+        absenceDate: DateTime(2026, 9, 4),
+        substitutionDate: DateTime(2026, 9, 7),
+      );
+
+      final item = service.getExchangeList().single;
+      // 결강일이 속한 주(8/31~9/4)의 월요일
+      expect(item.weekMonday, DateTime(2026, 8, 31));
     });
   });
 }

@@ -49,6 +49,21 @@ class ExchangeHistoryService {
   // 버전 변경 콜백 (외부에서 설정하여 버전 변경 시 알림을 받을 수 있음)
   void Function()? _onVersionChanged;
 
+  /// 직전 로드에서 구 스키마(§10 이전) 교체 목록을 발견해 백업했는지 여부.
+  ///
+  /// true면 사용자에게 1회 안내가 필요하다 — "이전 버전의 교체 목록은
+  /// 날짜 정보가 없어 사용할 수 없습니다. (`*.v1.bak`으로 보관됨)".
+  /// [consumeLegacyDataNotice]로 소비하면 false로 리셋된다 (같은 세션에서
+  /// 중복 안내 방지).
+  bool _legacyDataBackedUp = false;
+
+  /// 구 데이터 백업 안내를 소비한다 — 호출 시점의 값을 반환하고 false로 리셋.
+  bool consumeLegacyDataNotice() {
+    final value = _legacyDataBackedUp;
+    _legacyDataBackedUp = false;
+    return value;
+  }
+
   /// 버전 변경 콜백 설정 (Provider에서 호출)
   void setVersionChangedCallback(void Function()? callback) {
     _onVersionChanged = callback;
@@ -63,8 +78,13 @@ class ExchangeHistoryService {
 
   /// 교체 실행 및 히스토리에 추가 (통합 메서드)
   /// 교체 버튼 클릭 시 호출
+  ///
+  /// [absenceDate]/[substitutionDate]는 필수다 — 호출부가 "지금 보고 있는 주"를
+  /// 기준으로 실행 이전에 확정해서 넘긴다(§10.4). 이 서비스는 날짜를 추정하지 않는다.
   void executeExchange(
     ExchangePath path, {
+    required DateTime absenceDate,
+    required DateTime substitutionDate,
     String? customDescription,
     Map<String, dynamic>? additionalMetadata,
     String? notes,
@@ -77,6 +97,8 @@ class ExchangeHistoryService {
     // 히스토리에 추가
     addExchange(
       path,
+      absenceDate: absenceDate,
+      substitutionDate: substitutionDate,
       customDescription: customDescription,
       additionalMetadata: additionalMetadata,
       notes: notes,
@@ -88,6 +110,8 @@ class ExchangeHistoryService {
   /// 교체 실행 시 히스토리에 추가 (내부 메서드)
   void addExchange(
     ExchangePath path, {
+    required DateTime absenceDate,
+    required DateTime substitutionDate,
     String? customDescription,
     Map<String, dynamic>? additionalMetadata,
     String? notes,
@@ -97,6 +121,8 @@ class ExchangeHistoryService {
     // ExchangeHistoryItem 생성
     final item = ExchangeHistoryItem.fromExchangePath(
       path,
+      absenceDate: absenceDate,
+      substitutionDate: substitutionDate,
       customDescription: customDescription,
       additionalMetadata: additionalMetadata,
       notes: notes,
@@ -255,6 +281,7 @@ class ExchangeHistoryService {
     _undoStack.clear();
     _redoStack.clear();
     _exchangeListVersion = 0;
+    _legacyDataBackedUp = false;
   }
 
   /// 교체 리스트에서 특정 항목 조회
@@ -464,7 +491,7 @@ class ExchangeHistoryService {
       await _storageQueue;
 
       // 스코프 전환 대비: 이전 시간표의 undo/redo 스택 초기화
-      final loadedList = await _storageService.loadExchangeList(
+      final loadResult = await _storageService.loadExchangeList(
         timetableId: requestedTimetableId,
       );
 
@@ -477,7 +504,8 @@ class ExchangeHistoryService {
       _undoStack.clear();
       _redoStack.clear();
       _exchangeList.clear();
-      _exchangeList.addAll(loadedList);
+      _exchangeList.addAll(loadResult.items);
+      _legacyDataBackedUp = loadResult.legacyBackupPerformed;
 
       // 버전 증가 (UI 업데이트 트리거)
       _exchangeListVersion++;

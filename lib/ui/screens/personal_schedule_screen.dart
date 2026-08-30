@@ -375,9 +375,12 @@ class _PersonalScheduleScreenState
     );
 
     // 선택 교사와 관련된 결강·교체 날짜가 속한 주차만 표시
+    final activeEntry = ref.watch(activeTimetableEntryProvider);
     final exchangeWeeks = ExchangeWeekCollector.collectWeekMondays(
       relatedPlanData,
       referenceDate: scheduleState.currentWeekMonday,
+      semesterStart: activeEntry?.semesterStart,
+      semesterEnd: activeEntry?.semesterEnd,
     );
 
     return Scaffold(

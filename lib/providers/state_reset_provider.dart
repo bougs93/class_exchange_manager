@@ -10,6 +10,8 @@ import '../ui/widgets/timetable_grid/arrow_state_manager.dart';
 import '../utils/fixed_header_style_manager.dart';
 import '../utils/syncfusion_timetable_helper.dart';
 import '../services/exchange_history_service.dart';
+import '../utils/week_date_calculator.dart';
+import 'selected_week_provider.dart';
 
 /// 초기화 레벨 정의
 ///
@@ -236,6 +238,24 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     }
   }
 
+  /// 선택된 주(週)를 이번 주로 되돌림
+  ///
+  /// §10.9 리스크 방지: 시간표 전환 시 이전 시간표에서 보던 주가 그대로
+  /// 남으면, 새 시간표의 첫 교체가 엉뚱한 주로 잘못 기록될 수 있다.
+  void _resetSelectedWeek() {
+    try {
+      _ref.read(selectedWeekProvider.notifier).state =
+          WeekDateCalculator.getThisWeekMonday();
+      if (kDebugMode) {
+        AppLogger.exchangeDebug('[Level 3] 선택 주(週) 초기화 완료');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        AppLogger.exchangeDebug('[Level 3] 선택 주(週) 초기화 중 오류: $e');
+      }
+    }
+  }
+
   // ========================================
   // Level 1: 경로 선택만 초기화
   // ========================================
@@ -377,6 +397,7 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     _clearExchangeHistory();
     _resetZoomState();
     _resetExchangeViewState();
+    _resetSelectedWeek();
 
     // 상태 업데이트 및 로깅
     _updateStateAndLog(ResetLevel.allStates, reason ?? 'Level 3 초기화');

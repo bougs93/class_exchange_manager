@@ -155,6 +155,10 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
       // 교사·학교명 자동 추정: 직전 시간표 값이 새 시간표에도 있으면 그대로 사용
       final inferred = _inferTeacherAndSchool(registry);
 
+      // 학기 기간 입력 (§10.6 — 결보강 날짜의 연도 추정에 사용. 건너뛰기 가능)
+      final semesterRange = await _showSemesterRangeDialog();
+      if (!mounted) return;
+
       final entry = await ref
           .read(timetableRegistryProvider.notifier)
           .registerTimetable(
@@ -165,6 +169,8 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
             contentHash: contentHash,
             teacherName: inferred.teacher,
             schoolName: inferred.school,
+            semesterStart: semesterRange.start,
+            semesterEnd: semesterRange.end,
           );
 
       if (entry == null) {
@@ -238,6 +244,106 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
         );
       },
     );
+  }
+
+  /// 학기 시작일·종료일 입력 다이얼로그
+  ///
+  /// §10.6: 이 값은 결보강 날짜("8.27" 같은 연도 없는 문자열)의 연도를
+  /// 추정할 때 쓰인다. 필수 입력이 아니다 — [건너뛰기]를 누르면 둘 다
+  /// null로 등록되며, 이 경우 연도 추정은 기존 방식(오늘 연도 기준)으로
+  /// 폴백한다(§10.9 리스크 2).
+  Future<({DateTime? start, DateTime? end})> _showSemesterRangeDialog() async {
+    DateTime? start;
+    DateTime? end;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            String formatDate(DateTime? d) =>
+                d == null ? '선택 안 함' : '${d.year}.${d.month}.${d.day}';
+
+            Future<void> pickStart() async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: start ?? DateTime.now(),
+                firstDate: DateTime(DateTime.now().year - 5),
+                lastDate: DateTime(DateTime.now().year + 5),
+              );
+              if (picked != null) {
+                setDialogState(() {
+                  start = picked;
+                  if (end != null && end!.isBefore(start!)) end = null;
+                });
+              }
+            }
+
+            Future<void> pickEnd() async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: start != null && start!.isAfter(DateTime.now())
+                    ? start!
+                    : (end ?? DateTime.now()),
+                firstDate: start ?? DateTime(DateTime.now().year - 5),
+                lastDate: DateTime(DateTime.now().year + 5),
+              );
+              if (picked != null) {
+                setDialogState(() => end = picked);
+              }
+            }
+
+            return AlertDialog(
+              title: const Text('학기 기간'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '결보강 날짜의 연도를 정확히 계산하는 데 사용됩니다.\n'
+                    '지금 입력하지 않아도 나중에 다시 등록할 수 있습니다.',
+                    style: TextStyle(fontSize: 13, color: Colors.black54),
+                  ),
+                  const SizedBox(height: 16),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.event_outlined),
+                    title: const Text('시작일'),
+                    subtitle: Text(formatDate(start)),
+                    onTap: pickStart,
+                  ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.event_busy_outlined),
+                    title: const Text('종료일'),
+                    subtitle: Text(formatDate(end)),
+                    onTap: pickEnd,
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('건너뛰기'),
+                ),
+                ElevatedButton(
+                  onPressed: (start != null && end != null)
+                      ? () => Navigator.of(dialogContext).pop(true)
+                      : null,
+                  child: const Text('확인'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed != true) {
+      return (start: null, end: null);
+    }
+    return (start: start, end: end);
   }
 
   /// 교사·학교명 자동 추정

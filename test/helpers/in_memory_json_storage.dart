@@ -54,4 +54,12 @@ class InMemoryJsonStorage implements JsonStorage {
 
   @override
   Future<List<String>> listJsonFiles() async => files.keys.toList();
+
+  @override
+  Future<bool> renameFile(String from, String to) async {
+    final data = files.remove(from);
+    if (data == null) return false;
+    files[to] = data;
+    return true;
+  }
 }

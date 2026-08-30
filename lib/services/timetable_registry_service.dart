@@ -57,6 +57,8 @@ class TimetableRegistryService {
     required String contentHash,
     String? teacherName,
     String? schoolName,
+    DateTime? semesterStart,
+    DateTime? semesterEnd,
   }) async {
     final registry = await loadRegistry();
     final entry = TimetableRegistryEntry(
@@ -68,6 +70,8 @@ class TimetableRegistryService {
       contentHash: contentHash,
       teacherName: teacherName,
       schoolName: schoolName,
+      semesterStart: semesterStart,
+      semesterEnd: semesterEnd,
       registeredAt: DateTime.now(),
     );
 

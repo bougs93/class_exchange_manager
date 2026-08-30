@@ -311,6 +311,39 @@ class StorageService implements JsonStorage {
     }
   }
 
+  /// 파일 이름을 변경합니다 (구 스키마 파일 백업 등에 사용).
+  ///
+  /// 매개변수:
+  /// - `from`: 원본 파일명 (없으면 false 반환)
+  /// - `to`: 대상 파일명 (이미 존재하면 덮어씀)
+  ///
+  /// 반환값:
+  /// - `Future<bool>`: 변경 성공 여부
+  @override
+  Future<bool> renameFile(String from, String to) async {
+    try {
+      final fromPath = await _getFilePath(from);
+      final fromFile = File(fromPath);
+
+      if (!await fromFile.exists()) {
+        return false;
+      }
+
+      final toPath = await _getFilePath(to);
+      final toFile = File(toPath);
+      if (await toFile.exists()) {
+        await toFile.delete();
+      }
+
+      await fromFile.rename(toPath);
+      AppLogger.info('파일 이름 변경 성공: $from → $to');
+      return true;
+    } catch (e) {
+      AppLogger.error('파일 이름 변경 실패: $from → $to, 오류: $e', e);
+      return false;
+    }
+  }
+
   /// 앱 데이터 디렉토리의 모든 JSON 파일 목록을 반환합니다.
   ///
   /// 반환값:

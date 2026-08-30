@@ -51,15 +51,14 @@ final timetableSummaryProvider =
       ref.watch(printProfileStoreProvider);
 
       try {
-        final exchanges = await ExchangeListStorageService().loadExchangeList(
-          timetableId: timetableId,
-        );
+        final exchangeResult = await ExchangeListStorageService()
+            .loadExchangeList(timetableId: timetableId);
         final plan = await SubstitutionPlanStorageService()
             .loadSubstitutionPlanData(timetableId: timetableId);
         final store = await PrintProfileStorageService().loadStore(timetableId);
 
         return TimetableSummary(
-          exchangeCount: exchanges.length,
+          exchangeCount: exchangeResult.items.length,
           planEntryCount:
               (plan?.savedDates.length ?? 0) +
               (plan?.savedSupplementSubjects.length ?? 0),

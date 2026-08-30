@@ -30,6 +30,14 @@ class TimetableRegistryEntry {
   /// 이 시간표의 학교명 (계획서 인쇄용, 미입력 시 null)
   final String? schoolName;
 
+  /// 학기 시작일 (§10.6 — 연도 없는 "M.d" 날짜 문자열의 연도를 추정할 때 사용.
+  /// 등록 다이얼로그에서 입력받으며, 미입력 시 null — 이 경우 연도 추정은
+  /// 기존 방식(오늘 연도 기준)으로 폴백한다)
+  final DateTime? semesterStart;
+
+  /// 학기 종료일
+  final DateTime? semesterEnd;
+
   /// 등록 시각
   final DateTime registeredAt;
 
@@ -42,12 +50,17 @@ class TimetableRegistryEntry {
     required this.contentHash,
     this.teacherName,
     this.schoolName,
+    this.semesterStart,
+    this.semesterEnd,
     required this.registeredAt,
   });
 
   /// 교사가 지정되어 있는지
   bool get hasTeacher =>
       teacherName != null && teacherName!.trim().isNotEmpty;
+
+  /// 학기 기간이 모두 지정되어 있는지
+  bool get hasSemesterRange => semesterStart != null && semesterEnd != null;
 
   /// 고유 ID 생성 (동일 시각 연속 등록 충돌 방지를 위해 마이크로초+시퀀스 포함)
   static int _idSequence = 0;
@@ -71,8 +84,11 @@ class TimetableRegistryEntry {
     String? contentHash,
     String? teacherName,
     String? schoolName,
+    DateTime? semesterStart,
+    DateTime? semesterEnd,
     bool clearTeacherName = false,
     bool clearSchoolName = false,
+    bool clearSemesterRange = false,
   }) {
     return TimetableRegistryEntry(
       id: id,
@@ -85,6 +101,12 @@ class TimetableRegistryEntry {
           ? null
           : (teacherName ?? this.teacherName),
       schoolName: clearSchoolName ? null : (schoolName ?? this.schoolName),
+      semesterStart: clearSemesterRange
+          ? null
+          : (semesterStart ?? this.semesterStart),
+      semesterEnd: clearSemesterRange
+          ? null
+          : (semesterEnd ?? this.semesterEnd),
       registeredAt: registeredAt,
     );
   }
@@ -98,6 +120,9 @@ class TimetableRegistryEntry {
     'contentHash': contentHash,
     if (teacherName != null) 'teacherName': teacherName,
     if (schoolName != null) 'schoolName': schoolName,
+    if (semesterStart != null)
+      'semesterStart': semesterStart!.toIso8601String(),
+    if (semesterEnd != null) 'semesterEnd': semesterEnd!.toIso8601String(),
     'registeredAt': registeredAt.toIso8601String(),
   };
 
@@ -111,6 +136,8 @@ class TimetableRegistryEntry {
       contentHash: (json['contentHash'] as String?) ?? '',
       teacherName: _trimOrNull(json['teacherName'] as String?),
       schoolName: _trimOrNull(json['schoolName'] as String?),
+      semesterStart: DateTime.tryParse(json['semesterStart'] as String? ?? ''),
+      semesterEnd: DateTime.tryParse(json['semesterEnd'] as String? ?? ''),
       registeredAt:
           DateTime.tryParse(json['registeredAt'] as String? ?? '') ??
           DateTime.now(),

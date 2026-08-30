@@ -1000,8 +1000,8 @@ exchange_list_{timetableId}.json
 
 | 단계 | 내용 | 주요 파일 |
 |---|---|---|
-| **1** | 날짜 승격: `ExchangeHistoryItem`에 `absenceDate`/`substitutionDate` 추가, `savedDates` 제거, `schemaVersion` 가드 + 구 파일 백업·안내 (테스트 선작성) | `exchange_history_item.dart`, `substitution_plan_provider.dart`, `exchange_history_service.dart`, `substitution_plan_storage_service.dart` |
-| **2** | 학기 기간: `TimetableRegistryEntry`에 `semesterStart`/`semesterEnd`, 등록 다이얼로그 입력, 연도 추정 코드 제거 | `timetable_registry.dart`, `timetable_file_screen.dart`, `date_format_utils.dart` |
+| **1** | ✅ **완료 (2026-08-30)** — 날짜 승격 + `schemaVersion` 가드. 아래 「1단계 반영 결과」 참조 | `exchange_history_item.dart`, `exchange_history_service.dart`, `exchange_list_storage_service.dart`, `selected_week_provider.dart`(신규), `exchange_executor.dart`, `state_reset_provider.dart` |
+| **2** | ✅ **완료 (2026-08-30)** — 학기 기간. 아래 「2단계 반영 결과」 참조 | `timetable_registry.dart`, `timetable_registry_service.dart`, `timetable_registry_provider.dart`, `timetable_file_screen.dart`, `date_format_utils.dart`, `exchange_week_collector.dart`, `personal_schedule_provider.dart`, `personal_schedule_screen.dart` |
 | **3** | `ResolvedWeek` 합성 함수 + 단위 테스트 (원본 불변 보장, 주 간 독립 보장) | 신규 `lib/utils/resolved_week.dart` |
 | **4** | 검증 로직 전환: `moveTime` 제거, 교체 가능성 판정을 `ResolvedWeek` 기준으로 | `exchange_service.dart`, `circular_exchange_service.dart`, `dual_exchange_service.dart` |
 | **5** | 교체 화면 UI: 주차 바(칩 건수는 결강일 기준), 날짜 헤더(`목 (8/27)`), 교체 실행 시 날짜 선행 확정, 되돌리기 후 해당 주 자동 이동 + 안내 | `exchange_screen.dart`, `timetable_grid_section.dart`, `exchange_week_selector.dart` |
@@ -1011,6 +1011,100 @@ exchange_list_{timetableId}.json
 
 단계 1~2는 오버레이 전환 없이도 단독으로 가치가 있다(P5·P6 차단). 리스크 분산을 위해
 먼저 반영하고 3단계 이후를 별도로 진행해도 된다.
+
+#### 1단계 반영 결과 (2026-08-30)
+
+`flutter analyze` 이슈 없음, `flutter test` 152건 전체 통과(신규 22건 포함).
+
+**구현 중 계획을 조정한 지점**
+
+애초 1단계 계획(`ExchangeHistoryItem`에 날짜 필드 추가)만으로는 값을 채울 방법이
+없다는 것이 구현 착수 직후 드러났다. `exchange_executor.dart`의 교체 실행 시점에는
+"지금 보고 있는 주"를 저장하는 곳이 어디에도 없었다 — 주차 바(§10.5)는 UI일 뿐,
+그 UI가 읽고 쓸 상태 자체가 존재하지 않았다. 이 상태 없이 `absenceDate`를 채우면
+`DateTime.now()`(실행 시각)로 대체하게 되어 P5(날짜 사후 오염)를 그대로 재현했을 것이다.
+
+⇒ **`selectedWeekProvider`를 1단계로 앞당겨 신설했다.** 지금은 값이 항상
+"이번 주"로 시작하므로(주차 바가 아직 없어 사용자가 바꿀 방법이 없다) 동작상
+변화는 없다. **5단계는 새 데이터 소스를 만드는 게 아니라 이 provider를
+읽고 쓰는 위젯(주차 바)을 얹는 것**이 된다.
+
+**반영 내용**
+
+| 파일 | 변경 |
+|---|---|
+| `lib/models/exchange_history_item.dart` | `absenceDate`/`substitutionDate` 필수(non-null) 필드 추가, `weekMonday` getter, 모든 `copyWith*`·`toJson`·`fromJson`에 반영. 날짜 없는 JSON은 `fromJson`이 예외를 던진다(의도적 — 구 데이터를 조용히 통과시키지 않는다) |
+| `lib/providers/selected_week_provider.dart` (신규) | `selectedWeekProvider` — 항상 이번 주 월요일로 시작하는 `StateProvider<DateTime>` |
+| `lib/ui/widgets/timetable_grid/exchange_executor.dart` | `_computeExchangeDates()` 신설 — 경로 타입별 대표 노드(결강/교체) 선택 후 `selectedWeekProvider` + 요일로 날짜 확정. `executeExchange`/`executeSupplementExchange` 양쪽에 연결 |
+| `lib/services/exchange_history_service.dart` | `executeExchange`/`addExchange`에 `absenceDate`/`substitutionDate` 필수 파라미터 추가. `consumeLegacyDataNotice()` — 구 데이터 백업 여부를 1회 소비하는 플래그(§10.6) |
+| `lib/services/exchange_list_storage_service.dart` | 파일 형식을 `{schemaVersion, items}` 객체로 변경(구 형식은 최상위가 배열이라 자연스럽게 구분됨). `loadExchangeList`가 `ExchangeListLoadResult{items, legacyBackupPerformed}` 반환. 구 스키마 발견 시 `.v1.bak`으로 백업 + 빈 목록 반환. DI 생성자(`{JsonStorage? storage}`)로 테스트 가능하게 전환 |
+| `lib/services/json_storage.dart` + `storage_service.dart` + `test/helpers/in_memory_json_storage.dart` | `renameFile()` 추가 — 백업 파일 이름 변경에 사용 |
+| `lib/providers/state_reset_provider.dart` | `resetAllStates()`에 `_resetSelectedWeek()` 추가 — 시간표 전환 시 이전 시간표에서 보던 주가 새 시간표로 새지 않도록 이번 주로 리셋 |
+| `lib/providers/timetable_summary_provider.dart` | `loadExchangeList()` 반환 타입 변경에 맞춰 `exchangeResult.items.length`로 수정 (컴파일 유지) |
+
+#### 2단계 반영 결과 (2026-08-30)
+
+`flutter analyze` 이슈 없음, `flutter test` 162건 전체 통과(신규 10건 포함).
+
+**구현 중 계획을 조정한 지점**
+
+당초 문서는 "연도 추정 코드 제거"라고 적었지만, 1단계와 같은 이유로 **문자 그대로
+제거할 수는 없었다.** `toYearMonthDayFromMonthDay`(연도 없는 "M.d" 문자열에 오늘 연도를
+붙이는 함수)는 `savedDates` 기반 결보강 탭의 유일한 날짜 해석 경로이며, `savedDates`는
+1단계에서 이미 "대체 UI가 없어 제거를 미룬다"고 판단한 상태다. 대체할 UI가 없는데
+대체될 로직만 지우면 결보강 탭의 날짜 표시가 깨진다.
+
+⇒ **"제거" 대신 "우선순위 교체"로 구현했다.** 학기 기간이 있으면 그 범위 안에서
+연도를 확정하는 `resolveMonthDayInRange`를 새로 만들어 **먼저** 시도하고, 범위가
+없거나 범위 밖이면 기존 방식(오늘 연도)으로 **폴백**한다. 학기 기간을 입력한 시간표는
+즉시 정확해지고, 아직 입력하지 않은 기존 시간표는 이전과 동일하게 동작한다 — 마이그레이션
+없이도 회귀가 없다.
+
+**반영 내용**
+
+| 파일 | 변경 |
+|---|---|
+| `lib/models/timetable_registry.dart` | `TimetableRegistryEntry`에 `semesterStart`/`semesterEnd`(nullable DateTime) 추가. `hasSemesterRange` getter, `copyWith(clearSemesterRange:)`, `toJson`/`fromJson` 반영 |
+| `lib/services/timetable_registry_service.dart`, `lib/providers/timetable_registry_provider.dart` | `registerTimetable()`에 `semesterStart`/`semesterEnd` 선택적 파라미터 추가 |
+| `lib/ui/screens/timetable_file_screen.dart` | 신규 등록 흐름에 `_showSemesterRangeDialog()` 추가 — 이름 입력 다음 단계. **[건너뛰기] 가능** (필수 아님, §10.6 "입력받아도 좋다"는 결정을 반영하되 강제하지 않음). 시작일 미선택 시 종료일 선택 버튼은 시작일 이후로 제한 |
+| `lib/utils/date_format_utils.dart` | `resolveMonthDayInRange()` 신설 — "월.일" 문자열을 `[rangeStart, rangeEnd]` 범위 안의 연도로 해석(학기가 연말을 넘기는 경우 대비 시작·종료 두 연도 모두 시도). `normalizePlanDate()`에 `semesterStart`/`semesterEnd` 선택적 파라미터 추가 — 있으면 우선 사용, 없거나 범위 밖이면 기존 `referenceDate` 방식으로 폴백 |
+| `lib/ui/screens/personal_schedule_screen/exchange_week_collector.dart` | `_parsePlanDate()`를 자체 파싱 대신 `DateFormatUtils.normalizePlanDate()` 위임으로 단순화(부수 효과로 ISO `-` 형식도 지원하게 됨). `collectWeekMondays()`/`defaultWeekMonday()`에 학기 범위 파라미터 추가 |
+| `lib/providers/personal_schedule_provider.dart`, `lib/ui/screens/personal_schedule_screen.dart` | `activeTimetableEntryProvider`에서 학기 기간을 읽어 위 함수들에 전달 — 개인 시간표 주차 계산이 실제로 학기 범위의 혜택을 받는 지점 |
+
+**의도적으로 범위 밖에 둔 것**
+
+- `content_input_grid.dart:1264`의 `normalizePlanDate` 호출(날짜 선택기 초기값)은
+  연결하지 않았다. 달력이 연도를 직접 보여주고 사용자가 자유롭게 고를 수 있어
+  오추정의 위험이 낮다
+- 등록 후 학기 기간을 **수정**하는 UI는 만들지 않았다. 지금은 등록 시 1회 입력만
+  가능하다 — 이름 변경처럼 별도 진입점을 만드는 것은 이번 단계 범위 밖으로 판단했다
+
+**테스트**
+
+- `test/utils/date_format_utils_test.dart` (신규) — 범위 안 연도 해석, 학기가
+  연말을 넘기는 경우(9월 시작~다음해 2월 종료에서 "2.10") 두 연도 모두 시도, 범위
+  밖 날짜의 폴백, `normalizePlanDate`가 학기 범위를 `referenceDate`보다 우선함
+- `test/models/timetable_registry_test.dart` (기존 확장) — `semesterStart`/`semesterEnd`
+  JSON 왕복, 미입력 시 null, `copyWith(clearSemesterRange:)`
+
+**의도적으로 미룬 것 — `savedDates` 제거**
+
+당초 1단계 항목이었던 "`savedDates` 제거"는 미뤘다. `substitution_plan_provider.dart`의
+`savedDates`는 현재 결보강 탭(`substitution_output_widget.dart`, `content_input_grid.dart`,
+개인 시간표 화면 3곳)에서 **살아있는 유일한 날짜 입력·표시 경로**다. 대체 UI(5·6단계의
+주차 바, 교체 목록 주차 그룹핑)가 아직 없는 상태에서 이를 제거하면 결보강 탭의 날짜
+입력 기능 자체가 사라진다 — "마이그레이션 없음"과 "작동하는 기능을 대체 없이 삭제"는
+다른 문제다. **`savedDates`는 5~6단계에서 대체 UI가 붙는 시점에 함께 제거한다.**
+
+**테스트**
+
+- `test/models/exchange_history_item_test.dart` (신규) — toJson/fromJson 날짜 왕복,
+  `weekMonday` 계산, 구 형식 JSON에 대한 예외 발생, `copyWith*` 전 계열의 날짜 보존
+- `test/services/exchange_list_storage_service_test.dart` (신규) — 저장 형식 검증,
+  파일 없음 vs 구 스키마 파일 있음의 구분, 구 스키마 백업 동작, 스코프 필수 정책
+- `test/exchange_history_service_test.dart` (기존 유지 + 확장) — 날짜 필드 3건 추가
+  (weekMonday 계산, 서로 다른 주의 독립성, **§10.5 A안**: 결강 금요일 → 보강 다음 주
+  월요일이어도 `weekMonday`는 결강일 기준이라는 것을 명시적으로 검증)
 
 ### 10.9 리스크
 

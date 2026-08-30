@@ -133,7 +133,19 @@ class DateFormatUtils {
   /// 결보강 계획서 날짜를 내부 비교용 YYYY.MM.DD 형식으로 통일합니다.
   ///
   /// UI에는 `6.10`처럼 월.일만 표시되지만, 매칭·필터는 이 메서드 결과를 사용합니다.
-  static String normalizePlanDate(String raw, {DateTime? referenceDate}) {
+  ///
+  /// [semesterStart]/[semesterEnd]를 모두 넘기면(§10.6 `TimetableRegistryEntry`
+  /// 학기 기간) 연도 없는 "월.일" 문자열의 연도를 그 범위 안에서 확정한다 —
+  /// "오늘 연도"로 찍는 기존 방식보다 정확하다(§10.3 P6: 1학기 시간표를
+  /// 12월에 열면 "3.5"가 엉뚱한 해로 붙는 문제). 둘 중 하나라도 없으면
+  /// [referenceDate] 기준(기존 방식)으로 폴백한다 — 학기 기간을 아직
+  /// 입력하지 않은 시간표에서도 계속 동작해야 하기 때문이다.
+  static String normalizePlanDate(
+    String raw, {
+    DateTime? referenceDate,
+    DateTime? semesterStart,
+    DateTime? semesterEnd,
+  }) {
     final trimmed = raw.trim();
     if (trimmed.isEmpty || trimmed == '선택') return '';
 
@@ -145,12 +157,57 @@ class DateFormatUtils {
     final direct = parseYearMonthDay(trimmed);
     if (direct != null) return toYearMonthDay(direct);
 
+    if (semesterStart != null && semesterEnd != null) {
+      final inRange = resolveMonthDayInRange(
+        trimmed,
+        rangeStart: semesterStart,
+        rangeEnd: semesterEnd,
+      );
+      if (inRange != null) return toYearMonthDay(inRange);
+    }
+
     final withYear = toYearMonthDayFromMonthDay(
       trimmed,
       referenceDate: referenceDate ?? DateTime.now(),
     );
     final resolved = parseYearMonthDay(withYear);
     return resolved != null ? toYearMonthDay(resolved) : '';
+  }
+
+  /// "월.일" 문자열의 연도를 [rangeStart]~[rangeEnd] 범위 안에서 확정합니다.
+  ///
+  /// 학기가 연말을 넘기는 경우(예: 2학기 9월~다음해 2월)를 대비해 시작
+  /// 연도와 종료 연도 둘 다 시도합니다. 어느 쪽도 범위에 들어맞지 않으면
+  /// null을 반환합니다 — 호출부는 이 경우 기존 방식으로 폴백해야 합니다.
+  static DateTime? resolveMonthDayInRange(
+    String monthDay, {
+    required DateTime rangeStart,
+    required DateTime rangeEnd,
+  }) {
+    final parts = monthDay.split('.');
+    if (parts.length != 2) return null; // "월.일" 형식이 아니면 대상 아님
+
+    final month = int.tryParse(parts[0]);
+    final day = int.tryParse(parts[1]);
+    if (month == null || day == null) return null;
+
+    final start = DateTime(rangeStart.year, rangeStart.month, rangeStart.day);
+    final end = DateTime(rangeEnd.year, rangeEnd.month, rangeEnd.day);
+
+    for (final year in {start.year, end.year}) {
+      try {
+        final candidate = DateTime(year, month, day);
+        if (candidate.month != month || candidate.day != day) {
+          continue; // DateTime이 초과 일자를 다음 달로 넘겨버린 경우(예: 2.30)
+        }
+        if (!candidate.isBefore(start) && !candidate.isAfter(end)) {
+          return candidate;
+        }
+      } catch (_) {
+        // 유효하지 않은 날짜 — 다음 후보 연도로 계속
+      }
+    }
+    return null;
   }
 
   /// 정규화된 날짜(YYYY.MM.DD)에서 요일명(월~일)을 반환합니다.

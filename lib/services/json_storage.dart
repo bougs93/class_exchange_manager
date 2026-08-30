@@ -23,4 +23,10 @@ abstract class JsonStorage {
 
   /// 저장소의 JSON 파일명 목록
   Future<List<String>> listJsonFiles();
+
+  /// 파일 이름 변경 (구 스키마 파일 백업 등에 사용)
+  ///
+  /// [from] 파일이 없으면 아무 일도 하지 않고 false를 반환합니다.
+  /// [to]에 이미 파일이 있으면 덮어씁니다.
+  Future<bool> renameFile(String from, String to);
 }

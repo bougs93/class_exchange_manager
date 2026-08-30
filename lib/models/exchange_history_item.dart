@@ -3,6 +3,7 @@ import 'one_to_one_exchange_path.dart';
 import 'circular_exchange_path.dart';
 import 'dual_exchange_path.dart';
 import 'supplement_exchange_path.dart';
+import '../utils/week_date_calculator.dart';
 
 /// 교체 히스토리 항목을 나타내는 클래스
 /// 교체 실행의 모든 정보를 담는 데이터 모델
@@ -10,8 +11,18 @@ class ExchangeHistoryItem {
   /// 고유 식별자
   final String id;
 
-  /// 실행 시간
+  /// 실행 시간 (감사 로그용 — "언제 이 조작을 했는가". 교체가 적용되는
+  /// 날짜는 [absenceDate]/[substitutionDate]이며 이 값과 다를 수 있다)
   final DateTime timestamp;
+
+  /// 결강일 — 이 교체로 비게 되는 수업의 날짜 (필수)
+  ///
+  /// §10.6: 문자열이 아닌 DateTime으로 저장한다. 이 값이 이 교체 건의
+  /// 소속 주(週)를 결정한다 ([weekMonday]).
+  final DateTime absenceDate;
+
+  /// 교체일 — 보강/이동되는 수업의 날짜 (필수)
+  final DateTime substitutionDate;
 
   /// 원본 교체 경로
   final ExchangePath originalPath;
@@ -37,10 +48,19 @@ class ExchangeHistoryItem {
   /// 되돌리기 여부
   bool isReverted;
 
+  /// 이 교체 건이 속한 주의 월요일 ([absenceDate] 기준)
+  ///
+  /// §10.5: 교체의 "주인"은 결강이므로 주차 칩 건수·주차별 그룹핑은
+  /// 모두 이 값을 기준으로 한다. 보강일이 다음 주로 넘어가더라도
+  /// (결강 금요일 → 보강 다음 주 월요일) 이 건은 결강일의 주에 속한다.
+  DateTime get weekMonday => WeekDateCalculator.getWeekMonday(absenceDate);
+
   /// 생성자
   ExchangeHistoryItem({
     required this.id,
     required this.timestamp,
+    required this.absenceDate,
+    required this.substitutionDate,
     required this.originalPath,
     required this.description,
     required this.type,
@@ -52,8 +72,14 @@ class ExchangeHistoryItem {
   });
 
   /// ExchangePath로부터 ExchangeHistoryItem 생성하는 팩토리 생성자
+  ///
+  /// [absenceDate]/[substitutionDate]는 필수다 — 교체를 실행하는 시점에
+  /// 이미 "어느 주를 보고 있는가"가 확정되어 있어야 한다(§10.4 날짜 선행 확정).
+  /// 사후에 날짜를 입력받아 채우지 않는다.
   factory ExchangeHistoryItem.fromExchangePath(
     ExchangePath path, {
+    required DateTime absenceDate,
+    required DateTime substitutionDate,
     String? customId,
     String? customDescription,
     Map<String, dynamic>? additionalMetadata,
@@ -67,6 +93,8 @@ class ExchangeHistoryItem {
     return ExchangeHistoryItem(
       id: generatedId,
       timestamp: DateTime.now(),
+      absenceDate: _dateOnly(absenceDate),
+      substitutionDate: _dateOnly(substitutionDate),
       originalPath: path,
       description: customDescription ?? path.displayTitle,
       type: pathType,
@@ -82,6 +110,10 @@ class ExchangeHistoryItem {
       isReverted: false,
     );
   }
+
+  /// 시각 정보를 제거하고 날짜만 남긴다 (주차 계산·비교의 일관성을 위해)
+  static DateTime _dateOnly(DateTime date) =>
+      DateTime(date.year, date.month, date.day);
 
   /// 고유 ID 생성 (교체 유형 및 단계 정보 포함)
   /// microsecond + 순번으로 동일 시각 연속 교체 시 ID 충돌 방지
@@ -129,6 +161,8 @@ class ExchangeHistoryItem {
     return ExchangeHistoryItem(
       id: id,
       timestamp: timestamp,
+      absenceDate: absenceDate,
+      substitutionDate: substitutionDate,
       originalPath: originalPath,
       description: description,
       type: type,
@@ -145,6 +179,8 @@ class ExchangeHistoryItem {
     return ExchangeHistoryItem(
       id: id,
       timestamp: timestamp,
+      absenceDate: absenceDate,
+      substitutionDate: substitutionDate,
       originalPath: originalPath,
       description: description,
       type: type,
@@ -161,6 +197,8 @@ class ExchangeHistoryItem {
     return ExchangeHistoryItem(
       id: id,
       timestamp: timestamp,
+      absenceDate: absenceDate,
+      substitutionDate: substitutionDate,
       originalPath: originalPath,
       description: description,
       type: type,
@@ -177,6 +215,8 @@ class ExchangeHistoryItem {
     return ExchangeHistoryItem(
       id: id,
       timestamp: timestamp,
+      absenceDate: absenceDate,
+      substitutionDate: substitutionDate,
       originalPath: originalPath,
       description: description,
       type: type,
@@ -193,6 +233,8 @@ class ExchangeHistoryItem {
     return ExchangeHistoryItem(
       id: id,
       timestamp: timestamp,
+      absenceDate: absenceDate,
+      substitutionDate: substitutionDate,
       originalPath: originalPath,
       description: description,
       type: type,
@@ -247,7 +289,8 @@ class ExchangeHistoryItem {
 
   @override
   String toString() {
-    return 'ExchangeHistoryItem(id: $id, timestamp: $timestamp, type: $typeDisplayName, description: $description, isReverted: $isReverted)';
+    return 'ExchangeHistoryItem(id: $id, timestamp: $timestamp, absenceDate: $absenceDate, '
+        'type: $typeDisplayName, description: $description, isReverted: $isReverted)';
   }
 
   /// JSON 직렬화 (저장용)
@@ -258,6 +301,8 @@ class ExchangeHistoryItem {
     return {
       'id': id,
       'timestamp': timestamp.toIso8601String(),
+      'absenceDate': absenceDate.toIso8601String(),
+      'substitutionDate': substitutionDate.toIso8601String(),
       'type': type.name, // enum을 문자열로 저장
       'description': description,
       'metadata': metadata,
@@ -274,6 +319,11 @@ class ExchangeHistoryItem {
   ///
   /// JSON 파일에서 읽어온 Map 데이터를 ExchangeHistoryItem 객체로 변환합니다.
   /// ExchangePath는 타입에 따라 적절한 서브클래스로 복원됩니다.
+  ///
+  /// `absenceDate`/`substitutionDate`가 없는 구 형식 데이터는 지원하지 않는다
+  /// (§10.6: 마이그레이션 없음 — 구 파일은 로드 이전에 스키마 버전으로 걸러진다).
+  /// 필드가 없으면 예외를 던지며, 호출부(`ExchangeListStorageService`)가
+  /// 개별 항목 단위로 이를 잡아 건너뛴다.
   factory ExchangeHistoryItem.fromJson(Map<String, dynamic> json) {
     final pathJson = json['originalPath'] as Map<String, dynamic>;
     final pathType = pathJson['type'] as String;
@@ -319,6 +369,8 @@ class ExchangeHistoryItem {
     return ExchangeHistoryItem(
       id: json['id'] as String,
       timestamp: DateTime.parse(json['timestamp'] as String),
+      absenceDate: DateTime.parse(json['absenceDate'] as String),
+      substitutionDate: DateTime.parse(json['substitutionDate'] as String),
       originalPath: path,
       description: json['description'] as String,
       type: type,
