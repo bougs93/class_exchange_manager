@@ -238,6 +238,77 @@ void main() {
     });
   });
 
+  group('ResolvedWeek — 판정 기준 (§10.8 4d)', () {
+    test('같은 주의 선행 교체가 반영된다 — 이미 교체된 칸은 비어 보인다', () {
+      // 4d의 핵심: 판정에 쓰는 시간표(toTimeSlots)가 같은 주 선행 교체를
+      // 반영해야, 이미 교체된 칸을 다시 교체 대상으로 제시하지 않는다.
+      final base = _baseTimetable();
+      final events = [
+        _historyItem(
+          path: _oneToOnePath(),
+          absenceDate: DateTime(2026, 8, 24),
+          substitutionDate: DateTime(2026, 8, 25),
+        ),
+      ];
+
+      final forValidation = ResolvedWeek.of(
+        base: base,
+        events: events,
+        weekMonday: DateTime(2026, 8, 24),
+      ).toTimeSlots(base);
+
+      final hongMon1 = forValidation.firstWhere(
+        (s) => s.teacher == '홍길동' && s.dayOfWeek == 1 && s.period == 1,
+      );
+      // 이미 교체되어 비었으므로 canExchange가 false여야 한다
+      expect(hongMon1.isEmpty, isTrue);
+      expect(hongMon1.canExchange, isFalse);
+    });
+
+    test('다른 주의 교체는 판정에 영향을 주지 않는다 — 원본 그대로 교체 가능', () {
+      final base = _baseTimetable();
+      final events = [
+        _historyItem(
+          path: _oneToOnePath(),
+          absenceDate: DateTime(2026, 8, 24), // 8월4주
+          substitutionDate: DateTime(2026, 8, 25),
+        ),
+      ];
+
+      // 9월1주 기준으로 판정용 시간표를 만들면 위 교체는 무관해야 한다
+      final forValidation = ResolvedWeek.of(
+        base: base,
+        events: events,
+        weekMonday: DateTime(2026, 8, 31),
+      ).toTimeSlots(base);
+
+      final hongMon1 = forValidation.firstWhere(
+        (s) => s.teacher == '홍길동' && s.dayOfWeek == 1 && s.period == 1,
+      );
+      expect(hongMon1.subject, '수학');
+      expect(hongMon1.canExchange, isTrue);
+    });
+
+    test('toTimeSlots는 base와 순서·길이가 같고 base를 변경하지 않는다', () {
+      final base = _baseTimetable();
+      final resolved = ResolvedWeek.of(
+        base: base,
+        events: const [],
+        weekMonday: DateTime(2026, 8, 24),
+      ).toTimeSlots(base);
+
+      expect(resolved.length, base.length);
+      for (var i = 0; i < base.length; i++) {
+        expect(resolved[i].teacher, base[i].teacher);
+        expect(resolved[i].dayOfWeek, base[i].dayOfWeek);
+        expect(resolved[i].period, base[i].period);
+        // 새 객체여야 한다 (원본 참조를 그대로 넘기면 오염 위험)
+        expect(identical(resolved[i], base[i]), isFalse);
+      }
+      expect(base[0].subject, '수학');
+    });
+  });
+
   group('ResolvedWeek — 순환 교체 (§10.8 4단계)', () {
     ExchangeNode node(String teacher, String day, int period, String subject) {
       return ExchangeNode(

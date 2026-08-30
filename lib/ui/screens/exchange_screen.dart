@@ -34,6 +34,7 @@ import 'handlers/target_cell_handler.dart';
 import 'handlers/path_selection_handler_mixin.dart';
 import 'handlers/filter_search_handler.dart';
 import 'builders/sidebar_builder.dart';
+import '../../providers/resolved_timetable_provider.dart';
 import '../../providers/state_reset_provider.dart';
 import '../../providers/zoom_provider.dart';
 import '../../providers/app_settings_provider.dart';
@@ -105,6 +106,15 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
   @override
   TimetableData? get timetableData => _stateProxy.timetableData;
+
+  /// 교체 판정용 시간표 — 현재 주의 합성 결과(§10.8 4d)
+  ///
+  /// 원본이 아니라 `resolvedTimetableProvider`를 읽는다. 그래야 같은 주의
+  /// 선행 교체가 반영되고(이미 교체된 칸을 다시 제시하지 않음), 다른 주의
+  /// 교체에는 영향받지 않는다.
+  @override
+  List<TimeSlot> get validationTimeSlots =>
+      ref.read(resolvedTimetableProvider);
 
   @override
   TimetableDataSource? get dataSource => _dataSource;
@@ -497,7 +507,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       final dayNumber = DayUtils.getDayNumber(day);
 
       // 교사/요일/교시가 일치하는 TimeSlot 찾기 (없으면 빈 슬롯으로 간주)
-      final foundSlot = _timetableData!.timeSlots.firstWhere(
+      final foundSlot = validationTimeSlots.firstWhere(
         (slot) =>
             slot.teacher == teacherName &&
             slot.dayOfWeek == dayNumber &&
@@ -1069,6 +1079,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     final result = await CircularPathFinder.findCircularPathsWithProgress(
       circularExchangeService: circularExchangeService,
       timetableData: _timetableData,
+      validationTimeSlots: validationTimeSlots,
       updateProgress: _updateProgressSmoothly,
       updateAvailableSteps: updateAvailableSteps,
       resetFilters: resetFilters,
@@ -1211,7 +1222,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     // 헬퍼를 사용하여 경로 탐색
     final result = await DualPathFinder.findDualPathsWithProgress(
       dualExchangeService: dualExchangeService,
-      timeSlots: _timetableData!.timeSlots,
+      // 판정은 현재 주의 합성 결과 기준(§10.8 4d)
+      timeSlots: validationTimeSlots,
       teachers: _timetableData!.teachers,
     );
 
@@ -1271,7 +1283,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       selectedTeacher: exchangeService.selectedTeacher!,
       selectedDay: exchangeService.selectedDay!,
       selectedPeriod: exchangeService.selectedPeriod!,
-      timeSlots: timetableData!.timeSlots,
+      timeSlots: validationTimeSlots,
       options: options.cast(), // dynamic을 ExchangeOption으로 캐스팅
     );
 
@@ -1393,7 +1405,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     if (_timetableData == null) return '과목명 없음';
 
     // 시간표 데이터에서 해당 교사, 요일, 교시의 과목 정보 찾기
-    for (var timeSlot in _timetableData!.timeSlots) {
+    for (var timeSlot in validationTimeSlots) {
       if (timeSlot.teacher == node.teacherName &&
           timeSlot.dayOfWeek == DayUtils.getDayNumber(node.day) &&
           timeSlot.period == node.period) {
@@ -1455,7 +1467,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
     if (_timetableData == null) return;
 
-    final sourceSlot = _timetableData!.timeSlots.firstWhere(
+    final sourceSlot = validationTimeSlots.firstWhere(
       (slot) =>
           slot.teacher == sourceTeacher &&
           slot.dayOfWeek == DayUtils.getDayNumber(sourceDay) &&

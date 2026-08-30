@@ -7,6 +7,7 @@ import '../../services/base_exchange_service.dart';
 import '../../services/excel_service.dart';
 import '../../models/circular_exchange_path.dart';
 import '../../models/dual_exchange_path.dart';
+import '../../models/time_slot.dart';
 import '../../utils/timetable_data_source.dart';
 import '../../utils/logger.dart';
 
@@ -18,6 +19,14 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
   CircularExchangeService get circularExchangeService;
   DualExchangeService get dualExchangeService;
   TimetableData? get timetableData;
+
+  /// 교체 가능성 판정에 사용할 시간표 — **현재 주의 합성 결과**(§10.8 4d)
+  ///
+  /// `timetableData.timeSlots`(원본)를 직접 쓰면 같은 주의 선행 교체가 반영되지
+  /// 않아, 이미 교체된 칸을 다시 교체 대상으로 제시하게 된다.
+  /// 구현체는 `resolvedTimetableProvider`를 읽어 제공한다.
+  List<TimeSlot> get validationTimeSlots;
+
   TimetableDataSource? get dataSource;
   bool get isExchangeModeEnabled;
   bool get isCircularExchangeModeEnabled;
@@ -107,7 +116,7 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
     DualExchangeResult result = dualExchangeService.startDualExchange(
       details,
       dataSource!,
-      timetableData!.timeSlots,
+      validationTimeSlots,
     );
 
     if (result.isNoAction) {
@@ -199,7 +208,7 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
         teacherName,
         day,
         period,
-        timetableData!.timeSlots,
+        validationTimeSlots,
       );
 
       // TimeSlot이 존재하고 비어있지 않으면 true
@@ -277,7 +286,7 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
 
     // 교체 가능한 시간 탐색
     final options = exchangeService.updateExchangeableTimes(
-      timetableData!.timeSlots,
+      validationTimeSlots,
       timetableData!.teachers,
     );
 
@@ -294,7 +303,7 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
 
     // 교체 가능한 교사 정보 업데이트
     final exchangeableTeachers = exchangeService.getCurrentExchangeableTeachers(
-      timetableData!.timeSlots,
+      validationTimeSlots,
       timetableData!.teachers,
     );
     dataSource?.updateExchangeableTeachers(exchangeableTeachers);
@@ -332,7 +341,7 @@ mixin ExchangeLogicMixin<T extends StatefulWidget> on State<T> {
     // 실제 교체 가능한 교사 정보를 가져와서 수업 개수 계산
     List<Map<String, dynamic>> exchangeableTeachers = exchangeService
         .getCurrentExchangeableTeachers(
-          timetableData!.timeSlots,
+          validationTimeSlots,
           timetableData!.teachers,
         );
 

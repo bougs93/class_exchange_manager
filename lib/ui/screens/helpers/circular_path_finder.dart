@@ -10,9 +10,12 @@ import '../../../services/excel_service.dart';
 /// 순환교체 경로 탐색 관련 헬퍼 함수들
 class CircularPathFinder {
   /// 진행률과 함께 순환교체 경로 탐색
+  /// [validationTimeSlots]는 교체 판정에 쓸 시간표다 — 원본이 아니라
+  /// **현재 주의 합성 결과**를 넘겨야 같은 주의 선행 교체가 반영된다(§10.8 4d).
   static Future<CircularPathResult> findCircularPathsWithProgress({
     required CircularExchangeService circularExchangeService,
     required TimetableData? timetableData,
+    required List<TimeSlot> validationTimeSlots,
     required Function(double) updateProgress,
     required Function(List<CircularExchangePath>) updateAvailableSteps,
     required Function() resetFilters,
@@ -61,8 +64,8 @@ class CircularPathFinder {
       }
 
       Map<String, dynamic> data = {
-        'timeSlots': timetableData!.timeSlots,
-        'teachers': timetableData.teachers,
+        'timeSlots': validationTimeSlots,
+        'teachers': timetableData!.teachers,
         'selectedTeacher': selectedTeacher,
         'selectedDay': selectedDay,
         'selectedPeriod': selectedPeriod,

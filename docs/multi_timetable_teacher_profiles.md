@@ -1041,7 +1041,7 @@ exchange_list_{timetableId}.json
 | **3** | ✅ **완료 (2026-08-30)** — `ResolvedWeek` 합성 함수. 아래 「3단계 반영 결과」 참조 | 신규 `lib/utils/resolved_week.dart` |
 | **4a** | ✅ **완료 (2026-08-30)** — 순환·2중 교체의 `CellMove` 분해 (3단계 이월분) | `resolved_week.dart` |
 | **4c+5** | ✅ **완료 (2026-08-30)** — 표시 경로를 `ResolvedWeek`로 전환(백업/복원 제거) + 주차 바·날짜 헤더. 아래 「4단계 반영 결과」 참조 | `exchange_view_provider.dart`, `exchange_executor.dart`, `exchange_week_bar.dart`(신규), `exchange_week_summary_provider.dart`(신규), `fixed_header_style_manager.dart`, `timetable_tab_content.dart` |
-| **4d** | ⏸ **미착수** — 교체 가능성 **판정**을 `ResolvedWeek` 기준으로 전환 (P3 완전 해소) | `exchange_service.dart`, `circular_exchange_service.dart`, `dual_exchange_service.dart` |
+| **4d** | ✅ **완료 (2026-08-30)** — 교체 가능성 **판정**을 `ResolvedWeek` 기준으로 전환 (P3 해소). 아래 「4d 반영 결과」 참조 | `resolved_timetable_provider.dart`(신규), `exchange_logic_mixin.dart`, `exchange_screen.dart`, `circular_path_finder.dart` |
 | **6** | 교체 목록 주차 그룹핑 + 소유 교사 열 + 주차별 일괄 출력 | `content_input_grid.dart`, `batch_pdf_export_service.dart` |
 | **7** | 교체불가 셀 날짜 스코프 (`date?`) | `non_exchangeable` 저장 계층 |
 | **8** | 전체 검증: `flutter analyze` / `flutter test` / 전 흐름 점검 | — |
@@ -1253,13 +1253,46 @@ toDay, toPeriod}` 하나의 원시 연산으로 표현된다. `fromTeacher == to
 | `timetable_tab_content.dart` | 그리드 위에 주차 바 배치. 주 변경 시 `refreshIfEnabled`로 재합성 |
 | `exchange_executor.dart` | **되돌리기 시 그 교체가 속한 주로 자동 이동 + 스낵바 안내**(§10.5 확정). 다른 주로 점프한 경우에만 `"9월1주의 교체를 되돌렸습니다"`로 이유를 밝힌다 |
 
-**아직 남은 것 — 4d(검증 전환)**
+#### 4d 반영 결과 (2026-08-30) — 판정 기준 전환
 
-교체 **가능성 판정**은 여전히 마스터 `timeSlots`(= 원본)를 기준으로 한다. 전환 후
-원본은 항상 깨끗하므로 **판정이 "원본 기준"으로 일관**되며, 전환 전처럼 다른 주의
-교체에 오염되지는 않는다. 다만 **같은 주 안의 선행 교체도 반영하지 않으므로**,
-"이미 그 주에 교체된 칸"을 다시 교체 대상으로 제시할 수 있다. P3의 완전한 해소와
-§10.5의 "같은 주 충돌 경고"는 4d에서 다룬다.
+`flutter analyze` 이슈 없음, `flutter test` 173건 전체 통과(신규 3건 포함).
+
+**서비스 코드를 고치지 않았다**
+
+당초 문서는 `exchange_service.dart` 등 3개 서비스의 검증 로직을 고치는 것으로
+계획했으나, 실제로는 **입력만 바꾸면 충분**했다. 검증·탐색 함수들은 모두
+`List<TimeSlot>`을 인자로 받아 스캔하는 구조라, **원본 대신 합성 결과를 넘기면
+로직 변경 없이 판정 기준이 바뀐다.**
+
+⇒ 4단계에서 가장 위험하다고 예상했던 부분(3개 서비스 동시 수정)이 실제로는
+   **호출부 교체**로 끝났다. 순환·2중 교체 알고리즘은 한 줄도 건드리지 않았다.
+
+**반영 내용**
+
+| 파일 | 변경 |
+|---|---|
+| `resolved_timetable_provider.dart` (신규) | `resolvedTimetableProvider` — 원본 + 현재 주 교체를 합성한 판정용 시간표. Provider가 의존성(시간표·주·`exchangeListVersion`)이 바뀔 때만 재계산하므로 **§10.9 리스크 3(성능)의 메모이제이션이 자동 확보**된다 |
+| `exchange_logic_mixin.dart` | 추상 getter `validationTimeSlots` 추가. mixin은 `on State<T>`라 `ref`가 없으므로 구현체에서 주입받는 형태로 했다. 내부 5개 사용처를 원본 → `validationTimeSlots`로 교체 |
+| `exchange_screen.dart` | `validationTimeSlots`를 `resolvedTimetableProvider`로 구현. 나머지 판정·표시 4곳(`_isCellNotEmpty`, 1:1 경로 생성, `_getSubjectName`, 보강 소스 검증)도 교체 |
+| `circular_path_finder.dart` | `validationTimeSlots` 파라미터 추가 — 백그라운드 `compute`에 넘기는 `timeSlots`를 합성 결과로 |
+| `dual_path_finder.dart` 호출부 | 이미 `timeSlots`를 인자로 받고 있어 호출부만 교체 |
+
+**교체 뷰 토글과 무관하게 항상 합성 기준으로 판정한다.** 교체 뷰는 "무엇을
+보여줄지"의 옵션일 뿐이고, 교체는 언제나 누적 상태 위에 쌓이기 때문이다(§1-6).
+
+**테스트로 고정한 것 (`resolved_week_test.dart` +3건)**
+
+- 같은 주의 선행 교체가 반영되어 이미 교체된 칸은 `canExchange == false`
+- 다른 주의 교체는 판정에 영향 없음 → 원본 그대로 교체 가능 (**P3 해소의 직접 증거**)
+- `toTimeSlots`가 base와 순서·길이가 같고, base 객체를 그대로 넘기지 않는다
+  (원본 참조를 반환하면 하위 코드가 오염시킬 수 있다)
+
+**남은 것 — 같은 주 충돌 "경고" UI**
+
+같은 주에 이미 교체된 칸은 이제 판정에서 자동으로 제외되므로 **잘못된 교체가
+생성되지는 않는다**. 다만 §10.5가 그린 "⚠ 같은 주 충돌" 명시적 경고 메시지는
+아직 없다 — 사용자에게는 "그 칸이 후보로 안 뜬다"로만 보인다. 이 UX 보강은
+6단계(교체 목록 주차 그룹핑)와 함께 다루는 것이 자연스럽다.
 
 ### 10.9 리스크
 
