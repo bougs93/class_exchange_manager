@@ -1,7 +1,7 @@
 # 시간표 다중화 & 교사별 계획서(인쇄 프로파일) 설계
 
 > 작성일: 2026-08-26
-> 최종 수정: 2026-08-31 (§10 1~6단계 구현 완료 — 날짜 기반 구조 전환 · 마이그레이션 없음 정책 반영)
+> 최종 수정: 2026-08-31 (§10 1~7단계 구현 완료 — 날짜 기반 구조 전환 · 마이그레이션 없음 정책 반영)
 > 상태: §1~§9 구현 완료 (반영 결과는 §8, 점검은 §9) · **§10 설계 확정 · 미구현**
 
 ## 1. 요구사항
@@ -1043,7 +1043,7 @@ exchange_list_{timetableId}.json
 | **4c+5** | ✅ **완료 (2026-08-30)** — 표시 경로를 `ResolvedWeek`로 전환(백업/복원 제거) + 주차 바·날짜 헤더. 아래 「4단계 반영 결과」 참조 | `exchange_view_provider.dart`, `exchange_executor.dart`, `exchange_week_bar.dart`(신규), `exchange_week_summary_provider.dart`(신규), `fixed_header_style_manager.dart`, `timetable_tab_content.dart` |
 | **4d** | ✅ **완료 (2026-08-30)** — 교체 가능성 **판정**을 `ResolvedWeek` 기준으로 전환 (P3 해소). 아래 「4d 반영 결과」 참조 | `resolved_timetable_provider.dart`(신규), `exchange_logic_mixin.dart`, `exchange_screen.dart`, `circular_path_finder.dart` |
 | **6** | ✅ **완료 (2026-08-31)** — 기본 일괄 출력 연결 + 주차 그룹핑 + 주차별 일괄 출력. 아래 「6단계 반영 결과」 참조 | `content_input_grid.dart` |
-| **7** | 교체불가 셀 날짜 스코프 (`date?`) | `non_exchangeable` 저장 계층 |
+| **7** | ✅ **완료 (2026-08-31)** — 교체불가 셀 날짜 스코프. 아래 「7단계 반영 결과」 참조 | `non_exchangeable_data_storage_service.dart`, `non_exchangeable_week_overlay.dart`(신규), `non_exchangeable_dated_cells_provider.dart`(신규), `resolved_timetable_provider.dart`, `start_screen.dart`, `timetable_data_source.dart` |
 | **8** | 전체 검증: `flutter analyze` / `flutter test` / 전 흐름 점검 | — |
 
 단계 1~2는 오버레이 전환 없이도 단독으로 가치가 있다(P5·P6 차단). 리스크 분산을 위해
@@ -1365,6 +1365,71 @@ Windows 데스크톱 빌드(`flutter run -d windows`)를 띄우고 Orca computer
 - `test/widgets/substitution_plan_data_source_test.dart` (신규 5건) — `_weekKey`
   계산 로직만 순수 값 단위로 검증(`rows` getter를 통해). SfDataGrid 위젯 테스트는
   플랫폼 의존이 커서 만들지 않고, 대신 위 실행 검증으로 실제 렌더링을 확인했다
+
+#### 7단계 반영 결과 (2026-08-31)
+
+`flutter analyze` 이슈 없음, `flutter test` 188건 전체 통과(신규 10건 포함).
+Windows 데스크톱 빌드로 실제 시간표(월계중2학기, 매주 반복 교체불가 셀 11개)를
+다시 로드해 기존 동작이 그대로인지 확인했다 — 로그에 `교체불가 셀 11개 적용 완료
+(날짜 지정 0개는 해당 주에서만 반영)`가 정확히 찍혔다.
+
+**범위를 문서 원안대로 저장 계층에 한정했다**
+
+§10.8 표의 원래 계획이 이미 "`non_exchangeable` 저장 계층"으로 좁게 잡혀 있었다 —
+UI(만드는 방법)는 범위 밖이다. 이번 단계는 **모델·저장·판정 통합**까지만
+구현했다. 즉 지금은 날짜 지정 교체불가 셀을 **만들 UI가 없다** — 데이터 형식과
+판정 로직은 완성되어 있어, 나중에 UI를 붙이면 바로 동작한다.
+
+**구현 중 발견해 함께 고친 것 — 저장 시 조용한 유실 위험**
+
+`TimetableDataSource._saveNonExchangeableCells()`는 TimeSlot에 구워진 값만
+다시 추출해 파일 전체를 **덮어쓰는** 구조였다. 날짜 지정 셀은 설계상 TimeSlot에
+절대 굽지 않으므로(그 주에만 적용되어야 하니까), 이 상태로 두면 **사용자가
+매주 반복 셀 하나만 토글해도 저장 파일에서 날짜 지정 셀이 통째로 사라진다.**
+지금은 날짜 지정 셀을 만들 UI가 없어 당장 재현되지는 않지만, 이 모델을 실제로
+쓸모 있게 만들려면 반드시 함께 고쳐야 하는 문제였다 — `nonExchangeableDatedCellsProvider`에
+보관해 둔 값과 병합해서 저장하도록 고쳤다.
+
+**구현 중 발견한 함정 — `isSameWeek`은 "같은 주"가 아니라 "같은 날짜"를 비교한다**
+
+`ExchangeWeekCollector.isSameWeek(a, b)`는 두 `DateTime`이 **이미 각자의 주의
+월요일로 정규화되어 있다는 전제**로 단순 날짜 비교만 한다(4단계 `ResolvedWeek`,
+5단계 주차 바 모두 이 전제를 지켜 호출했다). 이번 구현에서 `cell.date`(요일이
+섞인 실제 날짜, 월요일이 아닐 수 있음)를 정규화 없이 그대로 넘겼다가 테스트에서
+바로 걸렸다 — 화요일 날짜를 그 주의 월요일과 비교하니 "다른 날"로 판정되어
+전혀 적용되지 않았다. `WeekDateCalculator.getWeekMonday(cell.date)`로 먼저
+정규화한 뒤 비교하도록 고쳤다. **`isSameWeek`를 호출하는 새 코드는 항상 양쪽
+인자가 월요일로 정규화되어 있는지부터 확인해야 한다** — 함수 이름만 보고
+"같은 주인지 알아서 판정해 줄 것"이라고 가정하면 안 된다.
+
+**반영 내용**
+
+| 파일 | 변경 |
+|---|---|
+| `non_exchangeable_data_storage_service.dart` | `NonExchangeableCell`에 `date`(nullable) 추가. `isRecurring` getter. `date == null`이면 `toJson`에 `date` 키 자체가 없어 구 형식과 파일 모양이 동일 — 구 데이터가 예외 없이 "매주 반복"으로 해석된다 |
+| `non_exchangeable_week_overlay.dart` (신규) | `applyDatedNonExchangeable(slots, datedCells, weekMonday)` — 그 주에 속한 날짜 지정 셀만 골라 새 `TimeSlot`으로 교체한 새 리스트를 반환(원본 불변, `ResolvedWeek`와 동일 원칙) |
+| `non_exchangeable_dated_cells_provider.dart` (신규) | 날짜 지정 셀만 담는 `StateProvider`. 시간표 로드마다(빈 리스트 포함) 갱신해 시간표 전환 시 이전 시간표 값이 새지 않게 했다 |
+| `start_screen.dart` | 로드한 셀을 `isRecurring` 기준으로 분리 — 매주 반복만 기존처럼 TimeSlot에 직접 적용, 날짜 지정은 provider에 보관 |
+| `resolved_timetable_provider.dart` | `ResolvedWeek` 합성 결과 위에 그 주의 날짜 지정 교체불가를 추가로 얹는다 — 4d(판정 전환)와 자연스럽게 이어진다 |
+| `timetable_data_source.dart` | 저장 시 매주 반복(추출) + 날짜 지정(provider) 병합 — 위 "조용한 유실" 수정 |
+
+**의도적으로 범위 밖에 둔 것**
+
+- 날짜 지정 셀을 **만드는 UI**(예: "이 날짜만 교체불가" 토글). 지금의 교체불가
+  편집 모드는 클릭 = 매주 반복 토글 하나뿐이다
+- **렌더링(빨간 셀 표시)**의 날짜 인지. `NonExchangeableManager.isNonExchangeableTimeSlot`은
+  건드리지 않았다 — `TimetableDataSource`가 그리드에 어떤 `timeSlots`를 넘기느냐에
+  따라 이미 간접적으로 옳게 그려지지만(교체 뷰가 `resolvedTimetableProvider` 계열을
+  거치는 경로에 한해), 편집 모드 자체의 UI는 아직 날짜 개념을 모른다
+
+**테스트**
+
+- `test/services/non_exchangeable_data_storage_service_test.dart` (신규 5건) —
+  `isRecurring`, JSON 왕복, `date` 없을 때 키 자체가 안 생기는 것, 구 형식
+  호환(`date` 키 없는 JSON → null로 해석)
+- `test/utils/non_exchangeable_week_overlay_test.dart` (신규 5건) — 같은 주
+  적용, 다른 주 무관, 매주 반복 셀 제외, 원본 불변, 대상 없으면 원본 리스트를
+  그대로(새 리스트 생성 없이) 반환
 
 ### 10.9 리스크
 

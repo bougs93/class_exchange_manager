@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/time_slot.dart';
+import '../utils/non_exchangeable_week_overlay.dart';
 import '../utils/resolved_week.dart';
 import 'exchange_screen_provider.dart';
+import 'non_exchangeable_dated_cells_provider.dart';
 import 'selected_week_provider.dart';
 import 'services_provider.dart';
 
@@ -34,9 +36,16 @@ final resolvedTimetableProvider = Provider<List<TimeSlot>>((ref) {
   final events = ref.read(exchangeHistoryServiceProvider).getActiveExchangeList();
   final base = timetableData.timeSlots;
 
-  return ResolvedWeek.of(
+  final resolved = ResolvedWeek.of(
     base: base,
     events: events,
     weekMonday: weekMonday,
   ).toTimeSlots(base);
+
+  // 날짜 지정 교체불가 셀(§10.6) — 매주 반복 셀은 이미 base에 구워져 있으므로
+  // 여기서는 그 주에만 적용되는 셀만 얹는다.
+  final datedNonExchangeable = ref.watch(nonExchangeableDatedCellsProvider);
+  if (datedNonExchangeable.isEmpty) return resolved;
+
+  return applyDatedNonExchangeable(resolved, datedNonExchangeable, weekMonday);
 });

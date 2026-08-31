@@ -10,6 +10,7 @@ import '../models/supplement_exchange_path.dart';
 import '../ui/widgets/simplified_timetable_cell.dart';
 import '../providers/cell_selection_provider.dart';
 import '../providers/app_settings_provider.dart';
+import '../providers/non_exchangeable_dated_cells_provider.dart';
 import '../providers/timetable_registry_provider.dart';
 import '../services/non_exchangeable_data_storage_service.dart';
 import 'exchange_algorithm.dart';
@@ -668,14 +669,21 @@ class TimetableDataSource extends DataGridSource {
   }
 
   /// 교체불가 셀 데이터 저장 (별도 파일로 저장)
+  ///
+  /// §10.6: 날짜 지정 셀은 TimeSlot에 굽지 않으므로 `extractNonExchangeableCellsFromTimeSlots`
+  /// 결과(매주 반복 셀만)에는 나타나지 않는다. 이 결과로 그대로 덮어쓰면 사용자가
+  /// 매주 반복 셀 하나만 토글해도 저장 파일에서 날짜 지정 셀이 조용히 사라진다 —
+  /// `nonExchangeableDatedCellsProvider`에 보관해 둔 값과 합쳐서 저장한다.
   Future<void> _saveNonExchangeableCells() async {
     try {
-      // 싱글톤 인스턴스 가져오기
       final storageService = NonExchangeableDataStorageService();
-      final cells = storageService.extractNonExchangeableCellsFromTimeSlots(
-        _timeSlots,
-      );
-      await storageService.saveNonExchangeableCells(cells);
+      final recurringCells = storageService
+          .extractNonExchangeableCellsFromTimeSlots(_timeSlots);
+      final datedCells = ref.read(nonExchangeableDatedCellsProvider);
+      await storageService.saveNonExchangeableCells([
+        ...recurringCells,
+        ...datedCells,
+      ]);
     } catch (e) {
       AppLogger.error('교체불가 셀 데이터 저장 중 오류: $e', e);
     }

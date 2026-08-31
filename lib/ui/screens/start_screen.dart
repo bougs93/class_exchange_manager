@@ -7,6 +7,7 @@ import 'start_content_screen.dart';
 import 'guide_screen.dart';
 import 'notice_screen.dart';
 import '../../providers/navigation_provider.dart';
+import '../../providers/non_exchangeable_dated_cells_provider.dart';
 import '../../constants/nav_indices.dart';
 import '../widgets/unified_navigation_bar.dart';
 import '../../providers/exchange_screen_provider.dart';
@@ -201,16 +202,29 @@ class _StartScreenState extends ConsumerState<StartScreen> {
 
   /// 교체불가 셀 데이터 로드 및 적용
   ///
-  /// 프로그램 시작 시 저장된 교체불가 셀 데이터를 로드하여
-  /// TimeSlot의 isExchangeable을 false로 설정합니다.
+  /// 프로그램 시작 시 저장된 교체불가 셀 데이터를 로드합니다.
+  ///
+  /// §10.6: 매주 반복 셀(`date == null`)만 기존 방식대로 TimeSlot에 직접
+  /// 구워 넣는다. 날짜가 지정된 셀은 특정 주에만 적용되어야 하므로 원본을
+  /// 건드리지 않고 [nonExchangeableDatedCellsProvider]에 보관한다 —
+  /// `resolvedTimetableProvider`가 현재 선택된 주와 대조해 반영한다.
   Future<void> _applyNonExchangeableCells(TimetableData timetableData) async {
     try {
       final storageService = NonExchangeableDataStorageService();
-      final cells = await storageService.loadNonExchangeableCells();
+      final allCells = await storageService.loadNonExchangeableCells();
 
-      if (cells.isEmpty) {
+      if (allCells.isEmpty) {
+        // 빈 리스트라도 설정한다 — 그렇지 않으면 이전 시간표의 날짜 지정
+        // 셀이 새 시간표로 새어 들어간다(StateProvider는 시간표 스코프가 없다).
+        ref.read(nonExchangeableDatedCellsProvider.notifier).state = const [];
         return;
       }
+
+      final cells = allCells.where((cell) => cell.isRecurring).toList();
+      final datedCells = allCells.where((cell) => !cell.isRecurring).toList();
+      // 항상 갱신한다 — 빈 리스트라도 설정해야 이전 시간표의 날짜 지정 셀이
+      // 새 시간표로 새지 않는다 (StateProvider는 시간표 스코프가 없다)
+      ref.read(nonExchangeableDatedCellsProvider.notifier).state = datedCells;
 
       // 로드된 교체불가 셀 데이터를 TimeSlot에 적용
       for (var cell in cells) {
@@ -241,7 +255,9 @@ class _StartScreenState extends ConsumerState<StartScreen> {
         }
       }
 
-      AppLogger.info('교체불가 셀 ${cells.length}개 적용 완료');
+      AppLogger.info(
+        '교체불가 셀 ${cells.length}개 적용 완료 (날짜 지정 ${datedCells.length}개는 해당 주에서만 반영)',
+      );
     } catch (e) {
       AppLogger.error('교체불가 셀 데이터 적용 중 오류: $e', e);
     }

@@ -151,26 +151,43 @@ class NonExchangeableDataStorageService {
 }
 
 /// 교체불가 셀 정보를 나타내는 클래스
+///
+/// §10.6: [date]가 `null`이면 매주 반복(기존 동작 — 요일·교시만으로 항상 적용),
+/// 값이 있으면 그 날짜가 속한 주에만 적용된다(예: "9/1은 지필평가라 교체 불가").
+/// 구 형식 JSON에는 `date` 키가 없으므로 `fromJson`은 자연스럽게 `null`(매주 반복)로
+/// 해석한다 — 마이그레이션 없이도 기존 데이터가 그대로 동작한다.
 class NonExchangeableCell {
   final String teacher;
   final int dayOfWeek;
   final int period;
+  final DateTime? date;
 
-  NonExchangeableCell({
+  const NonExchangeableCell({
     required this.teacher,
     required this.dayOfWeek,
     required this.period,
+    this.date,
   });
 
+  /// 매주 반복(요일·교시 기준, 날짜 무관) 여부
+  bool get isRecurring => date == null;
+
   Map<String, dynamic> toJson() {
-    return {'teacher': teacher, 'dayOfWeek': dayOfWeek, 'period': period};
+    return {
+      'teacher': teacher,
+      'dayOfWeek': dayOfWeek,
+      'period': period,
+      if (date != null) 'date': date!.toIso8601String(),
+    };
   }
 
   factory NonExchangeableCell.fromJson(Map<String, dynamic> json) {
+    final rawDate = json['date'] as String?;
     return NonExchangeableCell(
       teacher: json['teacher'] as String,
       dayOfWeek: json['dayOfWeek'] as int,
       period: json['period'] as int,
+      date: rawDate != null ? DateTime.tryParse(rawDate) : null,
     );
   }
 }
