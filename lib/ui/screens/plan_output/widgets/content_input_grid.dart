@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
@@ -7,6 +8,7 @@ import '../../../../constants/korean_fonts.dart';
 import 'package:calendar_date_picker2/calendar_date_picker2.dart';
 import 'package:flutter/services.dart';
 import '../../../../constants/screen_usage_hints.dart';
+import '../../../../models/exchange_history_item.dart';
 import '../../../../models/plan_output_menu.dart';
 import '../../../../models/print_profile.dart';
 import '../../../../providers/plan_output_menu_provider.dart';
@@ -17,7 +19,9 @@ import '../../../../providers/exchange_screen_provider.dart';
 import '../../../../providers/services_provider.dart';
 import '../../../../providers/state_reset_provider.dart';
 import '../../../../providers/timetable_registry_provider.dart';
+import '../../../../services/batch_pdf_export_service.dart';
 import '../../../../theme/design_tokens.dart';
+import '../../../../ui/screens/personal_schedule_screen/exchange_week_collector.dart';
 import '../../../../ui/widgets/content_toolbar_layout.dart';
 import '../../../../ui/widgets/content_usage_hint_bar.dart';
 import '../../../../ui/widgets/empty_state_message.dart';
@@ -28,7 +32,25 @@ import '../../../../utils/date_format_utils.dart';
 import '../../../../utils/snackbar_helper.dart';
 import '../../../../utils/dialog_helper.dart';
 import '../../../mixins/scroll_management_mixin.dart';
+import 'batch_export_progress_dialog.dart';
 import 'content_input_grid_helpers.dart';
+
+/// 주(週) 정보를 알 수 없는 행의 그룹 정렬 키 — 항상 맨 뒤로 정렬되도록
+/// 실제 날짜보다 큰 값을 쓴다.
+const String _unresolvedWeekKey = '9999-99-99';
+
+/// DateTime → 그룹 정렬용 ISO 날짜 키 ('yyyy-MM-dd', 사전식 정렬 = 날짜순)
+String _weekSortKey(DateTime weekMonday) {
+  final y = weekMonday.year.toString().padLeft(4, '0');
+  final m = weekMonday.month.toString().padLeft(2, '0');
+  final d = weekMonday.day.toString().padLeft(2, '0');
+  return '$y-$m-$d';
+}
+
+DateTime? _parseWeekSortKey(String key) {
+  if (key == _unresolvedWeekKey) return null;
+  return DateTime.tryParse(key);
+}
 
 /// 보강계획서 데이터 소스
 class SubstitutionPlanDataSource extends DataGridSource {
@@ -54,6 +76,15 @@ class SubstitutionPlanDataSource extends DataGridSource {
   /// 계획서 지정 변경
   final Function(String groupId, String? profileId)? onProfileChanged;
 
+  /// 그룹(교체 건) ID → 소속 주(週)의 월요일 (§10.8 6단계)
+  ///
+  /// `ExchangeHistoryItem.weekMonday`(결강일 기준)에서 만든다. 여기 없는
+  /// groupId는 "주 미지정"으로 묶인다.
+  final Map<String, DateTime> groupWeeks;
+
+  /// 주차별 일괄 출력 — 그 주의 그룹 ID 목록을 넘긴다
+  final void Function(Set<String> groupIds)? onBatchExportGroupIds;
+
   SubstitutionPlanDataSource(
     this.planData, {
     this.onDateCellTap,
@@ -64,7 +95,21 @@ class SubstitutionPlanDataSource extends DataGridSource {
     this.onCreateProfile,
     this.selectedProfileId,
     this.onProfileChanged,
-  });
+    this.groupWeeks = const {},
+    this.onBatchExportGroupIds,
+  }) {
+    // 결강일이 속한 주(週) 기준으로 그룹핑 — sortGroupRows로 주 순서 정렬
+    addColumnGroup(ColumnGroup(name: '_weekKey', sortGroupRows: true));
+  }
+
+  /// 행의 주차 정렬 키 (groupId로 [groupWeeks] 조회, 없으면 미지정 키)
+  String _weekKeyFor(SubstitutionPlanData data) {
+    final groupId = data.groupId;
+    if (groupId == null || groupId.isEmpty) return _unresolvedWeekKey;
+    final week = groupWeeks[groupId];
+    if (week == null) return _unresolvedWeekKey;
+    return _weekSortKey(week);
+  }
 
   @override
   List<DataGridRow> get rows =>
@@ -80,6 +125,11 @@ class SubstitutionPlanDataSource extends DataGridSource {
             DataGridCell<String>(
               columnName: '_groupId',
               value: data.groupId ?? '',
+            ),
+            // 주차 그룹핑용 숨김 컬럼 (§10.8 6단계)
+            DataGridCell<String>(
+              columnName: '_weekKey',
+              value: _weekKeyFor(data),
             ),
             DataGridCell<String>(
               columnName: 'absenceDate',
@@ -155,6 +205,7 @@ class SubstitutionPlanDataSource extends DataGridSource {
               (cell) =>
                   cell.columnName != '_exchangeId' &&
                   cell.columnName != '_groupId' &&
+                  cell.columnName != '_weekKey' &&
                   cell.columnName != 'select' &&
                   cell.columnName != 'profile',
             )
@@ -169,6 +220,63 @@ class SubstitutionPlanDataSource extends DataGridSource {
             .toList();
 
     return DataGridRowAdapter(cells: [selectCell, ...cells]);
+  }
+
+  /// 주차 캡션 행 — `SfDataGrid.groupCaptionTitleFormat: '{Key}'`로
+  /// [summaryValue]에 `_weekKey`(ISO 날짜 문자열)가 그대로 전달된다.
+  ///
+  /// §10.5: "○월○주 · 교체 N건" + 그 주에서 **선택된** 건만 대상으로 한
+  /// "이 주 N건 일괄 출력" 버튼. 선택 0건이면 버튼을 비활성화한다(§3④와 동일 규칙).
+  @override
+  Widget? buildGroupCaptionCellWidget(
+    RowColumnIndex rowColumnIndex,
+    String summaryValue,
+  ) {
+    final weekMonday = _parseWeekSortKey(summaryValue);
+    final label =
+        weekMonday == null
+            ? '주 미지정'
+            : ExchangeWeekCollector.monthWeekLabel(weekMonday);
+
+    final weekGroupIds =
+        planData
+            .where((d) => _weekKeyFor(d) == summaryValue)
+            .map((d) => d.groupId)
+            .whereType<String>()
+            .where((id) => id.isNotEmpty)
+            .toSet();
+
+    final checkedInWeek =
+        weekGroupIds.where((id) => isSelected?.call(id) ?? false).toSet();
+
+    return Container(
+      color: const Color(0x14000000),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      alignment: Alignment.centerLeft,
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              '$label · 교체 ${weekGroupIds.length}건',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ),
+          TextButton(
+            onPressed:
+                checkedInWeek.isEmpty
+                    ? null
+                    : () => onBatchExportGroupIds?.call(checkedInWeek),
+            style: TextButton.styleFrom(
+              minimumSize: const Size(0, 26),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              textStyle: const TextStyle(fontSize: 11),
+            ),
+            child: Text('이 주 ${checkedInWeek.length}건 일괄 출력'),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -859,6 +967,27 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
                 ),
                 const SizedBox(width: ContentToolbarLayout.buttonGap),
                 CompactToolbarLabelButton(
+                  onPressed:
+                      _checkedGroupIds.isEmpty
+                          ? null
+                          : () => _handleBatchExport(
+                            context,
+                            ref,
+                            planData,
+                            _checkedGroupIds,
+                          ),
+                  icon: Icons.picture_as_pdf,
+                  label: '${_checkedGroupIds.length}건 일괄 출력',
+                  tooltip: '선택한 교체 건을 각각 지정된 계획서로 PDF 출력',
+                  backgroundColor: Colors.purple.shade50,
+                  foregroundColor: Colors.purple.shade600,
+                  borderColor: Colors.purple.shade600,
+                  height: buttonHeight,
+                  fontSize: ContentToolbarLayout.buttonFontSize,
+                  iconSize: ContentToolbarLayout.buttonIconSize,
+                ),
+                const SizedBox(width: ContentToolbarLayout.buttonGap),
+                CompactToolbarLabelButton(
                   onPressed: () => _clearAllDates(context, viewModel),
                   icon: Icons.clear,
                   label: '날짜 초기화',
@@ -1025,6 +1154,9 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
       onCreateProfile: _createProfileForRow,
       selectedProfileId: _selectedProfileIdForGroup,
       onProfileChanged: _onGroupProfileChanged,
+      groupWeeks: _buildGroupWeeks(ref),
+      onBatchExportGroupIds:
+          (groupIds) => _handleBatchExport(context, ref, planData, groupIds),
     );
 
     return Expanded(
@@ -1044,11 +1176,151 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
           headerRowHeight: ContentInputGridConfig.headerRowHeight,
           rowHeight: 28,
           allowEditing: false,
+          // 주차 그룹핑 (§10.8 6단계) — 캡션에는 _weekKey 값(원본 문자열)만 전달
+          allowExpandCollapseGroup: true,
+          groupCaptionTitleFormat: '{Key}',
           // 교체 관리 시간표와 동일한 스크롤 컨트롤러 적용 (공통 믹신 사용)
           horizontalScrollController: horizontalScrollController,
           verticalScrollController: verticalScrollController,
         ),
       ),
+    );
+  }
+
+  /// 교체 건(groupId) → 소속 주(週)의 월요일. 그 주 안에서 반복 조회하지
+  /// 않도록 그리드 빌드 시점에 한 번만 만든다.
+  Map<String, DateTime> _buildGroupWeeks(WidgetRef ref) {
+    final history = ref.read(exchangeHistoryServiceProvider).getExchangeList();
+    return {for (final item in history) item.id: item.weekMonday};
+  }
+
+  /// 일괄 출력 — 전체 선택 건(툴바) 또는 특정 주의 선택 건(주차 캡션)에서 호출된다.
+  ///
+  /// 흐름(문서 §3④): 저장 폴더 선택 1회 → 진행 다이얼로그(n/N·파일명·[취소]) →
+  /// 완료 요약. [취소]는 진행 중인 1건까지만 마치고 중단한다.
+  Future<void> _handleBatchExport(
+    BuildContext context,
+    WidgetRef ref,
+    List<SubstitutionPlanData> planData,
+    Set<String> groupIds,
+  ) async {
+    if (groupIds.isEmpty) {
+      SnackBarHelper.showError(context, '선택된 교체 건이 없습니다.');
+      return;
+    }
+
+    final history = ref.read(exchangeHistoryServiceProvider).getExchangeList();
+    final profileStore = ref.read(printProfileStoreProvider);
+
+    final items = <BatchExportItem>[];
+    for (final groupId in groupIds) {
+      final rows = planData.where((d) => d.groupId == groupId).toList();
+      if (rows.isEmpty) continue; // 삭제된 교체 건이 선택 집합에 남아 있는 경우
+      final ExchangeHistoryItem? historyItem =
+          history.where((h) => h.id == groupId).firstOrNull;
+      final profile = profileStore.getById(historyItem?.profileId);
+      items.add(BatchExportItem(itemId: groupId, rows: rows, profile: profile));
+    }
+
+    if (items.isEmpty) {
+      SnackBarHelper.showError(context, '선택된 교체 건이 없습니다.');
+      return;
+    }
+
+    final outputDirectory = await FilePicker.getDirectoryPath(
+      dialogTitle: 'PDF 저장 폴더 선택',
+    );
+    if (outputDirectory == null || !context.mounted) return; // 사용자 취소
+
+    final progressController = StreamController<BatchExportProgress>();
+    bool cancelRequested = false;
+    final service = BatchPdfExportService();
+
+    final resultFuture = service.exportAll(
+      items: items,
+      outputDirectory: outputDirectory,
+      onProgress: (done, total, fileName) {
+        if (!progressController.isClosed) {
+          progressController.add(
+            BatchExportProgress(done: done, total: total, fileName: fileName),
+          );
+        }
+      },
+      isCancelled: () => cancelRequested,
+    );
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (_) => BatchExportProgressDialog(
+            initialTotal: items.length,
+            progressStream: progressController.stream,
+            onCancel: () => cancelRequested = true,
+          ),
+    );
+
+    final result = await resultFuture;
+    await progressController.close();
+
+    if (!context.mounted) return;
+    Navigator.of(context, rootNavigator: true).pop(); // 진행 다이얼로그 닫기
+
+    await _showBatchExportSummary(context, result);
+  }
+
+  /// 일괄 출력 완료 요약: "5건 중 4건 출력 성공, 1건 실패" (+ 건별 실패 사유)
+  Future<void> _showBatchExportSummary(
+    BuildContext context,
+    BatchPdfExportResult result,
+  ) async {
+    final parts = <String>[
+      '${result.totalCount}건 중 ${result.successCount}건 출력 성공',
+    ];
+    if (result.cancelledCount > 0) parts.add('취소됨 ${result.cancelledCount}건');
+    if (result.errors.isNotEmpty) parts.add('실패 ${result.errors.length}건');
+
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder:
+          (dialogContext) => AlertDialog(
+            title: const Text('일괄 출력 완료'),
+            content: SizedBox(
+              width: 340,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(parts.join(' · ')),
+                    if (result.errors.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      const Text(
+                        '실패 내역',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 4),
+                      for (final error in result.errors)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 2),
+                          child: Text(
+                            '· $error',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('확인'),
+              ),
+            ],
+          ),
     );
   }
 

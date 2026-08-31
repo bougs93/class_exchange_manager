@@ -1,7 +1,7 @@
 # 시간표 다중화 & 교사별 계획서(인쇄 프로파일) 설계
 
 > 작성일: 2026-08-26
-> 최종 수정: 2026-08-30 (§10 날짜 기반 구조 전환 설계 추가 · 마이그레이션 없음 정책 반영)
+> 최종 수정: 2026-08-31 (§10 1~6단계 구현 완료 — 날짜 기반 구조 전환 · 마이그레이션 없음 정책 반영)
 > 상태: §1~§9 구현 완료 (반영 결과는 §8, 점검은 §9) · **§10 설계 확정 · 미구현**
 
 ## 1. 요구사항
@@ -1042,7 +1042,7 @@ exchange_list_{timetableId}.json
 | **4a** | ✅ **완료 (2026-08-30)** — 순환·2중 교체의 `CellMove` 분해 (3단계 이월분) | `resolved_week.dart` |
 | **4c+5** | ✅ **완료 (2026-08-30)** — 표시 경로를 `ResolvedWeek`로 전환(백업/복원 제거) + 주차 바·날짜 헤더. 아래 「4단계 반영 결과」 참조 | `exchange_view_provider.dart`, `exchange_executor.dart`, `exchange_week_bar.dart`(신규), `exchange_week_summary_provider.dart`(신규), `fixed_header_style_manager.dart`, `timetable_tab_content.dart` |
 | **4d** | ✅ **완료 (2026-08-30)** — 교체 가능성 **판정**을 `ResolvedWeek` 기준으로 전환 (P3 해소). 아래 「4d 반영 결과」 참조 | `resolved_timetable_provider.dart`(신규), `exchange_logic_mixin.dart`, `exchange_screen.dart`, `circular_path_finder.dart` |
-| **6** | 교체 목록 주차 그룹핑 + 소유 교사 열 + 주차별 일괄 출력 | `content_input_grid.dart`, `batch_pdf_export_service.dart` |
+| **6** | ✅ **완료 (2026-08-31)** — 기본 일괄 출력 연결 + 주차 그룹핑 + 주차별 일괄 출력. 아래 「6단계 반영 결과」 참조 | `content_input_grid.dart` |
 | **7** | 교체불가 셀 날짜 스코프 (`date?`) | `non_exchangeable` 저장 계층 |
 | **8** | 전체 검증: `flutter analyze` / `flutter test` / 전 흐름 점검 | — |
 
@@ -1293,6 +1293,78 @@ toDay, toPeriod}` 하나의 원시 연산으로 표현된다. `fromTeacher == to
 생성되지는 않는다**. 다만 §10.5가 그린 "⚠ 같은 주 충돌" 명시적 경고 메시지는
 아직 없다 — 사용자에게는 "그 칸이 후보로 안 뜬다"로만 보인다. 이 UX 보강은
 6단계(교체 목록 주차 그룹핑)와 함께 다루는 것이 자연스럽다.
+
+#### 6단계 반영 결과 (2026-08-31)
+
+`flutter analyze` 이슈 없음, `flutter test` 178건 전체 통과(신규 5건 포함).
+**실제 실행 검증**: Windows 데스크톱 앱을 빌드해 띄우고, 실제 시간표(월계중2학기,
+49명 교사) 위에서 1:1 교체를 실행 → 계획서 화면에서 주차 그룹핑·일괄 출력
+버튼·PDF 저장 폴더 선택 다이얼로그까지 육안으로 확인했다(아래 「실행 검증」 참조).
+확인 후 테스트로 만든 교체는 되돌리기로 원상 복구했다.
+
+**착수 시 발견한 것 — 기본 일괄 출력 버튼이 애초에 없었다**
+
+§8 문서는 "일괄 출력 진행률·취소"가 반영 완료라고 적었지만, 실제로는
+`BatchPdfExportService.exportAll()`과 `BatchExportProgressDialog`가 `lib/` 어디에서도
+호출되지 않는 **완성된 채로 연결만 안 된 코드**였다. `content_input_grid.dart`에는
+체크박스와 "결보강 출력" 이동 버튼만 있고, "N건 일괄 출력" 버튼 자체가 없었다.
+
+⇒ 6단계 범위를 넓혀 **기본 연결부터 함께 구현**했다. 사용자 확인: "기본 연결 +
+주차별 확장을 함께" — 문서 §8의 반영 기록은 정정하지 않고, 이번 절에 실제
+연결 시점을 남긴다.
+
+**구현 방식 — Syncfusion 내장 그룹핑을 사용했다 (직접 구현 아님)**
+
+당초 여러 `SfDataGrid` 인스턴스를 주차별로 쌓거나(높이 계산·가로스크롤 동기화 필요)
+행 목록에 "가짜 헤더 행"을 끼워 넣는 방식을 검토했으나, 둘 다 이 프로젝트가 이미
+겪은 Syncfusion 관련 사고(CLAUDE.md의 "동적 헤더 업데이트 이슈")를 반복할 위험이
+컸다. 대신 **`DataGridSource.groupedColumns` + `buildGroupCaptionCellWidget`**(공식
+그룹핑 API, `syncfusion_flutter_datagrid` 소스에서 직접 확인)를 사용했다 —
+Syncfusion이 캡션 행의 생성·펼침/접힘·행 재배치를 전담하므로 직접 구현했을 때
+생길 수 있는 상태 관리 버그(높이 오차, 가로 스크롤 어긋남 등)가 원천적으로 없다.
+
+```dart
+// 각 행에 숨김 컬럼 '_weekKey' 추가 (그룹 정렬 키 = 'yyyy-MM-dd', 미지정은 '9999-99-99'로 항상 맨 뒤)
+addColumnGroup(ColumnGroup(name: '_weekKey', sortGroupRows: true));
+
+// SfDataGrid: groupCaptionTitleFormat: '{Key}' → 캡션에 _weekKey 원본 문자열만 전달
+// buildGroupCaptionCellWidget에서 "8월5주 · 교체 N건" + "이 주 N건 일괄 출력" 렌더링
+```
+
+**반영 내용**
+
+| 항목 | 내용 |
+|---|---|
+| 기본 "N건 일괄 출력" 버튼 | 툴바에 추가. `_checkedGroupIds` 기준으로 `BatchExportItem` 목록 구성 → 폴더 선택(`FilePicker.getDirectoryPath`) → 진행 다이얼로그(기존 `BatchExportProgressDialog` 재사용) → 완료 요약(성공/실패/취소 건수 + 실패 사유) |
+| 주차 그룹핑 | `_weekKey` 숨김 컬럼 + `groupedColumns`. 정렬 키를 ISO 날짜 문자열(`yyyy-MM-dd`)로 만들어 **사전식 정렬 = 날짜순 정렬**이 되게 했다(패딩 없는 형식이면 순서가 깨진다) |
+| 주차별 일괄 출력 | 캡션 위젯에 "이 주 N건 일괄 출력" 버튼. 그 주 그룹 중 **선택된 것만** 대상으로 하고, 0건이면 비활성화(§3④ "선택 0건이면 버튼 비활성" 규칙과 동일) |
+| 소유 교사 열 | 별도 컬럼을 추가하지 않았다. 기존 `teacher`(결강 교사) 컬럼이 이미 "이 건의 당사자가 누구인지"를 보여주고 있고, 이 앱에는 로그인·등록자 개념이 없어 "실행한 사람"과 "결강 교사"를 구분할 방법 자체가 없다 — 별도 열은 존재하지 않는 정보를 보여주는 척하게 된다 |
+
+**의도적으로 범위 밖에 둔 것**
+
+- `_weekKeyFor`가 `groupWeeks`(교체 건 → 주 매핑)에 없는 groupId를 만나면 "주
+  미지정"으로 묶고 조용히 넘어간다. 정상 흐름에서는 발생하지 않지만(교체 건은
+  항상 `ExchangeHistoryItem.weekMonday`를 가진다), 방어적으로 남겨두었다
+
+**실행 검증**
+
+Windows 데스크톱 빌드(`flutter run -d windows`)를 띄우고 Orca computer-use로
+직접 조작했다.
+
+1. 교체 화면 — 주차 바 `◀ 8월5주 ▶`, 날짜 헤더 `월 (8/31)` ~ `금 (9/4)` 렌더링 확인
+2. 문유란 월1교시 ↔ 유종석 월5교시 1:1 교체 실행 → 주차 바 배지가 `8월5주 ①`로 즉시 갱신,
+   스낵바 "문유란 월1교시 ↔ 유종석 월5교시 1:1 교체가 완료되었습니다" 확인 (4d 판정 경로 정상)
+3. 계획서 화면 — 캡션 "8월5주 · 교체 1건" + "이 주 1건 일괄 출력" 렌더링, 툴바
+   "1건 일괄 출력" 버튼 활성화, `teacher` 컬럼에 "문유란" 표시 확인
+4. "1건 일괄 출력" 클릭 → "PDF 저장 폴더 선택" 네이티브 다이얼로그가 실제로 열림을
+   `list-windows`로 확인 (전체 출력까지는 실행하지 않고 취소)
+5. 검증에 사용한 교체 1건은 [되돌리기]로 원상 복구, 앱 정상 종료 확인
+
+**테스트**
+
+- `test/widgets/substitution_plan_data_source_test.dart` (신규 5건) — `_weekKey`
+  계산 로직만 순수 값 단위로 검증(`rows` getter를 통해). SfDataGrid 위젯 테스트는
+  플랫폼 의존이 커서 만들지 않고, 대신 위 실행 검증으로 실제 렌더링을 확인했다
 
 ### 10.9 리스크
 
