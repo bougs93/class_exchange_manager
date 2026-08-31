@@ -195,6 +195,22 @@ class _StartScreenState extends ConsumerState<StartScreen> {
 
       setState(() {});
       AppLogger.info('저장된 데이터 로드 완료');
+
+      // §10.6: 구 스키마(날짜 정보 없음) 교체 목록을 백업하고 넘어간 경우
+      // 1회 안내한다 — 안내 없이 조용히 지나가면 "버그로 데이터가 날아갔다"로
+      // 보인다. 8단계 전체 검증에서 이 소비 호출 자체가 누락되어 있었다.
+      if (ref.read(exchangeHistoryServiceProvider).consumeLegacyDataNotice() &&
+          mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              '이전 버전의 교체 목록은 날짜 정보가 없어 사용할 수 없습니다. '
+              '교체를 다시 등록해 주세요. (이전 데이터는 .v1.bak으로 보관됩니다)',
+            ),
+            duration: Duration(seconds: 6),
+          ),
+        );
+      }
     } catch (e) {
       AppLogger.error('저장된 데이터 로드 중 오류: $e', e);
     }
