@@ -96,4 +96,62 @@ void main() {
       }
     });
   });
+
+  group('ExchangeHistoryItem.copyWithDates (§10.10)', () {
+    test('absenceDate만 지정하면 substitutionDate는 그대로 유지된다', () {
+      final item = ExchangeHistoryItem.fromExchangePath(
+        _testPath(),
+        absenceDate: DateTime(2026, 8, 27),
+        substitutionDate: DateTime(2026, 8, 28),
+      );
+
+      final updated = item.copyWithDates(absenceDate: DateTime(2026, 9, 3));
+
+      expect(updated.absenceDate, DateTime(2026, 9, 3));
+      expect(updated.substitutionDate, item.substitutionDate);
+      expect(updated.id, item.id);
+    });
+
+    test('substitutionDate만 지정하면 absenceDate는 그대로 유지된다', () {
+      final item = ExchangeHistoryItem.fromExchangePath(
+        _testPath(),
+        absenceDate: DateTime(2026, 8, 27),
+        substitutionDate: DateTime(2026, 8, 28),
+      );
+
+      final updated = item.copyWithDates(
+        substitutionDate: DateTime(2026, 9, 4),
+      );
+
+      expect(updated.absenceDate, item.absenceDate);
+      expect(updated.substitutionDate, DateTime(2026, 9, 4));
+    });
+
+    test('둘 다 지정하지 않으면 아무 것도 바뀌지 않는다', () {
+      final item = ExchangeHistoryItem.fromExchangePath(
+        _testPath(),
+        absenceDate: DateTime(2026, 8, 27),
+        substitutionDate: DateTime(2026, 8, 28),
+      );
+
+      final updated = item.copyWithDates();
+
+      expect(updated.absenceDate, item.absenceDate);
+      expect(updated.substitutionDate, item.substitutionDate);
+    });
+
+    test('시간 정보가 포함된 날짜를 넘겨도 자정 기준으로 정규화된다', () {
+      final item = ExchangeHistoryItem.fromExchangePath(
+        _testPath(),
+        absenceDate: DateTime(2026, 8, 27),
+        substitutionDate: DateTime(2026, 8, 28),
+      );
+
+      final updated = item.copyWithDates(
+        absenceDate: DateTime(2026, 9, 3, 15, 30),
+      );
+
+      expect(updated.absenceDate, DateTime(2026, 9, 3));
+    });
+  });
 }

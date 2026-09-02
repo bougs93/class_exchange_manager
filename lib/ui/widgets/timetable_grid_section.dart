@@ -1587,8 +1587,9 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       final historyService = ref.read(exchangeHistoryServiceProvider);
       historyService.clearExchangeList();
 
-      // 2. 저장된 결강일·교체일·보강 과목 정보 삭제
-      ref.read(substitutionPlanProvider.notifier).clearAllDates();
+      // 2. 저장된 보강 과목 정보 삭제
+      // (결강일·교체일은 교체 항목 자체에 있으므로 위 clearExchangeList()로 이미 함께 삭제됨 — §10.10)
+      ref.read(substitutionPlanProvider.notifier).clearAllSupplementSubjects();
 
       // 3. 교체된 셀 상태 업데이트 (빈 리스트로 갱신하여 교체된 셀 스타일 제거)
       // ExchangeExecutor의 updateExchangedCells() 재사용 (코드 중복 방지)

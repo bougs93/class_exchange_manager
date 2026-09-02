@@ -129,7 +129,7 @@ class SubstitutionPlanViewModel
     extends StateNotifier<SubstitutionPlanViewModelState> {
   SubstitutionPlanViewModel(this._ref)
     : super(const SubstitutionPlanViewModelState()) {
-    _parser = ExchangeNodeParser(_ref);
+    _parser = ExchangeNodeParser();
 
     // 초기 데이터 로드
     loadPlanData();
@@ -153,14 +153,14 @@ class SubstitutionPlanViewModel
     });
 
     // 🔥 Provider 상태 변경 감지 및 자동 복원
-    // substitutionPlanProvider의 상태가 변경되면 (저장된 날짜/과목이 로드되면)
-    // 자동으로 보강계획서 데이터를 다시 로드하여 복원된 날짜/과목을 반영합니다.
+    // substitutionPlanProvider의 상태가 변경되면(저장된 보강 과목이 로드되면)
+    // 자동으로 보강계획서 데이터를 다시 로드하여 복원된 과목을 반영합니다.
+    // §10.10: 날짜(savedDates)는 여기서 더 이상 다루지 않는다 — 결강일·교체일은
+    // ExchangeHistoryItem.absenceDate/substitutionDate가 유일한 진실원본이며,
+    // 그 값이 바뀌면 exchangeListVersionProvider가 바뀌어 아래 리스너로 이미 갱신된다.
     _ref.listen(substitutionPlanProvider, (previous, next) {
-      // Provider에 저장된 데이터가 로드되었는지 확인
-      final hasSavedData =
-          next.savedDates.isNotEmpty || next.savedSupplementSubjects.isNotEmpty;
+      final hasSavedData = next.savedSupplementSubjects.isNotEmpty;
       final previousHasSavedData =
-          previous?.savedDates.isNotEmpty == true ||
           previous?.savedSupplementSubjects.isNotEmpty == true;
 
       // 이전에는 데이터가 없었고, 현재는 데이터가 있는 경우 (프로그램 시작 후 데이터 로드 완료)
@@ -192,12 +192,20 @@ class SubstitutionPlanViewModel
   }
 
   /// 교체 히스토리에서 보강계획서 데이터 로드
+  ///
+  /// §10.10: 결강일·교체일은 `item.absenceDate`/`item.substitutionDate`
+  /// (DateTime, 실행 시 자동 확정됨)에서 바로 채운다 — 더 이상 사용자가
+  /// 별도로 입력한 값을 저장소에서 복원해오지 않는다. 보강 과목만 여전히
+  /// `substitutionPlanProvider`(savedSupplementSubjects)에서 복원한다.
   Future<void> loadPlanData() async {
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
       final historyService = _ref.read(exchangeHistoryServiceProvider);
       final exchangeList = historyService.getExchangeList();
+      final substitutionPlanNotifier = _ref.read(
+        substitutionPlanProvider.notifier,
+      );
 
       AppLogger.exchangeDebug('교체 히스토리 개수: ${exchangeList.length}');
 
@@ -207,92 +215,80 @@ class SubstitutionPlanViewModel
         return;
       }
 
-      // 캐시 클리어
-      _parser.clearCache();
-
       final List<SubstitutionPlanData> newPlanData = [];
 
       for (final item in exchangeList) {
         final nodes = item.originalPath.nodes;
         final exchangeType = item.type;
+        final absenceDateStr = DateFormatUtils.toYearMonthDay(
+          item.absenceDate,
+        );
+        final substitutionDateStr = DateFormatUtils.toYearMonthDay(
+          item.substitutionDate,
+        );
 
         AppLogger.exchangeDebug('교체 타입 처리: ${exchangeType.displayName}');
 
         switch (exchangeType) {
           case ExchangePathType.oneToOne:
-            _handleOneToOneExchange(nodes, item.notes, newPlanData, item.id);
+            _handleOneToOneExchange(
+              nodes,
+              item.notes,
+              newPlanData,
+              item.id,
+              absenceDateStr,
+              substitutionDateStr,
+            );
             break;
 
           case ExchangePathType.circular:
-            _handleCircularExchange(nodes, newPlanData, item.id);
+            _handleCircularExchange(
+              nodes,
+              newPlanData,
+              item.id,
+              absenceDateStr,
+              substitutionDateStr,
+            );
             break;
 
           case ExchangePathType.dual:
-            _handleDualExchange(nodes, newPlanData, item.id);
+            _handleDualExchange(
+              nodes,
+              newPlanData,
+              item.id,
+              absenceDateStr,
+              substitutionDateStr,
+            );
             break;
 
           case ExchangePathType.supplement:
-            _handleSupplementExchange(nodes, newPlanData, item.id);
+            _handleSupplementExchange(
+              nodes,
+              newPlanData,
+              item.id,
+              absenceDateStr,
+            );
             break;
         }
       }
 
-      // 🔥 저장된 날짜 및 보강 과목 복원 적용
-      // Provider에서 직접 가져와서 복원 (캐시를 거치지 않고 최신 데이터 사용)
-      final substitutionPlanNotifier = _ref.read(
-        substitutionPlanProvider.notifier,
-      );
-
+      // 보강 과목만 복원 (날짜는 위에서 이미 item 기준으로 채워짐)
       final restored =
           newPlanData.map((d) {
-            // 저장된 날짜 복원
-            final savedAbsenceDate = substitutionPlanNotifier.getSavedDate(
-              d.exchangeId,
-              'absenceDate',
-            );
-            final savedSubstitutionDate = substitutionPlanNotifier.getSavedDate(
-              d.exchangeId,
-              'substitutionDate',
-            );
-
-            // 저장된 보강 과목 복원
             final savedSupplementSubject = substitutionPlanNotifier
                 .getSupplementSubject(d.exchangeId);
-
-            // 복원된 값이 있으면 업데이트, 없으면 기존 값 유지
-            return d.copyWith(
-              absenceDate:
-                  savedAbsenceDate.isNotEmpty
-                      ? savedAbsenceDate
-                      : d.absenceDate,
-              substitutionDate:
-                  savedSubstitutionDate.isNotEmpty
-                      ? savedSubstitutionDate
-                      : d.substitutionDate,
-              supplementSubject:
-                  savedSupplementSubject.isNotEmpty
-                      ? savedSupplementSubject
-                      : d.supplementSubject,
-            );
+            return savedSupplementSubject.isNotEmpty
+                ? d.copyWith(supplementSubject: savedSupplementSubject)
+                : d;
           }).toList();
 
       state = state.copyWith(planData: restored, isLoading: false);
 
-      // 복원된 데이터 로그 출력
-      final restoredDatesCount =
-          restored
-              .where(
-                (d) =>
-                    (d.absenceDate.isNotEmpty && d.absenceDate != '선택') ||
-                    (d.substitutionDate.isNotEmpty &&
-                        d.substitutionDate != '선택'),
-              )
-              .length;
       final restoredSubjectsCount =
           restored.where((d) => d.supplementSubject.isNotEmpty).length;
 
       AppLogger.info(
-        '✅ [보강계획서] 데이터 복원 완료: 전체 ${restored.length}개 항목, 날짜 복원 $restoredDatesCount개, 보강 과목 복원 $restoredSubjectsCount개',
+        '✅ [보강계획서] 데이터 로드 완료: 전체 ${restored.length}개 항목, 보강 과목 복원 $restoredSubjectsCount개',
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: '데이터 로드 중 오류: $e');
@@ -306,6 +302,8 @@ class SubstitutionPlanViewModel
     String? notes,
     List<SubstitutionPlanData> planData,
     String groupId,
+    String absenceDate,
+    String substitutionDate,
   ) {
     if (nodes.length < 2) {
       AppLogger.exchangeDebug('1:1 교체: 노드가 부족합니다 (${nodes.length}개)');
@@ -326,6 +324,8 @@ class SubstitutionPlanViewModel
       targetNode: targetNode,
       exchangeId: exchangeId,
       groupId: groupId,
+      absenceDate: absenceDate,
+      substitutionDate: substitutionDate,
       remarks: notes,
     );
 
@@ -338,6 +338,8 @@ class SubstitutionPlanViewModel
     List nodes,
     List<SubstitutionPlanData> planData,
     String groupId,
+    String absenceDate,
+    String substitutionDate,
   ) {
     if (nodes.length < 3) {
       AppLogger.exchangeDebug('순환교체: 노드가 부족합니다 (${nodes.length}개)');
@@ -365,6 +367,8 @@ class SubstitutionPlanViewModel
         targetNode: targetNode,
         exchangeId: exchangeId,
         groupId: groupId,
+        absenceDate: absenceDate,
+        substitutionDate: substitutionDate,
         remarks: _getCircularExchangeRemarks(0, nodes.length),
         isCircular: true,
       );
@@ -400,6 +404,8 @@ class SubstitutionPlanViewModel
           targetNode: targetNode,
           exchangeId: exchangeId,
           groupId: groupId,
+          absenceDate: absenceDate,
+          substitutionDate: substitutionDate,
           remarks: remarks,
           isCircular: true,
         );
@@ -429,6 +435,8 @@ class SubstitutionPlanViewModel
     List nodes,
     List<SubstitutionPlanData> planData,
     String groupId,
+    String absenceDate,
+    String substitutionDate,
   ) {
     if (nodes.length < 4) {
       AppLogger.exchangeDebug('2중교체: 노드가 부족합니다 (${nodes.length}개)');
@@ -453,6 +461,8 @@ class SubstitutionPlanViewModel
       targetNode: absentNode,
       exchangeId: finalExchangeId,
       groupId: groupId,
+      absenceDate: absenceDate,
+      substitutionDate: substitutionDate,
       remarks: '2중교체(중간)',
       isDual: true,
     );
@@ -471,6 +481,8 @@ class SubstitutionPlanViewModel
       targetNode: intermediateNode2,
       exchangeId: intermediateExchangeId,
       groupId: groupId,
+      absenceDate: absenceDate,
+      substitutionDate: substitutionDate,
       remarks: '2중교체(최종)',
       isDual: true,
     );
@@ -484,6 +496,7 @@ class SubstitutionPlanViewModel
     List nodes,
     List<SubstitutionPlanData> planData,
     String groupId,
+    String absenceDate,
   ) {
     if (nodes.length < 2) {
       AppLogger.exchangeDebug('보강: 노드가 부족합니다 (${nodes.length}개)');
@@ -505,6 +518,8 @@ class SubstitutionPlanViewModel
       targetNode: targetNode,
       exchangeId: exchangeId,
       groupId: groupId,
+      absenceDate: absenceDate,
+      substitutionDate: '',
       isSupplement: true,
     );
 
@@ -512,102 +527,19 @@ class SubstitutionPlanViewModel
     AppLogger.exchangeDebug('보강 처리 완료');
   }
 
-  /// 날짜 업데이트 (동일 수업 조건 연동) - 성능 최적화 버전 O(n)
-  void updateDate(String exchangeId, String columnName, String newDate) {
-    // Provider에 날짜 저장
-    _ref
-        .read(substitutionPlanProvider.notifier)
-        .saveDate(exchangeId, columnName, newDate);
-
-    // 현재 항목 찾기
-    final currentIndex = state.planData.indexWhere(
-      (data) => data.exchangeId == exchangeId,
-    );
-    if (currentIndex == -1) return;
-
-    final currentData = state.planData[currentIndex];
-
-    // 수업 조건 키 생성
-    final targetKey = ClassConditionMatcher.extractTargetKey(
-      currentData,
-      columnName,
-    );
-
-    // 연동 대상 인덱스 추출
-    final indicesToUpdate = <int, String>{}; // index -> columnName
-
-    for (int i = 0; i < state.planData.length; i++) {
-      final data = state.planData[i];
-
-      // 결강일 섹션 검사
-      final absenceKey = ClassConditionMatcher.generateKey(
-        data.absenceDay,
-        data.period,
-        data.grade,
-        data.className,
-        data.subject,
-        data.teacher,
-      );
-
-      if (absenceKey == targetKey) {
-        indicesToUpdate[i] = 'absenceDate';
-        _ref
-            .read(substitutionPlanProvider.notifier)
-            .saveDate(data.exchangeId, 'absenceDate', newDate);
-      }
-
-      // 교체일 섹션 검사
-      if (data.substitutionDay.isNotEmpty) {
-        final substitutionKey = ClassConditionMatcher.generateKey(
-          data.substitutionDay,
-          data.substitutionPeriod,
-          data.grade,
-          data.className,
-          data.substitutionSubject,
-          data.substitutionTeacher,
-        );
-
-        if (substitutionKey == targetKey) {
-          indicesToUpdate[i] = 'substitutionDate';
-          _ref
-              .read(substitutionPlanProvider.notifier)
-              .saveDate(data.exchangeId, 'substitutionDate', newDate);
-        }
-      }
-    }
-
-    // 인덱스 기반 업데이트 (불변성 유지)
-    final updatedPlanData = List<SubstitutionPlanData>.from(state.planData);
-    for (final entry in indicesToUpdate.entries) {
-      final index = entry.key;
-      final column = entry.value;
-
-      if (column == 'absenceDate') {
-        updatedPlanData[index] = updatedPlanData[index].copyWith(
-          absenceDate: newDate,
-        );
-      } else {
-        updatedPlanData[index] = updatedPlanData[index].copyWith(
-          substitutionDate: newDate,
-        );
-      }
-    }
-
-    state = state.copyWith(planData: updatedPlanData);
-  }
-
-  /// 모든 날짜 및 보강 과목 초기화
-  void clearAllDates() {
-    _ref.read(substitutionPlanProvider.notifier).clearAllDates();
+  /// 모든 보강 과목 초기화
+  ///
+  /// §10.10: 결강일·교체일은 더 이상 "지울 수 있는 입력값"이 아니다 —
+  /// `ExchangeHistoryItem.absenceDate`/`substitutionDate`는 필수(non-null)
+  /// 필드이고 실행 시 항상 정확한 값을 갖는다(§10.9 리스크 2). 그래서 이
+  /// 메서드는 보강 과목 선택만 초기화한다. 날짜를 고치고 싶으면 그리드에서
+  /// 직접 날짜를 다시 선택해야 한다(그 경우 `ExchangeHistoryService.updateDates`
+  /// 경로를 탄다 — `content_input_grid.dart` 참조).
+  void clearAllSupplementSubjects() {
+    _ref.read(substitutionPlanProvider.notifier).clearAllSupplementSubjects();
 
     final clearedPlanData =
-        state.planData.map((data) {
-          return data.copyWith(
-            absenceDate: '선택',
-            substitutionDate: '선택',
-            supplementSubject: '', // 보강 과목도 초기화
-          );
-        }).toList();
+        state.planData.map((data) => data.copyWith(supplementSubject: '')).toList();
 
     state = state.copyWith(planData: clearedPlanData);
   }

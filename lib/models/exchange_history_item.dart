@@ -192,6 +192,35 @@ class ExchangeHistoryItem {
     );
   }
 
+  /// 결강일·교체일 수정 (결보강 계획서 화면에서 사용자가 날짜를 보정할 때)
+  ///
+  /// `savedDates` 제거 이후(§10.10) 이 값이 날짜의 유일한 진실원본이다.
+  /// null을 넘긴 필드는 바꾸지 않는다. [weekMonday]가 달라지면(다른 주로
+  /// 옮겨가면) 이 교체가 속한 주 자체가 바뀐다 — 호출부가 사전에 사용자
+  /// 확인을 받아야 한다(§10.5 A안과 동일 원칙, 문서 §10.10 참조).
+  ExchangeHistoryItem copyWithDates({
+    DateTime? absenceDate,
+    DateTime? substitutionDate,
+  }) {
+    return ExchangeHistoryItem(
+      id: id,
+      timestamp: timestamp,
+      absenceDate: absenceDate == null ? this.absenceDate : _dateOnly(absenceDate),
+      substitutionDate:
+          substitutionDate == null
+              ? this.substitutionDate
+              : _dateOnly(substitutionDate),
+      originalPath: originalPath,
+      description: description,
+      type: type,
+      metadata: metadata,
+      notes: notes,
+      tags: tags,
+      profileId: profileId,
+      isReverted: isReverted,
+    );
+  }
+
   /// 태그 업데이트
   ExchangeHistoryItem copyWithTags(List<String> newTags) {
     return ExchangeHistoryItem(

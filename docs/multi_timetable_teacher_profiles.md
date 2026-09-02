@@ -1492,5 +1492,59 @@ UI(만드는 방법)는 범위 밖이다. 이번 단계는 **모델·저장·판
 §10.9에서 상태 "⚠"로 표시한 2건이 이 프로젝트의 자연스러운 다음 작업이다.
 
 1. `savedDates` 제거 — 결보강 탭의 날짜 입력을 `ExchangeHistoryItem` 기반으로
-   완전히 이전하고, 그 김에 파생 `exchangeId`도 함께 정리(리스크 5)
+   완전히 이전하고, 그 김에 파생 `exchangeId`도 함께 정리(리스크 5) — **완료
+   (§10.11 참조)**
 2. 대규모 시간표에서 `resolvedTimetableProvider` 실측 성능 확인(리스크 3)
+
+### 10.11 `savedDates` 제거 (2026-09-03)
+
+**배경**: 1단계에서 `ExchangeHistoryItem.absenceDate`/`substitutionDate`를
+만들었지만, 결보강 계획서 화면(`content_input_grid.dart`)이 실제로 보여주고
+사용자가 편집하는 날짜는 여전히 구 시스템인 `SubstitutionPlanState.savedDates`
+(문자열 맵, `exchangeId` 키)였다 — 새 필드는 존재만 하고 화면에 연결되지 않은
+"고아 코드"였다(6·8단계에서도 반복된 패턴). 이번 단계에서 `savedDates`를
+완전히 제거하고 `ExchangeHistoryItem`을 날짜의 유일한 진실원본으로 만들었다.
+
+**핵심 설계 결정**
+
+- **키를 `exchangeId`(파생, 그룹 내 행마다 다를 수 있음)에서 `groupId`
+  (= `ExchangeHistoryItem.id`, 안정적)로 전환.** 날짜는 교체 건 전체에
+  귀속되는 값이지 그리드 행 하나에 귀속되는 값이 아니므로, 순환·2중 교체처럼
+  한 건이 여러 행으로 표시되는 경우에도 안전하다.
+- **다른 주로 이동하는 날짜 수정에는 확인 다이얼로그를 띄운다(A안, 사용자
+  확정)** — `_applyDateSelection()`이 `WeekDateCalculator.getWeekMonday()`로
+  기존/새 날짜를 정규화한 뒤 `ExchangeWeekCollector.isSameWeek()`으로 비교해
+  주가 바뀌는지 판정한다. 주가 바뀌면 "다른 주로 이동" 다이얼로그로 확인받고,
+  취소하면 저장하지 않는다.
+- **구 `ClassConditionMatcher`(같은 요일·교시·과목·교사 조건이면 날짜를
+  자동 동기화하던 로직)는 이식하지 않고 삭제했다.** 새 모델에서는 각 주가
+  `weekMonday + dayOffset`로 독립적으로 계산되므로 같은 주 안의 일관성은
+  자동으로 보장되고, 반대로 이 로직을 그대로 이식했다면 서로 다른 주에 속한
+  반복 시간표 칸까지 억지로 동기화하는 새 버그를 만들었을 것이다.
+
+**변경 파일 (요약)**
+
+| 파일 | 변경 |
+|---|---|
+| `models/exchange_history_item.dart` | `copyWithDates()` 추가 |
+| `services/exchange_history_service.dart` | `updateDates(itemId, {absenceDate, substitutionDate})` 추가 |
+| `providers/substitution_plan_helpers.dart` | `getSavedDate`/`ClassConditionMatcher`/`ClassConditionIndexMap` 삭제, `parseNode()`가 날짜를 파라미터로 직접 받도록 변경 |
+| `providers/substitution_plan_viewmodel.dart` | `loadPlanData()`가 `item.absenceDate`/`substitutionDate`에서 직접 날짜 문자열 계산, `updateDate()` 삭제, `clearAllDates()` → `clearAllSupplementSubjects()`로 축소 |
+| `providers/substitution_plan_provider.dart` | `SubstitutionPlanState.savedDates` 필드 및 관련 메서드(`saveDate`/`getSavedDate`/`clearExchangeDates`/`savedDatesCount` 등) 전부 삭제, 구 JSON의 `savedDates` 키는 `fromJson`이 조용히 무시 |
+| `ui/widgets/timetable_grid_section.dart`, `ui/screens/plan_output/widgets/content_input_grid.dart` | 날짜 저장 호출부를 `_applyDateSelection()`(A안 확인 다이얼로그 포함)으로 교체, "날짜 초기화" 버튼을 "보강 과목 초기화"로 축소 |
+| `providers/timetable_summary_provider.dart` | `planEntryCount`에서 `savedDates.length` 제거(날짜는 이제 `exchangeCount`에 이미 포함됨) |
+| `utils/exchange_date_helper.dart`, `utils/personal_exchange_filter.dart` | 미사용 확인 후 삭제(둘 다 `lib/` 어디서도 import되지 않음) |
+
+**검증**: `flutter analyze` 이슈 없음. `flutter test` 196건 전체 통과
+(기존 188건 + 이번에 추가한 `copyWithDates`/`updateDates` 유닛 테스트 8건).
+`savedDates`/`ClassConditionMatcher`/`getSavedDate`/`saveDate` 등 관련
+심볼을 `lib/` 전체에서 grep으로 재확인 — 남은 참조는 모두 이 변경을 설명하는
+주석뿐이다. 이번 세션에서는 창 포커스 문제로 실제 앱 클릭 재검증(같은 주
+저장 → 조용히 반영, 다른 주 저장 → 확인 다이얼로그 표시)은 수행하지 못했다 —
+다음 세션에서 GUI로 한 번 확인하는 것을 권한다.
+
+**남은 것**: §10.9/10.10에서 미룬 `resolvedTimetableProvider` 실측 성능
+확인(리스크 3)만 남는다. "여러 교사의 교체가 서로 엉키는 상황을 시각적으로
+보여주는" 기능(연쇄 교체 가시화)은 이번 세션에서 논의만 했을 뿐 범위에
+넣지 않기로 했다 — 데이터 정합성은 4d 검증으로 이미 보장되어 있고, 이는
+순수 UI 기능 제안이라 별도 요청 시 다시 설계부터 시작해야 한다.

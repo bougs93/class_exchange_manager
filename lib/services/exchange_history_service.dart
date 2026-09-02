@@ -464,6 +464,37 @@ class ExchangeHistoryService {
     AppLogger.info('교체 건 프로파일 지정: $itemId → $profileId');
   }
 
+  /// 교체 건의 결강일·교체일 보정 (§10.10 — savedDates 대체)
+  ///
+  /// 결보강 계획서 화면에서 사용자가 날짜를 고쳤을 때 호출한다. 반환값은
+  /// 갱신된 항목(찾지 못하면 null) — 호출부가 "다른 주로 이동했는지" 등을
+  /// 갱신 전에 직접 판단해야 하므로, 이 메서드 자체는 그 판단을 하지 않고
+  /// 그대로 반영만 한다.
+  ExchangeHistoryItem? updateDates(
+    String itemId, {
+    DateTime? absenceDate,
+    DateTime? substitutionDate,
+  }) {
+    final index = _exchangeList.indexWhere((item) => item.id == itemId);
+    if (index == -1) {
+      AppLogger.warning('날짜 보정 대상 교체 건을 찾을 수 없음: $itemId');
+      return null;
+    }
+
+    final updated = _exchangeList[index].copyWithDates(
+      absenceDate: absenceDate,
+      substitutionDate: substitutionDate,
+    );
+    _exchangeList[index] = updated;
+    _exchangeListVersion++;
+    _notifyVersionChanged();
+    _saveToLocalStorage(updated);
+    AppLogger.info(
+      '교체 건 날짜 보정: $itemId → 결강 ${updated.absenceDate}, 교체 ${updated.substitutionDate}',
+    );
+    return updated;
+  }
+
   /// 메모리 상태만 초기화 (파일은 건드리지 않음)
   ///
   /// 활성 시간표가 모두 삭제된 경우 레거시 파일의 고스트 데이터가

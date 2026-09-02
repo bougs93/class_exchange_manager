@@ -48,7 +48,7 @@ class SubstitutionPlanStorageService {
 
       if (success) {
         AppLogger.info(
-          '결보강 계획서 날짜 정보 저장 성공: $filename (${state.savedDates.length}개 날짜, ${state.savedSupplementSubjects.length}개 보강 과목)',
+          '결보강 계획서 날짜 정보 저장 성공: $filename (${state.savedSupplementSubjects.length}개 보강 과목)',
         );
       } else {
         AppLogger.error('결보강 계획서 날짜 정보 저장 실패: $filename');
@@ -89,7 +89,7 @@ class SubstitutionPlanStorageService {
       final state = SubstitutionPlanState.fromJson(jsonData);
 
       AppLogger.info(
-        '결보강 계획서 날짜 정보 로드 성공: $filename (${state.savedDates.length}개 날짜, ${state.savedSupplementSubjects.length}개 보강 과목)',
+        '결보강 계획서 날짜 정보 로드 성공: $filename (${state.savedSupplementSubjects.length}개 보강 과목)',
       );
 
       return state;

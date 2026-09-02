@@ -283,4 +283,62 @@ void main() {
       expect(item.weekMonday, DateTime(2026, 8, 31));
     });
   });
+
+  group('ExchangeHistoryService.updateDates (§10.10 — savedDates 대체)', () {
+    test('id로 대상을 찾아 absenceDate/substitutionDate를 갱신한다', () {
+      _addTestExchange(service, '1', description: 'A');
+      final id = service.getExchangeList().single.id;
+
+      final updated = service.updateDates(
+        id,
+        absenceDate: DateTime(2026, 9, 3),
+        substitutionDate: DateTime(2026, 9, 4),
+      );
+
+      expect(updated, isNotNull);
+      expect(updated!.absenceDate, DateTime(2026, 9, 3));
+      expect(updated.substitutionDate, DateTime(2026, 9, 4));
+
+      final stored = service.getExchangeItem(id);
+      expect(stored!.absenceDate, DateTime(2026, 9, 3));
+      expect(stored.substitutionDate, DateTime(2026, 9, 4));
+    });
+
+    test('한쪽 날짜만 지정하면 다른 쪽은 유지된다', () {
+      _addTestExchange(service, '1', description: 'A');
+      final id = service.getExchangeList().single.id;
+
+      final updated = service.updateDates(id, absenceDate: DateTime(2026, 9, 3));
+
+      expect(updated!.absenceDate, DateTime(2026, 9, 3));
+      expect(updated.substitutionDate, _testSubstitutionDate);
+    });
+
+    test('존재하지 않는 id면 null을 반환하고 기존 데이터는 그대로다', () {
+      _addTestExchange(service, '1', description: 'A');
+
+      final updated = service.updateDates(
+        'no-such-id',
+        absenceDate: DateTime(2026, 9, 3),
+      );
+
+      expect(updated, isNull);
+      expect(service.getExchangeList().single.absenceDate, _testAbsenceDate);
+    });
+
+    test('갱신 후 weekMonday도 새 absenceDate 기준으로 바뀐다', () {
+      _addTestExchange(
+        service,
+        '1',
+        description: 'A',
+        absenceDate: DateTime(2026, 8, 27),
+        substitutionDate: DateTime(2026, 8, 28),
+      );
+      final id = service.getExchangeList().single.id;
+
+      final updated = service.updateDates(id, absenceDate: DateTime(2026, 9, 3));
+
+      expect(updated!.weekMonday, DateTime(2026, 8, 31));
+    });
+  });
 }

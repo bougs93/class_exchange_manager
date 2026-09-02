@@ -16,7 +16,10 @@ class TimetableSummary {
   /// 교체 건수
   final int exchangeCount;
 
-  /// 결보강 입력 항목 수 (저장된 날짜·보강 과목 입력 건수)
+  /// 결보강 입력 항목 수 (보강 과목 입력 건수)
+  ///
+  /// §10.10: 결강일·교체일은 이제 교체 건마다 항상 존재하므로(exchangeCount에 포함)
+  /// 더 이상 별도로 세지 않고, 사용자가 추가로 입력하는 보강 과목만 센다.
   final int planEntryCount;
 
   /// 계획서(인쇄 프로파일) 개수
@@ -59,9 +62,7 @@ final timetableSummaryProvider =
 
         return TimetableSummary(
           exchangeCount: exchangeResult.items.length,
-          planEntryCount:
-              (plan?.savedDates.length ?? 0) +
-              (plan?.savedSupplementSubjects.length ?? 0),
+          planEntryCount: plan?.savedSupplementSubjects.length ?? 0,
           profileCount: store.profiles.length,
         );
       } catch (e) {

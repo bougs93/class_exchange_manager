@@ -2,11 +2,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../utils/logger.dart';
 import '../services/substitution_plan_storage_service.dart';
 
-/// 결보강 계획서 날짜 관리 상태
+/// 결보강 계획서 상태
+///
+/// §10.10: 결강일·교체일(`savedDates`)은 여기서 제거됐다 —
+/// `ExchangeHistoryItem.absenceDate`/`substitutionDate`가 유일한 진실원본이며
+/// `ExchangeHistoryService`가 직접 저장·로드한다(`exchange_list_{timetableId}.json`).
+/// 이 상태는 그 진실원본으로 표현할 수 없는 값(보강 과목 선택)만 남는다.
 class SubstitutionPlanState {
-  // 사용자가 입력한 날짜 정보를 저장하는 맵
-  // 키: "교체식별자_컬럼명" (예: "문유란_월5_absenceDate"), 값: 날짜 문자열
-  final Map<String, String> savedDates;
   // 사용자가 선택한 보강 과목 저장 (교체 항목별)
   // 키: exchangeId, 값: 과목명
   final Map<String, String> savedSupplementSubjects;
@@ -16,20 +18,17 @@ class SubstitutionPlanState {
   final DateTime? selectedEndDate;
 
   const SubstitutionPlanState({
-    this.savedDates = const {},
     this.savedSupplementSubjects = const {},
     this.selectedStartDate,
     this.selectedEndDate,
   });
 
   SubstitutionPlanState copyWith({
-    Map<String, String>? savedDates,
     Map<String, String>? savedSupplementSubjects,
     DateTime? selectedStartDate,
     DateTime? selectedEndDate,
   }) {
     return SubstitutionPlanState(
-      savedDates: savedDates ?? this.savedDates,
       savedSupplementSubjects:
           savedSupplementSubjects ?? this.savedSupplementSubjects,
       selectedStartDate: selectedStartDate ?? this.selectedStartDate,
@@ -42,7 +41,6 @@ class SubstitutionPlanState {
   /// SubstitutionPlanState를 Map 형태로 변환하여 JSON 파일에 저장할 수 있도록 합니다.
   Map<String, dynamic> toJson() {
     return {
-      'savedDates': savedDates,
       'savedSupplementSubjects': savedSupplementSubjects,
       'selectedStartDate': selectedStartDate?.toIso8601String(),
       'selectedEndDate': selectedEndDate?.toIso8601String(),
@@ -52,18 +50,8 @@ class SubstitutionPlanState {
   /// JSON 역직렬화 (로드용)
   ///
   /// JSON 파일에서 읽어온 Map 데이터를 SubstitutionPlanState 객체로 변환합니다.
+  /// 구 형식 파일에 남아있는 `savedDates` 키는 무시한다(§10.10 — 더 이상 쓰지 않음).
   factory SubstitutionPlanState.fromJson(Map<String, dynamic> json) {
-    // savedDates 변환 (null 안전성 처리)
-    final savedDatesJson = json['savedDates'] as Map<String, dynamic>?;
-    final savedDates =
-        savedDatesJson != null
-            ? Map<String, String>.from(
-              savedDatesJson.map(
-                (key, value) => MapEntry(key, value.toString()),
-              ),
-            )
-            : <String, String>{};
-
     // savedSupplementSubjects 변환 (null 안전성 처리)
     final savedSupplementSubjectsJson =
         json['savedSupplementSubjects'] as Map<String, dynamic>?;
@@ -89,7 +77,6 @@ class SubstitutionPlanState {
             : null;
 
     return SubstitutionPlanState(
-      savedDates: savedDates,
       savedSupplementSubjects: savedSupplementSubjects,
       selectedStartDate: selectedStartDate,
       selectedEndDate: selectedEndDate,
@@ -145,45 +132,6 @@ class SubstitutionPlanNotifier extends StateNotifier<SubstitutionPlanState> {
     return _storageQueue;
   }
 
-  /// 날짜 정보 저장 (자동 저장 포함)
-  void saveDate(String exchangeId, String columnName, String date) {
-    final key = '${exchangeId}_$columnName';
-    final newSavedDates = Map<String, String>.from(state.savedDates);
-    newSavedDates[key] = date;
-
-    AppLogger.exchangeDebug('날짜 저장 (전역): $key = $date');
-
-    state = state.copyWith(savedDates: newSavedDates);
-
-    // 자동 저장 (비동기로 실행하여 UI 블로킹 방지)
-    _saveToStorage();
-  }
-
-  /// 저장된 날짜 정보 복원
-  String getSavedDate(String exchangeId, String columnName) {
-    final key = '${exchangeId}_$columnName';
-    final date = state.savedDates[key] ?? '';
-
-    if (date.isNotEmpty) {
-      AppLogger.exchangeDebug('날짜 복원 (전역): $key = $date');
-    }
-
-    return date;
-  }
-
-  /// 특정 교체 식별자의 모든 날짜 정보 삭제 (자동 저장 포함)
-  void clearExchangeDates(String exchangeId) {
-    final newSavedDates = Map<String, String>.from(state.savedDates);
-    newSavedDates.removeWhere((key, value) => key.startsWith('${exchangeId}_'));
-
-    AppLogger.exchangeDebug('교체 식별자 날짜 삭제 (전역): $exchangeId');
-
-    state = state.copyWith(savedDates: newSavedDates);
-
-    // 자동 저장
-    _saveToStorage();
-  }
-
   /// 보강 과목 저장 (자동 저장 포함)
   void saveSupplementSubject(String exchangeId, String subject) {
     final newSaved = Map<String, String>.from(state.savedSupplementSubjects);
@@ -215,10 +163,10 @@ class SubstitutionPlanNotifier extends StateNotifier<SubstitutionPlanState> {
     _saveToStorage();
   }
 
-  /// 모든 날짜 정보 및 보강 과목 초기화 (자동 저장 포함)
-  void clearAllDates() {
-    AppLogger.exchangeDebug('모든 날짜 정보 및 보강 과목 초기화 (전역)');
-    state = const SubstitutionPlanState();
+  /// 모든 보강 과목 초기화 (자동 저장 포함)
+  void clearAllSupplementSubjects() {
+    AppLogger.exchangeDebug('모든 보강 과목 초기화 (전역)');
+    state = state.copyWith(savedSupplementSubjects: const {});
 
     // 자동 저장
     _saveToStorage();
@@ -232,19 +180,9 @@ class SubstitutionPlanNotifier extends StateNotifier<SubstitutionPlanState> {
     );
   }
 
-  /// 저장된 날짜 개수 반환
-  int get savedDatesCount => state.savedDates.length;
-
-  /// 특정 교체 식별자의 저장된 날짜 개수 반환
-  int getExchangeDatesCount(String exchangeId) {
-    return state.savedDates.keys
-        .where((key) => key.startsWith('${exchangeId}_'))
-        .length;
-  }
-
   /// 상태를 JSON 파일에 자동 저장 (내부 메서드)
   ///
-  /// 날짜나 보강 과목이 변경될 때마다 자동으로 호출됩니다.
+  /// 보강 과목이 변경될 때마다 자동으로 호출됩니다.
   /// 비동기로 실행하여 UI 블로킹을 방지합니다.
   void _saveToStorage() {
     final stateSnapshot = state;
@@ -261,9 +199,9 @@ class SubstitutionPlanNotifier extends StateNotifier<SubstitutionPlanState> {
     });
   }
 
-  /// 저장된 날짜 정보를 JSON 파일에서 로드
+  /// 저장된 정보를 JSON 파일에서 로드
   ///
-  /// 프로그램 시작 시 호출되어 저장된 날짜 정보를 복원합니다.
+  /// 프로그램 시작 시 호출되어 저장된 보강 과목 정보를 복원합니다.
   Future<void> loadFromStorage() async {
     try {
       final requestedTimetableId = _timetableId;
@@ -279,10 +217,10 @@ class SubstitutionPlanNotifier extends StateNotifier<SubstitutionPlanState> {
 
       state = loadedState ?? const SubstitutionPlanState();
       AppLogger.info(
-        '결보강 계획서 날짜 정보 로드 완료: ${state.savedDates.length}개 날짜, ${state.savedSupplementSubjects.length}개 보강 과목',
+        '결보강 계획서 정보 로드 완료: ${state.savedSupplementSubjects.length}개 보강 과목',
       );
     } catch (e) {
-      AppLogger.error('결보강 계획서 날짜 정보 로드 실패: $e', e);
+      AppLogger.error('결보강 계획서 정보 로드 실패: $e', e);
     }
   }
 }

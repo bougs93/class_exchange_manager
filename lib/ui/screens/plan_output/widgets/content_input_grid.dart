@@ -22,6 +22,7 @@ import '../../../../providers/timetable_registry_provider.dart';
 import '../../../../services/batch_pdf_export_service.dart';
 import '../../../../theme/design_tokens.dart';
 import '../../../../ui/screens/personal_schedule_screen/exchange_week_collector.dart';
+import '../../../../utils/week_date_calculator.dart';
 import '../../../../ui/widgets/content_toolbar_layout.dart';
 import '../../../../ui/widgets/content_usage_hint_bar.dart';
 import '../../../../ui/widgets/empty_state_message.dart';
@@ -988,10 +989,10 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
                 ),
                 const SizedBox(width: ContentToolbarLayout.buttonGap),
                 CompactToolbarLabelButton(
-                  onPressed: () => _clearAllDates(context, viewModel),
+                  onPressed: () => _clearAllSupplementSubjects(context, viewModel),
                   icon: Icons.clear,
-                  label: '날짜 초기화',
-                  tooltip: '날짜 초기화',
+                  label: '보강 과목 초기화',
+                  tooltip: '선택한 보강 과목을 모두 초기화 (결강일·교체일은 교체 실행 시 자동 확정되어 초기화 대상이 아님)',
                   backgroundColor: ContentToolbarLayout.neutralButtonBackground(
                     tokens,
                   ),
@@ -1087,8 +1088,9 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
       final historyService = ref.read(exchangeHistoryServiceProvider);
       historyService.clearExchangeList();
 
-      // 2. 저장된 결강일·교체일·보강 과목 정보 삭제
-      ref.read(substitutionPlanProvider.notifier).clearAllDates();
+      // 2. 저장된 보강 과목 정보 삭제
+      // (결강일·교체일은 교체 항목 자체에 있으므로 위 clearExchangeList()로 이미 함께 삭제됨 — §10.10)
+      ref.read(substitutionPlanProvider.notifier).clearAllSupplementSubjects();
 
       // 3. 교체된 셀 상태 업데이트 (빈 리스트로 갱신하여 교체된 셀 스타일 제거)
       ExchangeExecutor.restoreExchangedCells(ref);
@@ -1599,10 +1601,15 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
           return;
         }
 
-        // 년.월.일 형식으로 저장 (내부 저장용)
-        final formattedDate = DateFormatUtils.toYearMonthDay(selectedDate);
-        AppLogger.exchangeInfo('날짜 업데이트: $formattedDate');
-        viewModel.updateDate(exchangeId, columnName, formattedDate);
+        // §10.10: 날짜는 ExchangeHistoryItem에 직접 반영한다 (savedDates 제거).
+        if (!context.mounted) return;
+        final saved = await _applyDateSelection(
+          context,
+          data.groupId,
+          columnName,
+          selectedDate,
+        );
+        if (!saved) return;
 
         // 결강일 선택 → 현재 계획서 이름을 "결보강 YY.MM.DD"로 (여러 건이면 마지막 선택이 기준)
         if (columnName == 'absenceDate' && mounted) {
@@ -1624,6 +1631,63 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     }
   }
 
+  /// 선택한 날짜를 교체 건(`ExchangeHistoryItem`)에 반영한다 (§10.10).
+  ///
+  /// 다른 주로 옮기는 변경이면(§10.5 A안과 동일한 원칙) 저장 전에 확인
+  /// 다이얼로그를 띄운다 — 사용자가 달력에서 무심코 다른 주 날짜를 눌러
+  /// 이 교체 건이 조용히 다른 주 소속으로 바뀌는 사고를 막기 위함이다.
+  /// 반환값: 실제로 저장했으면 true, 취소했거나 실패했으면 false.
+  Future<bool> _applyDateSelection(
+    BuildContext context,
+    String? groupId,
+    String columnName,
+    DateTime selectedDate,
+  ) async {
+    if (groupId == null || groupId.isEmpty) {
+      SnackBarHelper.showError(context, '교체 건을 찾을 수 없어 날짜를 저장하지 못했습니다.');
+      return false;
+    }
+
+    final historyService = ref.read(exchangeHistoryServiceProvider);
+    final item = historyService.getExchangeItem(groupId);
+    if (item == null) {
+      SnackBarHelper.showError(context, '교체 건을 찾을 수 없어 날짜를 저장하지 못했습니다.');
+      return false;
+    }
+
+    final oldDate =
+        columnName == 'absenceDate' ? item.absenceDate : item.substitutionDate;
+    final oldWeekMonday = WeekDateCalculator.getWeekMonday(oldDate);
+    final newWeekMonday = WeekDateCalculator.getWeekMonday(selectedDate);
+    final movesWeek = !ExchangeWeekCollector.isSameWeek(
+      oldWeekMonday,
+      newWeekMonday,
+    );
+
+    if (movesWeek) {
+      final weekLabel = ExchangeWeekCollector.monthWeekLabel(newWeekMonday);
+      final confirmed = await DialogHelper.showConfirmDialog(
+        context,
+        title: '다른 주로 이동',
+        message: '이 교체가 $weekLabel(으)로 이동합니다.\n계속할까요?',
+        confirmText: '이동',
+      );
+      if (confirmed != true) return false;
+      if (!context.mounted) return false;
+    }
+
+    historyService.updateDates(
+      groupId,
+      absenceDate: columnName == 'absenceDate' ? selectedDate : null,
+      substitutionDate: columnName == 'substitutionDate' ? selectedDate : null,
+    );
+    AppLogger.exchangeInfo(
+      '날짜 업데이트: $groupId.$columnName → ${DateFormatUtils.toYearMonthDay(selectedDate)}'
+      '${movesWeek ? ' (주 이동: $oldWeekMonday → $newWeekMonday)' : ''}',
+    );
+    return true;
+  }
+
   bool _isTargetWeekday(DateTime date, String targetWeekday) {
     const weekdayMap = {'일': 0, '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6};
     final targetWeekdayNumber = weekdayMap[targetWeekday];
@@ -1633,23 +1697,28 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     return dateWeekday == targetWeekdayNumber;
   }
 
-  Future<void> _clearAllDates(
+  /// 보강 과목 선택 초기화 (§10.10)
+  ///
+  /// 결강일·교체일은 여기서 다루지 않는다 — 교체 실행 시 자동으로 확정되는
+  /// 필수 값이라 "초기화(빈 값으로)"라는 상태 자체가 없다. 날짜를 고치려면
+  /// 그리드에서 날짜를 다시 선택해야 한다(§10.10 — `_showDatePicker` 참조).
+  Future<void> _clearAllSupplementSubjects(
     BuildContext context,
     SubstitutionPlanViewModel viewModel,
   ) async {
     final confirmed = await DialogHelper.showConfirmDialog(
       context,
-      title: '날짜 초기화',
-      message: '입력한 모든 날짜 정보와 과목 선택을 초기화하겠습니까?\n이 작업은 되돌릴 수 없습니다.',
+      title: '보강 과목 초기화',
+      message: '선택한 모든 보강 과목을 초기화하겠습니까?\n이 작업은 되돌릴 수 없습니다.',
       confirmText: '초기화',
       isDangerous: true,
     );
 
     if (confirmed == true && context.mounted) {
       try {
-        viewModel.clearAllDates();
+        viewModel.clearAllSupplementSubjects();
         if (context.mounted) {
-          SnackBarHelper.showSuccess(context, '모든 날짜 정보와 과목 선택이 초기화되었습니다.');
+          SnackBarHelper.showSuccess(context, '보강 과목 선택이 초기화되었습니다.');
         }
       } catch (e) {
         if (context.mounted) {
