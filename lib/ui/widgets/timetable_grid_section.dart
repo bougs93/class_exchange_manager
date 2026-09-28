@@ -25,6 +25,7 @@ import '../../providers/scroll_provider.dart';
 import '../../providers/node_scroll_provider.dart'; // 🆕 노드 스크롤 Provider 추가
 import '../../providers/teacher_scroll_provider.dart';
 import '../../providers/cell_status_symbol_visibility_provider.dart';
+import '../../providers/timetable_registry_provider.dart';
 import '../../providers/app_settings_provider.dart';
 import '../../utils/simplified_timetable_theme.dart';
 import 'timetable_grid/timetable_grid_constants.dart';
@@ -170,6 +171,18 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
         _requestUIUpdate();
       }
     });
+
+    // 그리드 준비 중(컬럼 생성 전)에는 이 위젯 자체가 트리에 없어
+    // teacherScrollProvider의 변경을 놓칠 수 있다. 위젯이 생성되는 시점에
+    // 이미 대기 중인 스크롤 요청이 있는지 한 번 직접 확인해 보정한다.
+    final pendingTeacher = ref.read(teacherScrollProvider);
+    if (pendingTeacher != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        scrollToTeacher(pendingTeacher);
+        ref.read(teacherScrollProvider.notifier).clearScrollRequest();
+      });
+    }
   }
 
   @override
@@ -259,6 +272,15 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
 
     // X·O 오버레이 토글 시 DataGrid 셀 갱신
     ref.listen<bool>(cellStatusSymbolVisibilityProvider, (previous, next) {
+      if (previous != next) {
+        widget.dataSource?.notifyDataChanged();
+      }
+    });
+
+    // 시간표의 교사가 바뀌면 교사행 하이라이트를 다시 그린다
+    // (exchange_screen의 동일 리스너와 이중 안전망 — 그리드가 실제로 떠 있는
+    //  이 위젯에서도 직접 감지해 누락 경로를 없앤다)
+    ref.listen<String>(activeTeacherNameProvider, (previous, next) {
       if (previous != next) {
         widget.dataSource?.notifyDataChanged();
       }
@@ -808,7 +830,17 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       final locator = GridColumnLocator(widget.columns, widget.dataSource);
       final teacherRowIndex = locator.findTeacherRowIndex(teacherName);
       if (teacherRowIndex == -1) {
-        AppLogger.exchangeDebug('❌ [교사 스크롤] 교사를 찾을 수 없음: $teacherName');
+        AppLogger.exchangeDebug(
+          '❌ [교사 스크롤] 교사를 찾을 수 없음(재시도 $retryCount): $teacherName',
+        );
+        // 그리드가 아직 생성 중이라 못 찾았을 수 있으므로 재시도
+        if (retryCount < 5 && mounted) {
+          Future.delayed(Duration(milliseconds: 120 * (retryCount + 1)), () {
+            if (mounted) {
+              scrollToTeacher(teacherName, retryCount: retryCount + 1);
+            }
+          });
+        }
         return;
       }
 

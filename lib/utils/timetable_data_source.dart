@@ -102,17 +102,11 @@ class TimetableDataSource extends DataGridSource {
   // 로컬 캐시 관리 (위젯 빌드 중 안전하게 사용)
   final Map<String, bool> _localCache = {};
 
-  // 하이라이트할 교사명 캐시 (성능 최적화)
-  String? _highlightedTeacherName;
-  bool _highlightedTeacherNameLoaded = false;
-
   /// 공통 데이터 초기화 메서드
   void _initializeData(List<TimeSlot> timeSlots, List<Teacher> teachers) {
     _timeSlots = timeSlots;
     _teachers = teachers;
     _nonExchangeableManager.setTimeSlots(timeSlots);
-    // 하이라이트할 교사명 미리 로드
-    _loadHighlightedTeacherName();
     _buildDataGridRows();
   }
 
@@ -424,53 +418,33 @@ class TimetableDataSource extends DataGridSource {
 
   /// 하이라이트된 교사인지 확인
   ///
-  /// 활성 시간표에 지정된 교사와 현재 교사명을 비교합니다.
-  /// 결과는 캐시하여 성능을 최적화합니다.
-  bool _isHighlightedTeacher(String teacherName) {
-    // 교사명 비교 (빈 문자열이면 하이라이트 안함)
-    if (_highlightedTeacherName == null || _highlightedTeacherName!.isEmpty) {
-      return false;
-    }
-
-    return _highlightedTeacherName == teacherName;
-  }
-
-  /// 하이라이트할 교사명 로드
+  /// 활성 시간표에 지정된 교사(TimetableRegistryEntry.teacherName)와
+  /// 현재 교사명을 비교합니다. 전역 설정이 아니라 시간표 속성이므로 동기 조회가
+  /// 가능합니다(문서 §2).
   ///
-  /// 활성 시간표의 교사(TimetableRegistryEntry.teacherName)를 읽습니다.
-  /// 전역 설정이 아니라 시간표 속성이므로 동기 조회가 가능하며,
-  /// 시간표를 전환하면 하이라이트 대상도 함께 바뀝니다(문서 §2).
-  void _loadHighlightedTeacherName() {
-    if (_highlightedTeacherNameLoaded) {
-      return; // 이미 로드 완료
-    }
+  /// 이전에는 조회 결과를 캐시해 두고 `refreshHighlightedTeacherName()` 호출자가
+  /// 있을 때만 갱신했는데, 호출 경로가 누락되면 재시작 전까지 이전 교사가 계속
+  /// 강조되는 문제가 있었다. Provider 조회 자체가 가벼우므로 캐시 없이 매번
+  /// 최신 값을 읽어 이런 누락을 원천 차단한다.
+  bool _isHighlightedTeacher(String teacherName) {
+    if (teacherName.isEmpty) return false;
 
     try {
-      final teacherName = ref.read(activeTeacherNameProvider).trim();
-      final resolved = teacherName.isEmpty ? null : teacherName;
-      final changed = _highlightedTeacherName != resolved;
-
-      _highlightedTeacherName = resolved;
-      _highlightedTeacherNameLoaded = true;
-
-      if (changed) {
-        _clearCacheAndNotify();
-      }
+      final highlighted = ref.read(activeTeacherNameProvider).trim();
+      if (highlighted.isEmpty) return false;
+      return highlighted == teacherName;
     } catch (e) {
-      AppLogger.error('하이라이트 교사명 로드 중 오류: $e', e);
-      _highlightedTeacherName = null;
-      _highlightedTeacherNameLoaded = true;
+      AppLogger.error('하이라이트 교사명 조회 중 오류: $e', e);
+      return false;
     }
   }
 
-  /// 하이라이트 교사명 캐시 초기화
+  /// 교사행 하이라이트 갱신 — 시간표의 교사가 바뀌었을 때 그리드를 다시 그린다
   ///
-  /// 시간표의 교사가 바뀌거나 시간표를 전환했을 때 호출해 캐시를 갱신합니다.
+  /// 하이라이트 대상은 더 이상 캐시하지 않으므로(위 참고) 이 메서드는
+  /// DataGrid에 재렌더링만 요청하면 된다.
   void refreshHighlightedTeacherName() {
-    _highlightedTeacherNameLoaded = false;
-    _highlightedTeacherName = null;
-    _loadHighlightedTeacherName();
-    // _loadHighlightedTeacherName() 내부에서 _clearCacheAndNotify()를 호출하므로 중복 호출 불필요
+    _clearCacheAndNotify();
   }
 
   /// 캐시에서 값을 가져오거나 계산하여 캐시에 저장

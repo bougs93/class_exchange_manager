@@ -66,7 +66,25 @@ class TimetableTabContent extends ConsumerWidget {
             },
           ),
         // 시간표 그리드 (모드 선택 + 실행 도구가 그리드 헤더에 통합됨)
-        if (timetableData != null)
+        if (timetableData != null && columns.isEmpty)
+          // 그리드 데이터(컬럼/헤더) 생성 중 — 첫 진입 시 잠깐 표시됨
+          const Expanded(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2.5),
+                  ),
+                  SizedBox(height: 12),
+                  Text('시간표 준비 중...', style: TextStyle(fontSize: 13)),
+                ],
+              ),
+            ),
+          )
+        else if (timetableData != null)
           Expanded(
             child: TimetableGridSection(
               key: ValueKey(

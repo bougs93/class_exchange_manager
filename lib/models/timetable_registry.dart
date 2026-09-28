@@ -150,12 +150,15 @@ class TimetableRegistryEntry {
     return (trimmed == null || trimmed.isEmpty) ? null : trimmed;
   }
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) || other is TimetableRegistryEntry && other.id == id;
-
-  @override
-  int get hashCode => id.hashCode;
+  // operator ==/hashCode를 의도적으로 오버라이드하지 않는다(기본 Object 식별 동일성 사용).
+  //
+  // 과거에는 id만 비교하는 == 를 두었는데, Riverpod의 Provider는 watch한 값이
+  // "이전과 같다"고 판단되면(== true) 하위 구독자에게 변경을 알리지 않는다.
+  // teacherName·schoolName만 바뀌고 id는 그대로인 copyWith 결과도 id 비교로는
+  // "같은 값"이 되어 activeTeacherNameProvider 등 하위 Provider가 갱신되지 않는
+  // 버그(교체 화면 교사행 하이라이트가 재시작 전까지 안 바뀜)로 이어졌다.
+  // copyWith는 항상 새 인스턴스를 만들므로 기본 식별 동일성이면 값이 바뀔 때마다
+  // 자연스럽게 "다른 값"으로 인식되어 이 문제가 생기지 않는다.
 
   @override
   String toString() => 'TimetableRegistryEntry(id: $id, name: $name)';

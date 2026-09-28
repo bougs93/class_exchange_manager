@@ -176,10 +176,14 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     }
 
     final screenState = ref.read(exchangeScreenProvider);
-    if (screenState.timetableData == null || screenState.dataSource == null) {
+    if (screenState.timetableData == null) {
       AppLogger.exchangeDebug('⏭️ [교사 스크롤] 시간표 미로드 — 스크롤 건너뜀');
       return;
     }
+    // dataSource(그리드)는 아직 준비되지 않았을 수 있다 — 이 시점엔 기다리지 않고
+    // 스크롤 "요청"만 걸어둔다. 그리드가 나중에 준비되면 TimetableGridSection이
+    // 생성될 때 대기 중인 요청을 직접 확인해 처리한다(초기 로딩이 오래 걸려도
+    // 요청이 유실되지 않도록).
 
     try {
       // 교사는 활성 시간표의 속성이다(전역 설정 아님) — 문서 §2
@@ -667,6 +671,16 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
         curve: Curves.easeInOut,
       ),
     );
+
+    // 세션 최초로 "교체" 탭에 진입하는 경우, 이 위젯 자체가 그 진입으로 인해
+    // 지금 막 생성되는 것이므로 build()의 ref.listen(navigationProvider)는
+    // 이미 지나간 전환을 관찰할 수 없다(리스너가 그 전환 "때문에" 등록되므로).
+    // 위젯 생성 시점에 직접 한 번 더 시도해 이 최초 진입 케이스를 보정한다.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _scrollToHomeTeacherOnEntry();
+      }
+    });
   }
 
   @override
@@ -697,6 +711,12 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
       if (previous == next) return;
       AppLogger.info('시간표 교사 변경 감지: 하이라이트 갱신 ($previous → $next)');
       ref.read(exchangeScreenProvider).dataSource?.refreshHighlightedTeacherName();
+
+      // 교사가 바뀌면 그 교사 행이 보이도록 한 번 스크롤한다.
+      // (앱 진입 시 스크롤과 별개 — 세션 중 언제 교사를 바꿔도 매번 동작해야 함)
+      if (next.isNotEmpty) {
+        ref.read(teacherScrollProvider.notifier).requestScrollToTeacher(next);
+      }
     });
 
     // 교체 메뉴 탭 진입 시 홈 교사 행 스크롤 (세션당 1회)
