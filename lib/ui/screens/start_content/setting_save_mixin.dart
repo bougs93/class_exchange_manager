@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../utils/logger.dart';
+import '../../../utils/snackbar_helper.dart';
 
 /// 설정 저장 공통 로직 Mixin
 ///
@@ -8,13 +9,11 @@ import '../../../utils/logger.dart';
 mixin SettingSaveMixin<T extends StatefulWidget> on State<T> {
   /// SnackBar 표시 헬퍼
   void showSnackBar(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.red : null,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    if (isError) {
+      SnackBarHelper.showError(context, message, duration: const Duration(seconds: 2));
+    } else {
+      SnackBarHelper.showInfo(context, message);
+    }
   }
 
   /// 공통 설정 저장 헬퍼

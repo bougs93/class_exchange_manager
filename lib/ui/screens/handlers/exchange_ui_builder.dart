@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../utils/snackbar_helper.dart';
 
 /// UI 빌드 관련 헬퍼 메서드들
 mixin ExchangeUIBuilder {
@@ -83,14 +84,11 @@ mixin ExchangeUIBuilder {
     Color? backgroundColor,
     Duration duration = const Duration(seconds: 2),
   }) {
-    if (!context.mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: backgroundColor,
-        duration: duration,
-      ),
+    SnackBarHelper.showInfo(
+      context,
+      message,
+      backgroundColor: backgroundColor,
+      duration: duration,
     );
   }
 }

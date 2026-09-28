@@ -14,6 +14,7 @@ import '../../models/circular_exchange_path.dart';
 import '../../models/dual_exchange_path.dart';
 import '../../models/exchange_node.dart';
 import '../../utils/timetable_data_source.dart';
+import '../../utils/snackbar_helper.dart';
 import '../../utils/logger.dart';
 import '../../utils/day_utils.dart';
 import '../../utils/non_exchangeable_manager.dart';
@@ -1067,12 +1068,11 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   @override
   void showSnackBar(String message, {Color? backgroundColor}) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: backgroundColor,
-          duration: const Duration(seconds: 2),
-        ),
+      SnackBarHelper.showWithAction(
+        context,
+        message,
+        backgroundColor: backgroundColor,
+        duration: const Duration(seconds: 2),
       );
     }
   }
@@ -1368,13 +1368,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
         AppLogger.error('clearAllArrowStates 메서드 호출 실패: $e');
         // 사용자에게 알림 (선택사항)
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('화살표 상태 초기화 중 오류가 발생했습니다.'),
-              backgroundColor: Colors.orange,
-              duration: const Duration(seconds: 2),
-            ),
-          );
+          SnackBarHelper.showWarning(context, '화살표 상태 초기화 중 오류가 발생했습니다.');
         }
       }
     }

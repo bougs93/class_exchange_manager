@@ -19,6 +19,7 @@ import '../../ui/screens/exchange_screen/exchange_screen_state_proxy.dart';
 import '../../ui/screens/exchange_screen/managers/exchange_operation_manager.dart';
 import '../../utils/simplified_timetable_theme.dart';
 import '../../utils/logger.dart';
+import '../../utils/snackbar_helper.dart';
 import '../../ui/widgets/timetable_grid/exchange_executor.dart';
 import '../../services/app_settings_storage_service.dart';
 import '../../services/non_exchangeable_data_storage_service.dart';
@@ -201,14 +202,11 @@ class _StartScreenState extends ConsumerState<StartScreen> {
       // 보인다. 8단계 전체 검증에서 이 소비 호출 자체가 누락되어 있었다.
       if (ref.read(exchangeHistoryServiceProvider).consumeLegacyDataNotice() &&
           mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              '이전 버전의 교체 목록은 날짜 정보가 없어 사용할 수 없습니다. '
-              '교체를 다시 등록해 주세요. (이전 데이터는 .v1.bak으로 보관됩니다)',
-            ),
-            duration: Duration(seconds: 6),
-          ),
+        SnackBarHelper.showInfo(
+          context,
+          '이전 버전의 교체 목록은 날짜 정보가 없어 사용할 수 없습니다. '
+          '교체를 다시 등록해 주세요. (이전 데이터는 .v1.bak으로 보관됩니다)',
+          duration: const Duration(seconds: 6),
         );
       }
     } catch (e) {

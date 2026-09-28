@@ -5,6 +5,7 @@ import '../../constants/screen_usage_hints.dart';
 import '../../models/notice_message.dart';
 import '../../providers/notice_message_provider.dart';
 import '../../theme/design_tokens.dart';
+import '../../utils/snackbar_helper.dart';
 import 'content_toolbar_layout.dart';
 import 'content_usage_hint_bar.dart';
 import 'timetable_grid/grid_header_widgets.dart';
@@ -294,13 +295,7 @@ class NoticeControlPanel extends ConsumerWidget {
 
       if (messageGroups.isEmpty) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('복사할 메시지가 없습니다.'),
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 2),
-            ),
-          );
+          SnackBarHelper.showWarning(context, '복사할 메시지가 없습니다.');
         }
         return;
       }
@@ -319,24 +314,14 @@ class NoticeControlPanel extends ConsumerWidget {
       await Clipboard.setData(ClipboardData(text: buffer.toString()));
 
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${messageGroups.length}개의 메시지가 클립보드에 복사되었습니다.'),
-            backgroundColor: Colors.green.shade600,
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-          ),
+        SnackBarHelper.showSuccess(
+          context,
+          '${messageGroups.length}개의 메시지가 클립보드에 복사되었습니다.',
         );
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('복사 중 오류가 발생했습니다: $e'),
-            backgroundColor: Colors.red.shade600,
-            duration: const Duration(seconds: 3),
-          ),
-        );
+        SnackBarHelper.showError(context, '복사 중 오류가 발생했습니다: $e');
       }
     }
   }

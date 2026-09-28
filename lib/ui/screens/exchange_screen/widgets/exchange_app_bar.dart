@@ -10,6 +10,7 @@ import '../../../../models/one_to_one_exchange_path.dart';
 import '../../../../utils/exchange_path_utils.dart';
 import '../../../../theme/design_tokens.dart';
 import '../../../../utils/logger.dart';
+import '../../../../utils/snackbar_helper.dart';
 
 /// 교체 화면 AppBar 위젯
 class ExchangeAppBar extends ConsumerWidget implements PreferredSizeWidget {
@@ -228,19 +229,7 @@ class ExchangeAppBar extends ConsumerWidget implements PreferredSizeWidget {
 
   /// 🧪 테스트 결과 표시
   void _showTestResult(BuildContext context, String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.white),
-            const SizedBox(width: 8),
-            Text(message),
-          ],
-        ),
-        backgroundColor: color,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    SnackBarHelper.showInfo(context, message, backgroundColor: color);
   }
 
   /// 사이드바 토글 버튼 생성

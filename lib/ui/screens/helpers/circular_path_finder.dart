@@ -5,6 +5,7 @@ import '../../../models/time_slot.dart';
 import '../../../models/teacher.dart';
 import '../../../services/circular_exchange_service.dart';
 import '../../../utils/logger.dart';
+import '../../../utils/snackbar_helper.dart';
 import '../../../services/excel_service.dart';
 
 /// 순환교체 경로 탐색 관련 헬퍼 함수들
@@ -129,12 +130,7 @@ class CircularPathFinder {
 
       // 사용자에게 오류 알림
       if (context != null && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('순환교체 경로 탐색 중 오류가 발생했습니다: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        SnackBarHelper.showError(context, '순환교체 경로 탐색 중 오류가 발생했습니다: $e');
       }
 
       return CircularPathResult(

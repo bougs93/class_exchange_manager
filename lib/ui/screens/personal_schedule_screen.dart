@@ -5,6 +5,7 @@ import '../../providers/exchange_screen_provider.dart';
 import '../../providers/personal_schedule_provider.dart';
 import '../../utils/week_date_calculator.dart';
 import '../../utils/logger.dart';
+import '../../utils/snackbar_helper.dart';
 import '../../models/time_slot.dart';
 import '../../config/debug_config.dart';
 import '../../ui/widgets/timetable_grid/grid_header_widgets.dart';
@@ -193,9 +194,7 @@ class _PersonalScheduleScreenState
     final timetableData = ref.read(exchangeScreenProvider).timetableData;
     if (timetableData == null || timetableData.teachers.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('시간표 데이터가 없거나 교사 목록이 비어있습니다.')),
-        );
+        SnackBarHelper.showInfo(context, '시간표 데이터가 없거나 교사 목록이 비어있습니다.');
       }
       return;
     }
@@ -764,20 +763,13 @@ class _PersonalScheduleScreenState
 
       if (unassignedCount > 0 && exchangeInfoList.isEmpty) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                '경고: 날짜가 지정되지 않은 교체 항목 $unassignedCount개가 있어 표시되지 않습니다. 결보강 계획서에서 날짜를 지정해주세요.',
-                style: const TextStyle(fontSize: 14),
-              ),
-              backgroundColor: Colors.orange,
-              duration: const Duration(seconds: 4),
-              action: SnackBarAction(
-                label: '확인',
-                textColor: Colors.white,
-                onPressed: () {},
-              ),
-            ),
+          SnackBarHelper.showWithAction(
+            context,
+            '경고: 날짜가 지정되지 않은 교체 항목 $unassignedCount개가 있어 표시되지 않습니다. 결보강 계획서에서 날짜를 지정해주세요.',
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 4),
+            actionLabel: '확인',
+            onActionPressed: () {},
           );
         }
       }

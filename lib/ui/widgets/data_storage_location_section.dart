@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../services/storage_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/logger.dart';
+import '../../utils/snackbar_helper.dart';
 
 /// 데이터 JSON 저장 폴더 경로를 표시하는 공통 위젯
 ///
@@ -73,12 +74,7 @@ class DataStorageLocationSectionState
     await Clipboard.setData(ClipboardData(text: path));
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('저장 경로가 클립보드에 복사되었습니다.'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    SnackBarHelper.showInfo(context, '저장 경로가 클립보드에 복사되었습니다.');
   }
 
   @override

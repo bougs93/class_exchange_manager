@@ -11,6 +11,7 @@ import '../../providers/timetable_summary_provider.dart';
 import '../../providers/timetable_teachers_provider.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/logger.dart';
+import '../../utils/snackbar_helper.dart';
 import 'exchange_screen/exchange_screen_state_proxy.dart';
 import 'exchange_screen/managers/exchange_operation_manager.dart';
 
@@ -609,13 +610,11 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.red : null,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    if (isError) {
+      SnackBarHelper.showError(context, message, duration: const Duration(seconds: 2));
+    } else {
+      SnackBarHelper.showInfo(context, message);
+    }
   }
 
   @override

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'snackbar_helper.dart';
 
 /// URL 실행 유틸리티
 ///
@@ -21,24 +22,14 @@ class UrlLauncherHelper {
       } else {
         debugPrint('URL 실행 불가: $url');
         if (context != null && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('링크를 열 수 없습니다: $url'),
-              duration: const Duration(seconds: 2),
-            ),
-          );
+          SnackBarHelper.showInfo(context, '링크를 열 수 없습니다: $url');
         }
         return false;
       }
     } catch (e) {
       debugPrint('URL 실행 오류: $e');
       if (context != null && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('링크를 여는 중 오류가 발생했습니다: $e'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        SnackBarHelper.showInfo(context, '링크를 여는 중 오류가 발생했습니다: $e');
       }
       return false;
     }

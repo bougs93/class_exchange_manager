@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../utils/logger.dart';
+import '../../../utils/snackbar_helper.dart';
 
 /// 교체 모드 전환 관련 핸들러
 mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
@@ -62,12 +63,9 @@ mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
 
     // 1:1교체 모드 활성화 시 안내 메시지
     if (isExchangeModeEnabled && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('1:1교체 모드가 활성화되었습니다. 두 교사의 시간을 서로 교체할 수 있습니다.'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 3),
-        ),
+      SnackBarHelper.showSuccess(
+        context,
+        '1:1교체 모드가 활성화되었습니다. 두 교사의 시간을 서로 교체할 수 있습니다.',
       );
     }
   }
@@ -113,12 +111,11 @@ mixin ExchangeModeHandler<T extends StatefulWidget> on State<T> {
 
     // 순환교체 모드 활성화 시 안내 메시지
     if (isCircularExchangeModeEnabled && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('순환교체 모드가 활성화되었습니다. 여러 교사의 시간을 순환하여 교체할 수 있습니다.'),
-          backgroundColor: Colors.indigo,
-          duration: Duration(seconds: 3),
-        ),
+      SnackBarHelper.showInfo(
+        context,
+        '순환교체 모드가 활성화되었습니다. 여러 교사의 시간을 순환하여 교체할 수 있습니다.',
+        backgroundColor: Colors.indigo,
+        duration: const Duration(seconds: 3),
       );
     }
   }

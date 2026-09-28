@@ -22,6 +22,7 @@ import '../../../../../services/pdf_export_settings_storage_service.dart';
 import '../../../../../constants/korean_fonts.dart';
 import '../../../../../constants/pdf_notes_template.dart';
 import '../../../../../utils/logger.dart';
+import '../../../../../utils/snackbar_helper.dart';
 import 'pdf_settings_section.dart';
 import 'pdf_field_inputs_section.dart';
 import '../../pdf_preview_screen.dart';
@@ -1494,12 +1495,6 @@ class SubstitutionOutputWidgetState
 
   /// 스낵바 표시
   void _showSnackBar(String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: color,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    SnackBarHelper.showInfo(context, message, backgroundColor: color);
   }
 }

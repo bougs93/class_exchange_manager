@@ -8,6 +8,7 @@ import '../../../models/dual_exchange_path.dart';
 import '../../../models/supplement_exchange_path.dart';
 import '../../../models/exchange_history_item.dart';
 import '../../../utils/logger.dart';
+import '../../../utils/snackbar_helper.dart';
 import '../../../utils/timetable_data_source.dart';
 import '../../../providers/cell_selection_provider.dart';
 import '../../../providers/state_reset_provider.dart';
@@ -79,20 +80,12 @@ class ExchangeExecutor {
     String? actionLabel,
     VoidCallback? onActionPressed,
   ) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: backgroundColor,
-        duration: const Duration(seconds: 3),
-        action:
-            actionLabel != null && onActionPressed != null
-                ? SnackBarAction(
-                  label: actionLabel,
-                  textColor: Colors.white,
-                  onPressed: onActionPressed,
-                )
-                : null,
-      ),
+    SnackBarHelper.showWithAction(
+      context,
+      message,
+      backgroundColor: backgroundColor,
+      actionLabel: actionLabel,
+      onActionPressed: onActionPressed,
     );
   }
 
@@ -393,24 +386,20 @@ class ExchangeExecutor {
       dataSource?.notifyDataChanged();
 
       final weekLabel = ExchangeWeekCollector.monthWeekLabel(item.weekMonday);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            jumpedToOtherWeek
-                ? '$weekLabel의 교체를 되돌렸습니다'
-                : '교체 "${item.description}"가 되돌려졌습니다',
-          ),
-          backgroundColor: Colors.orange,
-          duration: const Duration(seconds: 2),
-        ),
+      SnackBarHelper.showWithAction(
+        context,
+        jumpedToOtherWeek
+            ? '$weekLabel의 교체를 되돌렸습니다'
+            : '교체 "${item.description}"가 되돌려졌습니다',
+        backgroundColor: Colors.orange,
+        duration: const Duration(seconds: 2),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('되돌릴 교체가 없습니다'),
-          backgroundColor: Colors.grey,
-          duration: Duration(seconds: 2),
-        ),
+      SnackBarHelper.showWithAction(
+        context,
+        '되돌릴 교체가 없습니다',
+        backgroundColor: Colors.grey,
+        duration: const Duration(seconds: 2),
       );
     }
   }
@@ -422,12 +411,11 @@ class ExchangeExecutor {
     final item = historyService.redoLastExchange();
 
     if (item == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('다시 실행할 교체가 없습니다'),
-          backgroundColor: Colors.grey,
-          duration: Duration(seconds: 2),
-        ),
+      SnackBarHelper.showWithAction(
+        context,
+        '다시 실행할 교체가 없습니다',
+        backgroundColor: Colors.grey,
+        duration: const Duration(seconds: 2),
       );
       return;
     }
@@ -444,12 +432,11 @@ class ExchangeExecutor {
 
     dataSource?.notifyDataChanged();
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('교체 "${item.description}"가 다시 실행되었습니다'),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
-      ),
+    SnackBarHelper.showWithAction(
+      context,
+      '교체 "${item.description}"가 다시 실행되었습니다',
+      backgroundColor: Colors.green,
+      duration: const Duration(seconds: 2),
     );
   }
 

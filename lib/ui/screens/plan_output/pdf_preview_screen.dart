@@ -8,6 +8,7 @@ import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:printing/printing.dart';
 
 import '../../../theme/design_tokens.dart';
+import '../../../utils/snackbar_helper.dart';
 
 /// 출력 미리 보기 화면
 ///
@@ -491,12 +492,6 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
 
   /// 스낵바 표시
   void _showSnackBar(String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: color,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    SnackBarHelper.showInfo(context, message, backgroundColor: color);
   }
 }

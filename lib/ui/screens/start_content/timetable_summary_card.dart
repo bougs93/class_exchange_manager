@@ -9,6 +9,7 @@ import '../../../providers/timetable_summary_provider.dart';
 import '../../../providers/timetable_teachers_provider.dart';
 import '../../../theme/design_tokens.dart';
 import '../../../utils/logger.dart';
+import '../../../utils/snackbar_helper.dart';
 import '../../widgets/app_content_card.dart';
 
 /// 홈 화면의 시간표 카드
@@ -123,9 +124,7 @@ class _TimetableSummaryCardState extends ConsumerState<TimetableSummaryCard> {
         .switchActive(id);
     if (!mounted) return;
     if (!ok) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('시간표 전환에 실패했습니다.')));
+      SnackBarHelper.showError(context, '시간표 전환에 실패했습니다.');
     }
   }
 

@@ -8,6 +8,7 @@ import '../../theme/app_theme_type.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/logger.dart';
 import '../../utils/simplified_timetable_theme.dart';
+import '../../utils/snackbar_helper.dart';
 import '../widgets/data_storage_location_section.dart';
 
 /// 설정 화면
@@ -119,12 +120,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _isSavingHighlightColor = false;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('색상 저장에 실패했습니다: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 2),
-          ),
+        SnackBarHelper.showError(
+          context,
+          '색상 저장에 실패했습니다: $e',
+          duration: const Duration(seconds: 2),
         );
       }
     }
@@ -145,33 +144,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         });
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('언어 설정이 저장되었습니다. 앱을 재시작하면 적용됩니다.'),
-              duration: Duration(seconds: 2),
-            ),
-          );
+          SnackBarHelper.showInfo(context, '언어 설정이 저장되었습니다. 앱을 재시작하면 적용됩니다.');
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('언어 설정 저장에 실패했습니다.'),
-              backgroundColor: Colors.red,
-              duration: Duration(seconds: 2),
-            ),
+          SnackBarHelper.showError(
+            context,
+            '언어 설정 저장에 실패했습니다.',
+            duration: const Duration(seconds: 2),
           );
         }
       }
     } catch (e) {
       AppLogger.error('언어 설정 저장 중 오류: $e', e);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('오류가 발생했습니다: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 2),
-          ),
+        SnackBarHelper.showError(
+          context,
+          '오류가 발생했습니다: $e',
+          duration: const Duration(seconds: 2),
         );
       }
     }
@@ -232,44 +222,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (mounted) {
         if (failedFiles.isEmpty && totalCount > 0) {
           // 모든 파일 삭제 성공
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('모든 데이터가 삭제되었습니다. ($totalCount개 파일)'),
-              duration: const Duration(seconds: 3),
-            ),
+          SnackBarHelper.showInfo(
+            context,
+            '모든 데이터가 삭제되었습니다. ($totalCount개 파일)',
+            duration: const Duration(seconds: 3),
           );
         } else if (totalCount == 0) {
           // 삭제할 파일이 없음
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('삭제할 데이터가 없습니다.'),
-              duration: Duration(seconds: 2),
-            ),
-          );
+          SnackBarHelper.showInfo(context, '삭제할 데이터가 없습니다.');
         } else {
           // 일부 파일 삭제 실패
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                '일부 데이터 삭제에 실패했습니다.\n'
-                '성공: $successCount개 / 전체: $totalCount개\n'
-                '실패한 파일: ${failedFiles.join(", ")}',
-              ),
-              backgroundColor: Colors.orange,
-              duration: const Duration(seconds: 4),
-            ),
+          SnackBarHelper.showWarning(
+            context,
+            '일부 데이터 삭제에 실패했습니다.\n'
+            '성공: $successCount개 / 전체: $totalCount개\n'
+            '실패한 파일: ${failedFiles.join(", ")}',
           );
         }
       }
     } catch (e) {
       AppLogger.error('데이터 초기화 중 오류: $e', e);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('오류가 발생했습니다: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
+        SnackBarHelper.showError(
+          context,
+          '오류가 발생했습니다: $e',
+          duration: const Duration(seconds: 3),
         );
       }
     } finally {
@@ -541,19 +518,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (!mounted) return;
 
     if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('디자인 테마가 ${type.displayName}(으)로 변경되었습니다.'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      SnackBarHelper.showInfo(context, '디자인 테마가 ${type.displayName}(으)로 변경되었습니다.');
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('디자인 테마 변경에 실패했습니다.'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 2),
-        ),
+      SnackBarHelper.showError(
+        context,
+        '디자인 테마 변경에 실패했습니다.',
+        duration: const Duration(seconds: 2),
       );
     }
   }

@@ -1393,9 +1393,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     );
 
     if (rowData.exchangeId.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('행 정보를 찾을 수 없습니다.')));
+      SnackBarHelper.showInfo(context, '행 정보를 찾을 수 없습니다.');
       return;
     }
 
@@ -1405,18 +1403,14 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
             : rowData.teacher;
 
     if (teacherName.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('교사 정보를 찾을 수 없습니다.')));
+      SnackBarHelper.showInfo(context, '교사 정보를 찾을 수 없습니다.');
       return;
     }
 
     // 2) 전역 시간표에서 해당 교사가 실제로 가르친 과목 목록 추출
     final timetableData = ref.read(exchangeScreenProvider).timetableData;
     if (timetableData == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('시간표 데이터가 없어 과목을 불러올 수 없습니다.')),
-      );
+      SnackBarHelper.showInfo(context, '시간표 데이터가 없어 과목을 불러올 수 없습니다.');
       return;
     }
 
@@ -1432,9 +1426,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     final List<String> subjects = subjectSet.toList()..sort();
 
     if (subjects.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('교사 "$teacherName"의 과목 정보를 찾지 못했습니다.')),
-      );
+      SnackBarHelper.showInfo(context, '교사 "$teacherName"의 과목 정보를 찾지 못했습니다.');
       return;
     }
 
@@ -1499,9 +1491,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     if (selected != null && selected.isNotEmpty) {
       if (!context.mounted) return;
       viewModel.updateSupplementSubject(exchangeId, selected);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('보강 과목이 "$selected"(으)로 설정되었습니다.')),
-      );
+      SnackBarHelper.showInfo(context, '보강 과목이 "$selected"(으)로 설정되었습니다.');
     }
   }
 
@@ -1589,12 +1579,9 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
             '요일 불일치 - 선택: ${selectedDate.weekday}, 대상: $targetWeekday',
           );
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('$targetWeekday요일이 아닌 날짜는 선택할 수 없습니다.'),
-                backgroundColor: Colors.red.shade600,
-                duration: const Duration(seconds: 3),
-              ),
+            SnackBarHelper.showError(
+              context,
+              '$targetWeekday요일이 아닌 날짜는 선택할 수 없습니다.',
             );
           }
           return;
@@ -1620,12 +1607,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     } catch (e) {
       AppLogger.error('날짜 선택 중 오류 발생', e);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('날짜 선택 중 오류가 발생했습니다: $e'),
-            backgroundColor: Colors.red.shade600,
-          ),
-        );
+        SnackBarHelper.showError(context, '날짜 선택 중 오류가 발생했습니다: $e');
       }
     }
   }
@@ -1720,13 +1702,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
 
       if (planData.isEmpty) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('복사할 데이터가 없습니다.'),
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 2),
-            ),
-          );
+          SnackBarHelper.showWarning(context, '복사할 데이터가 없습니다.');
         }
         return;
       }
@@ -1738,24 +1714,14 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
       await Clipboard.setData(ClipboardData(text: tableText));
 
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${planData.length}개 행의 데이터가 클립보드에 복사되었습니다.'),
-            backgroundColor: Colors.green.shade600,
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-          ),
+        SnackBarHelper.showSuccess(
+          context,
+          '${planData.length}개 행의 데이터가 클립보드에 복사되었습니다.',
         );
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('복사 중 오류가 발생했습니다: $e'),
-            backgroundColor: Colors.red.shade600,
-            duration: const Duration(seconds: 3),
-          ),
-        );
+        SnackBarHelper.showError(context, '복사 중 오류가 발생했습니다: $e');
       }
     }
   }

@@ -11,6 +11,7 @@ import '../../providers/exchange_screen_provider.dart';
 import '../../providers/cell_selection_provider.dart';
 import '../../models/exchange_mode.dart';
 import '../../utils/timetable_data_source.dart';
+import '../../utils/snackbar_helper.dart';
 import 'timetable_grid/grid_column_locator.dart';
 import '../../utils/day_utils.dart';
 import 'timetable_grid/arrow_state_manager.dart';
@@ -1318,12 +1319,10 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       final exchangeService = ref.read(exchangeServiceProvider);
       if (!exchangeService.hasSelectedCell()) {
         AppLogger.exchangeDebug('보강 실행 실패: 선택된 셀을 먼저 선택해주세요');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('보강할 셀을 먼저 선택해주세요'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 2),
-          ),
+        SnackBarHelper.showError(
+          context,
+          '보강할 셀을 먼저 선택해주세요',
+          duration: const Duration(seconds: 2),
         );
         return;
       }
@@ -1336,14 +1335,9 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
         AppLogger.exchangeDebug(
           '보강 실행 실패: $teacherName의 $selectedDay$selectedPeriod교시는 수업이 있는 시간입니다',
         );
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '보강할 시간에 수업이 없는 교사을 선택해주세요. $teacherName의 $selectedDay$selectedPeriod교시는 수업이 있는 시간입니다.',
-            ),
-            backgroundColor: Colors.orange,
-            duration: const Duration(seconds: 3),
-          ),
+        SnackBarHelper.showWarning(
+          context,
+          '보강할 시간에 수업이 없는 교사을 선택해주세요. $teacherName의 $selectedDay$selectedPeriod교시는 수업이 있는 시간입니다.',
         );
         return;
       }
@@ -1419,12 +1413,10 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     final exchangeService = ExchangeService();
     if (!exchangeService.hasSelectedCell()) {
       AppLogger.exchangeDebug('보강 실행 실패: 선택된 셀을 먼저 선택해주세요');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('보강할 셀을 먼저 선택해주세요'),
-          backgroundColor: Colors.red,
-          duration: Duration(seconds: 2),
-        ),
+      SnackBarHelper.showError(
+        context,
+        '보강할 셀을 먼저 선택해주세요',
+        duration: const Duration(seconds: 2),
       );
       return;
     }
@@ -1444,27 +1436,17 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
 
     // 보강 가능성 검증
     if (!sourceSlot.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '보강 실패: $sourceTeacher의 $sourceDay$sourcePeriod교시에 수업이 없습니다',
-          ),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
+      SnackBarHelper.showError(
+        context,
+        '보강 실패: $sourceTeacher의 $sourceDay$sourcePeriod교시에 수업이 없습니다',
       );
       return;
     }
 
     if (!sourceSlot.canExchange) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '보강 실패: $sourceTeacher의 $sourceDay$sourcePeriod교시 수업은 교체 불가능합니다',
-          ),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
+      SnackBarHelper.showError(
+        context,
+        '보강 실패: $sourceTeacher의 $sourceDay$sourcePeriod교시 수업은 교체 불가능합니다',
       );
       return;
     }
@@ -1638,24 +1620,12 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
 
       // 6. 성공 메시지 표시
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('결보강 전체가 초기화되었습니다.'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
+        SnackBarHelper.showSuccess(context, '결보강 전체가 초기화되었습니다.');
       }
     } catch (e) {
       // 오류 메시지 표시
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('삭제 중 오류가 발생했습니다: $e'),
-            backgroundColor: Colors.red.shade600,
-            duration: const Duration(seconds: 3),
-          ),
-        );
+        SnackBarHelper.showError(context, '삭제 중 오류가 발생했습니다: $e');
       }
     }
   }

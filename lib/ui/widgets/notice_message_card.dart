@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/notice_message.dart';
 import '../../theme/design_tokens.dart';
+import '../../utils/snackbar_helper.dart';
 import 'content_toolbar_layout.dart';
 import 'timetable_grid/grid_header_widgets.dart';
 
@@ -209,29 +210,16 @@ class NoticeMessageCard extends StatelessWidget {
 
       // 성공 메시지 표시
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              copySuccessMessage ??
-                  '${messageGroup.groupIdentifier} 메시지가 클립보드에 복사되었습니다.',
-            ),
-            backgroundColor: Colors.green.shade600,
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-          ),
+        SnackBarHelper.showSuccess(
+          context,
+          copySuccessMessage ??
+              '${messageGroup.groupIdentifier} 메시지가 클립보드에 복사되었습니다.',
         );
       }
     } catch (e) {
       // 복사 실패 시 에러 메시지 표시
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('복사 중 오류가 발생했습니다: $e'),
-            backgroundColor: Colors.red.shade600,
-            duration: const Duration(seconds: 3),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        SnackBarHelper.showError(context, '복사 중 오류가 발생했습니다: $e');
       }
     }
   }

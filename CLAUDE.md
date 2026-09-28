@@ -152,6 +152,7 @@ Excel 파일 (읽기 전용) → ExcelService → Models → Providers → UI
 - 개발/프로덕션 환경에서 모의 데이터 사용 금지 (테스트 제외)
 - `logger: ^2.0.2+1`을 통한 구조화된 로깅 사용
 - 성능을 위해 상세 디버그 로그 제거
+- **스낵바(SnackBar)는 항상 `lib/utils/snackbar_helper.dart`의 `SnackBarHelper`를 통해 표시** (`showSuccess`/`showError`/`showInfo`/`showWarning`/`showWithAction`). `ScaffoldMessenger.of(context).showSnackBar(...)`를 직접 호출하지 말 것 — 스낵바를 띄운 위젯이 표시 중 unmount되면 Flutter 내부 자동 닫힘 타이머가 시작되지 않아 스낵바가 영구히 남는 문제가 있었고, `SnackBarHelper`만 이를 해결하는 강제 닫힘 안전장치를 갖고 있음 (2026-09-29 수정)
 
 ## 현재 구현 상태
 
