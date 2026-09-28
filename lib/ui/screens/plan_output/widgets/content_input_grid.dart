@@ -22,7 +22,6 @@ import '../../../../providers/timetable_registry_provider.dart';
 import '../../../../services/batch_pdf_export_service.dart';
 import '../../../../theme/design_tokens.dart';
 import '../../../../ui/screens/personal_schedule_screen/exchange_week_collector.dart';
-import '../../../../utils/week_date_calculator.dart';
 import '../../../../ui/widgets/content_toolbar_layout.dart';
 import '../../../../ui/widgets/content_usage_hint_bar.dart';
 import '../../../../ui/widgets/empty_state_message.dart';
@@ -1633,10 +1632,11 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
 
   /// 선택한 날짜를 교체 건(`ExchangeHistoryItem`)에 반영한다 (§10.10).
   ///
-  /// 다른 주로 옮기는 변경이면(§10.5 A안과 동일한 원칙) 저장 전에 확인
-  /// 다이얼로그를 띄운다 — 사용자가 달력에서 무심코 다른 주 날짜를 눌러
-  /// 이 교체 건이 조용히 다른 주 소속으로 바뀌는 사고를 막기 위함이다.
-  /// 반환값: 실제로 저장했으면 true, 취소했거나 실패했으면 false.
+  /// 2026-09-29 사용자 확정: 다른 주로 옮기는 변경이어도 확인 다이얼로그 없이
+  /// 즉시 저장한다. 과거에는 §10.5 A안에 따라 결강일이 실제로 다른 주로
+  /// 이동할 때만 "다른 주로 이동" 확인을 띄웠으나(교체일 수정 시 불필요하게
+  /// 뜨던 버그는 이미 고쳤었다), 사용자가 그 확인 자체도 없애 달라고 요청했다.
+  /// 반환값: 실제로 저장했으면 true, 실패했으면 false.
   Future<bool> _applyDateSelection(
     BuildContext context,
     String? groupId,
@@ -1655,35 +1655,13 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
       return false;
     }
 
-    final oldDate =
-        columnName == 'absenceDate' ? item.absenceDate : item.substitutionDate;
-    final oldWeekMonday = WeekDateCalculator.getWeekMonday(oldDate);
-    final newWeekMonday = WeekDateCalculator.getWeekMonday(selectedDate);
-    final movesWeek = !ExchangeWeekCollector.isSameWeek(
-      oldWeekMonday,
-      newWeekMonday,
-    );
-
-    if (movesWeek) {
-      final weekLabel = ExchangeWeekCollector.monthWeekLabel(newWeekMonday);
-      final confirmed = await DialogHelper.showConfirmDialog(
-        context,
-        title: '다른 주로 이동',
-        message: '이 교체가 $weekLabel(으)로 이동합니다.\n계속할까요?',
-        confirmText: '이동',
-      );
-      if (confirmed != true) return false;
-      if (!context.mounted) return false;
-    }
-
     historyService.updateDates(
       groupId,
       absenceDate: columnName == 'absenceDate' ? selectedDate : null,
       substitutionDate: columnName == 'substitutionDate' ? selectedDate : null,
     );
     AppLogger.exchangeInfo(
-      '날짜 업데이트: $groupId.$columnName → ${DateFormatUtils.toYearMonthDay(selectedDate)}'
-      '${movesWeek ? ' (주 이동: $oldWeekMonday → $newWeekMonday)' : ''}',
+      '날짜 업데이트: $groupId.$columnName → ${DateFormatUtils.toYearMonthDay(selectedDate)}',
     );
     return true;
   }
