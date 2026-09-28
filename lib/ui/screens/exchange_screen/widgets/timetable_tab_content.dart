@@ -7,6 +7,7 @@ import '../../../../services/excel_service.dart';
 import '../../../../utils/timetable_data_source.dart';
 import '../../../../providers/exchange_screen_provider.dart';
 import '../../../../providers/exchange_view_provider.dart';
+import '../../../../providers/services_provider.dart';
 import '../../../widgets/exchange_control_panel.dart';
 import '../../../widgets/timetable_grid_section.dart';
 import 'exchange_week_bar.dart';
@@ -28,6 +29,7 @@ class TimetableTabContent extends ConsumerWidget {
   final Widget Function(String?, VoidCallback) buildPaddedErrorMessageSection;
   final VoidCallback onClearError;
   final VoidCallback? onHeaderThemeUpdate; // 헤더 테마 업데이트 콜백
+  final VoidCallback? onShowWeekHeaderChanged; // 날짜표시 스위치 변경 콜백 (S1.5)
 
   const TimetableTabContent({
     super.key,
@@ -44,10 +46,19 @@ class TimetableTabContent extends ConsumerWidget {
     required this.buildPaddedErrorMessageSection,
     required this.onClearError,
     this.onHeaderThemeUpdate, // 헤더 테마 업데이트 콜백
+    this.onShowWeekHeaderChanged, // 날짜표시 스위치 변경 콜백 (S1.5)
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 계획서 화면에서 결강일·교체일을 수정하면 ExchangeHistoryService가
+    // exchangeListVersionProvider를 올린다(§10.10). "교체" 탭은 IndexedStack으로
+    // 계획서 탭과 함께 항상 마운트되어 있으므로, 여기서 감지해 날짜 꼬리표(S1.5)를
+    // 포함한 그리드를 즉시 다시 그린다 — 탭을 전환해야만 반영되던 문제를 막는다.
+    ref.listen(exchangeListVersionProvider, (previous, next) {
+      dataSource?.notifyDataChanged();
+    });
+
     return Column(
       children: [
         // 주차 선택 바 (§10.5) — 지금 어느 주를 보고 있는지 항상 화면에 둔다
@@ -64,6 +75,7 @@ class TimetableTabContent extends ConsumerWidget {
                     dataSource: dataSource!,
                   );
             },
+            onShowWeekHeaderChanged: onShowWeekHeaderChanged,
           ),
         // 시간표 그리드 (모드 선택 + 실행 도구가 그리드 헤더에 통합됨)
         if (timetableData != null && columns.isEmpty)

@@ -5,6 +5,7 @@ import '../../../../models/exchange_mode.dart';
 import '../../../../providers/exchange_screen_provider.dart';
 import '../../../../providers/selected_week_provider.dart';
 import '../../../../providers/services_provider.dart';
+import '../../../../providers/show_week_header_provider.dart';
 import '../../../../services/exchange_service.dart';
 import '../../../../services/circular_exchange_service.dart';
 import '../../../../services/dual_exchange_service.dart';
@@ -114,7 +115,11 @@ class GridHeaderManager {
       selectedOneToOnePath: stateProxy.selectedOneToOnePath, // 선택된 1:1 교체 경로 전달
       selectedDualPath: stateProxy.selectedDualPath, // 선택된 2중교체 경로 전달
       selectedSupplementPath: stateProxy.selectedSupplementPath, // 선택된 보강 경로 전달
-      weekMonday: ref.read(selectedWeekProvider), // 요일 헤더 날짜 표시(§10.5)
+      // 날짜표시 스위치(S1.5)가 OFF(기본값)면 날짜를 붙이지 않는다 — 교체 시작 시 기본은 날짜 미선택 상태
+      weekMonday:
+          ref.read(showWeekHeaderProvider)
+              ? ref.read(selectedWeekProvider)
+              : null,
     );
 
     // Provider를 통해 그리드 데이터 업데이트 (변경이 필요한 경우에만 호출하여 성능 최적화)
@@ -215,6 +220,11 @@ class GridHeaderManager {
       selectedOneToOnePath: stateProxy.selectedOneToOnePath, // 1:1 교체 경로
       selectedDualPath: stateProxy.selectedDualPath, // 2중교체 경로
       selectedSupplementPath: stateProxy.selectedSupplementPath, // 보강 경로
+      // 날짜표시 스위치(S1.5)가 OFF(기본값)면 날짜를 붙이지 않는다
+      weekMonday:
+          ref.read(showWeekHeaderProvider)
+              ? ref.read(selectedWeekProvider)
+              : null,
     );
 
     // Provider를 통한 헤더 업데이트 (최적화됨 - 구조적 변경이 있는 경우에만 업데이트)

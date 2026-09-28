@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../providers/exchange_week_summary_provider.dart';
 import '../../../../providers/selected_week_provider.dart';
+import '../../../../providers/show_week_header_provider.dart';
 import '../../../../utils/week_date_calculator.dart';
 import '../../personal_schedule_screen/exchange_week_collector.dart';
 
@@ -16,7 +17,14 @@ class ExchangeWeekBar extends ConsumerWidget {
   /// 주가 바뀐 뒤 그리드를 다시 그리기 위한 콜백
   final VoidCallback? onWeekChanged;
 
-  const ExchangeWeekBar({super.key, this.onWeekChanged});
+  /// 날짜표시 스위치가 바뀐 뒤 헤더를 강제로 다시 그리기 위한 콜백 (S1.5)
+  final VoidCallback? onShowWeekHeaderChanged;
+
+  const ExchangeWeekBar({
+    super.key,
+    this.onWeekChanged,
+    this.onShowWeekHeaderChanged,
+  });
 
   void _moveWeek(WidgetRef ref, int offset) {
     final current = ref.read(selectedWeekProvider);
@@ -36,6 +44,7 @@ class ExchangeWeekBar extends ConsumerWidget {
     final selectedWeek = ref.watch(selectedWeekProvider);
     final counts = ref.watch(exchangeWeekCountsProvider);
     final weeks = ref.watch(exchangeWeeksProvider);
+    final showWeekHeader = ref.watch(showWeekHeaderProvider);
 
     final currentCount = exchangeCountForWeek(counts, selectedWeek);
 
@@ -55,36 +64,42 @@ class ExchangeWeekBar extends ConsumerWidget {
             visualDensity: VisualDensity.compact,
             onPressed: () => _moveWeek(ref, -1),
           ),
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final week in weeks)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: _WeekChip(
-                        label: ExchangeWeekCollector.monthWeekLabel(week),
-                        count: counts[week] ?? 0,
-                        selected: ExchangeWeekCollector.isSameWeek(
-                          week,
+          // 주차 칩(예: "10월1주")은 실제 월·주 정보를 드러내므로 날짜표시 OFF일 때는 숨긴다 (S1.5)
+          if (showWeekHeader)
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final week in weeks)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: _WeekChip(
+                          label: ExchangeWeekCollector.monthWeekLabel(week),
+                          count: counts[week] ?? 0,
+                          selected: ExchangeWeekCollector.isSameWeek(
+                            week,
+                            selectedWeek,
+                          ),
+                          onTap: () => _selectWeek(ref, week),
+                        ),
+                      ),
+                    // 선택된 주에 교체가 없으면 칩 목록에 없으므로 별도로 보여준다
+                    if (currentCount == 0)
+                      _WeekChip(
+                        label: ExchangeWeekCollector.monthWeekLabel(
                           selectedWeek,
                         ),
-                        onTap: () => _selectWeek(ref, week),
+                        count: 0,
+                        selected: true,
+                        onTap: () {},
                       ),
-                    ),
-                  // 선택된 주에 교체가 없으면 칩 목록에 없으므로 별도로 보여준다
-                  if (currentCount == 0)
-                    _WeekChip(
-                      label: ExchangeWeekCollector.monthWeekLabel(selectedWeek),
-                      count: 0,
-                      selected: true,
-                      onTap: () {},
-                    ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ),
+            )
+          else
+            const Spacer(),
           IconButton(
             icon: const Icon(Icons.chevron_right, size: 20),
             tooltip: '다음 주',
@@ -93,9 +108,34 @@ class ExchangeWeekBar extends ConsumerWidget {
           ),
           const SizedBox(width: 4),
           Text(
-            '${WeekDateCalculator.formatWeekRange(selectedWeek)} · 교체 $currentCount건',
+            // 날짜표시 OFF(기본값)일 때는 실제 날짜 범위를 숨기고 건수만 표시한다 (S1.5)
+            showWeekHeader
+                ? '${WeekDateCalculator.formatWeekRange(selectedWeek)} · 교체 $currentCount건'
+                : '교체 $currentCount건',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Tooltip(
+            message: showWeekHeader ? '날짜표시 끄기' : '날짜표시 켜기',
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '날짜표시',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                Switch(
+                  value: showWeekHeader,
+                  onChanged: (value) {
+                    ref.read(showWeekHeaderProvider.notifier).state = value;
+                    onShowWeekHeaderChanged?.call();
+                  },
+                ),
+              ],
             ),
           ),
         ],

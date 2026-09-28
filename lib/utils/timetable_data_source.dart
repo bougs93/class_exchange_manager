@@ -11,14 +11,18 @@ import '../ui/widgets/simplified_timetable_cell.dart';
 import '../providers/cell_selection_provider.dart';
 import '../providers/app_settings_provider.dart';
 import '../providers/non_exchangeable_dated_cells_provider.dart';
+import '../providers/services_provider.dart';
+import '../providers/show_week_header_provider.dart';
 import '../providers/timetable_registry_provider.dart';
 import '../services/non_exchangeable_data_storage_service.dart';
 import 'exchange_algorithm.dart';
 import 'exchange_path_step_resolver.dart';
+import 'exchanged_cell_overlay_dates.dart';
 import 'day_utils.dart';
 import 'non_exchangeable_manager.dart';
 import 'simplified_timetable_theme.dart';
 import 'logger.dart';
+import 'week_date_calculator.dart';
 
 /// 셀 상태 정보를 담는 클래스
 class CellStateInfo {
@@ -37,6 +41,7 @@ class CellStateInfo {
   final bool isExchangedDestinationCell; // 교체된 목적지 셀인지 여부
   final bool isTeacherNameSelected; // 교사 이름 선택 상태 (새로 추가)
   final bool isHighlightedTeacher; // 하이라이트된 교사 행인지 여부 (새로 추가)
+  final String? overlayDate; // 날짜표시 OFF일 때 교체된 칸에 붙이는 날짜 꼬리표 (S1.5, 예: "10.06")
 
   CellStateInfo({
     required this.isSelected,
@@ -54,6 +59,7 @@ class CellStateInfo {
     required this.isExchangedDestinationCell,
     required this.isTeacherNameSelected, // 새로 추가
     required this.isHighlightedTeacher, // 새로 추가
+    this.overlayDate,
   });
 
   factory CellStateInfo.empty() {
@@ -243,6 +249,7 @@ class TimetableDataSource extends DataGridSource {
               isNonExchangeable: cellState.isNonExchangeable,
               isExchangedSourceCell: cellState.isExchangedSourceCell,
               isExchangedDestinationCell: cellState.isExchangedDestinationCell,
+              overlayDate: cellState.overlayDate,
               isTeacherNameSelected: cellState.isTeacherNameSelected, // 새로 추가
               isHighlightedTeacher: cellState.isHighlightedTeacher, // 새로 추가
             );
@@ -352,6 +359,13 @@ class TimetableDataSource extends DataGridSource {
       day,
       period,
     );
+    final bool isExchangedSourceCell = cellNotifier.isCellExchangedSource(
+      teacherName,
+      day,
+      period,
+    );
+    final bool isExchangedDestinationCell = cellNotifier
+        .isCellExchangedDestination(teacherName, day, period);
 
     return CellStateInfo(
       isSelected: isSelected,
@@ -389,15 +403,14 @@ class TimetableDataSource extends DataGridSource {
           period,
         ),
       ),
-      isExchangedSourceCell: cellNotifier.isCellExchangedSource(
-        teacherName,
-        day,
-        period,
-      ),
-      isExchangedDestinationCell: cellNotifier.isCellExchangedDestination(
-        teacherName,
-        day,
-        period,
+      isExchangedSourceCell: isExchangedSourceCell,
+      isExchangedDestinationCell: isExchangedDestinationCell,
+      overlayDate: _resolveOverlayDate(
+        teacherName: teacherName,
+        day: day,
+        period: period,
+        isExchangedSourceCell: isExchangedSourceCell,
+        isExchangedDestinationCell: isExchangedDestinationCell,
       ),
       isLastColumnOfDay: _isLastColumnOfDay(day, period),
       isFirstColumnOfDay: _isFirstColumnOfDay(day, period),
@@ -507,6 +520,32 @@ class TimetableDataSource extends DataGridSource {
     }
 
     return null;
+  }
+
+  /// 날짜표시 OFF일 때 교체된 칸에 붙일 날짜 꼬리표 계산 (S1.5)
+  ///
+  /// 날짜표시가 ON이면 헤더에 이미 날짜가 있으므로 꼬리표를 붙이지 않는다.
+  /// 교체된 칸이 아니면(빠진 수업도 맡은 수업도 아니면) 꼬리표가 필요 없다.
+  /// 순환·2중 교체 등 매핑되지 않은 칸은 null을 반환해 꼬리표를 생략한다 —
+  /// 틀린 날짜를 보여주는 것보다 안전하다.
+  String? _resolveOverlayDate({
+    required String teacherName,
+    required String day,
+    required int period,
+    required bool isExchangedSourceCell,
+    required bool isExchangedDestinationCell,
+  }) {
+    if (ref.read(showWeekHeaderProvider)) return null;
+    if (!isExchangedSourceCell && !isExchangedDestinationCell) return null;
+
+    final cellKey = '${teacherName}_${day}_$period';
+    final overlayDates = ExchangedCellOverlayDates.build(
+      ref.read(exchangeHistoryServiceProvider).getActiveExchangeList(),
+    );
+    final date = overlayDates[cellKey];
+    if (date == null) return null;
+
+    return WeekDateCalculator.formatDateShort(date);
   }
 
   /// 요일별 마지막 교시 확인

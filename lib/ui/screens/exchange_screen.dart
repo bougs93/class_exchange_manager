@@ -832,6 +832,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
               buildPaddedErrorMessageSection: buildPaddedErrorMessageSection,
               onClearError: _clearError,
               onHeaderThemeUpdate: _updateHeaderTheme, // 헤더 테마 업데이트 콜백 전달
+              onShowWeekHeaderChanged:
+                  () => _updateHeaderTheme(forceUpdate: true), // 날짜표시 스위치 변경 시 헤더 강제 재생성 (S1.5)
             ),
           ),
 

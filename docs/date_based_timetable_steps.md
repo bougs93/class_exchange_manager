@@ -1,7 +1,7 @@
 # 날짜 기반 시간표 전환 — 단계별 실행 계획
 
 작성일: 2026-09-29
-상태: 계획 작성 중 — S1까지 상세화, 이후 단계는 진행하며 사용자와 함께 구체화
+상태: S1, S1.5 구현 완료 (2026-09-29, 모델 전환 없이 Sonnet 5로 진행). S2 이후는 착수 시점에 사용자와 함께 구체화
 
 상위 문서: [date_based_timetable_plan.md](date_based_timetable_plan.md)
 진행 기록: [date_based_timetable_handoff.md](date_based_timetable_handoff.md)
@@ -35,19 +35,20 @@ S0·S1(순수 모델 추가만)은 기존 코드를 변경하지 않으므로 �
 
 완료 조건: 현재 코드의 날짜 관련 실제 상태와 기준 테스트 결과를 기록.
 
-## S1. 날짜 전용 데이터 모델 (순수 모델만, UI/저장소 미연결)
+## S1. 날짜 전용 데이터 모델 (순수 모델만, UI/저장소 미연결) — DONE (2026-09-29)
 
 의존: S0.
 
 목표: 기존 구조를 건드리지 않고, 날짜 기반 모델을 **독립적으로** 추가한다. 아직 아무 화면도 이 모델을 사용하지 않으므로 회귀 위험이 없다.
 
-- [ ] 날짜 전용 값 타입 정의 (타임존 변환으로 날짜가 바뀌지 않는 형태).
-- [ ] 학기 범위 모델 정의: 학년도, 학기(1/2), 시작일, 종료일. 1학기 기본값 3/1~7/31, 2학기 기본값 8/1~다음 해 1/31.
-- [ ] 날짜별 수업 배치 모델 정의: 수업 ID, 날짜, 교시, 교사 ID, 학급·과목.
-- [ ] 학기 범위 안의 날짜 목록을 생성하는 순수 함수 작성 (요일별 반복 계산, 연도 경계 포함).
-- [ ] 유닛 테스트: 1학기 양 끝 날짜, 2학기 연도 경계, 특정 요일의 날짜 목록 정확성.
+- [x] 날짜 전용 값 타입 정의 (타임존 변환으로 날짜가 바뀌지 않는 형태) — `SchoolSemester` 생성자가 시각을 제거하고 날짜만 저장한다.
+- [x] 학기 범위 모델 정의: `lib/models/school_semester.dart`의 `SchoolSemester` (학년도, 학기(1/2), 시작일, 종료일). `SchoolSemester.defaultFor()`로 1학기 3/1~7/31, 2학기 8/1~다음 해 1/31 기본값 생성.
+- [ ] 날짜별 수업 배치 모델(`Lesson` 등)은 아직 만들지 않음 — S2(저장소) 착수 시점에 다시 설계한다.
+- [x] 학기 범위 안의 날짜 목록을 생성하는 순수 함수: `lib/utils/semester_date_generator.dart`의 `SemesterDateGenerator` (`datesForWeekday`/`datesForDayName`/`allDates`).
+- [x] 유닛 테스트: `test/models/school_semester_test.dart`(10개), `test/utils/semester_date_generator_test.dart`(6개) — 1학기 양 끝, 2학기 연도 경계, 요일별 독립성·중복 없음 확인.
 
-완료 조건: 신규 모델과 생성 함수가 UI·저장소 없이 유닛 테스트로 검증됨. 기존 파일은 수정하지 않음(신규 파일만 추가).
+완료 조건: 신규 모델과 생성 함수가 UI·저장소 없이 유닛 테스트로 검증됨 — 총 16개 테스트 통과, `flutter analyze` 문제 없음.
+기존 파일은 수정하지 않음(신규 파일만 추가) — 그대로 지켜짐. 날짜별 수업 배치 모델은 범위를 좁혀 다음 단계로 넘겼다.
 
 ## S1.5 (후보) "날짜표시" 스위치 — 교체 페이지 표시 전환
 
@@ -71,12 +72,34 @@ S0·S1(순수 모델 추가만)은 기존 코드를 변경하지 않으므로 �
 "ON 모드"에 해당하는 상시 날짜 표시만 이미 구현되어 있다. **큰 기능을 제거할 필요는 없고**,
 `buildDayHeaderCell`의 날짜 표시를 무조건 → 스위치 값에 따른 조건부로 바꾸는 작은 변경이면 된다.
 
-- [ ] 날짜표시 스위치 Provider 추가 (`showWeekHeaderProvider` 가칭), **기본값 false(OFF)**.
-- [ ] `buildDayHeaderCell` 호출부(`syncfusion_timetable_helper.dart`)에서 스위치가 OFF면 `date: null`을 전달해 지금의 상시 날짜 표시를 끈다 (요일만 표시로 복귀).
-- [ ] `exchange_week_bar.dart`의 날짜 범위 텍스트: OFF일 때 주차 라벨(`10월1주`)만 유지하고 실제 날짜 범위(`2026.10.05~10.09`)는 숨긴다 (2026-09-29 확정).
-- [ ] OFF 모드: 위 상태(요일만) + 교체된 칸에 날짜 오버레이만 추가 (신규 오버레이 레이어, 기존 레이어 변경 없음).
-- [ ] ON 모드: 지금의 상시 날짜 표시 동작을 그대로 재사용 + `🔲 빠진 수업 / ○ 맡은 수업` 오버레이 추가.
-- [ ] 스위치 OFF 상태가 "요일만 표시"라는 새 기준과 일치하는지, ON 상태가 지금 동작과 동일한지 확인.
+- [x] 날짜표시 스위치 Provider 추가 — `lib/providers/show_week_header_provider.dart`의 `showWeekHeaderProvider`, **기본값 false(OFF)**.
+- [x] `buildDayHeaderCell` 호출부(`grid_header_manager.dart`의 `createSyncfusionGridData`/`updateHeaderTheme` 양쪽)에서 스위치가 OFF면 `weekMonday: null`을 전달해 상시 날짜 표시를 끈다 (요일만 표시로 복귀). `updateHeaderTheme`은 기존에 `weekMonday`를 아예 넘기지 않던 잠재 결함도 함께 바로잡았다.
+- [x] `exchange_week_bar.dart`의 날짜 범위 텍스트: OFF일 때 `교체 N건`만 남기고 실제 날짜 범위(`2026.10.05~10.09`)는 숨긴다. 같은 바에 "날짜표시" `Switch` UI 추가 (기존 툴바의 폭 계산 로직(`exchange_control_panel.dart`)은 건드리지 않기 위해 별도 위치에 배치).
+- [x] (2026-09-29 추가 확인) 주차 칩(`10월1주`, `9월4주` 등)도 실제 월·주 정보를 드러내므로 OFF일 때 전체 숨김 — 대신 이전/다음 주 화살표로만 이동. 숨긴 자리는 `Spacer()`로 채워 레이아웃 유지.
+- [x] 스위치 토글 시 `onShowWeekHeaderChanged` 콜백 → `_updateHeaderTheme(forceUpdate: true)` 경로로 헤더를 강제 재생성 (구조적 변경 감지 로직은 날짜 유무를 컬럼명 변경으로 보지 않으므로 forceUpdate가 필요했다).
+- [x] OFF 모드: 요일만 표시 + 교체된 칸(소스/목적지)에 작은 날짜 꼬리표 오버레이 추가 — `TimetableDataSource._resolveOverlayDate` + `SimplifiedTimetableCell`의 `_OverlayDateTag` (우측 상단, 기존 X/○ 심볼과 겹치지 않는 위치).
+- [x] **(2026-09-29 버그 수정)** 날짜 꼬리표가 계획서 화면의 실제 결강일·교체일과 다르게 표시되는 문제 발견·수정.
+  최초 구현은 `선택 주 월요일 + 요일 오프셋`으로 날짜를 계산했는데, `isExchangedSourceCell`/`isExchangedDestinationCell`가
+  전체 히스토리를 `교사_요일_교시` 키로만(주 구분 없이) 판정하기 때문에 실제 결강일·교체일과 무관하게
+  "현재 보고 있는 주"의 날짜가 찍히는 오류였다(사용자가 계획서-교체 화면 스크린샷 대조로 발견).
+  `lib/utils/exchanged_cell_overlay_dates.dart`(`ExchangedCellOverlayDates.build`)를 신설해
+  `ExchangeHistoryItem.absenceDate`/`substitutionDate`를 노드의 요일 기준으로 직접 매핑하도록 교체.
+  1:1·보강 교체는 정확히 매핑되고, 순환·2중 교체는 노드 수(3개 이상)가 저장된 날짜(2개)보다 많아
+  정확한 매핑이 불가능하므로 **의도적으로 꼬리표를 생략**한다(틀린 날짜 표시보다 안전, S5에서 노드별 날짜 저장으로 재설계 필요).
+  회귀 테스트: `test/utils/exchanged_cell_overlay_dates_test.dart`(4개, 사용자 보고 사례 그대로 재현).
+- [x] ON 모드: 기존에 이미 있던 `🔲 빠진 수업 / ○ 맡은 수업` 오버레이(`cellStatusSymbolVisibilityProvider`, 날짜표시와 무관하게 항상 존재)를 그대로 재사용 — 별도 구현 불필요했음.
+- [x] **(2026-09-29 버그 수정 #2)** 계획서 화면에서 결강일·교체일을 수정해도 "교체" 화면 날짜 꼬리표가 즉시 갱신되지 않는 문제 발견·수정.
+  `ExchangeHistoryService.updateDates()`는 `exchangeListVersionProvider`를 올리지만, "교체" 화면의 `TimetableDataSource`는
+  이 값을 구독하지 않아 탭을 나갔다 들어오는 등 다른 계기가 있어야만 반영됐다. `TimetableTabContent.build`에
+  `ref.listen(exchangeListVersionProvider, ...)`를 추가해 버전이 바뀌면 `dataSource.notifyDataChanged()`를 호출하도록 연결.
+  앱 상단 탭은 `IndexedStack`이라 "교체" 탭이 화면에 없어도 위젯이 계속 마운트되어 있으므로, 계획서 탭에서 저장하는 즉시 반영된다.
+- [x] `flutter analyze`(전체) 문제 없음, `flutter test`(전체 216개, 신규 20개 포함) 통과 확인. **미실행**: Windows 데스크톱 앱을 실제로 띄워 스위치 수동 조작·계획서 날짜 수정 즉시 반영 확인은 아직 못 함 — 사용자 확인 필요.
+
+### 알려진 제한 (S5 이전까지)
+
+순환 교체·2중 교체로 발생한 교체된 칸은 OFF 모드에서 날짜 꼬리표가 보이지 않는다(생략).
+X/○ 오버레이 자체는 기존과 동일하게 계속 표시된다 — 날짜 꼬리표만 없다.
+`ExchangeHistoryItem`이 참여 노드마다 개별 날짜를 저장하도록 데이터 모델을 확장해야 해결 가능하며, S5(날짜별 교체 검증·저장) 범위다.
 
 **필수 완료 조건 (2026-09-29 사용자 재확인, 최우선순위)**: 앱을 처음 열거나 교체를 처음 실행하는 시점의 기본 상태는
 반드시 **날짜 미선택(요일만 표시)** 이어야 한다. 교체를 실행하자마자 날짜가 자동으로 펼쳐지는 지금의 동작(위 조사 결과)은
