@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.25
+version: 1.0.26
 
 environment:
   sdk: ^3.7.0
@@ -107,8 +107,6 @@ flutter:
     # 참고: lib/assets/ 폴더의 파일은 lib/assets/... 경로로 참조합니다.
     - lib/assets/templates/substitution_plan_template.pdf
     - lib/assets/templates/substitution_plan_template2.pdf
-    # 폰트 파일 (있는 경우)
-    - lib/assets/fonts/
     # 도움말 마크다운 파일
     - lib/assets/docs/
     # 프로그램 아이콘
