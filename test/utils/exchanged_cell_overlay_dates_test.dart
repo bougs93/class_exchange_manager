@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:class_exchange_manager/models/circular_exchange_path.dart';
+import 'package:class_exchange_manager/models/dual_exchange_path.dart';
 import 'package:class_exchange_manager/models/exchange_history_item.dart';
 import 'package:class_exchange_manager/models/exchange_node.dart';
 import 'package:class_exchange_manager/models/one_to_one_exchange_path.dart';
@@ -7,6 +9,16 @@ import 'package:class_exchange_manager/models/supplement_exchange_path.dart';
 import 'package:class_exchange_manager/models/time_slot.dart';
 import 'package:class_exchange_manager/utils/exchange_algorithm.dart';
 import 'package:class_exchange_manager/utils/exchanged_cell_overlay_dates.dart';
+
+ExchangeNode _node(String teacher, String day, int period) {
+  return ExchangeNode(
+    teacherName: teacher,
+    day: day,
+    period: period,
+    className: '1-1',
+    subjectName: '수학',
+  );
+}
 
 OneToOneExchangePath _oneToOnePath({
   required String sourceTeacher,
@@ -147,6 +159,77 @@ void main() {
 
       expect(dates['정원길_수_1'], DateTime(2026, 10, 7));
       expect(dates['박은선_월_2'], DateTime(2026, 10, 5));
+    });
+  });
+
+  group('ExchangedCellOverlayDates.build — 순환·2중 교체는 추정 날짜를 보여준다', () {
+    test('순환 교체 — 결강일이 속한 주의 요일로 추정한 날짜가 각 칸에 채워진다', () {
+      final a = _node('A', '월', 1);
+      final b = _node('B', '화', 2);
+      final c = _node('C', '수', 3);
+      final path = CircularExchangePath.fromNodes([a, b, c, a]);
+      final item = ExchangeHistoryItem.fromExchangePath(
+        path,
+        absenceDate: DateTime(2026, 8, 24), // 월요일(8월4주)
+        substitutionDate: DateTime(2026, 8, 25),
+      );
+
+      final dates = ExchangedCellOverlayDates.build([item]);
+
+      expect(dates['A_월_1'], DateTime(2026, 8, 24));
+      expect(dates['A_화_2'], DateTime(2026, 8, 25));
+      expect(dates['B_화_2'], DateTime(2026, 8, 25));
+      expect(dates['B_수_3'], DateTime(2026, 8, 26));
+    });
+
+    test('2중 교체 — 4개 노드 모두 결강일이 속한 주의 요일로 추정한 날짜가 채워진다', () {
+      final nodeA = _node('박지혜', '월', 1);
+      final nodeB = _node('이숙희', '화', 4);
+      final node1 = _node('이숙희', '월', 4);
+      final node2 = _node('손혜옥', '화', 5);
+      final path = DualExchangePath.build(
+        nodeA: nodeA,
+        nodeB: nodeB,
+        node1: node1,
+        node2: node2,
+      );
+      final item = ExchangeHistoryItem.fromExchangePath(
+        path,
+        absenceDate: DateTime(2026, 8, 24), // 월요일
+        substitutionDate: DateTime(2026, 8, 25),
+      );
+
+      final dates = ExchangedCellOverlayDates.build([item]);
+
+      expect(dates['박지혜_월_1'], DateTime(2026, 8, 24));
+      expect(dates['박지혜_화_4'], DateTime(2026, 8, 25));
+      expect(dates['이숙희_월_4'], DateTime(2026, 8, 24));
+      expect(dates['손혜옥_화_5'], DateTime(2026, 8, 25));
+    });
+  });
+
+  group('ExchangedCellOverlayDates.build — 1:1 요일 불일치는 여전히 생략한다', () {
+    test('결강일의 실제 요일이 노드의 요일과 다르면 추정하지 않고 생략한다', () {
+      // sourceDay는 '수'인데 absenceDate 실제 요일은 월요일 — 불일치.
+      // 순환·2중과 달리 이 경우는 "사용자가 이상한 값을 넣은" 상황이므로
+      // 노드 요일로 억지로 되짚어 추정하면 틀린 날짜를 보여줄 수 있다.
+      final path = _oneToOnePath(
+        sourceTeacher: '정원길',
+        sourceDay: '수',
+        sourcePeriod: 1,
+        targetTeacher: '박은선',
+        targetDay: '월',
+        targetPeriod: 1,
+      );
+      final item = ExchangeHistoryItem.fromExchangePath(
+        path,
+        absenceDate: DateTime(2026, 10, 12), // 월요일 — sourceDay('수')와 불일치
+        substitutionDate: DateTime(2026, 10, 14),
+      );
+
+      final dates = ExchangedCellOverlayDates.build([item]);
+
+      expect(dates, isEmpty);
     });
   });
 }

@@ -65,6 +65,17 @@ class ExchangeHistoryService {
   /// [mirrorSink]와 마찬가지로 기본값 null, 실패해도 JSON 삭제에 영향 없음.
   Future<void> Function(String timetableId)? mirrorClearSink;
 
+  /// SQLite `exchange_events` 저널에서 이 시간표의 교체 이력을 읽어오는
+  /// 보조 싱크 (S5.4b — "여기서부터 신규가 진실 원본").
+  ///
+  /// [loadFromLocalStorage]가 이 싱크로 먼저 SQLite를 확인하고, **결과가
+  /// 있으면 그것을 그대로 진실 원본으로 쓴다** — JSON은 더 이상 읽지 않는다.
+  /// SQLite에 아직 아무것도 없으면(이 시간표를 아직 한 번도 이관하지 않음)
+  /// 기존 JSON 경로로 그대로 폴백하고, 그 결과를 [mirrorSink]로 SQLite에
+  /// 최초 1회 이관한다(S5.1 보완 로직 재사용 — 새 코드 경로를 만들지 않음).
+  /// 이 싱크가 예외를 던지면 로그만 남기고 JSON 경로로 폴백한다.
+  Future<List<ExchangeHistoryItem>> Function(String timetableId)? loadSink;
+
   /// 직전 로드에서 구 스키마(§10 이전) 교체 목록을 발견해 백업했는지 여부.
   ///
   /// true면 사용자에게 1회 안내가 필요하다 — "이전 버전의 교체 목록은
@@ -302,6 +313,7 @@ class ExchangeHistoryService {
     // 주입해 둔 싱크가 남아있을 수 있다 — 여기서 확실히 비운다(S5.1).
     mirrorSink = null;
     mirrorClearSink = null;
+    loadSink = null;
   }
 
   /// 교체 리스트에서 특정 항목 조회
@@ -560,6 +572,38 @@ class ExchangeHistoryService {
       // A scope can be switched immediately after a synchronous history
       // mutation. Read only after all earlier writes for that scope finish.
       await _storageQueue;
+
+      // S5.4b: 이 시간표가 이미 SQLite로 이관됐으면(=이전에 한 번이라도
+      // mirrorSink가 성공했으면) 거기서 읽는다 — "여기서부터 신규가 진실
+      // 원본"이다. 아직 이관 전이면(SQLite에 아무것도 없으면) 아래 JSON
+      // 경로로 폴백하고, 그 결과를 최초 1회 SQLite로 이관한다.
+      if (requestedTimetableId != null) {
+        final sqliteLoad = loadSink;
+        if (sqliteLoad != null) {
+          try {
+            final sqliteItems = await sqliteLoad(requestedTimetableId);
+            if (sqliteItems.isNotEmpty) {
+              if (timetableId != requestedTimetableId) return;
+
+              _undoStack.clear();
+              _redoStack.clear();
+              _exchangeList.clear();
+              _exchangeList.addAll(sqliteItems);
+              _legacyDataBackedUp = false;
+
+              _exchangeListVersion++;
+              _notifyVersionChanged();
+
+              AppLogger.info(
+                '교체 리스트 로드 완료(SQLite): ${_exchangeList.length}개 항목',
+              );
+              return;
+            }
+          } catch (e) {
+            AppLogger.error('SQLite 교체 이력 로드 실패, JSON으로 폴백: $e', e);
+          }
+        }
+      }
 
       // 스코프 전환 대비: 이전 시간표의 undo/redo 스택 초기화
       final loadResult = await _storageService.loadExchangeList(

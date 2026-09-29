@@ -575,8 +575,10 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
         }
 
         return Consumer(
+          // child는 경로가 바뀌어도 다시 만들지 않는다.
+          // 그리드 위젯(GlobalKey)의 부모를 유지하기 위해서다.
+          child: _buildDataGrid(),
           builder: (context, ref, child) {
-            // select 패턴으로 경로 상태만 구독
             final cellState = ref.watch(cellSelectionProvider);
             final currentSelectedPath =
                 cellState.selectedOneToOnePath ??
@@ -584,18 +586,21 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
                 cellState.selectedDualPath ??
                 cellState.selectedSupplementPath ??
                 widget.selectedExchangePath;
+            final showArrows =
+                currentSelectedPath != null && widget.timetableData != null;
 
-            Widget dataGrid = _buildDataGrid();
-
-            // 교체 경로가 선택된 경우에만 화살표 표시
-            if (currentSelectedPath != null && widget.timetableData != null) {
-              return _buildDataGridWithLegacyArrows(
-                dataGrid,
-                currentSelectedPath,
-              );
-            }
-
-            return dataGrid;
+            // 화살표가 생길 때만 Stack으로 감싸면 SfDataGrid가 레이아웃 중에
+            // 다른 부모로 옮겨진다. 셀 Tooltip(OverlayPortal)이 그 순간 다시
+            // 붙으면서 Flutter 3.44에서 빨간 화면이 난다.
+            return Stack(
+              children: [
+                child!,
+                if (showArrows)
+                  Positioned.fill(
+                    child: _buildArrowOverlay(currentSelectedPath),
+                  ),
+              ],
+            );
           },
         );
       },
@@ -628,11 +633,8 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
     }
   }
 
-  /// 기존 CustomPainter 기반 화살표 표시
-  Widget _buildDataGridWithLegacyArrows(
-    Widget dataGridWithGestures,
-    ExchangePath selectedPath,
-  ) {
+  /// 그리드 위에 그리는 교체 화살표. 그리드 자체는 다시 만들지 않는다.
+  Widget _buildArrowOverlay(ExchangePath selectedPath) {
     return Consumer(
       builder: (context, ref, child) {
         final zoomFactor = ref.watch(zoomProvider.select((s) => s.zoomFactor));
@@ -641,33 +643,25 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
           scrollState.horizontalOffset,
           scrollState.verticalOffset,
         );
-        // 화살표 방향 설정 (변경 시 painter 재생성 → shouldRepaint로 갱신)
         final oneToOneArrowDirection = ref.watch(
           oneToOneArrowDirectionProvider,
         );
         final dualArrowDirection = ref.watch(dualArrowDirectionProvider);
 
-        return Stack(
-          children: [
-            dataGridWithGestures,
-            Positioned.fill(
-              child: IgnorePointer(
-                child: CustomPaint(
-                  painter: ExchangeArrowPainter(
-                    selectedPath: selectedPath,
-                    timetableData: widget.timetableData!,
-                    columns: widget.columns,
-                    customArrowStyle: widget.customArrowStyle,
-                    zoomFactor: zoomFactor,
-                    scrollOffset: scrollOffset,
-                    oneToOneArrowDirection: oneToOneArrowDirection,
-                    dualArrowDirection: dualArrowDirection,
-                  ),
-                  child: RepaintBoundary(child: Container()),
-                ),
-              ),
+        return IgnorePointer(
+          child: CustomPaint(
+            painter: ExchangeArrowPainter(
+              selectedPath: selectedPath,
+              timetableData: widget.timetableData!,
+              columns: widget.columns,
+              customArrowStyle: widget.customArrowStyle,
+              zoomFactor: zoomFactor,
+              scrollOffset: scrollOffset,
+              oneToOneArrowDirection: oneToOneArrowDirection,
+              dualArrowDirection: dualArrowDirection,
             ),
-          ],
+            child: const RepaintBoundary(child: SizedBox.expand()),
+          ),
         );
       },
     );

@@ -58,6 +58,16 @@ final exchangeHistoryServiceProvider = Provider<ExchangeHistoryService>((ref) {
     await repo.replayInto(timetableId);
   };
 
+  // S5.4b: 이 시간표가 이미 SQLite로 이관됐으면(저널에 행이 있으면) 거기서
+  // 읽는다 — "여기서부터 신규가 진실 원본"이다. 비어 있으면(아직 이관 전)
+  // loadFromLocalStorage()가 이 결과를 빈 목록으로 보고 자동으로 JSON
+  // 경로로 폴백한다.
+  historyService.loadSink = (timetableId) async {
+    final repo = await ref.read(timetableRepositoryProvider.future);
+    final records = await repo.getExchangeEvents(timetableId);
+    return records.map(toExchangeHistoryItem).toList();
+  };
+
   return historyService;
 });
 
