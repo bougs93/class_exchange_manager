@@ -1,7 +1,9 @@
 # 날짜 기반 시간표 전환 진행 기록·인수인계
 
 최종 갱신: 2026-09-29
-현재 상태: IN_PROGRESS — S1·S1.5·S1.6~S1.10·S2·S3 구현 완료, S3a부터 미착수
+현재 상태: IN_PROGRESS — S1·S1.5·S1.6~S1.10·S2·S3·S3a 구현 완료, S4부터 미착수.
+S3a를 실제 Windows 빌드로 확인하던 중 "기타 설정" 펼치면 앱이 멈추는 버그를 발견·수정했다
+(`sqlite3_flutter_libs` 누락 — steps.md "긴급 수정" 절 참조). 사용자가 재빌드해 **정상 동작 확인 완료**.
 작업 디렉터리: `D:/Project/flutter_Teacher_Swap_Manager/class_exchange_manager`
 
 ## 1. 먼저 읽을 문서
@@ -37,12 +39,13 @@
 | S1.6~S1.10 다른 주 교체 반영 | DONE (2026-09-29) | Opus 5 설계 검토 후 Sonnet 5로 구현. `ExchangeCellDates`(참여 칸별 실제 날짜), `ResolvedWeek.dateAware`(다른 주 독립 반영), 검증(`resolvedTimetableProvider`)·X/○ 하이라이트(`exchange_executor.dart`)까지 스위치 ON일 때만 연결. 순환·2중은 "?" 표시로 폴백 |
 | S2 SQLite 스키마·Repository | DONE (2026-09-29) | `sqflite`+`sqflite_common_ffi`. 기존 JSON 저장과 완전 병행, 어떤 화면도 아직 미참조 |
 | S3 엑셀 등록 시 날짜별 생성 | DONE (2026-09-29) | D1·D4·D5 확정 후 진행. `timetable_file_screen.dart` 등록 흐름에 부가 저장 훅 추가, 실패해도 기존 등록에 영향 없음 |
-| S3a 이후 | TODO | 착수 직전 사용자와 세부 확정 |
+| S3a 준비>기타설정 학기 기간 반영 | DONE (2026-09-29) | 설계 리뷰 후 진행. `semester_period_section.dart` 신규 UI, `is_active` 컬럼으로 축소분 보관 |
+| S4 이후 | TODO | 착수 직전 사용자와 세부 확정. S4~S5는 지난 실패 구간과 겹침 — 특히 신중히 |
 
 ## 5. 다음에 할 정확한 작업
 
-S1·S1.5·S1.6~S1.10·S2·S3은 완료했다. 사용자가 실제 앱(Windows)에서 아래를 수동 확인한 뒤,
-S3a(준비 > 기타 설정의 학기 기간 반영 UI — 아직 존재하지 않음, 새로 만들어야 함)부터 이어간다.
+S1·S1.5·S1.6~S1.10·S2·S3·S3a는 완료했다. 사용자가 실제 앱(Windows)에서 아래를 수동 확인한 뒤,
+S4(전체/개인 시간표 "조회"를 날짜 기반으로 전환 — 지난 실패 구간과 겹치므로 특히 신중히)로 이어간다.
 
 - 날짜표시 스위치 ON/OFF 전환
 - 계획서에서 다른 주로 넘어가는 교체(결강일·교체일이 다른 주)를 만들고, 교체 화면에서 각 주로 이동해 반영 확인
@@ -50,6 +53,8 @@ S3a(준비 > 기타 설정의 학기 기간 반영 UI — 아직 존재하지 �
 - 순환·2중 교체의 "?" 표시
 - 엑셀 등록 후 앱 데이터 폴더(`getApplicationSupportDirectory`)에 `dated_timetable.db`가 생성되고
   날짜별 수업이 실제로 쌓이는지(DB 파일을 직접 열어 확인 — 화면에는 아직 노출 지점 없음)
+- "준비 > 기타 설정" 화면에서 새 "학기 기간" 섹션이 정상 표시되고(레이아웃 깨짐 없는지),
+  시간표 선택·학년도/학기 변경·기본값 복원·반영이 실제로 동작하는지
 
 ## 6. 기존 작업 트리 보호
 
@@ -140,17 +145,50 @@ S3a(준비 > 기타 설정의 학기 기간 반영 UI — 아직 존재하지 �
 ```
 
 ```text
-갱신 시각:
-현재 단계와 상태:
-현재 Git HEAD / 브랜치:
+갱신 시각: 2026-09-29
+현재 단계와 상태: S4.0·S4.1·S4.2 완료. Opus 검토로 S4를 S4.0~S4.4 + S5.5로 재설계(steps.md "S4
+  재설계" 절 참조) — 문자 그대로의 "조회를 SQLite로 전환"은 S5.5로 미루고, 그 전에 검증 전용
+  단계들을 먼저 진행하기로 사용자 승인받음.
+현재 Git HEAD / 브랜치: main, S3a 이후 커밋 위(정확한 해시는 git log로 확인)
 이번에 완료한 작은 작업:
+  1) S4.0: TimetableRepository.getLessonStats() 추가(COUNT/MIN/MAX 집계 쿼리만 사용), 읽기 전용
+     확인 패널 dated_data_inspector_section.dart 신규 작성 → 사용자가 실제 Windows 앱에서 확인 완료
+  2) S4.0 버그 수정: "기타 설정" 펼칠 때 SegmentedButton assertion 예외 발생 — 원인은 S3a
+     SemesterPeriodSection의 기존 버그(_isLoadingApplied 기본값 false로, 로드 전 첫 프레임에 draft가
+     null인 채 편집기를 그림). _isLoadingApplied 기본값을 true로 수정, 사용자 재빌드로 확인 완료
+  3) S4.1: WeekSemesterStatus 순수 유틸(week_semester_status.dart) + datedSemesterProvider
+     (dated_semester_provider.dart) 신규 작성. 아직 어떤 위젯도 참조하지 않음.
+  4) S4.2: exchange_week_bar.dart에 학기 범위 밖 주 안내 아이콘 1개 연결 — 날짜표시 ON이면서
+     선택된 주가 beforeRange/afterRange일 때만 표시, 클릭 동작 없는 툴팁 아이콘(OQ-2/3/5 반영)
 변경한 파일:
+  신규 — lib/ui/screens/start_content/dated_data_inspector_section.dart,
+        lib/utils/week_semester_status.dart, lib/providers/dated_semester_provider.dart,
+        test/utils/week_semester_status_test.dart
+  수정 — lib/repositories/timetable_repository.dart(LessonStats + getLessonStats),
+        lib/data/timetable_database.dart(defaultDatabasePath 공개),
+        lib/ui/screens/start_content/start_settings_card.dart(패널 배치),
+        lib/ui/screens/start_content/semester_period_section.dart(_isLoadingApplied 기본값 버그 수정),
+        lib/ui/screens/exchange_screen/widgets/exchange_week_bar.dart(안내 아이콘 추가),
+        test/repositories/timetable_repository_test.dart(getLessonStats 테스트 3개 추가)
 핵심 설계 결정과 근거:
-실행한 검증 / 결과 (flutter analyze, flutter test, 수동 시나리오):
-미실행 검증과 이유:
-남은 실패 또는 컴파일 오류:
-사용자 답변이 필요한 항목:
-다음 작업 1개 (파일/함수/기대 결과):
+  - 집계는 반드시 COUNT(*)/MIN/MAX 쿼리로만 — 수천 행을 Dart 메모리로 올리지 않는다(Opus 설계 그대로)
+  - S4.0 패널은 철저히 읽기 전용 — 값 수정은 여전히 SemesterPeriodSection의 역할
+  - WeekSemesterStatusChecker는 semester가 null이면 항상 unknown — "범위를 모른다"와 "범위 밖이다"를
+    구분해, 날짜 데이터 없는 시간표를 실수로 "범위 밖"으로 표시하지 않는다
+  - S4.2 아이콘은 날짜표시 OFF일 때 항상 숨김(OQ-5) — 클릭 동작·다이얼로그 없는 툴팁 아이콘뿐(OQ-2) —
+    학기 범위는 SQLite DatedTimetable.semester 기준(OQ-3), 승인된 Opus 권장안 그대로
+  - 어떤 기존 조회 경로(교체 화면 그리드·개인 시간표)도 아직 SQLite를 읽지 않음 — 전환은 S5.5까지 없음
+실행한 검증 / 결과 (flutter analyze, flutter test, 수동 시나리오): flutter analyze 전체 통과,
+  flutter test 전체 269개 통과(S4.0 신규 3개 + S4.1 신규 7개, S4.2는 순수 로직 기존 테스트로 커버).
+  사용자가 실제 Windows 앱에서 S4.0 패널 표시값이 DB 실제 내용과 일치함을 확인, "기타 설정" 예외도
+  수정 후 재빌드로 해소 확인.
+미실행 검증과 이유: S4.2 아이콘이 실제 앱에서 학기 범위 밖 주로 이동 시 뜨는지, 날짜표시 OFF로
+  바꾸면 사라지는지 수동 확인 — 이 환경에서 GUI 조작 불가, 사용자 확인 필요
+남은 실패 또는 컴파일 오류: 없음
+사용자 답변이 필요한 항목: S4.3(개인 시간표 화면에도 동일 안내를 적용할지, OQ-4)은 Opus 설계상
+  별도 승인이 필요한 항목으로 남아 있음 — 진행 전 확인 필요
+다음 작업 1개 (파일/함수/기대 결과): 사용자가 S4.2 아이콘을 실제 앱에서 확인한 뒤, S4.3(개인 시간표
+  적용 여부, OQ-4) 진행 여부를 먼저 확인하거나 S4.4(표시값-SQLite 드리프트 자가 점검 패널)로 진행.
 ```
 
 ## 8. 새 AI에게 전달할 재개 문구

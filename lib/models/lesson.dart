@@ -19,6 +19,12 @@ class Lesson {
   final bool isExchangeable;
   final String? exchangeReason;
 
+  /// 활성 조회 대상인지 (S3a — 학기 기간 축소로 제외된 날짜는 false).
+  ///
+  /// 삭제하지 않고 보관한다 — 기간을 다시 확장하면 그대로 재사용한다.
+  /// `lesson_snapshots`(원본 스냅샷)에서는 이 값을 실제로 읽지 않는다.
+  final bool isActive;
+
   Lesson({
     required this.id,
     required this.timetableId,
@@ -29,6 +35,7 @@ class Lesson {
     this.className,
     this.isExchangeable = true,
     this.exchangeReason,
+    this.isActive = true,
   }) : date = _dateOnly(date);
 
   static DateTime _dateOnly(DateTime date) =>
@@ -53,6 +60,7 @@ class Lesson {
     String? className,
     bool? isExchangeable,
     String? exchangeReason,
+    bool? isActive,
     bool clearSubjectAndClass = false,
   }) {
     return Lesson(
@@ -65,6 +73,7 @@ class Lesson {
       className: clearSubjectAndClass ? null : (className ?? this.className),
       isExchangeable: isExchangeable ?? this.isExchangeable,
       exchangeReason: exchangeReason ?? this.exchangeReason,
+      isActive: isActive ?? this.isActive,
     );
   }
 
@@ -80,6 +89,7 @@ class Lesson {
       'class_name': className,
       'is_exchangeable': isExchangeable ? 1 : 0,
       'exchange_reason': exchangeReason,
+      'is_active': isActive ? 1 : 0,
     };
   }
 
@@ -94,6 +104,7 @@ class Lesson {
       className: map['class_name'] as String?,
       isExchangeable: (map['is_exchangeable'] as int? ?? 1) != 0,
       exchangeReason: map['exchange_reason'] as String?,
+      isActive: (map['is_active'] as int? ?? 1) != 0,
     );
   }
 

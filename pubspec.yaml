@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.32
+version: 1.0.33
 
 environment:
   sdk: ^3.7.0
@@ -45,9 +45,12 @@ dependencies:
   # 데이터 저장
   shared_preferences: ^2.2.2
   crypto: ^3.0.5
-  # 날짜 기반 시간표 저장소 (S2) — sqflite_common_ffi가 Windows/Linux/macOS 데스크톱을 지원
+  # 날짜 기반 시간표 저장소 (S2) — sqflite_common_ffi가 Windows/Linux/macOS 데스크톱을 지원.
+  # sqlite3_flutter_libs는 각 플랫폼용 네이티브 sqlite3 라이브러리를 앱에 번들링한다
+  # (이게 없으면 Windows에서 DB를 열 때 응답 없이 멈춘다 — 2026-09-29 실제 발생 확인).
   sqflite: ^2.4.4
   sqflite_common_ffi: ^2.4.3
+  sqlite3_flutter_libs: ^0.6.0+eol
 
   # UI 컴포넌트
   flutter_layout_grid: ^2.0.6

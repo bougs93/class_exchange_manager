@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../providers/dated_semester_provider.dart';
 import '../../../../providers/exchange_week_summary_provider.dart';
 import '../../../../providers/selected_week_provider.dart';
 import '../../../../providers/show_week_header_provider.dart';
 import '../../../../utils/week_date_calculator.dart';
+import '../../../../utils/week_semester_status.dart';
 import '../../personal_schedule_screen/exchange_week_collector.dart';
 
 /// 교체 화면 상단 주차 선택 바 (§10.5)
@@ -47,6 +49,18 @@ class ExchangeWeekBar extends ConsumerWidget {
     final showWeekHeader = ref.watch(showWeekHeaderProvider);
 
     final currentCount = exchangeCountForWeek(counts, selectedWeek);
+
+    // 학기 범위 밖 주 안내 (S4.2) — 날짜표시가 꺼져 있으면 실제 날짜 개념 자체가
+    // 화면에 드러나지 않으므로 이 아이콘도 함께 숨긴다(OQ-5 확정).
+    final datedSemester = ref.watch(datedSemesterProvider).valueOrNull;
+    final weekSemesterStatus = WeekSemesterStatusChecker.check(
+      weekMonday: selectedWeek,
+      semester: datedSemester,
+    );
+    final showOutOfSemesterIcon =
+        showWeekHeader &&
+        (weekSemesterStatus == WeekSemesterStatus.beforeRange ||
+            weekSemesterStatus == WeekSemesterStatus.afterRange);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -116,6 +130,20 @@ class ExchangeWeekBar extends ConsumerWidget {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
+          if (showOutOfSemesterIcon) ...[
+            const SizedBox(width: 4),
+            Tooltip(
+              message:
+                  weekSemesterStatus == WeekSemesterStatus.beforeRange
+                      ? '학기 시작 전 주입니다'
+                      : '학기 종료 후 주입니다',
+              child: Icon(
+                Icons.info_outline,
+                size: 14,
+                color: theme.colorScheme.tertiary,
+              ),
+            ),
+          ],
           const SizedBox(width: 8),
           Tooltip(
             message: showWeekHeader ? '날짜표시 끄기' : '날짜표시 켜기',

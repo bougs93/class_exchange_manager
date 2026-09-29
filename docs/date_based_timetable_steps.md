@@ -208,6 +208,7 @@ Opus 5 설계 검토 완료(2026-09-29). 두 문제 모두 "이벤트 전체가 
 |---|---|---|
 | S2 | **완료(2026-09-29)** SQLite 스키마·Repository 추가 (기존 JSON 저장과 병행, 아직 미사용) | 없음 — 신규 저장소만 추가, 어떤 화면도 아직 참조하지 않음 |
 | S3 | **완료(2026-09-29)** 엑셀 등록 시 날짜별 데이터도 함께 생성·저장 (기존 주단위 저장 경로는 그대로 유지) | 낮음 — 부가 기록만 추가 |
+| S3a | **완료(2026-09-29)** 준비 > 기타 설정에서 학기 기간 확인·반영 | 낮음 — 새 UI 섹션 추가, 기존 설정 카드 다른 부분은 무변경 |
 | S4 | 전체/개인 시간표 "조회"만 날짜 기반으로 전환 (쓰기는 기존 경로 유지) | 중간 — 여기서부터 실제 화면 검증 필요 |
 | S5 | 교체 실행·되돌리기를 날짜 기반 저장으로 전환 (날짜 데이터가 진실 원본이 됨) | 높음 — 핵심 회귀 위험 구간 |
 | S6 | 다른 주 교체 UI·표시 | 중간 |
@@ -240,8 +241,131 @@ Opus 5 설계 검토 완료(2026-09-29). 두 문제 모두 "이벤트 전체가 
   실제로 쌓이는지(DB 파일 생성 위치, 행 개수) 수동 확인 — 화면에 노출되는 지점이 아직 없어 지금은 DB 파일을
   직접 열어보는 방법으로만 확인 가능하다.
 
+### S3a 완료 기록 (2026-09-29)
+
+- **화면 위치**: "준비 > 기타 설정"(`lib/ui/screens/start_content/start_settings_card.dart`)의
+  `ExpansionTile` 안, 데이터 저장 위치 섹션과 기본값 복원 카드 사이에 새 섹션 "학기 기간" 추가
+  (`lib/ui/screens/start_content/semester_period_section.dart`, 신규 위젯 파일).
+- **스키마 변경**: `lessons`·`lesson_snapshots`에 `is_active` 컬럼 추가(스키마 버전 1→2,
+  `onUpgrade` 마이그레이션 포함). 기간 축소로 제외된 날짜는 **삭제하지 않고** `is_active=0`으로
+  표시만 하고, 재확장 시 그대로 재사용한다(같은 수업 ID 유지). `lesson_snapshots`의 `is_active`는
+  항상 1이며 실제로 읽지 않는다 — `Lesson.toMap()`을 두 테이블에 공통으로 쓰기 위한 컬럼 맞춤이다.
+- **핵심 로직**: `TimetableRepository.applyPeriodChange()` — 등록 시점 스냅샷에서 (교사, 요일, 교시)별
+  대표 내용을 뽑아 템플릿으로 삼고, 새 기간에 필요한 날짜 중 없는 것만 새로 생성(추가), 범위 밖 날짜는
+  비활성화(축소), 이미 비활성인 것이 다시 범위에 들어오면 재활성화만 한다(재생성 안 함). 전체 트랜잭션.
+  스냅샷 자체는 절대 늘리지 않는다(등록 시점 그대로 고정 — "최초 배치"라는 의미를 유지).
+  `getLessonsForDateRange`/`getLessonsForTeacherAndDate`는 기본적으로 활성(`is_active=1`) 수업만 반환하도록
+  변경(`includeInactive` 옵션으로 보관분도 조회 가능) — 기존 S2 테스트는 전부 활성 상태만 다뤄서 영향 없음.
+- **UI 동작**: 시간표 선택(기본값: 활성 시간표) → 학년도·학기·시작일·종료일 표시(편집 중인 초안과 DB에
+  적용된 값 분리) → "기본값으로 복원"(초안만 되돌림, 저장 안 함) → "반영"(실제 저장·재생성, 결과를
+  스낵바로 추가/재활성화/보관 건수 표시). 학년도·학기를 바꾸면 그 조합의 기본 기간으로 초안이 자동
+  채워진다. 해당 시간표에 SQLite 데이터가 없으면(예: 이 기능 이전에 등록됨) 편집 불가 안내만 표시.
+- **의도적으로 생략한 것**: 계획 원문의 "반영 전 교체 이력과 충돌하면 반영 중단" 규칙 — 아직 S5(교체를
+  날짜 기반으로 저장)를 하지 않아 이 SQLite 저장소에 교체 이력 자체가 없다. 대상이 없으므로 생략,
+  S5에서 실제 교체 이력이 생기면 그때 추가한다.
+- **검증**: `flutter analyze` 전체 통과, `flutter test` 전체 259개 통과(신규 4개: `applyPeriodChange`
+  확장/축소/재확장/템플릿-없음 시나리오). 위젯 테스트는 시도했으나 `TimetableRegistryNotifier`가 실제
+  파일 I/O 서비스에 강하게 결합돼 있어(비공개 `_initialize`를 하위 클래스에서 안전하게 대체할 수 없음)
+  깔끔하게 격리하기 어려워 생략 — `timetable_file_screen.dart` 등 같은 부류의 기존 화면들도 위젯 테스트가
+  없어 이 프로젝트의 기존 관례와 같다. **미실행**: 실제 앱에서 화면을 열어 시간표 선택·기간 수정·반영·
+  스냅샷에 없는 요일 확장 시 안내 등을 수동 확인 — 사용자 확인 필요.
+
+### 긴급 수정: Windows 실제 빌드에서 "기타 설정" 펼치면 UI가 멈춤 (2026-09-29)
+
+S3a를 실제 Windows 빌드(v1.0.32)에서 확인하던 중 사용자가 발견: 준비 화면에서 "기타 설정"을
+펼치면(=`SemesterPeriodSection`이 처음으로 `TimetableRepository`를 통해 DB를 여는 순간) 앱 전체가
+응답 없이 멈췄다.
+
+**원인**: `sqflite_common_ffi`는 실제 네이티브 `sqlite3.dll`이 필요한데, 이를 앱에 번들링하는
+`sqlite3_flutter_libs` 패키지를 추가하지 않았다. 개발 중 `flutter test`는 이 문제를 드러내지 않았다 —
+테스트를 돌리는 개발 PC에는 시스템에 이미 sqlite3가 있어서 우연히 찾아졌지만, 실제로 배포되는 앱
+실행 파일 옆에는 그 라이브러리가 없어서 DB를 열려는 시도가 응답 없이 걸린 것으로 보인다(테스트가
+녹색이어도 실제 배포 환경에서 실패할 수 있다는 사례 — §"미실행: 실제 앱 확인" 경고가 실제로 근거
+있었음을 보여준다).
+
+**수정**: `sqlite3_flutter_libs: ^0.6.0+eol`을 의존성에 추가. 이 패키지는 Windows/Linux/macOS/Android/iOS용
+네이티브 sqlite3 라이브러리를 플러그인으로 자동 번들링한다. 코드 변경은 없다(의존성 추가만).
+새 네이티브 플러그인이 추가됐으므로 `flutter clean` 후 다시 빌드해야 한다 — 사용자가 직접 재빌드해
+**정상 동작 확인 완료(2026-09-29)**.
+
 S4~S5는 이전 시도(`c4867cf`)가 실패한 구간과 겹친다. 이 구간에 진입할 때는 특히 더 잘게 쪼개고,
 한 번에 여러 화면·서비스를 동시에 바꾸지 않는다.
+
+### S4 재설계 (2026-09-29, Opus 검토)
+
+원래 S4a("전체 조회를 날짜 기반 읽기로 전환")를 그대로 시도하면 이전 실패(`c4867cf`)와 같은 위험 —
+교체 후 SQLite 값이 stale해지는 문제, `isExchangeable` 이중 관리, 학기 범위를 SQLite와 기존 JSON 양쪽이
+따로 갖는 문제, 동기 조회 경로가 비동기로 전염되는 문제 — 를 그대로 반복할 수 있다는 점을 Opus 검토로
+확인했다. 문자 그대로의 "읽기 전환"은 **S5.5로 이름을 바꿔 뒤로 미루고**, 그 전에 안전하게 검증만 하는
+단계를 S4.0~S4.4로 새로 채워 넣는다. 사용자 승인 완료("예, 이대로 진행").
+
+| 단계 | 내용 | 비고 |
+|---|---|---|
+| S4.0 | 읽기 전용 SQLite 확인 패널 (준비 > 기타 설정) | 완료 (아래 기록) |
+| S4.1 | `WeekSemesterStatus` 순수 유틸 + `dated_semester_provider.dart` | 아직 어떤 위젯도 사용하지 않음, 미착수 |
+| S4.2 | 교체 화면 주간바에 학기 범위 밖 주 안내 아이콘/툴팁 1개 (날짜표시 ON일 때만) | 미착수, OQ-2(아이콘만·비차단)·OQ-3(SQLite `DatedTimetable.semester`를 기준으로)·OQ-5(OFF일 때는 경고 없음) Opus 권장안 반영 예정 |
+| S4.3 | 개인 시간표에도 동일 안내 적용 여부 | 별도 승인 필요(OQ-4), 미착수 |
+| S4.4 | 표시값과 SQLite 값의 드리프트 자가 점검 패널 | 미착수 |
+| S5.5 | (구 S4a) 전체 조회를 날짜 기반 SQLite 읽기로 실제 전환 | 미착수, S5 이후로 순서 이동 |
+
+### S4.0 완료 기록 (2026-09-29)
+
+- **화면 위치**: "준비 > 기타 설정"의 `SemesterPeriodSection` 바로 아래에 새 섹션 "날짜 기반 데이터 확인
+  (읽기 전용)" 추가 (`lib/ui/screens/start_content/dated_data_inspector_section.dart`, 신규 위젯 파일).
+  `start_settings_card.dart`에 배치만 하고 다른 로직은 건드리지 않았다.
+- **표시 내용**: 선택한 시간표의 `timetables` 행(이름·학년도·학기·시작일·종료일·교사명·학교명·등록
+  시각), `lessons` 총 개수·활성/보관 개수, `lesson_snapshots` 개수, 저장된 날짜의 최이른/최늦은 값,
+  DB 파일 절대 경로(복사 버튼 포함). **쓰기 버튼 없음** — 값을 고치려면 여전히 `SemesterPeriodSection`을
+  쓴다.
+- **핵심 로직 추가**: `TimetableRepository.getLessonStats(timetableId)` — 전체 행을 메모리에 올리지 않고
+  `COUNT(*)`/`MIN(date)`/`MAX(date)` 집계 쿼리만 사용(Opus 권장 그대로). `TimetableDatabase
+  .defaultDatabasePath()` — 기존 비공개 `_defaultDatabasePath()`를 감싼 공개 wrapper, 패널에서 DB 경로를
+  보여주기 위해서만 추가.
+- **연결 상태**: 이 패널은 SQLite를 **읽기만** 한다 — 교체 화면·개인 시간표 등 기존 조회 경로는
+  전혀 건드리지 않았다(S5.5에서 실제 전환 예정).
+- **검증**: `flutter analyze` 전체 통과, `flutter test` 전체 262개 통과(신규 3개:
+  `getLessonStats` 집계/빈 데이터/시간표 간 격리). 사용자가 실제 Windows 앱에서 패널을 열어
+  표시값(수업 40,768건·날짜 범위 등)이 실제 DB 내용과 일치함을 **확인 완료(2026-09-29)**.
+- **버그 발견·수정(2026-09-29)**: 위 수동 확인 과정에서 "기타 설정"을 펼치면 예외가 발생하는 문제를
+  발견 — S4.0이 아니라 S3a 때 작성된 기존 `SemesterPeriodSection`의 버그였다. 원인: `_isLoadingApplied`
+  기본값이 `false`였는데 실제 로드는 `addPostFrameCallback`으로 한 프레임 뒤에 실행되어, 첫 렌더에
+  `_draftSemesterNumber`가 `null`인 채로 `SegmentedButton`을 그렸고 `selected` 집합이 비면 안 된다는
+  Flutter assertion에 걸렸다. `_isLoadingApplied` 기본값을 `true`로 바꿔 첫 프레임은 항상 로딩
+  스피너부터 시작하도록 수정(`lib/ui/screens/start_content/semester_period_section.dart`). 수정 후
+  재검증: `flutter analyze` 통과, `flutter test` 전체 262개 통과, 사용자가 재빌드해 정상 동작 확인.
+
+### S4.1 완료 기록 (2026-09-29)
+
+- **신규 파일**: `lib/utils/week_semester_status.dart` — `WeekSemesterStatus` enum
+  (`withinRange`/`beforeRange`/`afterRange`/`unknown`) + `WeekSemesterStatusChecker.check()` 순수 함수.
+  주(월요일 기준 월~금 5일)와 `SchoolSemester?` 하나를 받아 관계를 판정한다. `semester`가 null이면
+  무조건 `unknown` — "범위를 모른다"와 "범위 밖이다"를 구분해서, 날짜 데이터가 없는 시간표를 실수로
+  "범위 밖"으로 표시하지 않는다. `lib/providers/dated_semester_provider.dart` — 활성 시간표의 SQLite
+  저장 `SchoolSemester`를 비동기로 노출하는 `datedSemesterProvider`(`FutureProvider<SchoolSemester?>`).
+  활성 시간표가 없거나 날짜 기반 데이터가 없으면 null.
+- **연결 상태**: 어떤 위젯도 이 유틸·Provider를 아직 참조하지 않는다 — S4.2에서 교체 화면 주간바에
+  처음 연결할 예정. 순수 로직 추가만이라 기존 기능 회귀 위험 없음.
+- **검증**: `test/utils/week_semester_status_test.dart` 신규 7개(범위 안/밖/경계/unknown 시나리오).
+  `flutter analyze` 전체 통과, `flutter test` 전체 269개 통과.
+
+### S4.2 완료 기록 (2026-09-29)
+
+- **화면 위치**: 교체 화면 상단 주차 바(`lib/ui/screens/exchange_screen/widgets/exchange_week_bar.dart`),
+  날짜 범위·교체 건수 텍스트 바로 뒤에 작은 안내 아이콘(`Icons.info_outline`) 1개 추가.
+- **표시 조건**: `showWeekHeaderProvider`(날짜표시)가 **ON일 때만** 표시(OQ-5 확정 — OFF일 때는 애초에
+  실제 날짜 개념 자체가 화면에 드러나지 않으므로 경고도 함께 숨긴다). 그리고 선택된 주가
+  `WeekSemesterStatusChecker.check()` 결과 `beforeRange`/`afterRange`일 때만 표시(`withinRange`·
+  `unknown`이면 표시 안 함 — 날짜 기반 데이터가 없는 시간표는 "범위 밖"으로 단정하지 않는다, S4.1 설계
+  그대로). 학기 범위는 `datedSemesterProvider`(S4.1, 활성 시간표의 SQLite 저장 `SchoolSemester`)에서
+  가져온다(OQ-3 확정 — SQLite `DatedTimetable.semester`가 기준).
+- **표시 방식**: 아이콘 하나 + 툴팁("학기 시작 전 주입니다"/"학기 종료 후 주입니다")뿐이며 클릭 동작이나
+  다이얼로그가 없다(OQ-2 확정 — 비차단·정보 제공만, 사용자 흐름을 막지 않음).
+- **기존 동작 영향**: 없음 — 새 아이콘 하나가 조건부로 추가됐을 뿐, 주차 이동·칩 선택·날짜표시 토글 등
+  기존 로직은 한 글자도 바꾸지 않았다.
+- **검증**: `flutter analyze` 전체 통과, `flutter test` 전체 269개 통과(회귀 없음, 이 위젯 자체는
+  기존에도 위젯 테스트가 없어 신규 테스트도 추가하지 않음 — 순수 로직인 `WeekSemesterStatusChecker`는
+  S4.1에서 이미 검증됨). **미실행**: 실제 앱에서 학기 범위 밖 주로 이동해 아이콘이 뜨는지, 날짜표시
+  OFF로 바꾸면 사라지는지 수동 확인 — 사용자 확인 필요.
 
 ### S2 완료 기록 (2026-09-29)
 

@@ -16,7 +16,9 @@ import '../../../utils/logger.dart';
 import '../../../utils/simplified_timetable_theme.dart';
 import '../../widgets/timetable_grid/timetable_grid_constants.dart';
 import '../../widgets/data_storage_location_section.dart';
+import 'dated_data_inspector_section.dart';
 import 'highlight_color_picker.dart';
+import 'semester_period_section.dart';
 import 'setting_save_mixin.dart';
 
 /// 시작 화면 설정 카드 (언어 · 2중 교체 · 하이라이트 색상 · 저장 위치 · 데이터 초기화)
@@ -372,6 +374,10 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
                     key: _dataStorageLocationKey,
                     compact: true,
                   ),
+                  const SizedBox(height: 8),
+                  const SemesterPeriodSection(),
+                  const SizedBox(height: 8),
+                  const DatedDataInspectorSection(),
                   const SizedBox(height: 8),
                   _buildResponsiveActionCardsSection(),
                 ],

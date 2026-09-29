@@ -13,7 +13,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 /// Windows/Linux는 sqflite가 기본 지원하지 않으므로 `sqflite_common_ffi`를
 /// 사용한다. Android/iOS는 기존 `sqflite` 플랫폼 구현을 그대로 쓴다.
 class TimetableDatabase {
-  static const int schemaVersion = 1;
+  static const int schemaVersion = 2;
   static const String defaultFileName = 'dated_timetable.db';
 
   static bool _ffiInitialized = false;
@@ -45,6 +45,19 @@ class TimetableDatabase {
       resolvedPath,
       version: schemaVersion,
       onCreate: (db, version) async => _createSchema(db),
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          // S3a: 기간 축소 시 "보관하되 활성 조회에서 제외"하기 위한 플래그.
+          // 두 테이블 모두 [Lesson.toMap]을 그대로 써서 삽입하므로 동일하게 추가한다
+          // (`lesson_snapshots`에서는 항상 1이며 실제로 읽지는 않는다).
+          await db.execute(
+            'ALTER TABLE lessons ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1',
+          );
+          await db.execute(
+            'ALTER TABLE lesson_snapshots ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1',
+          );
+        }
+      },
     );
   }
 
@@ -52,6 +65,9 @@ class TimetableDatabase {
     final dir = await getApplicationSupportDirectory();
     return p.join(dir.path, defaultFileName);
   }
+
+  /// 기본 DB 파일의 절대 경로 (S4.0 — 확인 패널에서 경로를 보여주기 위해 공개).
+  static Future<String> defaultDatabasePath() => _defaultDatabasePath();
 
   static Future<void> _createSchema(Database db) async {
     await db.execute('''
@@ -79,12 +95,15 @@ class TimetableDatabase {
         subject TEXT,
         class_name TEXT,
         is_exchangeable INTEGER NOT NULL DEFAULT 1,
-        exchange_reason TEXT
+        exchange_reason TEXT,
+        is_active INTEGER NOT NULL DEFAULT 1
       )
     ''');
 
     // 최초 등록 직후의 배치 — 원본 비교 기준(§10.4). lessons와 동일한 모양이며
     // 스키마를 하나 더 늘리지 않기 위해 같은 컬럼 구성을 그대로 쓴다.
+    // is_active는 여기서는 항상 1이며 실제로 읽지 않는다 — [Lesson.toMap]을
+    // 두 테이블에 그대로 재사용하기 위해 컬럼만 맞춰둔다.
     await db.execute('''
       CREATE TABLE lesson_snapshots (
         id TEXT PRIMARY KEY,
@@ -95,7 +114,8 @@ class TimetableDatabase {
         subject TEXT,
         class_name TEXT,
         is_exchangeable INTEGER NOT NULL DEFAULT 1,
-        exchange_reason TEXT
+        exchange_reason TEXT,
+        is_active INTEGER NOT NULL DEFAULT 1
       )
     ''');
 
