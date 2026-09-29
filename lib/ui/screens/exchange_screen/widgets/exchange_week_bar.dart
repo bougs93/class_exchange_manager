@@ -127,7 +127,12 @@ class ExchangeWeekBar extends ConsumerWidget {
                 ? '${WeekDateCalculator.formatWeekRange(selectedWeek)} · 교체 $currentCount건'
                 : '교체 $currentCount건',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+              // 학기 범위 밖 주는 날짜 텍스트도 아이콘과 같은 색으로 강조한다 (S4.2, 2026-09-29 피드백)
+              color:
+                  showOutOfSemesterIcon
+                      ? Colors.orange.shade700
+                      : theme.colorScheme.onSurfaceVariant,
+              fontWeight: showOutOfSemesterIcon ? FontWeight.w600 : null,
             ),
           ),
           if (showOutOfSemesterIcon) ...[
@@ -137,11 +142,8 @@ class ExchangeWeekBar extends ConsumerWidget {
                   weekSemesterStatus == WeekSemesterStatus.beforeRange
                       ? '학기 시작 전 주입니다'
                       : '학기 종료 후 주입니다',
-              child: Icon(
-                Icons.info_outline,
-                size: 14,
-                color: theme.colorScheme.tertiary,
-              ),
+              // 눈에 잘 안 띈다는 피드백(2026-09-29)에 따라 주황 계열로 강조한다.
+              child: Icon(Icons.info_outline, size: 16, color: Colors.orange.shade700),
             ),
           ],
           const SizedBox(width: 8),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/timetable_database.dart';
 import '../../../models/dated_timetable.dart';
+import '../../../providers/services_provider.dart';
 import '../../../providers/timetable_registry_provider.dart';
 import '../../../providers/timetable_repository_provider.dart';
 import '../../../repositories/timetable_repository.dart';
@@ -148,6 +149,10 @@ class _DatedDataInspectorSectionState
             _buildTimetableInfo(tokens, _timetable!),
             const SizedBox(height: 8),
             _buildStatsInfo(tokens, _stats!),
+            if (_selectedTimetableId == registry?.activeId) ...[
+              const SizedBox(height: 8),
+              _buildDriftNotice(tokens),
+            ],
             const SizedBox(height: 8),
             _buildDbPathRow(tokens),
           ],
@@ -240,6 +245,35 @@ class _DatedDataInspectorSectionState
           for (final row in rows)
             Text(row, style: TextStyle(fontSize: 12, color: tokens.textSecondary)),
         ],
+      ),
+    );
+  }
+
+  /// 표시값-SQLite 드리프트 안내 (S4.4)
+  ///
+  /// 교체 실행·되돌리기는 아직 기존 JSON 저장소에만 기록되고 SQLite로는
+  /// 전달되지 않는다(전환은 S5 이후). 그래서 이 패널의 수업 데이터는 항상
+  /// "최초 등록 시점" 기준이며, 위에서 확인하는 시간표가 **활성** 시간표일
+  /// 때만 그 차이를 명시적으로 알려준다(다른 시간표를 보는 중에는 비교 대상이
+  /// 아니므로 표시하지 않는다).
+  Widget _buildDriftNotice(DesignTokens tokens) {
+    ref.watch(exchangeListVersionProvider);
+    final exchangeCount =
+        ref.read(exchangeHistoryServiceProvider).getActiveExchangeList().length;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: tokens.sectionBackground,
+        border: Border.all(color: tokens.cardBorder),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        '현재 교체 이력: $exchangeCount건 '
+        '(참고: 이 수치는 위 SQLite 수업 데이터에 아직 반영되지 않습니다 — '
+        '추후 단계에서 연결 예정)',
+        style: TextStyle(fontSize: 11, color: tokens.textMuted),
       ),
     );
   }
