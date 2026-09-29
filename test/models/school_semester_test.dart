@@ -77,6 +77,32 @@ void main() {
     });
   });
 
+  group('SchoolSemester.containing', () {
+    test('1학기 범위 안 날짜는 해당 연도 1학기를 반환한다', () {
+      final result = SchoolSemester.containing(DateTime(2026, 5, 15));
+      expect(result.schoolYear, 2026);
+      expect(result.semester, 1);
+    });
+
+    test('2학기 범위 안 날짜(연도 경계 이전)는 해당 연도 2학기를 반환한다', () {
+      final result = SchoolSemester.containing(DateTime(2026, 10, 1));
+      expect(result.schoolYear, 2026);
+      expect(result.semester, 2);
+    });
+
+    test('1월은 전 연도 2학기로 처리한다 (2학기 범위가 다음 해 1/31까지이므로)', () {
+      final result = SchoolSemester.containing(DateTime(2027, 1, 15));
+      expect(result.schoolYear, 2026);
+      expect(result.semester, 2);
+    });
+
+    test('2월(어느 학기에도 안 속하는 애매한 구간)은 해당 연도 1학기로 처리한다', () {
+      final result = SchoolSemester.containing(DateTime(2026, 2, 15));
+      expect(result.schoolYear, 2026);
+      expect(result.semester, 1);
+    });
+  });
+
   group('SchoolSemester 동일성', () {
     test('같은 값이면 ==가 true다', () {
       final a = SchoolSemester.defaultFor(schoolYear: 2026, semester: 1);

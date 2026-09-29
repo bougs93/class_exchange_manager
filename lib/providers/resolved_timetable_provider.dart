@@ -6,6 +6,7 @@ import 'exchange_screen_provider.dart';
 import 'non_exchangeable_dated_cells_provider.dart';
 import 'selected_week_provider.dart';
 import 'services_provider.dart';
+import 'show_week_header_provider.dart';
 
 /// 교체 가능성 **판정**에 사용할 시간표 (§10.8 4d)
 ///
@@ -36,11 +37,19 @@ final resolvedTimetableProvider = Provider<List<TimeSlot>>((ref) {
   final events = ref.read(exchangeHistoryServiceProvider).getActiveExchangeList();
   final base = timetableData.timeSlots;
 
-  final resolved = ResolvedWeek.of(
-    base: base,
-    events: events,
-    weekMonday: weekMonday,
-  ).toTimeSlots(base);
+  // 날짜표시 스위치(S1.5)가 ON이면 실제 날짜 기준으로 다른 주 교체를 독립
+  // 반영한다(S1.8, 2026-09-29 사용자 확정 — 검증도 화면 표시와 함께 고침).
+  // OFF면 기존 방식(`of`)을 그대로 쓴다 — 이 분기 자체가 회귀 안전성의 핵심이다.
+  final showWeekHeader = ref.watch(showWeekHeaderProvider);
+  final resolved =
+      (showWeekHeader
+              ? ResolvedWeek.dateAware(
+                base: base,
+                events: events,
+                weekMonday: weekMonday,
+              )
+              : ResolvedWeek.of(base: base, events: events, weekMonday: weekMonday))
+          .toTimeSlots(base);
 
   // 날짜 지정 교체불가 셀(§10.6) — 매주 반복 셀은 이미 base에 구워져 있으므로
   // 여기서는 그 주에만 적용되는 셀만 얹는다.

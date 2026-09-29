@@ -6,6 +6,7 @@ import '../utils/resolved_week.dart';
 import '../utils/timetable_data_source.dart';
 import 'selected_week_provider.dart';
 import 'services_provider.dart';
+import 'show_week_header_provider.dart';
 
 /// 교체 뷰 상태 클래스
 ///
@@ -177,11 +178,17 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
     final weekMonday = _ref.read(selectedWeekProvider);
     final events = historyService.getActiveExchangeList();
 
-    final resolved = ResolvedWeek.of(
-      base: timeSlots,
-      events: events,
-      weekMonday: weekMonday,
-    );
+    // 날짜표시 스위치(S1.5)가 ON이면 실제 날짜 기준으로 다른 주 교체를 독립
+    // 반영한다(S1.8). OFF면 기존 방식(`of`)을 그대로 쓴다 — 회귀 안전성의 핵심.
+    final showWeekHeader = _ref.read(showWeekHeaderProvider);
+    final resolved =
+        showWeekHeader
+            ? ResolvedWeek.dateAware(
+              base: timeSlots,
+              events: events,
+              weekMonday: weekMonday,
+            )
+            : ResolvedWeek.of(base: timeSlots, events: events, weekMonday: weekMonday);
 
     dataSource.updateData(resolved.toTimeSlots(timeSlots), teachers);
 

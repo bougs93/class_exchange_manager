@@ -142,13 +142,19 @@ class SimplifiedTimetableCell extends ConsumerWidget {
     );
 
     // 빠진 수업·맡은 수업·교체 불가 수업 셀에만 툴팁을 표시합니다.
-    final tooltipMessage = CellStatusTooltips.forCellState(
+    final baseTooltipMessage = CellStatusTooltips.forCellState(
       isTeacherColumn: isTeacherColumn,
       isHeader: isHeader,
       isNonExchangeable: isNonExchangeable,
       isExchangedSourceCell: isExchangedSourceCell,
       isExchangedDestinationCell: isExchangedDestinationCell,
     );
+
+    // "?" 꼬리표(S1.10, 순환·2중 교체의 날짜 미확정 표시)는 무엇인지 툴팁으로 설명한다.
+    final tooltipMessage =
+        overlayDate == '?' && baseTooltipMessage != null
+            ? '$baseTooltipMessage\n순환/2중 교체는 노드별 날짜가 저장되지 않아 결강일 주에 표시합니다.'
+            : baseTooltipMessage;
 
     if (tooltipMessage == null) {
       return cellBody;

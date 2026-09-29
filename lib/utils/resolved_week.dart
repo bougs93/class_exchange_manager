@@ -8,6 +8,8 @@ import '../models/supplement_exchange_path.dart';
 import '../models/time_slot.dart';
 import '../ui/screens/personal_schedule_screen/exchange_week_collector.dart';
 import 'day_utils.dart';
+import 'exchange_cell_dates.dart';
+import 'week_date_calculator.dart';
 
 /// 교체 경로가 실제로 수행하는 셀 이동 1건
 ///
@@ -242,6 +244,135 @@ class ResolvedWeek {
       period: move.fromPeriod,
       isExchangeable: sourceCell.isExchangeable,
       exchangeReason: sourceCell.exchangeReason,
+    );
+  }
+
+  /// [base] 위에 [events] 중 **실제 참여 칸의 캘린더 날짜**가 [weekMonday]가 속한
+  /// 주에 걸리는 쪽만 적용해 합성한다 (S1.7 — 날짜표시 스위치 ON 전용).
+  ///
+  /// [of]와의 차이: [of]는 이벤트 전체를 "결강일이 속한 주"로만 판단하고 그
+  /// 안에서 이동의 양쪽을 항상 함께 적용한다. 이 함수는 이동 하나를 "빠지는
+  /// 쪽"과 "채워지는 쪽"으로 나눠, 각 쪽이 실제로 속한 주에서만 독립적으로
+  /// 적용한다 — 결강일 쪽 주에서는 빠지는 쪽만, 교체일 쪽 주에서는 채워지는
+  /// 쪽만 보이는 식으로, 다른 주로 넘어가는 교체를 올바르게 표현한다.
+  ///
+  /// 같은 주 안에서 끝나는 이벤트(양쪽 날짜가 모두 [weekMonday]가 속한 주)는
+  /// [of]와 **완전히 같은 결과**를 낸다 — `exchange_cell_dates_test.dart`와
+  /// `resolved_week_test.dart`의 기존 동일 주 픽스처로 이 성질을 검증한다.
+  ///
+  /// 순환·2중 교체, 또는 요일과 실제 날짜가 어긋나는 이벤트는 노드별 실제
+  /// 날짜를 알 수 없으므로([ExchangeCellDates.forItem]의 `unsupported`),
+  /// [of]와 동일하게 결강일이 속한 주에 양쪽을 함께 적용하는 방식으로
+  /// 안전하게 폴백한다(틀린 주에 나눠 표시하지 않는다).
+  static ResolvedWeek dateAware({
+    required List<TimeSlot> base,
+    required List<ExchangeHistoryItem> events,
+    required DateTime weekMonday,
+  }) {
+    final cells = <String, TimeSlot>{};
+    final baseIndex = <String, TimeSlot>{};
+    for (final slot in base) {
+      final teacher = slot.teacher;
+      final day = slot.dayOfWeek;
+      final period = slot.period;
+      if (teacher == null || day == null || period == null) continue;
+      // 원본을 절대 변경하지 않는다 — 복제본만 저장
+      cells[_key(teacher, day, period)] = slot.copy();
+      // 채워지는 쪽이 다른 주라 현재 cells 맵에 아직 소스가 없을 때, 원본
+      // 스냅샷에서 내용을 가져오기 위한 색인(§2.2 applyFillOnly 참고)
+      baseIndex[_key(teacher, day, period)] = slot;
+    }
+
+    final viewedMonday = WeekDateCalculator.getWeekMonday(weekMonday);
+    bool inViewedWeek(DateTime date) =>
+        WeekDateCalculator.getWeekMonday(date) == viewedMonday;
+
+    final activeEvents = events.where((e) => !e.isReverted);
+
+    for (final event in activeEvents) {
+      final cellDates = ExchangeCellDates.forItem(event);
+
+      if (!cellDates.supported) {
+        // 순환·2중, 또는 요일 불일치 — of()와 동일한 방식으로 폴백
+        if (inViewedWeek(event.absenceDate)) {
+          for (final move in exchangePathMoves(event.originalPath)) {
+            _applyMove(cells, move);
+          }
+        }
+        continue;
+      }
+
+      final dateByDay = cellDates.dateByDayNumber;
+
+      for (final move in exchangePathMoves(event.originalPath)) {
+        final fromDate = dateByDay[move.fromDay];
+        final toDate = dateByDay[move.toDay];
+        if (fromDate == null || toDate == null) {
+          // 이론상 발생하지 않아야 하지만, 방어적으로 기존 방식으로 폴백
+          if (inViewedWeek(event.absenceDate)) _applyMove(cells, move);
+          continue;
+        }
+
+        final fromHere = inViewedWeek(fromDate);
+        final toHere = inViewedWeek(toDate);
+
+        if (fromHere && toHere) {
+          _applyMove(cells, move);
+        } else if (fromHere) {
+          _applyVacateOnly(cells, move);
+        } else if (toHere) {
+          _applyFillOnly(cells, move, baseIndex);
+        }
+        // 둘 다 아니면 이 주에서는 이 이동이 보이지 않는다
+      }
+    }
+
+    return ResolvedWeek._(cells, viewedMonday);
+  }
+
+  /// [move]의 "빠지는 쪽"만 적용한다 — 원본 셀 내용을 비운다.
+  static void _applyVacateOnly(Map<String, TimeSlot> cells, CellMove move) {
+    final sourceKey = _key(move.fromTeacher, move.fromDay, move.fromPeriod);
+    final sourceCell =
+        cells[sourceKey] ??
+        TimeSlot(
+          teacher: move.fromTeacher,
+          dayOfWeek: move.fromDay,
+          period: move.fromPeriod,
+        );
+
+    cells[sourceKey] = TimeSlot(
+      teacher: move.fromTeacher,
+      dayOfWeek: move.fromDay,
+      period: move.fromPeriod,
+      isExchangeable: sourceCell.isExchangeable,
+      exchangeReason: sourceCell.exchangeReason,
+    );
+  }
+
+  /// [move]의 "채워지는 쪽"만 적용한다 — 소스 내용은 **원본 스냅샷**([baseIndex])
+  /// 에서 가져온다. 소스가 다른 주에 있어 현재 [cells] 맵에 없을 수 있기 때문이다.
+  ///
+  /// 알려진 근사: 소스 셀이 자기 주 안에서 또 다른 교체로 이미 바뀐 상태라면,
+  /// 여기서는 그 변경을 반영하지 못하고 원본 내용을 그대로 가져온다(연쇄 재교체
+  /// 재귀 해석은 순환 위험이 있어 이번 단계 범위 밖 — S5에서 재검토).
+  static void _applyFillOnly(
+    Map<String, TimeSlot> cells,
+    CellMove move,
+    Map<String, TimeSlot> baseIndex,
+  ) {
+    final targetKey = _key(move.toTeacher, move.toDay, move.toPeriod);
+    final sourceBaseKey = _key(move.fromTeacher, move.fromDay, move.fromPeriod);
+    final src = baseIndex[sourceBaseKey];
+
+    cells[targetKey] = TimeSlot(
+      teacher: move.toTeacher,
+      subject: src?.subject,
+      className: src?.className,
+      dayOfWeek: move.toDay,
+      period: move.toPeriod,
+      isExchangeable: src?.isExchangeable ?? true,
+      exchangeReason: src?.exchangeReason,
     );
   }
 }

@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.31
+version: 1.0.32
 
 environment:
   sdk: ^3.7.0
@@ -45,6 +45,9 @@ dependencies:
   # 데이터 저장
   shared_preferences: ^2.2.2
   crypto: ^3.0.5
+  # 날짜 기반 시간표 저장소 (S2) — sqflite_common_ffi가 Windows/Linux/macOS 데스크톱을 지원
+  sqflite: ^2.4.4
+  sqflite_common_ffi: ^2.4.3
 
   # UI 컴포넌트
   flutter_layout_grid: ^2.0.6
@@ -78,6 +81,7 @@ dependencies:
   pasteboard: ^0.5.0
   image: ^4.3.0
   file_picker: 11.0.0
+  path: ^1.9.1
 
 dev_dependencies:
   flutter_test:

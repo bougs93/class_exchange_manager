@@ -2,13 +2,17 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../models/dated_timetable.dart';
 import '../../models/print_profile.dart';
+import '../../models/school_semester.dart';
 import '../../models/timetable_registry.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../providers/print_profile_provider.dart';
 import '../../providers/timetable_registry_provider.dart';
+import '../../providers/timetable_repository_provider.dart';
 import '../../providers/timetable_summary_provider.dart';
 import '../../providers/timetable_teachers_provider.dart';
+import '../../services/semester_timetable_generator.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/logger.dart';
 import '../../utils/snackbar_helper.dart';
@@ -179,6 +183,45 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
           _showSnackBar('시간표 등록에 실패했습니다.', isError: true);
         }
         return;
+      }
+
+      // 4.5. 날짜별 시간표 생성·저장 (S3, 부가 기능)
+      //
+      // 기존 주 단위 등록(위 3~4단계)과 완전히 병행한다 — 이 블록이 실패해도
+      // 이미 완료된 등록 자체(레지스트리·JSON 저장)에는 영향을 주지 않는다.
+      // 학년도·학기를 직접 고르는 UI가 아직 없으므로(계획 문서 참고),
+      // 등록 시각을 기준으로 `SchoolSemester.containing`으로 추정한다 —
+      // 정확한 값이 필요해지면 이후 "준비 > 기타 설정"에서 사용자가 고친다.
+      final datedTimetableData = _stateProxy?.timetableData;
+      if (datedTimetableData != null) {
+        try {
+          final semester = SchoolSemester.containing(entry.registeredAt);
+          final lessons = SemesterTimetableGenerator.generate(
+            timetableId: entry.id,
+            timeSlots: datedTimetableData.timeSlots,
+            semester: semester,
+          );
+          final repository = await ref.read(
+            timetableRepositoryProvider.future,
+          );
+          await repository.insertTimetable(
+            DatedTimetable(
+              id: entry.id,
+              name: entry.name,
+              semester: semester,
+              teacherName: entry.teacherName,
+              schoolName: entry.schoolName,
+              registeredAt: entry.registeredAt,
+            ),
+          );
+          await repository.insertLessons(lessons);
+          await repository.insertSnapshot(lessons);
+          AppLogger.info(
+            '[S3] 날짜별 시간표 생성 완료: ${entry.id}, ${lessons.length}개 수업, $semester',
+          );
+        } catch (e) {
+          AppLogger.error('[S3] 날짜별 시간표 생성 실패 (기존 등록에는 영향 없음): $e', e);
+        }
       }
 
       // 5. 방금 추가한 시간표를 활성으로 전환 (첫 시간표면 이미 활성)

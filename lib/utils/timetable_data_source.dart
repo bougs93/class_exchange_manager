@@ -11,11 +11,13 @@ import '../ui/widgets/simplified_timetable_cell.dart';
 import '../providers/cell_selection_provider.dart';
 import '../providers/app_settings_provider.dart';
 import '../providers/non_exchangeable_dated_cells_provider.dart';
+import '../providers/selected_week_provider.dart';
 import '../providers/services_provider.dart';
 import '../providers/show_week_header_provider.dart';
 import '../providers/timetable_registry_provider.dart';
 import '../services/non_exchangeable_data_storage_service.dart';
 import 'exchange_algorithm.dart';
+import 'exchange_cell_dates.dart';
 import 'exchange_path_step_resolver.dart';
 import 'exchanged_cell_overlay_dates.dart';
 import 'day_utils.dart';
@@ -522,12 +524,17 @@ class TimetableDataSource extends DataGridSource {
     return null;
   }
 
-  /// 날짜표시 OFF일 때 교체된 칸에 붙일 날짜 꼬리표 계산 (S1.5)
+  /// 교체된 칸에 붙일 꼬리표 계산 (S1.5, "?" 마커는 S1.10)
   ///
-  /// 날짜표시가 ON이면 헤더에 이미 날짜가 있으므로 꼬리표를 붙이지 않는다.
   /// 교체된 칸이 아니면(빠진 수업도 맡은 수업도 아니면) 꼬리표가 필요 없다.
-  /// 순환·2중 교체 등 매핑되지 않은 칸은 null을 반환해 꼬리표를 생략한다 —
-  /// 틀린 날짜를 보여주는 것보다 안전하다.
+  ///
+  /// - **날짜표시 OFF**: 실제 날짜(예: "10.07")를 꼬리표로 붙인다. 순환·2중
+  ///   교체 등 참여 노드별 날짜를 알 수 없는 칸은 null을 반환해 생략한다 —
+  ///   틀린 날짜를 보여주는 것보다 안전하다.
+  /// - **날짜표시 ON**: 헤더에 이미 실제 날짜가 있으므로 원칙적으로 꼬리표가
+  ///   필요 없지만, 순환·2중 교체처럼 날짜가 미확정인 칸은 "?"를 붙여
+  ///   "이 칸의 날짜는 결강일 주에 임시로 묶여 표시된 것"임을 알린다
+  ///   (`ExchangeCellDates`의 `undatedKeys` — S1.10).
   String? _resolveOverlayDate({
     required String teacherName,
     required String day,
@@ -535,17 +542,23 @@ class TimetableDataSource extends DataGridSource {
     required bool isExchangedSourceCell,
     required bool isExchangedDestinationCell,
   }) {
-    if (ref.read(showWeekHeaderProvider)) return null;
     if (!isExchangedSourceCell && !isExchangedDestinationCell) return null;
 
     final cellKey = '${teacherName}_${day}_$period';
-    final overlayDates = ExchangedCellOverlayDates.build(
-      ref.read(exchangeHistoryServiceProvider).getActiveExchangeList(),
-    );
-    final date = overlayDates[cellKey];
-    if (date == null) return null;
+    final activeItems = ref.read(exchangeHistoryServiceProvider).getActiveExchangeList();
 
-    return WeekDateCalculator.formatDateShort(date);
+    if (!ref.read(showWeekHeaderProvider)) {
+      final overlayDates = ExchangedCellOverlayDates.build(activeItems);
+      final date = overlayDates[cellKey];
+      if (date == null) return null;
+      return WeekDateCalculator.formatDateShort(date);
+    }
+
+    final scoped = ExchangeCellDates.forWeek(
+      activeItems,
+      ref.read(selectedWeekProvider),
+    );
+    return scoped.undatedKeys.contains(cellKey) ? '?' : null;
   }
 
   /// 요일별 마지막 교시 확인

@@ -17,6 +17,8 @@ import '../../../providers/exchange_view_provider.dart';
 import '../../../providers/exchange_screen_provider.dart';
 import '../../../providers/selected_week_provider.dart';
 import '../../../utils/day_utils.dart';
+import '../../../utils/exchange_cell_dates.dart';
+import '../../../providers/show_week_header_provider.dart';
 import '../../screens/personal_schedule_screen/exchange_week_collector.dart';
 
 /// 교체 실행 관리 클래스
@@ -541,39 +543,24 @@ class ExchangeExecutor {
   static void restoreExchangedCells(WidgetRef ref) {
     try {
       final historyService = ref.read(exchangeHistoryServiceProvider);
-      final exchangeList = historyService.getExchangeList();
+      final activeItems = historyService.getActiveExchangeList();
 
-      // 교체된 셀 정보 추출 (빈 리스트도 처리)
-      final exchangedCells = <String>[];
-      final destinationCells = <String>[];
-
-      if (exchangeList.isEmpty) {
+      if (activeItems.isEmpty) {
         AppLogger.info('교체 리스트가 비어있어 모든 교체된 셀 스타일을 제거합니다.');
       } else {
-        AppLogger.info('교체된 셀 테마 복원 시작: ${exchangeList.length}개 교체 항목');
-
-        for (final item in exchangeList) {
-          if (item.isReverted) continue;
-          final path = item.originalPath;
-
-          // 소스 셀 추출
-          final sourceCells = _getCellKeysFromPathStatic(path);
-          exchangedCells.addAll(sourceCells);
-
-          // 목적지 셀 추출
-          final destCells = _getDestinationCellsFromPathStatic(path);
-          destinationCells.addAll(destCells);
-        }
-
-        AppLogger.info(
-          '교체된 셀 정보 추출 완료: 소스 ${exchangedCells.length}개, 목적지 ${destinationCells.length}개',
-        );
+        AppLogger.info('교체된 셀 테마 복원 시작: ${activeItems.length}개 교체 항목');
       }
+
+      // 교체된 셀 정보 추출 (S1.9: 날짜표시 ON이면 주별 스코프, 빈 리스트도 처리)
+      final keys = _computeCellKeys(ref, activeItems);
+      AppLogger.info(
+        '교체된 셀 정보 추출 완료: 소스 ${keys.source.length}개, 목적지 ${keys.destination.length}개',
+      );
 
       // CellSelectionProvider에 복원/업데이트 (빈 리스트도 업데이트하여 스타일 제거)
       final cellNotifier = ref.read(cellSelectionProvider.notifier);
-      cellNotifier.updateExchangedCells(exchangedCells);
-      cellNotifier.updateExchangedDestinationCells(destinationCells);
+      cellNotifier.updateExchangedCells(keys.source);
+      cellNotifier.updateExchangedDestinationCells(keys.destination);
 
       AppLogger.info('✅ 교체된 셀 테마 복원 완료');
     } catch (e) {
@@ -581,124 +568,50 @@ class ExchangeExecutor {
     }
   }
 
-  /// 정적 메서드: 교체 경로에서 소스 셀 키 목록 추출 (복원용)
-  static List<String> _getCellKeysFromPathStatic(ExchangePath path) {
-    if (path is OneToOneExchangePath) {
-      return [
-        '${path.sourceNode.teacherName}_${path.sourceNode.day}_${path.sourceNode.period}',
-        '${path.targetNode.teacherName}_${path.targetNode.day}_${path.targetNode.period}',
-      ];
-    } else if (path is CircularExchangePath) {
-      // 순환 교체: 마지막 노드를 제외한 모든 노드가 소스 셀
-      return path.nodes
-          .take(path.nodes.length - 1)
-          .map((node) => '${node.teacherName}_${node.day}_${node.period}')
-          .toList();
-    } else if (path is DualExchangePath) {
-      return [
-        '${path.nodeA.teacherName}_${path.nodeA.day}_${path.nodeA.period}',
-        '${path.nodeB.teacherName}_${path.nodeB.day}_${path.nodeB.period}',
-        '${path.node1.teacherName}_${path.node1.day}_${path.node1.period}',
-        '${path.node2.teacherName}_${path.node2.day}_${path.node2.period}',
-      ];
-    } else if (path is SupplementExchangePath) {
-      // 보강: 소스 셀만 교체된 소스 셀로 표시
-      return ['${path.sourceTeacher}_${path.sourceDay}_${path.sourcePeriod}'];
-    }
-    return [];
-  }
-
-  /// 정적 메서드: 교체 경로에서 목적지 셀 키 목록 추출 (복원용)
-  static List<String> _getDestinationCellsFromPathStatic(ExchangePath path) {
-    final cellKeys = <String>[];
-
-    // 1:1 교체 경로의 목적지 셀 추출
-    if (path is OneToOneExchangePath) {
-      cellKeys.addAll([
-        '${path.targetNode.teacherName}_${path.sourceNode.day}_${path.sourceNode.period}',
-        '${path.sourceNode.teacherName}_${path.targetNode.day}_${path.targetNode.period}',
-      ]);
-
-      // 순환교체 경로의 목적지 셀 추출 (각 노드가 다음 노드의 위치로 이동)
-    } else if (path is CircularExchangePath) {
-      final destinationKeys = <String>[];
-
-      for (int i = 0; i < path.nodes.length - 1; i++) {
-        final currentNode = path.nodes[i];
-        final nextNode = path.nodes[i + 1];
-        // 현재 노드가 다음 노드의 위치로 이동
-        final destinationKey =
-            '${currentNode.teacherName}_${nextNode.day}_${nextNode.period}';
-        destinationKeys.add(destinationKey);
-      }
-
-      cellKeys.addAll(destinationKeys);
-
-      // 2중교체 경로의 목적지 셀 추출
-      // 2중교체는 2단계로 이루어지므로 각 단계별 목적지 셀을 모두 추출
-    } else if (path is DualExchangePath) {
-      // 1단계 교체 후 목적지 셀들
-      // node1 교사가 node2 위치로 이동
-      cellKeys.add(
-        '${path.node1.teacherName}_${path.node2.day}_${path.node2.period}',
-      );
-      // node2 교사가 node1 위치로 이동
-      cellKeys.add(
-        '${path.node2.teacherName}_${path.node1.day}_${path.node1.period}',
-      );
-
-      // 2단계 교체 후 목적지 셀들
-      // nodeA 교사가 nodeB 위치로 이동
-      cellKeys.add(
-        '${path.nodeA.teacherName}_${path.nodeB.day}_${path.nodeB.period}',
-      );
-      // nodeB 교사가 nodeA 위치로 이동
-      cellKeys.add(
-        '${path.nodeB.teacherName}_${path.nodeA.day}_${path.nodeA.period}',
-      );
-
-      // 보강 경로의 목적지 셀 추출
-      // 타겟 교사의 위치가 목적지 셀
-    } else if (path is SupplementExchangePath) {
-      cellKeys.add(
-        '${path.targetTeacher}_${path.targetDay}_${path.targetPeriod}',
-      );
-    }
-
-    return cellKeys;
-  }
-
-  /// 교체된 소스 셀 목록 추출 (교체 전 원본 위치의 셀들)
+  /// 교체된 소스 셀(빠진 수업) 키 목록 추출 (S1.9: 날짜표시 ON이면 주별 스코프)
   List<String> _extractExchangedCells() {
     final historyService = ref.read(exchangeHistoryServiceProvider);
-    final cellKeys = <String>[];
-
-    for (final item in historyService.getExchangeList()) {
-      if (item.isReverted) continue;
-      cellKeys.addAll(_getCellKeysFromPath(item.originalPath));
-    }
-
-    return cellKeys;
+    return _computeCellKeys(ref, historyService.getActiveExchangeList()).source;
   }
 
-  /// [wg]교체 경로에서 소스 셀 키 목록 추출 (교체 전 원본 위치)
-  ///
-  /// 복원용 정적 메서드와 동일한 규칙이므로 [_getCellKeysFromPathStatic]에 위임한다.
-  List<String> _getCellKeysFromPath(ExchangePath path) =>
-      _getCellKeysFromPathStatic(path);
-
-  /// [wg]교체된 목적지 셀 목록 추출 (교체 후 새 교사가 배정된 셀들)
-  ///
-  /// 경로별 목적지 셀 규칙은 복원용 [_getDestinationCellsFromPathStatic]와 동일하다.
+  /// 교체된 목적지 셀(맡은 수업) 키 목록 추출 (S1.9: 날짜표시 ON이면 주별 스코프)
   List<String> _extractDestinationCells() {
     final historyService = ref.read(exchangeHistoryServiceProvider);
-    final cellKeys = <String>[];
+    return _computeCellKeys(
+      ref,
+      historyService.getActiveExchangeList(),
+    ).destination;
+  }
 
-    for (final item in historyService.getExchangeList()) {
-      if (item.isReverted) continue;
-      cellKeys.addAll(_getDestinationCellsFromPathStatic(item.originalPath));
+  /// 활성 이벤트 목록으로부터 소스·목적지 셀 키를 계산한다 (S1.9).
+  ///
+  /// 날짜표시 스위치가 OFF면 기존 방식(요일·교시 키, 어느 주를 보든 항상 표시)을
+  /// 그대로 쓴다 — 회귀 안전성의 핵심. ON이면 [ExchangeCellDates.forWeek]로
+  /// 실제 날짜 기준 주별 스코프를 적용한다. `restoreExchangedCells`(정적 메서드)도
+  /// 같은 로직을 타야 하므로 정적 메서드로 둔다.
+  static ({List<String> source, List<String> destination}) _computeCellKeys(
+    WidgetRef ref,
+    List<ExchangeHistoryItem> activeItems,
+  ) {
+    if (ref.read(showWeekHeaderProvider)) {
+      final scoped = ExchangeCellDates.forWeek(
+        activeItems,
+        ref.read(selectedWeekProvider),
+      );
+      return (
+        source: scoped.sourceKeys.toList(),
+        destination: scoped.destinationKeys.toList(),
+      );
     }
 
-    return cellKeys;
+    final source = <String>[];
+    final destination = <String>[];
+    for (final item in activeItems) {
+      source.addAll(ExchangeCellDates.legacySourceKeys(item.originalPath));
+      destination.addAll(
+        ExchangeCellDates.legacyDestinationKeys(item.originalPath),
+      );
+    }
+    return (source: source, destination: destination);
   }
 }

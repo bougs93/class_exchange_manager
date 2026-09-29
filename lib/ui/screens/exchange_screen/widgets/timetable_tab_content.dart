@@ -9,6 +9,7 @@ import '../../../../providers/exchange_screen_provider.dart';
 import '../../../../providers/exchange_view_provider.dart';
 import '../../../../providers/services_provider.dart';
 import '../../../widgets/exchange_control_panel.dart';
+import '../../../widgets/timetable_grid/exchange_executor.dart';
 import '../../../widgets/timetable_grid_section.dart';
 import 'exchange_week_bar.dart';
 
@@ -65,6 +66,9 @@ class TimetableTabContent extends ConsumerWidget {
         if (timetableData != null)
           ExchangeWeekBar(
             onWeekChanged: () {
+              // 주가 바뀌면 X/○ 하이라이트도 새 주 기준으로 다시 계산한다 (S1.9)
+              // — 날짜표시 OFF면 이 재계산은 사실상 이전과 동일한 결과를 낸다.
+              ExchangeExecutor.restoreExchangedCells(ref);
               // 주가 바뀌면 그 주 기준으로 그리드를 다시 합성한다
               if (dataSource == null) return;
               ref
@@ -75,7 +79,20 @@ class TimetableTabContent extends ConsumerWidget {
                     dataSource: dataSource!,
                   );
             },
-            onShowWeekHeaderChanged: onShowWeekHeaderChanged,
+            onShowWeekHeaderChanged: () {
+              onShowWeekHeaderChanged?.call();
+              // 스위치를 켜고 끄면 다른 주 교체 반영 방식(S1.8)·X/○ 하이라이트
+              // 스코프(S1.9)가 모두 바뀌므로 둘 다 다시 계산한다.
+              ExchangeExecutor.restoreExchangedCells(ref);
+              if (dataSource == null) return;
+              ref
+                  .read(exchangeViewProvider.notifier)
+                  .refreshIfEnabled(
+                    timeSlots: timetableData!.timeSlots,
+                    teachers: timetableData!.teachers,
+                    dataSource: dataSource!,
+                  );
+            },
           ),
         // 시간표 그리드 (모드 선택 + 실행 도구가 그리드 헤더에 통합됨)
         if (timetableData != null && columns.isEmpty)

@@ -64,6 +64,26 @@ class SchoolSemester {
     return !d.isBefore(startDate) && !d.isAfter(endDate);
   }
 
+  /// 주어진 날짜가 기본 학기 범위([defaultFor]) 중 어디에 속하는지 추정한다 (S3).
+  ///
+  /// 사용자가 학년도·학기를 직접 고르는 UI가 아직 없는 곳에서, "지금이 대략
+  /// 몇 학년도 몇 학기인가"의 기본값을 추측할 때 쓴다 — 정확한 값이 필요하면
+  /// (예: 준비 > 기타 설정에서 실제 적용 범위를 확인한 뒤) 사용자가 나중에
+  /// 고칠 수 있어야 한다. 이 추정값 자체를 진실 원본으로 취급하지 않는다.
+  ///
+  /// 2/1~2/28처럼 1학기 시작 전이면서 2학기 기본 범위(~다음 해 1/31)도 지난
+  /// 애매한 구간은 해당 연도 1학기로 처리한다(임박한 새 학기로 간주).
+  factory SchoolSemester.containing(DateTime date) {
+    final d = _dateOnly(date);
+    for (final year in [d.year, d.year - 1]) {
+      final first = SchoolSemester.defaultFor(schoolYear: year, semester: 1);
+      if (first.contains(d)) return first;
+      final second = SchoolSemester.defaultFor(schoolYear: year, semester: 2);
+      if (second.contains(d)) return second;
+    }
+    return SchoolSemester.defaultFor(schoolYear: d.year, semester: 1);
+  }
+
   /// 시각을 제거하고 날짜만 남긴다 (로컬 날짜 기준, 시간대 변환 없음)
   static DateTime _dateOnly(DateTime date) =>
       DateTime(date.year, date.month, date.day);
