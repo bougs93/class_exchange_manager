@@ -34,6 +34,12 @@ class _DatedDataInspectorSectionState
   LessonStats? _stats;
   String? _dbPath;
 
+  /// SQLite exchange_events 저널의 활성(비되돌림) 건수 (S5.2).
+  /// JSON 쪽 건수처럼 실시간 반응하지 않고 [_load]/[_refreshDrift] 호출
+  /// 시점에만 다시 센다 — 미러 쓰기가 비동기 큐라 정확히 같은 프레임에
+  /// 맞춰 갱신할 수 없기 때문에, 대신 새로고침 버튼으로 명시적으로 다시 센다.
+  int? _sqliteEventCount;
+
   Future<void> _load() async {
     final timetableId = _selectedTimetableId;
     if (timetableId == null) return;
@@ -47,12 +53,14 @@ class _DatedDataInspectorSectionState
       final repo = await ref.read(timetableRepositoryProvider.future);
       final timetable = await repo.getTimetable(timetableId);
       final stats = await repo.getLessonStats(timetableId);
+      final events = await repo.getExchangeEvents(timetableId);
       final dbPath = await TimetableDatabase.defaultDatabasePath();
       if (!mounted) return;
 
       setState(() {
         _timetable = timetable;
         _stats = stats;
+        _sqliteEventCount = events.where((e) => !e.isReverted).length;
         _dbPath = dbPath;
         _isLoading = false;
       });
@@ -249,31 +257,59 @@ class _DatedDataInspectorSectionState
     );
   }
 
-  /// 표시값-SQLite 드리프트 안내 (S4.4)
+  /// 표시값-SQLite 드리프트 안내 (S4.4, S5.2에서 실제 비교로 확장)
   ///
-  /// 교체 실행·되돌리기는 아직 기존 JSON 저장소에만 기록되고 SQLite로는
-  /// 전달되지 않는다(전환은 S5 이후). 그래서 이 패널의 수업 데이터는 항상
-  /// "최초 등록 시점" 기준이며, 위에서 확인하는 시간표가 **활성** 시간표일
-  /// 때만 그 차이를 명시적으로 알려준다(다른 시간표를 보는 중에는 비교 대상이
-  /// 아니므로 표시하지 않는다).
+  /// S5.1부터 교체 실행·삭제·되돌리기가 SQLite `exchange_events`에도 부가
+  /// 기록되지만(JSON이 여전히 진실 원본), 이 저널 쓰기는 비동기 큐라
+  /// "지금 이 순간" 완전히 일치한다는 보장이 없다. 그래서 JSON 쪽 활성
+  /// 건수는 실시간으로(버전 watch) 보여주고, SQLite 쪽은 [_load]/새로고침
+  /// 시점의 스냅샷을 보여준다 — 두 값이 다르면 아직 큐가 비워지지 않았거나
+  /// 실제 드리프트가 있다는 뜻이므로 새로고침 버튼으로 다시 확인하게 한다.
+  /// 위에서 확인하는 시간표가 **활성** 시간표일 때만 표시한다(다른 시간표는
+  /// 비교 대상이 아니다).
   Widget _buildDriftNotice(DesignTokens tokens) {
     ref.watch(exchangeListVersionProvider);
-    final exchangeCount =
+    final jsonCount =
         ref.read(exchangeHistoryServiceProvider).getActiveExchangeList().length;
+    final sqliteCount = _sqliteEventCount;
+    final mismatch = sqliteCount != null && sqliteCount != jsonCount;
+    final color = mismatch ? Colors.orange.shade700 : tokens.textMuted;
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: tokens.sectionBackground,
-        border: Border.all(color: tokens.cardBorder),
+        border: Border.all(
+          color: mismatch ? Colors.orange.shade700 : tokens.cardBorder,
+        ),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(
-        '현재 교체 이력: $exchangeCount건 '
-        '(참고: 이 수치는 위 SQLite 수업 데이터에 아직 반영되지 않습니다 — '
-        '추후 단계에서 연결 예정)',
-        style: TextStyle(fontSize: 11, color: tokens.textMuted),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              sqliteCount == null
+                  ? '교체 이력: JSON $jsonCount건 (SQLite 확인 중...)'
+                  : '교체 이력: JSON $jsonCount건 · SQLite 저널 $sqliteCount건'
+                      '${mismatch ? ' · 불일치 ${(jsonCount - sqliteCount).abs()}건' : ' · 일치'}',
+              style: TextStyle(
+                fontSize: 11,
+                color: color,
+                fontWeight: mismatch ? FontWeight.w600 : null,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh, size: 14),
+            tooltip: '다시 확인',
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.only(left: 6),
+            onPressed: _isLoading ? null : _load,
+          ),
+        ],
       ),
     );
   }

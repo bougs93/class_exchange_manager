@@ -4,7 +4,9 @@
 현재 상태: IN_PROGRESS — S1·S1.5·S1.6~S1.10·S2·S3·S3a·S4(S4.0~S4.4) 구현 완료. S4.3(개인 시간표
 적용)은 사용자 결정으로 보류. S5(교체 실행·되돌리기 날짜 기반 저장 전환) Opus 설계 검토 완료,
 OQ-1~8 전부 사용자 승인("전체적으로 진행해줘") — steps.md "S5 설계 검토" 절 참조. S5.0(저널
-스키마+Repository, 완전 비연결) 구현 완료. 다음은 S5.1(부가 기록 미러 쓰기).
+스키마+Repository, 완전 비연결)·S5.1(교체 실행/삭제/되돌리기 시 SQLite에도 부가 기록, JSON이
+여전히 진실 원본, 사용자 실 앱 확인 완료)·S5.2(확인 패널을 JSON/SQLite 건수 실제 비교로 확장) 구현
+완료. 다음은 사용자가 S5.2 화면에서 "일치" 확인 — 이것이 S5.3 진입 게이트.
 S3a를 실제 Windows 빌드로 확인하던 중 "기타 설정" 펼치면 앱이 멈추는 버그를 발견·수정했다
 (`sqlite3_flutter_libs` 누락 — steps.md "긴급 수정" 절 참조). 사용자가 재빌드해 **정상 동작 확인 완료**.
 S4.0에서도 별도 버그(SemesterPeriodSection SegmentedButton assertion)를 추가로 발견·수정, 확인 완료.
@@ -51,22 +53,27 @@ S4.0에서도 별도 버그(SemesterPeriodSection SegmentedButton assertion)를 
 | S4.4 드리프트 자가 점검 안내 | DONE (2026-09-29) | S4.0 패널에 "교체 이력 N건, SQLite 미반영" 한 줄 추가(최소 범위) |
 | S5 설계 검토 | DONE (2026-09-29) | Opus 5 검토, OQ-1~8 전부 사용자 승인. 8단계(S5.0~S5.4b) 분해 확정 |
 | S5.0 교체 이벤트 저널 스키마 | DONE (2026-09-29) | `exchange_events` 테이블(스키마 v2→v3) + Repository CRUD. 완전 비연결 |
-| S5.1 이후 | TODO | 부가 기록 미러 쓰기부터 순서대로 진행. 지난 실패 구간과 겹침 — 특히 신중히 |
+| S5.1 부가 기록 미러 쓰기 | DONE (2026-09-29) | `ExchangeHistoryService.mirrorSink`/`mirrorClearSink` 훅. 동기 API 무변경, JSON이 여전히 진실 원본. 사용자 실 앱 확인 완료 |
+| S5.2 드리프트 실제 비교 | DONE (2026-09-29) | 확인 패널에 "JSON N건 · SQLite M건 · 일치/불일치" 표시 + 새로고침. 사용자 확인이 S5.3 게이트 |
+| S5.3 이후 | TODO | 투영 순수 함수 검증부터 순서대로 진행. 지난 실패 구간과 겹침 — 특히 신중히 |
 
 ## 5. 다음에 할 정확한 작업
 
-S1~S4(S4.0~S4.4), S5 설계 검토, S5.0까지 완료했다. 사용자가 실제 앱(Windows)에서 아래를 수동
-확인한 뒤, S5.1(교체 실행·삭제·되돌리기 시 `exchange_events`에도 부가 기록 — JSON이 여전히 진실
-원본)로 이어간다.
+S1~S4(S4.0~S4.4), S5 설계 검토, S5.0~S5.2까지 완료했다. **S5.3 착수 전 반드시** 사용자가 실제 앱
+(Windows)에서 아래를 확인해야 한다 — 특히 "준비 > 기타 설정 > 날짜 기반 데이터 확인" 패널에서
+교체를 몇 건 실행·되돌리기한 뒤 "JSON N건 · SQLite M건 · 일치"로 뜨는지가 **S5.3 진입 게이트**다
+(불일치가 계속 보이면 S5.1 미러 쓰기에 버그가 있다는 뜻이므로 그걸 먼저 고쳐야 한다).
 
+- **"날짜 기반 데이터 확인" 패널에서 교체 이력 JSON/SQLite 건수가 "일치"로 표시되는지 (S5.2, 미확인 — S5.3 게이트)**
+- 새로고침 아이콘을 눌렀을 때 정상 동작하는지 (S5.2)
 - 날짜표시 스위치 ON/OFF 전환
 - 계획서에서 다른 주로 넘어가는 교체(결강일·교체일이 다른 주)를 만들고, 교체 화면에서 각 주로 이동해 반영 확인
 - 원본/교체 스위치가 여전히 정상 동작하는지
 - 순환·2중 교체의 "?" 표시
 - "준비 > 기타 설정" 화면의 "학기 기간"·"날짜 기반 데이터 확인" 두 섹션이 정상 표시되는지
-- 교체를 실제로 몇 건 실행한 뒤 "날짜 기반 데이터 확인" 패널의 "현재 교체 이력: N건" 문구가
-  정확한 건수로 갱신되는지 (S4.4, 아직 미확인)
 - 교체 화면에서 학기 범위 밖 주로 이동 시 주황색 안내가 뜨는지(S4.2, 확인 완료)
+- 1:1/순환/2중/보강 교체 실행 + 되돌리기 + 다시실행 + 리스트 삭제 + 전체 삭제가 정상 동작하는지
+  (S5.1까지 확인 완료, S5.2 이후 재확인 시 함께 볼 것)
 
 ## 6. 기존 작업 트리 보호
 
@@ -244,6 +251,86 @@ S1~S4(S4.0~S4.4), S5 설계 검토, S5.0까지 완료했다. 사용자가 실제
   JSON이 여전히 진실 원본이며 loadFromLocalStorage()는 그대로 JSON에서만 읽는다. 완료 조건: 교체
   실행/되돌리기/삭제/날짜 수정 후 exchange_events 행이 메모리 리스트와 1:1 일치(테스트), 기존 JSON
   파일 내용이 S5.1 이전과 바이트 동일함을 확인, 실제 앱에서 기존 기능 전부 정상.
+
+```text
+갱신 시각: 2026-09-29
+현재 단계와 상태: S5.0에 이어 S5.1(부가 기록 미러 쓰기) 완료. JSON이 여전히 진실 원본.
+현재 Git HEAD / 브랜치: main, S5.0 완료 커밋 위(정확한 해시는 git log로 확인)
+이번에 완료한 작은 작업:
+  1) lib/services/exchange_event_mirror.dart 신규: toExchangeEventRecords() 순수 변환 함수
+     (ExchangeHistoryItem 목록 → ExchangeEventRecord 목록, seq는 목록 순서 그대로)
+  2) TimetableRepository.replaceExchangeEventsFor() 추가 — 삭제 후 삽입을 한 트랜잭션으로 묶어
+     JSON의 "리스트 전체 다시 쓰기"와 같은 멱등 의미론 재현(삭제된 교체 건이 저널에 안 남게)
+  3) ExchangeHistoryService에 mirrorSink/mirrorClearSink 필드 추가(기본 null), 기존 저장 큐
+     (_enqueueStorageOperation) 뒤쪽에만 훅 추가 — 동기 public API 시그니처 무변경
+  4) services_provider.dart의 exchangeHistoryServiceProvider에서 두 싱크를 TimetableRepository에
+     연결. resetForTesting()에도 두 싱크 초기화 추가(싱글톤 테스트 오염 방지)
+변경한 파일:
+  신규 — lib/services/exchange_event_mirror.dart, test/services/exchange_event_mirror_test.dart
+  수정 — lib/repositories/timetable_repository.dart(replaceExchangeEventsFor),
+        lib/services/exchange_history_service.dart(mirrorSink/mirrorClearSink 필드+훅,
+        resetForTesting 확장),
+        lib/providers/services_provider.dart(싱크 주입),
+        test/repositories/timetable_repository_test.dart(replaceExchangeEventsFor 테스트 3개)
+핵심 설계 결정과 근거:
+  - JSON 저장이 먼저 큐에 들어가고 그 "직후 같은 큐"에 미러 쓰기를 추가 — 순서는 보장되지만
+    미러가 실패해도(sink==null 포함) JSON 저장에는 전혀 영향 없음(S5 설계 검토 R3 대응)
+  - replaceExchangeEventsFor(삭제 후 삽입)를 새로 만든 이유: S5.0의 upsertExchangeEvents는 갱신만
+    하고 삭제된 항목을 못 지우므로, removeFromExchangeList로 삭제된 건이 저널에 유령으로 남는
+    문제가 있었음 — 완전 교체 방식으로 해결
+  - ExchangeHistoryService가 싱글톤이라, 위젯 테스트가 Provider 트리를 먼저 빌드하면 mirrorSink가
+    전역으로 남아 이후 순수 유닛 테스트를 오염시킬 수 있음을 미리 인지하고 resetForTesting()에서
+    방어(실제로는 현재 어떤 테스트도 exchangeHistoryServiceProvider를 빌드하지 않아 당장 문제는 없음)
+실행한 검증 / 결과 (flutter analyze, flutter test, 수동 시나리오): flutter analyze 전체 통과,
+  flutter test 전체 283개 통과(신규 8개: exchange_event_mirror_test 5개 + replaceExchangeEventsFor
+  3개). 기존 exchange_history_service_test.dart·모든 위젯 테스트 무수정 통과(mirrorSink 주입이
+  위젯 테스트를 깨지 않음을 확인)
+미실행 검증과 이유: 실제 앱에서 교체를 실행한 뒤 SQLite exchange_events에 실제로 행이 쌓이는지
+  수동 확인 — 이 환경에서 GUI 조작 불가, 사용자 확인 필요. (S4.0/S4.4 패널에는 아직 저널 건수를
+  보여주는 UI가 없음 — 이는 S5.2에서 추가 예정)
+남은 실패 또는 컴파일 오류: 없음
+사용자 답변이 필요한 항목: 없음
+다음 작업 1개 (파일/함수/기대 결과): S5.2 — dated_data_inspector_section.dart(S4.0/S4.4 패널)의
+  드리프트 안내를 "교체 이력: JSON N건 / SQLite 저널 M건 / 불일치 K건"으로 확장. TimetableRepository
+  .getExchangeEvents(timetableId).length를 새로 노출해 JSON 쪽 건수(exchangeHistoryServiceProvider
+  .getActiveExchangeList().length)와 비교, 불일치 시 S4.2와 같은 주황색 강조. 완료 조건: 사용자가
+  실제 앱에서 교체 여러 건 실행·되돌리기 후 N==M, K==0을 눈으로 확인 — 이 확인이 S5.3 진입 게이트.
+```
+
+```text
+갱신 시각: 2026-09-29
+현재 단계와 상태: S5.1에 이어 S5.2(드리프트 실제 비교) 완료. 사용자가 S5.1 수동 회귀 확인도
+  완료("테스트 했습니다"). S5.2 자체의 화면 확인(일치 표시)은 아직 사용자 확인 전 — S5.3 게이트.
+현재 Git HEAD / 브랜치: main, S5.1 완료 커밋 위(정확한 해시는 git log로 확인)
+이번에 완료한 작은 작업:
+  1) dated_data_inspector_section.dart의 드리프트 안내를 실제 비교로 확장 — "교체 이력: JSON N건
+     · SQLite 저널 M건 · 일치/불일치 K건". 불일치 시 S4.2와 같은 주황색 강조(테두리+굵은 글씨)
+  2) _load()에서 TimetableRepository.getExchangeEvents(timetableId) 함께 조회, is_reverted=0인
+     건수만 카운트(JSON의 getActiveExchangeList()와 기준 통일)
+  3) 새로고침 아이콘 추가 — SQLite 쪽 값은 실시간 반응하지 않고(미러 쓰기가 비동기 큐라 순간적
+     불일치가 정상일 수 있음) 사용자가 명시적으로 다시 셀 수 있게 함
+변경한 파일:
+  수정 — lib/ui/screens/start_content/dated_data_inspector_section.dart(_sqliteEventCount 필드,
+        _buildDriftNotice 재작성)
+핵심 설계 결정과 근거:
+  - JSON은 실시간(exchangeListVersionProvider watch), SQLite는 스냅샷 — 두 값이 잠깐 다르게 보이는
+    것과 "진짜 드리프트"를 구분하기 위해 새로고침을 명시적으로 뒀다(자동 폴링 등 복잡한 로직 안 씀)
+  - 이 단계는 새 Repository 로직을 추가하지 않았다 — S5.0/S5.1에서 이미 검증된
+    getExchangeEvents/getActiveExchangeList를 화면에서 조합해 보여줄 뿐이라 신규 테스트 없음
+  - 여전히 읽기 전용, 쓰기 버튼 없음
+실행한 검증 / 결과 (flutter analyze, flutter test, 수동 시나리오): flutter analyze 전체 통과,
+  flutter test 전체 283개 통과(회귀 없음, 신규 로직 없어 신규 테스트도 없음)
+미실행 검증과 이유: 실제 앱에서 교체를 여러 건 실행·되돌리기한 뒤 "일치"로 표시되는지, 새로고침이
+  잘 동작하는지 수동 확인 — 이 환경에서 GUI 조작 불가, 사용자 확인 필요. **이 확인이 S5.3 진입
+  게이트**(불일치가 계속 보이면 S5.1 미러 쓰기 버그를 먼저 고쳐야 함)
+남은 실패 또는 컴파일 오류: 없음
+사용자 답변이 필요한 항목: 없음
+다음 작업 1개 (파일/함수/기대 결과): 사용자가 위 확인을 마친 뒤 S5.3 — lib/utils/lesson_projection.dart
+  신규 작성. project({snapshot, semester, activeEvents}) 순수 함수로 exchangePathMoves/
+  ExchangeCellDates.forItem을 재사용해 lessons 목록에 이벤트를 적용한 결과를 계산(DB에는 쓰지 않음).
+  핵심 회귀 테스트: 임의의 주 W에 대해 project(...)를 W로 필터한 결과 == ResolvedWeek.dateAware(...)
+  .toTimeSlots(...)가 성립함을 증명(1:1·보강·같은 주·다른 주·요일 불일치 폴백 전 케이스, 기존
+  10.14/10.26 픽스처 재사용). 완료 조건: 이 등식 테스트 전부 통과, 화면 동작은 여전히 무변화.
 ```
 
 ## 8. 새 AI에게 전달할 재개 문구

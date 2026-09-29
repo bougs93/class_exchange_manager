@@ -472,6 +472,63 @@ Opus 권장안을 전부 그대로 채택한다.
   전체 275개 통과(회귀 없음). **미실행**: 스키마 마이그레이션(버전 2→3) 자체는 별도 테스트하지 않음 —
   기존 v1→v2 마이그레이션도 같은 방식으로 테스트 없이 진행된 전례를 따름. 실제 앱 동작은 이 단계에서
   전혀 바뀌지 않으므로 사용자 수동 확인 불필요.
+
+### S5.1 완료 기록 (2026-09-29)
+
+- **신규 파일**: `lib/services/exchange_event_mirror.dart` — `toExchangeEventRecords(items, timetableId)`
+  순수 변환 함수. `List<ExchangeHistoryItem>` → `List<ExchangeEventRecord>`로 변환하며 SQLite에
+  직접 쓰지 않는다. `seq`는 목록 순서(= 실행 순서)를 그대로 사용, `pathJson`은
+  `jsonEncode(item.originalPath.toJson())`로 기존 JSON 저장과 같은 포맷을 재사용한다.
+- **Repository 확장**: `TimetableRepository.replaceExchangeEventsFor(timetableId, events)` 추가 —
+  삭제 후 삽입을 한 트랜잭션으로 묶어 "리스트 전체를 매번 다시 쓰기"라는 기존 JSON 저장과 같은
+  멱등적 의미론을 재현한다. `removeFromExchangeList`로 메모리에서 삭제된 교체 건이 저널에 유령처럼
+  남지 않는 이유가 이것이다(S5.0의 `upsertExchangeEvents`는 갱신만 하고 삭제를 못 하므로 이 메서드로
+  보완).
+- **`ExchangeHistoryService` 확장**: 선택적 보조 싱크 `mirrorSink`
+  (`Future<void> Function(List<ExchangeHistoryItem>, String) ?`)와 `mirrorClearSink`
+  (`Future<void> Function(String)?`) 필드 추가, 기본값 둘 다 null. `_enqueueExchangeListSave`가 JSON
+  저장을 큐에 넣은 **직후 같은 큐**에 `mirrorSink` 호출을 추가(순서 보장), `_clearLocalStorage`도
+  동일하게 `mirrorClearSink`를 추가. **동기 public API 시그니처는 한 글자도 바뀌지 않았다** — 이미
+  있던 `_enqueueStorageOperation`(내부에서 예외를 잡아 로그만 남김) 뒤쪽에만 훅을 추가했으므로,
+  `addExchange`/`undoLastExchange`/`updateDates` 등은 전부 여전히 동기 `void`다(S5 설계 검토 R3
+  "동기→비동기 전염" 위험 회피).
+- **Provider 연결**: `services_provider.dart`의 `exchangeHistoryServiceProvider`에서 두 싱크를
+  주입 — `mirrorSink`는 `TimetableRepository.replaceExchangeEventsFor`를, `mirrorClearSink`는
+  `deleteExchangeEventsFor`를 호출한다. `ExchangeHistoryService`는 싱글톤이므로
+  `resetForTesting()`에 `mirrorSink`/`mirrorClearSink` 초기화도 추가해, 위젯 테스트가 먼저 이
+  Provider를 빌드해도 이후 순수 유닛 테스트가 오염되지 않도록 방어했다.
+- **의도적으로 지금은 하지 않는 것**: `loadFromLocalStorage()`는 여전히 JSON에서만 읽는다 — **JSON이
+  계속 진실 원본**이다. SQLite 쓰기가 실패해도(예: DB 아직 미준비) 앱 동작에 전혀 영향이 없다.
+- **검증**: `test/services/exchange_event_mirror_test.dart` 신규 5개(빈 목록, seq 매핑, pathJson
+  왕복, 필드 1:1 매핑, supplement 타입), `test/repositories/timetable_repository_test.dart`에
+  `replaceExchangeEventsFor` 테스트 3개 추가(삭제된 건 제거, 시간표 간 격리, 빈 목록으로 전체 비움).
+  `flutter analyze` 전체 통과, `flutter test` 전체 283개 통과(회귀 없음 — 기존
+  `exchange_history_service_test.dart`, 위젯 테스트 전부 무수정 통과). **사용자 확인 완료
+  (2026-09-29)**: 실제 앱에서 1:1/순환/2중/보강 교체 실행·되돌리기·삭제 조작 후 기존과 동일하게
+  정상 동작함을 확인.
+
+### S5.2 완료 기록 (2026-09-29)
+
+- **배경**: S5.1로 SQLite에 부가 기록이 시작됐지만, 이 기록이 실제로 잘 쌓이고 있는지 확인할 화면이
+  아직 없었다(S4.0/S4.4 패널은 여전히 "미반영" 안내만 보여줌). S5.2는 이 확인 화면을 실제 비교로
+  바꾼다.
+- **구현**: `dated_data_inspector_section.dart`의 드리프트 안내 한 줄을 확장 — "교체 이력: JSON N건
+  · SQLite 저널 M건 · 일치" 또는 불일치 시 "· 불일치 K건"을 주황색 강조 테두리·굵은 글씨와 함께
+  표시한다(S4.2와 같은 강조 스타일). `TimetableRepository.getExchangeEvents(timetableId)`를
+  `_load()`에서 함께 조회해 `is_reverted=0`인 건수만 SQLite 쪽 값으로 센다(JSON의
+  `getActiveExchangeList()`와 같은 기준 — 되돌린 건은 양쪽 다 제외).
+- **실시간성에 대한 설계 결정**: JSON 쪽 건수는 `exchangeListVersionProvider`를 watch해 실시간
+  갱신되지만, SQLite 쪽은 `_load()` 시점의 스냅샷이다 — 미러 쓰기가 비동기 큐라 "지금 이 순간"
+  완전히 같다고 보장할 수 없기 때문이다. 대신 작은 새로고침 아이콘을 추가해 사용자가 언제든
+  다시 셀 수 있게 했다. 두 값이 순간적으로 다르게 보이는 것 자체는 정상(큐가 아직 안 비워짐)이며,
+  새로고침 후에도 계속 다르면 그것이 진짜 드리프트다.
+- **연결 상태**: 여전히 읽기 전용. 쓰기 버튼 없음.
+- **검증**: `flutter analyze` 전체 통과, `flutter test` 전체 283개 통과(회귀 없음, 신규 테스트는
+  추가하지 않음 — 이미 S5.0·S5.1에서 검증된 Repository 메서드(`getExchangeEvents`)를 UI에서
+  조합해 보여줄 뿐이라 새 로직이 없다). **미실행**: 실제 앱에서 교체를 여러 건 실행·되돌리기한 뒤
+  "일치"로 표시되는지, 새로고침 버튼이 잘 동작하는지 수동 확인 — **이 확인이 S5.3 진입 게이트**
+  (S5 설계 검토서 §4 S5.2 "done when" 참조).
+
 ### S2 완료 기록 (2026-09-29)
 
 - **패키지 선택**: `sqflite` + `sqflite_common_ffi`. 이 앱은 Windows 데스크톱이 주 대상이라 `sqflite` 단독으로는

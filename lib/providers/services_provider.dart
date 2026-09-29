@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/excel_service.dart';
+import '../services/exchange_event_mirror.dart';
 import '../services/exchange_service.dart';
 import '../services/exchange_history_service.dart';
 import '../services/circular_exchange_service.dart';
 import '../services/dual_exchange_service.dart';
 import '../services/timetable_storage_service.dart';
+import 'timetable_repository_provider.dart';
 
 /// ExcelService Provider
 final excelServiceProvider = Provider<ExcelService>((ref) {
@@ -34,6 +36,22 @@ final exchangeHistoryServiceProvider = Provider<ExchangeHistoryService>((ref) {
     // ref.read를 사용하여 StateNotifier에 접근하고 버전을 증가시킵니다.
     ref.read(exchangeListVersionProvider.notifier).increment();
   });
+
+  // S5.1: 교체 리스트가 JSON에 저장/삭제될 때마다 SQLite 저널에도 같은
+  // 내용을 미러링한다. JSON이 여전히 진실 원본이다 — 이 싱크가 실패해도
+  // (예: DB가 아직 준비 안 됨) ExchangeHistoryService 내부에서 로그만
+  // 남기고 JSON 저장·삭제에는 전혀 영향을 주지 않는다.
+  historyService.mirrorSink = (items, timetableId) async {
+    final repo = await ref.read(timetableRepositoryProvider.future);
+    await repo.replaceExchangeEventsFor(
+      timetableId,
+      toExchangeEventRecords(items, timetableId),
+    );
+  };
+  historyService.mirrorClearSink = (timetableId) async {
+    final repo = await ref.read(timetableRepositoryProvider.future);
+    await repo.deleteExchangeEventsFor(timetableId);
+  };
 
   return historyService;
 });

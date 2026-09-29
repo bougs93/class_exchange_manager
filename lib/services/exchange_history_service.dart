@@ -49,6 +49,22 @@ class ExchangeHistoryService {
   // 버전 변경 콜백 (외부에서 설정하여 버전 변경 시 알림을 받을 수 있음)
   void Function()? _onVersionChanged;
 
+  /// 교체 리스트가 JSON에 저장될 때마다 SQLite 저널에도 같은 내용을
+  /// 미러링하는 보조 싱크 (S5.1).
+  ///
+  /// 기본값 null — 주입하지 않으면 이 서비스의 동작은 S5.0 이전과
+  /// 완전히 동일하다. **JSON이 여전히 진실 원본**이다: 이 싱크가 예외를
+  /// 던지거나 실패해도 `_enqueueStorageOperation`이 잡아 로그만 남기고
+  /// JSON 저장에는 전혀 영향을 주지 않는다(같은 저장 큐에서 순서만
+  /// 보장한다). Provider 계층(`services_provider.dart`)에서 주입한다.
+  Future<void> Function(List<ExchangeHistoryItem> items, String timetableId)?
+  mirrorSink;
+
+  /// 교체 리스트 전체 삭제 시 SQLite 저널도 함께 비우는 보조 싱크 (S5.1).
+  ///
+  /// [mirrorSink]와 마찬가지로 기본값 null, 실패해도 JSON 삭제에 영향 없음.
+  Future<void> Function(String timetableId)? mirrorClearSink;
+
   /// 직전 로드에서 구 스키마(§10 이전) 교체 목록을 발견해 백업했는지 여부.
   ///
   /// true면 사용자에게 1회 안내가 필요하다 — "이전 버전의 교체 목록은
@@ -282,6 +298,10 @@ class ExchangeHistoryService {
     _redoStack.clear();
     _exchangeListVersion = 0;
     _legacyDataBackedUp = false;
+    // 싱글톤이라 다른 테스트(Provider 트리를 빌드한 위젯 테스트 등)가 미리
+    // 주입해 둔 싱크가 남아있을 수 있다 — 여기서 확실히 비운다(S5.1).
+    mirrorSink = null;
+    mirrorClearSink = null;
   }
 
   /// 교체 리스트에서 특정 항목 조회
@@ -406,6 +426,17 @@ class ExchangeHistoryService {
       ),
       errorMessage,
     );
+
+    // S5.1: JSON 저장 직후 같은 큐에 SQLite 미러 쓰기를 추가한다. JSON
+    // 저장과 순서는 보장되지만, 실패해도(sink==null 포함) JSON 경로에는
+    // 아무 영향이 없다 — 부가 기록일 뿐이다.
+    final sink = mirrorSink;
+    if (sink != null && scopedTimetableId != null) {
+      _enqueueStorageOperation(
+        () => sink(snapshot, scopedTimetableId),
+        '교체 이벤트 SQLite 미러 저장 실패',
+      );
+    }
   }
 
   /// 교체 항목을 로컬 저장소에 저장
@@ -436,6 +467,15 @@ class ExchangeHistoryService {
       () => _storageService.clearExchangeList(timetableId: scopedTimetableId),
       '교체 리스트 삭제 실패',
     );
+
+    // S5.1: JSON과 함께 SQLite 저널 미러도 비운다.
+    final clearSink = mirrorClearSink;
+    if (clearSink != null && scopedTimetableId != null) {
+      _enqueueStorageOperation(
+        () => clearSink(scopedTimetableId),
+        '교체 이벤트 SQLite 미러 삭제 실패',
+      );
+    }
   }
 
   /// 예약된 저장을 마친 뒤 특정 시간표의 교체 목록 파일을 삭제합니다.

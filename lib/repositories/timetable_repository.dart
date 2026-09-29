@@ -381,6 +381,31 @@ class TimetableRepository {
     await batch.commit(noResult: true);
   }
 
+  /// 시간표의 교체 이벤트를 [events]로 완전히 교체한다 (S5.1 미러 쓰기).
+  ///
+  /// 기존 JSON 저장(`ExchangeListStorageService`)의 "리스트 전체를 매번
+  /// 다시 쓰기"와 같은 의미론을 한 트랜잭션으로 재현한다 — 삭제 후 삽입을
+  /// 묶어서, 메모리에서 삭제된 교체 건(`removeFromExchangeList`)이 저널에
+  /// 유령처럼 남지 않게 한다.
+  Future<void> replaceExchangeEventsFor(
+    String timetableId,
+    List<ExchangeEventRecord> events,
+  ) async {
+    await db.transaction((txn) async {
+      await txn.delete(
+        'exchange_events',
+        where: 'timetable_id = ?',
+        whereArgs: [timetableId],
+      );
+      if (events.isEmpty) return;
+      final batch = txn.batch();
+      for (final event in events) {
+        batch.insert('exchange_events', event.toMap());
+      }
+      await batch.commit(noResult: true);
+    });
+  }
+
   /// 한 시간표의 교체 이벤트를 적용 순서(`seq`)대로 조회한다.
   Future<List<ExchangeEventRecord>> getExchangeEvents(
     String timetableId,
