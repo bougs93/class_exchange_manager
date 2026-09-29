@@ -3,11 +3,37 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:class_exchange_manager/data/timetable_database.dart';
 import 'package:class_exchange_manager/models/dated_timetable.dart';
+import 'package:class_exchange_manager/models/exchange_event_record.dart';
 import 'package:class_exchange_manager/models/lesson.dart';
 import 'package:class_exchange_manager/models/school_semester.dart';
 import 'package:class_exchange_manager/models/time_slot.dart';
 import 'package:class_exchange_manager/repositories/timetable_repository.dart';
 import 'package:class_exchange_manager/services/semester_timetable_generator.dart';
+
+ExchangeEventRecord _exchangeEvent({
+  required String id,
+  required String timetableId,
+  required int seq,
+  DateTime? absenceDate,
+  DateTime? substitutionDate,
+  bool isReverted = false,
+  String type = 'oneToOne',
+}) {
+  return ExchangeEventRecord(
+    id: id,
+    timetableId: timetableId,
+    seq: seq,
+    type: type,
+    absenceDate: absenceDate ?? DateTime(2026, 9, 3),
+    substitutionDate: substitutionDate ?? DateTime(2026, 9, 5),
+    isReverted: isReverted,
+    pathJson: '{"type":"$type"}',
+    description: '테스트 교체',
+    tags: const [],
+    metadata: const {},
+    createdAt: DateTime(2026, 9, 3, 9, 0),
+  );
+}
 
 Lesson _lesson({
   required String timetableId,
@@ -698,6 +724,193 @@ void main() {
 
       expect(statsX.totalCount, 1);
       expect(statsY.totalCount, 2);
+    });
+  });
+
+  group('TimetableRepository — 교체 이벤트 저널 (S5.0)', () {
+    test('저장한 이벤트를 seq 순서로 돌려준다', () async {
+      final db = await openTestDb();
+      addTearDown(db.close);
+      final repo = TimetableRepository(db);
+      const timetableId = 'tt_events';
+
+      await repo.insertTimetable(
+        DatedTimetable(
+          id: timetableId,
+          name: '테스트',
+          semester: SchoolSemester.defaultFor(schoolYear: 2026, semester: 2),
+          registeredAt: DateTime(2026, 8, 1),
+        ),
+      );
+
+      await repo.upsertExchangeEvents([
+        _exchangeEvent(id: 'evt_2', timetableId: timetableId, seq: 2),
+        _exchangeEvent(id: 'evt_1', timetableId: timetableId, seq: 1),
+      ]);
+
+      final events = await repo.getExchangeEvents(timetableId);
+
+      expect(events.map((e) => e.id).toList(), ['evt_1', 'evt_2']);
+    });
+
+    test('같은 id로 다시 저장하면 갱신된다(멱등)', () async {
+      final db = await openTestDb();
+      addTearDown(db.close);
+      final repo = TimetableRepository(db);
+      const timetableId = 'tt_events_upsert';
+
+      await repo.insertTimetable(
+        DatedTimetable(
+          id: timetableId,
+          name: '테스트',
+          semester: SchoolSemester.defaultFor(schoolYear: 2026, semester: 2),
+          registeredAt: DateTime(2026, 8, 1),
+        ),
+      );
+
+      await repo.upsertExchangeEvents([
+        _exchangeEvent(id: 'evt_1', timetableId: timetableId, seq: 1),
+      ]);
+      await repo.upsertExchangeEvents([
+        _exchangeEvent(
+          id: 'evt_1',
+          timetableId: timetableId,
+          seq: 1,
+          isReverted: true,
+        ),
+      ]);
+
+      final events = await repo.getExchangeEvents(timetableId);
+
+      expect(events.length, 1);
+      expect(events.single.isReverted, isTrue);
+    });
+
+    test('다른 시간표의 이벤트는 섞이지 않는다', () async {
+      final db = await openTestDb();
+      addTearDown(db.close);
+      final repo = TimetableRepository(db);
+
+      for (final id in ['tt_evt_x', 'tt_evt_y']) {
+        await repo.insertTimetable(
+          DatedTimetable(
+            id: id,
+            name: id,
+            semester: SchoolSemester.defaultFor(schoolYear: 2026, semester: 2),
+            registeredAt: DateTime(2026, 8, 1),
+          ),
+        );
+      }
+
+      await repo.upsertExchangeEvents([
+        _exchangeEvent(id: 'evt_x1', timetableId: 'tt_evt_x', seq: 1),
+      ]);
+      await repo.upsertExchangeEvents([
+        _exchangeEvent(id: 'evt_y1', timetableId: 'tt_evt_y', seq: 1),
+        _exchangeEvent(id: 'evt_y2', timetableId: 'tt_evt_y', seq: 2),
+      ]);
+
+      final eventsX = await repo.getExchangeEvents('tt_evt_x');
+      final eventsY = await repo.getExchangeEvents('tt_evt_y');
+
+      expect(eventsX.length, 1);
+      expect(eventsY.length, 2);
+    });
+
+    test('deleteExchangeEventsFor로 특정 시간표의 이벤트만 지운다', () async {
+      final db = await openTestDb();
+      addTearDown(db.close);
+      final repo = TimetableRepository(db);
+
+      for (final id in ['tt_del_x', 'tt_del_y']) {
+        await repo.insertTimetable(
+          DatedTimetable(
+            id: id,
+            name: id,
+            semester: SchoolSemester.defaultFor(schoolYear: 2026, semester: 2),
+            registeredAt: DateTime(2026, 8, 1),
+          ),
+        );
+      }
+      await repo.upsertExchangeEvents([
+        _exchangeEvent(id: 'evt_x1', timetableId: 'tt_del_x', seq: 1),
+      ]);
+      await repo.upsertExchangeEvents([
+        _exchangeEvent(id: 'evt_y1', timetableId: 'tt_del_y', seq: 1),
+      ]);
+
+      await repo.deleteExchangeEventsFor('tt_del_x');
+
+      expect(await repo.getExchangeEvents('tt_del_x'), isEmpty);
+      expect(await repo.getExchangeEvents('tt_del_y'), hasLength(1));
+    });
+
+    test('deleteTimetable은 그 시간표의 교체 이벤트도 함께 지운다', () async {
+      final db = await openTestDb();
+      addTearDown(db.close);
+      final repo = TimetableRepository(db);
+      const timetableId = 'tt_events_cascade';
+
+      await repo.insertTimetable(
+        DatedTimetable(
+          id: timetableId,
+          name: '테스트',
+          semester: SchoolSemester.defaultFor(schoolYear: 2026, semester: 2),
+          registeredAt: DateTime(2026, 8, 1),
+        ),
+      );
+      await repo.upsertExchangeEvents([
+        _exchangeEvent(id: 'evt_1', timetableId: timetableId, seq: 1),
+      ]);
+
+      await repo.deleteTimetable(timetableId);
+
+      expect(await repo.getExchangeEvents(timetableId), isEmpty);
+    });
+
+    test('저장·조회 시 경로 JSON·태그·메타데이터가 그대로 보존된다', () async {
+      final db = await openTestDb();
+      addTearDown(db.close);
+      final repo = TimetableRepository(db);
+      const timetableId = 'tt_events_roundtrip';
+
+      await repo.insertTimetable(
+        DatedTimetable(
+          id: timetableId,
+          name: '테스트',
+          semester: SchoolSemester.defaultFor(schoolYear: 2026, semester: 2),
+          registeredAt: DateTime(2026, 8, 1),
+        ),
+      );
+
+      final original = ExchangeEventRecord(
+        id: 'evt_roundtrip',
+        timetableId: timetableId,
+        seq: 1,
+        type: 'circular',
+        absenceDate: DateTime(2026, 9, 3),
+        substitutionDate: DateTime(2026, 9, 10),
+        isReverted: false,
+        pathJson: '{"type":"circular","nodes":[]}',
+        description: '3인 순환 교체',
+        notes: '메모',
+        tags: const ['긴급', '보건'],
+        profileId: 'profile_1',
+        metadata: const {'stepCount': 3},
+        createdAt: DateTime(2026, 9, 3, 10, 30),
+      );
+      await repo.upsertExchangeEvents([original]);
+
+      final restored = (await repo.getExchangeEvents(timetableId)).single;
+
+      expect(restored.pathJson, original.pathJson);
+      expect(restored.tags, original.tags);
+      expect(restored.metadata, original.metadata);
+      expect(restored.notes, original.notes);
+      expect(restored.profileId, original.profileId);
+      expect(restored.description, original.description);
+      expect(restored.absenceDate, original.absenceDate);
+      expect(restored.substitutionDate, original.substitutionDate);
     });
   });
 }

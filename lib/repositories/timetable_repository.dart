@@ -1,6 +1,7 @@
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../models/dated_timetable.dart';
+import '../models/exchange_event_record.dart';
 import '../models/lesson.dart';
 import '../models/school_semester.dart';
 import '../utils/semester_date_generator.dart';
@@ -131,6 +132,11 @@ class TimetableRepository {
       );
       await txn.delete(
         'lesson_snapshots',
+        where: 'timetable_id = ?',
+        whereArgs: [timetableId],
+      );
+      await txn.delete(
+        'exchange_events',
         where: 'timetable_id = ?',
         whereArgs: [timetableId],
       );
@@ -349,6 +355,53 @@ class TimetableRepository {
         reactivatedCount: reactivatedCount,
       );
     });
+  }
+
+  // ==================== 교체 이벤트 저널 (S5.0) ====================
+  //
+  // 이 절의 메서드들은 S5.0 시점에는 어떤 화면·서비스에서도 호출되지 않는다.
+  // "언제 누가 무엇을 바꿨는가"만 기록하는 저널 CRUD이며, `lessons`(현재
+  // 배치)에는 아무 영향을 주지 않는다 — S5 설계 검토서 §4 S5.0 참조.
+
+  /// 한 시간표의 활성 교체 이벤트 전체를 upsert한다 (S5.1에서 사용 예정).
+  ///
+  /// 같은 `id`가 이미 있으면 덮어쓴다(`ConflictAlgorithm.replace`) — 기존
+  /// JSON 저장(`ExchangeListStorageService`)이 "리스트 전체를 매번 다시
+  /// 쓰기" 방식이라 멱등인 것과 동일한 성질을 유지하기 위해서다.
+  Future<void> upsertExchangeEvents(List<ExchangeEventRecord> events) async {
+    if (events.isEmpty) return;
+    final batch = db.batch();
+    for (final event in events) {
+      batch.insert(
+        'exchange_events',
+        event.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    await batch.commit(noResult: true);
+  }
+
+  /// 한 시간표의 교체 이벤트를 적용 순서(`seq`)대로 조회한다.
+  Future<List<ExchangeEventRecord>> getExchangeEvents(
+    String timetableId,
+  ) async {
+    final rows = await db.query(
+      'exchange_events',
+      where: 'timetable_id = ?',
+      whereArgs: [timetableId],
+      orderBy: 'seq ASC',
+    );
+    return rows.map(ExchangeEventRecord.fromMap).toList();
+  }
+
+  /// 한 시간표의 교체 이벤트를 전부 지운다(시간표 삭제 시 [deleteTimetable]이
+  /// 이미 처리하므로, 그 외에 저널만 초기화하고 싶을 때 사용).
+  Future<void> deleteExchangeEventsFor(String timetableId) async {
+    await db.delete(
+      'exchange_events',
+      where: 'timetable_id = ?',
+      whereArgs: [timetableId],
+    );
   }
 
   static String _formatDate(DateTime date) =>

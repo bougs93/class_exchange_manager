@@ -393,6 +393,85 @@ S4~S5는 이전 시도(`c4867cf`)가 실패한 구간과 겹친다. 이 구간�
   추가하지 않음 — 순수 문자열 조합 + 기존에 이미 검증된 Provider 조회뿐). **미실행**: 실제 앱에서
   교체를 실행한 뒤 이 안내 문구가 정확한 건수로 보이는지 수동 확인 — 사용자 확인 필요.
 
+
+## S5. 교체 실행·되돌리기를 날짜 기반 저장으로 전환
+
+### S5 설계 검토 (2026-09-29, Opus 5)
+
+S1.6~S1.10·S3a·S4 재설계와 같은 방식으로, 실제 실행 로직에 손을 대는 이 구간은 Opus 5 서브에이전트
+설계 검토를 먼저 받았다. 전체 검토서 원문은 세션 기록에 있으며, 핵심만 요약한다.
+
+**핵심 설계 결정**: "교체 실행을 날짜 기반 저장으로 전환한다"를 "SQLite `lessons` 행을 교체 시점에
+직접 고쳐쓰기"로 해석하면 `c4867cf`와 같은 실패(진실 원본 2개, 서로 어긋나면 복구 불가)가 재현된다.
+대신 **"교체 이벤트 저널(`exchange_events`)을 SQLite에 두고, `lessons`는 그 저널을 재생(replay)해
+만드는 파생 뷰로만 취급"**하는 방식을 채택한다. 저널이 진실 원본, `lessons`는 언제든 다시 계산해
+복구 가능한 캐시.
+
+`ExchangeHistoryService`의 **동기 public API는 한 글자도 바꾸지 않는다** — 이미 존재하는 비동기
+저장 큐(`_enqueueStorageOperation`) 뒤쪽에만 SQLite 미러 쓰기를 추가한다. 이것이 기존 소비자
+30여 곳(표시·검증·계획서·개인 시간표·PDF 출력)을 전부 무변경으로 지키는 유일한 방법이다.
+
+**소비자 전수 조사에서 발견한 것 2건**:
+- `lib/utils/personal_exchange_view_manager.dart`(276줄)는 `ResolvedWeek`를 쓰지 않는 **제2의
+  교체 적용 경로**인데 현재 어디서도 호출되지 않는 죽은 코드다. S5에서 재연결하지 않는다(삭제는 S8).
+- 개인 시간표는 `ResolvedWeek`가 아니라 `SubstitutionPlanViewModel.loadPlanData()`가 만드는
+  계획서 데이터로 교체를 표시한다 — S5가 `loadPlanData()`를 건드리지 않는 한 개인 시간표는
+  자동으로 보호된다.
+
+**단계 분해 (S5.0~S5.4b, 각 단계 커밋 분리)**:
+
+| 단계 | 내용 | 화면 영향 |
+|---|---|---|
+| S5.0 | `exchange_events` 저널 스키마 + Repository CRUD | 없음(완전 비연결) |
+| S5.1 | 교체 실행·삭제·되돌리기 시 저널에도 부가 기록(JSON이 여전히 진실 원본) | 없음(쓰기 전용 미러) |
+| S5.2 | S4.4 드리프트 패널을 "JSON N건 / SQLite M건 / 불일치 K건"으로 확장 | 읽기 전용 패널만 |
+| S5.3 | 저널 재생 순수 함수 + `ResolvedWeek.dateAware`와 결과 일치 검증(DB 미기록) | 없음 |
+| S5.4 | 되돌리기 의존성 경고(비차단, 스낵바 문구만) | 문구 추가만 |
+| S5.4a | `lessons` 실제 투영 기록 시작(파생 뷰 갱신) | 없음(여전히 아무 화면도 `lessons` 안 읽음) |
+| S5.4b | 저널을 SQLite에서 읽어오도록 전환 — **"여기서부터 신규가 진실 원본"** | JSON→SQLite 1회 자동 이관 |
+
+**S5와 S5.5의 관계**: S5는 **저장(쓰기) 계층**만 바꾸고, 기존에 이름이 확정된 S5.5(구 S4a)는
+**조회(읽기) 계층**을 SQLite로 전환하는 별개 단계다. 순서는 S5 전체 완료 → S5.5. S5.4a(투영 실제
+기록)가 없으면 S5.5는 정체된 데이터를 읽게 되므로, S5.4a는 S5.5의 기술적 선행 조건이다.
+
+### 공개 질문(OQ-1~8) 확정 사항 (2026-09-29 사용자 승인 — "전체적으로 진행해줘")
+
+Opus 권장안을 전부 그대로 채택한다.
+
+| ID | 결정 |
+|---|---|
+| OQ-1 | 순환·2중 교체에 `nodeDates`(노드별 날짜) 저장 지원. 단 S5 범위에서는 "모든 노드가 결강일과 같은 주"로만 자동 채움 — 노드별로 다른 주를 지정하는 UI는 만들지 않음(S6 이후) |
+| OQ-2 | 후속 교체가 있는 되돌리기는 **막지 않고** 스낵바에 "이후 교체 N건이 이 교체를 전제로 합니다" 경고만 추가 |
+| OQ-3 | 기본 화면(교체 반영본 vs 원본, D7)은 S5에서 바꾸지 않음 — 확정은 S5.5/S7로 이월 |
+| OQ-4 | 기존 JSON 교체 목록은 앱 시작 시 SQLite에 없으면 1회 자동 임포트, 원본은 `*.v2.bak`으로 보관, 임포트 실패 시 JSON 경로로 자동 폴백 |
+| OQ-5 | 되돌리기/다시실행 스택은 계속 메모리 전용(현행 유지) — 재시작 후에도 되돌리기 가능해지는 기능 변화 없음 |
+| OQ-6 | 빈 칸에 보강이 채워질 때 `lessons`에 새 행을 삽입 — 단 결정적 ID(`evt_<eventId>_<date>_<period>_<teacher>`)로 재생이 여러 번 돌아도 중복 안 되게(멱등) |
+| OQ-7 | 학기 기간 축소가 활성 교체와 겹치면 **유일하게 차단** — 데이터 유실 방지(다른 곳은 전부 비차단 원칙, 여기만 예외) |
+| OQ-8 | 위 8단계 분해 + S5→S5.5 순서(S5가 S5.5를 포함하지 않음)에 동의 |
+
+### S5.0 완료 기록 (2026-09-29)
+
+- **신규 파일**: `lib/models/exchange_event_record.dart` — `ExchangeEventRecord` 클래스. 이 단계에서는
+  교체 로직을 전혀 갖지 않고 `toMap()`/`fromMap()`(SQLite 직렬화)만 담당한다. `pathJson` 필드는
+  `ExchangePath.toJson()` 결과를 그대로 문자열로 담아서, `ExchangeListStorageService`가 JSON 파일에
+  쓰는 것과 **같은 직렬화 포맷**을 재사용하도록 설계했다(S5 설계 검토 R1 — 직렬화기 이원화 금지).
+- **스키마 변경**: `timetable_database.dart` 스키마 버전 2→3. 새 테이블 `exchange_events`
+  (id, timetable_id, seq, type, absence_date, substitution_date, is_reverted, path_json,
+  node_dates_json(OQ-1용, 현재 항상 null), description, notes, tags_json, profile_id, metadata_json,
+  created_at) + `(timetable_id, seq)` 인덱스. `onUpgrade`에 `oldVersion < 3` 분기 추가, 신규 설치는
+  `_createSchema`에서 바로 생성.
+- **Repository**: `TimetableRepository`에 `upsertExchangeEvents`(배치 upsert, `ConflictAlgorithm.replace`
+  — JSON 저장의 "리스트 전체 다시 쓰기"와 같은 멱등성 유지), `getExchangeEvents`(seq 순 조회),
+  `deleteExchangeEventsFor` 추가. `deleteTimetable` 트랜잭션에 `exchange_events` 삭제도 포함시킴
+  (기존 lessons/lesson_snapshots 삭제와 같은 트랜잭션).
+- **연결 상태**: 이 시점에는 **어떤 서비스·화면도 이 테이블을 읽거나 쓰지 않는다.** `ExchangeHistoryService`
+  등 기존 코드는 한 글자도 바뀌지 않았다 — 순수 추가.
+- **검증**: `test/repositories/timetable_repository_test.dart`에 "교체 이벤트 저널 (S5.0)" 그룹 신규
+  6개(seq 순서 조회, upsert 멱등성, 시간표 간 격리, `deleteExchangeEventsFor`, `deleteTimetable` 연쇄
+  삭제, 저장·조회 왕복 시 path_json·태그·메타데이터 보존). `flutter analyze` 전체 통과, `flutter test`
+  전체 275개 통과(회귀 없음). **미실행**: 스키마 마이그레이션(버전 2→3) 자체는 별도 테스트하지 않음 —
+  기존 v1→v2 마이그레이션도 같은 방식으로 테스트 없이 진행된 전례를 따름. 실제 앱 동작은 이 단계에서
+  전혀 바뀌지 않으므로 사용자 수동 확인 불필요.
 ### S2 완료 기록 (2026-09-29)
 
 - **패키지 선택**: `sqflite` + `sqflite_common_ffi`. 이 앱은 Windows 데스크톱이 주 대상이라 `sqflite` 단독으로는

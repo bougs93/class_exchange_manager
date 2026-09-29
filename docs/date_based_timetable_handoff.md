@@ -2,7 +2,9 @@
 
 최종 갱신: 2026-09-29
 현재 상태: IN_PROGRESS — S1·S1.5·S1.6~S1.10·S2·S3·S3a·S4(S4.0~S4.4) 구현 완료. S4.3(개인 시간표
-적용)은 사용자 결정으로 보류. 다음은 S5 착수 여부 확인.
+적용)은 사용자 결정으로 보류. S5(교체 실행·되돌리기 날짜 기반 저장 전환) Opus 설계 검토 완료,
+OQ-1~8 전부 사용자 승인("전체적으로 진행해줘") — steps.md "S5 설계 검토" 절 참조. S5.0(저널
+스키마+Repository, 완전 비연결) 구현 완료. 다음은 S5.1(부가 기록 미러 쓰기).
 S3a를 실제 Windows 빌드로 확인하던 중 "기타 설정" 펼치면 앱이 멈추는 버그를 발견·수정했다
 (`sqlite3_flutter_libs` 누락 — steps.md "긴급 수정" 절 참조). 사용자가 재빌드해 **정상 동작 확인 완료**.
 S4.0에서도 별도 버그(SemesterPeriodSection SegmentedButton assertion)를 추가로 발견·수정, 확인 완료.
@@ -47,12 +49,15 @@ S4.0에서도 별도 버그(SemesterPeriodSection SegmentedButton assertion)를 
 | S4.2 교체 화면 범위 밖 주 안내 | DONE (2026-09-29) | `exchange_week_bar.dart`에 주황색 아이콘+강조 텍스트. 사용자 실 앱 확인 완료(가시성 피드백 반영) |
 | S4.3 개인 시간표 동일 안내 | 보류 (2026-09-29) | 사용자가 "지금은 적용 안 함"으로 결정. 코드 변경 없음 |
 | S4.4 드리프트 자가 점검 안내 | DONE (2026-09-29) | S4.0 패널에 "교체 이력 N건, SQLite 미반영" 한 줄 추가(최소 범위) |
-| S5 이후 | TODO | 착수 직전 사용자와 세부 확정. S5는 지난 실패 구간과 겹침 — 특히 신중히 |
+| S5 설계 검토 | DONE (2026-09-29) | Opus 5 검토, OQ-1~8 전부 사용자 승인. 8단계(S5.0~S5.4b) 분해 확정 |
+| S5.0 교체 이벤트 저널 스키마 | DONE (2026-09-29) | `exchange_events` 테이블(스키마 v2→v3) + Repository CRUD. 완전 비연결 |
+| S5.1 이후 | TODO | 부가 기록 미러 쓰기부터 순서대로 진행. 지난 실패 구간과 겹침 — 특히 신중히 |
 
 ## 5. 다음에 할 정확한 작업
 
-S1~S4(S4.0~S4.4)까지 완료했다. 사용자가 실제 앱(Windows)에서 아래를 수동 확인한 뒤,
-S5(교체 실행·되돌리기를 날짜 기반 저장으로 전환 — 지난 실패 구간과 겹치므로 특히 신중히)로 이어간다.
+S1~S4(S4.0~S4.4), S5 설계 검토, S5.0까지 완료했다. 사용자가 실제 앱(Windows)에서 아래를 수동
+확인한 뒤, S5.1(교체 실행·삭제·되돌리기 시 `exchange_events`에도 부가 기록 — JSON이 여전히 진실
+원본)로 이어간다.
 
 - 날짜표시 스위치 ON/OFF 전환
 - 계획서에서 다른 주로 넘어가는 교체(결강일·교체일이 다른 주)를 만들고, 교체 화면에서 각 주로 이동해 반영 확인
@@ -198,6 +203,47 @@ S5(교체 실행·되돌리기를 날짜 기반 저장으로 전환 — 지난 �
   기반 저장으로 전환) 착수 여부를 사용자와 확인 — 이 구간은 이전 실패(c4867cf)와 겹치므로 S1.6~S1.10·
   S3a처럼 Opus 설계 리뷰를 먼저 거친 뒤 사용자 승인을 받고 세부 단계로 쪼개 진행한다.
 ```
+
+```text
+갱신 시각: 2026-09-29
+현재 단계와 상태: S4 전체(S4.0~S4.4) 완료 뒤 S5 착수. S5 Opus 설계 검토 완료, OQ-1~8 전부
+  사용자 승인("전체적으로 진행해줘"). S5.0(저널 스키마+Repository, 완전 비연결) 구현 완료.
+현재 Git HEAD / 브랜치: main, S4 완료 커밋 위(정확한 해시는 git log로 확인)
+사용 모델: 설계는 Claude Opus 5(서브에이전트), 구현은 Claude Sonnet 5 — 위험 구간 진입 시
+  선례(S1.6~S1.10, S3a, S4 재설계)와 동일한 모델 전환 판단 기준 적용
+이번에 완료한 작은 작업:
+  1) S5 설계 검토: Opus 서브에이전트가 "이벤트 저널 + 파생 투영" 방식을 권장(직접 행 뒤집기 방식은
+     c4867cf와 같은 실패 패턴이라 기각). ExchangeHistoryService 소비자 30여 곳 전수 조사, 죽은 코드
+     PersonalExchangeViewManager 발견(재연결 금지 결정), 개인 시간표는 loadPlanData() 경로로 보호됨을 확인.
+     S5.0~S5.4b 8단계 분해 + OQ-1~8 제시, 사용자가 전부 권장안대로 승인
+  2) S5.0: exchange_events 저널 테이블 신설(스키마 v2→v3), TimetableRepository에 CRUD 추가.
+     ExchangeEventRecord.pathJson은 ExchangePath.toJson()과 같은 포맷 재사용(직렬화기 이원화 금지)
+변경한 파일:
+  신규 — lib/models/exchange_event_record.dart
+  수정 — lib/data/timetable_database.dart(스키마 v3, exchange_events 테이블),
+        lib/repositories/timetable_repository.dart(upsertExchangeEvents/getExchangeEvents/
+        deleteExchangeEventsFor, deleteTimetable에 저널 삭제 포함),
+        test/repositories/timetable_repository_test.dart(교체 이벤트 저널 테스트 6개 추가)
+핵심 설계 결정과 근거:
+  - 진실 원본은 항상 하나: exchange_events(저널). lessons는 그 저널을 재생해 만드는 파생 뷰일 뿐,
+    직접 UPDATE하는 코드 경로를 두지 않는다(S5 전체 기간 동안 지킬 불변 조건)
+  - ExchangeHistoryService의 동기 public API 시그니처를 동결한다 — 이미 있는 비동기 저장 큐
+    뒤쪽에만 SQLite 미러 쓰기를 추가해 30여 곳의 동기 소비자를 무변경으로 지킨다(S5.1에서 실행)
+  - upsertExchangeEvents는 ConflictAlgorithm.replace로 멱등 — 기존 JSON "전체 다시 쓰기"와 같은 성질
+  - S5.0 시점에는 어떤 화면·서비스도 이 테이블을 참조하지 않음 — 순수 추가라 회귀 위험 없음
+실행한 검증 / 결과 (flutter analyze, flutter test, 수동 시나리오): flutter analyze 전체 통과,
+  flutter test 전체 275개 통과(신규 6개: seq 순서 조회, upsert 멱등성, 시간표 간 격리,
+  deleteExchangeEventsFor, deleteTimetable 연쇄 삭제, 저장·조회 왕복 보존)
+미실행 검증과 이유: 스키마 마이그레이션(v2→v3) 자체는 별도 테스트하지 않음 — 기존 v1→v2도 같은
+  방식으로 테스트 없이 진행된 전례를 따름. 이 단계는 화면 동작이 전혀 바뀌지 않아 사용자 수동
+  확인은 필요 없음.
+남은 실패 또는 컴파일 오류: 없음
+사용자 답변이 필요한 항목: 없음 (OQ-1~8 모두 확인 완료)
+다음 작업 1개 (파일/함수/기대 결과): S5.1 — ExchangeHistoryService에 선택적 보조 싱크(mirrorSink)를
+  주입해, 교체 실행·삭제·되돌리기·다시실행·날짜 수정 시 exchange_events에도 부가 기록되도록 연결.
+  JSON이 여전히 진실 원본이며 loadFromLocalStorage()는 그대로 JSON에서만 읽는다. 완료 조건: 교체
+  실행/되돌리기/삭제/날짜 수정 후 exchange_events 행이 메모리 리스트와 1:1 일치(테스트), 기존 JSON
+  파일 내용이 S5.1 이전과 바이트 동일함을 확인, 실제 앱에서 기존 기능 전부 정상.
 ```
 
 ## 8. 새 AI에게 전달할 재개 문구

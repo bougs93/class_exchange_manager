@@ -13,7 +13,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 /// Windows/Linux는 sqflite가 기본 지원하지 않으므로 `sqflite_common_ffi`를
 /// 사용한다. Android/iOS는 기존 `sqflite` 플랫폼 구현을 그대로 쓴다.
 class TimetableDatabase {
-  static const int schemaVersion = 2;
+  static const int schemaVersion = 3;
   static const String defaultFileName = 'dated_timetable.db';
 
   static bool _ffiInitialized = false;
@@ -56,6 +56,12 @@ class TimetableDatabase {
           await db.execute(
             'ALTER TABLE lesson_snapshots ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1',
           );
+        }
+        if (oldVersion < 3) {
+          // S5.0: 교체 이벤트 저널 — 기존 lessons/lesson_snapshots와는 별개로,
+          // "언제 누가 무엇을 바꿨는가"만 기록한다. 이 단계에서는 어떤 화면도
+          // 이 테이블을 쓰지 않는다(S5.1에서 부가 기록으로 연결 예정).
+          await _createExchangeEventsTable(db);
         }
       },
     );
@@ -127,6 +133,38 @@ class TimetableDatabase {
     );
     await db.execute(
       'CREATE INDEX idx_snapshots_timetable_date ON lesson_snapshots(timetable_id, date)',
+    );
+
+    await _createExchangeEventsTable(db);
+  }
+
+  /// 교체 이벤트 저널 (S5.0) — "언제 누가 무엇을 바꿨는가"만 기록한다.
+  ///
+  /// `lessons`/`lesson_snapshots`처럼 실제 배치를 담지 않는다. 이 테이블이
+  /// 진실 원본이 되고(S5.4b), `lessons`는 이 저널을 재생(replay)해 만드는
+  /// 파생 뷰로만 갱신한다(S5.4a) — S5 설계 검토서 §1.3 참조.
+  static Future<void> _createExchangeEventsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE exchange_events (
+        id TEXT PRIMARY KEY,
+        timetable_id TEXT NOT NULL,
+        seq INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        absence_date TEXT NOT NULL,
+        substitution_date TEXT NOT NULL,
+        is_reverted INTEGER NOT NULL DEFAULT 0,
+        path_json TEXT NOT NULL,
+        node_dates_json TEXT,
+        description TEXT NOT NULL,
+        notes TEXT,
+        tags_json TEXT NOT NULL,
+        profile_id TEXT,
+        metadata_json TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX idx_exchange_events_timetable_seq ON exchange_events(timetable_id, seq)',
     );
   }
 }
