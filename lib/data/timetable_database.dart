@@ -13,7 +13,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 /// Windows/Linux는 sqflite가 기본 지원하지 않으므로 `sqflite_common_ffi`를
 /// 사용한다. Android/iOS는 기존 `sqflite` 플랫폼 구현을 그대로 쓴다.
 class TimetableDatabase {
-  static const int schemaVersion = 3;
+  static const int schemaVersion = 5;
   static const String defaultFileName = 'dated_timetable.db';
 
   static bool _ffiInitialized = false;
@@ -63,6 +63,23 @@ class TimetableDatabase {
           // 이 테이블을 쓰지 않는다(S5.1에서 부가 기록으로 연결 예정).
           await _createExchangeEventsTable(db);
         }
+        if (oldVersion < 4) {
+          // S5.4a: lessons가 exchange_events를 어디까지 재생했는지 기록한다.
+          // 화면 읽기는 아직 SQLite로 전환되지 않았으므로(S5.5), 이 값은
+          // 확인 패널에서 "재생 필요 여부"를 보여주는 용도로만 쓰인다.
+          await db.execute(
+            'ALTER TABLE timetables ADD COLUMN projected_seq INTEGER NOT NULL DEFAULT -1',
+          );
+        }
+        if (oldVersion < 5) {
+          // S5.4a 성능 수정: replayInto가 매번 학기 전체(수만 행)를 다시 훑던
+          // 문제를 고치기 위해, "한 번이라도 교체가 건드린 좌표"만 별도로
+          // 기록해 둔다. 이 표에 있는 좌표 + 지금 이벤트가 건드리는 좌표만
+          // 리셋·재계산하면 지워진 교체의 흔적도 놓치지 않으면서 범위를
+          // 좁힐 수 있다(교체가 실제로 건드리는 칸은 보통 학기 전체의 일부일
+          // 뿐이다).
+          await _createDirtyLessonKeysTable(db);
+        }
       },
     );
   }
@@ -87,7 +104,8 @@ class TimetableDatabase {
         teacher_name TEXT,
         school_name TEXT,
         registered_at TEXT NOT NULL,
-        revision INTEGER NOT NULL DEFAULT 1
+        revision INTEGER NOT NULL DEFAULT 1,
+        projected_seq INTEGER NOT NULL DEFAULT -1
       )
     ''');
 
@@ -136,6 +154,29 @@ class TimetableDatabase {
     );
 
     await _createExchangeEventsTable(db);
+    await _createDirtyLessonKeysTable(db);
+  }
+
+  /// "한 번이라도 교체가 건드린 좌표" 기록 (S5.4a 성능 수정).
+  ///
+  /// `replayInto`가 학기 전체를 매번 다시 훑지 않고 이 좌표들 + 지금 이벤트가
+  /// 건드리는 좌표만 리셋·재계산하도록 범위를 좁히기 위한 보조 표다. 한 번
+  /// 추가된 좌표는 지우지 않는다(grow-only) — 나중에 그 좌표를 건드리던
+  /// 교체가 삭제되더라도, 이 표에 남아 있어야 다음 재생 때 그 칸을 다시
+  /// 템플릿으로 되돌릴 수 있다.
+  static Future<void> _createDirtyLessonKeysTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE dirty_lesson_keys (
+        timetable_id TEXT NOT NULL,
+        teacher TEXT NOT NULL,
+        date TEXT NOT NULL,
+        period INTEGER NOT NULL,
+        PRIMARY KEY (timetable_id, teacher, date, period)
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX idx_dirty_lesson_keys_timetable ON dirty_lesson_keys(timetable_id)',
+    );
   }
 
   /// 교체 이벤트 저널 (S5.0) — "언제 누가 무엇을 바꿨는가"만 기록한다.

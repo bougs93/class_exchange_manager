@@ -49,3 +49,27 @@ ExchangeEventRecord _toRecord(
     createdAt: item.timestamp,
   );
 }
+
+/// [ExchangeEventRecord] 저널 행을 [ExchangeHistoryItem]으로 되돌린다 (S5.4a).
+///
+/// `lesson_projection.project()`가 `ExchangeHistoryItem`을 받으므로, SQLite에서
+/// 읽은 저널로 재생(replay)하려면 이 변환이 필요하다. [ExchangeHistoryItem
+/// .fromJson]을 그대로 재사용한다 — 역직렬화 규칙을 두 곳에 두지 않기 위해서다
+/// (toExchangeEventRecords의 pathJson이 애초에 `ExchangePath.toJson()`과 같은
+/// 포맷이므로 그대로 맞아떨어진다).
+ExchangeHistoryItem toExchangeHistoryItem(ExchangeEventRecord record) {
+  return ExchangeHistoryItem.fromJson({
+    'id': record.id,
+    'timestamp': record.createdAt.toIso8601String(),
+    'absenceDate': record.absenceDate.toIso8601String(),
+    'substitutionDate': record.substitutionDate.toIso8601String(),
+    'type': record.type,
+    'description': record.description,
+    'metadata': record.metadata,
+    'notes': record.notes,
+    'tags': record.tags,
+    'profileId': record.profileId,
+    'isReverted': record.isReverted,
+    'originalPath': jsonDecode(record.pathJson),
+  });
+}

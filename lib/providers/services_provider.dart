@@ -47,10 +47,15 @@ final exchangeHistoryServiceProvider = Provider<ExchangeHistoryService>((ref) {
       timetableId,
       toExchangeEventRecords(items, timetableId),
     );
+    // S5.4a: 저널을 갱신한 직후 같은 큐에서 lessons에도 재생한다 — lessons는
+    // 이 저널의 파생 뷰일 뿐이다. 실패해도(예: DB 미준비) 위 저널 쓰기·JSON
+    // 저장에는 영향이 없다(별개의 큐 작업으로 감싸져 예외가 여기서 끝난다).
+    await repo.replayInto(timetableId);
   };
   historyService.mirrorClearSink = (timetableId) async {
     final repo = await ref.read(timetableRepositoryProvider.future);
     await repo.deleteExchangeEventsFor(timetableId);
+    await repo.replayInto(timetableId);
   };
 
   return historyService;

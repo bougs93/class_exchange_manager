@@ -525,9 +525,168 @@ Opus 권장안을 전부 그대로 채택한다.
 - **연결 상태**: 여전히 읽기 전용. 쓰기 버튼 없음.
 - **검증**: `flutter analyze` 전체 통과, `flutter test` 전체 283개 통과(회귀 없음, 신규 테스트는
   추가하지 않음 — 이미 S5.0·S5.1에서 검증된 Repository 메서드(`getExchangeEvents`)를 UI에서
-  조합해 보여줄 뿐이라 새 로직이 없다). **미실행**: 실제 앱에서 교체를 여러 건 실행·되돌리기한 뒤
-  "일치"로 표시되는지, 새로고침 버튼이 잘 동작하는지 수동 확인 — **이 확인이 S5.3 진입 게이트**
-  (S5 설계 검토서 §4 S5.2 "done when" 참조).
+  조합해 보여줄 뿐이라 새 로직이 없다).
+
+### S5.1 보완: 기존 이력이 계속 "불일치"로 뜨는 문제 발견·수정 (2026-09-29)
+
+사용자가 S5.2 화면을 실제로 열어보니 "JSON 2건 · SQLite 저널 0건 · 불일치 2건"으로 표시됨 —
+버그로 의심됐으나 원인 조사 결과 **설계상 당연한 틈**이었다.
+
+**원인**: `mirrorSink`는 `_enqueueExchangeListSave`/`_clearLocalStorage`, 즉 "새로 저장할 때"만
+호출된다. 이 2건은 S5.1 코드가 생기기 전부터 이미 JSON 파일에 있던 이력이라, 앱 시작 시
+`loadFromLocalStorage()`로 메모리에만 올라왔을 뿐 SQLite에는 한 번도 쓰인 적이 없었다.
+디버그 테스트(`ProviderContainer` + 인메모리 DB로 실제 서비스 배선을 그대로 재현)로 재현·확인:
+mirrorSink를 끈 채 교체 1건을 저장 → SQLite 0건(사용자가 본 증상과 동일) → 그 상태에서 **새
+교체를 1건 더 실행**하면 그 순간 메모리의 전체 리스트(기존 것 포함)가 다시 저장되면서 SQLite에
+2건 모두 나타남을 확인 — 즉 "아무 새 조작이나 한 번 하면 자연히 따라잡는" 구조였다.
+- **수정**: 매번 새 조작을 기다리지 않도록, `loadFromLocalStorage()`가 JSON 로드를 마친 직후
+  한 번 `mirrorSink`를 호출해 방금 불러온 전체 목록을 SQLite에도 밀어 넣도록 보완했다
+  (`lib/services/exchange_history_service.dart`). 여전히 같은 저장 큐(`_enqueueStorageOperation`)
+  뒤쪽에만 붙였으므로 JSON은 계속 진실 원본이고, 동기 API도 무변경이다.
+- **검증**: `test/services/exchange_history_mirror_sync_test.dart` 신규 1개 — mirrorSink 없이
+  저장된 기존 이력이 `loadFromLocalStorage()` 한 번으로 SQLite에 반영됨을 확인. `flutter analyze`
+  전체 통과, `flutter test` 전체 284개 통과. **사용자 확인 완료(2026-09-29)**: 재빌드 후 S5.2
+  패널이 "JSON 2건 · SQLite 저널 2건 · 일치"로 표시됨을 확인 — **S5.3 진입 게이트 통과**.
+
+### S5.3 완료 기록 (2026-09-29)
+
+- **신규 파일**: `lib/utils/lesson_projection.dart` — `project({snapshot, activeEvents, timetableId})`
+  순수 함수. `List<Lesson>`(날짜별 수업 배치)에 활성 교체 이벤트를 재생(replay)한 결과를
+  `List<Lesson>`으로 반환한다. **SQLite에 아무것도 쓰지 않는다** — 계산만 한다(실제 기록은
+  S5.4a에서 이 함수를 재사용).
+- **핵심 설계**: `ResolvedWeek.dateAware`가 이미 쓰는 `exchangePathMoves`(`resolved_week.dart`)와
+  `ExchangeCellDates.forItem`을 **그대로 재사용**한다 — 새 규칙을 따로 만들지 않아, 화면 합성
+  로직과 투영 로직이 구조적으로 어긋날 수 없다(S1.6에서 세운 "판단 기준을 한 곳에 모은다" 원칙을
+  그대로 이어받음). 순환·2중 교체(노드별 날짜 없음)는 OQ-1 채택안대로 "결강일이 속한 주의 월~금"
+  으로 폴백해 채운다.
+- **핵심 회귀 테스트(등식 증명)**: `test/utils/lesson_projection_test.dart` 신규 6개 — 1:1 같은 주,
+  보강 같은 주, 1:1 다른 주(결강일 주·교체일 주·관계없는 주 3곳 모두), 순환 교체(날짜 미확정 폴백),
+  요일-실제날짜 불일치 폴백, 이벤트 없을 때 원본과 동일. 각각 `project(...)`를 특정 주로 필터한
+  결과와 `ResolvedWeek.dateAware(...).toTimeSlots(...)`가 **완전히 일치**함을 확인했다 — 기존
+  `resolved_week_date_aware_test.dart`의 픽스처(정원길/박은선 3-8 기술가정, 10.14/10.26, 8.24
+  순환 A/B/C)를 그대로 재사용해 두 검증 사이에 괴리가 없게 했다.
+- **연결 상태**: 어떤 화면·서비스도 이 함수를 아직 호출하지 않는다 — 순수 추가.
+- **검증**: `flutter analyze` 전체 통과, `flutter test` 전체 290개 통과(신규 6개, 회귀 없음).
+  화면 동작은 전혀 바뀌지 않으므로 사용자 수동 확인 불필요.
+
+### S5.4 완료 기록 (2026-09-29)
+
+- **배경**: D6(후속 교체가 있는 되돌리기 정책) — 예: A선생님 결강으로 빈 칸을 B선생님 보강이
+  나중에 사용하고 있는데, A의 원래 교체를 되돌리면? Opus 권장안(OQ-2)은 "막지 않고 비차단
+  경고만" — S4.2에서 이미 채택한 "비차단·정보 제공만" 원칙과 동일선상.
+- **신규 파일**: `lib/utils/exchange_dependency_checker.dart` — `findDependentExchanges({target,
+  allEventsInOrder})` 순수 함수. 되돌리려는 교체(`target`)가 만든 칸(목적지)을, `target` 이후에
+  실행된 **활성** 교체가 source/destination으로 쓰고 있으면 의존으로 판정해 목록을 반환한다.
+  좌표는 `ExchangeCellDates.legacySourceKeys`/`legacyDestinationKeys`(요일·교시 기준, 날짜 무관)를
+  재사용 — 기존 `isCellExchanged` 등과 같은 판정 기준이라 새 규칙을 만들지 않았다. 실제 날짜까지
+  구분하지 않아 다른 주의 같은 요일·교시를 과대 감지할 수 있지만, 이 함수는 차단이 아니라 안내일
+  뿐이므로 과대 감지 쪽이 안전하다는 판단(놓치는 것보다 낫다).
+- **연결**: `exchange_executor.dart`의 `undoLastExchange`에서 되돌리기를 **그대로 수행한 뒤**
+  `findDependentExchanges`로 의존 건을 확인, 있으면 기존 스낵바 메시지 뒤에 "(참고: 이후 교체
+  N건이 이 교체를 전제로 합니다)"만 덧붙인다. **되돌리기 로직 자체는 한 글자도 바꾸지 않았다** —
+  `historyService.undoLastExchange()` 호출과 그 결과 처리는 그대로이고, 메시지 조합 단계에만
+  분기를 추가했다.
+- **검증**: `test/utils/exchange_dependency_checker_test.dart` 신규 6개(의존 없음/있음/되돌린
+  건 제외/겹치지 않음/target 이전 이벤트 제외/보강 경로). `flutter analyze` 전체 통과,
+  `flutter test` 전체 296개 통과(회귀 없음). **미실행**: 의존 있는 시나리오를 만들어 안내 문구가
+  실제로 붙는지 수동 확인 — 아직 사용자 확인 전.
+- **곁가지 조사(2026-09-29)**: 사용자가 이 수동 확인을 시도하다가 "날짜표시 ON 상태에서 원본/교체
+  스위치를 눌러도 화면이 안 바뀐다"는 별개 증상을 보고 — 이 세션의 S5 작업과 무관한 기존 기능
+  (`ExchangeViewProvider`, S1.x)의 문제로 추정해 두 차례 조사했다. 정적 코드 추적 + 실제 재현
+  테스트(`ExchangeViewNotifier.enableExchangeView()`를 직접 호출해 `TimetableDataSource` 내용
+  변화를 검증) 모두 **결함을 찾지 못함** — 같은 주 1:1 교체로 재현했을 때 로직은 정상적으로
+  교체를 반영했다. 사용자가 재확인 후 "정상인 것 같다"고 답해 **코드 수정 없이 종료**했다.
+  (재현용으로 만든 임시 디버그 테스트는 삭제, 정식 변경 없음.)
+
+### S5.4a 완료 기록 (2026-09-29)
+
+- **배경**: S5.4까지는 `lessons` 테이블에 아무것도 쓰지 않았다. 이 단계부터 실제로 SQLite
+  `lessons`(현재 배치)를 교체 이벤트 저널의 **파생 뷰**로 갱신하기 시작한다 — S5 설계 검토서가
+  가장 위험하다고 지목한 지점이라, 착수 전 S5.3의 등식 증명(`project()` == 화면 합성 결과)이
+  이미 끝나 있었기에 안전하게 진행할 수 있었다.
+- **S5.3 보완(착수 전 발견)**: `lesson_projection.dart`의 `project()`가 새로 생기는 칸에
+  `Lesson.generateId()`(매번 랜덤)를 쓰고 있었다 — `replayInto`가 매 교체마다 반복 호출되므로,
+  랜덤 ID는 호출할 때마다 같은 칸에 새 행을 쌓이게 만드는 실제 버그였다(OQ-6 "결정적 ID" 요구를
+  아직 못 지키고 있었음). `_deterministicId(timetableId, teacher, date, period)` — **좌표 기반**
+  결정적 ID로 교체. 이벤트 ID가 아니라 좌표를 기준으로 삼은 이유: 칸의 정체성은 "언제 누가
+  만들었나"가 아니라 "지금 이 시간표의 이 날짜·교시가 누구 것인가"이기 때문. 기존 6개 등식
+  테스트는 내용만 비교해 이 변경으로 깨지지 않았다.
+- **스키마 변경**: `timetable_database.dart` 스키마 버전 3→4. `timetables`에 `projected_seq`
+  컬럼 추가(기본값 -1 = "아직 재생 안 함"). 화면 조회는 여전히 SQLite로 전환되지 않았으므로
+  (S5.5), 이 값은 나중에 "재생이 밀렸는지" 확인하는 용도로만 쓸 예정 — 현재는 UI에 노출하지
+  않는다(범위 최소화 결정, 핵심은 실제 `lessons` 내용의 정확성이었다).
+- **핵심 신규**: `TimetableRepository.replayInto(timetableId)`. 한 트랜잭션에서
+  ① `lesson_snapshots` 템플릿으로 현재 `lessons`의 **내용만** 리셋(id·date·period·teacher·
+  is_active는 그대로 유지 — S3a가 관리하는 값을 건드리지 않는다)
+  ② 활성(`is_reverted=0`) 이벤트를 `seq` 순으로 `project()`에 재생
+  ③ 리셋 상태와 실제로 달라진 행만 갱신하고(불필요한 쓰기 방지) 새 칸만 삽입, `projected_seq`를
+  이벤트 중 가장 큰 `seq`로 갱신(이벤트가 없으면 -1).
+  이벤트 → `ExchangeHistoryItem` 역직렬화는 `exchange_event_mirror.dart`에 추가한
+  `toExchangeHistoryItem()`이 `ExchangeHistoryItem.fromJson`을 그대로 재사용해서 처리한다
+  (직렬화 규칙을 두 곳에 두지 않기 위해).
+- **OQ-7 구현**: `applyPeriodChange`에 활성 교체 이벤트가 새 학기 범위 밖으로 나가면 차단하는
+  검사를 트랜잭션 시작 **전**에 추가 — `PeriodChangeConflictException`을 던지고 아무것도 바꾸지
+  않는다. 다른 모든 S5 안내는 비차단인데 여기만 예외인 이유: 기간을 줄이면 그 교체가 참조하던
+  날짜가 조용히 보관 처리되어 데이터가 실질적으로 유실될 수 있는 유일한 지점이기 때문(다른
+  경우는 되돌리기로 복구 가능하거나 안내만으로 충분).
+- **연결 지점**: `replayInto`는 새 호출부를 늘리지 않고 **S5.1의 기존 훅 2곳**
+  (`services_provider.dart`의 `mirrorSink`/`mirrorClearSink`)에 이어붙였다 — 교체 실행·삭제·
+  되돌리기·다시실행·날짜수정·전체삭제·로드 동기화가 전부 이 두 훅을 이미 거치므로 별도 배선이
+  필요 없었다. `semester_period_section.dart`의 `_apply()`에도 `applyPeriodChange` 직후
+  `replayInto` 호출을 추가(기간 반영으로 템플릿이 재생성되므로 교체를 다시 얹어야 한다).
+- **여전히 어떤 화면도 SQLite `lessons`를 읽지 않는다** — 조회 전환은 S5.5.
+- **검증**: `test/repositories/timetable_repository_test.dart`에 "투영 재생 (S5.4a)" 그룹 신규
+  5개(1:1 교체 재생 시 두 교사 자기 행이 정확히 스왑됨, 되돌린 이벤트는 재생 안 됨, 재생 멱등성,
+  `projected_seq` 갱신, `applyPeriodChange` 충돌 차단 및 무변경). `flutter analyze` 전체 통과,
+  `flutter test` 전체 301개 통과(회귀 없음).
+
+### S5.4a 성능 수정: 스낵바 뜰 때 버벅임 (2026-09-29)
+
+사용자가 실제 앱에서 교체 실행 직후 "스낵바 메시지가 나올 때 동작이 느리고 반응이 느립니다"라고
+보고 — S5 설계 검토서가 착수 전부터 지목했던 바로 그 위험("학기 전체 4만 행 규모이므로 주 단위
+부분 재생 최적화가 필요한지 측정")이 실제로 드러난 것이었다.
+
+**원인**: `replayInto`가 호출될 때마다 `lesson_snapshots`와 `lessons`를 **매번 통째로**
+(한 학기 분량, 실측 4만 건 수준) 다시 읽어 Dart 객체로 매핑하고 있었다. 이 작업이 메인 아이소레이트
+에서 한 번에 끝까지 동기적으로 도는 동안 UI 프레임이 멈춘 것처럼 보였다 — 교체를 실행할 때마다
+(즉 스낵바가 뜰 때마다) 매번 일어나므로 체감이 뚜렷했다.
+
+**1차 수정** (캐싱 + 양보): `lesson_snapshots` 템플릿을 인스턴스 단위로 캐시하고, 무거운
+루프에 500건마다 이벤트 루프 양보 지점을 추가했다. 전체 작업량 자체는 그대로였다.
+
+사용자가 재확인한 결과 — 스낵바가 사라진 뒤에야 클릭이 지연 반응했다("잠시 후 클릭이 먹힌다").
+`sqflite_common_ffi`가 실제 SQLite 쿼리는 **별도 백그라운드 아이솔레이트**에서 돌린다는 것을
+소스로 직접 확인했다(`isolate_io.dart`) — 즉 DB I/O 자체는 화면을 막지 않는다. 진짜 병목은
+그 결과를 메인 아이솔레이트에서 Dart 객체로 변환·비교하는 부분이었고, 1차 수정(캐싱+양보)은
+작업량 자체를 줄이지 못해 체감 개선이 제한적이었다.
+
+**2차 수정 — 범위를 "건드린 좌표"로 좁힘** (`lib/repositories/timetable_repository.dart`,
+`lib/utils/lesson_projection.dart`, 스키마 v4→v5):
+- 새 표 `dirty_lesson_keys(timetable_id, teacher, date, period)` 추가 — "한 번이라도 교체가
+  건드린 적 있는 좌표"를 계속 쌓기만 하는(grow-only) 표. 처음 우려했던 문제(삭제된 교체 건의
+  좌표를 "지금 존재하는 이벤트"만으로는 알 수 없다)를 이 표로 해결 — 좌표가 한 번 기록되면
+  그 교체가 나중에 완전히 삭제돼도 이 표에는 남아 있으므로, 다음 재생 때 그 칸도 계산 범위에
+  계속 포함된다.
+- `lesson_projection.dart`에 `touchedCellsFor(event)`(+`TouchedCell`) 추가 — 이벤트 하나가
+  실제로 건드리는 좌표 목록을 `project()`와 **똑같은 날짜 해석 규칙**으로 계산한다(같은
+  `_resolveDateByDay`를 공유하므로 둘이 어긋날 수 없다).
+- `replayInto`가 이제 "이 시간표의 모든 이벤트(활성+되돌림)가 건드리는 좌표 ∪ `dirty_lesson_keys`
+  누적분"만 리셋·재계산한다 — 실제 교체가 건드리는 칸은 보통 학기 전체(수만 행)의 극히 일부이므로,
+  작업량이 "총 교체 횟수 × 이동당 칸 수" 수준으로 줄어든다(수십~수백 건이면 수십~수백 칸).
+  `lessons`/`lesson_snapshots` 조회도 `teacher IN (...) AND date IN (...)`로 좁혀서 한다.
+- **부수 발견 — 별개의 실제 버그**: 이 재설계 과정에서 만든 회귀 테스트("교체 건을 완전히 삭제한
+  뒤 재생하면 예전에 건드렸던 칸도 템플릿으로 되돌아온다")가 **처음부터 있던 정합성 버그**를
+  잡아냈다 — diff 비교를 "이번 호출에서 메모리로만 만든 리셋 값"끼리 비교하고 있어서, 활성
+  이벤트가 하나도 안 건드리는 칸은 항상 "리셋값 == 투영결과"로 보여 "변경 없음"으로 오판했다.
+  실제 DB에는 옛 스왑 내용이 그대로 남아있는데도 절대 안 지워지는 버그였다(교체를 완전히
+  지워도 그 흔적이 영원히 남음) — 4개짜리 S5.4a 등식/멱등 테스트로는 못 잡았던 문제로, "삭제
+  후 재생" 시나리오를 명시적으로 테스트해서야 드러났다. 비교 대상을 **실제 DB에서 방금 읽은
+  값**(`currentByCoord`)으로 바꿔 수정했다.
+- **검증**: `test/repositories/timetable_repository_test.dart`에 "교체 건을 완전히 삭제한 뒤
+  재생하면 예전에 건드렸던 칸도 템플릿으로 되돌아온다" 테스트 신규 1개(위 버그를 재현·방지).
+  `flutter analyze` 전체 통과, `flutter test` 전체 302개 통과(회귀 없음 — 기존 S5.4a 테스트
+  전부 새 로직에서도 동일하게 통과). **미실행**: 실제 앱에서 교체 실행 직후 체감 버벅임·클릭
+  지연이 실제로 없어졌는지 — 사용자 재확인 필요.
 
 ### S2 완료 기록 (2026-09-29)
 

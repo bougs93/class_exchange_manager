@@ -167,6 +167,9 @@ class _SemesterPeriodSectionState extends ConsumerState<SemesterPeriodSection> {
         timetableId: timetableId,
         newSemester: newSemester,
       );
+      // S5.4a: 기간 반영으로 lessons가 템플릿 내용으로 재생성됐으므로, 활성
+      // 교체 이벤트를 다시 재생해 반영해 둔다 — lessons는 저널의 파생 뷰다.
+      await repo.replayInto(timetableId);
 
       if (!mounted) return;
       await _loadAppliedForSelected();

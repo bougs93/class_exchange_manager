@@ -4,11 +4,16 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:class_exchange_manager/data/timetable_database.dart';
 import 'package:class_exchange_manager/models/dated_timetable.dart';
 import 'package:class_exchange_manager/models/exchange_event_record.dart';
+import 'package:class_exchange_manager/models/exchange_history_item.dart';
+import 'package:class_exchange_manager/models/exchange_node.dart';
 import 'package:class_exchange_manager/models/lesson.dart';
+import 'package:class_exchange_manager/models/one_to_one_exchange_path.dart';
 import 'package:class_exchange_manager/models/school_semester.dart';
 import 'package:class_exchange_manager/models/time_slot.dart';
 import 'package:class_exchange_manager/repositories/timetable_repository.dart';
+import 'package:class_exchange_manager/services/exchange_event_mirror.dart';
 import 'package:class_exchange_manager/services/semester_timetable_generator.dart';
+import 'package:class_exchange_manager/utils/exchange_algorithm.dart';
 
 ExchangeEventRecord _exchangeEvent({
   required String id,
@@ -32,6 +37,48 @@ ExchangeEventRecord _exchangeEvent({
     tags: const [],
     metadata: const {},
     createdAt: DateTime(2026, 9, 3, 9, 0),
+  );
+}
+
+OneToOneExchangePath _oneToOnePath({
+  required String sourceTeacher,
+  required String sourceDay,
+  required int sourcePeriod,
+  required String targetTeacher,
+  required String targetDay,
+  required int targetPeriod,
+  String subject = '기술가정',
+  String className = '3-8',
+}) {
+  final targetSlot = TimeSlot(
+    teacher: targetTeacher,
+    subject: subject,
+    className: className,
+    dayOfWeek: 1,
+    period: targetPeriod,
+  );
+  return OneToOneExchangePath(
+    sourceNode: ExchangeNode(
+      teacherName: sourceTeacher,
+      day: sourceDay,
+      period: sourcePeriod,
+      className: className,
+      subjectName: subject,
+    ),
+    targetNode: ExchangeNode(
+      teacherName: targetTeacher,
+      day: targetDay,
+      period: targetPeriod,
+      className: className,
+      subjectName: subject,
+    ),
+    option: ExchangeOption(
+      timeSlot: targetSlot,
+      teacherName: targetTeacher,
+      type: ExchangeType.sameClass,
+      priority: 1,
+      reason: 'test',
+    ),
   );
 }
 
@@ -992,6 +1039,306 @@ void main() {
       await repo.replaceExchangeEventsFor(timetableId, []);
 
       expect(await repo.getExchangeEvents(timetableId), isEmpty);
+    });
+  });
+
+  group('TimetableRepository — 투영 재생 (S5.4a)', () {
+    /// 정원길 수1(기술가정), 박은선 월1(기술가정) — resolved_week_date_aware_test.dart와
+    /// 동일한 픽스처. 학기 전체(2026년 2학기)로 펼쳐 lessons+snapshot을 저장한다.
+    Future<(Database, TimetableRepository, String)> setUpTimetableWithLessons() async {
+      final db = await openTestDb();
+      addTearDown(db.close);
+      final repo = TimetableRepository(db);
+      const timetableId = 'tt_replay';
+      final semester = SchoolSemester.defaultFor(schoolYear: 2026, semester: 2);
+
+      await repo.insertTimetable(
+        DatedTimetable(
+          id: timetableId,
+          name: '테스트',
+          semester: semester,
+          registeredAt: DateTime(2026, 8, 1),
+        ),
+      );
+
+      final base = [
+        TimeSlot(
+          teacher: '정원길',
+          subject: '기술가정',
+          className: '3-8',
+          dayOfWeek: 3, // 수
+          period: 1,
+        ),
+        TimeSlot(teacher: '정원길', dayOfWeek: 1, period: 1), // 월1 비어있음
+        TimeSlot(
+          teacher: '박은선',
+          subject: '기술가정',
+          className: '3-8',
+          dayOfWeek: 1, // 월
+          period: 1,
+        ),
+        TimeSlot(teacher: '박은선', dayOfWeek: 3, period: 1), // 수1 비어있음
+      ];
+      final lessons = SemesterTimetableGenerator.generate(
+        timetableId: timetableId,
+        timeSlots: base,
+        semester: semester,
+      );
+      await repo.insertLessons(lessons);
+      await repo.insertSnapshot(lessons);
+
+      return (db, repo, timetableId);
+    }
+
+    Future<Lesson?> lessonAt(
+      TimetableRepository repo,
+      String timetableId,
+      String teacher,
+      DateTime date,
+      int period,
+    ) async {
+      final results = await repo.getLessonsForDateRange(
+        timetableId,
+        date,
+        date,
+      );
+      for (final lesson in results) {
+        if (lesson.teacher == teacher && lesson.period == period) return lesson;
+      }
+      return null;
+    }
+
+    test('활성 1:1 교체를 재생하면 두 교사의 자기 행이 스왑된 내용으로 갱신된다', () async {
+      final (db, repo, timetableId) = await setUpTimetableWithLessons();
+
+      final path = _oneToOnePath(
+        sourceTeacher: '정원길',
+        sourceDay: '수',
+        sourcePeriod: 1,
+        targetTeacher: '박은선',
+        targetDay: '월',
+        targetPeriod: 1,
+      );
+      final item = ExchangeHistoryItem.fromExchangePath(
+        path,
+        absenceDate: DateTime(2026, 10, 14), // 수, 10월2주
+        substitutionDate: DateTime(2026, 10, 12), // 월, 같은 주
+      );
+      await repo.replaceExchangeEventsFor(
+        timetableId,
+        toExchangeEventRecords([item], timetableId),
+      );
+
+      await repo.replayInto(timetableId);
+
+      final jungWed = await lessonAt(repo, timetableId, '정원길', DateTime(2026, 10, 14), 1);
+      final jungMon = await lessonAt(repo, timetableId, '정원길', DateTime(2026, 10, 12), 1);
+      final parkMon = await lessonAt(repo, timetableId, '박은선', DateTime(2026, 10, 12), 1);
+      final parkWed = await lessonAt(repo, timetableId, '박은선', DateTime(2026, 10, 14), 1);
+
+      expect(jungWed!.subject, isNull); // 정원길 수1 — 비워짐
+      expect(jungMon!.subject, '기술가정'); // 정원길 월1 — 채워짐(자기 행 이동)
+      expect(parkMon!.subject, isNull); // 박은선 월1 — 비워짐
+      expect(parkWed!.subject, '기술가정'); // 박은선 수1 — 채워짐(자기 행 이동)
+
+      await db.close();
+    });
+
+    test('되돌린(isReverted) 이벤트는 재생되지 않는다 — 템플릿 그대로', () async {
+      final (db, repo, timetableId) = await setUpTimetableWithLessons();
+
+      final path = _oneToOnePath(
+        sourceTeacher: '정원길',
+        sourceDay: '수',
+        sourcePeriod: 1,
+        targetTeacher: '박은선',
+        targetDay: '월',
+        targetPeriod: 1,
+      );
+      final item = ExchangeHistoryItem.fromExchangePath(
+        path,
+        absenceDate: DateTime(2026, 10, 14),
+        substitutionDate: DateTime(2026, 10, 12),
+      ).copyWithReverted(true);
+      await repo.replaceExchangeEventsFor(
+        timetableId,
+        toExchangeEventRecords([item], timetableId),
+      );
+
+      await repo.replayInto(timetableId);
+
+      final jungWed = await lessonAt(repo, timetableId, '정원길', DateTime(2026, 10, 14), 1);
+      final parkMon = await lessonAt(repo, timetableId, '박은선', DateTime(2026, 10, 12), 1);
+
+      expect(jungWed!.subject, '기술가정'); // 원본 그대로
+      expect(parkMon!.subject, '기술가정'); // 원본 그대로
+
+      await db.close();
+    });
+
+    test('다시 재생해도 결과가 같다 (멱등)', () async {
+      final (db, repo, timetableId) = await setUpTimetableWithLessons();
+
+      final path = _oneToOnePath(
+        sourceTeacher: '정원길',
+        sourceDay: '수',
+        sourcePeriod: 1,
+        targetTeacher: '박은선',
+        targetDay: '월',
+        targetPeriod: 1,
+      );
+      final item = ExchangeHistoryItem.fromExchangePath(
+        path,
+        absenceDate: DateTime(2026, 10, 14),
+        substitutionDate: DateTime(2026, 10, 12),
+      );
+      await repo.replaceExchangeEventsFor(
+        timetableId,
+        toExchangeEventRecords([item], timetableId),
+      );
+
+      await repo.replayInto(timetableId);
+      final statsAfterFirst = await repo.getLessonStats(timetableId);
+
+      await repo.replayInto(timetableId);
+      final statsAfterSecond = await repo.getLessonStats(timetableId);
+
+      expect(statsAfterSecond.totalCount, statsAfterFirst.totalCount);
+
+      final jungMon = await lessonAt(repo, timetableId, '정원길', DateTime(2026, 10, 12), 1);
+      expect(jungMon!.subject, '기술가정');
+
+      await db.close();
+    });
+
+    test('교체 건을 완전히 삭제한 뒤 재생하면 예전에 건드렸던 칸도 템플릿으로 되돌아온다', () async {
+      // dirty_lesson_keys가 없었다면, exchange_events 행 자체가 사라진
+      // 좌표는 "지금 건드리는 범위"에서 빠져 스왑된 내용이 영원히 남는
+      // 정합성 버그가 생긴다 — 이 테스트가 그 버그를 재현·방지한다.
+      final (db, repo, timetableId) = await setUpTimetableWithLessons();
+
+      final path = _oneToOnePath(
+        sourceTeacher: '정원길',
+        sourceDay: '수',
+        sourcePeriod: 1,
+        targetTeacher: '박은선',
+        targetDay: '월',
+        targetPeriod: 1,
+      );
+      final item = ExchangeHistoryItem.fromExchangePath(
+        path,
+        absenceDate: DateTime(2026, 10, 14),
+        substitutionDate: DateTime(2026, 10, 12),
+      );
+      await repo.replaceExchangeEventsFor(
+        timetableId,
+        toExchangeEventRecords([item], timetableId),
+      );
+      await repo.replayInto(timetableId);
+
+      // 실행 확인 — 스왑된 상태여야 한다.
+      final jungMonBefore = await lessonAt(repo, timetableId, '정원길', DateTime(2026, 10, 12), 1);
+      expect(jungMonBefore!.subject, '기술가정');
+
+      // removeFromExchangeList와 동일한 상황: 이 교체를 완전히 삭제(목록에서
+      // 아예 뺀 채로 replaceExchangeEventsFor 호출) — exchange_events 행 자체가
+      // 사라진다.
+      await repo.replaceExchangeEventsFor(timetableId, []);
+      await repo.replayInto(timetableId);
+
+      final jungMonAfter = await lessonAt(repo, timetableId, '정원길', DateTime(2026, 10, 12), 1);
+      final jungWedAfter = await lessonAt(repo, timetableId, '정원길', DateTime(2026, 10, 14), 1);
+      final parkMonAfter = await lessonAt(repo, timetableId, '박은선', DateTime(2026, 10, 12), 1);
+      final parkWedAfter = await lessonAt(repo, timetableId, '박은선', DateTime(2026, 10, 14), 1);
+
+      expect(jungMonAfter!.subject, isNull); // 정원길 월1 — 원래 비어있던 템플릿으로 복원
+      expect(jungWedAfter!.subject, '기술가정'); // 정원길 수1 — 원본 그대로 복원
+      expect(parkMonAfter!.subject, '기술가정'); // 박은선 월1 — 원본 그대로 복원
+      expect(parkWedAfter!.subject, isNull); // 박은선 수1 — 원래 비어있던 템플릿으로 복원
+
+      await db.close();
+    });
+
+    test('replayInto 후 timetables.projected_seq가 최신 seq로 갱신된다', () async {
+      final (db, repo, timetableId) = await setUpTimetableWithLessons();
+
+      final beforeRows = await db.query(
+        'timetables',
+        columns: ['projected_seq'],
+        where: 'id = ?',
+        whereArgs: [timetableId],
+      );
+      expect(beforeRows.first['projected_seq'], -1);
+
+      final path = _oneToOnePath(
+        sourceTeacher: '정원길',
+        sourceDay: '수',
+        sourcePeriod: 1,
+        targetTeacher: '박은선',
+        targetDay: '월',
+        targetPeriod: 1,
+      );
+      final item = ExchangeHistoryItem.fromExchangePath(
+        path,
+        absenceDate: DateTime(2026, 10, 14),
+        substitutionDate: DateTime(2026, 10, 12),
+      );
+      await repo.replaceExchangeEventsFor(
+        timetableId,
+        toExchangeEventRecords([item], timetableId),
+      );
+
+      await repo.replayInto(timetableId);
+
+      final afterRows = await db.query(
+        'timetables',
+        columns: ['projected_seq'],
+        where: 'id = ?',
+        whereArgs: [timetableId],
+      );
+      expect(afterRows.first['projected_seq'], 0);
+
+      await db.close();
+    });
+
+    test('applyPeriodChange는 활성 교체가 새 범위 밖으로 나가면 차단하고 아무것도 바꾸지 않는다', () async {
+      final (db, repo, timetableId) = await setUpTimetableWithLessons();
+
+      final path = _oneToOnePath(
+        sourceTeacher: '정원길',
+        sourceDay: '수',
+        sourcePeriod: 1,
+        targetTeacher: '박은선',
+        targetDay: '월',
+        targetPeriod: 1,
+      );
+      final item = ExchangeHistoryItem.fromExchangePath(
+        path,
+        absenceDate: DateTime(2026, 10, 14),
+        substitutionDate: DateTime(2026, 10, 12),
+      );
+      await repo.replaceExchangeEventsFor(
+        timetableId,
+        toExchangeEventRecords([item], timetableId),
+      );
+
+      // 10월 교체를 포함하지 않는(9월까지만인) 새 기간으로 축소 시도.
+      final shrunk = SchoolSemester(
+        schoolYear: 2026,
+        semester: 2,
+        startDate: DateTime(2026, 8, 1),
+        endDate: DateTime(2026, 9, 30),
+      );
+
+      await expectLater(
+        repo.applyPeriodChange(timetableId: timetableId, newSemester: shrunk),
+        throwsA(isA<PeriodChangeConflictException>()),
+      );
+
+      final timetable = await repo.getTimetable(timetableId);
+      expect(timetable!.semester.endDate, DateTime(2027, 1, 31)); // 그대로 유지
+
+      await db.close();
     });
   });
 }

@@ -18,6 +18,7 @@ import '../../../providers/exchange_screen_provider.dart';
 import '../../../providers/selected_week_provider.dart';
 import '../../../utils/day_utils.dart';
 import '../../../utils/exchange_cell_dates.dart';
+import '../../../utils/exchange_dependency_checker.dart';
 import '../../../providers/show_week_header_provider.dart';
 import '../../screens/personal_schedule_screen/exchange_week_collector.dart';
 
@@ -387,12 +388,26 @@ class ExchangeExecutor {
 
       dataSource?.notifyDataChanged();
 
+      // S5.4 (D6/OQ-2): 되돌리기는 그대로 수행하되, 이후 교체가 이 교체의
+      // 결과를 전제로 하고 있으면 안내만 덧붙인다 — 막지 않는다.
+      final dependents = findDependentExchanges(
+        target: item,
+        allEventsInOrder: historyService.getExchangeList(),
+      );
+
       final weekLabel = ExchangeWeekCollector.monthWeekLabel(item.weekMonday);
+      final baseMessage =
+          jumpedToOtherWeek
+              ? '$weekLabel의 교체를 되돌렸습니다'
+              : '교체 "${item.description}"가 되돌려졌습니다';
+      final message =
+          dependents.isEmpty
+              ? baseMessage
+              : '$baseMessage (참고: 이후 교체 ${dependents.length}건이 이 교체를 전제로 합니다)';
+
       SnackBarHelper.showWithAction(
         context,
-        jumpedToOtherWeek
-            ? '$weekLabel의 교체를 되돌렸습니다'
-            : '교체 "${item.description}"가 되돌려졌습니다',
+        message,
         backgroundColor: Colors.orange,
         duration: const Duration(seconds: 2),
       );

@@ -583,6 +583,23 @@ class ExchangeHistoryService {
       _notifyVersionChanged();
 
       AppLogger.info('교체 리스트 로드 완료: ${_exchangeList.length}개 항목');
+
+      // S5.1 보완: mirrorSink는 "쓰기" 때만 호출되므로, mirrorSink가 붙기
+      // 전에 이미 JSON에 있던 교체 이력은 새 저장이 한 번도 일어나지 않으면
+      // SQLite 저널에 영원히 반영되지 않는다(S5.2 확인 패널에서 "불일치"로
+      // 계속 보이는 원인). 로드 직후 한 번 미러를 밀어 넣어 이 간극을 바로
+      // 닫는다 — JSON을 다시 쓰지 않으므로 진실 원본은 그대로 JSON이다.
+      final sink = mirrorSink;
+      final scopedTimetableId = timetableId;
+      if (sink != null && scopedTimetableId != null) {
+        _enqueueStorageOperation(
+          () => sink(
+            List<ExchangeHistoryItem>.from(_exchangeList),
+            scopedTimetableId,
+          ),
+          '교체 이벤트 SQLite 미러 초기 동기화 실패',
+        );
+      }
     } catch (e) {
       AppLogger.error('교체 리스트 로드 실패: $e', e);
     }
