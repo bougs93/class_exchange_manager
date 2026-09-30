@@ -26,17 +26,17 @@ class DatedDataInspectorSection extends ConsumerStatefulWidget {
 
 class _DatedDataInspectorSectionState
     extends ConsumerState<DatedDataInspectorSection> {
-  String? _selectedTimetableId;
-
   bool _isLoading = false;
   bool _isCreating = false;
   String? _errorMessage;
   DatedTimetable? _timetable;
+  String? _loadedForTimetableId;
 
-  Future<void> _load() async {
-    final timetableId = _selectedTimetableId;
-    if (timetableId == null) return;
-
+  /// "날짜 반영·교체 스위치 통합" 토글은 전역 설정이고, "지금 만들기"는
+  /// 활성 시간표의 데이터로만 복구할 수 있다 — 둘 다 "어느 시간표를
+  /// 볼지 고르는" 드롭다운이 필요 없다. 항상 활성 시간표만 본다
+  /// (2026-09-30, 드롭다운 삭제).
+  Future<void> _load(String timetableId) async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -49,6 +49,7 @@ class _DatedDataInspectorSectionState
 
       setState(() {
         _timetable = timetable;
+        _loadedForTimetableId = timetableId;
         _isLoading = false;
       });
     } catch (e) {
@@ -61,27 +62,17 @@ class _DatedDataInspectorSectionState
     }
   }
 
-  void _onSelectTimetable(String? id) {
-    if (id == null || id == _selectedTimetableId) return;
-    setState(() {
-      _selectedTimetableId = id;
-    });
-    _load();
-  }
-
-  /// "지금 만들기" — 등록은 돼 있는데 SQLite 날짜 데이터만 없는 시간표를
-  /// (예: "모든 데이터 삭제" 후 레지스트리 항목만 남은 경우) 그 자리에서
-  /// 즉시 복구한다.
+  /// "지금 만들기" — 등록은 돼 있는데 SQLite 날짜 데이터만 없는 활성
+  /// 시간표를(예: "모든 데이터 삭제" 후 레지스트리 항목만 남은 경우) 그
+  /// 자리에서 즉시 복구한다.
   ///
   /// `TimetableRepository.ensureDatedBackfill`을 그대로 재사용한다 — S3
   /// 이전 시간표(레지스트리는 있는데 SQLite `timetables` 행이 없는 경우)를
   /// 자동 복구하려고 만든 것과 정확히 같은 상황이다(`week_lessons_cache_provider.dart`
-  /// 참고). 원본 시간표 데이터(TimeSlot 목록)가 필요해서, 지금 화면에 열려
-  /// 있는(활성) 시간표일 때만 이 버튼을 보여준다.
-  Future<void> _createDatedData() async {
-    final timetableId = _selectedTimetableId;
+  /// 참고).
+  Future<void> _createDatedData(String timetableId) async {
     final registry = ref.read(timetableRegistryProvider).valueOrNull;
-    final entry = timetableId == null ? null : registry?.getById(timetableId);
+    final entry = registry?.getById(timetableId);
     final timeSlots = ref.read(
       exchangeScreenProvider.select((state) => state.timetableData?.timeSlots),
     );
@@ -112,7 +103,7 @@ class _DatedDataInspectorSectionState
       if (mounted) {
         SnackBarHelper.showSuccess(context, '날짜별 데이터를 생성했습니다.');
       }
-      await _load();
+      await _load(timetableId);
     } catch (e) {
       AppLogger.error('날짜별 데이터 생성 실패: $e', e);
       if (!mounted) return;
@@ -127,115 +118,70 @@ class _DatedDataInspectorSectionState
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final registryAsync = ref.watch(timetableRegistryProvider);
-    final registry = registryAsync.valueOrNull;
-    final entries = registry?.timetables ?? const [];
+    final activeId = registryAsync.valueOrNull?.activeId;
 
-    // 등록된 시간표가 없으면 카드 자체를 안 그린다 — 같은 화면의
+    // 활성 시간표가 없으면 카드 자체를 안 그린다 — 같은 화면의
     // SemesterPeriodSection이 이미 "등록된 시간표가 없습니다" 안내를
     // 보여주므로, 여기서 또 띄우면 똑같은 문구가 중복돼 보인다(2026-09-30).
-    if (entries.isEmpty) {
+    if (activeId == null) {
       return const SizedBox.shrink();
     }
 
-    if (_selectedTimetableId == null ||
-        !entries.any((e) => e.id == _selectedTimetableId)) {
-      _selectedTimetableId = registry?.activeId ?? entries.first.id;
+    if (_loadedForTimetableId != activeId && !_isLoading) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _load();
+        if (mounted) _load(activeId);
       });
     }
 
-    return _buildCard(
-      tokens: tokens,
-      child: Column(
+    // 별도 제목·외곽 카드 없이, 아래 각 상태의 위젯을 그대로 노출한다
+    // (2026-09-30 — 토글이 자체 박스를 가지고 있어 이중 카드가 불필요했다).
+    if (_isLoading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: Center(
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+    if (_errorMessage != null) {
+      return Text(
+        _errorMessage!,
+        style: const TextStyle(fontSize: 12, color: Colors.red),
+      );
+    }
+    if (_timetable == null) {
+      return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '날짜 기반 기능 설정',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          Text(
+            '이 시간표는 날짜별 데이터가 없습니다(등록 시 생성되지 않았거나, "모든 데이터'
+            ' 삭제" 후 다시 생성되지 않았거나, 이전 버전에서 등록됨).',
+            style: TextStyle(fontSize: 12, color: tokens.textSecondary),
           ),
           const SizedBox(height: 8),
-          _buildTimetableDropdown(entries),
-          const SizedBox(height: 8),
-          if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Center(
-                child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-            )
-          else if (_errorMessage != null)
-            Text(
-              _errorMessage!,
-              style: const TextStyle(fontSize: 12, color: Colors.red),
-            )
-          else if (_timetable == null) ...[
-            Text(
-              '이 시간표는 날짜별 데이터가 없습니다(등록 시 생성되지 않았거나, "모든 데이터'
-              ' 삭제" 후 다시 생성되지 않았거나, 이전 버전에서 등록됨).',
-              style: TextStyle(fontSize: 12, color: tokens.textSecondary),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed:
+                  _isCreating ? null : () => _createDatedData(activeId),
+              child:
+                  _isCreating
+                      ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                      : const Text('지금 만들기'),
             ),
-            if (_selectedTimetableId == registry?.activeId) ...[
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: _isCreating ? null : _createDatedData,
-                  child:
-                      _isCreating
-                          ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                          : const Text('지금 만들기'),
-                ),
-              ),
-            ],
-          ]
-          else if (_selectedTimetableId != registry?.activeId)
-            Text(
-              '활성 시간표가 아닙니다. 설정은 활성 시간표에서만 적용됩니다.',
-              style: TextStyle(fontSize: 12, color: tokens.textSecondary),
-            )
-          else
-            _buildCombinedViewSwitchToggle(tokens),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCard({required DesignTokens tokens, required Widget child}) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: tokens.sectionBackground,
-        border: Border.all(color: tokens.cardBorder),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: child,
-    );
-  }
-
-  Widget _buildTimetableDropdown(List<dynamic> entries) {
-    return DropdownButton<String>(
-      value: _selectedTimetableId,
-      isExpanded: true,
-      underline: const SizedBox.shrink(),
-      items: [
-        for (final entry in entries)
-          DropdownMenuItem(
-            value: entry.id as String,
-            child: Text(entry.name as String, style: const TextStyle(fontSize: 12)),
           ),
-      ],
-      onChanged: _onSelectTimetable,
-    );
+        ],
+      );
+    }
+    return _buildCombinedViewSwitchToggle(tokens);
   }
 
   /// "날짜 반영"·"교체" 스위치 통합 여부 설정 (2026-09-30, 기본 켜짐).

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/dated_timetable.dart';
 import '../../models/print_profile.dart';
-import '../../models/school_semester.dart';
 import '../../models/timetable_registry.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../providers/print_profile_provider.dart';
@@ -18,11 +17,12 @@ import '../../utils/logger.dart';
 import '../../utils/snackbar_helper.dart';
 import 'exchange_screen/exchange_screen_state_proxy.dart';
 import 'exchange_screen/managers/exchange_operation_manager.dart';
+import 'timetable_file_register_dialog.dart';
 
 /// 시간표(학기) 관리 화면
 ///
 /// 등록된 시간표 목록을 관리합니다.
-/// - 시간표 추가 (엑셀 파일 선택 → 이름 지정 → 등록)
+/// - 시간표 추가 (엑셀 파일 선택 → 이름·학기 확인 → 등록)
 /// - 활성 시간표 전환 (교체 목록·계획서 등 스코프 데이터 함께 전환)
 /// - 이름 변경 / 삭제
 class TimetableFileScreen extends ConsumerStatefulWidget {
@@ -103,9 +103,10 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
 
       // 3. 동일 파일 경로의 기존 항목 확인 → 있으면 갱신 후 전환
       final registry = ref.read(timetableRegistryProvider).valueOrNull;
-      final existing = registry?.timetables
-          .where((e) => e.filePath == filePath && filePath.isNotEmpty)
-          .firstOrNull;
+      final existing =
+          registry?.timetables
+              .where((e) => e.filePath == filePath && filePath.isNotEmpty)
+              .firstOrNull;
 
       if (existing != null) {
         // 내용이 바뀌면 교체 목록·결보강이 새 시간표와 맞지 않아 정리해야 한다.
@@ -140,45 +141,46 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
             );
         if (!mounted) return;
         _showSnackBar(
-          updated
-              ? "시간표 '${existing.name}'이(가) 갱신되었습니다."
-              : '시간표 갱신에 실패했습니다.',
+          updated ? "시간표 '${existing.name}'이(가) 갱신되었습니다." : '시간표 갱신에 실패했습니다.',
           isError: !updated,
         );
         return;
       }
 
-      // 4. 신규 등록: 이름 지정 (기본값: 파일명, 취소 없음 — 등록이 필수)
+      // 4. 신규 등록: 이름·학기를 한 창에서 확인 (기본 이름은 파일명)
+      // 학기는 오늘 날짜가 속한 1·2학기가 미리 선택되어 있다.
       final defaultName = fileName.replaceAll(
         RegExp(r'\.[^.]+$', caseSensitive: false),
         '',
       );
-      final name = await _showNameDialog(
-        title: '시간표 이름',
-        initialValue: defaultName,
-        showCancel: false,
+      final registration = await showRegisterTimetableDialog(
+        context,
+        initialName: defaultName,
       );
       if (!mounted) return;
+      if (registration == null) {
+        await ref.read(timetableRegistryProvider.notifier).reloadActive();
+        if (mounted) _showSnackBar('등록을 취소했습니다.');
+        return;
+      }
 
       // 교사·학교명 자동 추정: 직전 시간표 값이 새 시간표에도 있으면 그대로 사용
       final inferred = _inferTeacherAndSchool(registry);
-
-      // 학기 기간 입력 (§10.6 — 결보강 날짜의 연도 추정에 사용. 건너뛰기 가능)
-      final semesterRange = await _showSemesterRangeDialog();
-      if (!mounted) return;
+      final semester = registration.semester;
 
       final entry = await ref
           .read(timetableRegistryProvider.notifier)
           .registerTimetable(
-            name: (name != null && name.isNotEmpty) ? name : defaultName,
+            name:
+                registration.name.isNotEmpty ? registration.name : defaultName,
             fileName: fileName,
             filePath: filePath,
             hash: hash,
             contentHash: contentHash,
             teacherName: inferred.teacher,
             schoolName: inferred.school,
-            semesterStart: semesterRange.start,
-            semesterEnd: semesterRange.end,
+            semesterStart: semester.startDate,
+            semesterEnd: semester.endDate,
           );
 
       if (entry == null) {
@@ -192,21 +194,16 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
       //
       // 기존 주 단위 등록(위 3~4단계)과 완전히 병행한다 — 이 블록이 실패해도
       // 이미 완료된 등록 자체(레지스트리·JSON 저장)에는 영향을 주지 않는다.
-      // 학년도·학기를 직접 고르는 UI가 아직 없으므로(계획 문서 참고),
-      // 등록 시각을 기준으로 `SchoolSemester.containing`으로 추정한다 —
-      // 정확한 값이 필요해지면 이후 "준비 > 기타 설정"에서 사용자가 고친다.
+      // 기간은 등록 창에서 확인한 학년도·학기·시작일·종료일을 그대로 쓴다.
       final datedTimetableData = _stateProxy?.timetableData;
       if (datedTimetableData != null) {
         try {
-          final semester = SchoolSemester.containing(entry.registeredAt);
           final lessons = SemesterTimetableGenerator.generate(
             timetableId: entry.id,
             timeSlots: datedTimetableData.timeSlots,
             semester: semester,
           );
-          final repository = await ref.read(
-            timetableRepositoryProvider.future,
-          );
+          final repository = await ref.read(timetableRepositoryProvider.future);
           await repository.insertTimetable(
             DatedTimetable(
               id: entry.id,
@@ -228,9 +225,7 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
       }
 
       // 5. 방금 추가한 시간표를 활성으로 전환 (첫 시간표면 이미 활성)
-      await ref
-          .read(timetableRegistryProvider.notifier)
-          .switchActive(entry.id);
+      await ref.read(timetableRegistryProvider.notifier).switchActive(entry.id);
 
       if (mounted) {
         _showSnackBar(
@@ -273,8 +268,8 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
               hintText: '예: 월계중1학기',
               labelText: '시간표 이름',
             ),
-            onSubmitted: (value) =>
-                Navigator.of(dialogContext).pop(value.trim()),
+            onSubmitted:
+                (value) => Navigator.of(dialogContext).pop(value.trim()),
           ),
           actions: [
             if (showCancel)
@@ -283,156 +278,14 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
                 child: const Text('취소'),
               ),
             ElevatedButton(
-              onPressed: () =>
-                  Navigator.of(dialogContext).pop(controller.text.trim()),
+              onPressed:
+                  () => Navigator.of(dialogContext).pop(controller.text.trim()),
               child: const Text('확인'),
             ),
           ],
         );
       },
     );
-  }
-
-  /// 학기 시작일·종료일 입력 다이얼로그
-  ///
-  /// §10.6: 이 값은 결보강 날짜("8.27" 같은 연도 없는 문자열)의 연도를
-  /// 추정할 때 쓰인다. 필수 입력이 아니다 — [건너뛰기]를 누르면 둘 다
-  /// null로 등록되며, 이 경우 연도 추정은 기존 방식(오늘 연도 기준)으로
-  /// 폴백한다(§10.9 리스크 2).
-  Future<({DateTime? start, DateTime? end})> _showSemesterRangeDialog() async {
-    DateTime? start;
-    DateTime? end;
-
-    // 오늘 기준 기본 학기 범위 — 등록이 실제로 적용할 때 쓰는 것과 같은
-    // 계산(SchoolSemester.containing)이라, "기본값 적용"을 누르면 나중에
-    // 등록 시점에 자동 추정되는 값과 항상 일치한다.
-    final suggested = SchoolSemester.containing(DateTime.now());
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            String formatDate(DateTime? d) =>
-                d == null ? '선택 안 함' : '${d.year}.${d.month}.${d.day}';
-
-            Future<void> pickStart() async {
-              final picked = await showDatePicker(
-                context: context,
-                initialDate: start ?? DateTime.now(),
-                firstDate: DateTime(DateTime.now().year - 5),
-                lastDate: DateTime(DateTime.now().year + 5),
-              );
-              if (picked != null) {
-                setDialogState(() {
-                  start = picked;
-                  if (end != null && end!.isBefore(start!)) end = null;
-                });
-              }
-            }
-
-            Future<void> pickEnd() async {
-              final picked = await showDatePicker(
-                context: context,
-                initialDate: start != null && start!.isAfter(DateTime.now())
-                    ? start!
-                    : (end ?? DateTime.now()),
-                firstDate: start ?? DateTime(DateTime.now().year - 5),
-                lastDate: DateTime(DateTime.now().year + 5),
-              );
-              if (picked != null) {
-                setDialogState(() => end = picked);
-              }
-            }
-
-            void applySuggested() {
-              setDialogState(() {
-                start = suggested.startDate;
-                end = suggested.endDate;
-              });
-            }
-
-            return AlertDialog(
-              title: const Text('학기 기간'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '결보강 날짜의 연도를 정확히 계산하는 데 사용됩니다.\n'
-                    '지금 입력하지 않아도 나중에 다시 등록할 수 있습니다.',
-                    style: TextStyle(fontSize: 13, color: Colors.black54),
-                  ),
-                  const SizedBox(height: 16),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.event_outlined),
-                    title: const Text('시작일'),
-                    subtitle: Text(formatDate(start)),
-                    onTap: pickStart,
-                  ),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.event_busy_outlined),
-                    title: const Text('종료일'),
-                    subtitle: Text(formatDate(end)),
-                    onTap: pickEnd,
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.04),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '오늘 기준 추천: ${formatDate(suggested.startDate)} ~ '
-                          '${formatDate(suggested.endDate)} '
-                          '(${suggested.schoolYear}년 ${suggested.semester}학기)',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.black54,
-                          ),
-                        ),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: applySuggested,
-                            child: const Text('기본값 적용'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: const Text('건너뛰기'),
-                ),
-                ElevatedButton(
-                  onPressed: (start != null && end != null)
-                      ? () => Navigator.of(dialogContext).pop(true)
-                      : null,
-                  child: const Text('확인'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    if (confirmed != true) {
-      return (start: null, end: null);
-    }
-    return (start: start, end: end);
   }
 
   /// 교사·학교명 자동 추정
@@ -443,7 +296,8 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
   ({String? teacher, String? school}) _inferTeacherAndSchool(
     TimetableRegistry? registry,
   ) {
-    final previous = registry?.activeEntry ??
+    final previous =
+        registry?.activeEntry ??
         (registry != null && registry.timetables.isNotEmpty
             ? registry.timetables.last
             : null);
@@ -453,9 +307,8 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
 
     final teachers = ref.read(activeTimetableTeachersProvider);
     final candidate = previous.teacherName;
-    final teacher = (candidate != null && teachers.contains(candidate))
-        ? candidate
-        : null;
+    final teacher =
+        (candidate != null && teachers.contains(candidate)) ? candidate : null;
 
     return (teacher: teacher, school: previous.schoolName);
   }
@@ -507,9 +360,10 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
                 icon: Icons.check_circle_outline,
                 color: Colors.green,
                 label: '유지됨',
-                value: summary.profileCount > 0
-                    ? '계획서 ${summary.profileCount}개'
-                    : '없음',
+                value:
+                    summary.profileCount > 0
+                        ? '계획서 ${summary.profileCount}개'
+                        : '없음',
               ),
             ],
           ),
@@ -699,7 +553,11 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
 
   void _showSnackBar(String message, {bool isError = false}) {
     if (isError) {
-      SnackBarHelper.showError(context, message, duration: const Duration(seconds: 2));
+      SnackBarHelper.showError(
+        context,
+        message,
+        duration: const Duration(seconds: 2),
+      );
     } else {
       SnackBarHelper.showInfo(context, message);
     }
@@ -722,97 +580,97 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20.0),
           child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 시간표 추가 버튼
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: isLoading ? null : _addTimetable,
-                icon: _isAdding
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.white,
-                          ),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 시간표 추가 버튼
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: isLoading ? null : _addTimetable,
+                  icon:
+                      _isAdding
+                          ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          )
+                          : const Icon(Icons.add),
+                  label: Text(
+                    _isAdding ? '시간표 불러오는 중...' : '시간표 추가',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 2,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // 등록된 시간표 목록
+              registryAsync.when(
+                loading:
+                    () => const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: CircularProgressIndicator(),
+                      ),
+                    ),
+                error:
+                    (error, _) => Text(
+                      '시간표 목록을 불러올 수 없습니다: $error',
+                      style: TextStyle(color: tokens.textSecondary),
+                    ),
+                data: (registry) {
+                  if (registry.timetables.isEmpty) {
+                    return _buildEmptyState(context, tokens);
+                  }
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '등록된 시간표 (${registry.timetables.length}개)',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: tokens.textPrimary,
                         ),
-                      )
-                    : const Icon(Icons.add),
-                label: Text(
-                  _isAdding ? '시간표 불러오는 중...' : '시간표 추가',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 2,
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // 등록된 시간표 목록
-            registryAsync.when(
-              loading: () => const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: CircularProgressIndicator(),
-                ),
-              ),
-              error: (error, _) => Text(
-                '시간표 목록을 불러올 수 없습니다: $error',
-                style: TextStyle(color: tokens.textSecondary),
-              ),
-              data: (registry) {
-                if (registry.timetables.isEmpty) {
-                  return _buildEmptyState(context, tokens);
-                }
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '등록된 시간표 (${registry.timetables.length}개)',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: tokens.textPrimary,
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    ...registry.timetables.map(
-                      (entry) => _buildTimetableCard(
-                        context,
-                        theme,
-                        entry,
-                        isActive: entry.id == activeEntry?.id,
+                      const SizedBox(height: 12),
+                      ...registry.timetables.map(
+                        (entry) => _buildTimetableCard(
+                          context,
+                          theme,
+                          entry,
+                          isActive: entry.id == activeEntry?.id,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'ⓘ 원본 엑셀 파일을 이동/삭제해도 저장된 시간표는 유지됩니다.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: tokens.textMuted,
+                      const SizedBox(height: 8),
+                      Text(
+                        'ⓘ 원본 엑셀 파일을 이동/삭제해도 저장된 시간표는 유지됩니다.',
+                        style: TextStyle(fontSize: 12, color: tokens.textMuted),
                       ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ],
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -829,11 +687,7 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
       ),
       child: Column(
         children: [
-          Icon(
-            Icons.table_chart_outlined,
-            size: 48,
-            color: tokens.textMuted,
-          ),
+          Icon(Icons.table_chart_outlined, size: 48, color: tokens.textMuted),
           const SizedBox(height: 12),
           Text(
             '등록된 시간표가 없습니다',
@@ -874,9 +728,10 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
         color: tokens.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isActive
-              ? theme.primaryColor.withValues(alpha: 0.5)
-              : tokens.cardBorder,
+          color:
+              isActive
+                  ? theme.primaryColor.withValues(alpha: 0.5)
+                  : tokens.cardBorder,
           width: isActive ? 2 : 1,
         ),
       ),
@@ -1011,9 +866,8 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
-                    color: entry.hasTeacher
-                        ? tokens.textSecondary
-                        : Colors.orange,
+                    color:
+                        entry.hasTeacher ? tokens.textSecondary : Colors.orange,
                   ),
                 ),
               ),
@@ -1068,9 +922,8 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
               style: TextStyle(
                 fontSize: 12,
                 color: profiles.isEmpty ? tokens.textMuted : tokens.textPrimary,
-                fontStyle: profiles.isEmpty
-                    ? FontStyle.italic
-                    : FontStyle.normal,
+                fontStyle:
+                    profiles.isEmpty ? FontStyle.italic : FontStyle.normal,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

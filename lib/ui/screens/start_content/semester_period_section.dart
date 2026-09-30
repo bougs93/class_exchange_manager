@@ -3,10 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../models/school_semester.dart';
 import '../../../models/timetable_registry.dart';
+import '../../../providers/exchange_screen_provider.dart';
 import '../../../providers/timetable_registry_provider.dart';
 import '../../../providers/timetable_repository_provider.dart';
 import '../../../theme/design_tokens.dart';
 import '../../../utils/logger.dart';
+import '../../../utils/snackbar_helper.dart';
+import '../../widgets/compact_date_picker_dialog.dart';
 
 /// "준비 > 기타 설정"의 학기 기간 반영 섹션 (S3a)
 ///
@@ -31,6 +34,7 @@ class _SemesterPeriodSectionState extends ConsumerState<SemesterPeriodSection> {
   // 항상 로딩 표시부터 시작한다.
   bool _isLoadingApplied = true;
   bool _hasNoDatedData = false;
+  bool _isCreating = false;
 
   int? _draftYear;
   int? _draftSemesterNumber;
@@ -81,6 +85,55 @@ class _SemesterPeriodSectionState extends ConsumerState<SemesterPeriodSection> {
     _loadAppliedForSelected();
   }
 
+  /// "지금 만들기" — 등록은 돼 있는데 SQLite 날짜 데이터만 없는 시간표를
+  /// (예: "모든 데이터 삭제" 후 레지스트리 항목만 남은 경우) 그 자리에서
+  /// 즉시 복구한다. `dated_data_inspector_section.dart`의 동명 메서드와
+  /// 동일한 로직 — `TimetableRepository.ensureDatedBackfill` 재사용.
+  Future<void> _createDatedData() async {
+    final timetableId = _selectedTimetableId;
+    final registry = ref.read(timetableRegistryProvider).valueOrNull;
+    final entry = timetableId == null ? null : registry?.getById(timetableId);
+    final timeSlots = ref.read(
+      exchangeScreenProvider.select((state) => state.timetableData?.timeSlots),
+    );
+
+    if (entry == null || timeSlots == null || timeSlots.isEmpty) {
+      if (mounted) {
+        SnackBarHelper.showError(
+          context,
+          '지금 열려 있는 시간표 데이터를 찾을 수 없습니다. 시간표를 다시 불러온 뒤 시도해 주세요.',
+        );
+      }
+      return;
+    }
+
+    setState(() => _isCreating = true);
+    try {
+      final repo = await ref.read(timetableRepositoryProvider.future);
+      await repo.ensureDatedBackfill(
+        timetableId: entry.id,
+        base: timeSlots,
+        registeredAt: entry.registeredAt,
+        name: entry.name,
+        teacherName: entry.teacherName,
+        schoolName: entry.schoolName,
+      );
+      if (!mounted) return;
+      setState(() => _isCreating = false);
+      if (mounted) {
+        SnackBarHelper.showSuccess(context, '날짜별 데이터를 생성했습니다.');
+      }
+      await _loadAppliedForSelected();
+    } catch (e) {
+      AppLogger.error('날짜별 데이터 생성 실패: $e', e);
+      if (!mounted) return;
+      setState(() => _isCreating = false);
+      if (mounted) {
+        SnackBarHelper.showError(context, '날짜별 데이터 생성에 실패했습니다: $e');
+      }
+    }
+  }
+
   void _onYearOrSemesterChanged({int? year, int? semesterNumber}) {
     final newYear = year ?? _draftYear;
     final newSemesterNumber = semesterNumber ?? _draftSemesterNumber;
@@ -114,8 +167,9 @@ class _SemesterPeriodSectionState extends ConsumerState<SemesterPeriodSection> {
 
   Future<void> _pickDate({required bool isStart}) async {
     final initial = (isStart ? _draftStart : _draftEnd) ?? DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
+    final picked = await showCompactDatePickerDialog(
+      context,
+      title: isStart ? '시작일' : '종료일',
       initialDate: initial,
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
@@ -228,14 +282,8 @@ class _SemesterPeriodSectionState extends ConsumerState<SemesterPeriodSection> {
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
-          Text(
-            '엑셀 등록 시 자동으로 추정된 학기 범위를 여기서 확인·수정할 수 있습니다. '
-            '선택한 시간표에만 적용되며, 다른 시간표는 바뀌지 않습니다.',
-            style: TextStyle(fontSize: 12, color: tokens.textSecondary),
-          ),
-          const SizedBox(height: 8),
           _buildTimetableDropdown(entries),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           if (_isLoadingApplied)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
@@ -247,24 +295,41 @@ class _SemesterPeriodSectionState extends ConsumerState<SemesterPeriodSection> {
                 ),
               ),
             )
-          else if (_hasNoDatedData)
+          else if (_hasNoDatedData) ...[
             Text(
-              '이 시간표는 날짜별 데이터가 없습니다(등록 시 생성되지 않았거나 이전 버전에서 '
-              '등록됨). 기간을 여기서 새로 지정할 수 없습니다 — 시간표를 다시 등록해 주세요.',
+              '이 시간표는 날짜별 데이터가 없습니다(등록 시 생성되지 않았거나, "모든 데이터'
+              ' 삭제" 후 다시 생성되지 않았거나, 이전 버전에서 등록됨).',
               style: TextStyle(fontSize: 12, color: tokens.textSecondary),
-            )
-          else ...[
+            ),
+            if (_selectedTimetableId == registry?.activeId) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: _isCreating ? null : _createDatedData,
+                  child:
+                      _isCreating
+                          ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                          : const Text('지금 만들기'),
+                ),
+              ),
+            ],
+          ] else ...[
             _buildYearSemesterRow(tokens),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             _buildDateRow(tokens),
             if (_errorMessage != null) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Text(
                 _errorMessage!,
                 style: const TextStyle(fontSize: 12, color: Colors.red),
               ),
             ],
-            const SizedBox(height: 10),
+            const SizedBox(height: 4),
             _buildActionButtons(),
           ],
         ],
@@ -289,6 +354,7 @@ class _SemesterPeriodSectionState extends ConsumerState<SemesterPeriodSection> {
     return DropdownButton<String>(
       value: _selectedTimetableId,
       isExpanded: true,
+      isDense: true,
       underline: const SizedBox.shrink(),
       items: [
         for (final entry in entries)
@@ -303,13 +369,15 @@ class _SemesterPeriodSectionState extends ConsumerState<SemesterPeriodSection> {
 
   Widget _buildYearSemesterRow(DesignTokens tokens) {
     final currentYear = DateTime.now().year;
-    final years = {
-      currentYear - 1,
-      currentYear,
-      currentYear + 1,
-      currentYear + 2,
-      if (_draftYear != null) _draftYear!,
-    }.toList()..sort();
+    final years =
+        {
+            currentYear - 1,
+            currentYear,
+            currentYear + 1,
+            currentYear + 2,
+            if (_draftYear != null) _draftYear!,
+          }.toList()
+          ..sort();
 
     return Row(
       children: [
@@ -317,9 +385,10 @@ class _SemesterPeriodSectionState extends ConsumerState<SemesterPeriodSection> {
           '학년도',
           style: TextStyle(fontSize: 12, color: tokens.textSecondary),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: 4),
         DropdownButton<int>(
           value: _draftYear,
+          isDense: true,
           underline: const SizedBox.shrink(),
           items: [
             for (final year in years)
@@ -330,13 +399,14 @@ class _SemesterPeriodSectionState extends ConsumerState<SemesterPeriodSection> {
           ],
           onChanged: (year) => _onYearOrSemesterChanged(year: year),
         ),
-        const SizedBox(width: 16),
-        Text(
-          '학기',
-          style: TextStyle(fontSize: 12, color: tokens.textSecondary),
-        ),
-        const SizedBox(width: 6),
+        const SizedBox(width: 10),
+        Text('학기', style: TextStyle(fontSize: 12, color: tokens.textSecondary)),
+        const SizedBox(width: 4),
         SegmentedButton<int>(
+          style: const ButtonStyle(
+            visualDensity: VisualDensity.compact,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
           segments: const [
             ButtonSegment(value: 1, label: Text('1학기')),
             ButtonSegment(value: 2, label: Text('2학기')),
@@ -358,17 +428,26 @@ class _SemesterPeriodSectionState extends ConsumerState<SemesterPeriodSection> {
           '${date.day.toString().padLeft(2, '0')}';
     }
 
+    ButtonStyle compactOutlined() => OutlinedButton.styleFrom(
+      visualDensity: VisualDensity.compact,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      textStyle: const TextStyle(fontSize: 12),
+    );
+
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: 4,
+      runSpacing: 4,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         OutlinedButton(
+          style: compactOutlined(),
           onPressed: () => _pickDate(isStart: true),
           child: Text('시작일 ${format(_draftStart)}'),
         ),
         Text('~', style: TextStyle(color: tokens.textSecondary)),
         OutlinedButton(
+          style: compactOutlined(),
           onPressed: () => _pickDate(isStart: false),
           child: Text('종료일 ${format(_draftEnd)}'),
         ),
@@ -381,11 +460,23 @@ class _SemesterPeriodSectionState extends ConsumerState<SemesterPeriodSection> {
       children: [
         TextButton(
           onPressed: _isApplying ? null : _restoreDefaults,
+          style: TextButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            textStyle: const TextStyle(fontSize: 12),
+          ),
           child: const Text('기본값으로 복원'),
         ),
         const Spacer(),
         ElevatedButton(
           onPressed: _isApplying ? null : _apply,
+          style: ElevatedButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            textStyle: const TextStyle(fontSize: 12),
+          ),
           child:
               _isApplying
                   ? const SizedBox(

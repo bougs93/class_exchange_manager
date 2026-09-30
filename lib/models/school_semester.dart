@@ -27,10 +27,7 @@ class SchoolSemester {
   }) : assert(semester == 1 || semester == 2, '학기는 1 또는 2만 허용한다'),
        startDate = _dateOnly(startDate),
        endDate = _dateOnly(endDate) {
-    assert(
-      !this.endDate.isBefore(this.startDate),
-      '종료일이 시작일보다 앞설 수 없다',
-    );
+    assert(!this.endDate.isBefore(this.startDate), '종료일이 시작일보다 앞설 수 없다');
   }
 
   /// 확정된 기본값으로 학기 범위를 생성한다.
