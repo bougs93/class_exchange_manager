@@ -148,12 +148,12 @@ class ExchangeWeekBar extends ConsumerWidget {
           ],
           const SizedBox(width: 8),
           Tooltip(
-            message: showWeekHeader ? '날짜표시 끄기' : '날짜표시 켜기',
+            message: showWeekHeader ? '실제 날짜 끄기' : '실제 날짜 켜기',
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '날짜표시',
+                  '실제 날짜',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
