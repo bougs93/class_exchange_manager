@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../../../constants/korean_fonts.dart';
-import 'package:calendar_date_picker2/calendar_date_picker2.dart';
 import 'package:flutter/services.dart';
 import '../../../../constants/screen_usage_hints.dart';
 import '../../../../models/exchange_history_item.dart';
@@ -14,6 +13,7 @@ import '../../../../models/print_profile.dart';
 import '../../../../providers/node_date_edit_provider.dart';
 import '../../../../providers/plan_output_menu_provider.dart';
 import '../../../../providers/print_profile_provider.dart';
+import '../../../../providers/selected_week_provider.dart';
 import '../../../../providers/substitution_plan_provider.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../../providers/exchange_screen_provider.dart';
@@ -30,11 +30,13 @@ import '../../../../ui/widgets/timetable_grid/exchange_executor.dart';
 import '../../../../ui/widgets/timetable_grid/grid_header_widgets.dart';
 import '../../../../utils/logger.dart';
 import '../../../../utils/date_format_utils.dart';
+import '../../../../utils/day_utils.dart';
 import '../../../../utils/snackbar_helper.dart';
 import '../../../../utils/dialog_helper.dart';
 import '../../../mixins/scroll_management_mixin.dart';
 import 'batch_export_progress_dialog.dart';
 import 'content_input_grid_helpers.dart';
+import 'plan_date_picker_dialog.dart';
 
 /// 주(週) 정보를 알 수 없는 행의 그룹 정렬 키 — 항상 맨 뒤로 정렬되도록
 /// 실제 날짜보다 큰 값을 쓴다.
@@ -1529,49 +1531,32 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
           ) ??
           DateTime.now();
 
-      // 날짜 선택기 표시
-      final selectedDates = await showCalendarDatePicker2Dialog(
-        context: context,
-        config: CalendarDatePicker2WithActionButtonsConfig(
-          calendarType: CalendarDatePicker2Type.single,
-          firstDate: DateTime(2020),
-          lastDate: DateTime(2030),
-          currentDate: initialDate,
-          weekdayLabels: ['일', '월', '화', '수', '목', '금', '토'],
-          selectableDayPredicate:
-              targetWeekday.isNotEmpty
-                  ? (date) => _isTargetWeekday(date, targetWeekday)
-                  : null,
-          selectedDayHighlightColor: context.tokens.primary,
-          okButton: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: context.tokens.primary,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: const Text('확인', style: TextStyle(color: Colors.white)),
-          ),
-          cancelButton: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: context.tokens.cardBorder,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              '취소',
-              style: TextStyle(color: context.tokens.textSecondary),
-            ),
-          ),
-        ),
-        dialogSize: const Size(350, 360),
-        borderRadius: BorderRadius.circular(5),
-        value: [initialDate],
+      // 요일 제한이 생기기 전(빈 문자열)이면 대상 요일이 없다는 뜻 — 오늘
+      // 요일 이름으로 보여줄 것이 없으므로 초기 날짜의 요일명을 그대로 쓴다.
+      final effectiveWeekday =
+          targetWeekday.isNotEmpty
+              ? targetWeekday
+              : DayUtils.getDayName(initialDate.weekday);
+
+      final isAbsence = columnName == 'absenceDate';
+      final periodLabel = isAbsence ? data.period : data.substitutionPeriod;
+      final subjectLabel = isAbsence ? data.subject : data.substitutionSubject;
+      final teacherLabel = isAbsence ? data.teacher : data.substitutionTeacher;
+      final classLabel = '${data.grade}-${data.className}';
+
+      // 날짜 선택기 표시 (계획서 전용 팝업 — 요일·교시·학급·과목·교사 표시)
+      final selectedDate = await showPlanDatePickerDialog(
+        context,
+        initialDate: initialDate,
+        currentWeekMonday: ref.read(selectedWeekProvider),
+        targetWeekday: effectiveWeekday,
+        periodLabel: periodLabel,
+        classLabel: classLabel,
+        subjectLabel: subjectLabel,
+        teacherLabel: teacherLabel,
       );
 
-      AppLogger.exchangeDebug('선택 결과: $selectedDates');
-
-      final selectedDate =
-          selectedDates?.isNotEmpty == true ? selectedDates!.first : null;
+      AppLogger.exchangeDebug('선택 결과: $selectedDate');
 
       if (selectedDate != null) {
         if (targetWeekday.isNotEmpty &&
