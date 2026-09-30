@@ -70,8 +70,8 @@ class PersonalTimetableHelper {
     for (final period in sortedPeriods) {
       final List<DataGridCell> cells = [];
 
-      // 교시 헤더 셀 (첫 번째 컬럼)
-      cells.add(DataGridCell(columnName: 'period', value: '$period교시'));
+      // 교시 헤더 셀 — "교시"는 열 제목에 있으므로 숫자만 표시한다.
+      cells.add(DataGridCell(columnName: 'period', value: '$period'));
 
       // 각 요일별 셀 생성
       for (int dayIndex = 0; dayIndex < days.length; dayIndex++) {
@@ -94,14 +94,14 @@ class PersonalTimetableHelper {
     // 6. 열 데이터 생성
     // 개인 시간표 테이블 크기 20% 증가 적용 (가로폭)
     const double personalTimetableSizeMultiplier = 1.2;
+    // 본문은 숫자 한 자리라 더 좁혀도 되지만, 헤더 "교시"·"날짜"(2글자, 14px)가
+    // 잘리지 않는 너비가 하한이다. (기존 48px은 "1교시" 4글자 기준)
+    const double periodColumnWidth = 40.0;
 
     final List<GridColumn> columns = [
-      // 교시 헤더 열 (교체 관리 화면 대비 20% 증가)
       GridColumn(
         columnName: 'period',
-        width:
-            AppConstants.teacherColumnWidth *
-            personalTimetableSizeMultiplier, // 20% 증가
+        width: periodColumnWidth,
         label: Container(
           padding: EdgeInsets.zero, // 교체 관리 화면과 동일한 padding (없음)
           alignment: Alignment.center,
@@ -248,12 +248,21 @@ class PersonalTimetableHelper {
                 ),
               ),
             ),
-            child: Text(
-              WeekDateCalculator.formatDateShort(date),
-              style: TextStyle(
-                // 날짜 글자 사이즈 30% 줄이기 (70%로 적용) + 줌 팩터 적용
-                fontSize: AppConstants.headerFontSize * 0.7 * zoomFactor,
-                fontWeight: FontWeight.w500,
+            // 날짜 글자: "12.12"(5자)가 요일 칸(35×1.2=42px)에 들어가는 최대 크기.
+            // 가로가 한계라 더 키우면 칸을 넘고, 행 높이(30px)는 여유가 있다.
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 1),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  WeekDateCalculator.formatDateShort(date),
+                  style: TextStyle(
+                    fontSize: 12 * zoomFactor,
+                    height: 1.0,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
               ),
             ),
           ),

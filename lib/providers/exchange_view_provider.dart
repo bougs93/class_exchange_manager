@@ -205,7 +205,11 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
     final events = historyService.getActiveExchangeList();
 
     // 날짜표시 스위치(S1.5)가 ON이면 실제 날짜 기준으로 다른 주 교체를 독립
-    // 반영한다(S1.8). OFF면 기존 방식(`of`)을 그대로 쓴다 — 회귀 안전성의 핵심.
+    // 반영한다(S1.8). OFF면 모든 주 교체를 한 장에 합친다(`allWeeks`,
+    // 2026-09-30 — "날짜 없는 주간 시간표" 모드).
+    //
+    // ⚠ `resolved_timetable_provider.dart`(교체 탐색·검증)와 반드시 같은 합성을
+    // 써야 한다. 다르면 "화면에 보이는 칸"과 "교체를 찾는 칸"이 어긋난다.
     //
     // OFF 모드는 S5.5.4에서도 절대 SQLite를 읽지 않는다(S5.5 설계 검토
     // Decision D — `resolved_timetable_provider.dart`와 동일한 원칙).
@@ -217,7 +221,11 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
               events: events,
               weekMonday: weekMonday,
             )
-            : ResolvedWeek.of(base: timeSlots, events: events, weekMonday: weekMonday);
+            : ResolvedWeek.allWeeks(
+              base: timeSlots,
+              events: events,
+              weekMonday: weekMonday,
+            );
 
     dataSource.updateData(resolved.toTimeSlots(timeSlots), teachers);
 

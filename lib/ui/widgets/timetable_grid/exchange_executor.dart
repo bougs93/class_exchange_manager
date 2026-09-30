@@ -97,6 +97,7 @@ class ExchangeExecutor {
   /// 특정 요일(node.day)에 해당하는 실제 날짜를 계산합니다.
   ///
   /// [selectedWeekProvider]가 가리키는 주(週)의 월요일에 요일 오프셋을 더합니다.
+  /// 날짜 반영 OFF에서는 그 값이 항상 이번 주이므로, 새 교체는 이번 주 날짜로 저장된다.
   DateTime _dateForNode(DateTime weekMonday, ExchangeNode node) {
     final dayNumber = DayUtils.getDayNumber(node.day); // 1=월 ~ 5=금
     return weekMonday.add(Duration(days: dayNumber - 1));
@@ -381,7 +382,12 @@ class ExchangeExecutor {
       // §10.5 확정: 되돌리기는 '전체 최근 1건'을 되돌리되, 그 교체가 속한 주로
       // 화면을 자동 이동한다. 다른 주의 교체를 되돌리면 화면이 점프하므로
       // 안내가 필수다 — 없으면 "버튼을 눌렀더니 화면이 멋대로 바뀌었다"가 된다.
+      //
+      // 날짜 반영 OFF에서는 이동하지 않는다 — OFF는 "선택 주 = 항상 이번 주"
+      // 불변 조건을 지켜야 한다(주가 화면에 안 보이는데 몰래 바뀌면, 다음 교체가
+      // 엉뚱한 주 날짜로 저장된다). `ExchangeWeekBar._setShowWeekHeader` 참고.
       final jumpedToOtherWeek =
+          ref.read(showWeekHeaderProvider) &&
           !ExchangeWeekCollector.isSameWeek(
             ref.read(selectedWeekProvider),
             item.weekMonday,

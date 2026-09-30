@@ -193,6 +193,49 @@ void main() {
     });
   });
 
+  group('ResolvedWeek.allWeeks — 날짜 반영 OFF (한 장 합성)', () {
+    test('보고 있는 주와 다른 주의 교체도 반영된다', () {
+      final base = _baseTimetable();
+      final events = [
+        _historyItem(
+          path: _oneToOnePath(),
+          absenceDate: DateTime(2026, 8, 24),
+          substitutionDate: DateTime(2026, 8, 25),
+        ),
+      ];
+
+      final resolved = ResolvedWeek.allWeeks(
+        base: base,
+        events: events,
+        weekMonday: DateTime(2026, 9, 28), // 교체와 무관한 주
+      );
+
+      expect(resolved.cellFor('홍길동', 1, 1)?.subject, isNull);
+      expect(resolved.cellFor('홍길동', 2, 2)?.subject, '수학');
+      expect(resolved.cellFor('김철수', 1, 1)?.subject, '음악');
+      // 원본 불변
+      expect(base[0].subject, '수학');
+    });
+
+    test('되돌린 교체는 반영하지 않는다', () {
+      final base = _baseTimetable();
+      final item = _historyItem(
+        path: _oneToOnePath(),
+        absenceDate: DateTime(2026, 8, 24),
+        substitutionDate: DateTime(2026, 8, 25),
+      )..isReverted = true;
+
+      final resolved = ResolvedWeek.allWeeks(
+        base: base,
+        events: [item],
+        weekMonday: DateTime(2026, 8, 24),
+      );
+
+      expect(resolved.cellFor('홍길동', 1, 1)?.subject, '수학');
+      expect(resolved.cellFor('김철수', 2, 2)?.subject, '음악');
+    });
+  });
+
   group('ResolvedWeek — 보강(교사 간 이동)', () {
     test('보강은 source 교사를 비우고 target 교사에 내용을 채운다', () {
       final base = [

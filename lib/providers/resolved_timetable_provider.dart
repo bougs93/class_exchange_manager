@@ -13,13 +13,17 @@ import 'week_lessons_cache_provider.dart';
 
 /// 교체 가능성 **판정**에 사용할 시간표 (§10.8 4d)
 ///
-/// 원본 시간표에 "현재 보고 있는 주"의 활성 교체를 합성한 결과다.
-/// 교체 탐색·검증은 이 결과를 기준으로 해야 한다:
+/// 원본 시간표에 활성 교체를 합성한 결과다. 교체 탐색·검증은 이 결과를 기준으로 한다.
 ///
+/// 날짜 반영 ON — "현재 보고 있는 주"만 합성:
 /// - **다른 주의 교체는 반영되지 않는다** → P3 해소. 8/27 교체가 9/3 건의
 ///   판정을 방해하지 않는다
 /// - **같은 주의 선행 교체는 반영된다** → 이미 그 주에 교체된 칸을 다시
 ///   교체 대상으로 제시하지 않는다(§10.5 "같은 주 충돌")
+///
+/// 날짜 반영 OFF — 모든 주 교체를 한 장에 합성(`ResolvedWeek.allWeeks`, 2026-09-30):
+/// - 화면(교체 뷰)과 같은 기준 → 보이는 칸 그대로 교체를 찾는다
+/// - 다른 주 교체로 옮겨진 칸도 "찬 칸"으로 본다(ON보다 엄격 — 의도된 동작)
 ///
 /// 교체 뷰(보기 토글)의 ON/OFF와 무관하게 항상 합성 결과를 쓴다. 교체 뷰는
 /// "무엇을 보여줄지"의 옵션일 뿐이고, 교체는 언제나 누적 상태 위에 쌓이기
@@ -42,10 +46,11 @@ final resolvedTimetableProvider = Provider<List<TimeSlot>>((ref) {
 
   // 날짜표시 스위치(S1.5)가 ON이면 실제 날짜 기준으로 다른 주 교체를 독립
   // 반영한다(S1.8, 2026-09-29 사용자 확정 — 검증도 화면 표시와 함께 고침).
-  // OFF면 기존 방식(`of`)을 그대로 쓴다 — 이 분기 자체가 회귀 안전성의 핵심이다.
+  // OFF면 모든 주 교체를 한 장에 합친다(`allWeeks`, 2026-09-30 — 이전엔 `of`).
+  // ⚠ `exchange_view_provider.dart`의 `_applyResolvedWeek`와 반드시 같은 합성을 쓴다.
   //
   // OFF 모드는 S5.5.4에서도 절대 SQLite를 읽지 않는다(S5.5 설계 검토 Decision D) —
-  // 날짜 키 데이터로는 "결강일 주 몰아보기"(`of`의 동작)를 재현할 수 없고,
+  // 날짜 키 데이터로는 "요일·교시 한 장 합성"을 재현할 수 없고,
   // "날짜표시 OFF는 날짜 정보를 유출하지 않는다"는 불변 조건을 계속 지키기
   // 위해서다. ON 모드에서만, 그리고 [lessonReadPathEnabledProvider]가 true일
   // 때만 아래에서 SQLite 오버레이로 바꿔치기한다.
@@ -53,7 +58,7 @@ final resolvedTimetableProvider = Provider<List<TimeSlot>>((ref) {
   final resolved =
       showWeekHeader
           ? _resolveOnWeek(ref, base: base, events: events, weekMonday: weekMonday)
-          : ResolvedWeek.of(base: base, events: events, weekMonday: weekMonday);
+          : ResolvedWeek.allWeeks(base: base, events: events, weekMonday: weekMonday);
   final resolvedSlots = resolved.toTimeSlots(base);
 
   // 날짜 지정 교체불가 셀(§10.6) — 매주 반복 셀은 이미 base에 구워져 있으므로

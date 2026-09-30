@@ -97,8 +97,45 @@ void main() {
       // 사용자가 다른 칩을 눌러도 교체일 쪽 주로 다시 돌아올 수 있다.
       final visibleWeeks = container.read(exchangeVisibleWeeksProvider);
       expect(visibleWeeks, containsAll([absenceWeek, substitutionWeek]));
+
+      // 회색 배지: 교체일 주에만 1건, 결강일 주에는 안 센다(파란 배지와 중복 금지).
+      final substitutionCounts = container.read(
+        exchangeSubstitutionWeekCountsProvider,
+      );
+      expect(substitutionCounts[substitutionWeek], 1);
+      expect(substitutionCounts.containsKey(absenceWeek), isFalse);
     },
   );
+
+  group('firstExchangeWeekFrom — 날짜 반영 켤 때 자동 이동할 주', () {
+    final thisWeek = DateTime(2026, 9, 28);
+
+    test('이번 주 이후 첫 결강 주로 간다', () {
+      expect(
+        firstExchangeWeekFrom([
+          DateTime(2026, 9, 14),
+          DateTime(2026, 10, 5),
+          DateTime(2026, 10, 12),
+        ], thisWeek),
+        DateTime(2026, 10, 5),
+      );
+    });
+
+    test('이번 주에 교체가 있으면 이번 주', () {
+      expect(firstExchangeWeekFrom([thisWeek], thisWeek), thisWeek);
+    });
+
+    test('앞으로 교체가 없으면 가장 최근 지난 주, 교체가 없으면 이번 주', () {
+      expect(
+        firstExchangeWeekFrom([
+          DateTime(2026, 9, 7),
+          DateTime(2026, 9, 14),
+        ], thisWeek),
+        DateTime(2026, 9, 14),
+      );
+      expect(firstExchangeWeekFrom([], thisWeek), thisWeek);
+    });
+  });
 
   test('같은 주 안에서 끝나는 교체는 칩 목록에 그 주 하나만 있다', () {
     final container = buildContainer();
@@ -145,5 +182,6 @@ void main() {
 
     final week = WeekDateCalculator.getWeekMonday(DateTime(2026, 10, 12));
     expect(container.read(exchangeVisibleWeeksProvider), [week]);
+    expect(container.read(exchangeSubstitutionWeekCountsProvider), isEmpty);
   });
 }

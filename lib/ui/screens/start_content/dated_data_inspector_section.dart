@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/timetable_database.dart';
 import '../../../models/dated_timetable.dart';
+import '../../../providers/combined_view_switch_provider.dart';
 import '../../../providers/node_date_edit_provider.dart';
 import '../../../providers/timetable_registry_provider.dart';
 import '../../../providers/timetable_repository_provider.dart';
@@ -158,6 +159,8 @@ class _DatedDataInspectorSectionState
               _buildLessonReadPathToggle(tokens),
               const SizedBox(height: 8),
               _buildNodeDateEditToggle(tokens),
+              const SizedBox(height: 8),
+              _buildCombinedViewSwitchToggle(tokens),
             ],
             const SizedBox(height: 8),
             _buildDbPathRow(tokens),
@@ -365,6 +368,57 @@ class _DatedDataInspectorSectionState
             onChanged:
                 (value) =>
                     ref.read(nodeDateEditEnabledProvider.notifier).state = value,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// "날짜 반영"·"교체" 스위치 통합 여부 설정 (2026-09-30, 기본 켜짐).
+  ///
+  /// 켜져 있으면(기본값) 교체 화면 주차 바에 두 스위치를 합친 스위치 하나만
+  /// 보인다 — 켜면 "날짜 반영"·"교체"가 동시에 켜지고, 끄면 동시에 꺼진다.
+  /// 꺼져 있으면 두 스위치를 예전처럼 각각 따로 켜고 끌 수 있다(둘 중
+  /// 하나만 켜야 하는 경우가 실제로 있다는 사용자 확인에 따라 남겨둔 선택지).
+  Widget _buildCombinedViewSwitchToggle(DesignTokens tokens) {
+    final combined = ref.watch(combinedViewSwitchProvider);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: tokens.sectionBackground,
+        border: Border.all(color: tokens.cardBorder),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '날짜 반영·교체 스위치 통합',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: tokens.textPrimary,
+                  ),
+                ),
+                Text(
+                  '교체 화면에서 "날짜 반영"·"교체"를 하나의 스위치로 합쳐서'
+                  ' 보여줍니다. 꺼면 두 스위치를 각각 따로 켜고 끌 수 있습니다.',
+                  style: TextStyle(fontSize: 11, color: tokens.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          AppSwitch(
+            value: combined,
+            onChanged:
+                (value) =>
+                    ref.read(combinedViewSwitchProvider.notifier).state =
+                        value,
           ),
         ],
       ),

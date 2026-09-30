@@ -182,11 +182,53 @@ class ResolvedWeek {
   /// 같은 셀을 두 번 이상 건드리는 이벤트가 있다면 나중 이벤트가 우선한다.
   /// (정상적으로는 검증 단계에서 이런 충돌을 막아야 하며, 이 함수는 그 검증을
   /// 하지 않는다 — 검증은 4단계에서 이 결과 위에 얹는다.)
+  ///
+  /// 현재 앱 코드에서는 쓰지 않는다(OFF는 [allWeeks], ON은 [dateAware]) — 테스트용 기준 구현.
   static ResolvedWeek of({
     required List<TimeSlot> base,
     required List<ExchangeHistoryItem> events,
     required DateTime weekMonday,
   }) {
+    return _compose(
+      base,
+      events.where(
+        (e) => !e.isReverted && ExchangeWeekCollector.isSameWeek(
+          e.weekMonday,
+          weekMonday,
+        ),
+      ),
+      weekMonday,
+    );
+  }
+
+  /// 날짜 반영 OFF 전용 — 주와 관계없이 모든 활성 교체를 한 주에 모아 합성한다.
+  ///
+  /// OFF에서는 빠진·맡은 수업 표시가 모든 주의 교체에 붙는다. 내용도 같은 기준으로
+  /// 합성해야 표시가 붙은 칸이 실제로 바뀌어 보인다. 교체 이력·원본은 바꾸지 않는다
+  /// (화면용 합성일 뿐 — 날짜는 교체 이력에 그대로 남아 계획서·PDF·ON 화면이 쓴다).
+  ///
+  /// 호출부는 두 곳이며 **항상 같이 바꿔야 한다**: `exchange_view_provider.dart`
+  /// (화면), `resolved_timetable_provider.dart`(교체 탐색·검증).
+  ///
+  /// 알려진 제한 (서로 다른 주의 교체가 같은 칸을 건드린 경우):
+  /// - 실행 순서상 나중 교체가 보인다. 앞 교체가 이미 비운 칸을 옮기면 빈 내용이
+  ///   옮겨져 수업이 빈칸으로 보일 수 있다 → ON으로 보면 주별로 정상 표시된다
+  /// - 이동한 수업은 `isExchangeable`도 함께 옮겨지므로, 합성 결과로 교체불가 셀을
+  ///   저장하면(`TimetableDataSource._saveNonExchangeableCells`) 옮겨간 칸까지
+  ///   교체불가로 저장될 수 있다 (`of`/ON에서도 같은 구조, OFF에서 범위만 넓다)
+  static ResolvedWeek allWeeks({
+    required List<TimeSlot> base,
+    required List<ExchangeHistoryItem> events,
+    required DateTime weekMonday,
+  }) {
+    return _compose(base, events.where((e) => !e.isReverted), weekMonday);
+  }
+
+  static ResolvedWeek _compose(
+    List<TimeSlot> base,
+    Iterable<ExchangeHistoryItem> events,
+    DateTime weekMonday,
+  ) {
     final cells = <String, TimeSlot>{};
     for (final slot in base) {
       final teacher = slot.teacher;
@@ -197,14 +239,7 @@ class ResolvedWeek {
       cells[_key(teacher, day, period)] = slot.copy();
     }
 
-    final weekEvents = events.where(
-      (e) => !e.isReverted && ExchangeWeekCollector.isSameWeek(
-        e.weekMonday,
-        weekMonday,
-      ),
-    );
-
-    for (final event in weekEvents) {
+    for (final event in events) {
       for (final move in exchangePathMoves(event.originalPath)) {
         _applyMove(cells, move);
       }

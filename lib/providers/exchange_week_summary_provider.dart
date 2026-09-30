@@ -67,6 +67,38 @@ final exchangeVisibleWeeksProvider = Provider<List<DateTime>>((ref) {
   return sorted;
 });
 
+/// 결강일은 다른 주인데 **교체·보강 수업만** 이 주에 걸리는 교체 건수.
+/// 주차 칩의 회색 배지용 — 파란 배지([exchangeWeekCountsProvider])와 겹치지 않으므로
+/// "파란 배지 합 = 실제 교체 건수" 불변 조건은 그대로다.
+final exchangeSubstitutionWeekCountsProvider = Provider<Map<DateTime, int>>((ref) {
+  ref.watch(exchangeListVersionProvider);
+  final events = ref.read(exchangeHistoryServiceProvider).getActiveExchangeList();
+
+  final counts = <DateTime, int>{};
+  for (final event in events) {
+    final absenceWeek = event.weekMonday;
+    final otherWeeks = {
+      for (final cell in touchedCellsFor(event))
+        WeekDateCalculator.getWeekMonday(cell.date),
+    }..removeWhere((w) => ExchangeWeekCollector.isSameWeek(w, absenceWeek));
+    for (final week in otherWeeks) {
+      counts[week] = (counts[week] ?? 0) + 1;
+    }
+  }
+  return counts;
+});
+
+/// 날짜 반영을 켤 때 자동으로 보여줄 주.
+///
+/// [absenceWeeks](결강일 주, 오름차순) 중 [thisWeek] 이후 첫 주 → 없으면 가장 최근
+/// 지난 주 → 교체가 없으면 [thisWeek]. 회색 배지(교체일만 걸린 주)는 대상이 아니다.
+DateTime firstExchangeWeekFrom(List<DateTime> absenceWeeks, DateTime thisWeek) {
+  for (final week in absenceWeeks) {
+    if (!week.isBefore(thisWeek)) return week;
+  }
+  return absenceWeeks.isEmpty ? thisWeek : absenceWeeks.last;
+}
+
 /// 현재 선택된 주에 속한 교체 건수 (결강일 기준)
 int exchangeCountForWeek(Map<DateTime, int> counts, DateTime weekMonday) {
   for (final entry in counts.entries) {

@@ -791,8 +791,9 @@ S5.5는 이 마지막 조회 경로를 SQLite로 전환하는 단계.
 `ResolvedWeek.fromLessons({base, touchedLessons, weekMonday})`가 `of`/`dateAware`와 동일한
 `toTimeSlots()` 출력 형태를 내도록 만든다. 동기 읽기(`lessonsFor()`) + 비동기 워머
 (`ensureLoaded()`)를 가진 프리페치 캐시(`WeekLessonsCacheNotifier`)로 sync→async 오염을 막는다.
-날짜표시 OFF 모드는 영구히 `ResolvedWeek.of`에 고정(날짜 키 데이터로 "결강일 주 몰아보기"를
-재현할 수 없고, "OFF는 날짜 정보 유출 금지" 불변조건 보호 목적). 신선도 게이트
+날짜표시 OFF 모드는 SQLite를 읽지 않는 메모리 합성에 고정(날짜 키 데이터로 OFF 합성을
+재현할 수 없고, "OFF는 날짜 정보 유출 금지" 불변조건 보호 목적). ※ 2026-09-30부터 OFF 합성은
+`of` → `allWeeks`로 바뀜("S6 알려진 제한" 절 참조). 신선도 게이트
 (`getProjectionStatus` 비교, 오래됐으면 `replayInto()` 1회 재시도 후 조용히 폴백)와, 실제 전환 전
 반드시 거쳐야 하는 "화면 합성 N칸 · SQLite M칸 · 불일치 K칸" 섀도우 비교 패널(S5.5.2)을 게이트로
 둔다. 개인 시간표·PDF 출력은 범위 밖(코드 확인 결과 `ResolvedWeek`를 전혀 쓰지 않음, S7에서 별도 처리).
@@ -1374,6 +1375,33 @@ Opus가 반려했다 — 플래그 OFF 상태에서 계획서의 `updateDates`(�
   이상 근본적으로 고칠 수 없다 — 유일한 해법은 ON 전환(S6.4)이며, 사용자가 이를 보류했으므로
   현재는 알려진 제한으로만 남긴다.
 
+### OFF = "날짜 없는 주간 시간표 1장" 모드 (2026-09-30 사용자 확정)
+
+문제: OFF에서 X/○ 표시는 모든 주의 교체에 붙는데, 칸 내용은 `of`(선택 주 교체만)로
+합성해 "표시는 있는데 내용은 안 바뀐" 칸이 생겼다. 해결로 OFF의 규칙을 아래처럼 고정한다.
+
+- **합성**: `ResolvedWeek.allWeeks` — 모든 활성 교체를 한 장에 합친다. 화면
+  (`exchange_view_provider.dart`)과 교체 탐색·검증(`resolved_timetable_provider.dart`)이
+  **반드시 같은 합성**을 쓴다(한쪽만 바꾸면 보이는 칸과 교체를 찾는 칸이 어긋난다).
+- **날짜는 화면에서만 숨긴다**: 교체 이력의 결강일·교체일은 그대로 저장 → 계획서·PDF·ON 화면이 쓴다.
+- **주차 바**: `◀ ▶`·칩 숨김, 건수는 전체 건수.
+- **불변 조건: OFF에서 `selectedWeekProvider` = 항상 이번 주.** OFF로 바꿀 때
+  (`ExchangeWeekBar._setShowWeekHeader`) 이번 주로 되돌리고, 되돌리기의 주 이동도 OFF에선 막는다
+  (`ExchangeExecutor.undoLastExchange`). 새 교체 날짜·날짜 지정 교체불가 셀·계획서 날짜 선택기가
+  이 값을 쓰기 때문이다. 날짜 반영 스위치는 반드시 `_setShowWeekHeader`로만 바꾼다.
+- 날짜 꼬리표(예: `10.07`)는 OFF에서도 유지(어느 날 교체인지 알려주는 용도).
+
+이로 인해 위 "모든 주에 표시됨"은 표시·내용이 일치하게 되었고, "검증 과잉 차단"은 "보이는 칸 그대로
+검증"이라는 의도된 동작이 되었다. 새로 생긴/남은 제한:
+
+- **다른 주 교체끼리 같은 칸 충돌**: 실행 순서상 나중 교체가 보이고, 앞 교체가 비운 칸을 옮기면
+  수업이 빈칸으로 보일 수 있다(이력은 정상, ON으로 보면 주별로 정상 표시). 새 교체는 합성 결과로
+  검증하므로 이런 충돌이 새로 생기지는 않는다.
+- **주말에 만든 교체**: "이번 주"가 지난 월~금이라 지난 날짜로 저장된다 → 계획서에서 날짜 수정.
+- **교체불가 셀 저장**: 이동한 수업은 `isExchangeable`도 함께 옮겨지므로, 합성 결과로 교체불가 셀을
+  저장하면(`TimetableDataSource._saveNonExchangeableCells`) 옮겨간 칸까지 저장될 수 있다
+  (`of`에서도 같은 구조, 범위만 넓어짐 — 교체 뷰 ON 상태에서 편집 가능한지 미확인).
+
 ## 변경 기록
 
 | 날짜 | 내용 |
@@ -1402,3 +1430,4 @@ Opus가 반려했다 — 플래그 OFF 상태에서 계획서의 `updateDates`(�
 | 2026-09-30 | **S6.0(다른 주 교체 회귀 커버리지) 확인, S6.2(OFF 모드 알려진 제한) 문서화, S6.4(날짜표시 기본값) 현행 유지로 확정 — S6 종결.** 신규 테스트 스위트를 만들지 않고 기존 `exchange_cell_dates_test.dart`/`resolved_week_date_aware_test.dart`/`resolved_week_from_lessons_test.dart`/`lesson_projection_test.dart`의 기존 "다른 주" 커버리지로 충분함을 확인. OFF 모드의 3가지 구조적 한계(모든 주 표시, 검증 과잉 차단, 꼬리표 좌표 키 충돌)를 "S6 알려진 제한" 절에 기록 |
 | 2026-09-30 | **S7.1(계획서→PDF 날짜 회귀 테스트) 완료, S7.2(PDF 연도 표시)·S7.3(계획서 주차 그룹 캡션) 현행 유지로 확정, D2·D3·D6·D8 미결정 표 갱신 — S7 종결.** `test/utils/pdf_field_mapping_test.dart` 신규 — 노드 날짜를 다른 주로 수정한 순환 교체가 PDF가 실제로 찍을 날짜 문자열(`SubstitutionPlanFieldAccessor.getValue` + `DateFormatUtils.toMonthDay`)까지 정확히 반영됨을 고정 |
 | 2026-09-30 | **S8-A(확실한 죽은 코드 제거) 완료 — S8 부분 종결.** `lib/utils/personal_exchange_view_manager.dart`(276줄) 삭제 — `lib`·`test` 전체에서 자기 자신 외 참조 0건임을 grep으로 확인 후 삭제. S8-B(실험용 플래그·OFF 분기)·S8-C(`showWeekHeaderProvider` OFF 경로 전체)는 각각 "아직 유일한 롤백 수단"·"S6.4 결정으로 계속 주 경로"라 의도적으로 보류. `flutter analyze` 통과, `flutter test` 383개 전체 통과. **이 계획 문서의 S0~S8 로드맵 전 단계가 처리 완료됐다**(S8은 안전한 부분만 실행) |
+| 2026-09-30 | **날짜 반영 OFF = "날짜 없는 주간 시간표 1장" 모드로 변경.** OFF 합성 `of` → `ResolvedWeek.allWeeks`(화면·검증 둘 다), 주차 바 `◀ ▶` 숨김·전체 건수, OFF 전환 시 선택 주를 이번 주로 고정, 되돌리기 주 이동 OFF에선 금지. 교체 이력 데이터는 무변경. `allWeeks` 테스트 2개 추가. 상세는 "S6 알려진 제한 > OFF = 날짜 없는 주간 시간표" 절 |
