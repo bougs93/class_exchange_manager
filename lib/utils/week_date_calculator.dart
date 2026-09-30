@@ -22,8 +22,10 @@ class WeekDateCalculator {
   static DateTime getWeekMonday(DateTime date) {
     // DateTime.weekday는 1(월요일) ~ 7(일요일)
     // 월요일이면 0일 전으로 이동, 일요일이면 6일 전으로 이동
+    // 시각을 버린다. DateTime.now()의 시각이 남으면 자정 월요일(주차 칩·교체 날짜)과
+    // 같은 주인데도 == 비교가 틀어져, 이번 주 교체 칸 색이 안 보였다.
     final daysToMonday = (date.weekday - 1) % 7;
-    return date.subtract(Duration(days: daysToMonday));
+    return DateTime(date.year, date.month, date.day - daysToMonday);
   }
 
   /// 주 단위 이동 (이전 주 또는 다음 주)

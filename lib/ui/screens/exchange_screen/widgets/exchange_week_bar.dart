@@ -54,10 +54,16 @@ class ExchangeWeekBar extends ConsumerWidget {
     final theme = Theme.of(context);
     final selectedWeek = ref.watch(selectedWeekProvider);
     final counts = ref.watch(exchangeWeekCountsProvider);
-    final weeks = ref.watch(exchangeWeeksProvider);
+    // 칩 목록은 "결강일 기준"이 아니라 "실제로 그 주에 뭔가 보이는가" 기준을
+    // 쓴다(교체일이 다른 주로 넘어간 경우도 포함) — 2026-09-30 버그 수정,
+    // exchange_week_summary_provider.dart의 exchangeVisibleWeeksProvider 참고.
+    final weeks = ref.watch(exchangeVisibleWeeksProvider);
     final showWeekHeader = ref.watch(showWeekHeaderProvider);
 
     final currentCount = exchangeCountForWeek(counts, selectedWeek);
+    final selectedWeekAlreadyListed = weeks.any(
+      (w) => ExchangeWeekCollector.isSameWeek(w, selectedWeek),
+    );
 
     // 학기 범위 밖 주 안내 (S4.2) — 날짜표시가 꺼져 있으면 실제 날짜 개념 자체가
     // 화면에 드러나지 않으므로 이 아이콘도 함께 숨긴다(OQ-5 확정).
@@ -107,8 +113,10 @@ class ExchangeWeekBar extends ConsumerWidget {
                           onTap: () => _selectWeek(ref, week),
                         ),
                       ),
-                    // 선택된 주에 교체가 없으면 칩 목록에 없으므로 별도로 보여준다
-                    if (currentCount == 0)
+                    // 선택된 주가 위 목록에 전혀 없으면(결강일도 교체일도 안
+                    // 걸리는, 진짜 빈 주) 별도로 보여준다. 이미 목록에 있는
+                    // 주를 여기서 또 추가하면 같은 주 칩이 중복 표시된다.
+                    if (!selectedWeekAlreadyListed)
                       _WeekChip(
                         label: ExchangeWeekCollector.monthWeekLabel(
                           selectedWeek,
@@ -157,12 +165,12 @@ class ExchangeWeekBar extends ConsumerWidget {
           ],
           const SizedBox(width: 8),
           Tooltip(
-            message: showWeekHeader ? '실제 날짜 끄기' : '실제 날짜 켜기',
+            message: showWeekHeader ? '날짜 반영 끄기' : '날짜 반영 켜기',
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '실제 날짜',
+                  '날짜 반영',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),

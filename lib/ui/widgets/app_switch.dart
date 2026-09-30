@@ -7,14 +7,16 @@ import 'package:flutter/material.dart';
 class AppSwitch extends StatelessWidget {
   const AppSwitch({super.key, required this.value, required this.onChanged});
 
-  /// Material 3 스위치(약 52×40) 대비 배율.
+  /// Material 3 스위치 대비 배율.
   static const double scale = 0.72;
 
   final bool value;
   final ValueChanged<bool>? onChanged;
 
-  // shrinkWrap일 때 M3 스위치가 차지하는 레이아웃 크기.
-  static const double _layoutWidth = 52;
+  /// shrinkWrap일 때 M3 스위치가 차지하는 크기.
+  /// 더 좁게 잡으면 트랙 좌우 여백이 잘려 라벨에 붙는다.
+  /// (switchWidth 60 + 좌우 패딩 4×2, 높이 40)
+  static const double _layoutWidth = 68;
   static const double _layoutHeight = 40;
 
   @override

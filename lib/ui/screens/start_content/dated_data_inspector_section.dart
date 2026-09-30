@@ -293,7 +293,7 @@ class _DatedDataInspectorSectionState
                   ),
                 ),
                 Text(
-                  '"실제 날짜" ON 모드에서만 적용됩니다. 이상이 있으면 꺼서'
+                  '"날짜 반영" ON 모드에서만 적용됩니다. 이상이 있으면 꺼서'
                   ' 예전 방식으로 되돌릴 수 있습니다.',
                   style: TextStyle(fontSize: 11, color: tokens.textSecondary),
                 ),
