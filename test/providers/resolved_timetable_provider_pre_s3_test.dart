@@ -91,64 +91,7 @@ void main() {
   }
 
   test(
-    'S3 이전 시간표(SQLite timetables/lessons 행 없음)에서 플래그 OFF면 기존 dateAware 결과 그대로다',
-    () async {
-      const timetableId = 'tt_pre_s3_flag_off';
-      final container = ProviderContainer(
-        overrides: [
-          timetableDatabaseProvider.overrideWith(
-            (ref) => TimetableDatabase.open(path: inMemoryDatabasePath),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
-
-      // 의도적으로 insertTimetable/insertLessons/insertSnapshot을 하지 않는다
-      // — S3 이전 시간표를 흉내낸다.
-      final base = baseTimetable();
-      final history = container.read(exchangeHistoryServiceProvider);
-      history.timetableId = timetableId;
-      addTearDown(() async {
-        await history.clearStoredDataForTimetable(timetableId);
-        history.resetForTesting();
-      });
-
-      container.read(exchangeScreenProvider.notifier).setTimetableData(
-        TimetableData(
-          teachers: [
-            Teacher(name: '정원길', subject: '기술가정'),
-            Teacher(name: '박은선', subject: '기술가정'),
-          ],
-          timeSlots: base,
-          config: const ExcelParsingConfig(),
-          totalParsedCells: base.length,
-          successCount: base.length,
-          errorCount: 0,
-        ),
-      );
-      container.read(showWeekHeaderProvider.notifier).state = true;
-      container.read(selectedWeekProvider.notifier).state = DateTime(2026, 10, 12);
-
-      history.addExchange(
-        oneToOnePath(),
-        absenceDate: DateTime(2026, 10, 14),
-        substitutionDate: DateTime(2026, 10, 12),
-      );
-      await history.flushPendingWrites();
-
-      // S5.5.5부터 기본값이 true이므로, "꺼짐" 동작을 확인하려면 명시적으로 꺼야 한다.
-      container.read(lessonReadPathEnabledProvider.notifier).state = false;
-
-      final result = container.read(resolvedTimetableProvider);
-      final jung = result.firstWhere(
-        (s) => s.teacher == '정원길' && s.dayOfWeek == 1 && s.period == 1,
-      );
-      expect(jung.subject, '기술가정');
-    },
-  );
-
-  test(
-    'S3 이전 시간표에서 플래그 ON이어도 자동 백필로 교체된 칸의 과목명이 정확히 보인다',
+    'S3 이전 시간표에서도 자동 백필로 교체된 칸의 과목명이 정확히 보인다',
     () async {
       const timetableId = 'tt_pre_s3_flag_on';
       final container = ProviderContainer(
@@ -190,8 +133,6 @@ void main() {
         substitutionDate: DateTime(2026, 10, 12),
       );
       await history.flushPendingWrites();
-
-      container.read(lessonReadPathEnabledProvider.notifier).state = true;
 
       final cache = container.read(weekLessonsCacheProvider);
       await cache.ensureLoaded(timetableId, DateTime(2026, 10, 12));

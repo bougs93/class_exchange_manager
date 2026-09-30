@@ -154,8 +154,8 @@ class TimetableRepository {
   ///
   /// [replayInto]는 `lesson_snapshots`(원본 스냅샷)가 있어야 교체된 칸의
   /// 과목명·학급명을 정확히 복원할 수 있다. S3 이전에 등록된 시간표는 이
-  /// 스냅샷이 아예 없어서, 그런 시간표에서 SQLite 조회 경로([lessonReadPathEnabledProvider])를
-  /// 켜고 교체를 실행하면 그 칸의 과목명이 `null`로 사라지는 회귀가 있었다
+  /// 스냅샷이 아예 없어서, 그런 시간표에서 날짜표시 ON 모드로 교체를
+  /// 실행하면 그 칸의 과목명이 `null`로 사라지는 회귀가 있었다
   /// (`resolved_timetable_provider_pre_s3_test.dart`로 재현됨).
   ///
   /// 이 메서드는 `timetables`에 이 id로 등록된 행이 아직 없으면, S3 등록

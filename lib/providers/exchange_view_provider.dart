@@ -238,19 +238,13 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
   }
 
   /// 날짜표시 ON 모드의 합성 — [resolved_timetable_provider.dart]의
-  /// `_resolveOnWeek`와 동일한 전략(오버레이 + 캐시 미준비 시 자동 폴백,
-  /// S5.5.4). [lessonReadPathEnabledProvider]가 꺼져 있거나 캐시가 아직
-  /// 준비되지 않았으면 기존 `dateAware`를 그대로 쓴다.
+  /// `_resolveOnWeek`와 동일한 전략(오버레이 + 캐시 미준비 시 자동 폴백).
+  /// 캐시가 아직 준비되지 않았으면 기존 `dateAware`를 그대로 쓴다.
   ResolvedWeek _resolveOnWeekForView({
     required List<TimeSlot> base,
     required List<ExchangeHistoryItem> events,
     required DateTime weekMonday,
   }) {
-    final lessonReadEnabled = _ref.read(lessonReadPathEnabledProvider);
-    if (!lessonReadEnabled) {
-      return ResolvedWeek.dateAware(base: base, events: events, weekMonday: weekMonday);
-    }
-
     final timetableId = _ref.read(exchangeHistoryServiceProvider).timetableId;
     if (timetableId == null) {
       return ResolvedWeek.dateAware(base: base, events: events, weekMonday: weekMonday);

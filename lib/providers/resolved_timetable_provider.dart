@@ -49,11 +49,10 @@ final resolvedTimetableProvider = Provider<List<TimeSlot>>((ref) {
   // OFF면 모든 주 교체를 한 장에 합친다(`allWeeks`, 2026-09-30 — 이전엔 `of`).
   // ⚠ `exchange_view_provider.dart`의 `_applyResolvedWeek`와 반드시 같은 합성을 쓴다.
   //
-  // OFF 모드는 S5.5.4에서도 절대 SQLite를 읽지 않는다(S5.5 설계 검토 Decision D) —
-  // 날짜 키 데이터로는 "요일·교시 한 장 합성"을 재현할 수 없고,
-  // "날짜표시 OFF는 날짜 정보를 유출하지 않는다"는 불변 조건을 계속 지키기
-  // 위해서다. ON 모드에서만, 그리고 [lessonReadPathEnabledProvider]가 true일
-  // 때만 아래에서 SQLite 오버레이로 바꿔치기한다.
+  // OFF 모드는 절대 SQLite를 읽지 않는다(S5.5 설계 검토 Decision D) — 날짜 키
+  // 데이터로는 "요일·교시 한 장 합성"을 재현할 수 없고, "날짜표시 OFF는 날짜
+  // 정보를 유출하지 않는다"는 불변 조건을 계속 지키기 위해서다. ON 모드에서만
+  // 아래에서 SQLite 오버레이로 바꿔치기한다.
   final showWeekHeader = ref.watch(showWeekHeaderProvider);
   final resolved =
       showWeekHeader
@@ -69,9 +68,8 @@ final resolvedTimetableProvider = Provider<List<TimeSlot>>((ref) {
   return applyDatedNonExchangeable(resolvedSlots, datedNonExchangeable, weekMonday);
 });
 
-/// 날짜표시 ON 모드의 합성 — [lessonReadPathEnabledProvider]가 켜져 있고
-/// SQLite 캐시가 이미 준비돼 있으면 그 값을 쓰고, 아니면 기존 `dateAware`로
-/// 폴백한다(S5.5.4, 3단계 롤백 중 2단계 — 캐시가 준비 안 됐을 때의 자동 폴백은
+/// 날짜표시 ON 모드의 합성 — SQLite 캐시가 이미 준비돼 있으면 그 값을 쓰고,
+/// 아니면 기존 `dateAware`로 폴백한다(캐시가 준비 안 됐을 때의 자동 폴백은
 /// 이 함수 자체가 항상 수행한다).
 ///
 /// [weekLessonsCacheTickerProvider]를 watch하므로, 캐시가 비동기로 채워진
@@ -82,11 +80,6 @@ ResolvedWeek _resolveOnWeek(
   required List<ExchangeHistoryItem> events,
   required DateTime weekMonday,
 }) {
-  final lessonReadEnabled = ref.watch(lessonReadPathEnabledProvider);
-  if (!lessonReadEnabled) {
-    return ResolvedWeek.dateAware(base: base, events: events, weekMonday: weekMonday);
-  }
-
   final timetableId = ref.read(exchangeHistoryServiceProvider).timetableId;
   if (timetableId == null) {
     return ResolvedWeek.dateAware(base: base, events: events, weekMonday: weekMonday);
