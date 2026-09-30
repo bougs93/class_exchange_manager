@@ -254,13 +254,14 @@ class _DatedDataInspectorSectionState
     );
   }
 
-  /// 조회 경로 전환 스위치 (S5.5.4/S5.5.5 — 3단계 롤백 중 1단계).
+  /// 조회 경로 전환 스위치 (S5.5.4/S5.5.5, S5.5.5부터 기본 켜짐).
   ///
-  /// 켜면 날짜표시 ON 모드의 그리드 표시·검증이 SQLite `lessons`를 읽기
-  /// 시작한다(캐시가 아직 준비되지 않은 프레임은 자동으로 기존 방식으로
-  /// 폴백한다 — 항상 켜져 있는 2단계 안전장치). 날짜표시 OFF 모드는 이
-  /// 스위치와 무관하게 항상 기존 방식을 쓴다(설계상 SQLite를 절대 읽지
-  /// 않음). 기본값은 꺼짐이며, 재빌드 없이 즉시 되돌릴 수 있다.
+  /// 켜져 있으면(기본값) 날짜표시 ON 모드의 그리드 표시·검증이 SQLite
+  /// `lessons`를 읽는다(캐시가 아직 준비되지 않은 프레임은 자동으로 기존
+  /// 방식으로 폴백한다 — 항상 켜져 있는 2단계 안전장치). 날짜표시 OFF
+  /// 모드는 이 스위치와 무관하게 항상 기존 방식을 쓴다(설계상 SQLite를
+  /// 절대 읽지 않음). 문제가 있으면 꺼서 재빌드 없이 즉시 예전 방식으로
+  /// 되돌릴 수 있다 — 껐다고 SQLite에 쌓인 데이터가 지워지지는 않는다.
   Widget _buildLessonReadPathToggle(DesignTokens tokens) {
     final enabled = ref.watch(lessonReadPathEnabledProvider);
 
@@ -269,8 +270,10 @@ class _DatedDataInspectorSectionState
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: tokens.sectionBackground,
+        // 기본값(켜짐)은 평범한 상태이므로 강조하지 않는다 — 꺼서 예전 방식
+        // (JSON 합성)으로 되돌린 경우에만 눈에 띄게 표시한다.
         border: Border.all(
-          color: enabled ? Colors.orange.shade700 : tokens.cardBorder,
+          color: enabled ? tokens.cardBorder : Colors.orange.shade700,
         ),
         borderRadius: BorderRadius.circular(8),
       ),
@@ -281,16 +284,16 @@ class _DatedDataInspectorSectionState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'SQLite 조회 경로 사용 (S5.5.4, 실험적)',
+                  'SQLite 조회 경로 사용 (S5.5)',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: enabled ? Colors.orange.shade700 : tokens.textPrimary,
+                    color: enabled ? tokens.textPrimary : Colors.orange.shade700,
                   ),
                 ),
                 Text(
-                  '날짜표시 ON 모드에서만 적용됩니다. 이상이 있으면 바로 꺼서'
-                  ' 기존 방식으로 되돌릴 수 있습니다.',
+                  '날짜표시 ON 모드에서만 적용됩니다. 이상이 있으면 꺼서'
+                  ' 예전 방식으로 되돌릴 수 있습니다.',
                   style: TextStyle(fontSize: 11, color: tokens.textSecondary),
                 ),
               ],

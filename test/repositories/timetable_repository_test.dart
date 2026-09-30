@@ -1649,5 +1649,74 @@ void main() {
       expect(touchedInA, isNotEmpty);
       expect(touchedInB, isEmpty);
     });
+
+    // S6 설계 검토(2026-09-30)에서 나온 결함 후보(G4): "학기 기간 축소로
+    // is_active=0이 된 날짜에서 교체를 실행하면 getTouchedLessonsForWeek의
+    // `is_active=1` 필터에 걸려 그 칸이 누락되는 것 아닌가"라는 가설이었다.
+    // 실제로는 `project()`가 스왑 결과로 새 `Lesson`을 만들 때 `isActive`를
+    // 명시하지 않아 기본값 `true`가 되고, `replayInto`의 내용 비교(subject·
+    // className 등)가 달라졌다고 판단해 그 행 전체(isActive 포함)를 갱신
+    // 하므로 is_active가 도로 1로 켜진다 — 실제로는 재현되지 않는다. 이
+    // 테스트로 그 사실을 고정한다(회귀 감지용).
+    test(
+      '학기 기간 축소로 비활성화된 주에서 교체를 실행해도 getTouchedLessonsForWeek가 그 칸을 정상적으로 돌려준다 (S6.1, G4 — 재현 안 됨, 확인용)',
+      () async {
+        final (_, repo, timetableId) = await setUpTimetableWithLessons(
+          timetableId: 'tt_s550_shrunk',
+        );
+
+        // 10월을 포함하지 않는 범위로 먼저 축소한다 — 10/12·10/14가 비활성화된다.
+        final shrunk = SchoolSemester(
+          schoolYear: 2026,
+          semester: 2,
+          startDate: DateTime(2026, 8, 1),
+          endDate: DateTime(2026, 9, 30),
+        );
+        final shrinkResult = await repo.applyPeriodChange(
+          timetableId: timetableId,
+          newSemester: shrunk,
+        );
+        expect(shrinkResult.deactivatedCount, greaterThan(0));
+
+        // 이미 비활성화된 그 주에서(교체 화면은 학기 범위와 무관하게 실행을
+        // 막지 않는다 — S4.2는 비차단 경고일 뿐이다) 1:1 교체를 실행한다.
+        final path = _oneToOnePath(
+          sourceTeacher: '정원길',
+          sourceDay: '수',
+          sourcePeriod: 1,
+          targetTeacher: '박은선',
+          targetDay: '월',
+          targetPeriod: 1,
+        );
+        final item = ExchangeHistoryItem.fromExchangePath(
+          path,
+          absenceDate: DateTime(2026, 10, 14),
+          substitutionDate: DateTime(2026, 10, 12),
+        );
+        await repo.replaceExchangeEventsFor(
+          timetableId,
+          toExchangeEventRecords([item], timetableId),
+        );
+        await repo.replayInto(timetableId);
+
+        final touched = await repo.getTouchedLessonsForWeek(
+          timetableId,
+          DateTime(2026, 10, 12),
+        );
+
+        // 회귀 전에는 이 칸들이 is_active=0로 남아 있어 빈 리스트가 반환됐다
+        // (SQLite 조회 경로에서 교체가 보이지 않는 버그) — 수정 후에는
+        // 활성 교체가 실제로 건드린 칸이므로 정상적으로 반환돼야 한다.
+        final touchedKeys = touched
+            .map((l) => '${l.teacher}_${l.date.toIso8601String().substring(0, 10)}_${l.period}')
+            .toSet();
+        expect(touchedKeys, {
+          '정원길_2026-10-14_1',
+          '정원길_2026-10-12_1',
+          '박은선_2026-10-14_1',
+          '박은선_2026-10-12_1',
+        });
+      },
+    );
   });
 }

@@ -20,10 +20,12 @@ import 'package:class_exchange_manager/services/excel_service.dart';
 import 'package:class_exchange_manager/services/semester_timetable_generator.dart';
 import 'package:class_exchange_manager/utils/exchange_algorithm.dart';
 
-/// S5.5.4 통합 검증: [lessonReadPathEnabledProvider]가 꺼져 있으면(기본값)
-/// 기존 회귀 스위트가 이미 증명하듯 동작이 하나도 바뀌지 않는다. 이 파일은
-/// 그 반대편 — **켰을 때** 실제로 SQLite 오버레이가 걸리는지, 그리고 캐시가
-/// 준비되기 전까지는 자동으로 `dateAware`로 폴백하는지를 확인한다.
+/// S5.5.4 통합 검증: [lessonReadPathEnabledProvider]가 꺼져 있으면 기존
+/// 회귀 스위트가 이미 증명하듯 동작이 하나도 바뀌지 않는다(S5.5.5부터
+/// 기본값은 true이므로, 이 "꺼짐" 시나리오는 테스트에서 명시적으로 꺼서
+/// 확인한다). 이 파일은 그 반대편 — **켰을 때**(S5.5.5부터 기본값) 실제로
+/// SQLite 오버레이가 걸리는지, 그리고 캐시가 준비되기 전까지는 자동으로
+/// `dateAware`로 폴백하는지를 확인한다.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -143,7 +145,9 @@ void main() {
       );
       await history.flushPendingWrites();
 
-      // 플래그 기본값(false) — 캐시를 아예 참조하지 않는다.
+      // S5.5.5부터 기본값이 true이므로, "꺼짐" 동작을 확인하려면 명시적으로 꺼야 한다.
+      container.read(lessonReadPathEnabledProvider.notifier).state = false;
+
       final result = container.read(resolvedTimetableProvider);
       final jung = result.firstWhere(
         (s) => s.teacher == '정원길' && s.dayOfWeek == 1 && s.period == 1,
