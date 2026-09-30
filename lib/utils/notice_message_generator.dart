@@ -229,7 +229,7 @@ ${exchangeLines.join('\n')}''',
 
       return NoticeMessage(
         identifier: teacherName,
-        content: ''''$teacherName' 선생님
+        content: '''$teacherName 선생님
 ${exchangeLines.join('\n')}''',
         exchangeType: _determineExchangeType(sortedDataList),
         exchangeTypeCombination: _determineExchangeTypeCombination(
@@ -249,7 +249,7 @@ ${exchangeLines.join('\n')}''',
 
       return NoticeMessage(
         identifier: teacherName,
-        content: ''''$teacherName' 선생님
+        content: '''$teacherName 선생님
 ${exchangeLines.join('\n')}''',
         exchangeType: _determineExchangeType(sortedDataList),
         exchangeTypeCombination: _determineExchangeTypeCombination(
@@ -269,7 +269,7 @@ ${exchangeLines.join('\n')}''',
       if (classLines.isNotEmpty) {
         return NoticeMessage(
           identifier: teacherName,
-          content: ''''$teacherName' 선생님
+          content: '''$teacherName 선생님
 ${classLines.join('\n')}''',
           exchangeType: _determineExchangeType(sortedDataList),
           exchangeTypeCombination: _determineExchangeTypeCombination(
@@ -348,7 +348,7 @@ ${classLines.join('\n')}''',
   /// 기본 교체 옵션1 포맷팅
   static String _formatBasicExchangeOption1(SubstitutionPlanData data) {
     final className = data.fullClassName;
-    return "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher}' <-> '${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher}' 수업 교체되었습니다.";
+    return "${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher} <-> ${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher} 수업 교체되었습니다.";
   }
 
   /// 순환교체 4단계+ 옵션1 추가
@@ -375,7 +375,7 @@ ${classLines.join('\n')}''',
 
     if (route != null) {
       exchangeLines.add(
-        "'${route['departure']}' -> '${route['arrival']} ${route['subject']} ${route['className']}' 이동 되었습니다.",
+        "${route['departure']} -> ${route['arrival']} ${route['subject']} ${route['className']} 이동 되었습니다.",
       );
     }
   }
@@ -436,11 +436,11 @@ ${classLines.join('\n')}''',
 
     if (teacherName == data.teacher) {
       exchangeLines.add(
-        "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject}' 결강 되었습니다.",
+        "${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} 결강 되었습니다.",
       );
     } else if (teacherName == data.supplementTeacher) {
       exchangeLines.add(
-        "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject}' 보강 수업입니다.",
+        "${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.supplementSubject} 보강 수업입니다.",
       );
     }
   }
@@ -534,17 +534,17 @@ ${classLines.join('\n')}''',
 
     if (teacherName == data.teacher) {
       lines.add(
-        "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.subject} ${data.fullClassName}' 결강입니다.",
+        "${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.subject} ${data.fullClassName} 결강입니다.",
       );
       lines.add(
-        "'${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.substitutionSubject} ${data.fullClassName}' 수업입니다.",
+        "${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.substitutionSubject} ${data.fullClassName} 수업입니다.",
       );
     } else if (teacherName == data.substitutionTeacher) {
       lines.add(
-        "'${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.substitutionSubject} ${data.fullClassName}' 결강입니다.",
+        "${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.substitutionSubject} ${data.fullClassName} 결강입니다.",
       );
       lines.add(
-        "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.subject} ${data.fullClassName}' 수업입니다.",
+        "${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.subject} ${data.fullClassName} 수업입니다.",
       );
     }
 
@@ -596,7 +596,7 @@ ${classLines.join('\n')}''',
         teacherSubject != null &&
         teacherClassName != null) {
       lines.add(
-        "'$departureInfo' -> '$arrivalInfo $teacherSubject $teacherClassName' 이동 되었습니다.",
+        "$departureInfo -> $arrivalInfo $teacherSubject $teacherClassName 이동 되었습니다.",
       );
     }
 
@@ -612,11 +612,11 @@ ${classLines.join('\n')}''',
 
     if (teacherName == data.teacher) {
       lines.add(
-        "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.subject}' 결강 되었습니다.",
+        "${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.subject} 결강 되었습니다.",
       );
     } else if (teacherName == data.supplementTeacher) {
       lines.add(
-        "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.supplementSubject}' 보강 수업입니다.",
+        "${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.supplementSubject} 보강 수업입니다.",
       );
     }
 
@@ -683,7 +683,7 @@ ${classLines.join('\n')}''',
     }
 
     classLines.add(
-      "'${intermediateData.formattedSubstitutionDate} ${intermediateData.substitutionDay} ${intermediateData.substitutionPeriod}교시 ${intermediateData.subject} ${intermediateData.fullClassName}' 수업입니다.",
+      "${intermediateData.formattedSubstitutionDate} ${intermediateData.substitutionDay} ${intermediateData.substitutionPeriod}교시 ${intermediateData.subject} ${intermediateData.fullClassName} 수업입니다.",
     );
   }
 
@@ -698,10 +698,10 @@ ${classLines.join('\n')}''',
     }
 
     classLines.add(
-      "'${finalData.formattedAbsenceDate} ${finalData.absenceDay} ${finalData.period}교시 ${finalData.subject} ${finalData.fullClassName}' 결강입니다.",
+      "${finalData.formattedAbsenceDate} ${finalData.absenceDay} ${finalData.period}교시 ${finalData.subject} ${finalData.fullClassName} 결강입니다.",
     );
     classLines.add(
-      "'${finalData.formattedSubstitutionDate} ${finalData.substitutionDay} ${finalData.substitutionPeriod}교시 ${finalData.subject} ${finalData.fullClassName}' 수업입니다.",
+      "${finalData.formattedSubstitutionDate} ${finalData.substitutionDay} ${finalData.substitutionPeriod}교시 ${finalData.subject} ${finalData.fullClassName} 수업입니다.",
     );
   }
 
@@ -717,10 +717,10 @@ ${classLines.join('\n')}''',
     }
 
     classLines.add(
-      "'${intermediateData.formattedSubstitutionDate} ${intermediateData.substitutionDay} ${intermediateData.substitutionPeriod}교시 ${intermediateData.substitutionSubject} ${intermediateData.fullClassName}' 결강입니다.",
+      "${intermediateData.formattedSubstitutionDate} ${intermediateData.substitutionDay} ${intermediateData.substitutionPeriod}교시 ${intermediateData.substitutionSubject} ${intermediateData.fullClassName} 결강입니다.",
     );
     classLines.add(
-      "'${intermediateData.formattedAbsenceDate} ${intermediateData.absenceDay} ${intermediateData.period}교시 ${intermediateData.substitutionSubject} ${intermediateData.fullClassName}' 수업입니다.",
+      "${intermediateData.formattedAbsenceDate} ${intermediateData.absenceDay} ${intermediateData.period}교시 ${intermediateData.substitutionSubject} ${intermediateData.fullClassName} 수업입니다.",
     );
   }
 
@@ -735,10 +735,10 @@ ${classLines.join('\n')}''',
     }
 
     classLines.add(
-      "'${finalData.formattedSubstitutionDate} ${finalData.substitutionDay} ${finalData.substitutionPeriod}교시 ${finalData.substitutionSubject} ${finalData.fullClassName}' 결강입니다.",
+      "${finalData.formattedSubstitutionDate} ${finalData.substitutionDay} ${finalData.substitutionPeriod}교시 ${finalData.substitutionSubject} ${finalData.fullClassName} 결강입니다.",
     );
     classLines.add(
-      "'${finalData.formattedAbsenceDate} ${finalData.absenceDay} ${finalData.period}교시 ${finalData.substitutionSubject} ${finalData.fullClassName}' 수업입니다.",
+      "${finalData.formattedAbsenceDate} ${finalData.absenceDay} ${finalData.period}교시 ${finalData.substitutionSubject} ${finalData.fullClassName} 수업입니다.",
     );
   }
 
