@@ -16,7 +16,14 @@ import '../../../utils/snackbar_helper.dart';
 class PdfPreviewScreen extends StatefulWidget {
   final String pdfPath;
 
-  const PdfPreviewScreen({super.key, required this.pdfPath});
+  /// 저장 다이얼로그 파일명의 초기값 (없으면 오늘 날짜 기준 이름 사용)
+  final String? initialFileName;
+
+  const PdfPreviewScreen({
+    super.key,
+    required this.pdfPath,
+    this.initialFileName,
+  });
 
   @override
   State<PdfPreviewScreen> createState() => _PdfPreviewScreenState();
@@ -484,8 +491,10 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
     }
   }
 
-  /// 저장 파일명 생성
+  /// 저장 파일명 생성 (초기값이 지정되면 그대로 사용)
   String _getSaveFileName() {
+    final initial = widget.initialFileName;
+    if (initial != null && initial.trim().isNotEmpty) return initial.trim();
     final now = DateTime.now();
     return '${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')} 결보강계획서';
   }

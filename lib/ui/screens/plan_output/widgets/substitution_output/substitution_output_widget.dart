@@ -1424,6 +1424,23 @@ class SubstitutionOutputWidgetState
     );
   }
 
+  /// PDF 저장 다이얼로그 파일명의 초기값 생성
+  ///
+  /// 체크된 계획 중 가장 이른 결강일 기준 "MM.DD 결보강계획서"를 반환합니다.
+  /// 결강일이 하나도 없으면 null을 반환하고, 호출부는 오늘 날짜 기준으로 폴백합니다.
+  String? _buildPdfSaveFileName(List<SubstitutionPlanData> planData) {
+    DateTime? earliest;
+    for (final row in planData) {
+      final date = DateFormatUtils.parseYearMonthDay(row.absenceDate);
+      if (date == null) continue;
+      if (earliest == null || date.isBefore(earliest)) earliest = date;
+    }
+    if (earliest == null) return null;
+    final mm = earliest.month.toString().padLeft(2, '0');
+    final dd = earliest.day.toString().padLeft(2, '0');
+    return '$mm.$dd 결보강계획서';
+  }
+
   /// 출력 미리 보기 처리
   Future<void> _handlePreview() async {
     if (!mounted) return;
@@ -1478,11 +1495,15 @@ class SubstitutionOutputWidgetState
       // 4. PDF 출력 설정 저장 (문서 출력 버튼 클릭 시, 양식별로 저장)
       await _saveCurrentSettings();
 
-      // 5. 미리보기 화면으로 이동
+      // 5. 미리보기 화면으로 이동 (저장 파일명 초기값: 최초 결강일 기준)
       if (mounted) {
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (context) => PdfPreviewScreen(pdfPath: tempPath),
+            builder:
+                (context) => PdfPreviewScreen(
+                  pdfPath: tempPath,
+                  initialFileName: _buildPdfSaveFileName(planData),
+                ),
           ),
         );
       }

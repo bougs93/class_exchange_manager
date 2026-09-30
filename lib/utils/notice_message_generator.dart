@@ -1,7 +1,22 @@
 import '../models/notice_message.dart';
 import '../providers/substitution_plan_viewmodel.dart';
 import '../utils/logger.dart';
+import 'date_format_utils.dart';
 import 'notice_message_helpers.dart';
+
+/// 교사별 "수업 안내" 한 줄과 그 정렬 기준(실제 날짜·교시)을 함께 담는다.
+///
+/// 결강/수업 두 줄이 서로 다른 날짜를 가리킬 수 있어(예: 수업 날짜가 결강
+/// 날짜보다 빠른 경우) 행 단위 정렬만으로는 줄 단위 시간 순서를 보장할 수
+/// 없다 — 그래서 줄마다 자신의 날짜·교시를 갖고 다니다가 한 교사의 모든
+/// 줄을 모은 뒤 한 번에 정렬한다(2026-09-30).
+class _TeacherNoticeLine {
+  final DateTime? date;
+  final int period;
+  final String text;
+
+  _TeacherNoticeLine({required this.date, required this.period, required this.text});
+}
 
 /// 안내 메시지 생성기
 ///
@@ -446,11 +461,16 @@ ${classLines.join('\n')}''',
   }
 
   /// 교사 메시지 옵션2 라인 생성
+  ///
+  /// 결강 줄과 수업 줄을 교체 건(행) 단위로 묶어서 순서대로 내보내지 않고,
+  /// 모든 줄을 각자의 실제 날짜·교시로 한 번에 정렬한다 — 한 교사가 여러
+  /// 건의 교체에 걸쳐 있을 때 수업 날짜가 결강 날짜보다 빠른 경우가 있어
+  /// 행 단위 정렬만으로는 줄 순서가 뒤섞였다(2026-09-30 수정).
   static List<String> _generateTeacherOption2Lines(
     List<SubstitutionPlanData> sortedDataList,
     String teacherName,
   ) {
-    final List<String> classLines = [];
+    final List<_TeacherNoticeLine> lines = [];
 
     // 2중교체와 일반 교체 분리
     final dualGroups = <String?, List<SubstitutionPlanData>>{};
@@ -470,23 +490,35 @@ ${classLines.join('\n')}''',
 
     // 2중교체 그룹별로 최종 결과 계산하여 메시지 생성
     for (final groupDataList in dualGroups.values) {
-      classLines.addAll(
-        _generateDualExchangeOption2Lines(groupDataList, teacherName),
-      );
+      lines.addAll(_generateDualExchangeOption2Lines(groupDataList, teacherName));
     }
 
     // 일반 교체 메시지 생성
-    classLines.addAll(_generateNonDualTeacherLines(nonDualData, teacherName));
+    lines.addAll(_generateNonDualTeacherLines(nonDualData, teacherName));
 
-    return classLines;
+    lines.sort((a, b) {
+      final aDate = a.date;
+      final bDate = b.date;
+      if (aDate != null && bDate != null) {
+        final dateCompare = aDate.compareTo(bDate);
+        if (dateCompare != 0) return dateCompare;
+      } else if (aDate != null) {
+        return -1;
+      } else if (bDate != null) {
+        return 1;
+      }
+      return a.period.compareTo(b.period);
+    });
+
+    return lines.map((line) => line.text).toList();
   }
 
   /// 일반 교체 교사 메시지 라인 생성
-  static List<String> _generateNonDualTeacherLines(
+  static List<_TeacherNoticeLine> _generateNonDualTeacherLines(
     List<SubstitutionPlanData> dataList,
     String teacherName,
   ) {
-    final List<String> classLines = [];
+    final List<_TeacherNoticeLine> classLines = [];
 
     // 순환교체 그룹별로 처리된 항목 추적 (중복 방지)
     final Set<String> processedCircularGroups = {};
@@ -526,25 +558,51 @@ ${classLines.join('\n')}''',
   }
 
   /// 기본 교체 교사 메시지 라인 생성
-  static List<String> _generateBasicExchangeTeacherLines(
+  ///
+  /// "수업입니다" 줄은 그 시간에 실제로 수업을 하는 사람(=이 교사 자신)의
+  /// 과목을 써야 한다 — 원래 그 시간대에 있던 상대방 과목이 아니다. 교사는
+  /// 자리를 옮겨도 자기 과목을 그대로 가르치기 때문이다(2026-09-30, 과목
+  /// 뒤바뀜 버그 수정: 기존엔 상대방 과목(substitutionSubject/subject)을
+  /// 반대로 썼었다).
+  static List<_TeacherNoticeLine> _generateBasicExchangeTeacherLines(
     SubstitutionPlanData data,
     String teacherName,
   ) {
-    final List<String> lines = [];
+    final List<_TeacherNoticeLine> lines = [];
 
     if (teacherName == data.teacher) {
       lines.add(
-        "${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.subject} ${data.fullClassName} 결강입니다.",
+        _TeacherNoticeLine(
+          date: DateFormatUtils.parseYearMonthDay(data.absenceDate),
+          period: int.tryParse(data.period) ?? 0,
+          text:
+              "${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.subject} ${data.fullClassName} 결강입니다.",
+        ),
       );
       lines.add(
-        "${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.substitutionSubject} ${data.fullClassName} 수업입니다.",
+        _TeacherNoticeLine(
+          date: DateFormatUtils.parseYearMonthDay(data.substitutionDate),
+          period: int.tryParse(data.substitutionPeriod) ?? 0,
+          text:
+              "${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.subject} ${data.fullClassName} 수업입니다.",
+        ),
       );
     } else if (teacherName == data.substitutionTeacher) {
       lines.add(
-        "${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.substitutionSubject} ${data.fullClassName} 결강입니다.",
+        _TeacherNoticeLine(
+          date: DateFormatUtils.parseYearMonthDay(data.substitutionDate),
+          period: int.tryParse(data.substitutionPeriod) ?? 0,
+          text:
+              "${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.substitutionSubject} ${data.fullClassName} 결강입니다.",
+        ),
       );
       lines.add(
-        "${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.subject} ${data.fullClassName} 수업입니다.",
+        _TeacherNoticeLine(
+          date: DateFormatUtils.parseYearMonthDay(data.absenceDate),
+          period: int.tryParse(data.period) ?? 0,
+          text:
+              "${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.substitutionSubject} ${data.fullClassName} 수업입니다.",
+        ),
       );
     }
 
@@ -552,17 +610,19 @@ ${classLines.join('\n')}''',
   }
 
   /// 순환교체 4단계 이상 교사 메시지 라인 생성 (옵션2)
-  static List<String> _generateCircularFourPlusTeacherLines(
+  static List<_TeacherNoticeLine> _generateCircularFourPlusTeacherLines(
     List<SubstitutionPlanData> groupData,
     String teacherName,
   ) {
-    final List<String> lines = [];
+    final List<_TeacherNoticeLine> lines = [];
 
     // 현재 교사의 출발지와 도착지 찾기
     String? departureInfo; // 출발: 날짜 요일 교시
     String? arrivalInfo; // 도착: 날짜 요일 교시
     String? teacherSubject; // 과목
     String? teacherClassName; // 학급
+    DateTime? departureDate;
+    int departurePeriod = 0;
 
     // 순환교체: 각 교사는 자신의 과목을 들고 출발지 → 도착지로 이동
     // 1. 출발지 찾기: teacher == teacherName인 PlanData의 absenceDate
@@ -574,6 +634,8 @@ ${classLines.join('\n')}''',
         // 과목과 학급은 출발지에서 가져옴
         teacherSubject = d.subject;
         teacherClassName = d.fullClassName;
+        departureDate = DateFormatUtils.parseYearMonthDay(d.absenceDate);
+        departurePeriod = int.tryParse(d.period) ?? 0;
         break;
       }
     }
@@ -596,7 +658,12 @@ ${classLines.join('\n')}''',
         teacherSubject != null &&
         teacherClassName != null) {
       lines.add(
-        "$departureInfo -> $arrivalInfo $teacherSubject $teacherClassName 이동 되었습니다.",
+        _TeacherNoticeLine(
+          date: departureDate,
+          period: departurePeriod,
+          text:
+              "$departureInfo -> $arrivalInfo $teacherSubject $teacherClassName 이동 되었습니다.",
+        ),
       );
     }
 
@@ -604,19 +671,31 @@ ${classLines.join('\n')}''',
   }
 
   /// 보강 교사 메시지 라인 생성
-  static List<String> _generateSupplementTeacherLines(
+  static List<_TeacherNoticeLine> _generateSupplementTeacherLines(
     SubstitutionPlanData data,
     String teacherName,
   ) {
-    final List<String> lines = [];
+    final List<_TeacherNoticeLine> lines = [];
+    final date = DateFormatUtils.parseYearMonthDay(data.absenceDate);
+    final period = int.tryParse(data.period) ?? 0;
 
     if (teacherName == data.teacher) {
       lines.add(
-        "${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.subject} 결강 되었습니다.",
+        _TeacherNoticeLine(
+          date: date,
+          period: period,
+          text:
+              "${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.subject} 결강 되었습니다.",
+        ),
       );
     } else if (teacherName == data.supplementTeacher) {
       lines.add(
-        "${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.supplementSubject} 보강 수업입니다.",
+        _TeacherNoticeLine(
+          date: date,
+          period: period,
+          text:
+              "${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.supplementSubject} 보강 수업입니다.",
+        ),
       );
     }
 
@@ -632,11 +711,11 @@ ${classLines.join('\n')}''',
   /// 최종 결과:
   /// - 중간 단계의 교사들은 교체 후 최종 위치에 있는 수업을 표시
   /// - 최종 단계의 교사들은 결강과 교체 후 수업을 표시
-  static List<String> _generateDualExchangeOption2Lines(
+  static List<_TeacherNoticeLine> _generateDualExchangeOption2Lines(
     List<SubstitutionPlanData> groupDataList,
     String teacherName,
   ) {
-    final List<String> classLines = [];
+    final List<_TeacherNoticeLine> classLines = [];
 
     // 중간 단계와 최종 단계 구분
     SubstitutionPlanData? intermediateData; // 2중교체(중간)
@@ -674,7 +753,7 @@ ${classLines.join('\n')}''',
 
   /// 2중교체 중간 단계 원래 교사 메시지 추가
   static void _addIntermediateSourceTeacherLines(
-    List<String> classLines,
+    List<_TeacherNoticeLine> classLines,
     SubstitutionPlanData? intermediateData,
     String teacherName,
   ) {
@@ -683,13 +762,18 @@ ${classLines.join('\n')}''',
     }
 
     classLines.add(
-      "${intermediateData.formattedSubstitutionDate} ${intermediateData.substitutionDay} ${intermediateData.substitutionPeriod}교시 ${intermediateData.subject} ${intermediateData.fullClassName} 수업입니다.",
+      _TeacherNoticeLine(
+        date: DateFormatUtils.parseYearMonthDay(intermediateData.substitutionDate),
+        period: int.tryParse(intermediateData.substitutionPeriod) ?? 0,
+        text:
+            "${intermediateData.formattedSubstitutionDate} ${intermediateData.substitutionDay} ${intermediateData.substitutionPeriod}교시 ${intermediateData.subject} ${intermediateData.fullClassName} 수업입니다.",
+      ),
     );
   }
 
   /// 2중교체 최종 단계 원래 교사 메시지 추가
   static void _addFinalSourceTeacherLines(
-    List<String> classLines,
+    List<_TeacherNoticeLine> classLines,
     SubstitutionPlanData? finalData,
     String teacherName,
   ) {
@@ -698,16 +782,26 @@ ${classLines.join('\n')}''',
     }
 
     classLines.add(
-      "${finalData.formattedAbsenceDate} ${finalData.absenceDay} ${finalData.period}교시 ${finalData.subject} ${finalData.fullClassName} 결강입니다.",
+      _TeacherNoticeLine(
+        date: DateFormatUtils.parseYearMonthDay(finalData.absenceDate),
+        period: int.tryParse(finalData.period) ?? 0,
+        text:
+            "${finalData.formattedAbsenceDate} ${finalData.absenceDay} ${finalData.period}교시 ${finalData.subject} ${finalData.fullClassName} 결강입니다.",
+      ),
     );
     classLines.add(
-      "${finalData.formattedSubstitutionDate} ${finalData.substitutionDay} ${finalData.substitutionPeriod}교시 ${finalData.subject} ${finalData.fullClassName} 수업입니다.",
+      _TeacherNoticeLine(
+        date: DateFormatUtils.parseYearMonthDay(finalData.substitutionDate),
+        period: int.tryParse(finalData.substitutionPeriod) ?? 0,
+        text:
+            "${finalData.formattedSubstitutionDate} ${finalData.substitutionDay} ${finalData.substitutionPeriod}교시 ${finalData.subject} ${finalData.fullClassName} 수업입니다.",
+      ),
     );
   }
 
   /// 2중교체 중간 단계 교체 교사 메시지 추가
   static void _addIntermediateSubstitutionTeacherLines(
-    List<String> classLines,
+    List<_TeacherNoticeLine> classLines,
     SubstitutionPlanData? intermediateData,
     String teacherName,
   ) {
@@ -717,16 +811,26 @@ ${classLines.join('\n')}''',
     }
 
     classLines.add(
-      "${intermediateData.formattedSubstitutionDate} ${intermediateData.substitutionDay} ${intermediateData.substitutionPeriod}교시 ${intermediateData.substitutionSubject} ${intermediateData.fullClassName} 결강입니다.",
+      _TeacherNoticeLine(
+        date: DateFormatUtils.parseYearMonthDay(intermediateData.substitutionDate),
+        period: int.tryParse(intermediateData.substitutionPeriod) ?? 0,
+        text:
+            "${intermediateData.formattedSubstitutionDate} ${intermediateData.substitutionDay} ${intermediateData.substitutionPeriod}교시 ${intermediateData.substitutionSubject} ${intermediateData.fullClassName} 결강입니다.",
+      ),
     );
     classLines.add(
-      "${intermediateData.formattedAbsenceDate} ${intermediateData.absenceDay} ${intermediateData.period}교시 ${intermediateData.substitutionSubject} ${intermediateData.fullClassName} 수업입니다.",
+      _TeacherNoticeLine(
+        date: DateFormatUtils.parseYearMonthDay(intermediateData.absenceDate),
+        period: int.tryParse(intermediateData.period) ?? 0,
+        text:
+            "${intermediateData.formattedAbsenceDate} ${intermediateData.absenceDay} ${intermediateData.period}교시 ${intermediateData.substitutionSubject} ${intermediateData.fullClassName} 수업입니다.",
+      ),
     );
   }
 
   /// 2중교체 최종 단계 교체 교사 메시지 추가
   static void _addFinalSubstitutionTeacherLines(
-    List<String> classLines,
+    List<_TeacherNoticeLine> classLines,
     SubstitutionPlanData? finalData,
     String teacherName,
   ) {
@@ -735,10 +839,20 @@ ${classLines.join('\n')}''',
     }
 
     classLines.add(
-      "${finalData.formattedSubstitutionDate} ${finalData.substitutionDay} ${finalData.substitutionPeriod}교시 ${finalData.substitutionSubject} ${finalData.fullClassName} 결강입니다.",
+      _TeacherNoticeLine(
+        date: DateFormatUtils.parseYearMonthDay(finalData.substitutionDate),
+        period: int.tryParse(finalData.substitutionPeriod) ?? 0,
+        text:
+            "${finalData.formattedSubstitutionDate} ${finalData.substitutionDay} ${finalData.substitutionPeriod}교시 ${finalData.substitutionSubject} ${finalData.fullClassName} 결강입니다.",
+      ),
     );
     classLines.add(
-      "${finalData.formattedAbsenceDate} ${finalData.absenceDay} ${finalData.period}교시 ${finalData.substitutionSubject} ${finalData.fullClassName} 수업입니다.",
+      _TeacherNoticeLine(
+        date: DateFormatUtils.parseYearMonthDay(finalData.absenceDate),
+        period: int.tryParse(finalData.period) ?? 0,
+        text:
+            "${finalData.formattedAbsenceDate} ${finalData.absenceDay} ${finalData.period}교시 ${finalData.substitutionSubject} ${finalData.fullClassName} 수업입니다.",
+      ),
     );
   }
 
