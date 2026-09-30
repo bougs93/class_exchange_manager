@@ -99,47 +99,57 @@ class PersonalTimetableDataSource extends DataGridSource {
             final date = columnNameParts[2];
 
             // 교체 정보와 매칭하여 테마 결정 (날짜+교시 — 해당 날짜 열에만 표시)
-            bool isExchangedSourceCell = false;
-            bool isExchangedDestinationCell = false;
-            String content = timeSlot?.displayText ?? '';
-
-            bool matched = false;
+            //
+            // 2중·순환 교체에서는 같은 칸이 "한 단계에서는 빠져나가는 자리
+            // (결강)"이면서 동시에 "다른 단계에서는 새로 들어오는 자리(수업)"일
+            // 수 있다 — 예: 이숙희의 월4교시가 (중간 단계) 그의 원래 수업이
+            // 빠지는 자리이면서, (최종 단계) 다른 교사의 수업이 새로 들어오는
+            // 자리인 경우. 첫 매칭 후 break하면 둘 중 하나만 반영돼 X·O 중
+            // 하나만 표시되고 도착 과목이 안 보이는 문제가 있었다(2026-09-30
+            // 실 앱 테스트로 발견) — 이제 두 매칭을 모두 모은 뒤 반영한다.
+            ExchangeCellInfo? absenceMatch;
+            ExchangeCellInfo? destinationMatch;
             for (final exchangeInfo in _exchangeInfoList) {
               if (exchangeInfo.period == period && exchangeInfo.date == date) {
-                matched = true;
                 if (exchangeInfo.isAbsence) {
-                  // 결강 셀
-                  isExchangedSourceCell = true;
-                  if (DebugConfig.enableCellThemeDebugLogs) {
-                    AppLogger.info(
-                      '[셀 테마] 결강 셀 발견 - $date $day $period교시 (원본: "$content")',
-                    );
-                  }
-                  // 교체 뷰 활성화 시 내용 삭제
-                  if (_isExchangeViewEnabled) {
-                    content = '';
-                    if (DebugConfig.enableCellThemeDebugLogs) {
-                      AppLogger.info('[셀 테마] 교체 뷰 활성화 - 내용 삭제됨');
-                    }
-                  }
+                  absenceMatch ??= exchangeInfo;
                 } else {
-                  // 수업 셀 — TimeSlot.displayText 와 동일한 2줄 형식(학급\n과목)
-                  isExchangedDestinationCell = true;
-                  final newContent = exchangeInfo.displayText;
-                  if (DebugConfig.enableCellThemeDebugLogs) {
-                    AppLogger.info(
-                      '[셀 테마] 수업 셀 발견 - $date $day $period교시 (원본: "$content")',
-                    );
-                  }
-                  // 교체 뷰 활성화 시 수업 내용 표시
-                  if (_isExchangeViewEnabled) {
-                    content = newContent;
-                    if (DebugConfig.enableCellThemeDebugLogs) {
-                      AppLogger.info('[셀 테마] 교체 뷰 활성화 - 내용 변경: "$newContent"');
-                    }
-                  }
+                  destinationMatch ??= exchangeInfo;
                 }
-                break; // 첫 번째 매칭 항목만 사용
+              }
+            }
+
+            final matched = absenceMatch != null || destinationMatch != null;
+            final isExchangedSourceCell = absenceMatch != null;
+            final isExchangedDestinationCell = destinationMatch != null;
+            String content = timeSlot?.displayText ?? '';
+
+            if (destinationMatch != null) {
+              // 도착 정보가 있으면(결강만 있을 때와 달리) 실제로 지금 이
+              // 칸에서 수업하는 내용이 있다는 뜻이므로, 결강 표시와 함께
+              // 있어도 항상 도착 과목을 보여준다.
+              if (DebugConfig.enableCellThemeDebugLogs) {
+                AppLogger.info(
+                  '[셀 테마] 수업 셀 발견 - $date $day $period교시 (원본: "$content")',
+                );
+              }
+              if (_isExchangeViewEnabled) {
+                content = destinationMatch.displayText;
+                if (DebugConfig.enableCellThemeDebugLogs) {
+                  AppLogger.info('[셀 테마] 교체 뷰 활성화 - 내용 변경: "$content"');
+                }
+              }
+            } else if (absenceMatch != null) {
+              if (DebugConfig.enableCellThemeDebugLogs) {
+                AppLogger.info(
+                  '[셀 테마] 결강 셀 발견 - $date $day $period교시 (원본: "$content")',
+                );
+              }
+              if (_isExchangeViewEnabled) {
+                content = '';
+                if (DebugConfig.enableCellThemeDebugLogs) {
+                  AppLogger.info('[셀 테마] 교체 뷰 활성화 - 내용 삭제됨');
+                }
               }
             }
 

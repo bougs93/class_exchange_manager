@@ -67,6 +67,18 @@ class PrintProfileStoreNotifier extends StateNotifier<PrintProfileStore> {
     return success;
   }
 
+  /// 계획서 전체 삭제 (결보강 전체 초기화용)
+  ///
+  /// 교체 건을 모두 지울 때 빈 껍데기 계획서가 남지 않도록 함께 지운다.
+  Future<bool> clearAllProfiles() async {
+    if (_timetableId == null) return false;
+    final success = await _storage.clearStore(_timetableId);
+    if (success) {
+      state = await _storage.loadStore(_timetableId);
+    }
+    return success;
+  }
+
   /// 계획서 이름 변경
   Future<bool> renameProfile(String profileId, String newName) async {
     if (_timetableId == null) return false;
@@ -153,7 +165,7 @@ final printProfileStoreProvider =
 
 /// 현재 활성 계획서에서 체크된 교체 건만 담은 결보강 데이터
 ///
-/// 내용 입력 화면의 체크 해제는 계획서의 [PrintProfile.deselectedGroupIds]에
+/// 내용 수정 화면의 체크 해제는 계획서의 [PrintProfile.deselectedGroupIds]에
 /// 저장되며, 결보강 출력 화면·결강기간·PDF는 이 Provider만 사용합니다.
 final checkedSubstitutionPlanDataProvider =
     Provider<List<SubstitutionPlanData>>((ref) {

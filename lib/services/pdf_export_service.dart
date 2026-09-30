@@ -398,7 +398,7 @@ class PdfExportService {
       int successCount = 0;
       int failCount = 0;
 
-      // 내용 입력 표와 동일한 순서(결강일 → 결강교시)로 정렬
+      // 내용 수정 표와 동일한 순서(결강일 → 결강교시)로 정렬
       final sortedPlanData = List<SubstitutionPlanData>.from(planData)
         ..sort((a, b) {
           final aDate = DateFormatUtils.parseYearMonthDay(a.absenceDate);

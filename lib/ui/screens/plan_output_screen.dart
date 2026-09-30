@@ -10,7 +10,7 @@ import '../../utils/logger.dart';
 import 'plan_output/widgets/content_input_grid.dart';
 import 'plan_output/widgets/substitution_output/substitution_output_widget.dart';
 
-/// 계획서 출력 화면 (내용 입력 · 결보강 출력)
+/// 계획서 출력 화면 (내용 수정 · 결보강 출력)
 class PlanOutputScreen extends ConsumerStatefulWidget {
   const PlanOutputScreen({super.key});
 
@@ -209,7 +209,7 @@ class _PlanOutputScreenState extends ConsumerState<PlanOutputScreen> {
 
   /// 오른쪽 컨텐츠 영역
   ///
-  /// IndexedStack으로 결보강 위젯을 유지해, 내용 입력으로 다녀와도
+  /// IndexedStack으로 결보강 위젯을 유지해, 내용 수정으로 다녀와도
   /// 준비>교사 listen이 끊기지 않습니다.
   Widget _buildContent(PlanOutputMenu selectedType) {
     final showSubstitution = selectedType == PlanOutputMenu.substitutionOutput;
@@ -218,7 +218,7 @@ class _PlanOutputScreenState extends ConsumerState<PlanOutputScreen> {
       index: showSubstitution ? 1 : 0,
       sizing: StackFit.expand,
       children: [
-        // 0: 내용 입력 (항상)
+        // 0: 내용 수정 (항상)
         const ContentInputGrid(),
         // 1: 결보강 출력 (한 번 활성화된 뒤부터 유지)
         if (_substitutionTabActivated)

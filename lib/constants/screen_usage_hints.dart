@@ -4,7 +4,7 @@
 class ScreenUsageHints {
   ScreenUsageHints._();
 
-  /// 계획서 출력 > 내용 입력
+  /// 계획서 출력 > 내용 수정
   static const String contentInput =
       '표에서 선택 항목을 클릭해 필수 정보를 입력하세요. 입력이 끝나면 결보강 출력에서 PDF를 저장할 수 있습니다.';
 

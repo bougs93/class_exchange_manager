@@ -21,6 +21,7 @@ import '../../models/exchange_node.dart'; // 🆕 ExchangeNode import 추가
 import '../../models/time_slot.dart';
 import '../../providers/state_reset_provider.dart';
 import '../../providers/substitution_plan_provider.dart';
+import '../../providers/print_profile_provider.dart';
 import '../../providers/show_week_header_provider.dart';
 import '../../providers/selected_week_provider.dart';
 import '../../providers/zoom_provider.dart';
@@ -1574,7 +1575,9 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       builder:
           (context) => AlertDialog(
             title: const Text('결보강 전체 초기화'),
-            content: const Text('결보강을 전체 초기화하겠습니까?'),
+            content: const Text(
+              '결보강 내역과 계획서를 모두 삭제하겠습니까?\n이 작업은 되돌릴 수 없습니다.',
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -1604,7 +1607,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
   /// UI 상태를 초기화합니다.
   ///
   /// 주의: 교체 뷰 상태는 유지됩니다 (비활성화하지 않음).
-  void _deleteExchangeList(BuildContext context, WidgetRef ref) {
+  void _deleteExchangeList(BuildContext context, WidgetRef ref) async {
     try {
       // 1. 교체 리스트 전체 삭제
       final historyService = ref.read(exchangeHistoryServiceProvider);
@@ -1614,20 +1617,23 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       // (결강일·교체일은 교체 항목 자체에 있으므로 위 clearExchangeList()로 이미 함께 삭제됨 — §10.10)
       ref.read(substitutionPlanProvider.notifier).clearAllSupplementSubjects();
 
-      // 3. 교체된 셀 상태 업데이트 (빈 리스트로 갱신하여 교체된 셀 스타일 제거)
+      // 3. 계획서 전체 삭제 (빈 껍데기 계획서가 남지 않도록)
+      await ref.read(printProfileStoreProvider.notifier).clearAllProfiles();
+
+      // 4. 교체된 셀 상태 업데이트 (빈 리스트로 갱신하여 교체된 셀 스타일 제거)
       // ExchangeExecutor의 updateExchangedCells() 재사용 (코드 중복 방지)
       // 교체 리스트가 비어있으므로 모든 교체된 셀 스타일이 제거됨
       _exchangeExecutor.updateExchangedCells();
 
-      // 4. UI 상태 초기화 (선택된 경로, 캐시, 화살표 등)
+      // 5. UI 상태 초기화 (선택된 경로, 캐시, 화살표 등)
       ref
           .read(stateResetProvider.notifier)
           .resetExchangeStates(reason: '결보강 전체 삭제');
 
-      // 5. DataGrid UI 업데이트 (스크롤 위치 보존)
+      // 6. DataGrid UI 업데이트 (스크롤 위치 보존)
       widget.dataSource?.notifyDataChanged();
 
-      // 6. 성공 메시지 표시
+      // 7. 성공 메시지 표시
       if (context.mounted) {
         SnackBarHelper.showSuccess(context, '결보강 전체가 초기화되었습니다.');
       }

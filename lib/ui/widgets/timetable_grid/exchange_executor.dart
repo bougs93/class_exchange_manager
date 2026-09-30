@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:async';
 import '../../../models/exchange_node.dart';
 import '../../../models/exchange_path.dart';
 import '../../../models/one_to_one_exchange_path.dart';
@@ -7,6 +8,8 @@ import '../../../models/circular_exchange_path.dart';
 import '../../../models/dual_exchange_path.dart';
 import '../../../models/supplement_exchange_path.dart';
 import '../../../models/exchange_history_item.dart';
+import '../../../models/print_profile.dart';
+import '../../../constants/korean_fonts.dart';
 import '../../../utils/logger.dart';
 import '../../../utils/snackbar_helper.dart';
 import '../../../utils/timetable_data_source.dart';
@@ -16,7 +19,10 @@ import '../../../providers/services_provider.dart';
 import '../../../providers/exchange_view_provider.dart';
 import '../../../providers/exchange_screen_provider.dart';
 import '../../../providers/selected_week_provider.dart';
+import '../../../providers/print_profile_provider.dart';
+import '../../../providers/timetable_registry_provider.dart';
 import '../../../utils/day_utils.dart';
+import '../../../utils/date_format_utils.dart';
 import '../../../utils/exchange_cell_dates.dart';
 import '../../../utils/exchange_dependency_checker.dart';
 import '../../../utils/node_date_seed.dart';
@@ -184,6 +190,64 @@ class ExchangeExecutor {
     return '${exchangePath.displayTitle}가 완료되었습니다.';
   }
 
+  /// 교체 실행 후 계획서 자동 생성 중 여부 (연속 실행 시 중복 생성 방지)
+  bool _isCreatingPlan = false;
+
+  /// 교체 실행 후 계획서가 하나도 없으면 자동 생성한다 (최초 교체 시점).
+  ///
+  /// 이름은 결강일 기준 "결보강 YY.MM.DD", 귀속 교사는 준비 교사를 우선하고
+  /// 없으면 결강 노드의 교사를 쓴다. 교체 건→계획서 지정은 기존 흐름
+  /// (내용 수정의 계획서 적용)이 담당하므로 여기서는 생성만 한다.
+  /// 실패해도 교체 실행 자체에는 영향을 주지 않는다.
+  Future<void> _ensurePlanExistsAfterExecution({
+    required DateTime absenceDate,
+    required String fallbackTeacher,
+  }) async {
+    try {
+      if (_isCreatingPlan) return;
+      final store = ref.read(printProfileStoreProvider);
+      if (store.profiles.isNotEmpty) return;
+
+      var teacher = ref.read(activeTeacherNameProvider).trim();
+      if (teacher.isEmpty) teacher = fallbackTeacher.trim();
+      if (teacher.isEmpty) {
+        AppLogger.warning('계획서 자동 생성 생략: 교사명이 없습니다');
+        return;
+      }
+
+      _isCreatingPlan = true;
+      try {
+        // 비동기 사이 다른 경로로 생성됐으면 중복 생성하지 않음
+        final current = ref.read(printProfileStoreProvider);
+        if (current.profiles.isNotEmpty) return;
+
+        final profile = PrintProfile(
+          id: PrintProfile.generateId(),
+          name: DateFormatUtils.toSubstitutionPlanName(absenceDate),
+          teacherName: teacher,
+          templateIndex: 0,
+          fontSize: 10.0,
+          remarksFontSize: 7.0,
+          selectedFont: KoreanFontConstants.defaultFont,
+          includeRemarks: false,
+          additionalFields: {'teacherName': teacher},
+        );
+        final ok = await ref
+            .read(printProfileStoreProvider.notifier)
+            .saveProfile(profile);
+        if (!ok) return;
+        await ref
+            .read(printProfileStoreProvider.notifier)
+            .setLastUsedProfile(profile.id);
+        AppLogger.info("계획서 자동 생성(교체 실행): '${profile.name}' ($teacher)");
+      } finally {
+        _isCreatingPlan = false;
+      }
+    } catch (e) {
+      AppLogger.error('계획서 자동 생성 실패 (교체 실행에는 영향 없음): $e', e);
+    }
+  }
+
   /// 교체 실행 기능
   void executeExchange(
     ExchangePath exchangePath,
@@ -218,6 +282,23 @@ class ExchangeExecutor {
       },
       stepCount: stepCount,
       nodeDates: nodeDates,
+    );
+
+    // 최초 교체 시 계획서가 없으면 자동 생성 (실패해도 교체에는 영향 없음)
+    String absenceTeacher = '';
+    if (exchangePath is OneToOneExchangePath) {
+      absenceTeacher = exchangePath.sourceNode.teacherName;
+    } else if (exchangePath is DualExchangePath) {
+      absenceTeacher = exchangePath.nodeA.teacherName;
+    } else if (exchangePath is CircularExchangePath &&
+        exchangePath.nodes.isNotEmpty) {
+      absenceTeacher = exchangePath.nodes.first.teacherName;
+    }
+    unawaited(
+      _ensurePlanExistsAfterExecution(
+        absenceDate: dates.absenceDate,
+        fallbackTeacher: absenceTeacher,
+      ),
     );
 
     // 공통 후처리
@@ -271,6 +352,14 @@ class ExchangeExecutor {
         'userAction': 'supplement_reservation',
         'source': 'timetable_grid_section',
       },
+    );
+
+    // 최초 교체 시 계획서가 없으면 자동 생성 (실패해도 교체에는 영향 없음)
+    unawaited(
+      _ensurePlanExistsAfterExecution(
+        absenceDate: dates.absenceDate,
+        fallbackTeacher: sourceTeacher,
+      ),
     );
 
     // 공통 후처리

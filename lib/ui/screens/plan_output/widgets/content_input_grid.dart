@@ -1103,7 +1103,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     final confirmed = await DialogHelper.showConfirmDialog(
       context,
       title: '결보강 전체 초기화',
-      message: '결보강을 전체 초기화하겠습니까?\n이 작업은 되돌릴 수 없습니다.',
+      message: '결보강 내역과 계획서를 모두 삭제하겠습니까?\n이 작업은 되돌릴 수 없습니다.',
       confirmText: '초기화',
       isDangerous: true,
     );
@@ -1119,7 +1119,8 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
   /// UI 상태를 초기화합니다.
   ///
   /// 주의: 교체 뷰 상태는 유지됩니다 (비활성화하지 않음).
-  void _deleteExchangeList(BuildContext context, WidgetRef ref) {
+  void _deleteExchangeList(BuildContext context, WidgetRef ref) async {
+    String? error;
     try {
       // 1. 교체 리스트 전체 삭제
       final historyService = ref.read(exchangeHistoryServiceProvider);
@@ -1129,27 +1130,34 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
       // (결강일·교체일은 교체 항목 자체에 있으므로 위 clearExchangeList()로 이미 함께 삭제됨 — §10.10)
       ref.read(substitutionPlanProvider.notifier).clearAllSupplementSubjects();
 
-      // 3. 교체된 셀 상태 업데이트 (빈 리스트로 갱신하여 교체된 셀 스타일 제거)
+      // 3. 계획서 전체 삭제 (빈 껍데기 계획서가 남지 않도록)
+      await ref.read(printProfileStoreProvider.notifier).clearAllProfiles();
+
+      // 4. 교체된 셀 상태 업데이트 (빈 리스트로 갱신하여 교체된 셀 스타일 제거)
       ExchangeExecutor.restoreExchangedCells(ref);
 
-      // 4. UI 상태 초기화 (선택된 경로, 캐시, 화살표 등)
+      // 5. UI 상태 초기화 (선택된 경로, 캐시, 화살표 등)
       ref
           .read(stateResetProvider.notifier)
           .resetExchangeStates(reason: '교체목록 전체 초기화');
 
-      // 5. 선택 상태 초기화 (삭제된 교체 건 참조 제거)
+      // 6. 선택 상태 초기화 (삭제된 교체 건 참조 제거)
       _checkedGroupIds.clear();
       _selectionHydrated = false;
 
-      // 6. 보강계획서 데이터 자동 새로고침
+      // 7. 보강계획서 데이터 자동 새로고침
       final viewModel = ref.read(substitutionPlanViewModelProvider.notifier);
       viewModel.loadPlanData();
-
-      // 7. 성공 메시지 표시
-      SnackBarHelper.showSuccess(context, '교체목록이 초기화되었습니다.');
     } catch (e) {
-      // 오류 메시지 표시
-      SnackBarHelper.showError(context, '초기화 중 오류가 발생했습니다: $e');
+      error = '$e';
+    }
+
+    // 8. 결과 메시지 표시 (비동기 사이 화면이 닫혔으면 생략)
+    if (!context.mounted) return;
+    if (error == null) {
+      SnackBarHelper.showSuccess(context, '교체목록이 초기화되었습니다.');
+    } else {
+      SnackBarHelper.showError(context, '초기화 중 오류가 발생했습니다: $error');
     }
   }
 
