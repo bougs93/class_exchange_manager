@@ -206,6 +206,25 @@ void main() {
       expect(dates['이숙희_월_4'], DateTime(2026, 8, 24));
       expect(dates['손혜옥_화_5'], DateTime(2026, 8, 25));
     });
+
+    test('노드에 확정 날짜(S5.6)가 있으면 추정이 아니라 그 확정 날짜를 보여준다', () {
+      final a = _node('A', '월', 1);
+      final b = _node('B', '화', 2);
+      final c = _node('C', '수', 3);
+      final path = CircularExchangePath.fromNodes([a, b, c, a]);
+      final item = ExchangeHistoryItem.fromExchangePath(
+        path,
+        absenceDate: DateTime(2026, 8, 24), // 월요일(8월4주)
+        substitutionDate: DateTime(2026, 8, 25),
+      ).copyWithNodeDate('화', 2, DateTime(2026, 9, 8)); // B만 9월2주 화요일로 확정
+
+      final dates = ExchangedCellOverlayDates.build([item]);
+
+      // A·C는 여전히 추정(8월4주)이지만, B는 확정 날짜(9월2주)를 그대로 보여준다.
+      expect(dates['A_월_1'], DateTime(2026, 8, 24));
+      expect(dates['B_화_2'], DateTime(2026, 9, 8));
+      expect(dates['B_수_3'], DateTime(2026, 8, 26)); // C 자리로 이동한 B — 그 슬롯은 C의 것
+    });
   });
 
   group('ExchangedCellOverlayDates.build — 1:1 요일 불일치는 여전히 생략한다', () {

@@ -1,8 +1,7 @@
 import '../models/exchange_history_item.dart';
 import '../models/lesson.dart';
-import 'exchange_cell_dates.dart';
+import 'event_date_resolver.dart';
 import 'resolved_week.dart';
-import 'week_date_calculator.dart';
 
 /// 교체 이벤트 저널을 날짜별 수업 배치(`Lesson`)에 재생(replay)하는 순수
 /// 함수 (S5.3).
@@ -31,10 +30,10 @@ List<Lesson> project({
   };
 
   for (final event in activeEvents) {
-    final dateByDay = _resolveDateByDay(event);
+    final resolution = resolveEventDates(event);
     for (final move in exchangePathMoves(event.originalPath)) {
-      final fromDate = dateByDay[move.fromDay];
-      final toDate = dateByDay[move.toDay];
+      final fromDate = resolution.forSlot(move.fromDay, move.fromPeriod)?.date;
+      final toDate = resolution.forSlot(move.toDay, move.toPeriod)?.date;
       if (fromDate == null || toDate == null) continue;
       _applyMove(cells, move, fromDate, toDate, timetableId);
     }
@@ -47,14 +46,14 @@ List<Lesson> project({
 /// 수정에서 사용).
 ///
 /// `replayInto`가 이 이벤트 때문에 "리셋·재계산해야 할 범위"를 정할 때 쓴다.
-/// [project]와 정확히 같은 날짜 해석 규칙([_resolveDateByDay])을 쓰므로, 이
+/// [project]와 정확히 같은 날짜 해석 규칙([resolveEventDates])을 쓰므로, 이
 /// 함수가 돌려주는 좌표 집합은 항상 [project]가 실제로 건드리는 좌표와 일치한다.
 List<TouchedCell> touchedCellsFor(ExchangeHistoryItem event) {
-  final dateByDay = _resolveDateByDay(event);
+  final resolution = resolveEventDates(event);
   final cells = <TouchedCell>[];
   for (final move in exchangePathMoves(event.originalPath)) {
-    final fromDate = dateByDay[move.fromDay];
-    final toDate = dateByDay[move.toDay];
+    final fromDate = resolution.forSlot(move.fromDay, move.fromPeriod)?.date;
+    final toDate = resolution.forSlot(move.toDay, move.toPeriod)?.date;
     if (fromDate == null || toDate == null) continue;
     cells.add(TouchedCell(teacher: move.fromTeacher, date: fromDate, period: move.fromPeriod));
     cells.add(TouchedCell(teacher: move.toTeacher, date: toDate, period: move.toPeriod));
@@ -73,19 +72,6 @@ class TouchedCell {
     required this.date,
     required this.period,
   });
-}
-
-/// 이벤트 하나가 건드리는 요일(1~5) → 실제 캘린더 날짜.
-Map<int, DateTime> _resolveDateByDay(ExchangeHistoryItem event) {
-  final cellDates = ExchangeCellDates.forItem(event);
-  if (cellDates.supported) return cellDates.dateByDayNumber;
-
-  // OQ-1 폴백: 결강일이 속한 주의 월~금으로 전부 채운다.
-  final weekMonday = WeekDateCalculator.getWeekMonday(event.absenceDate);
-  return {
-    for (var day = 1; day <= 5; day++)
-      day: weekMonday.add(Duration(days: day - 1)),
-  };
 }
 
 void _applyMove(

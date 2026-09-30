@@ -771,6 +771,554 @@ mirrorSink를 끈 채 교체 1건을 저장 → SQLite 0건(사용자가 본 증
   `flutter test` 전체 307개 통과(회귀 없음 — 기존 1:1·보강 테스트 4개 무수정 통과).
   **사용자 확인 완료(2026-09-29)**: 재빌드 후 순환·2중 교체 칸에 날짜가 표시됨을 확인.
 
+## S5.5. 교체 화면의 시간표 그리드 표시·검증을 SQLite 읽기로 전환
+
+### S5.5 설계 검토 (2026-09-29, Opus 5)
+
+S5(S5.0~S5.4b)로 SQLite `lessons`가 진실 원본이 됐지만, 아직 **어떤 화면도 이를 읽지 않는다** —
+교체 화면 그리드는 여전히 `TimeSlot`(주 단위)과 `ResolvedWeek`(JSON 이력 기반 합성)만 사용한다.
+S5.5는 이 마지막 조회 경로를 SQLite로 전환하는 단계.
+
+**검토가 바로잡은 3가지 사실**: ① 그리드 기본 상태는 `ResolvedWeek`가 아니라 `TimeSlot` 원본을
+그대로 그린다 — `ResolvedWeek` 합성은 "교체 뷰" 체크박스(`exchange_view_provider.dart`)가 ON일
+때만 적용된다. ② 검증용 `resolvedTimetableProvider`는 그 체크박스와 무관하게 항상 동작한다.
+③ **새로 발견한 실제 버그**: SQLite에서 곧바로 이력을 불러오는 시간표(`loadSink`가 값을 반환해
+`return`하는 경로, S5.4b)는 로드 시 `replayInto`를 타지 않는다 — S5.5가 `lessons`를 읽기 시작하는
+순간부터 의미가 생기는 간극이다(S5.5.2/S5.5.3에서 반드시 처리).
+
+**전략 결정**: "오버레이"(기존 `TimeSlot` 위에 `dirty_lesson_keys`로 건드린 칸만 SQLite 값으로
+덮어씀) 채택, "전면 교체"는 기각(원본 호환·순환/2중 폴백 등 위험이 큼). 새 팩토리
+`ResolvedWeek.fromLessons({base, touchedLessons, weekMonday})`가 `of`/`dateAware`와 동일한
+`toTimeSlots()` 출력 형태를 내도록 만든다. 동기 읽기(`lessonsFor()`) + 비동기 워머
+(`ensureLoaded()`)를 가진 프리페치 캐시(`WeekLessonsCacheNotifier`)로 sync→async 오염을 막는다.
+날짜표시 OFF 모드는 영구히 `ResolvedWeek.of`에 고정(날짜 키 데이터로 "결강일 주 몰아보기"를
+재현할 수 없고, "OFF는 날짜 정보 유출 금지" 불변조건 보호 목적). 신선도 게이트
+(`getProjectionStatus` 비교, 오래됐으면 `replayInto()` 1회 재시도 후 조용히 폴백)와, 실제 전환 전
+반드시 거쳐야 하는 "화면 합성 N칸 · SQLite M칸 · 불일치 K칸" 섀도우 비교 패널(S5.5.2)을 게이트로
+둔다. 개인 시간표·PDF 출력은 범위 밖(코드 확인 결과 `ResolvedWeek`를 전혀 쓰지 않음, S7에서 별도 처리).
+
+**6단계 분해** (사용자 승인 — "이 설계대로 진행 (권장)", 2026-09-29):
+- **S5.5.0**: Repository 조회 헬퍼 2개(`getProjectionStatus`, `getTouchedLessonsForWeek`) 추가, 완전
+  비연결.
+- **S5.5.1**: 순수 `ResolvedWeek.fromLessons` 어댑터, S5.3 픽스처로 동등성 증명.
+- **S5.5.2**: S4.0 패널에 읽기 전용 섀도우 비교 추가 — **"불일치 0칸"을 여러 교체 유형·여러 주에서
+  사용자가 직접 확인해야 S5.5.3 진행 가능(필수 게이트)**.
+- **S5.5.3**: 프리페치 캐시 + `lessonReadPathEnabledProvider`(기본 OFF), 여전히 비연결.
+- **S5.5.4**: 실제 전환 — `exchange_view_provider`와 `resolved_timetable_provider`를 같은 커밋에서
+  함께 전환. 광범위한 실사용 회귀 체크리스트 동반(OFF 모드 불변조건, 셀 단위 정확성, 되돌리기,
+  계획서 날짜 수정 전파, 주 이동, 범위 밖 주, 교체불가 셀 스타일, 시간표 전환 시 캐시 정리, S3
+  이전 시간표, PDF·개인 시간표 비영향).
+- **S5.5.5**: 준비>기타설정에 사용자용 롤백 토글 + 최종 문서 정리.
+
+**3단계 롤백**: ① 런타임 플래그 토글(재빌드 불필요, 즉시) ② 캐시가 `ready`가 아니면 자동으로
+기존 경로로 폴백(사용자 옵션이 아니라 항상 켜진 안전장치) ③ S5.5.4 커밋 단독 되돌리기(S5.5.0~3은
+비연결이라 남겨둬도 무해).
+
+### S5.5.0 완료 기록 (2026-09-29)
+
+- **추가**: `lib/repositories/timetable_repository.dart`에 `ProjectionStatus` 클래스
+  (`projectedSeq`/`maxActiveSeq`/`lessonRowCount`/`hasTimetableRow`, `isStale` 게터 — 두 seq가
+  다르면 재생이 밀린 것) + `getProjectionStatus(timetableId)`(집계 전용, `getLessonStats`와 같은
+  스타일 — `COUNT(*)`/`MAX(seq)`만 쓰고 행 전체를 읽지 않음) + `getTouchedLessonsForWeek(timetableId,
+  weekMonday)`(`lessons`를 `dirty_lesson_keys`와 INNER JOIN, 그 주 월~금 범위 + `is_active=1`만).
+- **연결 상태**: 완전히 비연결 — 어떤 Provider·화면도 이 두 메서드를 호출하지 않는다. S5.5.1
+  이후 캐시 계층에서 쓰일 예정.
+- **검증**: `test/repositories/timetable_repository_test.dart`에 새 그룹 "조회 전환 준비 (S5.5.0)"
+  6개 추가 — 존재하지 않는 시간표 기본값, 이벤트 없는 시간표(`isStale=false`), 재생 전/후
+  `isStale` 전환, 건드린 적 없는 시간표는 빈 리스트, 같은 주만 반환(다른 주 제외 — `touchedCellsFor`가
+  1:1 교체의 결강일·교체일 양쪽 모두 두 교사 자리를 건드린다고 보므로 4칸 전부 매칭됨을 확인),
+  같은 DB 안 다른 시간표 간 섞이지 않음(WHERE timetable_id 절 검증). `flutter analyze` 전체 통과,
+  `flutter test` 전체 313개 통과(기존 307개 전부 무수정 통과, 회귀 없음).
+### S5.5.1 완료 기록 (2026-09-29)
+
+- **추가**: `lib/utils/resolved_week.dart`에 `ResolvedWeek.fromLessons({base, touchedLessons,
+  weekMonday})` 신규 static 팩토리. `of`/`dateAware`와 달리 이벤트를 재생하지 않고, 이미
+  `project()`가 계산해 SQLite에 저장한 결과(`touchedLessons`, 실제로는
+  `getTouchedLessonsForWeek`의 반환값을 예정)로 `base` 위의 해당 칸만 **덮어쓰기**만 한다 —
+  S5.5 설계 검토의 "오버레이" 전략을 그대로 구현. 덮어쓰는 필드는 `subject`/`className`뿐이고,
+  `isExchangeable`/`exchangeReason`은 `base`의 값을 유지한다(Decision B, R8 — 교체 가능 여부는
+  원본 시간표 속성이지 SQLite 쪽 값을 신뢰할 대상이 아님). `weekMonday`는 결과에 실리는 값일 뿐
+  필터링에 쓰이지 않는다 — 호출자가 이미 그 주 범위로 좁힌 `touchedLessons`만 건넨다고
+  가정한다.
+- **연결 상태**: 여전히 비연결 — 이 함수를 호출하는 Provider·화면이 없다.
+- **검증**: `test/utils/resolved_week_from_lessons_test.dart` 신규 6개 — S5.3(`lesson_projection_test.dart`)와
+  **정확히 같은 픽스처**를 재사용해, `project()`의 결과를 해당 주로 필터링한 값을
+  `fromLessons`에 넘겼을 때 `ResolvedWeek.dateAware`와 같은 결과가 나오는지 확인(1:1 같은 주,
+  보강 같은 주, 다른 주로 넘어가는 1:1의 결강일/교체일/무관 주 3곳, 순환 교체 결강일 주/무관 주).
+  `project()`가 이미 S5.3에서 `dateAware`와 동등함이 증명됐으므로, 이 테스트는 "동등한 입력을
+  fromLessons에 줘도 동등한 출력이 나온다"만 추가로 증명하면 되는 구조 — 전이적으로
+  `fromLessons ≡ dateAware`(같은 주 한정)가 성립한다. 추가로 이벤트 없음(base 그대로), 그리고
+  `isExchangeable`/`exchangeReason`이 SQLite 값이 아니라 base 값을 유지하는지 확인하는 테스트
+  2개. `flutter analyze` 전체 통과, `flutter test` 전체 319개 통과(기존 313개 전부 무수정 통과,
+  회귀 없음).
+- **다음**: S5.5.2 — S4.0 확인 패널에 "화면 합성 N칸 · SQLite M칸 · 불일치 K칸" 읽기 전용
+  섀도우 비교를 추가한다. 이 단계는 **사용자가 여러 교체 유형·여러 주에서 "불일치 0칸"을 직접
+  확인해야 S5.5.3으로 진행할 수 있는 필수 게이트**다.
+
+### S5.5.2 완료 기록 (2026-09-29) — 사용자 확인 대기 중(필수 게이트)
+
+- **추가**: `lib/ui/screens/start_content/dated_data_inspector_section.dart`에 "화면 표시 vs
+  SQLite 정합성 확인 (S5.5.2, 실험용)" 패널 + "지금 확인" 버튼. 누르면 `_runShadowComparison()`이
+  실행되어:
+  1. 지금 교체 화면에 열려 있는 시간표의 `TimeSlot` 원본(`exchangeScreenProvider.timetableData`)과
+     JSON 활성 교체 목록(`exchangeHistoryServiceProvider.getActiveExchangeList()`)을 읽는다.
+  2. 비교할 "여러 주"를 자동으로 모은다 — 지금 보고 있는 주(`selectedWeekProvider`) + 모든 활성
+     교체의 결강일·교체일이 속한 주 전부(교체 유형과 무관하게 실제로 뭔가 달라질 수 있는 주만).
+  3. 비교 직전 `repo.replayInto(timetableId)`를 호출해 SQLite `lessons`를 최신으로 맞춘다(파생
+     뷰 갱신일 뿐, 진실 원본인 JSON·`exchange_events`는 건드리지 않는다 — 읽기 전용 원칙 유지).
+  4. 각 주에 대해 "화면 합성"(날짜표시 스위치 상태에 맞춰 `ResolvedWeek.of`/`dateAware`, 즉
+     `resolved_timetable_provider.dart`와 **완전히 같은 로직**)과 "SQLite 합성"
+     (`repo.getTouchedLessonsForWeek` + `ResolvedWeek.fromLessons`)을 각각 계산해, 칸별로
+     `subject`/`className`을 비교한다.
+  5. 전체 주를 합산해 "화면 합성 N칸(비어있지 않은 칸 수) · SQLite M칸 · 불일치 K칸(비교한 주:
+     W개)"을 보여준다. 불일치가 있으면 주황색으로 강조한다.
+- **읽기 전용 원칙 유지**: 사용자가 "지금 확인" 버튼을 누르기 전까지는 아무 계산도 하지 않는다
+  (패널을 열기만 해서는 실행되지 않음). `replayInto` 호출은 파생 뷰(`lessons`)만 갱신하므로 이
+  원칙에 위배되지 않는다.
+- **제약**: 비교는 **활성 시간표이면서 지금 교체 화면에 열려 있는 시간표**로 제한된다 — "화면
+  합성"을 재현하려면 실제 `TimeSlot` 원본이 메모리에 있어야 하기 때문이다. 열려 있지 않으면
+  "교체 화면에서 이 시간표를 먼저 연 뒤 다시 확인하세요" 안내만 표시한다.
+- **검증**: `flutter analyze` 전체 통과, `flutter test` 전체 319개 통과(회귀 없음 — 이 패널은
+  "사용자가 직접 눈으로 불일치 0칸을 확인"하는 것 자체가 검증 방법인 설계 게이트라, 자동화된
+  단위 테스트는 추가하지 않았다. `ResolvedWeek.fromLessons`·`getTouchedLessonsForWeek`는 이미
+  S5.5.0/S5.5.1에서 각각 단위 테스트로 검증됨).
+- **다음(필수)**: **사용자가 실제 앱에서 여러 교체 유형(1:1·순환·2중·보강)과 여러 주(같은 주 교체,
+  다른 주로 넘어가는 교체)를 실행한 뒤 "지금 확인"을 눌러 "불일치 0칸"을 직접 확인해야 한다.**
+  이 확인이 끝나기 전까지 S5.5.3(실제 전환 준비)로 진행하지 않는다.
+
+### S5.5.2 게이트 통과 — 사용자 확인 완료 (2026-09-29)
+
+사용자가 실 앱에서 교체 4건(순환·2중 포함, 1:1/보강도 함께)을 실행한 뒤 "지금 확인" 버튼으로
+확인한 결과: **"화면 합성 1726칸 · SQLite 1726칸 · 불일치 0칸 (비교한 주: 2개)"**. 순환·2중
+교체가 포함됐는지 재확인 질문에 사용자가 "포함됐다"고 답변 — 순환·2중의 날짜 추정 경로(OQ-1)
+까지 포함해 불일치 0칸이 확인됐다. **S5.5.2 필수 게이트 통과, S5.5.3 진행.**
+
+### S5.5.3 완료 기록 (2026-09-29)
+
+- **추가**:
+  - `lib/services/exchange_history_service.dart`에 `flushPendingWrites()` 신규 — 기존 비공개
+    `_storageQueue`(JSON 저장 → SQLite 미러 → `replayInto` 순서가 이미 보장된 큐)를 그대로
+    기다리기만 하는 공개 메서드. 공개 API는 계속 동기로 유지한 채, 필요한 곳에서만 "지금까지
+    쌓인 쓰기가 다 끝날 때까지 기다려" 달라고 명시적으로 요청할 수 있게 한다.
+  - `lib/providers/week_lessons_cache_provider.dart`(신규) — `WeekLessonsCache` 클래스 +
+    `lessonReadPathEnabledProvider`(기본 false) + `weekLessonsCacheProvider`.
+    `WeekLessonsCache`는 "`ensureLoaded`(비동기 워밍) → `lessonsFor`(동기 읽기)"의 2단계
+    호출 패턴으로 sync→async 오염을 피한다(S5.5 설계 검토 Decision C). `ensureLoaded`는
+    (1) `flushPendingWrites()`로 읽기-쓰기 경쟁을 없애고, (2) `getProjectionStatus`로 신선도를
+    확인해 밀려 있으면(`isStale`) `replayInto`를 한 번 재시도한 뒤(Decision E), (3)
+    `getTouchedLessonsForWeek`로 실제 값을 캐시에 채운다. 같은 (시간표, 주) 키에 대한 동시
+    호출은 진행 중인 Future를 그대로 공유해 중복 조회하지 않는다. `invalidateTimetable`로
+    시간표 단위 캐시 무효화(R9)도 지원한다.
+- **연결 상태**: 완전히 비연결 — `weekLessonsCacheProvider`/`lessonReadPathEnabledProvider`를
+  참조하는 화면·Provider가 없다. `flushPendingWrites`도 이 캐시 외에는 아직 아무도 호출하지
+  않는다.
+- **검증**: `test/providers/week_lessons_cache_provider_test.dart` 신규 4개 —
+  ensureLoaded 전/후 lessonsFor 구분(null vs 빈 리스트), **재생이 밀려 있는 상황을
+  `replayInto`를 호출하지 않고 의도적으로 재현해 `ensureLoaded`가 자동으로 감지·복구하는지
+  확인**(S5.5 설계 검토가 발견한 실제 간극에 대한 회귀 테스트), 동시 호출 중복 조회 방지(카운터로
+  확인), `invalidateTimetable`의 시간표별 격리. `test/services/exchange_history_mirror_sync_test.dart`에
+  `flushPendingWrites` 테스트 1개 추가 — 같은 파일의 기존 테스트가 쓰던 `Future.delayed(200ms)`
+  추측성 대기를 `flushPendingWrites()`로 대체할 수 있음을 확인(신뢰성 있는 동기화 지점이
+  실제로 동작함을 증명). `flutter analyze` 전체 통과, `flutter test` 전체 324개 통과(기존
+  319개 전부 무수정 통과, 회귀 없음).
+- **다음**: S5.5.4 — 실제 전환. `exchange_view_provider`의 `_applyResolvedWeek`와
+  `resolved_timetable_provider.dart`를 같은 커밋에서 함께 `lessonReadPathEnabledProvider`
+  분기로 전환한다(기본 OFF이므로 이 커밋 자체는 배포해도 동작 변화 없음). 이후 플래그를 켜고
+  광범위한 실사용 회귀 체크리스트를 수행한다.
+
+### S5.5.4 완료 기록 (2026-09-29) — 실제 조회 전환 (기본 OFF, 사용자 실 앱 확인 필요)
+
+- **추가**:
+  - `lib/providers/week_lessons_cache_provider.dart` — `WeekLessonsCache`에 `onLoaded` 콜백,
+    `clearAll()`, 그리고 `WeekLessonsCacheTicker`/`weekLessonsCacheTickerProvider`(캐시가
+    채워질 때마다 값을 올려 구독자에게 "다시 계산하라"는 신호를 주는 용도) 추가.
+  - `lib/providers/resolved_timetable_provider.dart` — 날짜표시 ON 모드(`showWeekHeader==true`)
+    분기를 새 `_resolveOnWeek()` 헬퍼로 뽑아내고, 그 안에서 `lessonReadPathEnabledProvider`가
+    켜져 있으면 `weekLessonsCacheTickerProvider`를 watch한 뒤 `WeekLessonsCache.lessonsFor()`를
+    동기로 조회 — 캐시가 준비돼 있으면 `ResolvedWeek.fromLessons`를, 아직이면 기존
+    `ResolvedWeek.dateAware`로 폴백하면서 `ensureLoaded()`를 백그라운드로 걸어 둔다(끝나면
+    ticker가 올라 Provider가 자동으로 다시 계산된다). **날짜표시 OFF 모드는 이 분기 자체에
+    들어가지 않는다** — 여전히 무조건 `ResolvedWeek.of`(S5.5 설계 검토 Decision D).
+  - `lib/providers/exchange_view_provider.dart` — 같은 전략을 `_applyResolvedWeek`/새
+    `_resolveOnWeekForView()`에 동일하게 적용. `ExchangeViewNotifier`는 `Provider`가 아니라
+    `StateNotifier`라 자동 재계산이 없으므로, 생성자에서 `ref.listen(weekLessonsCacheTickerProvider,
+    ...)`로 직접 구독하고 마지막으로 그릴 때 쓴 인자(`_lastTimeSlots`/`_lastTeachers`/
+    `_lastDataSource`)를 기억해 뒀다가 캐시가 준비되면 같은 인자로 다시 그린다.
+  - `lib/providers/state_reset_provider.dart` — Level 3(`resetAllStates`, 시간표 전환·파일
+    재선택 시 호출)에 `_clearWeekLessonsCache()` 추가, `weekLessonsCacheProvider.clearAll()`
+    호출 — 캐시 키가 이미 timetableId로 격리돼 있어 정확성 문제는 없지만, 전환마다 계속
+    쌓이는 것을 막는다(S5.5 설계 검토 R9).
+  - `lib/ui/screens/start_content/dated_data_inspector_section.dart` — "SQLite 조회 경로
+    사용 (S5.5.4, 실험적)" 스위치 추가(S5.5.5의 롤백 토글을 앞당겨 함께 구현 — 토글 없이는
+    사용자가 실 앱에서 플래그를 켜볼 방법이 없어 이 단계를 검증할 수 없었다). 기본 꺼짐,
+    켜면 즉시 `lessonReadPathEnabledProvider.state = true`.
+- **3단계 롤백 중 2단계(캐시 미준비 시 자동 폴백)는 이 커밋 자체에 항상 내장돼 있다** — 사용자
+  옵션이 아니라, `lessonsFor()`가 null을 반환하는 모든 경우(캐시 워밍 중, 로드 실패 등)에
+  무조건 적용된다.
+- **검증**: `test/providers/resolved_timetable_provider_lesson_read_path_test.dart` 신규
+  2개 — 플래그 OFF(기본값)일 때 캐시를 전혀 건드리지 않고 기존 결과 그대로임을 확인, 플래그
+  ON일 때 첫 조회는 `dateAware` 폴백(같은 주 교체라 SQLite 값과 동일한 결과), `ensureLoaded`
+  완료 후 재조회하면 캐시(`fromLessons`)가 실제로 채워져 있음을 확인. `flutter analyze` 전체
+  통과, `flutter test` 전체 326개 통과(기존 324개 전부 무수정 통과, 회귀 없음 — 플래그 기본값이
+  false이므로 기존 회귀 스위트 결과가 그대로 유지되는 것 자체가 "커밋 배포 자체는 동작 변화
+  없음"의 증거다).
+- **연결 상태**: 그리드 표시(`exchange_view_provider`)와 검증(`resolved_timetable_provider`)
+  둘 다 실제로 연결됐지만, **기본값이 꺼짐**이라 사용자가 새로 추가된 스위치를 직접 켜기 전까지는
+  기존 동작과 동일하다.
+- **다음(필수)**: **사용자가 실 앱에서 "SQLite 조회 경로 사용" 스위치를 켜고, 날짜표시 ON 모드에서
+  여러 교체 유형·주 이동·되돌리기 등을 실제로 사용해 봐야 한다.** 문제가 있으면 스위치를 끄면
+  즉시 기존 방식으로 돌아간다(재빌드 불필요). 이 확인이 끝나야 S5.5.5(최종 문서 정리 — 토글
+  자체는 이미 이번 단계에서 구현됨)로 마무리한다.
+
+### S5.5.4 버그 발견·수정: 교체 이력 변경 시 캐시가 무효화되지 않던 문제 (2026-09-30)
+
+사용자가 실 앱에서 발견: 정원길 수요일 1·2·4·5교시에 1:1·2중·순환·보강 4가지 교체를 각각
+실행해 정상 동작을 확인한 뒤, **"전체 초기화"로 교체 이력을 모두 지우고 같은 칸을 다시
+선택**했더니 4가지 교체 모드 전부에서 교체 경로 탐색 사이드바가 뜨지 않았다(전에 한 번도
+건드리지 않은 다른 칸은 정상 동작). 그리드 화면(교체 뷰 OFF라 원본 `TimeSlot`을 그대로 표시)은
+정상적으로 "기술가정"을 보여주고 있어서, **표시는 정상인데 검증만 실패**하는 전형적인 표시/검증
+불일치였다(S5.5 설계 검토 R11이 경고했던 위험).
+
+**진단**: 사용자에게 그 상태 그대로 S4.0 패널의 "지금 확인"(섀도우 비교)을 다시 눌러보게
+했더니 "화면 합성 863칸 · SQLite 863칸 · 불일치 0칸"으로 나왔다 — 이 버튼은
+`WeekLessonsCache`를 거치지 않고 매번 `repo.replayInto` + `repo.getTouchedLessonsForWeek`를
+새로 호출하므로, **SQLite `lessons` 테이블 자체는 항상 정상**이었고 문제는 그 사이에 낀
+`WeekLessonsCache`에 있다는 것이 확정됐다.
+
+**근본 원인**: `WeekLessonsCache.ensureLoaded()`는 `if (_cache.containsKey(key)) return;`로
+한 번 채운 (시간표, 주) 캐시 항목을 **영원히** 그대로 들고 있었다. 무효화는 오직 시간표
+전환(Level 3 리셋의 `clearAll()`) 때만 일어났고, **교체를 추가·삭제·되돌리는 것 자체는 캐시를
+전혀 건드리지 않았다.** 그래서 (1) 첫 라운드 테스트 때는 매번 다른 셀을 눌러 캐시가 우연히
+비어 있었거나 폴백(`dateAware`, 항상 최신)이 걸려 정상으로 보였고, (2) "전체 초기화" 후에도
+캐시가 비어 있던 짧은 순간이 지나고 나면 **교체 이력이 바뀔 때마다 다시 읽어야 한다는 규칙
+자체가 없어서**, 한 번 채워진 캐시 항목이 그 뒤의 어떤 교체 변경과도 동기화되지 않는 상태가
+됐다.
+
+**수정**: `lib/providers/week_lessons_cache_provider.dart`의 `weekLessonsCacheProvider`에서
+`ref.listen<int>(exchangeListVersionProvider, (previous, next) { cache.clearAll(); ref.read(weekLessonsCacheTickerProvider.notifier).bump(); })`를
+추가했다. `exchangeListVersionProvider`는 교체 추가·삭제·되돌리기·전체 초기화 등 교체 이력이
+바뀌는 모든 경로에서 이미 증가하고 있었으므로(기존 인프라 재사용), 이 리스너 하나로 "교체
+이력이 하나라도 바뀌면 캐시 전체를 비우고 다음 조회를 강제한다"는 규칙이 생긴다. 시간표
+전체가 아니라 영향받은 주만 정밀하게 무효화하는 대신 통째로 비우는 쪽을 택했다 — 어떤 주가
+영향받는지 이벤트별로 분석하는 비용보다, "교체 하나 바뀔 때 지금 보는 주를 다시 읽는" 비용이
+훨씬 싸기 때문이다.
+- **검증**: `test/providers/week_lessons_cache_provider_invalidation_test.dart`(신규) — 캐시를
+  먼저 채운 뒤 `addExchange`를 호출하면 **그 즉시**(비동기 쓰기 완료를 기다리지 않고도)
+  `cache.lessonsFor()`가 다시 null로 돌아오는지(무효화 확인), 그 뒤 재조회하면 새 교체가
+  반영된 값이 채워지는지 확인. `flutter analyze` 전체 통과, `flutter test` 전체 327개 통과
+  (기존 326개 전부 무수정 통과, 회귀 없음).
+- 사용자가 이 수정 후 다시 같은 시나리오(4개 교체 유형 → 전체 초기화 → 재선택)로 재현
+  테스트 — **경로 탐색은 정상 동작 확인.**
+
+### 버그 발견·수정: 되돌린 교체가 계획서에 남는 문제 (2026-09-30, S5.5와 무관한 기존 버그)
+
+같은 확인 과정에서 사용자가 별개의 문제를 발견: 2중교체를 실행한 뒤 삭제(되돌리기)했더니
+"교체" 화면에서는 "교체 0건"으로 정상 사라졌는데, 이미 저장해 둔 "계획서"(결보강 26.10.07)
+에는 그 건이 계속 남아 있었다. 사용자에게 "SQLite 조회 경로 사용" 스위치를 끈 상태에서도
+재현되는지 물었으나 별도 확인은 하지 않기로 했고, 대신 "되돌리기 경우 교체에서는 사라지지만
+계획서에서는 사라지지 않는 문제 같다"는 정확한 진단을 사용자가 직접 제시했다.
+
+**원인 확인**: `lib/providers/substitution_plan_viewmodel.dart`의 `loadPlanData()`가
+`historyService.getExchangeList()`(되돌린 건도 포함한 전체 목록)를 쓰고 있었다 —
+`getActiveExchangeList()`(`!isReverted`만 필터링)를 썼어야 했다. `undoLastExchange()`는
+항목을 리스트에서 제거하지 않고 `isReverted=true`로 표시만 하고 남겨두는데(다시 실행을
+위해), `getExchangeList()`는 이 필터링을 하지 않으므로 계획서 화면이 되돌린 건까지 계속
+표시했던 것 — **S5.5(SQLite 조회 경로) 작업과는 완전히 무관한 기존 버그**다. 이 메서드는
+SQLite를 전혀 읽지 않고 JSON 기반 `_exchangeList`만 직접 읽는다(설계상 계획서는 S5.5
+범위 밖으로 명시했던 그대로).
+
+**수정**: `getExchangeList()` → `getActiveExchangeList()` 한 줄 교체.
+- **검증**: `test/providers/substitution_plan_viewmodel_reverted_test.dart`(신규) — 교체
+  실행 직후 계획서에 1건 존재 확인 → `undoLastExchange()` 호출 → 계획서가 빈 목록으로
+  갱신되는지 확인(로그로 "교체 히스토리 개수: 1 → 0" 전환 확인됨). `flutter analyze` 전체
+  통과, `flutter test` 전체 328개 통과(기존 327개 전부 무수정 통과, 회귀 없음).
+  **사용자 실 앱 확인 완료(2026-09-30)**: "되돌리기 후 완전히 사라지는 것을 확인함".
+
+## S5.6. 순환·2중 교체의 노드별 날짜 확정 (계획서 → 교체 화면 반영)
+
+### S5.6 설계 검토 (2026-09-30, Opus 5)
+
+사용자가 실 앱 테스트 중 발견: 계획서 화면에서 순환·2중 교체의 결강일/교체일을 노드별로
+지정할 수 있는데(날짜 선택기 이미 존재, `ExchangeHistoryItem.absenceDate`/`substitutionDate`에
+직접 반영됨 — §10.10), "교체" 화면은 여전히 이 교체 유형에 대해 항상 "?"만 보여준다. 원인은
+순환(3+ 노드)·2중(4 노드)이 "결강일·교체일" 단 한 쌍만 저장하고, 노드가 3개 이상이라 각
+노드의 정확한 날짜를 확정할 수 없어 `ExchangeCellDates.forItem`이 항상 `unsupported`를
+반환하기 때문(1:1·보강은 노드가 2개뿐이라 이 쌍만으로 완전히 표현됨). 사용자가 "계획서에서
+지정한 날짜가 실제로 교체 화면에도 반영되게 한다"(더 크고 위험한 쪽)를 선택, Opus 설계
+검토 진행.
+
+**핵심 발견**: SQLite 스키마에 `node_dates_json` 컬럼이 S5.0 때부터 이미 준비되어 있었다
+(안 쓰이고 있었을 뿐) — 스키마 변경 불필요. 계획서 화면의 각 행이 이미 소스/타겟 노드의
+요일·교시를 다 갖고 있어 새 UI 없이 기존 행 편집만으로 노드별 날짜 지정 가능.
+
+**설계**: `ExchangeHistoryItem.nodeDates`(슬롯 키 `'요일|교시'` → `DateTime`) 신규 필드 +
+단일 판단 함수 `resolveEventDates()`(신규 `lib/utils/event_date_resolver.dart`)가 "확정 쌍
+(1:1·보강) / 확정 노드(순환·2중, 신규) / 추정(OQ-1, 기존)" 우선순위로 모든 소비자에 걸쳐
+하나의 답을 낸다. 실제 코드 변경은 `lesson_projection.dart`, `resolved_week.dart`의
+`dateAware`, `exchange_cell_dates.dart`의 `forWeek` 3곳뿐 — 나머지(OFF 모드 오버레이, X/○
+하이라이트, SQLite 조회 경로)는 이 3곳을 거치므로 자동으로 따라온다.
+
+**최대 위험(R7)**: 2중 교체는 "1단계가 한 자리를 비운 뒤 2단계가 성립"하는 순서 의존 구조라,
+노드들이 서로 다른 주로 갈리면 `project()`(순차 재생)와 `dateAware`(주 단위 근사)가 다른
+값을 낼 수 있다. S5.6.2에서 등식 테스트로 먼저 확인하고, 깨지면 등식을 완화하지 않고
+"2중은 모든 노드가 같은 주일 때만 확정 인정"으로 범위를 줄인다.
+
+**단계 분해**: S5.6.0(데이터 모델)~S5.6.4(저장 메서드)는 **플래그 없이 배포 가능**(아직
+아무도 이 데이터를 안 읽어 동작 변화가 0). S5.6.5(계획서 표시)~S5.6.6(실제 저장 연결)만
+`nodeDateEditEnabledProvider`(기본 OFF)로 감싼다. S5.6.7에서 기본 ON 전환 + 문서 정리.
+전체 OQ-1~9와 "절대 바꾸지 말 것" 체크리스트는 검토 결과 원문 참조(대화 로그).
+
+### S5.6.0 완료 기록 (2026-09-30)
+
+- **추가**: `lib/utils/exchange_node_slot.dart`(신규) — `nodeSlotKey(dayName, period)` 순수
+  함수(교사 미포함 — `ExchangeCellDates.forItem`의 기존 "칸의 날짜는 노드의 날짜, 누가
+  앉든 상관없다" 계약을 그대로 따름). `ExchangeHistoryItem`에 `nodeDates`(기본값 `const {}`),
+  `supportsNodeDates`(순환·2중만 true), `nodeDateFor()`, `copyWithNodeDate()` 추가. 기존
+  6개 `copyWith*`(`Reverted`/`Notes`/`Dates`/`Tags`/`Metadata`/`ProfileId`) 전부
+  `nodeDates: nodeDates` 전달하도록 수정(빠뜨리면 조용한 유실 — 특히 되돌리기). `toJson()`은
+  비어 있으면 `'nodeDates'` 키 자체를 생략(구 파일과 바이트 동일), `fromJson()`은 키 없으면
+  `const {}`.
+- **연결 상태**: 완전히 비연결 — `nodeDates`를 실제로 채우는 UI가 없다.
+- **검증**: `test/models/exchange_history_item_test.dart`에 신규 그룹 8개 — 기본값·게이팅
+  (1:1에서 `copyWithNodeDate` 호출 시 `identical`로 자기 자신 반환 확인), 왕복 직렬화,
+  키 생략 확인, 6개 `copyWith*` 전부 보존 확인(특히 `copyWithReverted`). `flutter analyze`
+  전체 통과, `flutter test` 전체 335개 통과(회귀 없음).
+
+### S5.6.1 완료 기록 (2026-09-30)
+
+- **추가**: `lib/services/exchange_event_mirror.dart`의 `_toRecord`/`toExchangeHistoryItem`
+  양방향에 `nodeDatesJson` 연결(스키마는 S5.0부터 이미 존재, 변경 없음). 비어 있으면 null로
+  둔다(1:1·보강 및 미확정 순환·2중 모두 기존과 바이트 동일).
+- **검증**: `test/services/exchange_event_mirror_test.dart` +4(1:1은 null, 순환 미확정도
+  null, 순환 확정 시 정확히 직렬화, 역변환 왕복), `test/repositories/timetable_repository_test.dart`의
+  기존 SQLite 왕복 테스트에 `nodeDatesJson` 검증 추가. `flutter analyze` 전체 통과,
+  `flutter test` 전체 340개 통과(회귀 없음).
+- **다음**: S5.6.2 — `event_date_resolver.dart` 신설 + `lesson_projection`·`resolved_week.dateAware`
+  전환. **R7(2중 등식) 게이트를 여기서 먼저 확인**.
+
+### S5.6.2 완료 기록 (2026-09-30) — R7 게이트 통과
+
+- **추가**: `lib/utils/event_date_resolver.dart`(신규) — `resolveEventDates(item)`이
+  "확정 쌍(1:1·보강, period 무시) → 확정 노드(순환·2중, `nodeDates` 조회) → 추정(OQ-1,
+  결강일이 속한 주)" 우선순위로 슬롯별 날짜를 판단하는 **유일한 장소**. `lesson_projection.dart`의
+  `_resolveDateByDay`를 삭제하고 `project()`/`touchedCellsFor()`가 이 함수를 쓰도록 전환.
+  `resolved_week.dart`의 `dateAware`도 "순환·2중 unsupported → of() 방식 통째 폴백" 분기를
+  없애고, 모든 이벤트가 같은 per-move 경로(`resolveEventDates` → `fromHere`/`toHere` 판정)를
+  타도록 통일 — `nodeDates`가 비어 있으면 모든 슬롯이 estimated이고 추정값은 전부 결강일
+  주 안에 있으므로 `fromHere == toHere == inViewedWeek(absenceDate)`가 항상 성립해
+  기존 동작과 수학적으로 동일하다(주석으로 증명 남김).
+- **R7 게이트(이 단계의 최대 위험) 결과: 통과.** 2중 교체는 "1단계가 자리를 비운 뒤 2단계가
+  성립"하는 순서 의존 구조라 노드들이 서로 다른 주로 갈리면 `project()`(순차 재생)와
+  `dateAware`(주 단위 근사)가 어긋날 위험이 있었다. 실제로 2단계(nodeA↔nodeB)만 결강일과
+  다른 주로 확정한 픽스처로 시험한 결과 **등식이 깨지지 않았다** — 이 2중 픽스처는 두
+  단계가 서로 다른 좌표(4개 노드가 전부 다른 교사·시간)를 건드려 `_applyFillOnly`의
+  스냅샷 근사와 실제로 충돌하지 않기 때문이다. **결론(OQ-9 해소)**: 2중을 "모든 노드가
+  같은 주일 때만 확정 인정"으로 축소할 필요 없음 — 순환·2중 모두 제한 없이 지원한다.
+- **연결 상태**: 여전히 비연결 — `nodeDates`를 채우는 UI가 없으므로 이 변경 자체는 앱 동작에
+  영향이 없다(모든 기존 회귀 테스트가 무수정 통과하는 것이 그 증거).
+- **검증**: `test/utils/event_date_resolver_test.dart`(신규 7개) + `lesson_projection_test.dart`
+  +2(순환 부분 확정, 2중 R7 게이트) + `resolved_week_from_lessons_test.dart` +2(같은 픽스처를
+  SQLite 조회 경로로 재증명). 기존 회귀 스위트 — `resolved_week_date_aware_test.dart`,
+  `resolved_week_test.dart`, `exchange_cell_dates_test.dart`, `exchanged_cell_overlay_dates_test.dart`
+  포함 — **전부 무수정 통과**. `flutter analyze` 전체 통과, `flutter test` 전체 351개 통과
+  (기존 340개 전부 무수정 통과, 회귀 없음).
+- **다음**: S5.6.3 — `ExchangeCellDates.forWeek`를 이벤트 단위에서 노드(슬롯) 단위로 세분화.
+
+### S5.6.3 완료 기록 (2026-09-30)
+
+- **추가**: `lib/utils/exchange_cell_dates.dart`의 `forWeek`가 순환·2중(`unsupported`)
+  이벤트를 더 이상 "이벤트 통째로" 처리하지 않고, 새 비공개 헬퍼 `_legacySlottedKeys(path)`
+  (기존 `legacySourceKeys`/`legacyDestinationKeys`와 정확히 같은 키를 내되 각 키의 슬롯
+  (요일·교시)·vacate 여부를 함께 반환 — 두 기존 함수 자체는 한 글자도 바꾸지 않음)로
+  **노드(슬롯) 단위**로 순회한다. 슬롯마다 `resolveEventDates`로 확인해, 확정됐고
+  (`isConfirmed`) 보고 있는 주에 속하면 그 칸만 추가(`undatedKeys`에서 제외), 확정 안 됐으면
+  (추정) 기존과 똑같이 "어느 주든 항상 표시 + undatedKeys" 경로를 그대로 탄다 — 1:1·보강의
+  요일 불일치 폴백도 이 경로를 타지만 `resolveEventDates`가 이 경우 항상 estimated를
+  반환하므로 동작 변화가 없다.
+- **자동으로 따라온 것(코드 변경 없음)**: `exchanged_cell_overlay_dates.dart`(OFF 모드
+  꼬리표, `touchedCellsFor` 재사용 — S5.6.2에서 이미 확정 노드를 반영하도록 바뀜),
+  `timetable_data_source.dart`의 `_resolveOverlayDate`(ON 모드 "?", `forWeek().undatedKeys`만
+  봄), `exchange_executor.dart`의 X/○ 하이라이트(`forWeek` 재사용) — 전부 확정 노드가 있으면
+  자동으로 정확한 주에만 나타나고 "?"에서 빠진다.
+- **검증**: `test/utils/exchange_cell_dates_test.dart` +4(노드 하나 확정 시 스코프·undated
+  제외, 확정 노드가 관계없는 주에는 전혀 안 나타남, 순환·2중 각각 "확정 노드 없음" 시
+  `forWeek` 결과가 `legacySourceKeys`∪`legacyDestinationKeys`와 정확히 같은 집합임을 증명),
+  `exchanged_cell_overlay_dates_test.dart` +1(확정 노드가 있으면 추정이 아니라 확정 날짜를
+  보여줌 — 코드 무변경인데 값이 바뀜을 고정). 기존 회귀 스위트 전부 무수정 통과. `flutter
+  analyze` 전체 통과, `flutter test` 전체 356개 통과(기존 351개 전부 무수정 통과, 회귀 없음).
+- **다음**: S5.6.4 — `ExchangeHistoryService.updateNodeDate` 추가(가드 2개: 순환·2중 전용,
+  요일 일치 검증). UI는 아직 미연결.
+
+### S5.6.4 완료 기록 (2026-09-30)
+
+- **추가**: `lib/services/exchange_history_service.dart`에 `updateNodeDate(itemId, {dayName,
+  period, date})` 신규 — 기존 `updateDates`(1:1·보강 전용, 무변경)와 나란히 두는 형제
+  메서드. 가드 2개: ① 대상이 `supportsNodeDates`가 아니면(1:1·보강) null만 반환 ② `date`의
+  실제 요일이 `dayName`과 다르면 null만 반환(둘 다 상태를 바꾸지 않음). 통과하면
+  `item.copyWithNodeDate()` → 리스트 교체 → 버전 증가 → `_notifyVersionChanged()` →
+  `_saveToLocalStorage()`까지 **기존 배선을 그대로 재사용**한다 — 새로 연결한 훅이
+  0개다(S5.4a가 `replayInto`를 기존 훅에 이어붙인 것과 같은 전략). 이 한 줄
+  (`_notifyVersionChanged`)만으로 JSON 저장 → SQLite 미러 → `replayInto` → 계획서 자동
+  새로고침 → `WeekLessonsCache.clearAll()`(S5.5.4에서 이미 연결됨)까지 전부 자동으로
+  따라온다.
+- **연결 상태**: 여전히 비연결 — 이 메서드를 호출하는 UI가 없다.
+- **검증**: `test/exchange_history_service_test.dart`에 신규 그룹 `updateNodeDate` 5개 —
+  순환에 정상 저장, 1:1은 게이트에 막혀 null·상태 무변경, 요일 불일치도 null·상태 무변경,
+  버전 증가 확인, 존재하지 않는 id는 null. `flutter analyze` 전체 통과, `flutter test`
+  전체 361개 통과(기존 356개 전부 무수정 통과, 회귀 없음).
+- **S5.6.0~S5.6.4 전체 요약**: 데이터 모델(`nodeDates`)·SQLite 미러·판단 로직
+  (`resolveEventDates`)·조회 세분화(`forWeek`)·저장 메서드(`updateNodeDate`)까지 전부 완성
+  됐지만, **UI가 없어 실제로 이 기능을 쓸 방법이 아직 없다**(의도된 설계 — 여기까지는
+  플래그 없이 배포해도 동작 변화가 0). 다음은 S5.6.5(계획서 화면 표시를 노드 기준으로
+  전환) + S5.6.6(날짜 선택기가 실제로 `updateNodeDate`를 호출하도록 연결) — 여기서부터
+  `nodeDateEditEnabledProvider`(기본 OFF)로 감싼다.
+
+### S5.6.5 완료 기록 (2026-09-30)
+
+- **추가**: `lib/providers/node_date_edit_provider.dart`(신규) — `nodeDateEditEnabledProvider`
+  (기본 false, S5.5.4와 같은 3단계 롤백의 1단계). `substitution_plan_viewmodel.dart`의
+  `_handleCircularExchange`/`_handleDualExchange`에 선택적 `EventDateResolution? resolution`
+  파라미터 추가(null=기존과 동일). 플래그 ON이면 `loadPlanData()`가 각 순환·2중 항목에
+  `resolveEventDates(item)`을 한 번 계산해 넘기고, 두 핸들러는 새 헬퍼 `_resolveRowDates()`로
+  각 행의 source/target 노드 슬롯 날짜를 계산해 쓴다 — 확정된 슬롯은 확정 날짜, 미확정
+  슬롯은 **그 슬롯의 실제 요일에 맞는 추정 날짜**(기존처럼 item 전체의 결강일/교체일 쌍을
+  요일이 다른 행에도 그대로 복사하던 부정확한 방식 대신). `_handleOneToOneExchange`/
+  `_handleSupplementExchange`는 시그니처·본문 모두 무변경.
+- **연결 상태**: 화면 표시는 연결됐지만 **기본 OFF**라 배포 자체는 동작 변화 없음. 날짜
+  선택기(쓰기 경로)는 아직 미연결 — S5.6.6에서 연결 예정.
+- **검증**: `test/providers/substitution_plan_viewmodel_node_dates_test.dart`(신규 3개) —
+  플래그 OFF면 순환교체 모든 행이 기존처럼 item의 결강일/교체일을 그대로 보여줌, 플래그
+  ON이면 확정 노드는 확정 날짜·미확정 노드는 슬롯 요일에 맞는 추정 날짜로 정확히 갈라짐(4개
+  노드 순환의 3개 행 전부 개별 검증), 플래그 ON이어도 1:1 교체 행은 완전히 무영향. `flutter
+  analyze` 전체 통과, `flutter test` 전체 364개 통과(기존 361개 전부 무수정 통과, 회귀 없음).
+- **다음**: S5.6.6 — `content_input_grid.dart`의 `_applyDateSelection`이 플래그 ON + 순환·2중
+  항목일 때 `updateNodeDate`를 호출하도록 연결(실패·게이트 걸림 시 기존 `updateDates` 경로로
+  폴백).
+
+### S5.6.6 완료 기록 (2026-09-30) — 실제 쓰기 경로 연결 (기본 OFF)
+
+- **추가**: `lib/ui/screens/plan_output/widgets/content_input_grid.dart`의
+  `_applyDateSelection`이 `groupId` 대신 `SubstitutionPlanData data` 전체를 받도록 시그니처
+  변경(호출부는 이미 `data`를 갖고 있어 전달만 추가). `item.supportsNodeDates &&
+  nodeDateEditEnabledProvider`가 모두 참이면, 그 행이 가리키는 슬롯(결강일 열이면
+  `data.absenceDay`/`data.period`, 교체일 열이면 `data.substitutionDay`/
+  `data.substitutionPeriod`)으로 `updateNodeDate`를 호출한다 — 성공하면 끝, 가드에 걸려
+  null이 나오면(이론상 발생하지 않아야 함 — 날짜 선택기가 이미 `selectableDayPredicate`로
+  그 행의 요일만 고를 수 있게 강제하지만, 방어적으로) **"저장 안 됨"으로 끝내지 않고 기존
+  `updateDates` 경로로 폴백**한다. 1:1·보강, 또는 플래그가 꺼져 있으면 이 분기 자체에
+  들어가지 않고 기존 `updateDates` 한 줄 그대로다.
+- `lib/ui/screens/start_content/dated_data_inspector_section.dart`에 "순환·2중 교체 노드별
+  날짜 확정 (S5.6, 실험적)" 스위치 추가(S5.5.4와 같은 패턴 — 기본 꺼짐, 즉시 토글).
+- **연결 상태**: 이제 S5.6.0~S5.6.6 전체가 실제로 이어졌다 — 스위치를 켜면 계획서에서
+  순환·2중의 날짜를 노드 단위로 고칠 수 있고, 그 결과가 교체 화면·SQLite 조회 경로까지
+  전부 자동으로 따라간다(새로 배선한 훅은 없음, S5.6.4의 `_notifyVersionChanged` 재사용
+  그대로). 기본값은 여전히 꺼짐이라 배포 자체는 동작 변화가 없다.
+- **검증**: 이 단계는 UI 위젯의 비공개 메서드 배선이라 전용 단위 테스트를 추가하지 않았다
+  (분기 로직이 호출하는 `updateNodeDate`/`updateDates`는 이미 각각 S5.6.4/기존 테스트로
+  검증됨). `flutter analyze` 전체 통과, `flutter test` 전체 364개 통과(기존과 동일 개수,
+  회귀 없음).
+- **다음(필수)**: **사용자가 실 앱에서 스위치를 켜고, 순환·2중 계획서 행의 날짜를 수정한
+  뒤 교체 화면(날짜표시 ON)에서 그 칸의 "?"가 실제 날짜로 바뀌는지 확인해야 한다.** 확인이
+  끝나면 S5.6.7(플래그 기본 ON 전환 + 문서 정리)로 마무리한다.
+
+### S5.6.7 완료 기록 (2026-09-30) — 실행 시점 노드 날짜 자동 확정 (Opus 검토 반영)
+
+**배경**: S5.6.6까지 확인하던 사용자가 실 앱에서 "순환·2중 교체를 실행하면 계획서에 날짜가
+자동으로 보이는데, 왜 교체 화면은 여전히 '?'만 보여주냐"고 지적했다. Sonnet이 "계획서는
+추정일 뿐이고 사용자가 직접 확인해야 확정된다"고 설명했으나 사용자가 이 설명을 거부("네가
+잘못 알고 있다")했고, 여러 차례 스크린샷 교환으로도 좁혀지지 않아 Opus에게 재검토를
+요청했다.
+
+**Opus 진단**: 사용자가 맞았다. `ExchangeExecutor._dateForNode`(교체 실행부)는 `selectedWeek`
+로부터 각 노드의 실제 날짜를 **이미 정확히 계산해서** `absenceDate`/`substitutionDate`를
+만든다. 그런데 이 값을 `nodeDates`에 기록하지 않고 버려서, 나중에 `resolveEventDates`가
+"결강일이 속한 주"라는 **같은 식으로 다시 유도**한 뒤 "추정"이라는 라벨을 붙여 "?"를
+띄우고 있었다 — 실은 몰라서 추정하는 게 아니라 **이미 아는 값을 기록만 안 한 것**이었다.
+2026-09-29의 "억지로 추정하지 않는다" 결정은 "모르는 값을 지어내지 말라"는 것이었지 "아는
+값을 기록하지 말라"는 뜻이 아니었으므로, 이 결정과 충돌하지 않는다.
+
+Sonnet이 처음 제안한 수정안("모델 팩토리에서 absenceDate로부터 무조건 역산해 시드")은
+Opus가 반려했다 — 플래그 OFF 상태에서 계획서의 `updateDates`(항목 전체 쌍 갱신) 경로와
+충돌해 계획서와 교체 화면이 서로 다른 날짜를 주장하게 되고, 기존 테스트 7개가 깨진다.
+
+**채택한 설계**: 값의 출처를 실행기(`selectedWeek`를 아는 유일한 계층)로 못박는다.
+- `lib/utils/node_date_seed.dart`(신규) — `seedNodeDatesForWeek(path, weekMonday)` 순수
+  함수. 순환·2중이 아니면 빈 맵. `path.nodes`를 순회해 각 노드의 슬롯에 `weekMonday +
+  (요일오프셋)`을 채운다 — `resolveEventDates`의 OQ-1 추정식과 완전히 같은 수식이지만,
+  나중에 다시 추측하는 게 아니라 **실행 시점에 사실로 기록**한다는 점이 다르다.
+- `ExchangeHistoryItem.fromExchangePath`에 옵셔널 `nodeDates` 인자 추가 — **미지정(null)이면
+  기존과 완전히 동일한 빈 맵**(기본값). 1:1·보강에는 절대 저장하지 않는다(`copyWithNodeDate`
+  와 같은 오염 방지 가드).
+- `ExchangeHistoryService.executeExchange`/`addExchange`에 같은 이름의 옵셔널 인자를
+  추가해 그대로 통과시킨다(서비스는 판단하지 않는다).
+- `ExchangeExecutor._computeExchangeDates`의 반환에 `weekMonday`를 추가하고,
+  `executeExchange`에서 `ref.read(nodeDateEditEnabledProvider)`가 true일 때만
+  `seedNodeDatesForWeek(exchangePath, dates.weekMonday)`를 계산해 넘긴다. **플래그
+  OFF(기본값)면 null을 넘겨 S5.6.6 이전과 완전히 동일하게 동작한다** — 이것이 이 단계도
+  플래그로 게이팅해야 하는 이유(읽기 쪽은 이미 무조건 켜져 있지만, 쓰기 쪽인 이 단계는
+  `updateDates`와의 충돌을 피하려면 반드시 게이팅해야 한다).
+- `content_input_grid.dart`의 `_applyDateSelection` 폴백 분기(이론상 발생하지 않아야 함)에
+  진단용 `AppLogger.warning` 한 줄 추가.
+- **관측 가능한 변화는 정확히 2가지뿐**(플래그 ON일 때): ① 참여 칸의 "?"가 사라짐(사용자가
+  원한 것) ② X/○ 하이라이트가 실제 주에만 스코프됨(예전엔 순환·2중이 어느 주를 봐도 항상
+  표시됐음 — 유령 하이라이트가 사라지는 방향이지만 눈에 띄는 변화라 수동 확인 항목에 포함).
+  SQLite `lessons` 출력·`project() ≡ dateAware` 등식·날짜표시 OFF 모드·계획서 표시값은
+  전부 **값 자체가 시드 전과 완전히 동일**함을 테스트로 증명했다(라벨만 추정→확정으로
+  바뀔 뿐).
+- **기존 항목 백필은 하지 않는다** — 오늘 테스트로 이미 만든 순환·2중 건은 `nodeDates`가
+  영구히 빈 채로 남아 계속 "?"가 뜬다. 삭제 후 새로 실행하면 새 로직으로 시드된다.
+- **알려진 한계(OQ-11)**: `nodeSlotKey`가 교사를 포함하지 않으므로(S5.6.0의 의도된 설계),
+  (요일,교시)가 같고 교사만 다른 두 노드는 같은 슬롯 키를 공유한다 — 2중 교체에서 실제로
+  발생 가능(테스트로 재현·고정함). 무해하지만 나중에 계획서에서 한쪽을 고치면 다른 쪽도
+  같이 바뀐다.
+- **덤으로 발견한 별개의 명명 오류(수정하지 않음, 별도 단계로 분리)**: `substitution_plan_
+  viewmodel.dart`의 `_handleDualExchange`에서 `absentNode`/`substituteNode`/
+  `intermediateNode1`/`intermediateNode2` 지역 변수명이 `DualExchangePath.nodes =>
+  [node1, node2, nodeA, nodeB]`의 실제 의미와 거꾸로 붙어 있다. 행 짝짓기·비고란은 우연히
+  올바르게 나오므로 동작 버그는 아니다 — 이번 단계와 무관해 손대지 않음(향후 S5.6.9 후보).
+- **검증**: `test/utils/node_date_seed_test.dart`(신규 5개 — 순환 시드, 슬롯 충돌 재현,
+  1:1·보강 빈 맵, 월요일 정규화, `resolveEventDates`와 값 동일성), `exchange_history_item_test.dart`
+  +4, `exchange_history_service_test.dart` +2, `exchange_cell_dates_test.dart` +1(전부
+  시드된 순환의 "?" 소멸 + 다른 주 완전 소거), `lesson_projection_test.dart` +1(시드된
+  2중의 SQLite 출력 불변 + R7 재확인). **기존 테스트는 단 1건도 수정하지 않았다** — Opus
+  설계의 핵심 목표였고 실제로 달성됐다. `flutter analyze` 전체 통과, `flutter test` 전체
+  377개 통과(기존 364개 전부 무수정 통과, 회귀 없음).
+- **사용자 실 앱 확인 완료(2026-09-30)**: 처음 재현 테스트에서 여전히 "?"가 떠 원인 조사를
+  진행했다. `executeExchange`/`_resolveOverlayDate`에 임시 진단 로그를 추가해 확인한 결과,
+  실행 순간 `nodeDateEditEnabled=false`로 찍혔다 — 코드 버그가 아니라 **Flutter의 hot
+  restart가 세션 메모리 전용 상태(이 스위치 포함)를 전부 초기화**하기 때문이었다. 사용자가
+  코드 수정마다 hot restart로 재확인하던 와중에, 재시작 후 스위치를 다시 켜지 않은 채
+  테스트해 계속 OFF로 실행된 것. 재시작 없이 스위치를 켠 직후 바로 실행하니 **참여 칸에
+  "?" 없이 정상적으로 날짜가 표시됨을 확인**("정상 동작하는 것 같습니다. 핫리로드후,
+  준비>기타 부분이 초기화되어서 생기는 문제였던 것으로 보입니다"). 진단 로그 3곳
+  (`exchange_executor.dart`, `exchange_history_service.dart`, `timetable_data_source.dart`)은
+  모두 제거했다 — `flutter analyze`/`flutter test`(377개) 재확인, 회귀 없음.
+- **교훈**: 세션 전용(비영속) 플래그는 hot restart마다 초기화된다는 것을 앞으로도 사용자
+  안내에 명시할 것 — 코드 수정 후 재시작한 뒤에는 실험용 스위치를 매번 다시 켜야 한다.
+- **다음**: S5.6.8(플래그 기본 ON 전환 + 문서 정리) 여부를 사용자와 논의.
+
+### S5.6.8 완료 기록 (2026-09-30) — 플래그 기본 ON 전환, S5.6 전체 완료
+
+- **변경**: `lib/providers/node_date_edit_provider.dart`의 `nodeDateEditEnabledProvider` 기본값을
+  `false` → `true`로 전환. Dartdoc을 "S5.6.5~S5.6.6, 실험적"에서 "S5.6.8부터 기본값"으로
+  갱신하고, S5.6.7(실행 시점 자동 확정) 동작도 함께 문서화. S4.0 패널의 토글
+  (`_buildNodeDateEditToggle`)도 라벨에서 "실험적" 문구를 빼고, 강조 색상 로직을 뒤집었다 —
+  기본값(켜짐)은 평범한 상태로 두고, **꺼서 예전 방식(항상 "?")으로 되돌린 경우에만** 주황색
+  으로 강조한다(S5.5.4의 "SQLite 조회 경로" 토글과 반대 방향 — 그쪽은 아직 기본 꺼짐이라
+  "켜졌을 때" 강조).
+- **영향**: 이제부터 순환·2중 교체를 실행하면 **기본적으로** 참여 칸 날짜가 즉시 확정되고
+  "?" 없이 표시된다. 문제가 있으면 언제든 S4.0 패널에서 스위치를 꺼서 재빌드 없이 즉시
+  예전 방식(순환·2중은 항상 "?")으로 되돌릴 수 있다 — 이미 확정된 날짜가 지워지지는 않지만
+  새로 실행하는 교체부터는 확정하지 않는다.
+- **회귀**: 기본값이 바뀌므로 `nodeDateEditEnabledProvider`의 기본값(꺼짐)에 의존하던 테스트
+  1건(`substitution_plan_viewmodel_node_dates_test.dart`의 "플래그 OFF" 테스트)이 명시적으로
+  `container.read(nodeDateEditEnabledProvider.notifier).state = false`를 설정하도록 수정
+  됐다 — 이 테스트가 검증하는 내용(플래그 OFF 시 예전 동작) 자체는 그대로다. 그 외 테스트는
+  전부 무수정 통과. `flutter analyze` 전체 통과, `flutter test` 전체 377개 통과.
+- **S5.6 전체(S5.6.0~S5.6.8) 완료.** 순환·2중 교체의 노드별 날짜 확정 기능이 기본으로
+  켜져 있고, 실행 시점 자동 확정 + 계획서 화면 수동 보정 두 경로 모두 실 앱에서 확인
+  완료됐다.
+
 ### S2 완료 기록 (2026-09-29)
 
 - **패키지 선택**: `sqflite` + `sqflite_common_ffi`. 이 앱은 Windows 데스크톱이 주 대상이라 `sqflite` 단독으로는
@@ -813,3 +1361,15 @@ D2(다른 주 교체 시 상대 날짜를 어떻게 선택하는가)와 D7(기�
 | 날짜 | 내용 |
 |---|---|
 | 2026-09-29 | `c4867cf` 실패 이후 재작성. S0·S1만 상세화, SQLite 유지·데이터 모델 우선 착수로 확정 |
+| 2026-09-29 | S5(S5.0~S5.4b) 완료 — SQLite `lessons`가 실제 진실 원본이 됨. S5.5 Opus 설계 검토 승인, S5.5.0(조회 헬퍼 2개, 비연결) 완료 |
+| 2026-09-29 | S5.5.1(`ResolvedWeek.fromLessons` 오버레이 어댑터, 비연결) 완료 — S5.3 픽스처로 dateAware와 동등성 증명 |
+| 2026-09-29 | S5.5.2(S4.0 패널에 섀도우 비교 패널 추가) 완료, 사용자가 순환·2중 포함 4건으로 "불일치 0칸" 확인 — 게이트 통과. S5.5.3(프리페치 캐시 `WeekLessonsCache`, `flushPendingWrites`, 비연결) 완료 |
+| 2026-09-29 | S5.5.4(실제 조회 전환, 기본 OFF) 완료 — `resolved_timetable_provider`·`exchange_view_provider` 둘 다 SQLite 오버레이 경로로 연결, S4.0 패널에 롤백 스위치 추가(S5.5.5 토글 선반영). 사용자 실 앱 확인 대기 중 |
+| 2026-09-30 | 사용자가 S5.5.4 실 앱 테스트 중 표시/검증 불일치 버그 발견(교체 이력 변경 시 `WeekLessonsCache` 미무효화) — `exchangeListVersionProvider` 구독 추가로 수정, 회귀 테스트 추가 |
+| 2026-09-30 | 같은 테스트 중 별개의 기존 버그 발견(되돌린 교체가 계획서에 계속 남음, S5.5와 무관) — `loadPlanData()`가 `getActiveExchangeList()`를 쓰도록 수정, 회귀 테스트 추가 |
+| 2026-09-30 | S5.6(순환·2중 노드별 날짜) Opus 설계 검토 완료, 사용자 승인. S5.6.0~S5.6.4(데이터 모델·SQLite 미러·판단 로직·조회 세분화·저장 메서드) 전부 완료, 전부 비연결(동작 변화 0). R7(2중 등식) 게이트 통과 |
+| 2026-09-30 | S5.6.5(계획서 화면 표시를 노드 기준으로 전환) 완료 — `nodeDateEditEnabledProvider` 신설(기본 OFF) |
+| 2026-09-30 | S5.6.6(계획서 날짜 선택기 → `updateNodeDate` 실제 연결) 완료, S4.0 패널에 토글 추가. 사용자 실 앱 확인 대기 중 |
+| 2026-09-30 | 사용자가 "순환·2중 실행 시 날짜가 이미 자동 배정되는데 왜 ?로 뜨냐" 지적 → Opus 재검토 → S5.6.7(실행 시점 노드 날짜 자동 확정, 플래그 게이팅) 완료. 기존 테스트 0건 수정, 신규 13개 |
+| 2026-09-30 | S5.6.7 재현 테스트에서 "?"가 계속 떠 진단 로그로 조사 — 원인은 hot restart가 세션 전용 플래그를 초기화하는 것(코드 버그 아님). 재시작 없이 재확인해 정상 동작 확인, 진단 로그 제거 |
+| 2026-09-30 | S5.6.8(플래그 기본 ON 전환) 완료 — S5.6(순환·2중 교체 노드별 날짜 확정) 전체 완료 |

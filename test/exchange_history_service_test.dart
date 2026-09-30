@@ -1,9 +1,36 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:class_exchange_manager/models/circular_exchange_path.dart';
 import 'package:class_exchange_manager/models/exchange_node.dart';
 import 'package:class_exchange_manager/models/one_to_one_exchange_path.dart';
 import 'package:class_exchange_manager/models/time_slot.dart';
 import 'package:class_exchange_manager/services/exchange_history_service.dart';
 import 'package:class_exchange_manager/utils/exchange_algorithm.dart';
+
+/// 테스트용 순환 교체 경로 생성 (S5.6 `updateNodeDate` 테스트용)
+CircularExchangePath _createTestCircularPath() {
+  final a = ExchangeNode(
+    teacherName: 'A',
+    day: '월',
+    period: 1,
+    className: '1-1',
+    subjectName: '수학',
+  );
+  final b = ExchangeNode(
+    teacherName: 'B',
+    day: '화',
+    period: 2,
+    className: '1-1',
+    subjectName: '영어',
+  );
+  final c = ExchangeNode(
+    teacherName: 'C',
+    day: '수',
+    period: 3,
+    className: '1-1',
+    subjectName: '과학',
+  );
+  return CircularExchangePath.fromNodes([a, b, c, a]);
+}
 
 /// 테스트 기본 결강일 (월요일)
 final DateTime _testAbsenceDate = DateTime(2026, 8, 24);
@@ -339,6 +366,121 @@ void main() {
       final updated = service.updateDates(id, absenceDate: DateTime(2026, 9, 3));
 
       expect(updated!.weekMonday, DateTime(2026, 8, 31));
+    });
+  });
+
+  group('ExchangeHistoryService.updateNodeDate (S5.6)', () {
+    test('순환 교체의 노드 슬롯에 확정 날짜를 저장한다', () {
+      service.addExchange(
+        _createTestCircularPath(),
+        customDescription: '순환',
+        absenceDate: DateTime(2026, 8, 24),
+        substitutionDate: DateTime(2026, 8, 25),
+      );
+      final id = service.getExchangeList().single.id;
+
+      final updated = service.updateNodeDate(
+        id,
+        dayName: '화',
+        period: 2,
+        date: DateTime(2026, 9, 8), // 화요일
+      );
+
+      expect(updated, isNotNull);
+      expect(updated!.nodeDateFor('화', 2), DateTime(2026, 9, 8));
+      final stored = service.getExchangeItem(id);
+      expect(stored!.nodeDateFor('화', 2), DateTime(2026, 9, 8));
+    });
+
+    test('1:1 교체(순환·2중이 아님)에는 적용되지 않고 null과 함께 상태도 그대로다', () {
+      _addTestExchange(service, '1', description: 'A');
+      final id = service.getExchangeList().single.id;
+
+      final updated = service.updateNodeDate(
+        id,
+        dayName: '월',
+        period: 1,
+        date: DateTime(2026, 8, 31), // 월요일
+      );
+
+      expect(updated, isNull);
+      expect(service.getExchangeItem(id)!.nodeDates, isEmpty);
+    });
+
+    test('슬롯 요일과 실제 날짜의 요일이 다르면 null을 반환하고 상태를 바꾸지 않는다', () {
+      service.addExchange(
+        _createTestCircularPath(),
+        customDescription: '순환',
+        absenceDate: DateTime(2026, 8, 24),
+        substitutionDate: DateTime(2026, 8, 25),
+      );
+      final id = service.getExchangeList().single.id;
+
+      // '화' 슬롯인데 월요일 날짜를 넘긴다 — 요일 불일치.
+      final updated = service.updateNodeDate(
+        id,
+        dayName: '화',
+        period: 2,
+        date: DateTime(2026, 9, 7), // 월요일
+      );
+
+      expect(updated, isNull);
+      expect(service.getExchangeItem(id)!.nodeDates, isEmpty);
+    });
+
+    test('버전이 증가해 계획서·SQLite 캐시 무효화 리스너가 반응할 수 있다', () {
+      service.addExchange(
+        _createTestCircularPath(),
+        customDescription: '순환',
+        absenceDate: DateTime(2026, 8, 24),
+        substitutionDate: DateTime(2026, 8, 25),
+      );
+      final id = service.getExchangeList().single.id;
+      final versionBefore = service.getExchangeListVersion();
+
+      service.updateNodeDate(id, dayName: '화', period: 2, date: DateTime(2026, 9, 8));
+
+      expect(service.getExchangeListVersion(), greaterThan(versionBefore));
+    });
+
+    test('존재하지 않는 id면 null을 반환한다', () {
+      _addTestExchange(service, '1', description: 'A');
+
+      final updated = service.updateNodeDate(
+        'no-such-id',
+        dayName: '월',
+        period: 1,
+        date: DateTime(2026, 8, 31),
+      );
+
+      expect(updated, isNull);
+    });
+  });
+
+  group('ExchangeHistoryService.addExchange(nodeDates:) (S5.6.7)', () {
+    test('순환 교체 실행 시 nodeDates를 넘기면 저장된다', () {
+      service.addExchange(
+        _createTestCircularPath(),
+        customDescription: '순환',
+        absenceDate: DateTime(2026, 8, 24),
+        substitutionDate: DateTime(2026, 8, 25),
+        nodeDates: {'화|2': DateTime(2026, 8, 25)},
+      );
+
+      final item = service.getExchangeList().single;
+      expect(item.nodeDateFor('화', 2), DateTime(2026, 8, 25));
+    });
+
+    test('nodeDates를 넘기지 않으면(기존 호출부) 순환 교체도 빈 맵이다', () {
+      service.addExchange(
+        _createTestCircularPath(),
+        customDescription: '순환',
+        absenceDate: DateTime(2026, 8, 24),
+        substitutionDate: DateTime(2026, 8, 25),
+      );
+
+      final item = service.getExchangeList().single;
+      expect(item.nodeDates, isEmpty);
     });
   });
 }

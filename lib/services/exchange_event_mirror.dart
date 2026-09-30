@@ -41,6 +41,16 @@ ExchangeEventRecord _toRecord(
     substitutionDate: item.substitutionDate,
     isReverted: item.isReverted,
     pathJson: jsonEncode(item.originalPath.toJson()),
+    // S5.6: 비어 있으면(1:1·보강, 또는 노드 날짜를 아직 지정하지 않은
+    // 순환·2중) null로 둔다 — toJson()이 빈 맵일 때 키를 생략하는 것과
+    // 같은 이유(구 행과 바이트 단위로 같은 의미를 유지).
+    nodeDatesJson:
+        item.nodeDates.isEmpty
+            ? null
+            : jsonEncode({
+              for (final entry in item.nodeDates.entries)
+                entry.key: entry.value.toIso8601String(),
+            }),
     description: item.description,
     notes: item.notes,
     tags: item.tags,
@@ -70,6 +80,8 @@ ExchangeHistoryItem toExchangeHistoryItem(ExchangeEventRecord record) {
     'tags': record.tags,
     'profileId': record.profileId,
     'isReverted': record.isReverted,
+    if (record.nodeDatesJson != null)
+      'nodeDates': jsonDecode(record.nodeDatesJson!),
     'originalPath': jsonDecode(record.pathJson),
   });
 }

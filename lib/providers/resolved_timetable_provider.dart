@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/exchange_history_item.dart';
 import '../models/time_slot.dart';
+import '../utils/logger.dart';
 import '../utils/non_exchangeable_week_overlay.dart';
 import '../utils/resolved_week.dart';
 import 'exchange_screen_provider.dart';
@@ -7,6 +9,7 @@ import 'non_exchangeable_dated_cells_provider.dart';
 import 'selected_week_provider.dart';
 import 'services_provider.dart';
 import 'show_week_header_provider.dart';
+import 'week_lessons_cache_provider.dart';
 
 /// 교체 가능성 **판정**에 사용할 시간표 (§10.8 4d)
 ///
@@ -40,21 +43,67 @@ final resolvedTimetableProvider = Provider<List<TimeSlot>>((ref) {
   // 날짜표시 스위치(S1.5)가 ON이면 실제 날짜 기준으로 다른 주 교체를 독립
   // 반영한다(S1.8, 2026-09-29 사용자 확정 — 검증도 화면 표시와 함께 고침).
   // OFF면 기존 방식(`of`)을 그대로 쓴다 — 이 분기 자체가 회귀 안전성의 핵심이다.
+  //
+  // OFF 모드는 S5.5.4에서도 절대 SQLite를 읽지 않는다(S5.5 설계 검토 Decision D) —
+  // 날짜 키 데이터로는 "결강일 주 몰아보기"(`of`의 동작)를 재현할 수 없고,
+  // "날짜표시 OFF는 날짜 정보를 유출하지 않는다"는 불변 조건을 계속 지키기
+  // 위해서다. ON 모드에서만, 그리고 [lessonReadPathEnabledProvider]가 true일
+  // 때만 아래에서 SQLite 오버레이로 바꿔치기한다.
   final showWeekHeader = ref.watch(showWeekHeaderProvider);
   final resolved =
-      (showWeekHeader
-              ? ResolvedWeek.dateAware(
-                base: base,
-                events: events,
-                weekMonday: weekMonday,
-              )
-              : ResolvedWeek.of(base: base, events: events, weekMonday: weekMonday))
-          .toTimeSlots(base);
+      showWeekHeader
+          ? _resolveOnWeek(ref, base: base, events: events, weekMonday: weekMonday)
+          : ResolvedWeek.of(base: base, events: events, weekMonday: weekMonday);
+  final resolvedSlots = resolved.toTimeSlots(base);
 
   // 날짜 지정 교체불가 셀(§10.6) — 매주 반복 셀은 이미 base에 구워져 있으므로
   // 여기서는 그 주에만 적용되는 셀만 얹는다.
   final datedNonExchangeable = ref.watch(nonExchangeableDatedCellsProvider);
-  if (datedNonExchangeable.isEmpty) return resolved;
+  if (datedNonExchangeable.isEmpty) return resolvedSlots;
 
-  return applyDatedNonExchangeable(resolved, datedNonExchangeable, weekMonday);
+  return applyDatedNonExchangeable(resolvedSlots, datedNonExchangeable, weekMonday);
 });
+
+/// 날짜표시 ON 모드의 합성 — [lessonReadPathEnabledProvider]가 켜져 있고
+/// SQLite 캐시가 이미 준비돼 있으면 그 값을 쓰고, 아니면 기존 `dateAware`로
+/// 폴백한다(S5.5.4, 3단계 롤백 중 2단계 — 캐시가 준비 안 됐을 때의 자동 폴백은
+/// 이 함수 자체가 항상 수행한다).
+///
+/// [weekLessonsCacheTickerProvider]를 watch하므로, 캐시가 비동기로 채워진
+/// 직후 이 Provider가 자동으로 다시 계산되어 SQLite 값으로 갱신된다.
+ResolvedWeek _resolveOnWeek(
+  Ref ref, {
+  required List<TimeSlot> base,
+  required List<ExchangeHistoryItem> events,
+  required DateTime weekMonday,
+}) {
+  final lessonReadEnabled = ref.watch(lessonReadPathEnabledProvider);
+  if (!lessonReadEnabled) {
+    return ResolvedWeek.dateAware(base: base, events: events, weekMonday: weekMonday);
+  }
+
+  final timetableId = ref.read(exchangeHistoryServiceProvider).timetableId;
+  if (timetableId == null) {
+    return ResolvedWeek.dateAware(base: base, events: events, weekMonday: weekMonday);
+  }
+
+  // 캐시가 준비되면 이 Provider를 다시 계산시키기 위한 구독.
+  ref.watch(weekLessonsCacheTickerProvider);
+
+  final cache = ref.read(weekLessonsCacheProvider);
+  final touched = cache.lessonsFor(timetableId, weekMonday);
+  if (touched != null) {
+    return ResolvedWeek.fromLessons(
+      base: base,
+      touchedLessons: touched,
+      weekMonday: weekMonday,
+    );
+  }
+
+  // 아직 캐시가 준비되지 않았다 — 이번 프레임은 기존 경로로 폴백하고,
+  // 백그라운드로 준비시킨다(끝나면 ticker가 올라 이 Provider가 다시 계산된다).
+  cache.ensureLoaded(timetableId, weekMonday).catchError((Object e) {
+    AppLogger.error('resolvedTimetableProvider용 SQLite 프리페치 실패: $e', e);
+  });
+  return ResolvedWeek.dateAware(base: base, events: events, weekMonday: weekMonday);
+}

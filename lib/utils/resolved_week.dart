@@ -3,12 +3,13 @@ import '../models/dual_exchange_path.dart';
 import '../models/exchange_history_item.dart';
 import '../models/exchange_node.dart';
 import '../models/exchange_path.dart';
+import '../models/lesson.dart';
 import '../models/one_to_one_exchange_path.dart';
 import '../models/supplement_exchange_path.dart';
 import '../models/time_slot.dart';
 import '../ui/screens/personal_schedule_screen/exchange_week_collector.dart';
 import 'day_utils.dart';
-import 'exchange_cell_dates.dart';
+import 'event_date_resolver.dart';
 import 'week_date_calculator.dart';
 
 /// 교체 경로가 실제로 수행하는 셀 이동 1건
@@ -260,10 +261,11 @@ class ResolvedWeek {
   /// [of]와 **완전히 같은 결과**를 낸다 — `exchange_cell_dates_test.dart`와
   /// `resolved_week_test.dart`의 기존 동일 주 픽스처로 이 성질을 검증한다.
   ///
-  /// 순환·2중 교체, 또는 요일과 실제 날짜가 어긋나는 이벤트는 노드별 실제
-  /// 날짜를 알 수 없으므로([ExchangeCellDates.forItem]의 `unsupported`),
-  /// [of]와 동일하게 결강일이 속한 주에 양쪽을 함께 적용하는 방식으로
-  /// 안전하게 폴백한다(틀린 주에 나눠 표시하지 않는다).
+  /// 순환·2중 교체는 [resolveEventDates]가 노드별 확정 날짜(S5.6, 계획서에서
+  /// 지정)를 갖고 있으면 그 슬롯만 정확히 배치하고, 없으면 [of]와 동일하게
+  /// "결강일이 속한 주"로 추정한 값을 쓴다(틀린 주에 억지로 나눠 표시하지
+  /// 않는다 — 추정값은 항상 그 이벤트의 전 슬롯이 같은 주이므로 아래 통합
+  /// 분기가 자동으로 `of`와 같은 결과를 낸다).
   static ResolvedWeek dateAware({
     required List<TimeSlot> base,
     required List<ExchangeHistoryItem> events,
@@ -290,23 +292,11 @@ class ResolvedWeek {
     final activeEvents = events.where((e) => !e.isReverted);
 
     for (final event in activeEvents) {
-      final cellDates = ExchangeCellDates.forItem(event);
-
-      if (!cellDates.supported) {
-        // 순환·2중, 또는 요일 불일치 — of()와 동일한 방식으로 폴백
-        if (inViewedWeek(event.absenceDate)) {
-          for (final move in exchangePathMoves(event.originalPath)) {
-            _applyMove(cells, move);
-          }
-        }
-        continue;
-      }
-
-      final dateByDay = cellDates.dateByDayNumber;
+      final resolution = resolveEventDates(event);
 
       for (final move in exchangePathMoves(event.originalPath)) {
-        final fromDate = dateByDay[move.fromDay];
-        final toDate = dateByDay[move.toDay];
+        final fromDate = resolution.forSlot(move.fromDay, move.fromPeriod)?.date;
+        final toDate = resolution.forSlot(move.toDay, move.toPeriod)?.date;
         if (fromDate == null || toDate == null) {
           // 이론상 발생하지 않아야 하지만, 방어적으로 기존 방식으로 폴백
           if (inViewedWeek(event.absenceDate)) _applyMove(cells, move);
@@ -348,6 +338,56 @@ class ResolvedWeek {
       isExchangeable: sourceCell.isExchangeable,
       exchangeReason: sourceCell.exchangeReason,
     );
+  }
+
+  /// [base](원본 시간표) 위에, SQLite `lessons`에서 조회한 [touchedLessons]만
+  /// 덮어써 합성한다 (S5.5.1 — 조회 전환용 오버레이 어댑터).
+  ///
+  /// [of]/[dateAware]와 달리 이벤트 목록을 직접 재생하지 않는다 — 이미
+  /// `lesson_projection.dart`의 [project]가 재생을 끝내고 `TimetableRepository`에
+  /// 저장해 둔 결과([touchedLessons], 보통 `getTouchedLessonsForWeek`의 반환값)를
+  /// "덮어쓰기"만 한다는 점이 이 함수의 전략(오버레이) 전체를 요약한다.
+  ///
+  /// [touchedLessons]에 없는 칸은 [base] 그대로 남는다 — 건드린 적 없는 칸까지
+  /// 전부 가져올 필요가 없다는 것이 이 오버레이 전략의 핵심이다(S5.5 설계 검토
+  /// Decision A). 덮어쓰는 내용은 **`subject`/`className`뿐**이다 —
+  /// `isExchangeable`/`exchangeReason`(교체 가능 여부·사유)은 [base]의 값을 그대로
+  /// 유지한다(S5.5 설계 검토 Decision B, R8 — 이 값은 원본 시간표 속성이지
+  /// 교체로 바뀌는 값이 아니므로 SQLite 쪽 값을 신뢰하지 않는다).
+  ///
+  /// [weekMonday]는 결과에 실릴 값일 뿐 필터링에 쓰이지 않는다 — 호출자가 이미
+  /// 그 주에 해당하는 [touchedLessons]만 건네준다고 가정한다(`getTouchedLessonsForWeek`
+  /// 계약). 이 함수 자체는 [Lesson.date]의 요일(`DateTime.weekday`, 1=월~5=금 —
+  /// [CellMove]가 쓰는 것과 같은 체계)만으로 어느 칸을 덮어쓸지 정한다.
+  static ResolvedWeek fromLessons({
+    required List<TimeSlot> base,
+    required List<Lesson> touchedLessons,
+    required DateTime weekMonday,
+  }) {
+    final cells = <String, TimeSlot>{};
+    for (final slot in base) {
+      final teacher = slot.teacher;
+      final day = slot.dayOfWeek;
+      final period = slot.period;
+      if (teacher == null || day == null || period == null) continue;
+      cells[_key(teacher, day, period)] = slot.copy();
+    }
+
+    for (final lesson in touchedLessons) {
+      final key = _key(lesson.teacher, lesson.date.weekday, lesson.period);
+      final baseSlot = cells[key];
+      cells[key] = TimeSlot(
+        teacher: lesson.teacher,
+        subject: lesson.subject,
+        className: lesson.className,
+        dayOfWeek: lesson.date.weekday,
+        period: lesson.period,
+        isExchangeable: baseSlot?.isExchangeable ?? true,
+        exchangeReason: baseSlot?.exchangeReason,
+      );
+    }
+
+    return ResolvedWeek._(cells, weekMonday);
   }
 
   /// [move]의 "채워지는 쪽"만 적용한다 — 소스 내용은 **원본 스냅샷**([baseIndex])

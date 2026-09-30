@@ -107,4 +107,50 @@ void main() {
       expect(events.single.isReverted, isFalse);
     },
   );
+
+  /// S5.5.3: [flushPendingWrites]가 이 파일의 다른 테스트들이 쓰던
+  /// `Future.delayed(200ms)` 추측성 대기를 대체할 수 있는지 확인한다 —
+  /// 큐에 쌓인 쓰기(JSON 저장 → SQLite 미러 → replayInto)가 실제로 끝난
+  /// 뒤에만 반환되는지가 핵심이다.
+  test('flushPendingWrites는 큐에 쌓인 쓰기가 실제로 끝난 뒤에만 반환된다', () async {
+    const timetableId = 'tt_flush_test';
+    final container = ProviderContainer(
+      overrides: [
+        timetableDatabaseProvider.overrideWith(
+          (ref) => TimetableDatabase.open(path: inMemoryDatabasePath),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final repo = await container.read(timetableRepositoryProvider.future);
+    await repo.insertTimetable(
+      DatedTimetable(
+        id: timetableId,
+        name: '테스트',
+        semester: SchoolSemester.defaultFor(schoolYear: 2026, semester: 2),
+        registeredAt: DateTime(2026, 8, 1),
+      ),
+    );
+
+    final history = container.read(exchangeHistoryServiceProvider);
+    history.timetableId = timetableId;
+    addTearDown(() async {
+      await history.clearStoredDataForTimetable(timetableId);
+      history.resetForTesting();
+    });
+
+    history.addExchange(
+      _path('flush'),
+      absenceDate: DateTime(2026, 9, 3),
+      substitutionDate: DateTime(2026, 9, 5),
+    );
+
+    // Future.delayed 없이 flushPendingWrites만으로 SQLite 반영을 기다린다.
+    await history.flushPendingWrites();
+
+    final events = await repo.getExchangeEvents(timetableId);
+    expect(events.length, 1);
+    expect(events.single.isReverted, isFalse);
+  });
 }

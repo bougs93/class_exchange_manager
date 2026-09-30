@@ -11,6 +11,7 @@ import '../../../utils/logger.dart';
 import '../../../utils/snackbar_helper.dart';
 import '../../../utils/timetable_data_source.dart';
 import '../../../providers/cell_selection_provider.dart';
+import '../../../providers/node_date_edit_provider.dart';
 import '../../../providers/state_reset_provider.dart';
 import '../../../providers/services_provider.dart';
 import '../../../providers/exchange_view_provider.dart';
@@ -19,6 +20,7 @@ import '../../../providers/selected_week_provider.dart';
 import '../../../utils/day_utils.dart';
 import '../../../utils/exchange_cell_dates.dart';
 import '../../../utils/exchange_dependency_checker.dart';
+import '../../../utils/node_date_seed.dart';
 import '../../../providers/show_week_header_provider.dart';
 import '../../screens/personal_schedule_screen/exchange_week_collector.dart';
 
@@ -105,7 +107,7 @@ class ExchangeExecutor {
   /// 결강 기준 노드(비게 되는 수업)와 교체 기준 노드(보강/이동되는 수업)는
   /// 경로 타입마다 다르므로, 스낵바 메시지를 만들 때 쓰는 것과 같은
   /// "대표 노드 2개" 선택 규칙을 그대로 따릅니다.
-  ({DateTime absenceDate, DateTime substitutionDate}) _computeExchangeDates(
+  ({DateTime absenceDate, DateTime substitutionDate, DateTime weekMonday}) _computeExchangeDates(
     ExchangePath exchangePath,
   ) {
     final weekMonday = ref.read(selectedWeekProvider);
@@ -136,6 +138,7 @@ class ExchangeExecutor {
     return (
       absenceDate: _dateForNode(weekMonday, absenceNode),
       substitutionDate: _dateForNode(weekMonday, substitutionNode),
+      weekMonday: weekMonday,
     );
   }
 
@@ -197,6 +200,16 @@ class ExchangeExecutor {
 
     final dates = _computeExchangeDates(exchangePath);
 
+    // S5.6.7: 순환·2중은 실행 시점에 이미 각 노드의 실제 날짜를 알고 있다
+    // (바로 위 dates가 나온 것과 같은 selectedWeek 기준 계산) — 나중에
+    // 계획서에서 "추정"으로 다시 유도하는 대신, 지금 그 사실을 그대로
+    // 기록해 둔다. 스위치가 꺼져 있으면(기본값) null을 넘겨 기존과
+    // 완전히 동일하게 동작한다(nodeDates는 계속 빈 맵).
+    final nodeDates =
+        ref.read(nodeDateEditEnabledProvider)
+            ? seedNodeDatesForWeek(exchangePath, dates.weekMonday)
+            : null;
+
     historyService.executeExchange(
       exchangePath,
       absenceDate: dates.absenceDate,
@@ -208,6 +221,7 @@ class ExchangeExecutor {
         'source': 'timetable_grid_section',
       },
       stepCount: stepCount,
+      nodeDates: nodeDates,
     );
 
     // 공통 후처리

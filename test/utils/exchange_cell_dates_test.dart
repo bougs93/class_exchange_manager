@@ -242,6 +242,94 @@ void main() {
     });
   });
 
+  group('ExchangeCellDates.forWeek — 순환·2중 노드별 확정 날짜 (S5.6)', () {
+    test('노드 하나가 확정되면 그 칸만 실제 주에 스코프되고 undatedKeys에서 빠진다', () {
+      final a = _node('A', '월', 1);
+      final b = _node('B', '화', 2);
+      final c = _node('C', '수', 3);
+      final path = CircularExchangePath.fromNodes([a, b, c, a]);
+      final item = ExchangeHistoryItem.fromExchangePath(
+        path,
+        absenceDate: DateTime(2026, 8, 24), // 월, 8월4주
+        substitutionDate: DateTime(2026, 8, 25),
+      ).copyWithNodeDate('화', 2, DateTime(2026, 9, 8)); // B(화,2)만 9월2주로 확정
+
+      final absenceWeek = ExchangeCellDates.forWeek([item], DateTime(2026, 8, 24));
+      final confirmedWeek = ExchangeCellDates.forWeek([item], DateTime(2026, 9, 7));
+
+      // 확정된 화(B) 칸은 결강일 주에는 더 이상 나타나지 않는다(다른 주로 확정됐으므로).
+      expect(absenceWeek.sourceKeys.contains('B_화_2'), isFalse);
+      expect(absenceWeek.undatedKeys.contains('B_화_2'), isFalse);
+      // 확정 안 된 A·C의 칸은 여전히 결강일 주에 추정으로 나타난다.
+      expect(absenceWeek.sourceKeys, containsAll(['A_월_1', 'C_수_3']));
+      expect(absenceWeek.undatedKeys, containsAll(['A_월_1', 'C_수_3']));
+
+      // 확정된 주에는 B의 소스 칸이 나타나고, 더 이상 "?"가 아니다(undatedKeys에 없음).
+      expect(confirmedWeek.sourceKeys.contains('B_화_2'), isTrue);
+      expect(confirmedWeek.undatedKeys.contains('B_화_2'), isFalse);
+    });
+
+    test('확정 노드가 이 주에도 저 주에도 아니면(관계없는 주) 아무 데도 나타나지 않는다', () {
+      final a = _node('A', '월', 1);
+      final b = _node('B', '화', 2);
+      final c = _node('C', '수', 3);
+      final path = CircularExchangePath.fromNodes([a, b, c, a]);
+      final item = ExchangeHistoryItem.fromExchangePath(
+        path,
+        absenceDate: DateTime(2026, 8, 24),
+        substitutionDate: DateTime(2026, 8, 25),
+      ).copyWithNodeDate('화', 2, DateTime(2026, 9, 8));
+
+      final unrelatedWeek = ExchangeCellDates.forWeek([item], DateTime(2026, 9, 21));
+
+      expect(unrelatedWeek.sourceKeys.contains('B_화_2'), isFalse);
+      expect(unrelatedWeek.destinationKeys.contains('B_화_2'), isFalse);
+      expect(unrelatedWeek.undatedKeys.contains('B_화_2'), isFalse);
+    });
+  });
+
+  group('ExchangeCellDates.legacySourceKeys/legacyDestinationKeys — forWeek와 같은 키 집합 (S5.6)', () {
+    test('순환 교체 — 확정 노드가 없으면 forWeek의 결과가 legacy 키 집합과 정확히 같다', () {
+      final a = _node('A', '월', 1);
+      final b = _node('B', '화', 2);
+      final c = _node('C', '수', 3);
+      final path = CircularExchangePath.fromNodes([a, b, c, a]);
+      final item = ExchangeHistoryItem.fromExchangePath(
+        path,
+        absenceDate: DateTime(2026, 8, 24),
+        substitutionDate: DateTime(2026, 8, 25),
+      );
+
+      final result = ExchangeCellDates.forWeek([item], DateTime(2026, 1, 5)); // 아무 주
+
+      expect(result.sourceKeys, ExchangeCellDates.legacySourceKeys(path).toSet());
+      expect(result.destinationKeys, ExchangeCellDates.legacyDestinationKeys(path).toSet());
+    });
+
+    test('2중 교체 — 확정 노드가 없으면 forWeek의 결과가 legacy 키 집합과 정확히 같다', () {
+      final nodeA = _node('박지혜', '월', 1);
+      final nodeB = _node('이숙희', '화', 4);
+      final node1 = _node('이숙희', '월', 4);
+      final node2 = _node('손혜옥', '화', 5);
+      final path = DualExchangePath.build(
+        nodeA: nodeA,
+        nodeB: nodeB,
+        node1: node1,
+        node2: node2,
+      );
+      final item = ExchangeHistoryItem.fromExchangePath(
+        path,
+        absenceDate: DateTime(2026, 8, 24),
+        substitutionDate: DateTime(2026, 8, 25),
+      );
+
+      final result = ExchangeCellDates.forWeek([item], DateTime(2026, 1, 5));
+
+      expect(result.sourceKeys, ExchangeCellDates.legacySourceKeys(path).toSet());
+      expect(result.destinationKeys, ExchangeCellDates.legacyDestinationKeys(path).toSet());
+    });
+  });
+
   group('ExchangeCellDates.legacySourceKeys/legacyDestinationKeys — 기존 규칙 그대로', () {
     test('1:1 교체의 소스·목적지 키가 기존 규칙과 동일하다', () {
       final path = _oneToOnePath(
@@ -261,6 +349,38 @@ void main() {
         'B_월_1',
         'A_화_2',
       ]);
+    });
+  });
+
+  group('ExchangeCellDates.forWeek — 실행 시점에 전부 시드된 순환 교체 (S5.6.7)', () {
+    test('결강일 주에서는 undatedKeys가 비고, 나머지 주에서는 모든 키가 사라진다', () {
+      final a = _node('A', '월', 1);
+      final b = _node('B', '화', 2);
+      final c = _node('C', '수', 3);
+      final path = CircularExchangePath.fromNodes([a, b, c, a]);
+      final weekMonday = DateTime(2026, 8, 24); // 월요일
+      var item = ExchangeHistoryItem.fromExchangePath(
+        path,
+        absenceDate: weekMonday,
+        substitutionDate: weekMonday.add(const Duration(days: 1)),
+      );
+      // 실행 시점 시드를 그대로 재현 — 모든 노드가 확정된다.
+      for (final node in [a, b, c]) {
+        item = item.copyWithNodeDate(
+          node.day,
+          node.period,
+          weekMonday.add(Duration(days: {'월': 0, '화': 1, '수': 2}[node.day]!)),
+        );
+      }
+
+      final absenceWeek = ExchangeCellDates.forWeek([item], weekMonday);
+      final otherWeek = ExchangeCellDates.forWeek([item], DateTime(2026, 1, 5));
+
+      expect(absenceWeek.undatedKeys, isEmpty);
+      expect(absenceWeek.sourceKeys, isNotEmpty);
+      expect(otherWeek.sourceKeys, isEmpty);
+      expect(otherWeek.destinationKeys, isEmpty);
+      expect(otherWeek.undatedKeys, isEmpty);
     });
   });
 }

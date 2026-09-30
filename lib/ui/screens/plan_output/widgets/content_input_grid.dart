@@ -11,6 +11,7 @@ import '../../../../constants/screen_usage_hints.dart';
 import '../../../../models/exchange_history_item.dart';
 import '../../../../models/plan_output_menu.dart';
 import '../../../../models/print_profile.dart';
+import '../../../../providers/node_date_edit_provider.dart';
 import '../../../../providers/plan_output_menu_provider.dart';
 import '../../../../providers/print_profile_provider.dart';
 import '../../../../providers/substitution_plan_provider.dart';
@@ -1591,7 +1592,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
         if (!context.mounted) return;
         final saved = await _applyDateSelection(
           context,
-          data.groupId,
+          data,
           columnName,
           selectedDate,
         );
@@ -1618,13 +1619,23 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
   /// 즉시 저장한다. 과거에는 §10.5 A안에 따라 결강일이 실제로 다른 주로
   /// 이동할 때만 "다른 주로 이동" 확인을 띄웠으나(교체일 수정 시 불필요하게
   /// 뜨던 버그는 이미 고쳤었다), 사용자가 그 확인 자체도 없애 달라고 요청했다.
+  ///
+  /// [nodeDateEditEnabledProvider]가 켜져 있고 대상이 순환·2중이면(S5.6.6)
+  /// 이 행이 가리키는 노드(요일·교시) 하나에만 확정 날짜를 저장한다
+  /// (`updateNodeDate`) — 같은 그룹의 다른 행(다른 노드)은 건드리지 않는다.
+  /// 1:1·보강, 또는 플래그가 꺼져 있으면 기존 `updateDates`(항목 전체의
+  /// 결강일/교체일 쌍) 그대로다. `updateNodeDate`가 가드에 걸려 null을
+  /// 반환하면(요일 불일치 등) "저장 안 됨"으로 끝내지 않고 기존 경로로
+  /// 폴백한다.
+  ///
   /// 반환값: 실제로 저장했으면 true, 실패했으면 false.
   Future<bool> _applyDateSelection(
     BuildContext context,
-    String? groupId,
+    SubstitutionPlanData data,
     String columnName,
     DateTime selectedDate,
   ) async {
+    final groupId = data.groupId;
     if (groupId == null || groupId.isEmpty) {
       SnackBarHelper.showError(context, '교체 건을 찾을 수 없어 날짜를 저장하지 못했습니다.');
       return false;
@@ -1635,6 +1646,31 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     if (item == null) {
       SnackBarHelper.showError(context, '교체 건을 찾을 수 없어 날짜를 저장하지 못했습니다.');
       return false;
+    }
+
+    if (item.supportsNodeDates && ref.read(nodeDateEditEnabledProvider)) {
+      final dayName = columnName == 'absenceDate' ? data.absenceDay : data.substitutionDay;
+      final periodStr = columnName == 'absenceDate' ? data.period : data.substitutionPeriod;
+      final period = int.tryParse(periodStr);
+      if (dayName.isNotEmpty && period != null) {
+        final saved = historyService.updateNodeDate(
+          groupId,
+          dayName: dayName,
+          period: period,
+          date: selectedDate,
+        );
+        if (saved != null) {
+          AppLogger.exchangeInfo(
+            '노드 날짜 업데이트: $groupId, $dayName|$period → ${DateFormatUtils.toYearMonthDay(selectedDate)}',
+          );
+          return true;
+        }
+        // 가드에 걸렸다(요일 불일치 등) — 아래 기존 경로로 폴백한다. 이론상
+        // 발생하지 않아야 한다(달력이 이미 이 행의 요일만 고를 수 있게
+        // 강제한다) — 발생하면 노드별 정밀도 없이 항목 전체 날짜로만
+        // 저장되어 다른 노드와 격차가 생길 수 있으므로 진단용으로 남긴다.
+        AppLogger.warning('노드 날짜 저장 실패 → 항목 전체 날짜로 폴백(격차 발생 가능): $groupId');
+      }
     }
 
     historyService.updateDates(

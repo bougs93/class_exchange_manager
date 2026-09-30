@@ -6,6 +6,7 @@ import 'cell_selection_provider.dart';
 import 'services_provider.dart';
 import 'zoom_provider.dart';
 import 'exchange_view_provider.dart';
+import 'week_lessons_cache_provider.dart';
 import '../ui/widgets/timetable_grid/arrow_state_manager.dart';
 import '../utils/fixed_header_style_manager.dart';
 import '../utils/syncfusion_timetable_helper.dart';
@@ -238,6 +239,25 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     }
   }
 
+  /// SQLite 프리페치 캐시 정리 (Level 3 전용, S5.5.4)
+  ///
+  /// 시간표 전환·파일 재선택마다 캐시 항목이 계속 쌓이는 것을 막는다.
+  /// 캐시 키가 이미 timetableId로 구분되므로 지우지 않아도 정확성에는
+  /// 문제가 없지만(다른 시간표 데이터가 섞이지 않는다), Level 3처럼 큰
+  /// 리셋이 일어나는 시점에 통째로 비워 메모리 누적을 막는다.
+  void _clearWeekLessonsCache() {
+    try {
+      _ref.read(weekLessonsCacheProvider).clearAll();
+      if (kDebugMode) {
+        AppLogger.exchangeDebug('[Level 3] SQLite 프리페치 캐시 정리 완료');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        AppLogger.exchangeDebug('[Level 3] SQLite 프리페치 캐시 정리 중 오류: $e');
+      }
+    }
+  }
+
   /// 선택된 주(週)를 이번 주로 되돌림
   ///
   /// §10.9 리스크 방지: 시간표 전환 시 이전 시간표에서 보던 주가 그대로
@@ -398,6 +418,7 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     _resetZoomState();
     _resetExchangeViewState();
     _resetSelectedWeek();
+    _clearWeekLessonsCache();
 
     // 상태 업데이트 및 로깅
     _updateStateAndLog(ResetLevel.allStates, reason ?? 'Level 3 초기화');

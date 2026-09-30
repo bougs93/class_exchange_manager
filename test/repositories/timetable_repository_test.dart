@@ -939,6 +939,7 @@ void main() {
         substitutionDate: DateTime(2026, 9, 10),
         isReverted: false,
         pathJson: '{"type":"circular","nodes":[]}',
+        nodeDatesJson: '{"화|2":"2026-09-01T00:00:00.000"}',
         description: '3인 순환 교체',
         notes: '메모',
         tags: const ['긴급', '보건'],
@@ -951,6 +952,7 @@ void main() {
       final restored = (await repo.getExchangeEvents(timetableId)).single;
 
       expect(restored.pathJson, original.pathJson);
+      expect(restored.nodeDatesJson, original.nodeDatesJson); // S5.6
       expect(restored.tags, original.tags);
       expect(restored.metadata, original.metadata);
       expect(restored.notes, original.notes);
@@ -1339,6 +1341,245 @@ void main() {
       expect(timetable!.semester.endDate, DateTime(2027, 1, 31)); // 그대로 유지
 
       await db.close();
+    });
+  });
+
+  group('TimetableRepository — 조회 전환 준비 (S5.5.0)', () {
+    Future<(Database, TimetableRepository, String)> setUpTimetableWithLessons({
+      String timetableId = 'tt_s550',
+    }) async {
+      final db = await openTestDb();
+      addTearDown(db.close);
+      final repo = TimetableRepository(db);
+      final semester = SchoolSemester.defaultFor(schoolYear: 2026, semester: 2);
+
+      await repo.insertTimetable(
+        DatedTimetable(
+          id: timetableId,
+          name: '테스트',
+          semester: semester,
+          registeredAt: DateTime(2026, 8, 1),
+        ),
+      );
+
+      final base = [
+        TimeSlot(
+          teacher: '정원길',
+          subject: '기술가정',
+          className: '3-8',
+          dayOfWeek: 3, // 수
+          period: 1,
+        ),
+        TimeSlot(teacher: '정원길', dayOfWeek: 1, period: 1),
+        TimeSlot(
+          teacher: '박은선',
+          subject: '기술가정',
+          className: '3-8',
+          dayOfWeek: 1, // 월
+          period: 1,
+        ),
+        TimeSlot(teacher: '박은선', dayOfWeek: 3, period: 1),
+      ];
+      final lessons = SemesterTimetableGenerator.generate(
+        timetableId: timetableId,
+        timeSlots: base,
+        semester: semester,
+      );
+      await repo.insertLessons(lessons);
+      await repo.insertSnapshot(lessons);
+
+      return (db, repo, timetableId);
+    }
+
+    test('존재하지 않는 시간표는 hasTimetableRow=false, 모든 seq는 -1이다', () async {
+      final db = await openTestDb();
+      addTearDown(db.close);
+      final repo = TimetableRepository(db);
+
+      final status = await repo.getProjectionStatus('없는_시간표');
+
+      expect(status.hasTimetableRow, isFalse);
+      expect(status.projectedSeq, -1);
+      expect(status.maxActiveSeq, -1);
+      expect(status.lessonRowCount, 0);
+      expect(status.isStale, isFalse);
+    });
+
+    test('교체 이벤트가 없는 시간표는 lessonRowCount만 채워지고 isStale=false다', () async {
+      final (_, repo, timetableId) = await setUpTimetableWithLessons();
+
+      final status = await repo.getProjectionStatus(timetableId);
+
+      expect(status.hasTimetableRow, isTrue);
+      expect(status.projectedSeq, -1);
+      expect(status.maxActiveSeq, -1);
+      expect(status.lessonRowCount, greaterThan(0));
+      expect(status.isStale, isFalse);
+    });
+
+    test('활성 이벤트를 추가하면 재생 전까지 isStale=true, replayInto 후에는 false가 된다', () async {
+      final (_, repo, timetableId) = await setUpTimetableWithLessons();
+
+      final path = _oneToOnePath(
+        sourceTeacher: '정원길',
+        sourceDay: '수',
+        sourcePeriod: 1,
+        targetTeacher: '박은선',
+        targetDay: '월',
+        targetPeriod: 1,
+      );
+      final item = ExchangeHistoryItem.fromExchangePath(
+        path,
+        absenceDate: DateTime(2026, 10, 14),
+        substitutionDate: DateTime(2026, 10, 12),
+      );
+      await repo.replaceExchangeEventsFor(
+        timetableId,
+        toExchangeEventRecords([item], timetableId),
+      );
+
+      final beforeReplay = await repo.getProjectionStatus(timetableId);
+      expect(beforeReplay.maxActiveSeq, 0);
+      expect(beforeReplay.projectedSeq, -1);
+      expect(beforeReplay.isStale, isTrue);
+
+      await repo.replayInto(timetableId);
+
+      final afterReplay = await repo.getProjectionStatus(timetableId);
+      expect(afterReplay.projectedSeq, 0);
+      expect(afterReplay.maxActiveSeq, 0);
+      expect(afterReplay.isStale, isFalse);
+    });
+
+    test('건드린 적 없는 시간표는 getTouchedLessonsForWeek가 빈 리스트를 반환한다', () async {
+      final (_, repo, timetableId) = await setUpTimetableWithLessons();
+
+      final touched = await repo.getTouchedLessonsForWeek(
+        timetableId,
+        DateTime(2026, 10, 12), // 월
+      );
+
+      expect(touched, isEmpty);
+    });
+
+    test('건드린 칸이 속한 주만 반환하고, 다른 주는 제외한다', () async {
+      final (_, repo, timetableId) = await setUpTimetableWithLessons();
+
+      final path = _oneToOnePath(
+        sourceTeacher: '정원길',
+        sourceDay: '수',
+        sourcePeriod: 1,
+        targetTeacher: '박은선',
+        targetDay: '월',
+        targetPeriod: 1,
+      );
+      final item = ExchangeHistoryItem.fromExchangePath(
+        path,
+        absenceDate: DateTime(2026, 10, 14), // 10월 2주 수요일
+        substitutionDate: DateTime(2026, 10, 12), // 10월 2주 월요일
+      );
+      await repo.replaceExchangeEventsFor(
+        timetableId,
+        toExchangeEventRecords([item], timetableId),
+      );
+      await repo.replayInto(timetableId);
+
+      final sameWeek = await repo.getTouchedLessonsForWeek(
+        timetableId,
+        DateTime(2026, 10, 12), // 그 주 월요일
+      );
+      final otherWeek = await repo.getTouchedLessonsForWeek(
+        timetableId,
+        DateTime(2026, 10, 19), // 다음 주 월요일
+      );
+
+      final sameWeekKeys = sameWeek
+          .map((l) => '${l.teacher}_${l.date.toIso8601String().substring(0, 10)}_${l.period}')
+          .toSet();
+      // touchedCellsFor는 결강일·교체일 각각에 대해 두 교사 모두의 자리를
+      // 건드린다고 본다(정원길 자리에 박은선이 대신 들어가는 식) — 4칸 전부.
+      expect(sameWeekKeys, {
+        '정원길_2026-10-14_1',
+        '정원길_2026-10-12_1',
+        '박은선_2026-10-14_1',
+        '박은선_2026-10-12_1',
+      });
+      expect(otherWeek, isEmpty);
+    });
+
+    test('다른 시간표의 건드린 칸은 섞이지 않는다 (같은 DB에 시간표 2개)', () async {
+      final db = await openTestDb();
+      addTearDown(db.close);
+      final repo = TimetableRepository(db);
+      const timetableA = 'tt_s550_a';
+      const timetableB = 'tt_s550_b';
+      final semester = SchoolSemester.defaultFor(schoolYear: 2026, semester: 2);
+      final base = [
+        TimeSlot(
+          teacher: '정원길',
+          subject: '기술가정',
+          className: '3-8',
+          dayOfWeek: 3,
+          period: 1,
+        ),
+        TimeSlot(teacher: '정원길', dayOfWeek: 1, period: 1),
+        TimeSlot(
+          teacher: '박은선',
+          subject: '기술가정',
+          className: '3-8',
+          dayOfWeek: 1,
+          period: 1,
+        ),
+        TimeSlot(teacher: '박은선', dayOfWeek: 3, period: 1),
+      ];
+      for (final timetableId in [timetableA, timetableB]) {
+        await repo.insertTimetable(
+          DatedTimetable(
+            id: timetableId,
+            name: '테스트',
+            semester: semester,
+            registeredAt: DateTime(2026, 8, 1),
+          ),
+        );
+        final lessons = SemesterTimetableGenerator.generate(
+          timetableId: timetableId,
+          timeSlots: base,
+          semester: semester,
+        );
+        await repo.insertLessons(lessons);
+        await repo.insertSnapshot(lessons);
+      }
+
+      final path = _oneToOnePath(
+        sourceTeacher: '정원길',
+        sourceDay: '수',
+        sourcePeriod: 1,
+        targetTeacher: '박은선',
+        targetDay: '월',
+        targetPeriod: 1,
+      );
+      final item = ExchangeHistoryItem.fromExchangePath(
+        path,
+        absenceDate: DateTime(2026, 10, 14),
+        substitutionDate: DateTime(2026, 10, 12),
+      );
+      await repo.replaceExchangeEventsFor(
+        timetableA,
+        toExchangeEventRecords([item], timetableA),
+      );
+      await repo.replayInto(timetableA);
+
+      final touchedInA = await repo.getTouchedLessonsForWeek(
+        timetableA,
+        DateTime(2026, 10, 12),
+      );
+      final touchedInB = await repo.getTouchedLessonsForWeek(
+        timetableB,
+        DateTime(2026, 10, 12),
+      );
+
+      expect(touchedInA, isNotEmpty);
+      expect(touchedInB, isEmpty);
     });
   });
 }

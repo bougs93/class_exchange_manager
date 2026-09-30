@@ -4,6 +4,7 @@ import '../models/one_to_one_exchange_path.dart';
 import '../models/circular_exchange_path.dart';
 import '../models/dual_exchange_path.dart';
 import '../models/supplement_exchange_path.dart';
+import '../utils/day_utils.dart';
 import '../utils/logger.dart';
 import 'package:flutter/foundation.dart';
 import 'exchange_list_storage_service.dart';
@@ -117,6 +118,7 @@ class ExchangeHistoryService {
     String? notes,
     List<String>? tags,
     int? stepCount, // 순환교체 단계 수 (선택적)
+    Map<String, DateTime>? nodeDates, // 순환·2중 노드별 확정 날짜 (S5.6.7, 선택적)
   }) {
     // 실제 교체 실행 (TimetableDataSource 업데이트는 외부에서 처리)
     AppLogger.exchangeInfo('[교체 실행] ${path.displayTitle}');
@@ -131,6 +133,7 @@ class ExchangeHistoryService {
       notes: notes,
       tags: tags,
       stepCount: stepCount,
+      nodeDates: nodeDates,
     );
   }
 
@@ -144,6 +147,7 @@ class ExchangeHistoryService {
     String? notes,
     List<String>? tags,
     int? stepCount, // 순환교체 단계 수 (선택적)
+    Map<String, DateTime>? nodeDates, // 순환·2중 노드별 확정 날짜 (S5.6.7, 선택적)
   }) {
     // ExchangeHistoryItem 생성
     final item = ExchangeHistoryItem.fromExchangePath(
@@ -155,6 +159,7 @@ class ExchangeHistoryService {
       notes: notes,
       tags: tags,
       stepCount: stepCount,
+      nodeDates: nodeDates,
     );
 
     // 교체 리스트에 추가 (영구 보관)
@@ -490,6 +495,15 @@ class ExchangeHistoryService {
     }
   }
 
+  /// 지금까지 큐에 쌓인 저장 작업(JSON 저장 → SQLite 미러 쓰기 → `replayInto`)이
+  /// 모두 끝날 때까지 기다린다 (S5.5.3 — [WeekLessonsCache]가 조회 전 쓰기와의
+  /// 경쟁을 피하기 위해 호출한다).
+  ///
+  /// 공개 API는 계속 동기로 유지하면서(호출부를 async로 바꾸지 않기 위해)
+  /// 필요한 곳에서만 명시적으로 "다 쓸 때까지 기다려" 달라고 요청하는
+  /// 용도다 — `_storageQueue` 자체를 외부에 노출하지 않는다.
+  Future<void> flushPendingWrites() => _storageQueue;
+
   /// 예약된 저장을 마친 뒤 특정 시간표의 교체 목록 파일을 삭제합니다.
   Future<void> clearStoredDataForTimetable(String timetableId) {
     return _enqueueStorageOperation(
@@ -544,6 +558,55 @@ class ExchangeHistoryService {
     AppLogger.info(
       '교체 건 날짜 보정: $itemId → 결강 ${updated.absenceDate}, 교체 ${updated.substitutionDate}',
     );
+    return updated;
+  }
+
+  /// 순환·2중 교체의 노드(슬롯) 하나에 확정 날짜를 지정한다 (S5.6).
+  ///
+  /// [updateDates]는 건드리지 않는다 — 1:1·보강은 노드가 2개뿐이라
+  /// [updateDates]의 결강일·교체일 쌍만으로 이미 완전히 표현되므로, 이
+  /// 메서드는 그 유일한 경로를 대체하지 않는다.
+  ///
+  /// 가드 2개(둘 다 걸리면 조용히 null만 반환하고 상태를 바꾸지 않는다):
+  /// 1. 대상 항목이 순환·2중이 아니면([ExchangeHistoryItem.supportsNodeDates]
+  ///    false) — 1:1·보강에 노드 날짜를 저장하면 아무도 읽지 않는 죽은
+  ///    데이터가 조용히 쌓인다.
+  /// 2. [date]의 실제 요일이 [dayName]과 다르면 — 슬롯 요일과 저장된 날짜의
+  ///    요일이 어긋나면 OFF 모드 꼬리표가 엉뚱한 칸에 붙고 [ExchangeCellDates
+  ///    .forWeek]의 주별 스코프가 깨진다([EventDateResolution]이 한 번 더
+  ///    방어하지만, 애초에 잘못된 값을 저장하지 않는 편이 낫다).
+  ///
+  /// 반환값: 갱신된 항목(가드에 걸리거나 찾지 못하면 null).
+  ExchangeHistoryItem? updateNodeDate(
+    String itemId, {
+    required String dayName,
+    required int period,
+    required DateTime date,
+  }) {
+    final index = _exchangeList.indexWhere((item) => item.id == itemId);
+    if (index == -1) {
+      AppLogger.warning('노드 날짜 지정 대상 교체 건을 찾을 수 없음: $itemId');
+      return null;
+    }
+
+    final item = _exchangeList[index];
+    if (!item.supportsNodeDates) {
+      AppLogger.warning('노드 날짜는 순환·2중 교체에만 지정할 수 있음: $itemId (${item.type.name})');
+      return null;
+    }
+    if (date.weekday != DayUtils.getDayNumber(dayName)) {
+      AppLogger.warning(
+        '노드 날짜의 요일이 슬롯과 일치하지 않음: $itemId, 슬롯=$dayName, 지정한 날짜=$date',
+      );
+      return null;
+    }
+
+    final updated = item.copyWithNodeDate(dayName, period, date);
+    _exchangeList[index] = updated;
+    _exchangeListVersion++;
+    _notifyVersionChanged();
+    _saveToLocalStorage(updated);
+    AppLogger.info('교체 건 노드 날짜 지정: $itemId, $dayName|$period → $date');
     return updated;
   }
 

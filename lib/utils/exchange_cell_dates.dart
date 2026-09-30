@@ -5,6 +5,7 @@ import '../models/exchange_path.dart';
 import '../models/one_to_one_exchange_path.dart';
 import '../models/supplement_exchange_path.dart';
 import 'day_utils.dart';
+import 'event_date_resolver.dart';
 import 'week_date_calculator.dart';
 
 /// 교체 이벤트 한 건이 건드리는 칸 하나 — 교사·요일·교시 좌표 + 실제 날짜.
@@ -194,12 +195,26 @@ class ExchangeCellDates {
       final cd = forItem(item);
 
       if (!cd.supported) {
-        final legacySource = legacySourceKeys(item.originalPath);
-        final legacyDestination = legacyDestinationKeys(item.originalPath);
-        sourceKeys.addAll(legacySource);
-        destinationKeys.addAll(legacyDestination);
-        undatedKeys.addAll(legacySource);
-        undatedKeys.addAll(legacyDestination);
+        // 순환·2중은 노드(슬롯) 단위로 세분화한다 — 계획서에서 확정한 노드가
+        // 있으면(S5.6) 그 칸만 실제 주에 스코프해서 보여주고 "?"에서 뺀다.
+        // 확정 안 된 슬롯(순환·2중 전체 미확정, 또는 1:1·보강의 요일 불일치)은
+        // `resolveEventDates`가 항상 `estimated`를 반환하므로 기존과 똑같이
+        // "어느 주를 보든 항상 표시 + undatedKeys" 경로를 그대로 탄다.
+        final resolution = resolveEventDates(item);
+        for (final slotted in _legacySlottedKeys(item.originalPath)) {
+          final targetKeys = slotted.isVacateSide ? sourceKeys : destinationKeys;
+          final resolved = resolution.forSlot(
+            DayUtils.getDayNumber(slotted.dayName),
+            slotted.period,
+          );
+          if (resolved != null && resolved.isConfirmed) {
+            if (inViewedWeek(resolved.date)) targetKeys.add(slotted.key);
+            // 확정됐지만 다른 주 → 이 주에는 보이지 않는다(undatedKeys에도 안 넣는다).
+          } else {
+            targetKeys.add(slotted.key);
+            undatedKeys.add(slotted.key);
+          }
+        }
         continue;
       }
 
@@ -216,6 +231,85 @@ class ExchangeCellDates {
       destinationKeys: destinationKeys,
       undatedKeys: undatedKeys,
     );
+  }
+
+  /// [legacySourceKeys]∪[legacyDestinationKeys]와 정확히 같은 키 집합을 내되,
+  /// 각 키가 어느 슬롯(요일·교시)에 해당하는지 함께 돌려준다 (S5.6).
+  ///
+  /// `legacySourceKeys`/`legacyDestinationKeys` 자체는 건드리지 않는다(OFF
+  /// 모드가 직접 쓰는 함수들이라 중복을 감수하고 별도로 유지한다) —
+  /// 두 함수가 같은 키 집합을 낸다는 것은 `exchange_cell_dates_test.dart`의
+  /// 등식 테스트로 고정한다.
+  static List<_SlottedKey> _legacySlottedKeys(ExchangePath path) {
+    if (path is OneToOneExchangePath) {
+      final s = path.sourceNode;
+      final t = path.targetNode;
+      return [
+        _SlottedKey('${s.teacherName}_${s.day}_${s.period}', s.day, s.period, true),
+        _SlottedKey('${t.teacherName}_${t.day}_${t.period}', t.day, t.period, true),
+        _SlottedKey('${t.teacherName}_${s.day}_${s.period}', s.day, s.period, false),
+        _SlottedKey('${s.teacherName}_${t.day}_${t.period}', t.day, t.period, false),
+      ];
+    } else if (path is CircularExchangePath) {
+      final keys = <_SlottedKey>[];
+      for (var i = 0; i < path.nodes.length - 1; i++) {
+        final cur = path.nodes[i];
+        keys.add(_SlottedKey('${cur.teacherName}_${cur.day}_${cur.period}', cur.day, cur.period, true));
+      }
+      for (var i = 0; i < path.nodes.length - 1; i++) {
+        final cur = path.nodes[i];
+        final next = path.nodes[i + 1];
+        keys.add(
+          _SlottedKey('${cur.teacherName}_${next.day}_${next.period}', next.day, next.period, false),
+        );
+      }
+      return keys;
+    } else if (path is DualExchangePath) {
+      return [
+        for (final n in [path.nodeA, path.nodeB, path.node1, path.node2])
+          _SlottedKey('${n.teacherName}_${n.day}_${n.period}', n.day, n.period, true),
+        _SlottedKey(
+          '${path.node1.teacherName}_${path.node2.day}_${path.node2.period}',
+          path.node2.day,
+          path.node2.period,
+          false,
+        ),
+        _SlottedKey(
+          '${path.node2.teacherName}_${path.node1.day}_${path.node1.period}',
+          path.node1.day,
+          path.node1.period,
+          false,
+        ),
+        _SlottedKey(
+          '${path.nodeA.teacherName}_${path.nodeB.day}_${path.nodeB.period}',
+          path.nodeB.day,
+          path.nodeB.period,
+          false,
+        ),
+        _SlottedKey(
+          '${path.nodeB.teacherName}_${path.nodeA.day}_${path.nodeA.period}',
+          path.nodeA.day,
+          path.nodeA.period,
+          false,
+        ),
+      ];
+    } else if (path is SupplementExchangePath) {
+      return [
+        _SlottedKey(
+          '${path.sourceTeacher}_${path.sourceDay}_${path.sourcePeriod}',
+          path.sourceDay,
+          path.sourcePeriod,
+          true,
+        ),
+        _SlottedKey(
+          '${path.targetTeacher}_${path.targetDay}_${path.targetPeriod}',
+          path.targetDay,
+          path.targetPeriod,
+          false,
+        ),
+      ];
+    }
+    return const [];
   }
 
   // ==================== 기존(날짜 미인식) 키 생성 — 그대로 이동 ====================
@@ -291,4 +385,14 @@ class ExchangeCellDates {
 
     return cellKeys;
   }
+}
+
+/// [ExchangeCellDates._legacySlottedKeys]가 돌려주는 키 한 개 (S5.6).
+class _SlottedKey {
+  final String key;
+  final String dayName;
+  final int period;
+  final bool isVacateSide;
+
+  const _SlottedKey(this.key, this.dayName, this.period, this.isVacateSide);
 }

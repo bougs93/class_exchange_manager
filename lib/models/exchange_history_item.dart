@@ -3,6 +3,7 @@ import 'one_to_one_exchange_path.dart';
 import 'circular_exchange_path.dart';
 import 'dual_exchange_path.dart';
 import 'supplement_exchange_path.dart';
+import '../utils/exchange_node_slot.dart';
 import '../utils/week_date_calculator.dart';
 
 /// 교체 히스토리 항목을 나타내는 클래스
@@ -48,6 +49,25 @@ class ExchangeHistoryItem {
   /// 되돌리기 여부
   bool isReverted;
 
+  /// 순환·2중 교체의 노드(슬롯)별 확정 날짜 (S5.6).
+  ///
+  /// 키는 [nodeSlotKey]로 만든다('요일|교시', 예: '수|3'). 1:1·보강은 이
+  /// 맵을 쓰지도 읽지도 않는다 — 노드가 2개뿐이라 [absenceDate]/
+  /// [substitutionDate] 쌍이 이미 완전한 표현이기 때문이다([supportsNodeDates] 참조).
+  ///
+  /// 비어 있으면(기본값) "확정된 노드 없음" — S5.6 이전과 완전히 동일하게
+  /// "결강일이 속한 주"로 추정한다(OQ-1). 이 필드가 기존 동작에 전혀 영향을
+  /// 주지 않는다는 것이 S5.6.0~S5.6.4의 회귀-없음 증거다.
+  final Map<String, DateTime> nodeDates;
+
+  /// 순환·2중 교체인지 — 노드별 날짜 확정을 지원하는 유형인지 판단할 때 쓴다.
+  bool get supportsNodeDates =>
+      type == ExchangePathType.circular || type == ExchangePathType.dual;
+
+  /// [dayName]·[period] 슬롯에 확정된 날짜가 있으면 반환한다.
+  DateTime? nodeDateFor(String dayName, int period) =>
+      nodeDates[nodeSlotKey(dayName, period)];
+
   /// 이 교체 건이 속한 주의 월요일 ([absenceDate] 기준)
   ///
   /// §10.5: 교체의 "주인"은 결강이므로 주차 칩 건수·주차별 그룹핑은
@@ -69,6 +89,7 @@ class ExchangeHistoryItem {
     required this.tags,
     this.profileId,
     this.isReverted = false,
+    this.nodeDates = const {},
   });
 
   /// ExchangePath로부터 ExchangeHistoryItem 생성하는 팩토리 생성자
@@ -76,6 +97,13 @@ class ExchangeHistoryItem {
   /// [absenceDate]/[substitutionDate]는 필수다 — 교체를 실행하는 시점에
   /// 이미 "어느 주를 보고 있는가"가 확정되어 있어야 한다(§10.4 날짜 선행 확정).
   /// 사후에 날짜를 입력받아 채우지 않는다.
+  ///
+  /// [nodeDates]는 순환·2중 교체 전용(S5.6.7) — 호출부(`ExchangeExecutor`)가
+  /// 실행 시점에 이미 알고 있는 각 노드(슬롯)의 실제 날짜를
+  /// [seedNodeDatesForWeek]로 계산해 넘긴다. 미지정(null)이면 기존과
+  /// 완전히 동일한 빈 맵이다. 1:1·보강에는 절대 저장하지 않는다
+  /// ([copyWithNodeDate]와 같은 오염 방지 정책 — 2노드는 이미 결강일/교체일
+  /// 쌍만으로 완전히 표현되므로 죽은 데이터가 된다).
   factory ExchangeHistoryItem.fromExchangePath(
     ExchangePath path, {
     required DateTime absenceDate,
@@ -86,9 +114,12 @@ class ExchangeHistoryItem {
     String? notes,
     List<String>? tags,
     int? stepCount, // 순환교체 단계 수 (선택적)
+    Map<String, DateTime>? nodeDates,
   }) {
     final pathType = _getPathType(path);
     final generatedId = customId ?? _generateId(pathType, stepCount);
+    final supportsNodeDates =
+        pathType == ExchangePathType.circular || pathType == ExchangePathType.dual;
 
     return ExchangeHistoryItem(
       id: generatedId,
@@ -108,6 +139,10 @@ class ExchangeHistoryItem {
       notes: notes,
       tags: tags ?? [],
       isReverted: false,
+      nodeDates:
+          supportsNodeDates && nodeDates != null
+              ? {for (final entry in nodeDates.entries) entry.key: _dateOnly(entry.value)}
+              : const {},
     );
   }
 
@@ -171,6 +206,7 @@ class ExchangeHistoryItem {
       tags: tags,
       profileId: profileId,
       isReverted: reverted,
+      nodeDates: nodeDates,
     );
   }
 
@@ -189,6 +225,7 @@ class ExchangeHistoryItem {
       tags: tags,
       profileId: profileId,
       isReverted: isReverted,
+      nodeDates: nodeDates,
     );
   }
 
@@ -218,6 +255,7 @@ class ExchangeHistoryItem {
       tags: tags,
       profileId: profileId,
       isReverted: isReverted,
+      nodeDates: nodeDates,
     );
   }
 
@@ -236,6 +274,7 @@ class ExchangeHistoryItem {
       tags: newTags,
       profileId: profileId,
       isReverted: isReverted,
+      nodeDates: nodeDates,
     );
   }
 
@@ -254,6 +293,7 @@ class ExchangeHistoryItem {
       tags: tags,
       profileId: profileId,
       isReverted: isReverted,
+      nodeDates: nodeDates,
     );
   }
 
@@ -272,6 +312,36 @@ class ExchangeHistoryItem {
       tags: tags,
       profileId: newProfileId,
       isReverted: isReverted,
+      nodeDates: nodeDates,
+    );
+  }
+
+  /// 노드(슬롯)별 확정 날짜 하나를 추가·갱신한다 (S5.6).
+  ///
+  /// 순환·2중 교체 전용 — [supportsNodeDates]가 false인 1:1·보강 항목에
+  /// 호출하면 아무것도 바꾸지 않고 자기 자신을 그대로 반환한다(조용한
+  /// 오염 방지). 요일·교시 검증(그 슬롯이 실제로 이 교체 경로에 존재하는지,
+  /// 저장하는 날짜의 실제 요일이 [dayName]과 일치하는지)은 호출부
+  /// (`ExchangeHistoryService.updateNodeDate`)의 책임이다 — 이 메서드는
+  /// 순수하게 맵만 갱신한다.
+  ExchangeHistoryItem copyWithNodeDate(String dayName, int period, DateTime date) {
+    if (!supportsNodeDates) return this;
+    final updated = Map<String, DateTime>.from(nodeDates);
+    updated[nodeSlotKey(dayName, period)] = _dateOnly(date);
+    return ExchangeHistoryItem(
+      id: id,
+      timestamp: timestamp,
+      absenceDate: absenceDate,
+      substitutionDate: substitutionDate,
+      originalPath: originalPath,
+      description: description,
+      type: type,
+      metadata: metadata,
+      notes: notes,
+      tags: tags,
+      profileId: profileId,
+      isReverted: isReverted,
+      nodeDates: updated,
     );
   }
 
@@ -339,6 +409,15 @@ class ExchangeHistoryItem {
       'tags': tags,
       'profileId': profileId,
       'isReverted': isReverted,
+      // 비어 있으면 키 자체를 생략한다 — S5.6 이전에 저장된 파일과 바이트
+      // 단위로 같은 결과를 내기 위해서다(이 필드를 아직 쓰지 않는 모든
+      // 1:1·보강 항목, 그리고 노드 날짜를 한 번도 지정하지 않은 순환·2중
+      // 항목 전부 해당).
+      if (nodeDates.isNotEmpty)
+        'nodeDates': {
+          for (final entry in nodeDates.entries)
+            entry.key: entry.value.toIso8601String(),
+        },
       'originalPath':
           originalPath.toJson(), // ExchangePath는 타입 정보를 포함한 JSON으로 저장
     };
@@ -408,6 +487,11 @@ class ExchangeHistoryItem {
       tags: List<String>.from(json['tags'] as List),
       profileId: json['profileId'] as String?,
       isReverted: json['isReverted'] as bool? ?? false,
+      nodeDates: (json['nodeDates'] as Map?)?.map(
+            (key, value) =>
+                MapEntry(key as String, DateTime.parse(value as String)),
+          ) ??
+          const {},
     );
   }
 }

@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/exchange_path.dart';
+import '../utils/day_utils.dart';
+import '../utils/event_date_resolver.dart';
 import '../utils/logger.dart';
 import '../utils/date_format_utils.dart';
+import 'node_date_edit_provider.dart';
 import 'services_provider.dart';
 import 'substitution_plan_provider.dart';
 import 'substitution_plan_helpers.dart';
@@ -197,15 +200,27 @@ class SubstitutionPlanViewModel
   /// (DateTime, 실행 시 자동 확정됨)에서 바로 채운다 — 더 이상 사용자가
   /// 별도로 입력한 값을 저장소에서 복원해오지 않는다. 보강 과목만 여전히
   /// `substitutionPlanProvider`(savedSupplementSubjects)에서 복원한다.
+  ///
+  /// **버그 수정 (2026-09-30, 사용자 발견)**: `getExchangeList()`는 되돌린
+  /// (`isReverted == true`) 건도 그대로 포함한다 — "교체" 화면에서 되돌리기를
+  /// 눌러 목록에서 사라진 건이 계획서에는 계속 남아있는 원인이었다.
+  /// `getActiveExchangeList()`로 바꿔 되돌린 건을 제외한다. S5.5(SQLite 조회
+  /// 경로) 작업과는 무관한 기존 버그 — 이 메서드는 SQLite를 전혀 읽지 않고
+  /// JSON 기반 `_exchangeList`만 직접 읽는다.
   Future<void> loadPlanData() async {
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
       final historyService = _ref.read(exchangeHistoryServiceProvider);
-      final exchangeList = historyService.getExchangeList();
+      final exchangeList = historyService.getActiveExchangeList();
       final substitutionPlanNotifier = _ref.read(
         substitutionPlanProvider.notifier,
       );
+      // S5.6.5: 기본 꺼짐 — 켜지면 순환·2중 행의 날짜를 노드(슬롯) 기준으로
+      // 다시 계산한다(확정된 슬롯은 그 날짜, 아직 미확정인 슬롯은 그 슬롯의
+      // 실제 요일에 맞는 추정 날짜 — 기존처럼 item 전체의 결강일/교체일 쌍을
+      // 요일이 다른 행에도 그대로 복사해 보여주던 방식보다 항상 더 정확하다).
+      final nodeDateEditEnabled = _ref.read(nodeDateEditEnabledProvider);
 
       AppLogger.exchangeDebug('교체 히스토리 개수: ${exchangeList.length}');
 
@@ -248,6 +263,7 @@ class SubstitutionPlanViewModel
               item.id,
               absenceDateStr,
               substitutionDateStr,
+              nodeDateEditEnabled ? resolveEventDates(item) : null,
             );
             break;
 
@@ -258,6 +274,7 @@ class SubstitutionPlanViewModel
               item.id,
               absenceDateStr,
               substitutionDateStr,
+              nodeDateEditEnabled ? resolveEventDates(item) : null,
             );
             break;
 
@@ -334,13 +351,19 @@ class SubstitutionPlanViewModel
   }
 
   /// 순환 교체 처리
+  ///
+  /// [resolution]이 주어지면(S5.6.5, 플래그 ON) 각 행의 날짜를 그 행이
+  /// 실제로 가리키는 노드(요일·교시) 기준으로 다시 계산한다 — null이면
+  /// (플래그 OFF, 기본값) 기존과 완전히 동일하게 [absenceDate]/[substitutionDate]
+  /// 를 모든 행에 그대로 쓴다.
   void _handleCircularExchange(
     List nodes,
     List<SubstitutionPlanData> planData,
     String groupId,
     String absenceDate,
-    String substitutionDate,
-  ) {
+    String substitutionDate, [
+    EventDateResolution? resolution,
+  ]) {
     if (nodes.length < 3) {
       AppLogger.exchangeDebug('순환교체: 노드가 부족합니다 (${nodes.length}개)');
       return;
@@ -361,14 +384,21 @@ class SubstitutionPlanViewModel
         sourceNode.subjectName,
         suffix: '순환',
       );
+      final rowDates = _resolveRowDates(
+        resolution,
+        sourceNode,
+        targetNode,
+        absenceDate,
+        substitutionDate,
+      );
 
       final data = _parser.parseNode(
         sourceNode: sourceNode,
         targetNode: targetNode,
         exchangeId: exchangeId,
         groupId: groupId,
-        absenceDate: absenceDate,
-        substitutionDate: substitutionDate,
+        absenceDate: rowDates.absenceDate,
+        substitutionDate: rowDates.substitutionDate,
         remarks: _getCircularExchangeRemarks(0, nodes.length),
         isCircular: true,
       );
@@ -398,14 +428,21 @@ class SubstitutionPlanViewModel
 
         // 비고란: 순환교체 번호만 표시 (별표 없음)
         final remarks = '순환교체$stepNumber';
+        final rowDates = _resolveRowDates(
+          resolution,
+          sourceNode,
+          targetNode,
+          absenceDate,
+          substitutionDate,
+        );
 
         final data = _parser.parseNode(
           sourceNode: sourceNode,
           targetNode: targetNode,
           exchangeId: exchangeId,
           groupId: groupId,
-          absenceDate: absenceDate,
-          substitutionDate: substitutionDate,
+          absenceDate: rowDates.absenceDate,
+          substitutionDate: rowDates.substitutionDate,
           remarks: remarks,
           isCircular: true,
         );
@@ -415,6 +452,37 @@ class SubstitutionPlanViewModel
     }
 
     AppLogger.exchangeDebug('순환교체 처리 완료');
+  }
+
+  /// [resolution]이 있으면 [sourceNode]/[targetNode] 슬롯의 날짜로, 없으면
+  /// (플래그 OFF) 기존 [fallbackAbsenceDate]/[fallbackSubstitutionDate]
+  /// 그대로 돌려준다 (S5.6.5).
+  ({String absenceDate, String substitutionDate}) _resolveRowDates(
+    EventDateResolution? resolution,
+    dynamic sourceNode,
+    dynamic targetNode,
+    String fallbackAbsenceDate,
+    String fallbackSubstitutionDate,
+  ) {
+    if (resolution == null) {
+      return (absenceDate: fallbackAbsenceDate, substitutionDate: fallbackSubstitutionDate);
+    }
+    final source = resolution.forSlot(
+      DayUtils.getDayNumber(sourceNode.day as String),
+      sourceNode.period as int,
+    );
+    final target = resolution.forSlot(
+      DayUtils.getDayNumber(targetNode.day as String),
+      targetNode.period as int,
+    );
+    return (
+      absenceDate: source == null
+          ? fallbackAbsenceDate
+          : DateFormatUtils.toYearMonthDay(source.date),
+      substitutionDate: target == null
+          ? fallbackSubstitutionDate
+          : DateFormatUtils.toYearMonthDay(target.date),
+    );
   }
 
   /// 순환교체 비고란 생성 헬퍼 메서드
@@ -431,13 +499,17 @@ class SubstitutionPlanViewModel
   }
 
   /// 2중 교체 처리
+  ///
+  /// [resolution]에 대해서는 [_handleCircularExchange] 문서 참조 — 동일한
+  /// 규칙이다.
   void _handleDualExchange(
     List nodes,
     List<SubstitutionPlanData> planData,
     String groupId,
     String absenceDate,
-    String substitutionDate,
-  ) {
+    String substitutionDate, [
+    EventDateResolution? resolution,
+  ]) {
     if (nodes.length < 4) {
       AppLogger.exchangeDebug('2중교체: 노드가 부족합니다 (${nodes.length}개)');
       return;
@@ -456,13 +528,20 @@ class SubstitutionPlanViewModel
       substituteNode.subjectName,
       suffix: '2중최종',
     );
+    final finalRowDates = _resolveRowDates(
+      resolution,
+      substituteNode,
+      absentNode,
+      absenceDate,
+      substitutionDate,
+    );
     final finalData = _parser.parseNode(
       sourceNode: substituteNode,
       targetNode: absentNode,
       exchangeId: finalExchangeId,
       groupId: groupId,
-      absenceDate: absenceDate,
-      substitutionDate: substitutionDate,
+      absenceDate: finalRowDates.absenceDate,
+      substitutionDate: finalRowDates.substitutionDate,
       remarks: '2중교체(중간)',
       isDual: true,
     );
@@ -476,13 +555,20 @@ class SubstitutionPlanViewModel
       intermediateNode1.subjectName,
       suffix: '2중중간',
     );
+    final intermediateRowDates = _resolveRowDates(
+      resolution,
+      intermediateNode1,
+      intermediateNode2,
+      absenceDate,
+      substitutionDate,
+    );
     final intermediateData = _parser.parseNode(
       sourceNode: intermediateNode1,
       targetNode: intermediateNode2,
       exchangeId: intermediateExchangeId,
       groupId: groupId,
-      absenceDate: absenceDate,
-      substitutionDate: substitutionDate,
+      absenceDate: intermediateRowDates.absenceDate,
+      substitutionDate: intermediateRowDates.substitutionDate,
       remarks: '2중교체(최종)',
       isDual: true,
     );

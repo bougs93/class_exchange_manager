@@ -29,7 +29,9 @@ class ExchangeEventRecord {
   /// `ExchangePath.toJson()`을 그대로 담은 JSON 문자열
   final String pathJson;
 
-  /// 순환·2중 교체의 노드별 날짜 (OQ-1 채택 — 현재는 항상 null, S5.4에서 사용)
+  /// 순환·2중 교체의 노드별 확정 날짜 (S5.6, [ExchangeHistoryItem.nodeDates]의
+  /// 미러). 키는 `nodeSlotKey`('요일|교시'), 값은 ISO 날짜 문자열인 JSON 객체.
+  /// 비어 있으면(1:1·보강, 또는 아직 노드 날짜를 지정하지 않은 순환·2중) null.
   final String? nodeDatesJson;
 
   final String description;

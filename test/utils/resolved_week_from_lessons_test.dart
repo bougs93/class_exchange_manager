@@ -12,14 +12,15 @@ import 'package:class_exchange_manager/models/time_slot.dart';
 import 'package:class_exchange_manager/services/semester_timetable_generator.dart';
 import 'package:class_exchange_manager/utils/exchange_algorithm.dart';
 import 'package:class_exchange_manager/utils/lesson_projection.dart';
-import 'package:class_exchange_manager/utils/node_date_seed.dart';
 import 'package:class_exchange_manager/utils/resolved_week.dart';
 
-const _timetableId = 'tt_projection_test';
+// lesson_projection_test.dart(S5.3)와 정확히 같은 픽스처를 재사용한다 —
+// project()가 이미 dateAware와 동등함을 증명했으므로, fromLessons가
+// project()의 결과를 "덮어쓰기"만 해도 같은 결과가 나오는지 확인하면
+// fromLessons ≡ dateAware(같은 주 한정)임이 증명된다(S5.5.1).
+const _timetableId = 'tt_from_lessons_test';
 final _semester = SchoolSemester.defaultFor(schoolYear: 2026, semester: 2);
 
-/// 정원길 수1(기술가정), 박은선 월1(기술가정). 나머지는 빈 슬롯.
-/// resolved_week_date_aware_test.dart와 동일한 픽스처.
 List<TimeSlot> _baseTimetable() {
   return [
     TimeSlot(
@@ -85,37 +86,20 @@ List<Lesson> _snapshotFor(List<TimeSlot> base) {
   );
 }
 
-Lesson? _lessonAt(List<Lesson> lessons, String teacher, DateTime date, int period) {
-  for (final lesson in lessons) {
-    if (lesson.teacher == teacher &&
-        lesson.date.year == date.year &&
-        lesson.date.month == date.month &&
-        lesson.date.day == date.day &&
-        lesson.period == period) {
-      return lesson;
-    }
-  }
-  return null;
+bool _sameWeek(DateTime date, DateTime weekMonday) {
+  final friday = weekMonday.add(const Duration(days: 4));
+  return !date.isBefore(weekMonday) && !date.isAfter(friday);
 }
 
-/// [project] 결과를 [weekMonday]가 속한 주로 필터해, [base]의 각 TimeSlot
-/// 좌표에 대응하는 실제 날짜의 Lesson을 찾아 [ResolvedWeek]와 같은 순서의
-/// 리스트로 만든다 — 두 결과를 나란히 비교하기 위한 어댑터.
-List<Lesson?> _projectWeek(
-  List<Lesson> projected,
-  List<TimeSlot> base,
-  DateTime weekMonday,
-) {
-  return base.map((slot) {
-    final day = slot.dayOfWeek!;
-    final period = slot.period!;
-    final date = weekMonday.add(Duration(days: day - 1));
-    return _lessonAt(projected, slot.teacher!, date, period);
-  }).toList();
+/// `getTouchedLessonsForWeek`의 계약(그 주 Mon~Fri만) 을 메모리에서 흉내낸다 —
+/// Repository 없이 project()의 순수 결과만으로 fromLessons를 검증하기 위한
+/// 어댑터.
+List<Lesson> _touchedInWeek(List<Lesson> projected, DateTime weekMonday) {
+  return projected.where((l) => _sameWeek(l.date, weekMonday)).toList();
 }
 
 void main() {
-  group('project — ResolvedWeek.dateAware와 결과가 일치한다', () {
+  group('ResolvedWeek.fromLessons — project()·getTouchedLessonsForWeek 결과로 dateAware와 동등함을 증명', () {
     test('1:1 교체 — 같은 주(결강·교체일 모두 10월2주)', () {
       final base = _baseTimetable();
       final path = _oneToOnePath(sourceDay: '수', targetDay: '월');
@@ -139,12 +123,16 @@ void main() {
         activeEvents: events,
         timetableId: _timetableId,
       );
-      final actual = _projectWeek(projected, base, weekMonday);
+      final actual = ResolvedWeek.fromLessons(
+        base: base,
+        touchedLessons: _touchedInWeek(projected, weekMonday),
+        weekMonday: weekMonday,
+      ).toTimeSlots(base);
 
       for (var i = 0; i < base.length; i++) {
-        expect(actual[i]?.subject, expected[i].subject, reason: 'index $i');
-        expect(actual[i]?.className, expected[i].className, reason: 'index $i');
-        expect(actual[i]?.teacher, expected[i].teacher, reason: 'index $i');
+        expect(actual[i].subject, expected[i].subject, reason: 'index $i');
+        expect(actual[i].className, expected[i].className, reason: 'index $i');
+        expect(actual[i].teacher, expected[i].teacher, reason: 'index $i');
       }
     });
 
@@ -181,11 +169,15 @@ void main() {
         activeEvents: events,
         timetableId: _timetableId,
       );
-      final actual = _projectWeek(projected, base, weekMonday);
+      final actual = ResolvedWeek.fromLessons(
+        base: base,
+        touchedLessons: _touchedInWeek(projected, weekMonday),
+        weekMonday: weekMonday,
+      ).toTimeSlots(base);
 
       for (var i = 0; i < base.length; i++) {
-        expect(actual[i]?.subject, expected[i].subject, reason: 'index $i');
-        expect(actual[i]?.teacher, expected[i].teacher, reason: 'index $i');
+        expect(actual[i].subject, expected[i].subject, reason: 'index $i');
+        expect(actual[i].teacher, expected[i].teacher, reason: 'index $i');
       }
     });
 
@@ -215,16 +207,20 @@ void main() {
           events: events,
           weekMonday: weekMonday,
         ).toTimeSlots(base);
-        final actual = _projectWeek(projected, base, weekMonday);
+        final actual = ResolvedWeek.fromLessons(
+          base: base,
+          touchedLessons: _touchedInWeek(projected, weekMonday),
+          weekMonday: weekMonday,
+        ).toTimeSlots(base);
 
         for (var i = 0; i < base.length; i++) {
           expect(
-            actual[i]?.subject,
+            actual[i].subject,
             expected[i].subject,
             reason: '주 $weekMonday, index $i',
           );
           expect(
-            actual[i]?.teacher,
+            actual[i].teacher,
             expected[i].teacher,
             reason: '주 $weekMonday, index $i',
           );
@@ -304,16 +300,20 @@ void main() {
           events: events,
           weekMonday: weekMonday,
         ).toTimeSlots(base);
-        final actual = _projectWeek(projected, base, weekMonday);
+        final actual = ResolvedWeek.fromLessons(
+          base: base,
+          touchedLessons: _touchedInWeek(projected, weekMonday),
+          weekMonday: weekMonday,
+        ).toTimeSlots(base);
 
         for (var i = 0; i < base.length; i++) {
           expect(
-            actual[i]?.subject,
+            actual[i].subject,
             expected[i].subject,
             reason: '주 $weekMonday, index $i',
           );
           expect(
-            actual[i]?.teacher,
+            actual[i].teacher,
             expected[i].teacher,
             reason: '주 $weekMonday, index $i',
           );
@@ -321,7 +321,7 @@ void main() {
       }
     });
 
-    test('순환 교체 — 노드 하나만 확정 날짜(다른 주)로 지정해도 project ≡ dateAware (S5.6)', () {
+    test('순환 교체 — 노드 하나만 확정 날짜(다른 주)로 지정해도 fromLessons ≡ dateAware (S5.6)', () {
       final base = [
         TimeSlot(
           teacher: 'A',
@@ -370,14 +370,12 @@ void main() {
         subjectName: '과학',
       );
       final path = CircularExchangePath.fromNodes([a, b, c, a]);
-      // B(화,2) 슬롯만 결강일과 다른 주(9월2주 화요일)로 확정한다 — A·C는
-      // 여전히 미확정(추정)으로 남는다(부분 확정).
       final events = [
         ExchangeHistoryItem.fromExchangePath(
           path,
-          absenceDate: DateTime(2026, 8, 24), // 월, 8월4주
+          absenceDate: DateTime(2026, 8, 24),
           substitutionDate: DateTime(2026, 8, 25),
-        ).copyWithNodeDate('화', 2, DateTime(2026, 9, 8)), // 화, 9월2주
+        ).copyWithNodeDate('화', 2, DateTime(2026, 9, 8)),
       ];
 
       final projected = project(
@@ -387,25 +385,29 @@ void main() {
       );
 
       for (final weekMonday in [
-        DateTime(2026, 8, 24), // 결강일 주 — A·C(추정) 반영
-        DateTime(2026, 9, 7), // B의 확정 날짜가 속한 주
-        DateTime(2026, 9, 14), // 관계없는 주
+        DateTime(2026, 8, 24),
+        DateTime(2026, 9, 7),
+        DateTime(2026, 9, 14),
       ]) {
         final expected = ResolvedWeek.dateAware(
           base: base,
           events: events,
           weekMonday: weekMonday,
         ).toTimeSlots(base);
-        final actual = _projectWeek(projected, base, weekMonday);
+        final actual = ResolvedWeek.fromLessons(
+          base: base,
+          touchedLessons: _touchedInWeek(projected, weekMonday),
+          weekMonday: weekMonday,
+        ).toTimeSlots(base);
 
         for (var i = 0; i < base.length; i++) {
           expect(
-            actual[i]?.subject,
+            actual[i].subject,
             expected[i].subject,
             reason: '주 $weekMonday, index $i',
           );
           expect(
-            actual[i]?.teacher,
+            actual[i].teacher,
             expected[i].teacher,
             reason: '주 $weekMonday, index $i',
           );
@@ -413,7 +415,7 @@ void main() {
       }
     });
 
-    test('2중 교체 — 두 단계가 서로 다른 주로 확정돼도 project ≡ dateAware (S5.6, R7 게이트)', () {
+    test('2중 교체 — 두 단계가 서로 다른 주로 확정돼도 fromLessons ≡ dateAware (S5.6, R7 게이트)', () {
       final base = [
         TimeSlot(
           teacher: '박지혜',
@@ -473,15 +475,13 @@ void main() {
         node1: node1,
         node2: node2,
       );
-      // 1단계(node1↔node2)는 결강일 주 그대로, 2단계(nodeA↔nodeB)만 다른
-      // 주로 확정한다 — 두 단계가 서로 다른 주로 갈리는 R7의 정확한 시나리오.
       final events = [
         ExchangeHistoryItem.fromExchangePath(
           path,
-          absenceDate: DateTime(2026, 8, 24), // 월, 8월4주
+          absenceDate: DateTime(2026, 8, 24),
           substitutionDate: DateTime(2026, 8, 25),
-        ).copyWithNodeDate('월', 1, DateTime(2026, 9, 7)) // nodeA
-            .copyWithNodeDate('화', 4, DateTime(2026, 9, 8)), // nodeB
+        ).copyWithNodeDate('월', 1, DateTime(2026, 9, 7))
+            .copyWithNodeDate('화', 4, DateTime(2026, 9, 8)),
       ];
 
       final projected = project(
@@ -491,25 +491,29 @@ void main() {
       );
 
       for (final weekMonday in [
-        DateTime(2026, 8, 24), // 결강일 주 — 1단계(node1↔node2)만 반영
-        DateTime(2026, 9, 7), // 2단계(nodeA↔nodeB) 확정 날짜가 속한 주
-        DateTime(2026, 9, 14), // 관계없는 주
+        DateTime(2026, 8, 24),
+        DateTime(2026, 9, 7),
+        DateTime(2026, 9, 14),
       ]) {
         final expected = ResolvedWeek.dateAware(
           base: base,
           events: events,
           weekMonday: weekMonday,
         ).toTimeSlots(base);
-        final actual = _projectWeek(projected, base, weekMonday);
+        final actual = ResolvedWeek.fromLessons(
+          base: base,
+          touchedLessons: _touchedInWeek(projected, weekMonday),
+          weekMonday: weekMonday,
+        ).toTimeSlots(base);
 
         for (var i = 0; i < base.length; i++) {
           expect(
-            actual[i]?.subject,
+            actual[i].subject,
             expected[i].subject,
             reason: '주 $weekMonday, index $i',
           );
           expect(
-            actual[i]?.teacher,
+            actual[i].teacher,
             expected[i].teacher,
             reason: '주 $weekMonday, index $i',
           );
@@ -517,162 +521,56 @@ void main() {
       }
     });
 
-    test('2중 교체 — 실행 시점에 전부 시드해도 project ≡ dateAware이고, SQLite 출력은 미시드와 동일하다 (S5.6.7)', () {
-      final base = [
-        TimeSlot(
-          teacher: '박지혜',
-          subject: '수학',
-          className: '1-1',
-          dayOfWeek: 1,
-          period: 1,
-        ),
-        TimeSlot(teacher: '박지혜', dayOfWeek: 2, period: 4),
-        TimeSlot(
-          teacher: '이숙희',
-          subject: '영어',
-          className: '1-1',
-          dayOfWeek: 2,
-          period: 4,
-        ),
-        TimeSlot(teacher: '이숙희', dayOfWeek: 1, period: 4),
-        TimeSlot(
-          teacher: '손혜옥',
-          subject: '국어',
-          className: '1-1',
-          dayOfWeek: 2,
-          period: 5,
-        ),
-      ];
-      final nodeA = ExchangeNode(
-        teacherName: '박지혜',
-        day: '월',
-        period: 1,
-        className: '1-1',
-        subjectName: '수학',
-      );
-      final nodeB = ExchangeNode(
-        teacherName: '이숙희',
-        day: '화',
-        period: 4,
-        className: '1-1',
-        subjectName: '영어',
-      );
-      final node1 = ExchangeNode(
-        teacherName: '이숙희',
-        day: '월',
-        period: 4,
-        className: '1-1',
-        subjectName: '영어',
-      );
-      final node2 = ExchangeNode(
-        teacherName: '손혜옥',
-        day: '화',
-        period: 5,
-        className: '1-1',
-        subjectName: '국어',
-      );
-      final path = DualExchangePath.build(
-        nodeA: nodeA,
-        nodeB: nodeB,
-        node1: node1,
-        node2: node2,
-      );
-      final weekMonday = DateTime(2026, 8, 24); // 월, 8월4주
-
-      final unseeded = ExchangeHistoryItem.fromExchangePath(
-        path,
-        absenceDate: weekMonday,
-        substitutionDate: weekMonday.add(const Duration(days: 1)),
-      );
-      // ExchangeExecutor.executeExchange가 실제로 하는 것과 동일하게, 실행
-      // 시점에 4개 노드 전부를 시드한다.
-      final seeded = ExchangeHistoryItem.fromExchangePath(
-        path,
-        absenceDate: weekMonday,
-        substitutionDate: weekMonday.add(const Duration(days: 1)),
-        nodeDates: seedNodeDatesForWeek(path, weekMonday),
-      );
-
-      final snapshot = _snapshotFor(base);
-      final projectedUnseeded = project(
-        snapshot: snapshot,
-        activeEvents: [unseeded],
-        timetableId: _timetableId,
-      );
-      final projectedSeeded = project(
-        snapshot: snapshot,
-        activeEvents: [seeded],
-        timetableId: _timetableId,
-      );
-
-      // 핵심 증거: 시드해도 SQLite에 쓰일 lessons 결과(subject/teacher)는
-      // 시드 전과 완전히 동일하다 — 값은 안 바뀌고 "확정" 여부만 바뀐다.
-      expect(projectedSeeded.length, projectedUnseeded.length);
-      for (final lesson in projectedUnseeded) {
-        final match = projectedSeeded.firstWhere((l) => l.id == lesson.id);
-        expect(match.subject, lesson.subject, reason: lesson.id);
-        expect(match.teacher, lesson.teacher, reason: lesson.id);
-        expect(match.date, lesson.date, reason: lesson.id);
-      }
-
-      // R7 재확인: 시드된 상태에서도 project ≡ dateAware가 여전히 성립한다.
-      for (final week in [weekMonday, DateTime(2026, 9, 7)]) {
-        final expected = ResolvedWeek.dateAware(
-          base: base,
-          events: [seeded],
-          weekMonday: week,
-        ).toTimeSlots(base);
-        final actual = _projectWeek(projectedSeeded, base, week);
-        for (var i = 0; i < base.length; i++) {
-          expect(actual[i]?.subject, expected[i].subject, reason: '주 $week, index $i');
-          expect(actual[i]?.teacher, expected[i].teacher, reason: '주 $week, index $i');
-        }
-      }
-    });
-
-    test('요일과 실제 날짜가 어긋나면 결강일 주 기준으로 안전하게 폴백한다', () {
+    test('이벤트가 없으면 fromLessons는 base 그대로다 (건드린 칸 없음)', () {
       final base = _baseTimetable();
-      // sourceDay는 '수'인데 absenceDate 실제 요일은 월요일 — 불일치
-      final path = _oneToOnePath(sourceDay: '수', targetDay: '월');
-      final events = [
-        ExchangeHistoryItem.fromExchangePath(
-          path,
-          absenceDate: DateTime(2026, 10, 12), // 월요일 — sourceDay('수')와 불일치
-          substitutionDate: DateTime(2026, 10, 14),
-        ),
-      ];
       final weekMonday = DateTime(2026, 10, 12);
 
-      final expected = ResolvedWeek.dateAware(
+      final actual = ResolvedWeek.fromLessons(
         base: base,
-        events: events,
+        touchedLessons: const [],
         weekMonday: weekMonday,
       ).toTimeSlots(base);
 
-      final projected = project(
-        snapshot: _snapshotFor(base),
-        activeEvents: events,
-        timetableId: _timetableId,
-      );
-      final actual = _projectWeek(projected, base, weekMonday);
-
       for (var i = 0; i < base.length; i++) {
-        expect(actual[i]?.subject, expected[i].subject, reason: 'index $i');
-        expect(actual[i]?.teacher, expected[i].teacher, reason: 'index $i');
+        expect(actual[i].subject, base[i].subject);
+        expect(actual[i].className, base[i].className);
       }
     });
 
-    test('이벤트가 없으면 project는 원본 스냅샷과 동일하다', () {
-      final base = _baseTimetable();
-      final snapshot = _snapshotFor(base);
+    test('isExchangeable·exchangeReason은 SQLite 값이 아니라 base 값을 유지한다', () {
+      final base = [
+        TimeSlot(
+          teacher: '정원길',
+          subject: '기술가정',
+          className: '3-8',
+          dayOfWeek: 3,
+          period: 1,
+          isExchangeable: false,
+          exchangeReason: '특별교실',
+        ),
+      ];
+      final touchedLessons = [
+        Lesson(
+          id: 'l1',
+          timetableId: _timetableId,
+          date: DateTime(2026, 10, 14), // 수
+          period: 1,
+          teacher: '정원길',
+          subject: '변경된과목',
+          className: '9-9',
+          isExchangeable: true, // SQLite 쪽 값이 true라도 base의 false가 이겨야 한다
+        ),
+      ];
 
-      final projected = project(
-        snapshot: snapshot,
-        activeEvents: const [],
-        timetableId: _timetableId,
-      );
+      final actual = ResolvedWeek.fromLessons(
+        base: base,
+        touchedLessons: touchedLessons,
+        weekMonday: DateTime(2026, 10, 12),
+      ).toTimeSlots(base);
 
-      expect(projected.length, snapshot.length);
+      expect(actual.single.subject, '변경된과목');
+      expect(actual.single.isExchangeable, isFalse);
+      expect(actual.single.exchangeReason, '특별교실');
     });
   });
 }

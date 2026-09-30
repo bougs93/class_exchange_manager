@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/exchange_history_item.dart';
 import '../utils/logger.dart';
 import '../models/time_slot.dart';
 import '../models/teacher.dart';
@@ -7,6 +8,7 @@ import '../utils/timetable_data_source.dart';
 import 'selected_week_provider.dart';
 import 'services_provider.dart';
 import 'show_week_header_provider.dart';
+import 'week_lessons_cache_provider.dart';
 
 /// 교체 뷰 상태 클래스
 ///
@@ -72,8 +74,28 @@ class ExchangeViewState {
 class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
   final Ref _ref;
 
+  // S5.5.4: SQLite 프리페치 캐시가 비동기로 채워진 뒤 다시 그리기 위해,
+  // 마지막으로 그릴 때 쓴 인자를 기억해 둔다 — 캐시가 준비되면(ticker) 같은
+  // 인자로 `_applyResolvedWeek`를 다시 호출한다.
+  List<TimeSlot>? _lastTimeSlots;
+  List<Teacher>? _lastTeachers;
+  TimetableDataSource? _lastDataSource;
+
   ExchangeViewNotifier(this._ref)
-    : super(ExchangeViewState(lastUpdated: DateTime.now()));
+    : super(ExchangeViewState(lastUpdated: DateTime.now())) {
+    _ref.listen<int>(weekLessonsCacheTickerProvider, (previous, next) {
+      if (!state.isEnabled) return;
+      final timeSlots = _lastTimeSlots;
+      final teachers = _lastTeachers;
+      final dataSource = _lastDataSource;
+      if (timeSlots == null || teachers == null || dataSource == null) return;
+      try {
+        _applyResolvedWeek(timeSlots, teachers, dataSource);
+      } catch (e) {
+        AppLogger.exchangeDebug('SQLite 캐시 준비 후 교체 뷰 재합성 실패: $e');
+      }
+    });
+  }
 
   /// 교체 뷰 활성화 — 현재 주의 교체를 합성해 표시
   ///
@@ -174,16 +196,23 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
     List<Teacher> teachers,
     TimetableDataSource dataSource,
   ) {
+    _lastTimeSlots = timeSlots;
+    _lastTeachers = teachers;
+    _lastDataSource = dataSource;
+
     final historyService = _ref.read(exchangeHistoryServiceProvider);
     final weekMonday = _ref.read(selectedWeekProvider);
     final events = historyService.getActiveExchangeList();
 
     // 날짜표시 스위치(S1.5)가 ON이면 실제 날짜 기준으로 다른 주 교체를 독립
     // 반영한다(S1.8). OFF면 기존 방식(`of`)을 그대로 쓴다 — 회귀 안전성의 핵심.
+    //
+    // OFF 모드는 S5.5.4에서도 절대 SQLite를 읽지 않는다(S5.5 설계 검토
+    // Decision D — `resolved_timetable_provider.dart`와 동일한 원칙).
     final showWeekHeader = _ref.read(showWeekHeaderProvider);
     final resolved =
         showWeekHeader
-            ? ResolvedWeek.dateAware(
+            ? _resolveOnWeekForView(
               base: timeSlots,
               events: events,
               weekMonday: weekMonday,
@@ -198,6 +227,43 @@ class ExchangeViewNotifier extends StateNotifier<ExchangeViewState> {
       '교체 뷰 합성 완료 - 주 시작 $weekMonday, 이 주 교체 $weekEventCount건 '
       '(전체 활성 ${events.length}건)',
     );
+  }
+
+  /// 날짜표시 ON 모드의 합성 — [resolved_timetable_provider.dart]의
+  /// `_resolveOnWeek`와 동일한 전략(오버레이 + 캐시 미준비 시 자동 폴백,
+  /// S5.5.4). [lessonReadPathEnabledProvider]가 꺼져 있거나 캐시가 아직
+  /// 준비되지 않았으면 기존 `dateAware`를 그대로 쓴다.
+  ResolvedWeek _resolveOnWeekForView({
+    required List<TimeSlot> base,
+    required List<ExchangeHistoryItem> events,
+    required DateTime weekMonday,
+  }) {
+    final lessonReadEnabled = _ref.read(lessonReadPathEnabledProvider);
+    if (!lessonReadEnabled) {
+      return ResolvedWeek.dateAware(base: base, events: events, weekMonday: weekMonday);
+    }
+
+    final timetableId = _ref.read(exchangeHistoryServiceProvider).timetableId;
+    if (timetableId == null) {
+      return ResolvedWeek.dateAware(base: base, events: events, weekMonday: weekMonday);
+    }
+
+    final cache = _ref.read(weekLessonsCacheProvider);
+    final touched = cache.lessonsFor(timetableId, weekMonday);
+    if (touched != null) {
+      return ResolvedWeek.fromLessons(
+        base: base,
+        touchedLessons: touched,
+        weekMonday: weekMonday,
+      );
+    }
+
+    // 아직 준비 안 됨 — 이번 호출은 기존 경로로 폴백하고, 백그라운드로
+    // 준비시킨다. 끝나면 ticker가 올라 생성자의 리스너가 다시 그린다.
+    cache.ensureLoaded(timetableId, weekMonday).catchError((Object e) {
+      AppLogger.exchangeDebug('교체 뷰용 SQLite 프리페치 실패: $e');
+    });
+    return ResolvedWeek.dateAware(base: base, events: events, weekMonday: weekMonday);
   }
 
   /// 교체 뷰 상태 초기화

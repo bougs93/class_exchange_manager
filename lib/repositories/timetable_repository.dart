@@ -12,6 +12,38 @@ import '../utils/semester_date_generator.dart';
 /// "건드린 범위"를 계산할 때 쓰는 내부 레코드 타입.
 typedef _CellCoord = ({String teacher, String date, int period});
 
+/// 이 시간표의 `lessons`가 `exchange_events` 저널을 얼마나 최신으로
+/// 반영하고 있는지 요약 (S5.5.0 — 조회 전환 준비).
+///
+/// `replayInto`가 매번 정확히 호출된다면 [isStale]은 항상 false여야 한다.
+/// 다만 로드 경로(`ExchangeHistoryService.loadFromLocalStorage`가 SQLite를
+/// 바로 쓸 때)는 `mirrorSink`를 거치지 않으므로 재생이 밀릴 수 있다 — S5.5
+/// 설계 검토에서 발견한 실제 간극이다. 화면이 SQLite를 읽기 전에 반드시
+/// 이 값을 확인해야 한다.
+class ProjectionStatus {
+  /// `timetables.projected_seq` — 마지막으로 반영이 끝난 시점의 최대 seq(-1=없음)
+  final int projectedSeq;
+
+  /// 현재 활성(`is_reverted=0`) 이벤트 중 최대 seq(-1=활성 이벤트 없음)
+  final int maxActiveSeq;
+
+  /// 이 시간표의 `lessons` 총 행 수
+  final int lessonRowCount;
+
+  /// `timetables`에 이 id로 등록된 행이 있는지 (S3 이전 등록 시간표는 없을 수 있음)
+  final bool hasTimetableRow;
+
+  const ProjectionStatus({
+    required this.projectedSeq,
+    required this.maxActiveSeq,
+    required this.lessonRowCount,
+    required this.hasTimetableRow,
+  });
+
+  /// 재생이 밀려 있는지 — 화면이 SQLite를 읽기 전 반드시 확인해야 하는 값.
+  bool get isStale => projectedSeq != maxActiveSeq;
+}
+
 /// 학기 기간 반영이 활성 교체 이벤트와 충돌할 때 던진다 (S5.4a — D5/OQ-7).
 ///
 /// 기간을 줄이면 그 활성 교체의 결강일·교체일 중 하나가 새 범위 밖으로
@@ -674,6 +706,72 @@ class TimetableRepository {
 
       await batch.commit(noResult: true);
     });
+  }
+
+  /// [ProjectionStatus] 조회 (S5.5.0 — 조회 전환 준비, 집계만 사용).
+  ///
+  /// `getLessonStats`와 같은 방식으로 `COUNT(*)`/`MAX(seq)` 집계만 실행하고
+  /// 행 전체를 읽지 않는다. 이 값 자체는 아직 어떤 화면에도 연결되지 않는다.
+  Future<ProjectionStatus> getProjectionStatus(String timetableId) async {
+    final timetableRows = await db.query(
+      'timetables',
+      columns: ['projected_seq'],
+      where: 'id = ?',
+      whereArgs: [timetableId],
+      limit: 1,
+    );
+    final hasTimetableRow = timetableRows.isNotEmpty;
+    final projectedSeq =
+        hasTimetableRow ? (timetableRows.first['projected_seq'] as int? ?? -1) : -1;
+
+    final maxSeqRows = await db.rawQuery(
+      'SELECT MAX(seq) AS m FROM exchange_events '
+      'WHERE timetable_id = ? AND is_reverted = 0',
+      [timetableId],
+    );
+    final maxActiveSeq = (maxSeqRows.first['m'] as int?) ?? -1;
+
+    final lessonCountRows = await db.rawQuery(
+      'SELECT COUNT(*) AS c FROM lessons WHERE timetable_id = ?',
+      [timetableId],
+    );
+    final lessonRowCount = (lessonCountRows.first['c'] as int?) ?? 0;
+
+    return ProjectionStatus(
+      projectedSeq: projectedSeq,
+      maxActiveSeq: maxActiveSeq,
+      lessonRowCount: lessonRowCount,
+      hasTimetableRow: hasTimetableRow,
+    );
+  }
+
+  /// [weekMonday]가 속한 주(월~금)에서, 지금까지 한 번이라도 교체가 건드린
+  /// 적 있는 칸(`dirty_lesson_keys`에 기록된 좌표)만 `lessons`와 조인해
+  /// 조회한다 (S5.5.0 — 조회 전환 준비).
+  ///
+  /// "건드린 적 있는 칸만" 좁히는 이유는 S5.5 설계의 오버레이 전략 때문이다 —
+  /// 화면은 기존 `TimeSlot` 위에 이 칸들만 덮어쓸 예정이라, 건드리지 않은
+  /// 칸까지 가져올 필요가 없다. 아직 어떤 화면도 이 값을 읽지 않는다.
+  /// 기본은 활성(`is_active = 1`) 수업만 반환한다 — 학기 기간 축소로 보관된
+  /// 칸은 제외한다.
+  Future<List<Lesson>> getTouchedLessonsForWeek(
+    String timetableId,
+    DateTime weekMonday,
+  ) async {
+    final friday = weekMonday.add(const Duration(days: 4));
+    final rows = await db.rawQuery(
+      'SELECT lessons.* FROM lessons '
+      'INNER JOIN dirty_lesson_keys '
+      'ON lessons.timetable_id = dirty_lesson_keys.timetable_id '
+      'AND lessons.teacher = dirty_lesson_keys.teacher '
+      'AND lessons.date = dirty_lesson_keys.date '
+      'AND lessons.period = dirty_lesson_keys.period '
+      'WHERE lessons.timetable_id = ? '
+      'AND lessons.date >= ? AND lessons.date <= ? '
+      'AND lessons.is_active = 1',
+      [timetableId, _formatDate(weekMonday), _formatDate(friday)],
+    );
+    return rows.map(Lesson.fromMap).toList();
   }
 
   /// (교사, 요일, 교시) → 대표 스냅샷 한 건. 인스턴스 캐시에 없으면 한 번만
