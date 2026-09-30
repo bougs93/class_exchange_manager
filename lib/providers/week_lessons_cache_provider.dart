@@ -133,17 +133,6 @@ class WeekLessonsCache {
   }
 }
 
-/// S5.5의 3단계 롤백 중 1단계(즉시 토글) — true면 화면이 SQLite 조회
-/// 경로([WeekLessonsCache])를 실제로 쓴다(날짜표시 ON 모드에서만 적용, OFF
-/// 모드는 이 값과 무관하게 항상 기존 방식).
-///
-/// **S5.5.5(2026-09-30)부터 기본값 true.** S5.5.4 회귀 체크리스트 8개 항목을
-/// 전부 코드 레벨로 확인했고(그중 "S3 이전 시간표"는 실제 회귀를 발견해
-/// `TimetableRepository.ensureDatedBackfill`로 수정), 문제가 있으면 S4.0
-/// 패널에서 이 스위치를 꺼서 재빌드 없이 즉시 기존 방식(`dateAware`)으로
-/// 되돌릴 수 있다 — `nodeDateEditEnabledProvider`(S5.6.8)와 동일한 롤백 패턴.
-final lessonReadPathEnabledProvider = StateProvider<bool>((ref) => true);
-
 /// [WeekLessonsCache]가 캐시를 채울 때마다 값을 올린다 — 이 값을
 /// `ref.watch`하는 Provider·리스너는 "캐시가 방금 준비됐으니 다시 계산/재렌더
 /// 하라"는 신호로 쓴다(S5.5.4에서 `resolved_timetable_provider`·
