@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -10,9 +11,12 @@ import '../../../../../models/timetable_registry.dart';
 import '../../../../../providers/exchange_screen_provider.dart';
 import '../../../../../providers/plan_output_menu_provider.dart';
 import '../../../../../providers/print_profile_provider.dart';
+import '../../../../../providers/services_provider.dart';
 import '../../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../../../providers/timetable_registry_provider.dart';
+import '../../../../../services/substitution_backup_service.dart';
 import '../../../../../theme/design_tokens.dart';
+import '../../../../../utils/dialog_helper.dart';
 import '../../../../widgets/content_toolbar_layout.dart';
 import '../../../../widgets/content_usage_hint_bar.dart';
 import '../../../../widgets/timetable_grid/grid_header_widgets.dart';
@@ -1032,6 +1036,11 @@ class SubstitutionOutputWidgetState
             ),
             ContentToolbarLayout.hintToToolbarSpacer,
 
+            // 결보강 내역 내보내기/가져오기 (다른 PC와 백업 파일로 주고받기)
+            _buildBackupButtonsRow(),
+
+            const SizedBox(height: 15),
+
             // 교사별 계획서(인쇄 프로파일) 선택 바
             _buildProfileBar(),
 
@@ -1132,6 +1141,312 @@ class SubstitutionOutputWidgetState
     );
   }
 
+  /// 결보강 내역 내보내기/가져오기 버튼 행 (2026-09-30)
+  ///
+  /// 같은 시간표를 여러 PC에서 쓸 때, 한쪽에서 삭제된 결보강 내역·계획서를
+  /// 파일로 주고받아 복원할 수 있게 한다. 자세한 검증 규칙은
+  /// [SubstitutionBackupService] 참고.
+  Widget _buildBackupButtonsRow() {
+    final tokens = context.tokens;
+    return Row(
+      children: [
+        Expanded(
+          child: CompactToolbarLabelButton(
+            onPressed: _handleExportBackup,
+            icon: Icons.upload_outlined,
+            label: '내보내기',
+            tooltip: '결보강 내역·계획서를 파일로 저장 (다른 PC로 옮길 때 사용)',
+            backgroundColor: ContentToolbarLayout.neutralButtonBackground(
+              tokens,
+            ),
+            foregroundColor: ContentToolbarLayout.neutralButtonForeground(
+              tokens,
+            ),
+            borderColor: ContentToolbarLayout.neutralButtonBorder(tokens),
+            width: double.infinity,
+            height: ContentToolbarLayout.buttonHeight,
+            fontSize: ContentToolbarLayout.buttonFontSize,
+            iconSize: ContentToolbarLayout.buttonIconSize,
+          ),
+        ),
+        const SizedBox(width: ContentToolbarLayout.buttonGap),
+        Expanded(
+          child: CompactToolbarLabelButton(
+            onPressed: _handleImportBackup,
+            icon: Icons.download_outlined,
+            label: '가져오기',
+            tooltip: '다른 PC에서 내보낸 결보강 내역·계획서 파일을 불러오기',
+            backgroundColor: ContentToolbarLayout.neutralButtonBackground(
+              tokens,
+            ),
+            foregroundColor: ContentToolbarLayout.neutralButtonForeground(
+              tokens,
+            ),
+            borderColor: ContentToolbarLayout.neutralButtonBorder(tokens),
+            width: double.infinity,
+            height: ContentToolbarLayout.buttonHeight,
+            fontSize: ContentToolbarLayout.buttonFontSize,
+            iconSize: ContentToolbarLayout.buttonIconSize,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 파일명 기본값: "<시간표명>_YYYYMMDD_결보강백업"
+  String _buildBackupFileName(String? timetableName) {
+    final now = DateTime.now();
+    final stamp =
+        '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+    final name =
+        (timetableName == null || timetableName.trim().isEmpty)
+            ? '결보강내역'
+            : timetableName.trim();
+    return '${name}_${stamp}_결보강백업';
+  }
+
+  /// 결보강 내역(+참조된 계획서)을 파일로 내보낸다.
+  Future<void> _handleExportBackup() async {
+    final historyService = ref.read(exchangeHistoryServiceProvider);
+    final items = historyService.getExchangeList();
+
+    if (items.isEmpty) {
+      if (mounted) {
+        SnackBarHelper.showInfo(context, '내보낼 결보강 내역이 없습니다.');
+      }
+      return;
+    }
+
+    final activeEntry = ref.read(activeTimetableEntryProvider);
+    final profileStore = ref.read(printProfileStoreProvider);
+    final profileIds =
+        items.map((e) => e.profileId).whereType<String>().toSet();
+    final profiles =
+        profileIds
+            .map((id) => profileStore.getById(id))
+            .whereType<PrintProfile>()
+            .toList();
+
+    final bundle = SubstitutionBackupBundle(
+      timetableName: activeEntry?.name,
+      teacherName: activeEntry?.teacherName,
+      schoolName: activeEntry?.schoolName,
+      exchangeItems: items,
+      printProfiles: profiles,
+    );
+    final jsonString = const SubstitutionBackupService().encode(bundle);
+
+    String? outputPath;
+    try {
+      outputPath = await FilePicker.saveFile(
+        dialogTitle: '결보강 내역 내보내기',
+        fileName: _buildBackupFileName(activeEntry?.name),
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+      );
+    } catch (e) {
+      AppLogger.error('결보강 내역 저장 대화상자 실패: $e', e);
+    }
+    if (outputPath == null || outputPath.isEmpty) return;
+
+    final path =
+        outputPath.toLowerCase().endsWith('.json')
+            ? outputPath
+            : '$outputPath.json';
+
+    try {
+      await File(path).writeAsString(jsonString);
+      if (mounted) {
+        SnackBarHelper.showSuccess(context, '결보강 내역을 내보냈습니다.');
+      }
+    } catch (e) {
+      AppLogger.error('결보강 내역 내보내기 실패: $e', e);
+      if (mounted) {
+        SnackBarHelper.showError(context, '내보내기에 실패했습니다: $e');
+      }
+    }
+  }
+
+  /// 백업 파일에서 결보강 내역(+계획서)을 가져온다.
+  ///
+  /// 1차: 원본 칸 정보로 같은 시간표인지 확인 → 다르면 확인 후 진행.
+  /// 2차: 날짜(결강일/교체일) 충돌 확인 → 겹치면 확인 후 기존 내역을
+  /// 지우고 교체, 겹치지 않으면 기존 내역 뒤에 추가.
+  Future<void> _handleImportBackup() async {
+    FilePickerResult? result;
+    try {
+      result = await FilePicker.pickFiles(
+        dialogTitle: '결보강 내역 가져오기',
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+        allowMultiple: false,
+        withData: false,
+      );
+    } catch (e) {
+      AppLogger.error('결보강 내역 가져오기 대화상자 실패: $e', e);
+    }
+    if (result == null || result.files.isEmpty) return;
+    final path = result.files.single.path;
+    if (path == null) return;
+
+    const backupService = SubstitutionBackupService();
+    final SubstitutionBackupBundle bundle;
+    try {
+      final content = await File(path).readAsString();
+      bundle = backupService.decode(content);
+    } catch (e) {
+      AppLogger.error('결보강 내역 가져오기 실패(파일 읽기/형식): $e', e);
+      if (mounted) {
+        SnackBarHelper.showError(context, '올바른 결보강 내역 백업 파일이 아닙니다.');
+      }
+      return;
+    }
+
+    if (bundle.exchangeItems.isEmpty) {
+      if (mounted) {
+        SnackBarHelper.showInfo(context, '가져올 결보강 내역이 없습니다.');
+      }
+      return;
+    }
+
+    final currentTimeSlots =
+        ref.read(
+          exchangeScreenProvider.select((state) => state.timetableData?.timeSlots),
+        ) ??
+        const [];
+
+    final matches = backupService.matchesCurrentTimetable(
+      bundle.exchangeItems,
+      currentTimeSlots,
+    );
+    if (!mounted) return;
+    if (!matches) {
+      final proceed = await _showBackupConfirmDialog(
+        title: '다른 시간표일 수 있습니다',
+        message:
+            '가져올 파일의 교체 내역이 지금 이 시간표와 일치하지 않습니다'
+            '(다른 시간표이거나, 그 사이 시간표가 바뀌었을 수 있습니다).\n\n'
+            '그래도 가져오시겠습니까?',
+        confirmLabel: '그래도 가져오기',
+      );
+      if (proceed != true) return;
+    }
+
+    final historyService = ref.read(exchangeHistoryServiceProvider);
+    final existingItems = historyService.getExchangeList();
+    final hasConflict = backupService.hasDateConflict(
+      bundle.exchangeItems,
+      existingItems,
+    );
+
+    var overwrite = false;
+    if (hasConflict) {
+      if (!mounted) return;
+      final proceed = await _showBackupConfirmDialog(
+        title: '날짜가 겹칩니다',
+        message:
+            '가져올 결보강 내역이 기존 내역과 날짜가 겹칩니다.\n'
+            '계속하면 기존 결보강 내역을 모두 지우고 가져온 내용으로 교체합니다.\n\n'
+            '계속하시겠습니까?',
+        confirmLabel: '지우고 가져오기',
+      );
+      if (proceed != true) return;
+      overwrite = true;
+    }
+
+    historyService.importExchangeItems(bundle.exchangeItems, overwrite: overwrite);
+
+    if (bundle.printProfiles.isNotEmpty) {
+      final profileNotifier = ref.read(printProfileStoreProvider.notifier);
+      final currentStore = ref.read(printProfileStoreProvider);
+      for (final profile in bundle.printProfiles) {
+        if (currentStore.getById(profile.id) == null) {
+          await profileNotifier.saveProfile(profile);
+        }
+      }
+    }
+
+    if (mounted) {
+      SnackBarHelper.showSuccess(
+        context,
+        overwrite ? '기존 내역을 지우고 가져왔습니다.' : '결보강 내역을 가져와 추가했습니다.',
+      );
+    }
+  }
+
+  /// 가져오기 중 사용자 확인이 필요한 경고 다이얼로그 (확인/취소)
+  Future<bool?> _showBackupConfirmDialog({
+    required String title,
+    required String message,
+    required String confirmLabel,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder:
+          (dialogContext) => AlertDialog(
+            title: Text(title),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('취소'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(confirmLabel),
+              ),
+            ],
+          ),
+    );
+  }
+
+  /// 현재 선택된 계획서만 삭제하는 버튼 (2026-09-30)
+  ///
+  /// 결보강 내역 전체 초기화는 내용 입력 화면에 이미 있다 — 여기는 "지금
+  /// 보고 있는 계획서 1건만" 지우고 싶을 때 쓴다. 선택된 계획서가 없으면
+  /// 비활성화된다.
+  Widget _buildDeleteProfileButton(PrintProfile? selectedProfile) {
+    return IconButton(
+      onPressed:
+          selectedProfile != null
+              ? () => _deleteSelectedProfile(selectedProfile)
+              : null,
+      icon: const Icon(Icons.delete_outline, size: 18),
+      tooltip: '선택한 계획서 삭제',
+      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints(),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+    );
+  }
+
+  /// 선택된 계획서 1건 삭제 (확인 후)
+  Future<void> _deleteSelectedProfile(PrintProfile profile) async {
+    final confirmed = await DialogHelper.showConfirmDialog(
+      context,
+      title: '계획서 삭제',
+      message: "'${profile.name}' 계획서를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.",
+      confirmText: '삭제',
+      isDangerous: true,
+    );
+    if (confirmed != true) return;
+    if (!mounted) return;
+
+    final success = await ref
+        .read(printProfileStoreProvider.notifier)
+        .deleteProfile(profile.id);
+    if (!mounted) return;
+
+    if (success) {
+      setState(() => _selectedProfileId = null);
+      await _loadSavedSettings();
+      if (mounted) {
+        SnackBarHelper.showSuccess(context, "'${profile.name}' 계획서를 삭제했습니다.");
+      }
+    } else {
+      SnackBarHelper.showError(context, '계획서 삭제에 실패했습니다.');
+    }
+  }
+
   /// 교사·계획서 선택 바
   ///
   /// 결보강 출력은 내용 입력에서 만든 계획서를 **선택·출력만** 합니다.
@@ -1188,6 +1503,7 @@ class SubstitutionOutputWidgetState
                   child: _buildPlanDropdown(tokens, profiles, dropdownValue),
                 ),
                 _buildContentInputNavButton(),
+                _buildDeleteProfileButton(selectedProfile),
               ],
             );
           } else {
@@ -1230,6 +1546,7 @@ class SubstitutionOutputWidgetState
                       child: _buildPlanDropdown(tokens, profiles, dropdownValue),
                     ),
                     _buildContentInputNavButton(),
+                    _buildDeleteProfileButton(selectedProfile),
                   ],
                 ),
               ],
