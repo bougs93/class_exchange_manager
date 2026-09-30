@@ -535,6 +535,29 @@ class ExchangeHistoryService {
     );
   }
 
+  /// [profileId]가 지정된 모든 교체 건의 지정을 해제한다.
+  ///
+  /// 계획서 삭제 시 호출한다 — 안 그러면 이미 없어진 계획서 ID가 교체 건에
+  /// 그대로 남아, "내용 입력"·"결보강 출력" 화면에서는 미지정처럼 보이지만
+  /// (`PrintProfileStore.getById`가 null을 반환하므로) 실제 필드는 죽은
+  /// ID를 계속 들고 있는 유령 참조가 된다. 계획서·결보강 내역·교체 화면이
+  /// 모두 같은 `ExchangeHistoryItem` 목록을 진실 원본으로 보므로, 여기서
+  /// 정리해야 세 화면이 어긋나지 않는다.
+  void unassignProfile(String profileId) {
+    var changed = false;
+    for (var i = 0; i < _exchangeList.length; i++) {
+      if (_exchangeList[i].profileId == profileId) {
+        _exchangeList[i] = _exchangeList[i].copyWithProfileId(null);
+        changed = true;
+      }
+    }
+    if (!changed) return;
+
+    _exchangeListVersion++;
+    _notifyVersionChanged();
+    _enqueueExchangeListSave('계획서 삭제에 따른 교체 건 지정 해제 저장 실패');
+  }
+
   /// 교체 건에 인쇄 프로파일(계획서) 지정
   ///
   /// 메모리 항목을 갱신하고 로컬 저장소에 즉시 반영합니다.

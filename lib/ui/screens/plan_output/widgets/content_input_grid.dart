@@ -939,6 +939,9 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     );
     if (confirmed != true) return;
     await ref.read(printProfileStoreProvider.notifier).deleteProfile(profileId);
+    // 이 계획서가 지정돼 있던 교체 건들의 지정을 해제한다 — 결보강
+    // 출력·교체 화면과 어긋나지 않도록 죽은 계획서 ID를 남기지 않는다.
+    ref.read(exchangeHistoryServiceProvider).unassignProfile(profileId);
     if (mounted) setState(() => _selectedPlanId = null);
   }
 

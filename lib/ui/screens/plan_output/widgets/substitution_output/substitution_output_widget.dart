@@ -19,6 +19,7 @@ import '../../../../../theme/design_tokens.dart';
 import '../../../../../utils/dialog_helper.dart';
 import '../../../../widgets/content_toolbar_layout.dart';
 import '../../../../widgets/content_usage_hint_bar.dart';
+import '../../../../widgets/timetable_grid/exchange_executor.dart';
 import '../../../../widgets/timetable_grid/grid_header_widgets.dart';
 import '../../../../../utils/pdf_field_config.dart';
 import '../../../../../utils/date_format_utils.dart';
@@ -1008,6 +1009,18 @@ class SubstitutionOutputWidgetState
       exchangeScreenProvider.select((state) => state.timetableData),
     );
 
+    // 다른 화면(내용 입력)에서 지금 선택 중인 계획서를 삭제한 경우 —
+    // 드롭다운 표시는 store.getById가 null을 반환해 이미 안전하게
+    // "미지정"으로 보이지만, _selectedProfileId 필드 자체는 그대로 남아
+    // PDF 출력 가능 여부(canPrint) 판정이 죽은 ID를 기준으로 계속 true가
+    // 되는 문제가 있었다 — 여기서 직접 정리한다.
+    ref.listen<PrintProfileStore>(printProfileStoreProvider, (previous, next) {
+      if (_selectedProfileId != null && next.getById(_selectedProfileId) == null) {
+        setState(() => _selectedProfileId = null);
+        _loadSavedSettings();
+      }
+    });
+
     // build는 PlanOutputScreen의 TabController 리스너에서 호출되는 updateAbsencePeriod()로 처리
     // 여기서는 UI만 렌더링
 
@@ -1356,13 +1369,34 @@ class SubstitutionOutputWidgetState
 
     historyService.importExchangeItems(bundle.exchangeItems, overwrite: overwrite);
 
+    // 교체 화면 그리드의 "교체된 셀" 강조는 실행/삭제 시점에 명시적으로
+    // 갱신해야 한다 — exchangeListVersionProvider 리스너는 데이터그리드
+    // 다시 그리기만 트리거할 뿐 cellSelectionProvider는 건드리지 않는다
+    // (교체 목록 초기화 때도 _deleteExchangeList가 이렇게 직접 호출한다).
+    ExchangeExecutor.restoreExchangedCells(ref);
+
     if (bundle.printProfiles.isNotEmpty) {
       final profileNotifier = ref.read(printProfileStoreProvider.notifier);
       final currentStore = ref.read(printProfileStoreProvider);
+      PrintProfile? firstImported;
       for (final profile in bundle.printProfiles) {
         if (currentStore.getById(profile.id) == null) {
           await profileNotifier.saveProfile(profile);
+          firstImported ??= profile;
         }
+      }
+
+      // 방금 가져온 계획서를 화면에서 바로 선택된 상태로 보여준다 — 안
+      // 그러면 "미지정" 상태로 남아 PDF 출력이 막혀 있는 것처럼 보인다.
+      final toSelect = firstImported ?? bundle.printProfiles.first;
+      if (mounted && _availableTeachers().contains(toSelect.teacherName)) {
+        setState(() {
+          _selectedTeacher = toSelect.teacherName;
+          _selectedProfileId = toSelect.id;
+        });
+        _applyProfileToUi(toSelect);
+        await profileNotifier.setLastSelectedTeacher(toSelect.teacherName);
+        await profileNotifier.setLastUsedProfile(toSelect.id);
       }
     }
 
@@ -1437,6 +1471,10 @@ class SubstitutionOutputWidgetState
     if (!mounted) return;
 
     if (success) {
+      // 이 계획서가 지정돼 있던 교체 건들의 지정을 해제한다 — 안 그러면
+      // "내용 입력"·교체 화면에 죽은 계획서 ID가 남는다.
+      ref.read(exchangeHistoryServiceProvider).unassignProfile(profile.id);
+
       setState(() => _selectedProfileId = null);
       await _loadSavedSettings();
       if (mounted) {
