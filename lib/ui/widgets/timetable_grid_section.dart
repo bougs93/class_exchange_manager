@@ -461,20 +461,13 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
   }
 
   /// 교체 적용·초기화·undo/redo 버튼 그룹
+  ///
+  /// "교체/원본" 스위치는 여기 없다 — "실제 날짜" 스위치 옆에 붙여 달라는
+  /// 요청(2026-09-30)으로 `ExchangeWeekBar`(주차 바)로 옮겼다. 실제 켜기/
+  /// 끄기 로직(`_enableExchangeView`/`_disableExchangeView`)은 `ExchangeExecutor`가
+  /// 자동 활성화 시 여전히 호출하므로 이 클래스에 그대로 남아 있다.
   List<Widget> _buildActionToolbarItems(bool showActionButtonLabels) {
     return [
-      ExchangeViewCheckbox(
-        isEnabled: ref.watch(isExchangeViewEnabledProvider),
-        onChanged: (bool? value) {
-          final isEnabled = value ?? false;
-          if (isEnabled) {
-            _enableExchangeView();
-          } else {
-            _disableExchangeView();
-          }
-        },
-      ),
-      const SizedBox(width: 6),
       ResetExchangeListButton(
         onPressed: () => _showDeleteExchangeListDialog(context, ref),
         showLabel: showActionButtonLabels,
@@ -1622,21 +1615,5 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
         SnackBarHelper.showError(context, '삭제 중 오류가 발생했습니다: $e');
       }
     }
-  }
-
-  /// 교체 뷰 비활성화 (Riverpod 기반)
-  void _disableExchangeView() {
-    if (widget.timetableData == null || widget.dataSource == null) {
-      AppLogger.exchangeDebug('교체 뷰 비활성화 실패: 필수 데이터가 null입니다');
-      return;
-    }
-
-    ref
-        .read(exchangeViewProvider.notifier)
-        .disableExchangeView(
-          timeSlots: widget.timetableData!.timeSlots,
-          teachers: widget.timetableData!.teachers,
-          dataSource: widget.dataSource!,
-        );
   }
 }

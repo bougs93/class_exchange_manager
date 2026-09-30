@@ -93,6 +93,26 @@ class TimetableTabContent extends ConsumerWidget {
                     dataSource: dataSource!,
                   );
             },
+            // "교체/원본" 스위치 — 그리드 툴바에서 이 주차 바로 옮겨왔다
+            // (2026-09-30). 로직은 `TimetableGridSection._enableExchangeView`/
+            // `_disableExchangeView`와 동일하다.
+            onToggleExchangeView: (enabled) {
+              if (dataSource == null) return;
+              final notifier = ref.read(exchangeViewProvider.notifier);
+              if (enabled) {
+                notifier.enableExchangeView(
+                  timeSlots: timetableData!.timeSlots,
+                  teachers: timetableData!.teachers,
+                  dataSource: dataSource!,
+                );
+              } else {
+                notifier.disableExchangeView(
+                  timeSlots: timetableData!.timeSlots,
+                  teachers: timetableData!.teachers,
+                  dataSource: dataSource!,
+                );
+              }
+            },
           ),
         // 시간표 그리드 (모드 선택 + 실행 도구가 그리드 헤더에 통합됨)
         if (timetableData != null && columns.isEmpty)

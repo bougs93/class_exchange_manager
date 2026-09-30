@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../providers/dated_semester_provider.dart';
+import '../../../../providers/exchange_view_provider.dart';
 import '../../../../providers/exchange_week_summary_provider.dart';
 import '../../../../providers/selected_week_provider.dart';
 import '../../../../providers/show_week_header_provider.dart';
 import '../../../../utils/week_date_calculator.dart';
 import '../../../../utils/week_semester_status.dart';
+import '../../../widgets/timetable_grid/grid_header_widgets.dart';
 import '../../personal_schedule_screen/exchange_week_collector.dart';
 
 /// 교체 화면 상단 주차 선택 바 (§10.5)
@@ -22,10 +24,16 @@ class ExchangeWeekBar extends ConsumerWidget {
   /// 날짜표시 스위치가 바뀐 뒤 헤더를 강제로 다시 그리기 위한 콜백 (S1.5)
   final VoidCallback? onShowWeekHeaderChanged;
 
+  /// 교체/원본 스위치가 바뀔 때 호출된다. 원래 그리드 툴바에 있던 스위치를
+  /// "실제 날짜" 옆으로 옮겨왔다(두 스위치를 붙여 달라는 요청, 2026-09-30) —
+  /// 실제 켜기/끄기 로직은 그대로 `TimetableTabContent`가 가지고 있다.
+  final ValueChanged<bool>? onToggleExchangeView;
+
   const ExchangeWeekBar({
     super.key,
     this.onWeekChanged,
     this.onShowWeekHeaderChanged,
+    this.onToggleExchangeView,
   });
 
   void _moveWeek(WidgetRef ref, int offset) {
@@ -168,6 +176,28 @@ class ExchangeWeekBar extends ConsumerWidget {
               ],
             ),
           ),
+          // "교체/원본" 스위치 — 원래 그리드 툴바(다른 줄)에 있었으나, "실제
+          // 날짜" 스위치 옆에 붙여 달라는 요청(2026-09-30)으로 이 자리로
+          // 옮겨왔다. 실제 켜기/끄기 로직은 `onToggleExchangeView` 콜백으로
+          // 위임한다(그리드의 timeSlots·dataSource가 필요해서 이 위젯 자체는
+          // 그 값을 모른다).
+          if (onToggleExchangeView != null) ...[
+            const SizedBox(width: 6),
+            SizedBox(
+              height: 20,
+              child: VerticalDivider(
+                width: 1,
+                thickness: 1,
+                color: theme.dividerColor.withValues(alpha: 0.5),
+              ),
+            ),
+            const SizedBox(width: 6),
+            ExchangeViewCheckbox(
+              isEnabled: ref.watch(isExchangeViewEnabledProvider),
+              onChanged:
+                  (value) => onToggleExchangeView!.call(value ?? false),
+            ),
+          ],
         ],
       ),
     );
