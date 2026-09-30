@@ -1161,7 +1161,7 @@ class SubstitutionOutputWidgetState
           return Row(
             children: [
               Expanded(flex: 3, child: pdfButton),
-              const SizedBox(width: 8),
+              const SizedBox(width: 24),
               backupActions,
             ],
           );
