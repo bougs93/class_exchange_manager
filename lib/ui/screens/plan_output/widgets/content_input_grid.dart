@@ -113,9 +113,40 @@ class SubstitutionPlanDataSource extends DataGridSource {
     return _weekSortKey(week);
   }
 
+  /// 화면 표시용 정렬 — 주 그룹 → 결강일 → 결강교시 순
+  ///
+  /// 주 그룹핑(`_weekKey`)은 유지한 채, 그룹 안의 행이 결강일·교시 순으로
+  /// 나타나도록 정렬한다. 날짜 파싱에 실패한 행은 각 그룹의 맨 뒤로 보낸다.
+  List<SubstitutionPlanData> get _sortedPlanData {
+    final sorted = List<SubstitutionPlanData>.from(planData);
+    sorted.sort((a, b) {
+      final weekCompare = _weekKeyFor(a).compareTo(_weekKeyFor(b));
+      if (weekCompare != 0) return weekCompare;
+
+      final aDate = DateFormatUtils.parseYearMonthDay(a.absenceDate);
+      final bDate = DateFormatUtils.parseYearMonthDay(b.absenceDate);
+      if (aDate != null && bDate != null) {
+        final dateCompare = aDate.compareTo(bDate);
+        if (dateCompare != 0) return dateCompare;
+      } else if (aDate != null) {
+        return -1;
+      } else if (bDate != null) {
+        return 1;
+      }
+
+      final aPeriod = int.tryParse(a.period) ?? 9999;
+      final bPeriod = int.tryParse(b.period) ?? 9999;
+      final periodCompare = aPeriod.compareTo(bPeriod);
+      if (periodCompare != 0) return periodCompare;
+
+      return a.absenceDate.compareTo(b.absenceDate);
+    });
+    return sorted;
+  }
+
   @override
   List<DataGridRow> get rows =>
-      planData.map<DataGridRow>((data) {
+      _sortedPlanData.map<DataGridRow>((data) {
         return DataGridRow(
           cells: [
             // exchangeId를 첫 번째 숨김 컬럼으로 추가

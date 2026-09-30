@@ -398,9 +398,31 @@ class PdfExportService {
       int successCount = 0;
       int failCount = 0;
 
+      // 내용 입력 표와 동일한 순서(결강일 → 결강교시)로 정렬
+      final sortedPlanData = List<SubstitutionPlanData>.from(planData)
+        ..sort((a, b) {
+          final aDate = DateFormatUtils.parseYearMonthDay(a.absenceDate);
+          final bDate = DateFormatUtils.parseYearMonthDay(b.absenceDate);
+          if (aDate != null && bDate != null) {
+            final dateCompare = aDate.compareTo(bDate);
+            if (dateCompare != 0) return dateCompare;
+          } else if (aDate != null) {
+            return -1;
+          } else if (bDate != null) {
+            return 1;
+          }
+
+          final aPeriod = int.tryParse(a.period) ?? 9999;
+          final bPeriod = int.tryParse(b.period) ?? 9999;
+          final periodCompare = aPeriod.compareTo(bPeriod);
+          if (periodCompare != 0) return periodCompare;
+
+          return a.absenceDate.compareTo(b.absenceDate);
+        });
+
       // 각 데이터 행에 대해 필드 이름 생성 및 채우기
-      for (int rowIndex = 0; rowIndex < planData.length; rowIndex++) {
-        final data = planData[rowIndex];
+      for (int rowIndex = 0; rowIndex < sortedPlanData.length; rowIndex++) {
+        final data = sortedPlanData[rowIndex];
 
         // 각 컬럼 키에 대해 필드 이름 생성 (예: date.0, date.1, ...)
         for (String columnKey in kPdfTableColumns) {

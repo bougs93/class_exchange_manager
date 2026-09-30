@@ -9,7 +9,7 @@ final planOutputMenuProvider = StateProvider<PlanOutputMenu>(
   (ref) => PlanOutputMenu.contentInput,
 );
 
-/// [계획서] 탭의 [날짜 선택] 서브 메뉴로 이동합니다.
+/// [계획서] 탭의 [내용 입력] 서브 메뉴로 이동합니다.
 void navigateToPlanDateSelection(WidgetRef ref) {
   ref.read(planOutputMenuProvider.notifier).state = PlanOutputMenu.contentInput;
   ref.read(navigationProvider.notifier).state = NavIndices.planOutput;

@@ -209,6 +209,29 @@ class ExchangeHistoryService {
     return _exchangeListVersion;
   }
 
+  /// 다른 PC에서 내보낸 결보강 내역을 가져와 반영한다.
+  ///
+  /// [overwrite]가 true면 기존 목록을 모두 지우고 [items]로 교체한다
+  /// (날짜 충돌이 있어 사용자가 "지우고 가져오기"를 확정한 경우).
+  /// false면 기존 목록 뒤에 [items]를 추가한다(충돌 없는 병합).
+  /// 되돌리기 스택은 항상 초기화한다 — 가져온 항목은 이 세션에서 실행한
+  /// 조작이 아니므로 되돌리기 대상이 아니다.
+  void importExchangeItems(
+    List<ExchangeHistoryItem> items, {
+    required bool overwrite,
+  }) {
+    if (overwrite) {
+      _exchangeList.clear();
+    }
+    _exchangeList.addAll(items);
+    _undoStack.clear();
+    _redoStack.clear();
+
+    _exchangeListVersion++;
+    _notifyVersionChanged();
+    _enqueueExchangeListSave('가져온 결보강 내역 저장 실패');
+  }
+
   /// 교체 리스트 전체 삭제
   void clearExchangeList() {
     _exchangeList.clear();

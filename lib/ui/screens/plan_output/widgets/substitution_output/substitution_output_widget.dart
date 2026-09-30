@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -102,7 +103,7 @@ class SubstitutionOutputWidgetState
   /// 현재 선택 계획서 ID (null이면 미지정 → 레거시 양식 설정 사용)
   String? _selectedProfileId;
 
-  /// 계획서 설정에 반영되는 입력 컨트롤러 목록 (dirty 감지용)
+  /// 계획서 설정에 반영되는 입력 컨트롤러 목록 (자동 저장 감지용)
   List<TextEditingController> get _profileFieldControllers => [
     _teacherNameController,
     _absencePeriodController,
@@ -112,85 +113,31 @@ class SubstitutionOutputWidgetState
     _notesController,
   ];
 
-  /// 계획서를 화면에 적용한 직후의 스냅샷 (dirty 비교 기준)
-  ///
-  /// 저장된 계획서와 직접 비교하면 안 된다. [_applyProfileToUi]는 결강기간을
-  /// 건드리지 않고 비고(notes)가 없으면 기본 문구를 채우므로, 사용자가 아무것도
-  /// 고치지 않아도 저장값과 화면값이 달라진다. 적용 직후 화면 상태를 기준으로
-  /// 삼아야 "실제로 사용자가 바꾼 것"만 잡아낸다.
-  PrintProfile? _appliedSnapshot;
+  /// 자동 저장 디바운스 타이머 (입력 종료 후 1초 뒤 저장)
+  Timer? _autoSaveTimer;
 
-  /// dirty 비교에서 제외할 필드
+  /// 프로그래밍 방식 입력값 적용 중에는 자동 저장을 걸지 않음
   ///
-  /// 결강기간은 사용자가 편집하지 않아도 교체 목록 변경에 따라 자동으로 다시
-  /// 계산되고, 출력 시에도 건별로 재계산되므로 미저장 변경으로 볼 수 없다.
-  static const Set<String> _dirtyIgnoredFields = {'absencePeriod'};
+  /// [_applyProfileToUi]처럼 계획서 값을 화면에 채우는 과정에서
+  /// 컨트롤러 리스너가 연쇄 발동해 불필요한 저장이 일어나지 않도록 막는다.
+  bool _autoSaveSuspended = false;
 
-  /// 화면 값이 선택된 계획서와 달라졌는지 (저장하지 않은 변경)
-  ///
-  /// 계획서 설정은 [이 계획서에 저장]을 눌러야 기록되므로, 이 상태에서 교사·계획서를
-  /// 전환하면 편집 내용이 조용히 사라진다. 따라서 ● 표시 + 전환 시 확인이 필요하다
-  /// (문서 §3③ "미저장 변경 보호").
-  bool get _hasUnsavedChanges {
-    final snapshot = _appliedSnapshot;
-    if (snapshot == null || _selectedProfileId == null) return false;
-    if (snapshot.id != _selectedProfileId) return false;
-
-    return !snapshot.contentEquals(
-      _collectProfileFromUi(snapshot),
-      ignoreFields: _dirtyIgnoredFields,
-    );
+  /// 설정 변경 시 자동 저장 예약 (디바운스)
+  void _scheduleAutoSave() {
+    if (_autoSaveSuspended || !mounted) return;
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = Timer(const Duration(seconds: 1), () {
+      if (!mounted) return;
+      _saveCurrentSettings();
+    });
   }
 
-  /// 입력값 변경 시 ● 표시 갱신
-  void _onProfileFieldChanged() {
-    // 결강기간 자동 갱신 중 setState가 쌓이면 프레임마다 리빌드됨
-    if (_absencePeriodMode == AbsencePeriodUpdateMode.updating) return;
-    if (mounted) setState(() {});
-  }
-
-  /// 미저장 변경이 있으면 저장 여부를 확인한다
-  ///
-  /// 반환값: 전환을 계속해도 되면 true, 사용자가 취소했으면 false.
-  Future<bool> _confirmDiscardChanges() async {
-    final store = ref.read(printProfileStoreProvider);
-    final selected = store.getById(_selectedProfileId);
-    if (selected == null || !_hasUnsavedChanges) return true;
-
-    final choice = await showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('저장하지 않은 변경이 있습니다'),
-          content: Text("'${selected.name}'의 변경 내용을 저장할까요?"),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop('cancel'),
-              child: const Text('취소'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop('discard'),
-              child: const Text('저장 안 함'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(dialogContext).pop('save'),
-              child: const Text('저장'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (choice == 'save') {
-      final updated = _collectProfileFromUi(selected);
-      await ref
-          .read(printProfileStoreProvider.notifier)
-          .saveProfile(updated);
-      _appliedSnapshot = updated;
-      return true;
-    }
-    return choice == 'discard';
+  /// 예약된 자동 저장을 즉시 실행 (교사·계획서 전환 전에 호출)
+  Future<void> _flushAutoSave() async {
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = null;
+    if (!mounted) return;
+    await _saveCurrentSettings();
   }
 
   /// 준비 화면 교사 변경 구독 (build의 ref.listen은 재빌드 타이밍에 끊길 수 있음)
@@ -204,9 +151,9 @@ class SubstitutionOutputWidgetState
     // 결강기간 필드 변경 감지 (사용자가 직접 수정한 경우 플래그 설정)
     _absencePeriodController.addListener(_onAbsencePeriodChanged);
 
-    // 입력값이 바뀌면 계획서 이름 옆 ● (미저장 변경) 표시를 즉시 갱신
+    // 입력값이 바뀌면 자동 저장 예약 (디바운스 1초)
     for (final controller in _profileFieldControllers) {
-      controller.addListener(_onProfileFieldChanged);
+      controller.addListener(_scheduleAutoSave);
     }
 
     // 준비 > 교사 변경을 위젯이 살아 있는 동안 항상 구독
@@ -239,6 +186,10 @@ class SubstitutionOutputWidgetState
     _prepareTeacherSubscription?.close();
     _prepareTeacherSubscription = null;
 
+    // 예약된 자동 저장이 있으면 즉시 실행 후 종료
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = null;
+
     // 프로그램 종료 시 현재 양식의 설정 저장
     _saveCurrentSettings();
 
@@ -247,7 +198,7 @@ class SubstitutionOutputWidgetState
 
     // Controller 정리
     for (final controller in _profileFieldControllers) {
-      controller.removeListener(_onProfileFieldChanged);
+      controller.removeListener(_scheduleAutoSave);
     }
     _teacherNameController.dispose();
     _absencePeriodController.dispose();
@@ -295,6 +246,7 @@ class SubstitutionOutputWidgetState
   ///
   /// 계획서가 선택된 경우 해당 계획서에 저장하고,
   /// 미지정인 경우 레거시 양식별 설정에 저장합니다.
+  /// 입력 변경 시 디바운스 자동 저장, 교사·계획서 전환 시,
   /// 문서 출력 버튼 클릭 시 또는 프로그램 종료 시 호출됩니다.
   Future<void> _saveCurrentSettings() async {
     if (!mounted) return;
@@ -373,7 +325,7 @@ class SubstitutionOutputWidgetState
   /// 결강기간 자동 계산 및 업데이트 (외부에서 호출 가능한 public 메서드)
   /// 탭 진입 시 PlanOutputScreen에서 호출됩니다.
   void updateAbsencePeriod() {
-    // 날짜 선택에서 체크된 건만 결강기간에 반영
+    // 내용 입력에서 체크된 건만 결강기간에 반영
     final planData = ref.read(checkedSubstitutionPlanDataProvider);
     _updateAbsencePeriod(planData);
   }
@@ -726,7 +678,7 @@ class SubstitutionOutputWidgetState
           .setLastSelectedTeacher(teacher);
     }
 
-    // 날짜 선택에서 만든 계획서가 다른/빈 교사명으로 저장된 경우
+    // 내용 입력에서 만든 계획서가 다른/빈 교사명으로 저장된 경우
     // 현재 준비 교사에게 편입해 목록에 보이게 한다
     if (teacher != null) {
       await _attachOrphanProfilesToTeacher(teacher);
@@ -749,10 +701,9 @@ class SubstitutionOutputWidgetState
       _applyProfileToUi(selected);
       // 결강교사 = 준비 화면(또는 선택) 교사로 맞춤
       if (mounted && teacher != null) {
+        _autoSaveSuspended = true;
         _teacherNameController.text = teacher;
-        if (_appliedSnapshot != null) {
-          _appliedSnapshot = _collectProfileFromUi(_appliedSnapshot!);
-        }
+        _autoSaveSuspended = false;
         setState(() {});
       }
       AppLogger.info("계획서 복원: 교사=$teacher, 계획서='${selected.name}'");
@@ -769,7 +720,7 @@ class SubstitutionOutputWidgetState
     }
   }
 
-  /// 날짜 선택에서 만든 계획서를 현재 준비 교사에게 편입
+  /// 내용 입력에서 만든 계획서를 현재 준비 교사에게 편입
   ///
   /// byTeacher(준비교사)가 비어 있을 때만:
   /// - 교사명이 비어 있는 계획서
@@ -846,6 +797,8 @@ class SubstitutionOutputWidgetState
     final defaultNotes =
         profile.additionalFields['notes'] ?? PdfNotesTemplate.defaultNotes;
 
+    // 계획서 값을 화면에 채우는 동안 자동 저장을 걸지 않음
+    _autoSaveSuspended = true;
     setState(() {
       _selectedTemplateIndex = profile.templateIndex.clamp(0, 1);
       _fontSize = profile.fontSize;
@@ -865,9 +818,7 @@ class SubstitutionOutputWidgetState
           profile.additionalFields['schoolName'] ?? '';
       _notesController.text = defaultNotes;
     });
-
-    // 적용 직후 화면 상태를 dirty 비교 기준으로 삼는다
-    _appliedSnapshot = _collectProfileFromUi(profile);
+    _autoSaveSuspended = false;
   }
 
   /// 현재 화면 설정 → 계획서 객체로 수집
@@ -894,8 +845,9 @@ class SubstitutionOutputWidgetState
   Future<void> _onTeacherChanged(String? teacher) async {
     if (teacher == null || teacher == _selectedTeacher) return;
 
-    // 미저장 변경이 있으면 먼저 저장 여부를 묻는다
-    if (!await _confirmDiscardChanges() || !mounted) return;
+    // 전환 전 대기 중인 자동 저장을 먼저 실행 (입력 내용 유실 방지)
+    await _flushAutoSave();
+    if (!mounted) return;
 
     await _applyTeacherSelection(teacher, syncAbsenceTeacherField: true);
   }
@@ -941,9 +893,13 @@ class SubstitutionOutputWidgetState
     String teacher, {
     required bool syncAbsenceTeacherField,
   }) async {
+    // 대기 중인 자동 저장을 먼저 실행 (이전 계획서의 입력 내용 유실 방지)
+    await _flushAutoSave();
+    if (!mounted) return;
+
     final store = ref.read(printProfileStoreProvider);
     final profiles = store.byTeacher(teacher);
-    // 날짜 선택에서 쓰던 마지막 계획서를 우선 선택
+    // 내용 입력에서 쓰던 마지막 계획서를 우선 선택
     final lastUsed = store.getById(store.lastUsedProfileId);
     final preferred =
         (lastUsed != null && profiles.any((p) => p.id == lastUsed.id))
@@ -974,14 +930,11 @@ class SubstitutionOutputWidgetState
       // 계획서 additionalFields의 옛 결강교사가 덮어쓸 수 있으므로 항상 재적용
       if (syncAbsenceTeacherField) {
         setState(() => _teacherNameController.text = teacher);
-      }
-      // 준비 화면 동기화로 맞춘 값은 '미저장 변경'으로 보지 않음
-      if (_appliedSnapshot != null) {
-        _appliedSnapshot = _collectProfileFromUi(_appliedSnapshot!);
+        // 동기화로 맞춘 결강교사 값도 자동 저장되도록 예약
+        _scheduleAutoSave();
       }
     } else {
       // 계획서가 없는 교사: 미지정 → 레거시 양식 설정 로드
-      _appliedSnapshot = null;
       await _loadSavedSettings();
       // 레거시 설정의 옛 교사명이 덮어쓰므로 동기화 시 항상 재적용
       if (mounted && syncAbsenceTeacherField) {
@@ -996,8 +949,9 @@ class SubstitutionOutputWidgetState
   Future<void> _onProfileChanged(String? profileId) async {
     if (profileId == _selectedProfileId) return;
 
-    // 미저장 변경이 있으면 먼저 저장 여부를 묻는다
-    if (!await _confirmDiscardChanges() || !mounted) return;
+    // 전환 전 대기 중인 자동 저장을 먼저 실행 (입력 내용 유실 방지)
+    await _flushAutoSave();
+    if (!mounted) return;
 
     final store = ref.read(printProfileStoreProvider);
     final profile = store.getById(profileId);
@@ -1011,29 +965,7 @@ class SubstitutionOutputWidgetState
           .setLastUsedProfile(profile.id);
     } else {
       // 미지정: 양식 설정 흐름으로 되돌린다
-      _appliedSnapshot = null;
       await _loadSavedSettings();
-    }
-  }
-
-  /// 현재 화면 설정을 선택 계획서에 저장
-  Future<void> _saveToSelectedProfile() async {
-    final store = ref.read(printProfileStoreProvider);
-    final selected = store.getById(_selectedProfileId);
-    if (selected == null) return;
-
-    final updated = _collectProfileFromUi(selected);
-    final success = await ref
-        .read(printProfileStoreProvider.notifier)
-        .saveProfile(updated);
-    if (success) {
-      _appliedSnapshot = updated; // 저장했으므로 dirty 해제
-    }
-    if (mounted) {
-      _showSnackBar(
-        success ? "계획서 '${selected.name}'에 저장되었습니다." : '저장에 실패했습니다.',
-        success ? Colors.green : Colors.red,
-      );
     }
   }
 
@@ -1124,6 +1056,8 @@ class SubstitutionOutputWidgetState
                 setState(() {
                   _selectedTemplateIndex = index;
                 });
+                // 변경된 양식도 자동 저장
+                _scheduleAutoSave();
 
                 // 마지막 선택된 양식 인덱스 저장
                 await _pdfSettingsStorage.saveLastSelectedTemplateIndex(index);
@@ -1146,12 +1080,10 @@ class SubstitutionOutputWidgetState
                 AppLogger.info('양식 변경: 양식 ${index + 1} 선택됨, 설정 로드 완료');
               },
               onTemplateFilePathChanged: (path) async {
-                // PDF 파일 경로는 메모리 변수만 업데이트 (디스크 저장하지 않음)
+                // PDF 파일 경로는 메모리 변수만 업데이트 후 자동 저장
                 setState(() => _selectedTemplateFilePath = path);
-                // 파일 경로는 문서 출력 버튼 클릭 시 또는 프로그램 종료 시 저장됨
-                AppLogger.info(
-                  '사용자 정의 PDF 파일 선택: $path (메모리에만 저장, 디스크 저장은 문서 출력 시)',
-                );
+                _scheduleAutoSave();
+                AppLogger.info('사용자 정의 PDF 파일 선택: $path');
               },
             ),
 
@@ -1179,15 +1111,19 @@ class SubstitutionOutputWidgetState
               remarksFontSizeOptions: _remarksFontSizeOptions,
               onFontSizeChanged: (size) {
                 setState(() => _fontSize = size);
+                _scheduleAutoSave();
               },
               onRemarksFontSizeChanged: (size) {
                 setState(() => _remarksFontSize = size);
+                _scheduleAutoSave();
               },
               onFontChanged: (font) {
                 setState(() => _selectedFont = font);
+                _scheduleAutoSave();
               },
               onIncludeRemarksChanged: (include) {
                 setState(() => _includeRemarks = include);
+                _scheduleAutoSave();
               },
             ),
           ],
@@ -1198,8 +1134,10 @@ class SubstitutionOutputWidgetState
 
   /// 교사·계획서 선택 바
   ///
-  /// 결보강 출력은 날짜 선택에서 만든 계획서를 **선택·출력만** 합니다.
-  /// 새로 만들기/이름 변경/삭제는 날짜 선택 화면에서 합니다.
+  /// 결보강 출력은 내용 입력에서 만든 계획서를 **선택·출력만** 합니다.
+  /// 새로 만들기/이름 변경/삭제는 내용 입력 화면에서 합니다.
+  ///
+  /// 화면이 넓으면 교사·계획서를 1행에, 좁으면 2행에 배치한다.
   Widget _buildProfileBar() {
     final tokens = context.tokens;
     final store = ref.watch(printProfileStoreProvider);
@@ -1207,7 +1145,6 @@ class SubstitutionOutputWidgetState
     final teacher = _selectedTeacher;
     final profiles = teacher != null ? store.byTeacher(teacher) : <PrintProfile>[];
     final selectedProfile = store.getById(_selectedProfileId);
-    final isDirty = _hasUnsavedChanges;
 
     // 드롭다운 value는 items에 있어야 함 (미지정 null 항목 제거)
     final dropdownValue =
@@ -1217,183 +1154,220 @@ class SubstitutionOutputWidgetState
             : null;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: tokens.sectionBackground,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: tokens.cardBorder),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 1행: 교사 선택
-          Row(
-            children: [
-              Icon(Icons.person_outline, size: 18, color: tokens.textSecondary),
-              const SizedBox(width: 6),
-              const Text('교사', style: TextStyle(fontSize: 13)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: DropdownButton<String>(
-                  value: (teacher != null && teachers.contains(teacher))
-                      ? teacher
-                      : null,
-                  isExpanded: true,
-                  underline: const SizedBox.shrink(),
-                  hint: const Text('교사 선택', style: TextStyle(fontSize: 13)),
-                  items: teachers.map((name) {
-                    final count = store.byTeacher(name).length;
-                    return DropdownMenuItem<String>(
-                      value: name,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              name,
-                              style: const TextStyle(fontSize: 13),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          Text(
-                            count > 0 ? '계획서 $count' : '계획서 없음',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color:
-                                  count > 0
-                                      ? tokens.textMuted
-                                      : Colors.orange,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: _onTeacherChanged,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          // 2행: 기존 계획서 목록만 선택 (미지정·추가·수정·삭제 없음)
-          Row(
-            children: [
-              Icon(
-                Icons.description_outlined,
-                size: 18,
-                color: tokens.textSecondary,
-              ),
-              const SizedBox(width: 6),
-              const Text('계획서', style: TextStyle(fontSize: 13)),
-              const SizedBox(width: 8),
-              Expanded(
-                child:
-                    profiles.isEmpty
-                        ? Text(
-                          '계획서 없음 — 날짜 선택에서 지정',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: tokens.textMuted,
-                          ),
-                        )
-                        : DropdownButton<String>(
-                          value: dropdownValue,
-                          isExpanded: true,
-                          underline: const SizedBox.shrink(),
-                          hint: Text(
-                            '계획서를 선택하세요',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: tokens.textMuted,
-                            ),
-                          ),
-                          items: [
-                            for (final p in profiles)
-                              DropdownMenuItem<String>(
-                                value: p.id,
-                                child: Row(
-                                  children: [
-                                    Flexible(
-                                      child: Text(
-                                        p.name,
-                                        style: const TextStyle(fontSize: 13),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    if (p.id == _selectedProfileId && isDirty)
-                                      const Padding(
-                                        padding: EdgeInsets.only(left: 4),
-                                        child: Text(
-                                          '●',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: Colors.orange,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                          onChanged: (id) {
-                            if (id != null) _onProfileChanged(id);
-                          },
-                        ),
-              ),
-              // 날짜 선택으로 이동 (계획서 생성·관리는 그쪽에서)
-              TextButton(
-                onPressed: () => navigateToPlanDateSelection(ref),
-                style: TextButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                ),
-                child: const Text('날짜 선택', style: TextStyle(fontSize: 12)),
-              ),
-            ],
-          ),
-          // 3행: 안내 / 저장
-          if (teacher != null && profiles.isEmpty) ...[
-            const SizedBox(height: 4),
-            Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // 선택 바 본문 (안내 문구 제외)
+          final Widget selectors;
+          if (constraints.maxWidth >= 620) {
+            // 1행: 교사 | 계획서 | 내용 입력
+            selectors = Row(
               children: [
+                Icon(Icons.person_outline, size: 18, color: tokens.textSecondary),
+                const SizedBox(width: 6),
+                const Text('교사', style: TextStyle(fontSize: 13)),
+                const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    "'$teacher'의 계획서가 없습니다. [날짜 선택]에서 결강일을 지정해 계획서를 만드세요.",
-                    style: TextStyle(fontSize: 12, color: tokens.textMuted),
-                  ),
+                  child: _buildTeacherDropdown(tokens, store, teachers, teacher),
                 ),
-                TextButton(
-                  onPressed: () => navigateToPlanDateSelection(ref),
-                  child: const Text('이동', style: TextStyle(fontSize: 12)),
+                const SizedBox(width: 16),
+                Icon(
+                  Icons.description_outlined,
+                  size: 18,
+                  color: tokens.textSecondary,
+                ),
+                const SizedBox(width: 6),
+                const Text('계획서', style: TextStyle(fontSize: 13)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildPlanDropdown(tokens, profiles, dropdownValue),
+                ),
+                _buildContentInputNavButton(),
+              ],
+            );
+          } else {
+            // 2행: 1행 교사 선택, 2행 계획서 선택 + 내용 입력
+            selectors = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.person_outline,
+                      size: 18,
+                      color: tokens.textSecondary,
+                    ),
+                    const SizedBox(width: 6),
+                    const Text('교사', style: TextStyle(fontSize: 13)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildTeacherDropdown(
+                        tokens,
+                        store,
+                        teachers,
+                        teacher,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.description_outlined,
+                      size: 18,
+                      color: tokens.textSecondary,
+                    ),
+                    const SizedBox(width: 6),
+                    const Text('계획서', style: TextStyle(fontSize: 13)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildPlanDropdown(tokens, profiles, dropdownValue),
+                    ),
+                    _buildContentInputNavButton(),
+                  ],
                 ),
               ],
-            ),
-          ] else if (selectedProfile == null && profiles.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              '출력을 위해 위에서 계획서를 선택하세요. (미지정 상태에서는 PDF 출력이 불가합니다)',
-              style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
-            ),
-          ] else if (selectedProfile != null) ...[
-            const SizedBox(height: 4),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: _saveToSelectedProfile,
-                icon: const Icon(Icons.save_outlined, size: 16),
-                label: Text(
-                  isDirty
-                      ? "● 이 계획서에 저장 ('${selectedProfile.name}')"
-                      : "이 계획서에 저장 ('${selectedProfile.name}')",
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              selectors,
+              // 안내 (설정은 입력 즉시 자동 저장됨)
+              if (teacher != null && profiles.isEmpty) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        "'$teacher'의 계획서가 없습니다. [내용 입력]에서 결강일을 지정해 계획서를 만드세요.",
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: tokens.textMuted,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => navigateToPlanDateSelection(ref),
+                      child: const Text('이동', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ),
+              ] else if (selectedProfile == null &&
+                  profiles.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '출력을 위해 위에서 계획서를 선택하세요. (미지정 상태에서는 PDF 출력이 불가합니다)',
                   style: TextStyle(
                     fontSize: 12,
-                    fontWeight: isDirty ? FontWeight.w700 : FontWeight.normal,
+                    color: Colors.orange.shade800,
                   ),
                 ),
-              ),
-            ),
-          ],
-        ],
+              ],
+            ],
+          );
+        },
       ),
+    );
+  }
+
+  /// 교사 선택 드롭다운
+  Widget _buildTeacherDropdown(
+    DesignTokens tokens,
+    PrintProfileStore store,
+    List<String> teachers,
+    String? teacher,
+  ) {
+    return DropdownButton<String>(
+      value: (teacher != null && teachers.contains(teacher)) ? teacher : null,
+      isExpanded: true,
+      isDense: true,
+      underline: const SizedBox.shrink(),
+      hint: const Text('교사 선택', style: TextStyle(fontSize: 13)),
+      items: teachers.map((name) {
+        final count = store.byTeacher(name).length;
+        return DropdownMenuItem<String>(
+          value: name,
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  name,
+                  style: const TextStyle(fontSize: 13),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Text(
+                count > 0 ? '계획서 $count' : '계획서 없음',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: count > 0 ? tokens.textMuted : Colors.orange,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+      onChanged: _onTeacherChanged,
+    );
+  }
+
+  /// 계획서 선택 드롭다운 (없으면 안내 문구)
+  Widget _buildPlanDropdown(
+    DesignTokens tokens,
+    List<PrintProfile> profiles,
+    String? dropdownValue,
+  ) {
+    if (profiles.isEmpty) {
+      return Text(
+        '계획서 없음 — 내용 입력에서 지정',
+        style: TextStyle(fontSize: 13, color: tokens.textMuted),
+      );
+    }
+    return DropdownButton<String>(
+      value: dropdownValue,
+      isExpanded: true,
+      isDense: true,
+      underline: const SizedBox.shrink(),
+      hint: Text(
+        '계획서를 선택하세요',
+        style: TextStyle(fontSize: 13, color: tokens.textMuted),
+      ),
+      items: [
+        for (final p in profiles)
+          DropdownMenuItem<String>(
+            value: p.id,
+            child: Text(
+              p.name,
+              style: const TextStyle(fontSize: 13),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+      ],
+      onChanged: (id) {
+        if (id != null) _onProfileChanged(id);
+      },
+    );
+  }
+
+  /// 내용 입력으로 이동 버튼 (계획서 생성·관리는 그쪽에서)
+  Widget _buildContentInputNavButton() {
+    return TextButton(
+      onPressed: () => navigateToPlanDateSelection(ref),
+      style: TextButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        minimumSize: const Size(0, 28),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+      ),
+      child: const Text('내용 입력', style: TextStyle(fontSize: 12)),
     );
   }
 
@@ -1448,14 +1422,14 @@ class SubstitutionOutputWidgetState
     // 미지정(계획서 없음)이면 출력 불가
     if (_selectedProfileId == null) {
       _showSnackBar(
-        '계획서를 선택한 뒤에만 PDF를 출력할 수 있습니다. 날짜 선택에서 계획서를 지정하세요.',
+        '계획서를 선택한 뒤에만 PDF를 출력할 수 있습니다. 내용 입력에서 계획서를 지정하세요.',
         Colors.orange,
       );
       return;
     }
 
     try {
-      // 1. 체크된 교체 건만 수집 (날짜 선택 화면의 선택과 동일)
+      // 1. 체크된 교체 건만 수집 (내용 입력 화면의 선택과 동일)
       final planData = ref.read(checkedSubstitutionPlanDataProvider);
 
       // 2. 임시 파일 경로 생성

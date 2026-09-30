@@ -153,7 +153,7 @@ final printProfileStoreProvider =
 
 /// 현재 활성 계획서에서 체크된 교체 건만 담은 결보강 데이터
 ///
-/// 날짜 선택 화면의 체크 해제는 계획서의 [PrintProfile.deselectedGroupIds]에
+/// 내용 입력 화면의 체크 해제는 계획서의 [PrintProfile.deselectedGroupIds]에
 /// 저장되며, 결보강 출력 화면·결강기간·PDF는 이 Provider만 사용합니다.
 final checkedSubstitutionPlanDataProvider =
     Provider<List<SubstitutionPlanData>>((ref) {

@@ -22,7 +22,7 @@ class TeacherTimetableCard extends StatefulWidget {
   final String? roleLabel;
   final String? dateStatusMessage;
 
-  /// 날짜 미지정 뱃지 탭 시 호출 (계획서 > 날짜 선택으로 이동 등)
+  /// 날짜 미지정 뱃지 탭 시 호출 (계획서 > 내용 입력으로 이동 등)
   final VoidCallback? onDateStatusTap;
 
   final List<TimeSlot> timeSlots;
@@ -391,7 +391,7 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
     text: Colors.orange.shade800,
   );
 
-  /// 날짜 미지정 안내 뱃지 — 탭 시 [onTap]으로 계획서 날짜 선택 화면 이동
+  /// 날짜 미지정 안내 뱃지 — 탭 시 [onTap]으로 계획서 내용 입력 화면 이동
   Widget _buildDateStatusBadge(String message, {VoidCallback? onTap}) {
     final badge = _buildBadge(
       message,
@@ -406,7 +406,7 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
     }
 
     return Tooltip(
-      message: '계획서 > 날짜 선택으로 이동',
+      message: '계획서 > 내용 입력으로 이동',
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(4),
