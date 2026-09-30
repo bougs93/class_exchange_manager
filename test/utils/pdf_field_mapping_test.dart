@@ -7,7 +7,6 @@ import 'package:class_exchange_manager/models/circular_exchange_path.dart';
 import 'package:class_exchange_manager/models/dated_timetable.dart';
 import 'package:class_exchange_manager/models/exchange_node.dart';
 import 'package:class_exchange_manager/models/school_semester.dart';
-import 'package:class_exchange_manager/providers/node_date_edit_provider.dart';
 import 'package:class_exchange_manager/providers/services_provider.dart';
 import 'package:class_exchange_manager/providers/substitution_plan_viewmodel.dart';
 import 'package:class_exchange_manager/providers/timetable_repository_provider.dart';
@@ -102,8 +101,6 @@ void main() {
       // 선택기가 실제로 호출하는 것과 같은 저장 메서드.
       history.updateNodeDate(id, dayName: '화', period: 2, date: DateTime(2026, 9, 8));
       await history.flushPendingWrites();
-
-      container.read(nodeDateEditEnabledProvider.notifier).state = true;
 
       final state = container.read(substitutionPlanViewModelProvider);
       final row = state.planData.firstWhere(

@@ -10,7 +10,6 @@ import '../../../../constants/screen_usage_hints.dart';
 import '../../../../models/exchange_history_item.dart';
 import '../../../../models/plan_output_menu.dart';
 import '../../../../models/print_profile.dart';
-import '../../../../providers/node_date_edit_provider.dart';
 import '../../../../providers/plan_output_menu_provider.dart';
 import '../../../../providers/print_profile_provider.dart';
 import '../../../../providers/selected_week_provider.dart';
@@ -1605,13 +1604,11 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
   /// 이동할 때만 "다른 주로 이동" 확인을 띄웠으나(교체일 수정 시 불필요하게
   /// 뜨던 버그는 이미 고쳤었다), 사용자가 그 확인 자체도 없애 달라고 요청했다.
   ///
-  /// [nodeDateEditEnabledProvider]가 켜져 있고 대상이 순환·2중이면(S5.6.6)
-  /// 이 행이 가리키는 노드(요일·교시) 하나에만 확정 날짜를 저장한다
-  /// (`updateNodeDate`) — 같은 그룹의 다른 행(다른 노드)은 건드리지 않는다.
-  /// 1:1·보강, 또는 플래그가 꺼져 있으면 기존 `updateDates`(항목 전체의
-  /// 결강일/교체일 쌍) 그대로다. `updateNodeDate`가 가드에 걸려 null을
-  /// 반환하면(요일 불일치 등) "저장 안 됨"으로 끝내지 않고 기존 경로로
-  /// 폴백한다.
+  /// 대상이 순환·2중이면(S5.6.6) 이 행이 가리키는 노드(요일·교시) 하나에만
+  /// 확정 날짜를 저장한다(`updateNodeDate`) — 같은 그룹의 다른 행(다른 노드)은
+  /// 건드리지 않는다. 1:1·보강은 기존 `updateDates`(항목 전체의 결강일/교체일
+  /// 쌍) 그대로다. `updateNodeDate`가 가드에 걸려 null을 반환하면(요일 불일치
+  /// 등) "저장 안 됨"으로 끝내지 않고 기존 경로로 폴백한다.
   ///
   /// 반환값: 실제로 저장했으면 true, 실패했으면 false.
   Future<bool> _applyDateSelection(
@@ -1633,7 +1630,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
       return false;
     }
 
-    if (item.supportsNodeDates && ref.read(nodeDateEditEnabledProvider)) {
+    if (item.supportsNodeDates) {
       final dayName = columnName == 'absenceDate' ? data.absenceDay : data.substitutionDay;
       final periodStr = columnName == 'absenceDate' ? data.period : data.substitutionPeriod;
       final period = int.tryParse(periodStr);

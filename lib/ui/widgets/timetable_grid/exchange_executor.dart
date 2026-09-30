@@ -11,7 +11,6 @@ import '../../../utils/logger.dart';
 import '../../../utils/snackbar_helper.dart';
 import '../../../utils/timetable_data_source.dart';
 import '../../../providers/cell_selection_provider.dart';
-import '../../../providers/node_date_edit_provider.dart';
 import '../../../providers/state_reset_provider.dart';
 import '../../../providers/services_provider.dart';
 import '../../../providers/exchange_view_provider.dart';
@@ -204,12 +203,8 @@ class ExchangeExecutor {
     // S5.6.7: 순환·2중은 실행 시점에 이미 각 노드의 실제 날짜를 알고 있다
     // (바로 위 dates가 나온 것과 같은 selectedWeek 기준 계산) — 나중에
     // 계획서에서 "추정"으로 다시 유도하는 대신, 지금 그 사실을 그대로
-    // 기록해 둔다. 스위치가 꺼져 있으면(기본값) null을 넘겨 기존과
-    // 완전히 동일하게 동작한다(nodeDates는 계속 빈 맵).
-    final nodeDates =
-        ref.read(nodeDateEditEnabledProvider)
-            ? seedNodeDatesForWeek(exchangePath, dates.weekMonday)
-            : null;
+    // 기록해 둔다. 1:1·보강이면 빈 맵을 반환한다(기존과 동일).
+    final nodeDates = seedNodeDatesForWeek(exchangePath, dates.weekMonday);
 
     historyService.executeExchange(
       exchangePath,

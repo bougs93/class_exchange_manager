@@ -4,7 +4,6 @@ import '../utils/day_utils.dart';
 import '../utils/event_date_resolver.dart';
 import '../utils/logger.dart';
 import '../utils/date_format_utils.dart';
-import 'node_date_edit_provider.dart';
 import 'services_provider.dart';
 import 'substitution_plan_provider.dart';
 import 'substitution_plan_helpers.dart';
@@ -216,12 +215,6 @@ class SubstitutionPlanViewModel
       final substitutionPlanNotifier = _ref.read(
         substitutionPlanProvider.notifier,
       );
-      // S5.6.5: 기본 꺼짐 — 켜지면 순환·2중 행의 날짜를 노드(슬롯) 기준으로
-      // 다시 계산한다(확정된 슬롯은 그 날짜, 아직 미확정인 슬롯은 그 슬롯의
-      // 실제 요일에 맞는 추정 날짜 — 기존처럼 item 전체의 결강일/교체일 쌍을
-      // 요일이 다른 행에도 그대로 복사해 보여주던 방식보다 항상 더 정확하다).
-      final nodeDateEditEnabled = _ref.read(nodeDateEditEnabledProvider);
-
       AppLogger.exchangeDebug('교체 히스토리 개수: ${exchangeList.length}');
 
       if (exchangeList.isEmpty) {
@@ -263,7 +256,7 @@ class SubstitutionPlanViewModel
               item.id,
               absenceDateStr,
               substitutionDateStr,
-              nodeDateEditEnabled ? resolveEventDates(item) : null,
+              resolveEventDates(item),
             );
             break;
 
@@ -274,7 +267,7 @@ class SubstitutionPlanViewModel
               item.id,
               absenceDateStr,
               substitutionDateStr,
-              nodeDateEditEnabled ? resolveEventDates(item) : null,
+              resolveEventDates(item),
             );
             break;
 
@@ -352,18 +345,17 @@ class SubstitutionPlanViewModel
 
   /// 순환 교체 처리
   ///
-  /// [resolution]이 주어지면(S5.6.5, 플래그 ON) 각 행의 날짜를 그 행이
-  /// 실제로 가리키는 노드(요일·교시) 기준으로 다시 계산한다 — null이면
-  /// (플래그 OFF, 기본값) 기존과 완전히 동일하게 [absenceDate]/[substitutionDate]
-  /// 를 모든 행에 그대로 쓴다.
+  /// [resolution]으로 각 행의 날짜를 그 행이 실제로 가리키는 노드(요일·교시)
+  /// 기준으로 다시 계산한다(S5.6.5) — 특정 슬롯이 아직 미확정이면(옛 이력 등)
+  /// [_resolveRowDates]가 [absenceDate]/[substitutionDate]로 폴백한다.
   void _handleCircularExchange(
     List nodes,
     List<SubstitutionPlanData> planData,
     String groupId,
     String absenceDate,
-    String substitutionDate, [
-    EventDateResolution? resolution,
-  ]) {
+    String substitutionDate,
+    EventDateResolution resolution,
+  ) {
     if (nodes.length < 3) {
       AppLogger.exchangeDebug('순환교체: 노드가 부족합니다 (${nodes.length}개)');
       return;
@@ -454,19 +446,16 @@ class SubstitutionPlanViewModel
     AppLogger.exchangeDebug('순환교체 처리 완료');
   }
 
-  /// [resolution]이 있으면 [sourceNode]/[targetNode] 슬롯의 날짜로, 없으면
-  /// (플래그 OFF) 기존 [fallbackAbsenceDate]/[fallbackSubstitutionDate]
-  /// 그대로 돌려준다 (S5.6.5).
+  /// [sourceNode]/[targetNode] 슬롯의 날짜로 계산한다(S5.6.5) — 특정 슬롯이
+  /// 아직 미확정이면(옛 이력 등) [fallbackAbsenceDate]/[fallbackSubstitutionDate]
+  /// 로 돌려준다.
   ({String absenceDate, String substitutionDate}) _resolveRowDates(
-    EventDateResolution? resolution,
+    EventDateResolution resolution,
     dynamic sourceNode,
     dynamic targetNode,
     String fallbackAbsenceDate,
     String fallbackSubstitutionDate,
   ) {
-    if (resolution == null) {
-      return (absenceDate: fallbackAbsenceDate, substitutionDate: fallbackSubstitutionDate);
-    }
     final source = resolution.forSlot(
       DayUtils.getDayNumber(sourceNode.day as String),
       sourceNode.period as int,
@@ -507,9 +496,9 @@ class SubstitutionPlanViewModel
     List<SubstitutionPlanData> planData,
     String groupId,
     String absenceDate,
-    String substitutionDate, [
-    EventDateResolution? resolution,
-  ]) {
+    String substitutionDate,
+    EventDateResolution resolution,
+  ) {
     if (nodes.length < 4) {
       AppLogger.exchangeDebug('2중교체: 노드가 부족합니다 (${nodes.length}개)');
       return;
