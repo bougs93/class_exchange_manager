@@ -1458,7 +1458,9 @@ class SubstitutionOutputWidgetState
     final confirmed = await DialogHelper.showConfirmDialog(
       context,
       title: '계획서 삭제',
-      message: "'${profile.name}' 계획서를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.",
+      message:
+          "'${profile.name}' 계획서와 여기 연결된 결보강 내역(교체 기록)이 모두 삭제됩니다.\n"
+          '이 작업은 되돌릴 수 없습니다. 삭제하시겠습니까?',
       confirmText: '삭제',
       isDangerous: true,
     );
@@ -1471,9 +1473,10 @@ class SubstitutionOutputWidgetState
     if (!mounted) return;
 
     if (success) {
-      // 이 계획서가 지정돼 있던 교체 건들의 지정을 해제한다 — 안 그러면
-      // "내용 입력"·교체 화면에 죽은 계획서 ID가 남는다.
-      ref.read(exchangeHistoryServiceProvider).unassignProfile(profile.id);
+      // 계획서는 특정 결보강 내역 묶음을 대표한다 — 계획서를 지우면 거기
+      // 연결된 교체 건도 함께 지워야 "내용 입력"·교체 화면과 어긋나지 않는다.
+      ref.read(exchangeHistoryServiceProvider).removeExchangeItemsByProfile(profile.id);
+      ExchangeExecutor.restoreExchangedCells(ref);
 
       setState(() => _selectedProfileId = null);
       await _loadSavedSettings();

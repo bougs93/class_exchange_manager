@@ -933,15 +933,17 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     final confirmed = await DialogHelper.showConfirmDialog(
       context,
       title: '계획서 삭제',
-      message: '선택한 계획서를 삭제하시겠습니까?',
+      message: '선택한 계획서와 여기 연결된 결보강 내역(교체 기록)이 모두 삭제됩니다.\n'
+          '이 작업은 되돌릴 수 없습니다. 삭제하시겠습니까?',
       confirmText: '삭제',
       isDangerous: true,
     );
     if (confirmed != true) return;
     await ref.read(printProfileStoreProvider.notifier).deleteProfile(profileId);
-    // 이 계획서가 지정돼 있던 교체 건들의 지정을 해제한다 — 결보강
-    // 출력·교체 화면과 어긋나지 않도록 죽은 계획서 ID를 남기지 않는다.
-    ref.read(exchangeHistoryServiceProvider).unassignProfile(profileId);
+    // 계획서는 특정 결보강 내역 묶음을 대표한다 — 계획서를 지우면 거기
+    // 연결된 교체 건도 함께 지워야 결보강 출력·교체 화면과 어긋나지 않는다.
+    ref.read(exchangeHistoryServiceProvider).removeExchangeItemsByProfile(profileId);
+    ExchangeExecutor.restoreExchangedCells(ref);
     if (mounted) setState(() => _selectedPlanId = null);
   }
 

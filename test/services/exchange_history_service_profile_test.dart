@@ -46,7 +46,7 @@ void main() {
     service.resetForTesting();
   });
 
-  test('unassignProfile은 해당 계획서가 지정된 교체 건만 미지정으로 되돌린다', () {
+  test('removeExchangeItemsByProfile은 해당 계획서가 지정된 교체 건만 삭제한다', () {
     service.addExchange(
       _samplePath(),
       absenceDate: DateTime(2026, 10, 7),
@@ -61,14 +61,11 @@ void main() {
     service.assignProfile(items[0].id, 'pp_1');
     service.assignProfile(items[1].id, 'pp_2');
 
-    service.unassignProfile('pp_1');
+    service.removeExchangeItemsByProfile('pp_1');
 
     final updated = service.getExchangeList();
-    expect(updated.firstWhere((e) => e.id == items[0].id).profileId, isNull);
-    expect(
-      updated.firstWhere((e) => e.id == items[1].id).profileId,
-      'pp_2',
-    );
+    expect(updated.any((e) => e.id == items[0].id), isFalse);
+    expect(updated.firstWhere((e) => e.id == items[1].id).profileId, 'pp_2');
   });
 
   test('일치하는 항목이 없으면 버전이 올라가지 않는다', () {
@@ -79,8 +76,9 @@ void main() {
     );
     final versionBefore = service.getExchangeListVersion();
 
-    service.unassignProfile('없는_계획서_id');
+    service.removeExchangeItemsByProfile('없는_계획서_id');
 
     expect(service.getExchangeListVersion(), versionBefore);
+    expect(service.getExchangeList(), hasLength(1));
   });
 }
