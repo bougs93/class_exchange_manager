@@ -9,6 +9,7 @@ import '../../../providers/timetable_registry_provider.dart';
 import '../../../providers/timetable_repository_provider.dart';
 import '../../../repositories/timetable_repository.dart';
 import '../../../theme/design_tokens.dart';
+import '../../widgets/app_switch.dart';
 import '../../../utils/logger.dart';
 import '../../../providers/week_lessons_cache_provider.dart';
 
@@ -299,7 +300,7 @@ class _DatedDataInspectorSectionState
               ],
             ),
           ),
-          Switch(
+          AppSwitch(
             value: enabled,
             onChanged:
                 (value) =>
@@ -359,7 +360,7 @@ class _DatedDataInspectorSectionState
               ],
             ),
           ),
-          Switch(
+          AppSwitch(
             value: enabled,
             onChanged:
                 (value) =>

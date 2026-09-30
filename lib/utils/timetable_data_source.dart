@@ -20,6 +20,7 @@ import 'exchange_algorithm.dart';
 import 'exchange_cell_dates.dart';
 import 'exchange_path_step_resolver.dart';
 import 'exchanged_cell_overlay_dates.dart';
+import 'overlay_date_chip_layout.dart';
 import 'day_utils.dart';
 import 'non_exchangeable_manager.dart';
 import 'simplified_timetable_theme.dart';
@@ -545,20 +546,74 @@ class TimetableDataSource extends DataGridSource {
     if (!isExchangedSourceCell && !isExchangedDestinationCell) return null;
 
     final cellKey = '${teacherName}_${day}_$period';
-    final activeItems = ref.read(exchangeHistoryServiceProvider).getActiveExchangeList();
+    return _overlayLabelsByCellKey()[cellKey];
+  }
+
+  /// 교체된 칸에 그릴 날짜 꼬리표. 칸 안 배지가 아니라 그리드 위 층에서 쓴다.
+  List<OverlayDateMark> collectOverlayDateMarks(List<GridColumn> columns) {
+    final labels = _overlayLabelsByCellKey();
+    if (labels.isEmpty) return const [];
+
+    final indexByName = <String, int>{
+      for (var i = 0; i < columns.length; i++) columns[i].columnName: i,
+    };
+    final cellNotifier = ref.read(cellSelectionProvider.notifier);
+    final marks = <OverlayDateMark>[];
+
+    for (var rowIndex = 0; rowIndex < _dataGridRows.length; rowIndex++) {
+      final row = _dataGridRows[rowIndex];
+      final teacherName = _extractTeacherName(row);
+      for (final cell in row.getCells()) {
+        if (cell.columnName == 'teacher') continue;
+        final parts = cell.columnName.split('_');
+        if (parts.length != 2) continue;
+        final columnIndex = indexByName[cell.columnName];
+        if (columnIndex == null) continue;
+
+        final day = parts[0];
+        final period = int.tryParse(parts[1]) ?? 0;
+        if (!cellNotifier.isCellExchangedSource(teacherName, day, period) &&
+            !cellNotifier.isCellExchangedDestination(
+              teacherName,
+              day,
+              period,
+            )) {
+          continue;
+        }
+
+        final label = labels['${teacherName}_${day}_$period'];
+        if (label == null) continue;
+        marks.add(
+          OverlayDateMark(
+            teacherIndex: rowIndex,
+            columnIndex: columnIndex,
+            label: label,
+          ),
+        );
+      }
+    }
+
+    return marks;
+  }
+
+  /// 칸 키(`교사_요일_교시`) → 꼬리표 글자. 교체된 칸인지는 호출하는 쪽에서 거른다.
+  Map<String, String> _overlayLabelsByCellKey() {
+    final activeItems =
+        ref.read(exchangeHistoryServiceProvider).getActiveExchangeList();
 
     if (!ref.read(showWeekHeaderProvider)) {
       final overlayDates = ExchangedCellOverlayDates.build(activeItems);
-      final date = overlayDates[cellKey];
-      if (date == null) return null;
-      return WeekDateCalculator.formatDateShort(date);
+      return {
+        for (final entry in overlayDates.entries)
+          entry.key: WeekDateCalculator.formatDateShort(entry.value),
+      };
     }
 
     final scoped = ExchangeCellDates.forWeek(
       activeItems,
       ref.read(selectedWeekProvider),
     );
-    return scoped.undatedKeys.contains(cellKey) ? '?' : null;
+    return {for (final key in scoped.undatedKeys) key: '?'};
   }
 
   /// 요일별 마지막 교시 확인

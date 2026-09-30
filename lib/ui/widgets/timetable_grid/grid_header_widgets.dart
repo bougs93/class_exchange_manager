@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../utils/simplified_timetable_theme.dart';
+import '../app_switch.dart';
 import '../cell_status_legend_item.dart';
 import '../exchanged_cell_status_overlay.dart';
 
@@ -585,6 +586,7 @@ class ExchangeViewCheckbox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 스위치 OFF → 원본 시간표, ON → 교체된 시간표
+    final theme = Theme.of(context);
     final label = isEnabled ? '교체' : '원본';
 
     return Tooltip(
@@ -595,37 +597,11 @@ class ExchangeViewCheckbox extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: isEnabled ? Colors.blue.shade700 : Colors.grey.shade600,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(width: 4),
-          // scale(0.6) 적용 시 Switch 기본 레이아웃 폭(~52px)이 남아 간격이 벌어지므로
-          // OverflowBox로 시각 크기만큼만 공간을 차지하게 합니다.
-          SizedBox(
-            width: 34,
-            height: 22,
-            child: OverflowBox(
-              maxWidth: 52,
-              maxHeight: 32,
-              alignment: Alignment.centerLeft,
-              child: Transform.scale(
-                scale: 0.6,
-                alignment: Alignment.centerLeft,
-                child: Switch(
-                  value: isEnabled,
-                  onChanged: onChanged,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  activeThumbColor: Colors.blue.shade600,
-                  activeTrackColor: Colors.blue.shade200,
-                  inactiveThumbColor: Colors.grey.shade400,
-                  inactiveTrackColor: Colors.grey.shade300,
-                ),
-              ),
-            ),
-          ),
+          AppSwitch(value: isEnabled, onChanged: onChanged),
         ],
       ),
     );

@@ -25,7 +25,7 @@ class SimplifiedTimetableCell extends ConsumerWidget {
   final bool isNonExchangeable; // 교체불가 셀인지 여부
   final bool isExchangedSourceCell; // 교체된 소스 셀인지 여부
   final bool isExchangedDestinationCell; // 교체된 목적지 셀인지 여부
-  final String? overlayDate; // 날짜표시 OFF일 때 교체된 칸에 붙이는 날짜 꼬리표 (S1.5, 예: "10.06")
+  final String? overlayDate; // "?" 툴팁용. 날짜 글자 자체는 그리드 위 층에 그린다.
   final bool isTeacherNameSelected; // 교사 이름 선택 상태 (새로 추가)
   final bool isHighlightedTeacher; // 하이라이트된 교사 행인지 여부 (새로 추가)
   final VoidCallback? onTap;
@@ -132,10 +132,8 @@ class SimplifiedTimetableCell extends ConsumerWidget {
               ),
             // 테마에서 제공하는 오버레이 위젯 (교체 가능한 셀에 숫자 1 표시)
             if (style.overlayWidget != null) style.overlayWidget!,
-            // 날짜표시 OFF일 때 교체된 칸에 붙이는 날짜 꼬리표 (S1.5)
-            // ON일 때는 헤더에 이미 날짜가 있으므로 표시하지 않는다.
-            if (overlayDate != null)
-              Positioned(top: 1, right: 2, child: _OverlayDateTag(overlayDate!)),
+            // 날짜 꼬리표는 셀 안이 아니라 그리드 위 층에 그린다.
+            // 여기 값은 "?" 툴팁에만 쓴다.
           ],
         ),
       ),
@@ -164,37 +162,6 @@ class SimplifiedTimetableCell extends ConsumerWidget {
       message: tooltipMessage,
       waitDuration: const Duration(milliseconds: 300),
       child: cellBody,
-    );
-  }
-}
-
-/// 날짜표시 OFF 모드에서 교체된 칸 구석에 표시하는 작은 날짜 꼬리표 (S1.5)
-///
-/// X/O 심볼과 겹치지 않도록 셀 우측 상단 구석에 작게 배치한다.
-class _OverlayDateTag extends StatelessWidget {
-  final String date;
-
-  const _OverlayDateTag(this.date);
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0.5),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.55),
-          borderRadius: BorderRadius.circular(3),
-        ),
-        child: Text(
-          date,
-          style: const TextStyle(
-            fontSize: 8,
-            height: 1.1,
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
     );
   }
 }

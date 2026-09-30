@@ -21,6 +21,8 @@ import '../../models/exchange_node.dart'; // 🆕 ExchangeNode import 추가
 import '../../models/time_slot.dart';
 import '../../providers/state_reset_provider.dart';
 import '../../providers/substitution_plan_provider.dart';
+import '../../providers/show_week_header_provider.dart';
+import '../../providers/selected_week_provider.dart';
 import '../../providers/zoom_provider.dart';
 import '../../providers/scroll_provider.dart';
 import '../../providers/node_scroll_provider.dart'; // 🆕 노드 스크롤 Provider 추가
@@ -32,6 +34,7 @@ import '../../utils/simplified_timetable_theme.dart';
 import 'timetable_grid/timetable_grid_constants.dart';
 import 'timetable_grid/exchange_arrow_style.dart';
 import 'timetable_grid/exchange_arrow_painter.dart';
+import 'timetable_grid/overlay_date_chip_painter.dart';
 import 'timetable_grid/exchange_executor.dart';
 import 'timetable_grid/grid_header_widgets.dart';
 import 'timetable_grid/grid_scaling_helper.dart';
@@ -588,6 +591,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
             return Stack(
               children: [
                 child!,
+                Positioned.fill(child: _buildOverlayDateChips()),
                 if (showArrows)
                   Positioned.fill(
                     child: _buildArrowOverlay(currentSelectedPath),
@@ -624,6 +628,24 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
         'h=${horizontal.toStringAsFixed(1)}, v=${vertical.toStringAsFixed(1)}',
       );
     }
+  }
+
+  /// 교체된 칸의 날짜 꼬리표. 셀 글자 위가 아니라 칸 경계에 그린다.
+  Widget _buildOverlayDateChips() {
+    final dataSource = widget.dataSource;
+    if (dataSource == null || widget.columns.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Consumer(
+      builder: (context, ref, child) {
+        ref.watch(exchangeListVersionProvider);
+        ref.watch(showWeekHeaderProvider);
+        ref.watch(selectedWeekProvider);
+        final marks = dataSource.collectOverlayDateMarks(widget.columns);
+        return OverlayDateChipLayer(marks: marks);
+      },
+    );
   }
 
   /// 그리드 위에 그리는 교체 화살표. 그리드 자체는 다시 만들지 않는다.

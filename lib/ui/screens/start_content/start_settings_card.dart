@@ -15,6 +15,7 @@ import '../../../services/storage_service.dart';
 import '../../../utils/logger.dart';
 import '../../../utils/simplified_timetable_theme.dart';
 import '../../widgets/timetable_grid/timetable_grid_constants.dart';
+import '../../widgets/app_switch.dart';
 import '../../widgets/data_storage_location_section.dart';
 import 'dated_data_inspector_section.dart';
 import 'highlight_color_picker.dart';
@@ -924,15 +925,7 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
             ],
           ),
           const SizedBox(width: 8),
-          Transform.scale(
-            scale: 0.72,
-            alignment: Alignment.center,
-            child: Switch(
-              value: isEnabled,
-              onChanged: onChanged,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-          ),
+          AppSwitch(value: isEnabled, onChanged: onChanged),
         ],
       ),
     );

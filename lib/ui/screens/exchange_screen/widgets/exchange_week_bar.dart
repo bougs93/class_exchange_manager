@@ -7,6 +7,7 @@ import '../../../../providers/selected_week_provider.dart';
 import '../../../../providers/show_week_header_provider.dart';
 import '../../../../utils/week_date_calculator.dart';
 import '../../../../utils/week_semester_status.dart';
+import '../../../widgets/app_switch.dart';
 import '../../../widgets/timetable_grid/grid_header_widgets.dart';
 import '../../personal_schedule_screen/exchange_week_collector.dart';
 
@@ -166,7 +167,7 @@ class ExchangeWeekBar extends ConsumerWidget {
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-                Switch(
+                AppSwitch(
                   value: showWeekHeader,
                   onChanged: (value) {
                     ref.read(showWeekHeaderProvider.notifier).state = value;
