@@ -171,6 +171,74 @@ void main() {
     });
   });
 
+  group('TimetableRepository — S3 이전 시간표 지연 백필 (ensureDatedBackfill)', () {
+    List<TimeSlot> base() => [
+      TimeSlot(
+        teacher: '정원길',
+        subject: '기술가정',
+        className: '3-8',
+        dayOfWeek: 3,
+        period: 1,
+      ),
+      TimeSlot(teacher: '정원길', dayOfWeek: 1, period: 1),
+    ];
+
+    test('timetables 행이 없으면 lessons/lesson_snapshots까지 한 번에 채운다', () async {
+      final db = await openTestDb();
+      final repo = TimetableRepository(db);
+      const timetableId = 'tt_backfill_new';
+
+      await repo.ensureDatedBackfill(
+        timetableId: timetableId,
+        base: base(),
+        registeredAt: DateTime(2026, 8, 1),
+        name: '테스트 시간표',
+        teacherName: '정원길',
+        schoolName: '월계중',
+      );
+
+      final timetable = await repo.getTimetable(timetableId);
+      expect(timetable, isNotNull);
+      expect(timetable!.name, '테스트 시간표');
+      expect(timetable.teacherName, '정원길');
+
+      final stats = await repo.getLessonStats(timetableId);
+      expect(stats.totalCount, greaterThan(0));
+      expect(stats.snapshotCount, stats.totalCount);
+
+      await db.close();
+    });
+
+    test('이미 timetables 행이 있으면 아무것도 하지 않는다(idempotent)', () async {
+      final db = await openTestDb();
+      final repo = TimetableRepository(db);
+      const timetableId = 'tt_backfill_existing';
+
+      final original = DatedTimetable(
+        id: timetableId,
+        name: '원래 이름',
+        semester: SchoolSemester.defaultFor(schoolYear: 2026, semester: 1),
+        registeredAt: DateTime(2026, 3, 1),
+      );
+      await repo.insertTimetable(original);
+
+      await repo.ensureDatedBackfill(
+        timetableId: timetableId,
+        base: base(),
+        registeredAt: DateTime(2026, 8, 1),
+        name: '덮어쓰면 안 되는 이름',
+      );
+
+      final timetable = await repo.getTimetable(timetableId);
+      expect(timetable!.name, '원래 이름');
+
+      final stats = await repo.getLessonStats(timetableId);
+      expect(stats.totalCount, 0, reason: '이미 등록된 시간표는 lessons도 새로 만들면 안 된다');
+
+      await db.close();
+    });
+  });
+
   group('TimetableRepository — 수업(현재 배치) 저장·조회', () {
     test('날짜 범위로 조회하면 그 범위 안의 수업만 반환한다', () async {
       final db = await openTestDb();

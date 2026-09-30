@@ -4,7 +4,9 @@ import '../models/dated_timetable.dart';
 import '../models/exchange_event_record.dart';
 import '../models/lesson.dart';
 import '../models/school_semester.dart';
+import '../models/time_slot.dart';
 import '../services/exchange_event_mirror.dart';
+import '../services/semester_timetable_generator.dart';
 import '../utils/lesson_projection.dart';
 import '../utils/semester_date_generator.dart';
 
@@ -145,6 +147,67 @@ class TimetableRepository {
   Future<List<DatedTimetable>> getAllTimetables() async {
     final rows = await db.query('timetables', orderBy: 'registered_at ASC');
     return rows.map(DatedTimetable.fromMap).toList();
+  }
+
+  /// S3 이전에 등록된 시간표를 위한 최초 1회 지연 백필 (S5.5.4 회귀 체크리스트에서
+  /// 발견한 문제의 근본 수정).
+  ///
+  /// [replayInto]는 `lesson_snapshots`(원본 스냅샷)가 있어야 교체된 칸의
+  /// 과목명·학급명을 정확히 복원할 수 있다. S3 이전에 등록된 시간표는 이
+  /// 스냅샷이 아예 없어서, 그런 시간표에서 SQLite 조회 경로([lessonReadPathEnabledProvider])를
+  /// 켜고 교체를 실행하면 그 칸의 과목명이 `null`로 사라지는 회귀가 있었다
+  /// (`resolved_timetable_provider_pre_s3_test.dart`로 재현됨).
+  ///
+  /// 이 메서드는 `timetables`에 이 id로 등록된 행이 아직 없으면, S3 등록
+  /// 흐름(`timetable_file_screen.dart` 4.5단계)과 완전히 동일한 절차 —
+  /// [base]로 학기 전체 lessons 생성 + `timetables`/`lessons`/`lesson_snapshots`
+  /// 저장 — 를 트랜잭션 안에서 딱 한 번 수행한다. 이미 등록돼 있으면 즉시
+  /// 반환한다(idempotent) — 트랜잭션 안에서 존재 여부를 다시 확인하므로,
+  /// 같은 프레임에서 여러 조회 경로가 동시에 호출해도 이중으로 생성되지 않는다.
+  Future<void> ensureDatedBackfill({
+    required String timetableId,
+    required List<TimeSlot> base,
+    required DateTime registeredAt,
+    String? name,
+    String? teacherName,
+    String? schoolName,
+  }) async {
+    await db.transaction((txn) async {
+      final existing = await txn.query(
+        'timetables',
+        where: 'id = ?',
+        whereArgs: [timetableId],
+        limit: 1,
+      );
+      if (existing.isNotEmpty) return;
+
+      final semester = SchoolSemester.containing(registeredAt);
+      final lessons = SemesterTimetableGenerator.generate(
+        timetableId: timetableId,
+        timeSlots: base,
+        semester: semester,
+      );
+
+      await txn.insert(
+        'timetables',
+        DatedTimetable(
+          id: timetableId,
+          name: name ?? timetableId,
+          semester: semester,
+          teacherName: teacherName,
+          schoolName: schoolName,
+          registeredAt: registeredAt,
+        ).toMap(),
+      );
+
+      final batch = txn.batch();
+      for (final lesson in lessons) {
+        batch.insert('lessons', lesson.toMap());
+        batch.insert('lesson_snapshots', lesson.toMap());
+      }
+      await batch.commit(noResult: true);
+    });
+    _templateCacheByTimetable.remove(timetableId);
   }
 
   /// 시간표 한 건의 저장 현황 집계 (S4.0, 읽기 전용).

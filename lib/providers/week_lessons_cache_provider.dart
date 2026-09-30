@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/lesson.dart';
 import '../repositories/timetable_repository.dart';
 import '../utils/logger.dart';
+import 'exchange_screen_provider.dart';
 import 'services_provider.dart';
+import 'timetable_registry_provider.dart';
 import 'timetable_repository_provider.dart';
 
 /// S5.5(조회를 SQLite `lessons`로 전환)에서, 동기적으로 렌더링해야 하는 그리드가
@@ -22,12 +24,20 @@ class WeekLessonsCache {
     required Future<TimetableRepository> Function() repository,
     required Future<void> Function() flushPendingWrites,
     void Function()? onLoaded,
+    Future<void> Function(String timetableId)? ensureBackfill,
   }) : _repository = repository,
        _flushPendingWrites = flushPendingWrites,
-       _onLoaded = onLoaded;
+       _onLoaded = onLoaded,
+       _ensureBackfill = ensureBackfill;
 
   final Future<TimetableRepository> Function() _repository;
   final Future<void> Function() _flushPendingWrites;
+
+  /// S3 이전에 등록된 시간표(스냅샷 없음)를 위한 최초 1회 지연 백필 훅
+  /// (S5.5.4 회귀 체크리스트에서 발견한 문제의 수정). [_load]가 재생 여부를
+  /// 확인하기 전에 먼저 호출한다 — `TimetableRepository.ensureDatedBackfill`
+  /// 참고. null이면(테스트 등) 아무것도 하지 않는다.
+  final Future<void> Function(String timetableId)? _ensureBackfill;
 
   /// [_load]가 끝날 때마다(성공·실패 무관) 호출된다 — S5.5.4에서 화면이
   /// 이 캐시를 실제로 쓰기 시작하면, "캐시가 막 준비됐으니 다시 그려라"는
@@ -82,6 +92,7 @@ class WeekLessonsCache {
     try {
       await _flushPendingWrites();
       final repo = await _repository();
+      await _ensureBackfill?.call(timetableId);
 
       var status = await repo.getProjectionStatus(timetableId);
       if (status.isStale) {
@@ -168,6 +179,7 @@ final weekLessonsCacheProvider = Provider<WeekLessonsCache>((ref) {
     flushPendingWrites:
         () => ref.read(exchangeHistoryServiceProvider).flushPendingWrites(),
     onLoaded: () => ref.read(weekLessonsCacheTickerProvider.notifier).bump(),
+    ensureBackfill: (timetableId) => _ensureDatedBackfill(ref, timetableId),
   );
 
   ref.listen<int>(exchangeListVersionProvider, (previous, next) {
@@ -177,3 +189,32 @@ final weekLessonsCacheProvider = Provider<WeekLessonsCache>((ref) {
 
   return cache;
 });
+
+/// [weekLessonsCacheProvider]의 백필 훅 구현 — S3 이전 시간표(SQLite
+/// `timetables` 행 없음)를 현재 화면에 열려 있는 원본 [TimeSlot] 목록으로
+/// 딱 한 번 채운다(`TimetableRepository.ensureDatedBackfill` 참고). 백필할
+/// 원본 데이터(현재 열려 있는 시간표의 timeSlots)나 레지스트리 항목을 못
+/// 찾으면 조용히 건너뛴다 — 그러면 이 시간표는 계속 스냅샷 없이 남고,
+/// `replayInto`가 그대로 진행되어 기존 동작(수정 전과 동일)으로 남는다.
+Future<void> _ensureDatedBackfill(Ref ref, String timetableId) async {
+  final repo = await ref.read(timetableRepositoryProvider.future);
+  final existing = await repo.getTimetable(timetableId);
+  if (existing != null) return;
+
+  final timeSlots = ref.read(
+    exchangeScreenProvider.select((state) => state.timetableData?.timeSlots),
+  );
+  if (timeSlots == null || timeSlots.isEmpty) return;
+
+  final registry = ref.read(timetableRegistryProvider).valueOrNull;
+  final entry = registry?.getById(timetableId);
+
+  await repo.ensureDatedBackfill(
+    timetableId: timetableId,
+    base: timeSlots,
+    registeredAt: entry?.registeredAt ?? DateTime.now(),
+    name: entry?.name,
+    teacherName: entry?.teacherName,
+    schoolName: entry?.schoolName,
+  );
+}
