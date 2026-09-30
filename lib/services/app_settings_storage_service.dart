@@ -15,8 +15,8 @@ class AppSettingsDefaults {
       ArrowDirection.bidirectional;
   static const ArrowDirection dualArrowDirection = ArrowDirection.bidirectional;
 
-  /// 디자인 테마 기본값 (기존 클래식 디자인)
-  static const AppThemeType appThemeType = AppThemeType.classic;
+  /// 디자인 테마 기본값 — 설정 파일이 없거나 테마가 아직 저장되지 않았을 때
+  static const AppThemeType appThemeType = AppThemeType.modern;
 
   /// 교사 행 하이라이트 기본색 (Teal 50)
   static int get highlightedTeacherColorArgb =>
@@ -320,7 +320,7 @@ class AppSettingsStorageService
     }, logLabel: '2중 화살표 방향(${arrowDirectionToJson(direction)})');
   }
 
-  /// 디자인 테마 유형 로드 (기본값: 클래식)
+  /// 디자인 테마 유형 로드 (저장된 값이 없으면 플랫 모노)
   Future<AppThemeType> getAppThemeType() async {
     try {
       final settings = await loadAppSettings();

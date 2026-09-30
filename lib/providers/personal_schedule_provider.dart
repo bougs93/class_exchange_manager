@@ -67,6 +67,9 @@ class PersonalScheduleNotifier extends StateNotifier<PersonalScheduleState> {
         _syncWeekFromPlanData();
       },
     );
+    // listen은 이후 변경만 받는다. 들어올 때 계획서가 이미 있으면 교체 주
+    // 칩이 전부 꺼진 채로 남으므로, 지금 주차로 한 번 맞춘다.
+    _syncWeekFromPlanData();
   }
 
   final Ref _ref;

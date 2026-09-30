@@ -1,24 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../data/timetable_database.dart';
 import '../../../models/dated_timetable.dart';
 import '../../../providers/combined_view_switch_provider.dart';
+import '../../../providers/exchange_screen_provider.dart';
 import '../../../providers/node_date_edit_provider.dart';
 import '../../../providers/timetable_registry_provider.dart';
 import '../../../providers/timetable_repository_provider.dart';
-import '../../../repositories/timetable_repository.dart';
 import '../../../theme/design_tokens.dart';
+import '../../../utils/snackbar_helper.dart';
 import '../../widgets/app_switch.dart';
 import '../../../utils/logger.dart';
 import '../../../providers/week_lessons_cache_provider.dart';
 
-/// "준비 > 기타 설정"의 날짜 기반 데이터 확인 패널 (S4.0)
+/// "준비 > 기타 설정"의 날짜 기반 기능 설정 패널 (S4.0)
 ///
-/// SQLite에 저장된 날짜 기반 데이터(lessons·lesson_snapshots)를 **읽기 전용**으로
-/// 보여준다. 쓰기 버튼은 없다 — 값을 고치려면 [SemesterPeriodSection]을 쓴다.
-/// 목적은 개발/운영 중 "실제로 날짜별 데이터가 잘 쌓이고 있는가"를 눈으로 확인하는 것.
+/// S5.5/S5.6 검증이 끝나 데이터 확인용 정보 블록(시간표 정보, 저장된 수업
+/// 데이터, DB 경로)은 삭제했다(2026-09-30) — 이제 실제로 쓰는 롤백 스위치·
+/// 사용자 설정 토글만 남긴다.
 class DatedDataInspectorSection extends ConsumerStatefulWidget {
   const DatedDataInspectorSection({super.key});
 
@@ -32,10 +31,9 @@ class _DatedDataInspectorSectionState
   String? _selectedTimetableId;
 
   bool _isLoading = false;
+  bool _isCreating = false;
   String? _errorMessage;
   DatedTimetable? _timetable;
-  LessonStats? _stats;
-  String? _dbPath;
 
   Future<void> _load() async {
     final timetableId = _selectedTimetableId;
@@ -49,14 +47,10 @@ class _DatedDataInspectorSectionState
     try {
       final repo = await ref.read(timetableRepositoryProvider.future);
       final timetable = await repo.getTimetable(timetableId);
-      final stats = await repo.getLessonStats(timetableId);
-      final dbPath = await TimetableDatabase.defaultDatabasePath();
       if (!mounted) return;
 
       setState(() {
         _timetable = timetable;
-        _stats = stats;
-        _dbPath = dbPath;
         _isLoading = false;
       });
     } catch (e) {
@@ -77,14 +71,58 @@ class _DatedDataInspectorSectionState
     _load();
   }
 
-  Future<void> _copyDbPath() async {
-    final path = _dbPath;
-    if (path == null) return;
-    await Clipboard.setData(ClipboardData(text: path));
-    if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('DB 경로를 복사했습니다.')));
+  /// "지금 만들기" — 등록은 돼 있는데 SQLite 날짜 데이터만 없는 시간표를
+  /// (예: "모든 데이터 삭제" 후 레지스트리 항목만 남은 경우) 그 자리에서
+  /// 즉시 복구한다.
+  ///
+  /// `TimetableRepository.ensureDatedBackfill`을 그대로 재사용한다 — S3
+  /// 이전 시간표(레지스트리는 있는데 SQLite `timetables` 행이 없는 경우)를
+  /// 자동 복구하려고 만든 것과 정확히 같은 상황이다(`week_lessons_cache_provider.dart`
+  /// 참고). 원본 시간표 데이터(TimeSlot 목록)가 필요해서, 지금 화면에 열려
+  /// 있는(활성) 시간표일 때만 이 버튼을 보여준다.
+  Future<void> _createDatedData() async {
+    final timetableId = _selectedTimetableId;
+    final registry = ref.read(timetableRegistryProvider).valueOrNull;
+    final entry = timetableId == null ? null : registry?.getById(timetableId);
+    final timeSlots = ref.read(
+      exchangeScreenProvider.select((state) => state.timetableData?.timeSlots),
+    );
+
+    if (entry == null || timeSlots == null || timeSlots.isEmpty) {
+      if (mounted) {
+        SnackBarHelper.showError(
+          context,
+          '지금 열려 있는 시간표 데이터를 찾을 수 없습니다. 시간표를 다시 불러온 뒤 시도해 주세요.',
+        );
+      }
+      return;
+    }
+
+    setState(() => _isCreating = true);
+    try {
+      final repo = await ref.read(timetableRepositoryProvider.future);
+      await repo.ensureDatedBackfill(
+        timetableId: entry.id,
+        base: timeSlots,
+        registeredAt: entry.registeredAt,
+        name: entry.name,
+        teacherName: entry.teacherName,
+        schoolName: entry.schoolName,
+      );
+      if (!mounted) return;
+      setState(() => _isCreating = false);
+      if (mounted) {
+        SnackBarHelper.showSuccess(context, '날짜별 데이터를 생성했습니다.');
+      }
+      await _load();
+    } catch (e) {
+      AppLogger.error('날짜별 데이터 생성 실패: $e', e);
+      if (!mounted) return;
+      setState(() => _isCreating = false);
+      if (mounted) {
+        SnackBarHelper.showError(context, '날짜별 데이터 생성에 실패했습니다: $e');
+      }
+    }
   }
 
   @override
@@ -94,14 +132,11 @@ class _DatedDataInspectorSectionState
     final registry = registryAsync.valueOrNull;
     final entries = registry?.timetables ?? const [];
 
+    // 등록된 시간표가 없으면 카드 자체를 안 그린다 — 같은 화면의
+    // SemesterPeriodSection이 이미 "등록된 시간표가 없습니다" 안내를
+    // 보여주므로, 여기서 또 띄우면 똑같은 문구가 중복돼 보인다(2026-09-30).
     if (entries.isEmpty) {
-      return _buildCard(
-        tokens: tokens,
-        child: Text(
-          '등록된 시간표가 없습니다. 시간표를 먼저 등록하면 여기서 저장된 날짜별 데이터를 확인할 수 있습니다.',
-          style: TextStyle(fontSize: 12, color: tokens.textSecondary),
-        ),
-      );
+      return const SizedBox.shrink();
     }
 
     if (_selectedTimetableId == null ||
@@ -118,13 +153,8 @@ class _DatedDataInspectorSectionState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            '날짜 기반 데이터 확인 (읽기 전용)',
+            '날짜 기반 기능 설정',
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'SQLite에 저장된 날짜별 수업 데이터를 확인합니다. 여기서는 값을 수정할 수 없습니다.',
-            style: TextStyle(fontSize: 12, color: tokens.textSecondary),
           ),
           const SizedBox(height: 8),
           _buildTimetableDropdown(entries),
@@ -145,25 +175,41 @@ class _DatedDataInspectorSectionState
               _errorMessage!,
               style: const TextStyle(fontSize: 12, color: Colors.red),
             )
-          else if (_timetable == null)
+          else if (_timetable == null) ...[
             Text(
-              '이 시간표는 날짜별 데이터가 없습니다(등록 시 생성되지 않았거나 이전 버전에서 등록됨).',
+              '이 시간표는 날짜별 데이터가 없습니다(등록 시 생성되지 않았거나, "모든 데이터'
+              ' 삭제" 후 다시 생성되지 않았거나, 이전 버전에서 등록됨).',
+              style: TextStyle(fontSize: 12, color: tokens.textSecondary),
+            ),
+            if (_selectedTimetableId == registry?.activeId) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: _isCreating ? null : _createDatedData,
+                  child:
+                      _isCreating
+                          ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                          : const Text('지금 만들기'),
+                ),
+              ),
+            ],
+          ]
+          else if (_selectedTimetableId != registry?.activeId)
+            Text(
+              '활성 시간표가 아닙니다. 설정은 활성 시간표에서만 적용됩니다.',
               style: TextStyle(fontSize: 12, color: tokens.textSecondary),
             )
           else ...[
-            _buildTimetableInfo(tokens, _timetable!),
+            _buildLessonReadPathToggle(tokens),
             const SizedBox(height: 8),
-            _buildStatsInfo(tokens, _stats!),
-            if (_selectedTimetableId == registry?.activeId) ...[
-              const SizedBox(height: 8),
-              _buildLessonReadPathToggle(tokens),
-              const SizedBox(height: 8),
-              _buildNodeDateEditToggle(tokens),
-              const SizedBox(height: 8),
-              _buildCombinedViewSwitchToggle(tokens),
-            ],
+            _buildNodeDateEditToggle(tokens),
             const SizedBox(height: 8),
-            _buildDbPathRow(tokens),
+            _buildCombinedViewSwitchToggle(tokens),
           ],
         ],
       ),
@@ -196,65 +242,6 @@ class _DatedDataInspectorSectionState
           ),
       ],
       onChanged: _onSelectTimetable,
-    );
-  }
-
-  Widget _buildTimetableInfo(DesignTokens tokens, DatedTimetable timetable) {
-    String format(DateTime date) {
-      return '${date.year}.${date.month.toString().padLeft(2, '0')}.'
-          '${date.day.toString().padLeft(2, '0')}';
-    }
-
-    return _buildInfoBlock(tokens, title: '시간표', rows: [
-      '이름: ${timetable.name}',
-      '학년도·학기: ${timetable.semester.schoolYear}년 ${timetable.semester.semester}학기',
-      '기간: ${format(timetable.semester.startDate)} ~ ${format(timetable.semester.endDate)}',
-      if (timetable.teacherName != null) '교사명: ${timetable.teacherName}',
-      if (timetable.schoolName != null) '학교명: ${timetable.schoolName}',
-      '등록 시각: ${timetable.registeredAt}',
-    ]);
-  }
-
-  Widget _buildStatsInfo(DesignTokens tokens, LessonStats stats) {
-    String formatDate(DateTime? date) {
-      if (date == null) return '-';
-      return '${date.year}.${date.month.toString().padLeft(2, '0')}.'
-          '${date.day.toString().padLeft(2, '0')}';
-    }
-
-    return _buildInfoBlock(tokens, title: '저장된 수업 데이터', rows: [
-      '전체: ${stats.totalCount}건',
-      '활성: ${stats.activeCount}건 · 보관: ${stats.inactiveCount}건',
-      '원본 스냅샷: ${stats.snapshotCount}건',
-      '날짜 범위: ${formatDate(stats.earliestDate)} ~ ${formatDate(stats.latestDate)}',
-    ]);
-  }
-
-  Widget _buildInfoBlock(
-    DesignTokens tokens, {
-    required String title,
-    required List<String> rows,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: tokens.surface,
-        border: Border.all(color: tokens.cardBorder),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 4),
-          for (final row in rows)
-            Text(row, style: TextStyle(fontSize: 12, color: tokens.textSecondary)),
-        ],
-      ),
     );
   }
 
@@ -422,26 +409,6 @@ class _DatedDataInspectorSectionState
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildDbPathRow(DesignTokens tokens) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            'DB 경로: ${_dbPath ?? '-'}',
-            style: TextStyle(fontSize: 11, color: tokens.textMuted),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        IconButton(
-          icon: const Icon(Icons.copy, size: 16),
-          tooltip: '경로 복사',
-          onPressed: _dbPath == null ? null : _copyDbPath,
-        ),
-      ],
     );
   }
 }

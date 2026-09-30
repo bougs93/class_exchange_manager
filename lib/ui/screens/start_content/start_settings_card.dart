@@ -3,15 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../constants/teacher_row_highlight_colors.dart';
 import '../../../providers/app_settings_provider.dart';
 import '../../../providers/theme_provider.dart';
-import '../../../providers/services_provider.dart';
-import '../../../providers/substitution_plan_provider.dart';
-import '../../../providers/timetable_registry_provider.dart';
+import '../../../services/stored_data_reset.dart';
 import '../../../theme/app_theme_type.dart';
 import '../../../theme/design_tokens.dart';
 import '../../widgets/timetable_grid/exchange_arrow_direction_icon.dart';
 import '../../widgets/timetable_grid/exchange_arrow_style.dart';
 import '../../../services/app_settings_storage_service.dart';
-import '../../../services/storage_service.dart';
 import '../../../utils/logger.dart';
 import '../../../utils/simplified_timetable_theme.dart';
 import '../../widgets/timetable_grid/timetable_grid_constants.dart';
@@ -247,6 +244,7 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
               '• 결보강 계획서 데이터\n'
               '• PDF 출력 설정\n'
               '• 시간표 테마 설정\n'
+              '• 날짜별 수업 데이터\n'
               '• 앱 설정\n\n'
               '이 작업은 되돌릴 수 없습니다!',
             ),
@@ -269,26 +267,14 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
     setState(() => _isResetting = true);
 
     try {
-      final results = await StorageService().deleteAllJsonFiles();
-      final successCount = results.values.where((v) => v).length;
-      final totalCount = results.length;
-      final failedFiles =
-          results.entries.where((e) => !e.value).map((e) => e.key).toList();
+      final result = await StoredDataReset.deleteAll(ref);
 
       if (mounted) {
-        if (failedFiles.isEmpty && totalCount > 0) {
-          // timetable_registry.json도 함께 지워졌으므로 메모리 상태를 비운다.
-          // 그러지 않으면 삭제된 시간표가 홈 카드에 계속 남는다(문서 §7-4).
-          _resetInMemoryTimetableState();
-          showSnackBar('모든 데이터가 삭제되었습니다. ($totalCount개 파일)');
+        final message = _resetResultMessage(result);
+        showSnackBar(message.text, isError: message.isError);
+        if (!message.isError && result.hadAnything) {
+          await _loadSettings();
           widget.onDataReset?.call();
-        } else if (totalCount == 0) {
-          showSnackBar('삭제할 데이터가 없습니다.');
-        } else {
-          showSnackBar(
-            '일부 데이터 삭제에 실패했습니다.\n성공: $successCount개 / 전체: $totalCount개',
-            isError: true,
-          );
         }
       }
     } catch (e) {
@@ -304,14 +290,17 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
     }
   }
 
-  /// 데이터 초기화 후 시간표 관련 메모리 상태 비우기
-  ///
-  /// 디스크 파일만 지우면 Provider와 서비스에 남은 값이 다시 화면에 나타난다.
-  void _resetInMemoryTimetableState() {
-    ref.read(exchangeHistoryServiceProvider).resetInMemoryState();
-    ref.read(substitutionPlanProvider.notifier).clearInMemory();
-    ref.invalidate(timetableRegistryProvider);
-    ref.read(timetableSwitchVersionProvider.notifier).state++;
+  ({String text, bool isError}) _resetResultMessage(StoredDataResetResult result) {
+    if (result.databaseDeleteFailed || !result.jsonOk) {
+      return (
+        text: '일부 데이터를 지우지 못했습니다. 앱을 다시 시작한 뒤 한 번 더 시도해 주세요.',
+        isError: true,
+      );
+    }
+    if (!result.hadAnything) {
+      return (text: '삭제할 데이터가 없습니다.', isError: false);
+    }
+    return (text: '모든 데이터가 삭제되었습니다.', isError: false);
   }
 
   @override
@@ -378,9 +367,9 @@ class _StartSettingsCardState extends ConsumerState<StartSettingsCard>
                   const SizedBox(height: 8),
                   const SemesterPeriodSection(),
                   const SizedBox(height: 8),
-                  const DatedDataInspectorSection(),
-                  const SizedBox(height: 8),
                   _buildResponsiveActionCardsSection(),
+                  const SizedBox(height: 8),
+                  const DatedDataInspectorSection(),
                 ],
               ),
             ),

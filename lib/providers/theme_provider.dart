@@ -14,7 +14,7 @@ class AppThemeNotifier extends StateNotifier<AppThemeType> {
     AppThemeType? initialValue,
   }) : _loader = loader,
        _saver = saver,
-       super(initialValue ?? AppThemeType.classic) {
+       super(initialValue ?? AppSettingsDefaults.appThemeType) {
     if (!skipInitialLoad && initialValue == null) {
       _loadInitial();
     }
@@ -29,7 +29,7 @@ class AppThemeNotifier extends StateNotifier<AppThemeType> {
       state = await _loader();
     } catch (e) {
       AppLogger.error('디자인 테마 초기 로드 실패: $e', e);
-      state = AppThemeType.classic;
+      state = AppSettingsDefaults.appThemeType;
     }
   }
 

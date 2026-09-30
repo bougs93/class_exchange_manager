@@ -21,7 +21,7 @@ class PersonalTimetableHelper {
   /// 반환값:
   /// - `List<DataGridRow>`: 교시별 행 데이터
   /// - `List<GridColumn>`: 요일별 열 데이터
-  /// - `List<StackedHeaderRow>`: 날짜가 포함된 헤더
+  /// - `List<StackedHeaderRow>`: 비어 있음 — 날짜는 요일 칸 두 번째 줄에 붙는다
   static ({
     List<DataGridRow> rows,
     List<GridColumn> columns,
@@ -94,7 +94,7 @@ class PersonalTimetableHelper {
     // 6. 열 데이터 생성
     // 개인 시간표 테이블 크기 20% 증가 적용 (가로폭)
     const double personalTimetableSizeMultiplier = 1.2;
-    // 본문은 숫자 한 자리라 더 좁혀도 되지만, 헤더 "교시"·"날짜"(2글자, 14px)가
+    // 본문은 숫자 한 자리라 더 좁혀도 되지만, 헤더 "교시"(2글자, 14px)가
     // 잘리지 않는 너비가 하한이다. (기존 48px은 "1교시" 4글자 기준)
     const double periodColumnWidth = 40.0;
 
@@ -168,93 +168,20 @@ class PersonalTimetableHelper {
                 ),
               ),
             ),
-            child: Text(
-              day,
-              style: TextStyle(
-                fontSize: AppConstants.headerFontSize * zoomFactor,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        );
-      }),
-    ];
-
-    // 7. 스택된 헤더 생성 (날짜 표시용)
-    final List<StackedHeaderCell> headerCells = [
-      // 교시 헤더 (날짜 헤더)
-      StackedHeaderCell(
-        columnNames: ['period'],
-        child: Container(
-          padding: EdgeInsets.zero, // 교체 관리 화면과 동일한 padding (없음)
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: SimplifiedTimetableTheme.teacherHeaderColor, // 요일 헤더 배경색
-            border: Border(
-              right: BorderSide(
-                color:
-                    SimplifiedTimetableTheme.normalBorderColor, // 내용 셀과 동일한 테두리
-                width: SimplifiedTimetableTheme.normalBorderWidth,
-              ),
-              bottom: BorderSide(
-                color:
-                    SimplifiedTimetableTheme.normalBorderColor, // 내용 셀과 동일한 테두리
-                width: SimplifiedTimetableTheme.normalBorderWidth,
-              ),
-            ),
-          ),
-          child: Text(
-            '날짜',
-            style: TextStyle(
-              fontSize: AppConstants.headerFontSize * zoomFactor,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ),
-      // 각 요일별 날짜 헤더
-      ...days.asMap().entries.map((entry) {
-        final index = entry.key;
-        final day = entry.value;
-        final date = weekDates[index];
-        final dateStr =
-            '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
-
-        return StackedHeaderCell(
-          columnNames: ['${day}_$dateStr'], // 날짜 포함: "월_2025.11.10"
-          child: Container(
-            padding: EdgeInsets.zero, // 교체 관리 화면과 동일한 padding (없음)
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: SimplifiedTimetableTheme.teacherHeaderColor, // 요일 헤더 배경색
-              border: Border(
-                left: BorderSide(
-                  color:
-                      SimplifiedTimetableTheme
-                          .normalBorderColor, // 내용 셀과 동일한 테두리
-                  width: SimplifiedTimetableTheme.normalBorderWidth,
+            // 날짜 행을 없애고 요일 아래에 붙인다. "12.12"(5자)가 칸(42px)에
+            // 들어가는 최대 크기는 12.
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  day,
+                  style: TextStyle(
+                    fontSize: AppConstants.headerFontSize * zoomFactor,
+                    height: 1.0,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                right: BorderSide(
-                  color:
-                      SimplifiedTimetableTheme
-                          .normalBorderColor, // 내용 셀과 동일한 테두리
-                  width: SimplifiedTimetableTheme.normalBorderWidth,
-                ),
-                bottom: BorderSide(
-                  color:
-                      SimplifiedTimetableTheme
-                          .normalBorderColor, // 내용 셀과 동일한 테두리
-                  width: SimplifiedTimetableTheme.normalBorderWidth,
-                ),
-              ),
-            ),
-            // 날짜 글자: "12.12"(5자)가 요일 칸(35×1.2=42px)에 들어가는 최대 크기.
-            // 가로가 한계라 더 키우면 칸을 넘고, 행 높이(30px)는 여유가 있다.
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 1),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
+                Text(
                   WeekDateCalculator.formatDateShort(date),
                   style: TextStyle(
                     fontSize: 12 * zoomFactor,
@@ -263,17 +190,14 @@ class PersonalTimetableHelper {
                     color: Colors.black,
                   ),
                 ),
-              ),
+              ],
             ),
           ),
         );
       }),
     ];
 
-    final List<StackedHeaderRow> stackedHeaders = [
-      StackedHeaderRow(cells: headerCells),
-    ];
-
-    return (rows: rows, columns: columns, stackedHeaders: stackedHeaders);
+    // 날짜는 요일 칸 두 번째 줄에 붙으므로 날짜 전용 스택 헤더 행은 두지 않는다.
+    return (rows: rows, columns: columns, stackedHeaders: const []);
   }
 }

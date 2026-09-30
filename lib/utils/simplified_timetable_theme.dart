@@ -122,6 +122,12 @@ class SimplifiedTimetableTheme {
   ///
   /// 매개변수:
   /// - `color`: 설정할 색상
+  /// 저장 파일을 만들지 않고 메모리 색상만 기본값으로 되돌린다.
+  /// 전체 데이터 삭제 뒤에 쓴다. [setHighlightedTeacherColor]는 파일을 다시 만든다.
+  static void resetHighlightedTeacherColorInMemory() {
+    _highlightedTeacherColor = TeacherRowHighlightColors.defaultColor;
+  }
+
   static Future<void> setHighlightedTeacherColor(Color color) async {
     _highlightedTeacherColor = color;
     // 앱 설정에 저장

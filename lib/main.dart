@@ -61,7 +61,7 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 설정에서 선택한 디자인 테마 (클래식 / 머티리얼 3)
+    // 설정에서 선택한 디자인 테마 (없으면 플랫 모노)
     final theme = ref.watch(appThemeProvider);
 
     return MaterialApp(

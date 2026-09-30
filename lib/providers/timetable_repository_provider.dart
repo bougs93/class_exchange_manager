@@ -10,7 +10,15 @@ import '../repositories/timetable_repository.dart';
 /// 자동 폐기되지 않게 한다 — DB 커넥션은 명시적으로만 닫아야 한다.
 final timetableDatabaseProvider = FutureProvider<Database>((ref) async {
   ref.keepAlive();
-  return TimetableDatabase.open();
+  final db = await TimetableDatabase.open();
+  // 전체 삭제 시 invalidate되면 파일을 지우기 전에 연결을 닫는다.
+  // 이미 닫혀 있으면 다시 닫지 않는다.
+  ref.onDispose(() {
+    if (db.isOpen) {
+      db.close();
+    }
+  });
+  return db;
 });
 
 /// [TimetableRepository] 인스턴스 (DB가 준비된 뒤에만 값이 채워진다)

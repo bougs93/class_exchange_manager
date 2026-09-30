@@ -140,9 +140,9 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
       result.stackedHeaders,
       widget.zoomFactor,
     );
-    _headerHeight =
-        GridScalingHelper.scaleHeaderHeight(widget.zoomFactor) *
-        TeacherCardGridConstants.personalTimetableSizeMultiplier;
+    // 요일 + 날짜 두 줄(14 + 12)이 한 칸에 들어가야 한다. 날짜 전용 행은 없으므로
+    // 헤더는 이 한 줄뿐이다.
+    _headerHeight = 36 * widget.zoomFactor;
     _rowHeight =
         GridScalingHelper.scaleRowHeight(widget.zoomFactor) *
         TeacherCardGridConstants.personalTimetableSizeMultiplier;

@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../constants/teacher_row_highlight_colors.dart';
 import '../../providers/theme_provider.dart';
 import '../../services/app_settings_storage_service.dart';
-import '../../services/storage_service.dart';
+import '../../services/stored_data_reset.dart';
 import '../../theme/app_theme_type.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/logger.dart';
@@ -184,6 +184,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               '• 결보강 계획서 데이터\n'
               '• PDF 출력 설정\n'
               '• 시간표 테마 설정\n'
+              '• 날짜별 수업 데이터\n'
               '• 앱 설정\n\n'
               '이 작업은 되돌릴 수 없습니다!',
             ),
@@ -210,33 +211,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     });
 
     try {
-      final storageService = StorageService();
-      final results = await storageService.deleteAllJsonFiles();
-
-      // 삭제 결과 확인
-      final successCount = results.values.where((v) => v).length;
-      final totalCount = results.length;
-      final failedFiles =
-          results.entries.where((e) => !e.value).map((e) => e.key).toList();
+      final result = await StoredDataReset.deleteAll(ref);
 
       if (mounted) {
-        if (failedFiles.isEmpty && totalCount > 0) {
-          // 모든 파일 삭제 성공
-          SnackBarHelper.showInfo(
-            context,
-            '모든 데이터가 삭제되었습니다. ($totalCount개 파일)',
-            duration: const Duration(seconds: 3),
-          );
-        } else if (totalCount == 0) {
-          // 삭제할 파일이 없음
-          SnackBarHelper.showInfo(context, '삭제할 데이터가 없습니다.');
-        } else {
-          // 일부 파일 삭제 실패
+        if (result.databaseDeleteFailed || !result.jsonOk) {
           SnackBarHelper.showWarning(
             context,
-            '일부 데이터 삭제에 실패했습니다.\n'
-            '성공: $successCount개 / 전체: $totalCount개\n'
-            '실패한 파일: ${failedFiles.join(", ")}',
+            '일부 데이터를 지우지 못했습니다. 앱을 다시 시작한 뒤 한 번 더 시도해 주세요.',
+          );
+        } else if (!result.hadAnything) {
+          SnackBarHelper.showInfo(context, '삭제할 데이터가 없습니다.');
+        } else {
+          await _loadSettings();
+          await _loadHighlightColor();
+          if (!mounted) return;
+          SnackBarHelper.showInfo(
+            context,
+            '모든 데이터가 삭제되었습니다.',
+            duration: const Duration(seconds: 3),
           );
         }
       }

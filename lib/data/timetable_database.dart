@@ -92,6 +92,19 @@ class TimetableDatabase {
   /// 기본 DB 파일의 절대 경로 (S4.0 — 확인 패널에서 경로를 보여주기 위해 공개).
   static Future<String> defaultDatabasePath() => _defaultDatabasePath();
 
+  /// 기본 DB 파일과 WAL 보조 파일을 지운다.
+  ///
+  /// 호출 전에 열어 둔 연결을 닫아야 한다. Windows에서는 연결이 살아 있으면
+  /// 파일 삭제가 실패한다.
+  static Future<bool> deleteDefaultDatabaseFile() async {
+    _ensureFfiInitialized();
+    final path = await _defaultDatabasePath();
+    final file = File(path);
+    final existed = await file.exists();
+    await deleteDatabase(path);
+    return existed;
+  }
+
   static Future<void> _createSchema(Database db) async {
     await db.execute('''
       CREATE TABLE timetables (

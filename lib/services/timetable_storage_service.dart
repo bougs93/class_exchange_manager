@@ -76,7 +76,7 @@ class TimetableStorageService {
       final file = File(filePath);
       final fileName = file.path.split(Platform.pathSeparator).last;
       final fileNameWithoutExt = fileName.replaceAll(
-        RegExp(r'\.(xlsx|xls)$'),
+        RegExp(r'\.[^.]+$', caseSensitive: false),
         '',
       );
 

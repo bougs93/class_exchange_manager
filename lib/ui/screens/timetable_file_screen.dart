@@ -149,7 +149,10 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
       }
 
       // 4. 신규 등록: 이름 지정 (기본값: 파일명, 취소 없음 — 등록이 필수)
-      final defaultName = fileName.replaceAll(RegExp(r'\.(xlsx|xls)$'), '');
+      final defaultName = fileName.replaceAll(
+        RegExp(r'\.[^.]+$', caseSensitive: false),
+        '',
+      );
       final name = await _showNameDialog(
         title: '시간표 이름',
         initialValue: defaultName,
@@ -300,6 +303,11 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
     DateTime? start;
     DateTime? end;
 
+    // 오늘 기준 기본 학기 범위 — 등록이 실제로 적용할 때 쓰는 것과 같은
+    // 계산(SchoolSemester.containing)이라, "기본값 적용"을 누르면 나중에
+    // 등록 시점에 자동 추정되는 값과 항상 일치한다.
+    final suggested = SchoolSemester.containing(DateTime.now());
+
     final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -338,6 +346,13 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
               }
             }
 
+            void applySuggested() {
+              setDialogState(() {
+                start = suggested.startDate;
+                end = suggested.endDate;
+              });
+            }
+
             return AlertDialog(
               title: const Text('학기 기간'),
               content: Column(
@@ -363,6 +378,36 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
                     title: const Text('종료일'),
                     subtitle: Text(formatDate(end)),
                     onTap: pickEnd,
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '오늘 기준 추천: ${formatDate(suggested.startDate)} ~ '
+                          '${formatDate(suggested.endDate)} '
+                          '(${suggested.schoolYear}년 ${suggested.semester}학기)',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.black54,
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: applySuggested,
+                            child: const Text('기본값 적용'),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
