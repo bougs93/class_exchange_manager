@@ -12,9 +12,29 @@ class NonExchangeableManager {
   List<TimeSlot> _timeSlots = [];
   bool _isNonExchangeableEditMode = false;
 
+  /// `교사|요일번호|교시` → TimeSlot 색인
+  ///
+  /// 그리드 셀 하나를 그릴 때마다 `_timeSlots`를 선형 탐색하면
+  /// (보이는 셀 수 × 전체 TimeSlot 수)만큼 비교가 일어나 웹에서 수 초가 걸린다.
+  /// 시간표가 바뀔 때 한 번만 색인을 만들어 O(1) 조회로 바꾼다.
+  final Map<String, TimeSlot> _slotIndex = {};
+
   /// TimeSlot 리스트 설정
   void setTimeSlots(List<TimeSlot> timeSlots) {
     _timeSlots = timeSlots;
+    _rebuildIndex();
+  }
+
+  void _rebuildIndex() {
+    _slotIndex.clear();
+    for (final slot in _timeSlots) {
+      final teacher = slot.teacher;
+      final dayOfWeek = slot.dayOfWeek;
+      final period = slot.period;
+      if (teacher == null || dayOfWeek == null || period == null) continue;
+      // 중복 키는 기존 firstWhere와 동일하게 먼저 나온 것을 유지한다.
+      _slotIndex.putIfAbsent('$teacher|$dayOfWeek|$period', () => slot);
+    }
   }
 
   /// 교체불가 편집 모드 설정
@@ -54,17 +74,7 @@ class NonExchangeableManager {
   /// 반환값: 찾은 TimeSlot 또는 null
   TimeSlot? _findTimeSlot(String teacherName, String day, int period) {
     final dayNumber = DayUtils.getDayNumber(day);
-
-    try {
-      return _timeSlots.firstWhere(
-        (slot) =>
-            slot.teacher == teacherName &&
-            slot.dayOfWeek == dayNumber &&
-            slot.period == period,
-      );
-    } catch (e) {
-      return null;
-    }
+    return _slotIndex['$teacherName|$dayNumber|$period'];
   }
 
   /// 특정 교사의 모든 TimeSlot을 교체불가로 설정
@@ -168,6 +178,7 @@ class NonExchangeableManager {
       );
 
       _timeSlots.add(newTimeSlot);
+      _slotIndex['$teacherName|$dayOfWeek|$period'] = newTimeSlot;
       AppLogger.exchangeDebug(
         '새로운 TimeSlot 생성 (교체불가): $teacherName $day $period교시',
       );

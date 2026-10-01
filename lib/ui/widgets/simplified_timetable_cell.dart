@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../constants/cell_status_tooltips.dart';
-import '../../providers/cell_status_symbol_visibility_provider.dart';
 import '../../utils/simplified_timetable_theme.dart';
 import '../../utils/cell_style_config.dart';
 import 'cell_status_border_overlay.dart';
 import 'exchanged_cell_status_overlay.dart';
 
 /// 단순화된 시간표 셀 위젯
-class SimplifiedTimetableCell extends ConsumerWidget {
+///
+/// 성능 주의: 화면에 동시에 뜨는 셀이 수백 개이므로 `ConsumerWidget`으로
+/// 두면 셀마다 Provider 구독이 생겨 웹에서 눈에 띄게 느려진다.
+/// 상태 심볼 표시 여부는 `TimetableDataSource`가 한 번만 읽어 넘겨준다.
+class SimplifiedTimetableCell extends StatelessWidget {
   final String content;
   final bool isTeacherColumn;
   final bool isSelected;
@@ -28,6 +30,7 @@ class SimplifiedTimetableCell extends ConsumerWidget {
   final String? overlayDate; // "?" 툴팁용. 날짜 글자 자체는 그리드 위 층에 그린다.
   final bool isTeacherNameSelected; // 교사 이름 선택 상태 (새로 추가)
   final bool isHighlightedTeacher; // 하이라이트된 교사 행인지 여부 (새로 추가)
+  final bool showStatusSymbols; // X·O 상태 오버레이 표시 여부 (데이터소스가 주입)
   final VoidCallback? onTap;
 
   const SimplifiedTimetableCell({
@@ -51,13 +54,12 @@ class SimplifiedTimetableCell extends ConsumerWidget {
     this.overlayDate,
     this.isTeacherNameSelected = false, // 교사 이름 선택 상태 기본값은 false
     this.isHighlightedTeacher = false, // 하이라이트된 교사 행 기본값은 false
+    this.showStatusSymbols = true,
     this.onTap,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final showStatusSymbols = ref.watch(cellStatusSymbolVisibilityProvider);
-
+  Widget build(BuildContext context) {
     final style = SimplifiedTimetableTheme.getCellStyleFromConfig(
       CellStyleConfig(
         isTeacherColumn: isTeacherColumn,

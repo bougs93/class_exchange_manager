@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,6 +12,7 @@ import '../../../theme/design_tokens.dart';
 import '../../../utils/logger.dart';
 import '../../../utils/snackbar_helper.dart';
 import '../../widgets/app_content_card.dart';
+import '../web_login_gate.dart';
 
 /// 홈 화면의 시간표 카드
 ///
@@ -149,12 +151,22 @@ class _TimetableSummaryCardState extends ConsumerState<TimetableSummaryCard> {
 
   // ===== 빈 상태 =====
 
+  /// 시간표 파일 등록 가능 여부.
+  ///
+  /// 웹에서는 준비 화면 등록을 쓰지 않는다 — 관리자는 접속 설정의
+  /// 원스텝 게시(선택→등록→게시 한 번에)로 올리고, 접속자는 공용 시간표만
+  /// 본다. 네이티브 앱은 그대로 등록할 수 있다.
+  bool _canRegisterTimetable() {
+    return !kIsWeb;
+  }
+
   /// 등록된 시간표가 없을 때
   ///
   /// 교사·학교명·계획서 영역은 아예 그리지 않는다 — 시간표가 없으면 교사 목록
   /// 자체가 존재하지 않으므로 빈 입력란을 보여주는 것은 거짓 정보다.
   Widget _buildEmptyState() {
     final tokens = context.tokens;
+    final isAdmin = ref.watch(webLoginStatusProvider) == WebLoginStatus.adminOk;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -172,19 +184,29 @@ class _TimetableSummaryCardState extends ConsumerState<TimetableSummaryCard> {
           ),
           const SizedBox(height: 6),
           Text(
-            '엑셀 시간표 파일을 등록하면 교체 관리를 시작합니다',
+            _canRegisterTimetable()
+                ? '엑셀 시간표 파일을 등록하면 교체 관리를 시작합니다'
+                : isAdmin
+                ? '접속 설정에서 공용 시간표를 게시하세요'
+                : '공용 시간표가 게시되면 교체 관리를 시작합니다',
             style: TextStyle(fontSize: 12.5, color: tokens.textMuted),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: () => widget.onAddTimetable(),
-            icon: const Icon(Icons.upload_file, size: 18),
-            label: const Text('시간표 파일 등록'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          // 웹 접속자(선생님)는 시간표 등록을 하지 않으므로 버튼 숨김.
+          // 관리자와 네이티브 앱에서는 그대로 표시.
+          if (_canRegisterTimetable())
+            ElevatedButton.icon(
+              onPressed: () => widget.onAddTimetable(),
+              icon: const Icon(Icons.upload_file, size: 18),
+              label: const Text('시간표 파일 등록'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 12,
+                ),
+              ),
             ),
-          ),
         ],
       ),
     );

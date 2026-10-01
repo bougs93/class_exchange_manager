@@ -1,37 +1,26 @@
 {
-    // IntelliSense를 사용하여 가능한 특성에 대해 알아보세요.
-    // 기존 특성에 대한 설명을 보려면 가리킵니다.
-    // 자세한 내용을 보려면 https://go.microsoft.com/fwlink/?linkid=830387을(를) 방문하세요.
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "class_exchange_manager",
-            "request": "launch",
-            "type": "dart",
-            "program": "lib/main.dart",
-            "args": [],
-            "console": "debugConsole",
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "name": "class_exchange_manager (profile mode)",
-            "request": "launch",
-            "type": "dart",
-            "program": "lib/main.dart",
-            "flutterMode": "profile",
-            "args": [],
-            "console": "debugConsole",
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "name": "class_exchange_manager (release mode)",
-            "request": "launch",
-            "type": "dart",
-            "program": "lib/main.dart",
-            "flutterMode": "release",
-            "args": [],
-            "console": "debugConsole",
-            "cwd": "${workspaceFolder}"
-        }
-    ]
+  // 웹 디버깅용 실행 설정 (F5).
+  // Firebase·마스터 값을 채워 넣으세요 (GitHub Secrets와 동일한 값).
+  // 주의: 실제 키를 넣은 뒤에는 git에 커밋하지 마세요.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "웹 디버그 (Firebase 연결)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "args": [
+        "-d",
+        "chrome",
+        "--dart-define=FIREBASE_API_KEY=AIzaSyDh6yo4vqm8x5e-C7ckRpSuuq2KEup6g_A",
+        "--dart-define=FIREBASE_AUTH_DOMAIN=class-swap-helper.firebaseapp.com",
+        "--dart-define=FIREBASE_PROJECT_ID=class-swap-helper",
+        "--dart-define=FIREBASE_STORAGE_BUCKET=class-swap-helper.firebasestorage.app",
+        "--dart-define=FIREBASE_MESSAGING_SENDER_ID=481148104896",
+        "--dart-define=FIREBASE_APP_ID=1:481148104896:web:ecde737618c909518f7d25",
+        "--dart-define=MASTER_ID=bougs93",
+        "--dart-define=MASTER_PASSWORD_HASH=101c4fffc8daba57f398048651d584dd495caf51e673914e0205438c1fb75c41"
+      ]
+    }
+  ]
 }

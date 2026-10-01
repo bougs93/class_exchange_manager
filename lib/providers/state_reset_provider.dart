@@ -138,16 +138,16 @@ class StateResetNotifier extends StateNotifier<ResetState> {
 
     // 2. DataSource 경로 초기화 (UI 렌더링에 필수)
     // ⚠️ Provider와 CellSelectionProvider는 배치 업데이트에서 이미 초기화됨
+    //
+    // 성능: 네 개의 update...Path() 호출은 각각 DataGrid 전체를 다시 그리게 한다.
+    // 셀 클릭 한 번에 그리드가 대여섯 번 재구성되던 원인이라, 하나로 묶는다.
     final dataSource = _exchangeNotifier.state.dataSource;
-    if (dataSource != null) {
+    dataSource?.runBatched(() {
       dataSource.updateSelectedCircularPath(null);
       dataSource.updateSelectedOneToOnePath(null);
       dataSource.updateSelectedDualPath(null);
       dataSource.updateSelectedSupplementPath(null);
-    }
-
-    // 3. UI 업데이트 (경로 초기화 완료 후!)
-    dataSource?.notifyDataChanged();
+    });
   }
 
   /// 헤더 테마 업데이트 (Level 3 전용 - 모든 값 null)
@@ -191,8 +191,9 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     _exchangeNotifier.setColumns(result.columns);
     _exchangeNotifier.setStackedHeaders(result.stackedHeaders);
 
-    // TimetableDataSource의 notifyListeners를 통한 직접 UI 업데이트
-    screenState.dataSource?.notifyListeners();
+    // TimetableDataSource를 통한 UI 업데이트
+    // (notifyListeners를 직접 부르면 셀 렌더링 스냅샷이 갱신되지 않는다)
+    screenState.dataSource?.notifyDataChanged();
   }
 
   /// 교체 히스토리 초기화 (Level 3 전용)
@@ -304,11 +305,16 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     _exchangeNotifier.resetPathSelectionBatch();
 
     // TimetableDataSource 배치 업데이트 (Syncfusion DataGrid 전용)
+    // 그리드 재빌드는 전체를 묶어 한 번만 일어나게 한다.
     final dataSource = _exchangeNotifier.state.dataSource;
-    dataSource?.resetPathSelectionBatch();
-
-    // 공통 초기화 작업 수행 (경로 초기화 및 화살표 제거)
-    _performCommonResetTasks();
+    if (dataSource != null) {
+      dataSource.runBatched(() {
+        dataSource.resetPathSelectionBatch();
+        _performCommonResetTasks();
+      });
+    } else {
+      _performCommonResetTasks();
+    }
 
     // ⚠️ 헤더 테마는 업데이트하지 않음
     // → ExchangeScreen에서 _updateHeaderTheme() 수동 호출 필요
@@ -357,12 +363,17 @@ class StateResetNotifier extends StateNotifier<ResetState> {
     // 2. ExchangeScreenProvider 배치 업데이트
     _exchangeNotifier.resetExchangeStatesBatch();
 
-    // 3. TimetableDataSource 배치 업데이트 (Syncfusion DataGrid 전용)
+    // 3~4. DataSource 배치 업데이트 + 공통 초기화를 하나로 묶어
+    //      그리드 재빌드가 한 번만 일어나게 한다.
     final dataSource = _exchangeNotifier.state.dataSource;
-    dataSource?.resetExchangeStatesBatch();
-
-    // 4. 공통 초기화 작업 수행 (화살표 제거 및 DataSource 경로 초기화, 마지막에 UI 업데이트)
-    _performCommonResetTasks();
+    if (dataSource != null) {
+      dataSource.runBatched(() {
+        dataSource.resetExchangeStatesBatch();
+        _performCommonResetTasks();
+      });
+    } else {
+      _performCommonResetTasks();
+    }
 
     // ⚠️ 헤더 테마는 업데이트하지 않음
     // → ExchangeScreen에서 _updateHeaderTheme() 수동 호출 필요 (필요시)

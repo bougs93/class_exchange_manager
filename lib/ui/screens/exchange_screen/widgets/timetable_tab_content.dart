@@ -25,7 +25,6 @@ class TimetableTabContent extends ConsumerWidget {
   // 콜백 함수들
   final void Function(ExchangeMode) onModeChanged;
   final void Function(DataGridCellTapDetails) onCellTap;
-  final int Function() getActualExchangeableCount;
   final ExchangePath? Function() getCurrentSelectedPath;
   final Widget Function(String?, VoidCallback) buildPaddedErrorMessageSection;
   final VoidCallback onClearError;
@@ -42,7 +41,6 @@ class TimetableTabContent extends ConsumerWidget {
     required this.timetableGridKey,
     required this.onModeChanged,
     required this.onCellTap,
-    required this.getActualExchangeableCount,
     required this.getCurrentSelectedPath,
     required this.buildPaddedErrorMessageSection,
     required this.onClearError,
@@ -149,7 +147,6 @@ class TimetableTabContent extends ConsumerWidget {
                   state.currentMode == ExchangeMode.circularExchange,
               isDualExchangeModeEnabled:
                   state.currentMode == ExchangeMode.dualExchange,
-              exchangeableCount: getActualExchangeableCount(),
               onCellTap: onCellTap,
               selectedExchangePath: getCurrentSelectedPath(),
               onHeaderThemeUpdate: onHeaderThemeUpdate,

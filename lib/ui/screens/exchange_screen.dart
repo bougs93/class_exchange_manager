@@ -155,9 +155,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
   // 교체불가 편집 모드 관련 상태는 이제 Riverpod Provider를 통해 관리됨
 
-  // 진행률 애니메이션 관련 변수들 (로컬 유지)
-  AnimationController? _progressAnimationController;
-  Animation<double>? _progressAnimation;
+  // 진행률은 애니메이션 없이 값만 반영한다 (_updateProgressSmoothly 주석 참고)
 
   // 편의 getter들 (mixin getter와 중복되지 않는 것만 유지)
   TimetableData? get _timetableData => timetableData;
@@ -660,19 +658,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     // FilterStateManager 콜백 설정
     _filterStateManager.setOnFilterChanged(_updateFilteredPaths);
 
-    // 진행률 애니메이션 컨트롤러 초기화
-    _progressAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-
-    _progressAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _progressAnimationController!,
-        curve: Curves.easeInOut,
-      ),
-    );
-
     // 세션 최초로 "교체" 탭에 진입하는 경우, 이 위젯 자체가 그 진입으로 인해
     // 지금 막 생성되는 것이므로 build()의 ref.listen(navigationProvider)는
     // 이미 지나간 전환을 관찰할 수 없다(리스너가 그 전환 "때문에" 등록되므로).
@@ -688,7 +673,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   void dispose() {
     // 컨트롤러 정리
     _searchController.dispose();
-    _progressAnimationController?.dispose();
 
     // 상태 관리자 정리 (필요한 경우)
     // _pathSelectionManager와 _filterStateManager는 일반적으로 자동 정리됨
@@ -828,7 +812,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
               timetableGridKey: _timetableGridKey,
               onModeChanged: _changeMode,
               onCellTap: _onCellTap,
-              getActualExchangeableCount: getActualExchangeableCount,
               getCurrentSelectedPath: getCurrentSelectedPath,
               buildPaddedErrorMessageSection: buildPaddedErrorMessageSection,
               onClearError: _clearError,
@@ -1384,36 +1367,19 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
   /// 통합 경로 선택 처리 (PathSelectionManager 사용)
 
-  /// 부드러운 진행률 업데이트
+  /// 진행률 업데이트
+  ///
+  /// 예전에는 매 호출마다 새 `CurvedAnimation`을 만들고 거기에 리스너를
+  /// 붙였는데, 리스너를 떼지 않아 호출할 때마다 영구히 쌓였다. 모든 리스너가
+  /// 매 프레임 `setLoadingProgress()`를 호출하고 그때마다 교체 화면 전체가
+  /// 다시 빌드되어, 쓸수록 셀 클릭 반응이 수 초까지 느려졌다.
+  /// 진행률 막대는 1초도 안 되는 동안만 보이므로 값만 바로 반영한다.
   void _updateProgressSmoothly(double targetProgress) {
-    final notifier = ref.read(exchangeScreenProvider.notifier);
-
-    // 애니메이션 컨트롤러가 초기화되지 않은 경우 즉시 진행률 업데이트
-    if (_progressAnimationController == null) {
-      notifier.setLoadingProgress(targetProgress);
-      return;
-    }
-
-    // 현재 진행률에서 목표 진행률로 부드럽게 애니메이션
-    _progressAnimationController!.reset();
-    _progressAnimation = Tween<double>(
-      begin: _loadingProgress,
-      end: targetProgress,
-    ).animate(
-      CurvedAnimation(
-        parent: _progressAnimationController!,
-        curve: Curves.easeInOut,
-      ),
+    // 의미 없는 미세 변화로 전체 화면을 다시 빌드하지 않는다.
+    if ((_loadingProgress - targetProgress).abs() < 0.01) return;
+    ref.read(exchangeScreenProvider.notifier).setLoadingProgress(
+      targetProgress,
     );
-
-    _progressAnimationController!.forward().then((_) {
-      notifier.setLoadingProgress(targetProgress);
-    });
-
-    // 애니메이션 중에도 진행률 업데이트
-    _progressAnimation!.addListener(() {
-      notifier.setLoadingProgress(_progressAnimation!.value);
-    });
   }
 
   /// 교사 정보에서 과목명 추출

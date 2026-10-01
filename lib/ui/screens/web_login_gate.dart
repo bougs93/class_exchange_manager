@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:async';
 
 import '../../config/firebase_app_config.dart';
+import '../../constants/app_info.dart';
 import '../../providers/timetable_repository_provider.dart';
 import '../../services/shared_timetable_sync_service.dart';
 import '../../services/web_auth_service.dart';
@@ -106,7 +107,8 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
       final data = doc.data();
       // 콘솔에서 필드명 대소문자를 틀리는 실수에 대비해 둘 다 읽는다.
       message = (data?['loginMessage'] ?? data?['LoginMessage']) as String?;
-    } catch (_) {
+    } catch (e) {
+      AppLogger.warning('로그인 안내문 조회 실패: $e');
       message = null;
     }
     if (!mounted) return;
@@ -192,7 +194,26 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
   Widget build(BuildContext context) {
     final status = ref.watch(webLoginStatusProvider);
     if (status == WebLoginStatus.viewerOk) {
-      return widget.child;
+      // 접속자: 우측 상단에 로그아웃 버튼을 띄운다.
+      return Stack(
+        children: [
+          widget.child,
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 8,
+            right: 8,
+            child: FloatingActionButton.small(
+              heroTag: 'webViewerLogout',
+              tooltip: '로그아웃',
+              onPressed: () async {
+                await WebAuthService.clearSession();
+                ref.read(webLoginStatusProvider.notifier).state =
+                    WebLoginStatus.locked;
+              },
+              child: const Icon(Icons.logout_outlined),
+            ),
+          ),
+        ],
+      );
     }
     // 관리자 통과 시: 앱 위에 접속 설정 진입 버튼을 띄운다.
     if (status == WebLoginStatus.adminOk) {
@@ -243,26 +264,91 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
       );
     }
 
+    // 관리자 모드는 인디고 계열로 구분한다.
+    final adminBg = Colors.indigo.shade100;
+    final adminFg = Colors.indigo.shade900;
+    final adminBorder = Colors.indigo.shade300;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (_loginMessage != null && _loginMessage!.isNotEmpty) ...[
-          Text(_loginMessage!, textAlign: TextAlign.center),
-          const SizedBox(height: 16),
-        ],
+        Center(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Image.asset(
+              'lib/assets/images/app_icon.png',
+              width: 96,
+              height: 96,
+              fit: BoxFit.cover,
+              errorBuilder:
+                  (_, _, _) => const Icon(
+                    Icons.swap_horiz_rounded,
+                    size: 72,
+                    color: Colors.teal,
+                  ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Center(
+          child: Text(
+            AppInfo.programName,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Center(
+          child: Text(
+            'Version : ${AppInfo.versionLabel}',
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+        ),
+        const SizedBox(height: 20),
+        if (_loginMessage != null && _loginMessage!.isNotEmpty)
+          Text(
+            _loginMessage!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          ),
+        const SizedBox(height: 20),
         TextField(
           controller: _passwordController,
           obscureText: true,
           decoration: InputDecoration(
-            labelText: _showAdmin ? '관리자 비밀번호' : '접속 비밀번호',
+            labelText: _showAdmin ? '관리자 비밀번호' : '선생님 접속 비밀번호',
             border: const OutlineInputBorder(),
+            focusedBorder:
+                _showAdmin
+                    ? OutlineInputBorder(
+                      borderSide: BorderSide(color: adminBorder, width: 2),
+                    )
+                    : null,
+            floatingLabelStyle: _showAdmin ? TextStyle(color: adminFg) : null,
+            suffixIcon: ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _passwordController,
+              builder: (context, value, _) {
+                if (value.text.isEmpty) return const SizedBox.shrink();
+                return IconButton(
+                  tooltip: '지우기',
+                  icon: const Icon(Icons.clear, size: 18),
+                  onPressed: () => _passwordController.clear(),
+                );
+              },
+            ),
           ),
           onSubmitted: (_) => _showAdmin ? _submitAdmin() : _submitViewer(),
         ),
         const SizedBox(height: 12),
         ElevatedButton(
           onPressed: _busy ? null : (_showAdmin ? _submitAdmin : _submitViewer),
+          style:
+              _showAdmin
+                  ? ElevatedButton.styleFrom(
+                    backgroundColor: adminBg,
+                    foregroundColor: adminFg,
+                  )
+                  : null,
           child:
               _busy
                   ? const SizedBox(
@@ -270,7 +356,7 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
                     width: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                  : Text(_showAdmin ? '관리자로 들어가기' : '들어가기'),
+                  : Text(_showAdmin ? '관리자로 들어가기' : '선생님 들어가기'),
         ),
         const SizedBox(height: 8),
         TextButton(
@@ -280,12 +366,20 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
                   : () => setState(() {
                     _showAdmin = !_showAdmin;
                     _showMasterForm = false;
+                    // 모드 전환 시 이전 입력값이 남지 않도록 비운다.
+                    _passwordController.clear();
                   }),
-          child: Text(_showAdmin ? '접속자 화면으로' : '관리자 로그인'),
+          style:
+              _showAdmin
+                  ? TextButton.styleFrom(foregroundColor: adminFg)
+                  : null,
+          // 모드 전환 링크는 원래(선생님) 색 유지, 마스터 안내는 관리자 색.
+          child: Text(_showAdmin ? '선생님 접속화면으로' : '관리자 로그인'),
         ),
         if (_showAdmin && !_showMasterForm)
           TextButton(
             onPressed: () => setState(() => _showMasterForm = true),
+            style: TextButton.styleFrom(foregroundColor: adminFg),
             child: const Text('비밀번호를 잊으셨나요?'),
           ),
         if (_showAdmin && _showMasterForm) ...[

@@ -48,14 +48,20 @@ class TimetableStorageService {
       // 파일 내용 읽기
       final bytes = await file.readAsBytes();
 
-      // SHA256 해시 계산
-      final digest = sha256.convert(bytes);
-      final hashString = digest.toString();
-
-      // 32자만 사용 (충돌 확률이 매우 낮음)
-      return hashString.substring(0, TimetableStorageConfig.hashLength);
+      return calculateContentHashFromBytes(bytes);
     } catch (e) {
       AppLogger.error('파일 내용 해시 계산 실패: $e', e);
+      return null;
+    }
+  }
+
+  /// 바이트 기반 내용 해시 계산 (웹 업로드용 — 파일 경로가 없을 때).
+  Future<String?> calculateContentHashFromBytes(List<int> bytes) async {
+    try {
+      final digest = sha256.convert(bytes);
+      return digest.toString().substring(0, TimetableStorageConfig.hashLength);
+    } catch (e) {
+      AppLogger.error('바이트 해시 계산 실패: $e', e);
       return null;
     }
   }
@@ -75,6 +81,17 @@ class TimetableStorageService {
       // 파일명 추출 (확장자 제거)
       final file = File(filePath);
       final fileName = file.path.split(Platform.pathSeparator).last;
+      return generateHashFromName(fileName, contentHash);
+    } catch (e) {
+      AppLogger.error('해시 생성 실패: $e', e);
+      // 실패 시 타임스탬프 기반 해시 사용
+      return 'timetable_${DateTime.now().millisecondsSinceEpoch}';
+    }
+  }
+
+  /// 파일명 + 내용 해시로 최종 해시 생성 (웹 업로드용 — 파일명 직접 지정).
+  String generateHashFromName(String fileName, String contentHash) {
+    try {
       final fileNameWithoutExt = fileName.replaceAll(
         RegExp(r'\.[^.]+$', caseSensitive: false),
         '',
@@ -158,6 +175,53 @@ class TimetableStorageService {
     }
   }
 
+  /// 시간표 데이터 저장 — 바이트 기반 (웹 업로드용, 파일 경로 없음).
+  ///
+  /// [fileName]은 파일 선택기에서 받은 원본 파일명이다.
+  Future<({String hash, String contentHash})?>
+  saveTimetableDataForRegistryFromBytes(
+    TimetableData timetableData, {
+    required String fileName,
+    required List<int> bytes,
+  }) async {
+    try {
+      // 1. 바이트 기반 내용 해시 계산 (32자)
+      final contentHash = await calculateContentHashFromBytes(bytes);
+      if (contentHash == null) {
+        AppLogger.error('바이트 해시 계산 실패: $fileName');
+        return null;
+      }
+
+      // 2. 파일명 + 내용 해시로 최종 해시 생성
+      final hash = generateHashFromName(fileName, contentHash);
+      final filename = 'timetable_data_$hash.json';
+
+      // 3. 중복 저장 방지
+      final existingData = await _storageService.loadJson(filename);
+
+      if (existingData != null) {
+        AppLogger.info('같은 내용의 파일이 이미 저장되어 있습니다. 기존 데이터 재사용: $filename');
+      } else {
+        final jsonData = timetableData.toJson();
+
+        AppLogger.info(
+          '시간표 데이터 저장(웹): $filename (${timetableData.teachers.length}명, ${timetableData.timeSlots.length}개 슬롯)',
+        );
+
+        final saveSuccess = await _storageService.saveJson(filename, jsonData);
+        if (!saveSuccess) {
+          AppLogger.error('시간표 데이터 저장 실패(웹)');
+          return null;
+        }
+      }
+
+      return (hash: hash, contentHash: contentHash);
+    } catch (e) {
+      AppLogger.error('시간표 데이터 저장 중 오류(웹): $e', e);
+      return null;
+    }
+  }
+
   /// 시간표 데이터 로드
   ///
   /// 레지스트리의 [timetableId] 항목에 해당하는 시간표 데이터를 로드합니다.
@@ -212,9 +276,9 @@ class TimetableStorageService {
     }
 
     try {
-      final entry = await TimetableRegistryService()
-          .loadRegistry()
-          .then((registry) => registry.getById(timetableId));
+      final entry = await TimetableRegistryService().loadRegistry().then(
+        (registry) => registry.getById(timetableId),
+      );
       if (entry == null) {
         AppLogger.warning('레지스트리에 없는 시간표 ID: $timetableId');
         return null;

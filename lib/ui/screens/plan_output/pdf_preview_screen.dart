@@ -100,8 +100,30 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
 
   /// PDF 파일 확인
   Future<void> _checkFile() async {
-    // 웹(메모리 바이트)은 파일 검사가 필요 없다.
+    // 웹(메모리 바이트)은 간단한 유효성만 검사한다.
     if (widget.pdfBytes != null) {
+      final bytes = widget.pdfBytes!;
+      developer.log('PDF 미리보기 바이트 수신: ${bytes.length} bytes');
+      if (bytes.isEmpty) {
+        setState(() {
+          _hasError = true;
+          _errorMessage = 'PDF 데이터가 비어 있습니다.\n다시 생성해주세요.';
+          _isLoading = false;
+        });
+        return;
+      }
+      // PDF 헤더(%PDF) 확인 — 깨진 데이터면 미리 실패 안내
+      final header =
+          bytes.length >= 5 ? String.fromCharCodes(bytes.take(5)) : '';
+      if (!header.startsWith('%PDF')) {
+        developer.log('PDF 헤더 이상: $header');
+        setState(() {
+          _hasError = true;
+          _errorMessage = 'PDF 데이터가 올바르지 않습니다.\n다시 생성해주세요.';
+          _isLoading = false;
+        });
+        return;
+      }
       setState(() {
         _isLoading = false;
       });
@@ -151,6 +173,8 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
     return AppBar(
       title: const Text('PDF 미리보기, 인쇄'),
       actions: [
+        // 뷰어 로드 실패 시에도 저장·인쇄는 가능해야 한다 (브라우저 인쇄는
+        // 미리보기 렌더러와 무관하게 동작). 줌 컨트롤만 정상 표시 때 노출.
         if (!_isLoading && !_hasError) ...[
           Center(
             child: Padding(
@@ -177,6 +201,8 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
             tooltip: '확대',
           ),
           const SizedBox(width: 8),
+        ],
+        if (!_isLoading) ...[
           IconButton(
             icon: const Icon(Icons.save),
             onPressed: _handleSave,
@@ -243,11 +269,36 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14, color: tokens.textSecondary),
             ),
+            if (kIsWeb) ...[
+              const SizedBox(height: 8),
+              Text(
+                '웹 미리보기는 pdf.js 로딩이 필요합니다.\n인터넷 연결 후 새로고침(F5) 해주세요.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: tokens.textMuted),
+              ),
+            ],
             const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.arrow_back),
-              label: const Text('돌아가기'),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              alignment: WrapAlignment.center,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: _handlePrint,
+                  icon: const Icon(Icons.print),
+                  label: const Text('인쇄하기'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: _handleSave,
+                  icon: const Icon(Icons.save),
+                  label: const Text('저장하기'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.arrow_back),
+                  label: const Text('돌아가기'),
+                ),
+              ],
             ),
           ],
         ),
@@ -267,11 +318,19 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
           canShowScrollStatus: true,
           enableDoubleTapZooming: true,
           enableTextSelection: false,
+          onDocumentLoaded: (_) {
+            developer.log('PDF 미리보기 로드 성공 (${widget.pdfBytes!.length} bytes)');
+          },
           onDocumentLoadFailed: (PdfDocumentLoadFailedDetails details) {
+            developer.log(
+              'PDF 미리보기 로드 실패: ${details.error} / ${details.description} '
+              '(${widget.pdfBytes!.length} bytes)',
+            );
             if (mounted && !_isDisposed) {
               setState(() {
                 _hasError = true;
-                _errorMessage = 'PDF 로드 실패: ${details.error}';
+                _errorMessage =
+                    'PDF 로드 실패: ${details.error}\n${details.description}';
               });
             }
           },
@@ -284,11 +343,19 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
         canShowScrollStatus: true,
         enableDoubleTapZooming: true,
         enableTextSelection: false,
+        onDocumentLoaded: (_) {
+          developer.log('PDF 미리보기 로드 성공: ${widget.pdfPath}');
+        },
         onDocumentLoadFailed: (PdfDocumentLoadFailedDetails details) {
+          developer.log(
+            'PDF 미리보기 로드 실패: ${details.error} / ${details.description} '
+            '(경로: ${widget.pdfPath})',
+          );
           if (mounted && !_isDisposed) {
             setState(() {
               _hasError = true;
-              _errorMessage = 'PDF 로드 실패: ${details.error}';
+              _errorMessage =
+                  'PDF 로드 실패: ${details.error}\n${details.description}';
             });
           }
         },

@@ -28,9 +28,11 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Build web (release)
+      - name: Build web (release, WASM)
+        # WASM(skwasm) 렌더러: JS(CanvasKit)보다 래스터가 빨라 교체 화면
+        # 스크롤·셀 선택 체감 속도가 개선된다.
         run: >
-          flutter build web --release --no-wasm-dry-run
+          flutter build web --release --wasm --no-wasm-dry-run
           --dart-define=FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }}
           --dart-define=FIREBASE_AUTH_DOMAIN=${{ secrets.FIREBASE_AUTH_DOMAIN }}
           --dart-define=FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}

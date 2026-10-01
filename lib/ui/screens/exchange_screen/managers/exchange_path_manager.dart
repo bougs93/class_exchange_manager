@@ -77,8 +77,8 @@ class ExchangePathManager {
     try {
       AppLogger.exchangeDebug('순환교체 경로 탐색 시작');
 
-      // 진행률 단계별 업데이트
-      await _updateProgressWithSteps([0.1, 0.2, 0.4, 0.8], [100, 100, 150, 0]);
+      // 진행률 단계만 알린다 (인위적인 대기 없음 — 체감 반응 속도 우선)
+      _updateProgressWithSteps([0.4, 0.8]);
 
       if (timetableData == null) {
         AppLogger.error('시간표 데이터가 없습니다.');
@@ -97,7 +97,6 @@ class ExchangePathManager {
 
       // 완료
       onUpdateProgressSmoothly(1.0);
-      await Future.delayed(const Duration(milliseconds: 200));
 
       _updatePaths(paths);
       AppLogger.exchangeInfo('순환교체 경로 탐색 완료 - ${paths.length}개 경로 발견');
@@ -158,15 +157,9 @@ class ExchangePathManager {
   }
 
   /// 진행률 단계별 업데이트
-  Future<void> _updateProgressWithSteps(
-    List<double> steps,
-    List<int> delays,
-  ) async {
-    for (int i = 0; i < steps.length; i++) {
-      onUpdateProgressSmoothly(steps[i]);
-      if (delays[i] > 0) {
-        await Future.delayed(Duration(milliseconds: delays[i]));
-      }
+  void _updateProgressWithSteps(List<double> steps) {
+    for (final step in steps) {
+      onUpdateProgressSmoothly(step);
     }
   }
 }

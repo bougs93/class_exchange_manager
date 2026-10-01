@@ -86,7 +86,6 @@ class TimetableGridSection extends ConsumerStatefulWidget {
   final bool isExchangeModeEnabled;
   final bool isCircularExchangeModeEnabled;
   final bool isDualExchangeModeEnabled;
-  final int exchangeableCount;
   final Function(DataGridCellTapDetails) onCellTap;
   final ExchangePath? selectedExchangePath; // 선택된 교체 경로 (모든 타입 지원)
   final ExchangeArrowStyle? customArrowStyle; // 커스텀 화살표 스타일
@@ -104,7 +103,6 @@ class TimetableGridSection extends ConsumerStatefulWidget {
     required this.isExchangeModeEnabled,
     required this.isCircularExchangeModeEnabled,
     required this.isDualExchangeModeEnabled,
-    required this.exchangeableCount,
     required this.onCellTap,
     required this.currentMode,
     required this.onModeChanged,
@@ -766,57 +764,37 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
                     ),
                   ),
                 ),
-                child: NotificationListener<ScrollNotification>(
-                  onNotification: (ScrollNotification notification) {
-                    // Syncfusion DataGrid의 스크롤 이벤트 감지
-                    if (notification is ScrollUpdateNotification) {
-                      final metrics = notification.metrics;
-                      final currentState = ref.read(scrollProvider);
-
-                      // 현재 상태를 유지하면서 해당 축의 오프셋만 업데이트
-                      final newHorizontal =
-                          metrics.axis == Axis.horizontal
-                              ? metrics.pixels
-                              : currentState.horizontalOffset;
-                      final newVertical =
-                          metrics.axis == Axis.vertical
-                              ? metrics.pixels
-                              : currentState.verticalOffset;
-
-                      ref
-                          .read(scrollProvider.notifier)
-                          .updateOffset(newHorizontal, newVertical);
-                    }
-                    return false; // 다른 위젯도 이벤트를 받을 수 있도록
-                  },
-                  child: SfDataGrid(
-                    key: _dataGridKey,
-                    controller: _dataGridController, // 🆕 DataGridController 연결
-                    source: widget.dataSource!,
-                    columns: scaledColumns, // 검증된 스케일된 열 사용
-                    stackedHeaderRows: GridScalingHelper.scaleStackedHeaders(
-                      widget.stackedHeaders,
-                      zoomFactor,
-                    ),
-                    gridLinesVisibility: GridLinesVisibility.both,
-                    headerGridLinesVisibility: GridLinesVisibility.both,
-                    headerRowHeight: GridScalingHelper.scaleHeaderHeight(
-                      zoomFactor,
-                    ),
-                    rowHeight: GridScalingHelper.scaleRowHeight(zoomFactor),
-                    allowColumnsResizing: false,
-                    allowSorting: false,
-                    allowEditing: false,
-                    allowTriStateSorting: false,
-                    allowPullToRefresh: false,
-                    selectionMode: SelectionMode.none,
-                    columnWidthMode: ColumnWidthMode.none,
-                    frozenColumnsCount: GridLayoutConstants.frozenColumnsCount,
-                    onCellTap: _handleCellTap,
-                    onCellSecondaryTap: _handleCellSecondaryTap,
-                    horizontalScrollController: horizontalScrollController,
-                    verticalScrollController: verticalScrollController,
+                // 스크롤 오프셋 동기화는 ScrollManagementMixin이 스크롤 컨트롤러
+                // 리스너로 이미 수행한다. 여기서 NotificationListener로 한 번 더
+                // 올리면 스크롤 프레임마다 scrollProvider가 두 번 갱신되어
+                // 화살표·날짜꼬리표 레이어가 불필요하게 두 번씩 다시 그려졌다.
+                child: SfDataGrid(
+                  key: _dataGridKey,
+                  controller: _dataGridController, // 🆕 DataGridController 연결
+                  source: widget.dataSource!,
+                  columns: scaledColumns, // 검증된 스케일된 열 사용
+                  stackedHeaderRows: GridScalingHelper.scaleStackedHeaders(
+                    widget.stackedHeaders,
+                    zoomFactor,
                   ),
+                  gridLinesVisibility: GridLinesVisibility.both,
+                  headerGridLinesVisibility: GridLinesVisibility.both,
+                  headerRowHeight: GridScalingHelper.scaleHeaderHeight(
+                    zoomFactor,
+                  ),
+                  rowHeight: GridScalingHelper.scaleRowHeight(zoomFactor),
+                  allowColumnsResizing: false,
+                  allowSorting: false,
+                  allowEditing: false,
+                  allowTriStateSorting: false,
+                  allowPullToRefresh: false,
+                  selectionMode: SelectionMode.none,
+                  columnWidthMode: ColumnWidthMode.none,
+                  frozenColumnsCount: GridLayoutConstants.frozenColumnsCount,
+                  onCellTap: _handleCellTap,
+                  onCellSecondaryTap: _handleCellSecondaryTap,
+                  horizontalScrollController: horizontalScrollController,
+                  verticalScrollController: verticalScrollController,
                 ),
               ),
             ),
@@ -1575,9 +1553,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       builder:
           (context) => AlertDialog(
             title: const Text('결보강 전체 초기화'),
-            content: const Text(
-              '결보강 내역과 계획서를 모두 삭제하겠습니까?\n이 작업은 되돌릴 수 없습니다.',
-            ),
+            content: const Text('결보강 내역과 계획서를 모두 삭제하겠습니까?\n이 작업은 되돌릴 수 없습니다.'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),

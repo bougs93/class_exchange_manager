@@ -9,6 +9,7 @@ import '../models/dual_exchange_path.dart';
 import '../models/supplement_exchange_path.dart';
 import '../ui/widgets/simplified_timetable_cell.dart';
 import '../providers/cell_selection_provider.dart';
+import '../providers/cell_status_symbol_visibility_provider.dart';
 import '../providers/app_settings_provider.dart';
 import '../providers/non_exchangeable_dated_cells_provider.dart';
 import '../providers/selected_week_provider.dart';
@@ -16,6 +17,7 @@ import '../providers/services_provider.dart';
 import '../providers/show_week_header_provider.dart';
 import '../providers/timetable_registry_provider.dart';
 import '../services/non_exchangeable_data_storage_service.dart';
+import '../ui/widgets/timetable_grid/timetable_grid_constants.dart';
 import 'exchange_algorithm.dart';
 import 'exchange_cell_dates.dart';
 import 'exchange_path_step_resolver.dart';
@@ -111,6 +113,41 @@ class TimetableDataSource extends DataGridSource {
   // 로컬 캐시 관리 (위젯 빌드 중 안전하게 사용)
   final Map<String, bool> _localCache = {};
 
+  /// 셀 렌더링용 프레임 스냅샷
+  ///
+  /// 예전에는 셀 하나를 그릴 때마다 `ref.read()`를 5~6번 하고 교체 날짜
+  /// 꼬리표 맵을 통째로 다시 만들었다. 보이는 셀이 500개가 넘으므로 웹에서
+  /// 체감 지연의 큰 원인이었다. 알림(notify) 한 번에 한 번만 모아 읽는다.
+  _CellRenderContext? _renderContext;
+
+  // 알림 배칭 — 초기화/경로 변경 한 번에 DataGrid를 여러 번 다시 그리지 않도록 모은다.
+  int _batchDepth = 0;
+  bool _pendingNotify = false;
+
+  /// 여러 상태 변경을 묶어 DataGrid 재빌드를 한 번만 일으킨다.
+  void runBatched(void Function() action) {
+    _batchDepth++;
+    try {
+      action();
+    } finally {
+      _batchDepth--;
+      if (_batchDepth == 0 && _pendingNotify) {
+        _pendingNotify = false;
+        notifyDataSourceListeners();
+      }
+    }
+  }
+
+  /// 내부 전용 알림 — 배칭 중이면 모았다가 한 번만 보낸다.
+  void _notify() {
+    _renderContext = null; // 다음 빌드에서 최신 상태로 다시 읽는다
+    if (_batchDepth > 0) {
+      _pendingNotify = true;
+      return;
+    }
+    notifyDataSourceListeners();
+  }
+
   /// 공통 데이터 초기화 메서드
   void _initializeData(List<TimeSlot> timeSlots, List<Teacher> teachers) {
     _timeSlots = timeSlots;
@@ -122,7 +159,7 @@ class TimetableDataSource extends DataGridSource {
   /// 공통 캐시 초기화 및 UI 업데이트 메서드
   void _clearCacheAndNotify() {
     _localCache.clear();
-    notifyDataSourceListeners();
+    _notify();
   }
 
   /// DataGrid 행 데이터 빌드
@@ -220,43 +257,95 @@ class TimetableDataSource extends DataGridSource {
 
   @override
   DataGridRowAdapter? buildRow(DataGridRow row) {
+    final ctx = _renderContext ??= _buildRenderContext();
+
+    // 교사명은 행마다 한 번만 추출한다.
+    // (예전에는 셀마다 행 전체를 훑어 셀 수의 제곱만큼 비교가 일어났다)
+    final cells = row.getCells();
+    final String teacherName = _extractTeacherName(row);
+    final bool isHighlightedTeacher =
+        teacherName.isNotEmpty && ctx.highlightedTeacher == teacherName;
+
     return DataGridRowAdapter(
-      cells:
-          row.getCells().asMap().entries.map<Widget>((entry) {
-            DataGridCell dataGridCell = entry.value;
-            bool isTeacherColumn = dataGridCell.columnName == 'teacher';
+      cells: [
+        for (final dataGridCell in cells)
+          _buildCellWidget(
+            ctx,
+            dataGridCell,
+            teacherName,
+            isHighlightedTeacher,
+          ),
+      ],
+    );
+  }
 
-            // 교사명 추출
-            String teacherName = _extractTeacherName(row);
+  Widget _buildCellWidget(
+    _CellRenderContext ctx,
+    DataGridCell dataGridCell,
+    String teacherName,
+    bool isHighlightedTeacher,
+  ) {
+    final bool isTeacherColumn = dataGridCell.columnName == 'teacher';
 
-            // 셀 상태 정보 생성
-            CellStateInfo cellState = _createCellStateInfo(
+    final CellStateInfo cellState =
+        isTeacherColumn
+            ? _createTeacherColumnState(ctx, teacherName, isHighlightedTeacher)
+            : _createDataCellState(
+              ctx,
               dataGridCell,
               teacherName,
-              isTeacherColumn,
+              isHighlightedTeacher,
             );
 
-            return SimplifiedTimetableCell(
-              content: dataGridCell.value.toString(),
-              isTeacherColumn: isTeacherColumn,
-              isSelected: cellState.isSelected,
-              isExchangeable: cellState.isExchangeableTeacher,
-              isLastColumnOfDay: cellState.isLastColumnOfDay,
-              isFirstColumnOfDay: cellState.isFirstColumnOfDay,
-              isInCircularPath: cellState.isInCircularPath,
-              circularPathStep: cellState.circularPathStep,
-              isInSelectedPath: cellState.isInSelectedPath,
-              isInDualPath: cellState.isInDualPath,
-              pathStepNumber: cellState.pathStepNumber,
-              isTargetCell: cellState.isTargetCell,
-              isNonExchangeable: cellState.isNonExchangeable,
-              isExchangedSourceCell: cellState.isExchangedSourceCell,
-              isExchangedDestinationCell: cellState.isExchangedDestinationCell,
-              overlayDate: cellState.overlayDate,
-              isTeacherNameSelected: cellState.isTeacherNameSelected, // 새로 추가
-              isHighlightedTeacher: cellState.isHighlightedTeacher, // 새로 추가
-            );
-          }).toList(),
+    return SimplifiedTimetableCell(
+      content: dataGridCell.value.toString(),
+      isTeacherColumn: isTeacherColumn,
+      isSelected: cellState.isSelected,
+      isExchangeable: cellState.isExchangeableTeacher,
+      isLastColumnOfDay: cellState.isLastColumnOfDay,
+      isFirstColumnOfDay: cellState.isFirstColumnOfDay,
+      isInCircularPath: cellState.isInCircularPath,
+      circularPathStep: cellState.circularPathStep,
+      isInSelectedPath: cellState.isInSelectedPath,
+      isInDualPath: cellState.isInDualPath,
+      pathStepNumber: cellState.pathStepNumber,
+      isTargetCell: cellState.isTargetCell,
+      isNonExchangeable: cellState.isNonExchangeable,
+      isExchangedSourceCell: cellState.isExchangedSourceCell,
+      isExchangedDestinationCell: cellState.isExchangedDestinationCell,
+      overlayDate: cellState.overlayDate,
+      isTeacherNameSelected: cellState.isTeacherNameSelected,
+      isHighlightedTeacher: cellState.isHighlightedTeacher,
+      showStatusSymbols: ctx.showStatusSymbols,
+    );
+  }
+
+  /// 한 번의 알림(notify)마다 한 번만 읽어 두는 렌더링 스냅샷
+  _CellRenderContext _buildRenderContext() {
+    final cellState = ref.read(cellSelectionProvider);
+
+    // 교체 가능 교사 목록은 셀마다 선형 탐색하던 것을 키 Set 조회로 바꾼다.
+    final exchangeableKeys = <String>{};
+    for (final teacher in cellState.exchangeableTeachers) {
+      exchangeableKeys.add(
+        '${teacher['name']}_${teacher['day']}_${teacher['period']}',
+      );
+    }
+
+    String highlightedTeacher = '';
+    try {
+      highlightedTeacher = ref.read(activeTeacherNameProvider).trim();
+    } catch (e) {
+      AppLogger.error('하이라이트 교사명 조회 중 오류: $e', e);
+    }
+
+    return _CellRenderContext(
+      cellState: cellState,
+      exchangeableKeys: exchangeableKeys,
+      highlightedTeacher: highlightedTeacher,
+      oneToOneArrowDirection: ref.read(oneToOneArrowDirectionProvider),
+      showStatusSymbols: ref.read(cellStatusSymbolVisibilityProvider),
+      overlayLabels: _overlayLabelsByCellKey(),
     );
   }
 
@@ -270,29 +359,16 @@ class TimetableDataSource extends DataGridSource {
     return '';
   }
 
-  /// 셀 상태 정보 생성
-  CellStateInfo _createCellStateInfo(
-    DataGridCell dataGridCell,
-    String teacherName,
-    bool isTeacherColumn,
-  ) {
-    if (isTeacherColumn) {
-      return _createTeacherColumnState(teacherName);
-    } else {
-      return _createDataCellState(dataGridCell, teacherName);
-    }
-  }
-
   /// 교사명 열 상태 정보 생성
-  CellStateInfo _createTeacherColumnState(String teacherName) {
-    final cellNotifier = ref.read(cellSelectionProvider.notifier);
-    final cellState = ref.read(cellSelectionProvider);
+  CellStateInfo _createTeacherColumnState(
+    _CellRenderContext ctx,
+    String teacherName,
+    bool isHighlightedTeacher,
+  ) {
+    final cellState = ctx.cellState;
 
     // 교사 이름 컬럼은 해당 교사의 선택 상태를 확인
-    // 선택된 교사인지 확인 (selectedTeacher와 비교)
     bool isTeacherSelected = cellState.selectedTeacher == teacherName;
-
-    // 교사 이름 선택 상태 확인 (새로 추가)
     bool isTeacherNameSelected = cellState.selectedTeacherName == teacherName;
 
     // 교사가 교체 가능한지 확인 (교체 가능한 교사 목록에 포함되어 있는지)
@@ -300,19 +376,12 @@ class TimetableDataSource extends DataGridSource {
       (teacher) => teacher['teacherName'] == teacherName,
     );
 
-    // 하이라이트된 교사 행인지 확인
-    bool isHighlighted = _isHighlightedTeacher(teacherName);
-
     return CellStateInfo(
       isSelected: isTeacherSelected, // 교사 이름 선택은 isSelected에 포함하지 않음
       isExchangeableTeacher: isTeacherExchangeable,
-      isInCircularPath: cellNotifier.isInCircularPath(teacherName, '', 0),
-      isInDualPath: cellNotifier.isInDualPath(teacherName, '', 0),
-      isInSelectedPath: cellNotifier.isInSelectedOneToOnePath(
-        teacherName,
-        '',
-        0,
-      ),
+      isInCircularPath: ctx.isInCircularPath(teacherName, '', 0),
+      isInDualPath: ctx.isInDualPath(teacherName, '', 0),
+      isInSelectedPath: ctx.isInSelectedOneToOnePath(teacherName, '', 0),
       isNonExchangeable: false,
       isExchangedSourceCell: false, // 교사명 열은 교체된 소스 셀 상태 적용 안함
       isExchangedDestinationCell: false, // 교사명 열은 교체된 목적지 셀 상태 적용 안함
@@ -321,85 +390,60 @@ class TimetableDataSource extends DataGridSource {
       isFirstColumnOfDay: false,
       circularPathStep: null,
       pathStepNumber: null,
-      isTeacherNameSelected: isTeacherNameSelected, // 새로 추가
-      isHighlightedTeacher: isHighlighted, // 새로 추가
+      isTeacherNameSelected: isTeacherNameSelected,
+      isHighlightedTeacher: isHighlightedTeacher,
     );
   }
 
   /// 데이터 셀 상태 정보 생성
   CellStateInfo _createDataCellState(
+    _CellRenderContext ctx,
     DataGridCell dataGridCell,
     String teacherName,
+    bool isHighlightedTeacher,
   ) {
-    List<String> parts = dataGridCell.columnName.split('_');
-    if (parts.length != 2) {
+    final columnName = dataGridCell.columnName;
+    final separator = columnName.indexOf('_');
+    if (separator <= 0 || separator == columnName.length - 1) {
       return CellStateInfo.empty();
     }
 
-    String day = parts[0];
-    int period = int.tryParse(parts[1]) ?? 0;
+    final String day = columnName.substring(0, separator);
+    final int period = int.tryParse(columnName.substring(separator + 1)) ?? 0;
+    if (period == 0) return CellStateInfo.empty();
 
-    // 전역 Provider에서 상태 정보 가져오기
-    final cellNotifier = ref.read(cellSelectionProvider.notifier);
+    // `교사_요일_교시` 키는 한 셀에서 여러 번 쓰이므로 한 번만 만든다.
+    final String cellKey = '${teacherName}_${day}_$period';
+    final cellState = ctx.cellState;
 
-    // 셀 모서리 단계 번호 계산에 필요한 상태를 미리 구한다.
-    final bool isSelected = _getCachedOrCompute(
-      'cellSelection',
-      teacherName,
-      day,
-      period,
-      () => cellNotifier.isCellSelected(teacherName, day, period),
-    );
-    final bool isInDualPath = _getCachedOrCompute(
-      'dualPath',
-      teacherName,
-      day,
-      period,
-      () => cellNotifier.isInDualPath(teacherName, day, period),
-    );
-    final bool isInSelectedPath = cellNotifier.isInSelectedOneToOnePath(
+    final bool isSelected =
+        cellState.selectedTeacher == teacherName &&
+        cellState.selectedDay == day &&
+        cellState.selectedPeriod == period;
+    final bool isInDualPath = ctx.isInDualPath(teacherName, day, period);
+    final bool isInSelectedPath = ctx.isInSelectedOneToOnePath(
       teacherName,
       day,
       period,
     );
-    final bool isExchangedSourceCell = cellNotifier.isCellExchangedSource(
-      teacherName,
-      day,
-      period,
+    final bool isExchangedSourceCell = cellState.exchangedCells.contains(
+      cellKey,
     );
-    final bool isExchangedDestinationCell = cellNotifier
-        .isCellExchangedDestination(teacherName, day, period);
+    final bool isExchangedDestinationCell = cellState.exchangedDestinationCells
+        .contains(cellKey);
 
     return CellStateInfo(
       isSelected: isSelected,
-      isTargetCell: _getCachedOrCompute(
-        'cellTarget',
-        teacherName,
-        day,
-        period,
-        () => cellNotifier.isCellTarget(teacherName, day, period),
-      ),
-      isExchangeableTeacher: _getCachedOrCompute(
-        'exchangeable',
-        teacherName,
-        day,
-        period,
-        () => cellNotifier.isExchangeableTeacher(teacherName, day, period),
-      ),
-      isInCircularPath: _getCachedOrCompute(
-        'circularPath',
-        teacherName,
-        day,
-        period,
-        () => cellNotifier.isInCircularPath(teacherName, day, period),
-      ),
+      isTargetCell:
+          cellState.targetTeacher == teacherName &&
+          cellState.targetDay == day &&
+          cellState.targetPeriod == period,
+      isExchangeableTeacher: ctx.exchangeableKeys.contains(cellKey),
+      isInCircularPath: ctx.isInCircularPath(teacherName, day, period),
       isInDualPath: isInDualPath,
       isInSelectedPath: isInSelectedPath,
       isNonExchangeable: _getCachedOrCompute(
-        'nonExchangeable',
-        teacherName,
-        day,
-        period,
+        cellKey,
         () => _nonExchangeableManager.isNonExchangeableTimeSlot(
           teacherName,
           day,
@@ -408,90 +452,51 @@ class TimetableDataSource extends DataGridSource {
       ),
       isExchangedSourceCell: isExchangedSourceCell,
       isExchangedDestinationCell: isExchangedDestinationCell,
-      overlayDate: _resolveOverlayDate(
-        teacherName: teacherName,
-        day: day,
-        period: period,
-        isExchangedSourceCell: isExchangedSourceCell,
-        isExchangedDestinationCell: isExchangedDestinationCell,
-      ),
+      overlayDate:
+          (isExchangedSourceCell || isExchangedDestinationCell)
+              ? ctx.overlayLabels[cellKey]
+              : null,
       isLastColumnOfDay: _isLastColumnOfDay(day, period),
       isFirstColumnOfDay: _isFirstColumnOfDay(day, period),
-      circularPathStep: _getCircularPathStep(teacherName, day, period),
+      circularPathStep: _getCircularPathStep(ctx, teacherName, day, period),
       // 셀 모서리 단계 번호 (1:1·2중 공통)
       // 1:1 화살표 방향 설정값에 따라 비선택 셀만(단방향) 또는 양쪽 셀(양방향)에 번호 표시
       pathStepNumber: resolvePathStepNumber(
-        oneToOneArrowDirection: ref.read(oneToOneArrowDirectionProvider),
+        oneToOneArrowDirection: ctx.oneToOneArrowDirection,
         isInOneToOnePath: isInSelectedPath,
         isInDualPath: isInDualPath,
         isSelected: isSelected,
-        dualPathStep: _getDualPathStep(teacherName, day, period),
+        dualPathStep: _getDualPathStep(ctx, teacherName, day, period),
       ),
       isTeacherNameSelected: false, // 데이터 셀은 교사 이름 선택 상태 적용 안함
-      isHighlightedTeacher: _isHighlightedTeacher(teacherName), // 새로 추가
+      isHighlightedTeacher: isHighlightedTeacher,
     );
   }
 
-  /// 하이라이트된 교사인지 확인
-  ///
-  /// 활성 시간표에 지정된 교사(TimetableRegistryEntry.teacherName)와
-  /// 현재 교사명을 비교합니다. 전역 설정이 아니라 시간표 속성이므로 동기 조회가
-  /// 가능합니다(문서 §2).
-  ///
-  /// 이전에는 조회 결과를 캐시해 두고 `refreshHighlightedTeacherName()` 호출자가
-  /// 있을 때만 갱신했는데, 호출 경로가 누락되면 재시작 전까지 이전 교사가 계속
-  /// 강조되는 문제가 있었다. Provider 조회 자체가 가벼우므로 캐시 없이 매번
-  /// 최신 값을 읽어 이런 누락을 원천 차단한다.
-  bool _isHighlightedTeacher(String teacherName) {
-    if (teacherName.isEmpty) return false;
-
-    try {
-      final highlighted = ref.read(activeTeacherNameProvider).trim();
-      if (highlighted.isEmpty) return false;
-      return highlighted == teacherName;
-    } catch (e) {
-      AppLogger.error('하이라이트 교사명 조회 중 오류: $e', e);
-      return false;
-    }
-  }
-
   /// 교사행 하이라이트 갱신 — 시간표의 교사가 바뀌었을 때 그리드를 다시 그린다
-  ///
-  /// 하이라이트 대상은 더 이상 캐시하지 않으므로(위 참고) 이 메서드는
-  /// DataGrid에 재렌더링만 요청하면 된다.
   void refreshHighlightedTeacherName() {
     _clearCacheAndNotify();
   }
 
-  /// 캐시에서 값을 가져오거나 계산하여 캐시에 저장
-  bool _getCachedOrCompute(
-    String cacheType,
-    String teacherName,
-    String day,
-    int period,
-    bool Function() compute,
-  ) {
-    final key = '${cacheType}_${teacherName}_${day}_$period';
-
-    // 로컬 캐시에서 먼저 확인
-    if (_localCache.containsKey(key)) {
-      return _localCache[key]!;
-    }
-
-    // 캐시에 없으면 계산하여 저장
-    final result = compute();
-    _localCache[key] = result;
-
-    return result;
+  /// 교체불가 여부처럼 시간표가 바뀌기 전까지 변하지 않는 값만 캐시한다.
+  bool _getCachedOrCompute(String cellKey, bool Function() compute) {
+    final cached = _localCache[cellKey];
+    if (cached != null) return cached;
+    return _localCache[cellKey] = compute();
   }
 
   /// 순환교체 경로에서 해당 셀의 단계 번호 가져오기
-  int? _getCircularPathStep(String teacherName, String day, int period) {
-    final cellState = ref.read(cellSelectionProvider);
-    if (cellState.selectedCircularPath == null) return null;
+  int? _getCircularPathStep(
+    _CellRenderContext ctx,
+    String teacherName,
+    String day,
+    int period,
+  ) {
+    final path = ctx.cellState.selectedCircularPath;
+    if (path == null) return null;
 
-    for (int i = 0; i < cellState.selectedCircularPath!.nodes.length; i++) {
-      final node = cellState.selectedCircularPath!.nodes[i];
+    for (int i = 0; i < path.nodes.length; i++) {
+      final node = path.nodes[i];
       if (node.teacherName == teacherName &&
           node.day == day &&
           node.period == period) {
@@ -503,22 +508,23 @@ class TimetableDataSource extends DataGridSource {
   }
 
   /// 2중교체 경로에서 해당 셀의 단계 번호 가져오기
-  int? _getDualPathStep(String teacherName, String day, int period) {
-    final cellState = ref.read(cellSelectionProvider);
-    if (cellState.selectedDualPath == null) return null;
+  int? _getDualPathStep(
+    _CellRenderContext ctx,
+    String teacherName,
+    String day,
+    int period,
+  ) {
+    final path = ctx.cellState.selectedDualPath;
+    if (path == null) return null;
 
     // 2중교체의 노드 순서: [node1, node2, nodeA, nodeB]
-    for (int i = 0; i < cellState.selectedDualPath!.nodes.length; i++) {
-      final node = cellState.selectedDualPath!.nodes[i];
+    for (int i = 0; i < path.nodes.length; i++) {
+      final node = path.nodes[i];
       if (node.teacherName == teacherName &&
           node.day == day &&
           node.period == period) {
         // node1, node2는 1단계, nodeA, nodeB는 2단계
-        if (i < 2) {
-          return 1; // 1단계
-        } else {
-          return 2; // 2단계
-        }
+        return i < 2 ? 1 : 2;
       }
     }
 
@@ -536,20 +542,10 @@ class TimetableDataSource extends DataGridSource {
   ///   필요 없지만, 순환·2중 교체처럼 날짜가 미확정인 칸은 "?"를 붙여
   ///   "이 칸의 날짜는 결강일 주에 임시로 묶여 표시된 것"임을 알린다
   ///   (`ExchangeCellDates`의 `undatedKeys` — S1.10).
-  String? _resolveOverlayDate({
-    required String teacherName,
-    required String day,
-    required int period,
-    required bool isExchangedSourceCell,
-    required bool isExchangedDestinationCell,
-  }) {
-    if (!isExchangedSourceCell && !isExchangedDestinationCell) return null;
-
-    final cellKey = '${teacherName}_${day}_$period';
-    return _overlayLabelsByCellKey()[cellKey];
-  }
-
   /// 교체된 칸에 그릴 날짜 꼬리표. 칸 안 배지가 아니라 그리드 위 층에서 쓴다.
+  ///
+  /// 예전에는 모든 행 × 모든 칸을 훑으며 칸마다 키 문자열을 다시 만들었다.
+  /// 꼬리표가 붙는 칸은 교체된 칸뿐이므로, 꼬리표 목록 쪽에서 역으로 찾는다.
   List<OverlayDateMark> collectOverlayDateMarks(List<GridColumn> columns) {
     final labels = _overlayLabelsByCellKey();
     if (labels.isEmpty) return const [];
@@ -557,40 +553,44 @@ class TimetableDataSource extends DataGridSource {
     final indexByName = <String, int>{
       for (var i = 0; i < columns.length; i++) columns[i].columnName: i,
     };
-    final cellNotifier = ref.read(cellSelectionProvider.notifier);
+    final rowIndexByTeacher = <String, int>{};
+    for (var rowIndex = 0; rowIndex < _dataGridRows.length; rowIndex++) {
+      rowIndexByTeacher.putIfAbsent(
+        _extractTeacherName(_dataGridRows[rowIndex]),
+        () => rowIndex,
+      );
+    }
+
+    final cellState = ref.read(cellSelectionProvider);
     final marks = <OverlayDateMark>[];
 
-    for (var rowIndex = 0; rowIndex < _dataGridRows.length; rowIndex++) {
-      final row = _dataGridRows[rowIndex];
-      final teacherName = _extractTeacherName(row);
-      for (final cell in row.getCells()) {
-        if (cell.columnName == 'teacher') continue;
-        final parts = cell.columnName.split('_');
-        if (parts.length != 2) continue;
-        final columnIndex = indexByName[cell.columnName];
-        if (columnIndex == null) continue;
-
-        final day = parts[0];
-        final period = int.tryParse(parts[1]) ?? 0;
-        if (!cellNotifier.isCellExchangedSource(teacherName, day, period) &&
-            !cellNotifier.isCellExchangedDestination(
-              teacherName,
-              day,
-              period,
-            )) {
-          continue;
-        }
-
-        final label = labels['${teacherName}_${day}_$period'];
-        if (label == null) continue;
-        marks.add(
-          OverlayDateMark(
-            teacherIndex: rowIndex,
-            columnIndex: columnIndex,
-            label: label,
-          ),
-        );
+    for (final entry in labels.entries) {
+      final cellKey = entry.key;
+      if (!cellState.exchangedCells.contains(cellKey) &&
+          !cellState.exchangedDestinationCells.contains(cellKey)) {
+        continue;
       }
+
+      // 키 형식: `교사_요일_교시` — 교사명에 '_'가 들어갈 수 있으므로 뒤에서 자른다.
+      final periodSep = cellKey.lastIndexOf('_');
+      if (periodSep <= 0) continue;
+      final daySep = cellKey.lastIndexOf('_', periodSep - 1);
+      if (daySep <= 0) continue;
+
+      final teacherName = cellKey.substring(0, daySep);
+      final columnName = cellKey.substring(daySep + 1);
+
+      final rowIndex = rowIndexByTeacher[teacherName];
+      final columnIndex = indexByName[columnName];
+      if (rowIndex == null || columnIndex == null) continue;
+
+      marks.add(
+        OverlayDateMark(
+          teacherIndex: rowIndex,
+          columnIndex: columnIndex,
+          label: entry.value,
+        ),
+      );
     }
 
     return marks;
@@ -634,7 +634,7 @@ class TimetableDataSource extends DataGridSource {
       ref.read(cellSelectionProvider.notifier).selectCell(teacher, day, period);
     }
     _localCache.clear(); // 로컬 캐시 초기화
-    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용 (재렌더링 방지)
+    _notify(); // Syncfusion DataGrid 전용 메서드 사용 (재렌더링 방지)
   }
 
   /// 타겟 셀 상태 업데이트
@@ -645,7 +645,7 @@ class TimetableDataSource extends DataGridSource {
           .selectTargetCell(teacher, day, period);
     }
     _localCache.clear(); // 로컬 캐시 초기화
-    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
+    _notify(); // Syncfusion DataGrid 전용 메서드 사용
   }
 
   /// 교체 가능한 교사 정보 업데이트
@@ -656,13 +656,13 @@ class TimetableDataSource extends DataGridSource {
         .read(cellSelectionProvider.notifier)
         .updateExchangeableTeachers(exchangeableTeachers);
     _localCache.clear(); // 로컬 캐시 초기화
-    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
+    _notify(); // Syncfusion DataGrid 전용 메서드 사용
   }
 
   /// 교체 옵션 업데이트
   void updateExchangeOptions(List<ExchangeOption> exchangeOptions) {
     _exchangeOptions = exchangeOptions;
-    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
+    _notify(); // Syncfusion DataGrid 전용 메서드 사용
   }
 
   /// 교체 옵션 가져오기
@@ -699,7 +699,7 @@ class TimetableDataSource extends DataGridSource {
   /// 데이터 업데이트
   void updateData(List<TimeSlot> timeSlots, List<Teacher> teachers) {
     _initializeData(timeSlots, teachers);
-    notifyDataSourceListeners();
+    _notify();
   }
 
   /// 교체불가 편집 모드 설정
@@ -779,14 +779,14 @@ class TimetableDataSource extends DataGridSource {
   /// 모든 캐시 초기화 (외부에서 호출 가능)
   void clearAllCaches() {
     _localCache.clear();
-    notifyDataSourceListeners();
+    _notify();
   }
 
   /// 데이터 변경 알림 (외부에서 호출 가능) - 재렌더링 방지
   void notifyDataChanged() {
     // 캐시 초기화는 실제로 데이터가 변경된 경우에만 수행
     // 단순 UI 업데이트의 경우 캐시를 유지하여 성능 향상
-    notifyDataSourceListeners();
+    _notify();
   }
 
   /// 교체된 셀 상태 업데이트 (교체 리스트 변경 시 호출)
@@ -803,14 +803,14 @@ class TimetableDataSource extends DataGridSource {
         .read(cellSelectionProvider.notifier)
         .updateExchangedDestinationCells(destinationCellKeys);
     _localCache.clear(); // 로컬 캐시 초기화
-    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
+    _notify(); // Syncfusion DataGrid 전용 메서드 사용
   }
 
   /// 모든 선택 상태 초기화 (셀 선택, 타겟 셀, 교체 경로 등)
   void clearAllSelections() {
     ref.read(cellSelectionProvider.notifier).clearAllSelections();
     _localCache.clear(); // 로컬 캐시 초기화
-    notifyDataSourceListeners(); // Syncfusion DataGrid 전용 메서드 사용
+    _notify(); // Syncfusion DataGrid 전용 메서드 사용
   }
 
   // ========================================
@@ -824,7 +824,7 @@ class TimetableDataSource extends DataGridSource {
     ref.read(cellSelectionProvider.notifier).setDualPath(null);
     ref.read(cellSelectionProvider.notifier).setSupplementPath(null);
     _localCache.clear(); // 로컬 캐시 초기화
-    notifyDataSourceListeners(); // 한 번만 UI 업데이트
+    _notify(); // 한 번만 UI 업데이트
   }
 
   /// Level 2 전용 배치 업데이트: 교체 상태 초기화
@@ -839,7 +839,7 @@ class TimetableDataSource extends DataGridSource {
     _exchangeOptions = [];
 
     _localCache.clear(); // 로컬 캐시 초기화
-    notifyDataSourceListeners(); // 한 번만 UI 업데이트
+    _notify(); // 한 번만 UI 업데이트
   }
 
   /// TimeSlot 리스트 접근자 (동기화용)
@@ -887,5 +887,66 @@ class TimetableDataSource extends DataGridSource {
     _nonExchangeableManager.resetAllNonExchangeableSettings();
 
     super.dispose();
+  }
+}
+
+/// 한 번의 DataGrid 재빌드 동안 바뀌지 않는 값들의 스냅샷
+///
+/// 셀마다 `ref.read()`를 반복하면 보이는 셀 수만큼 Provider 조회가 일어난다.
+/// 알림 한 번에 한 번만 읽어 두고 모든 셀이 공유한다.
+class _CellRenderContext {
+  _CellRenderContext({
+    required this.cellState,
+    required this.exchangeableKeys,
+    required this.highlightedTeacher,
+    required this.oneToOneArrowDirection,
+    required this.showStatusSymbols,
+    required this.overlayLabels,
+  });
+
+  final CellSelectionState cellState;
+
+  /// `교사_요일_교시` 형태의 교체 가능 칸 키 (선형 탐색 제거용)
+  final Set<String> exchangeableKeys;
+  final String highlightedTeacher;
+  final ArrowDirection oneToOneArrowDirection;
+  final bool showStatusSymbols;
+  final Map<String, String> overlayLabels;
+
+  bool isInCircularPath(String teacherName, String day, int period) {
+    final path = cellState.selectedCircularPath;
+    if (path == null) return false;
+    for (final node in path.nodes) {
+      if (node.teacherName == teacherName &&
+          node.day == day &&
+          node.period == period) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool isInDualPath(String teacherName, String day, int period) {
+    final path = cellState.selectedDualPath;
+    if (path == null) return false;
+    for (final node in [path.node1, path.node2, path.nodeA, path.nodeB]) {
+      if (node.teacherName == teacherName &&
+          node.day == day &&
+          node.period == period) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool isInSelectedOneToOnePath(String teacherName, String day, int period) {
+    final path = cellState.selectedOneToOnePath;
+    if (path == null) return false;
+    return (path.sourceNode.teacherName == teacherName &&
+            path.sourceNode.day == day &&
+            path.sourceNode.period == period) ||
+        (path.targetNode.teacherName == teacherName &&
+            path.targetNode.day == day &&
+            path.targetNode.period == period);
   }
 }

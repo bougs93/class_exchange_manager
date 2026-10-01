@@ -26,19 +26,12 @@ class CircularPathFinder {
     try {
       AppLogger.exchangeDebug('순환교체 경로 탐색 시작');
 
-      // 1단계: 초기화 (10%)
-      updateProgress(0.1);
-      await Future.delayed(const Duration(milliseconds: 100));
-
-      // 2단계: 교사 정보 수집 (20%)
-      updateProgress(0.2);
-      await Future.delayed(const Duration(milliseconds: 100));
-
-      // 3단계: 시간표 분석 (40%)
+      // 진행률 단계만 알리고 인위적인 대기는 두지 않는다.
+      // 예전에는 단계마다 Future.delayed로 총 600ms를 쉬어, 실제 탐색이
+      // 순식간에 끝나도 셀 선택 반응이 그만큼 늦어 보였다.
       updateProgress(0.4);
-      await Future.delayed(const Duration(milliseconds: 150));
 
-      // 4단계: DFS 경로 탐색 시작 (80%)
+      // DFS 경로 탐색 시작 (80%)
       updateProgress(0.8);
 
       AppLogger.exchangeDebug(
@@ -79,13 +72,8 @@ class CircularPathFinder {
 
       AppLogger.exchangeDebug('경로 탐색 완료 - 발견된 경로 수: ${paths.length}');
 
-      // 5단계: 결과 처리 (90%)
-      updateProgress(0.9);
-      await Future.delayed(const Duration(milliseconds: 100));
-
-      // 6단계: 완료 (100%)
+      // 완료 (100%)
       updateProgress(1.0);
-      await Future.delayed(const Duration(milliseconds: 150));
 
       // 순환교체 경로에 순차적인 ID 부여
       for (int i = 0; i < paths.length; i++) {
