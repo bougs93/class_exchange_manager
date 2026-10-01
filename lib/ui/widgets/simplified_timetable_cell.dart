@@ -3,6 +3,7 @@ import '../../constants/cell_status_tooltips.dart';
 import '../../utils/simplified_timetable_theme.dart';
 import '../../utils/cell_style_config.dart';
 import 'cell_status_border_overlay.dart';
+import 'plain_timetable_cell_painter.dart';
 import 'exchanged_cell_status_overlay.dart';
 
 /// 단순화된 시간표 셀 위젯
@@ -89,58 +90,6 @@ class SimplifiedTimetableCell extends StatelessWidget {
     //   AppLogger.exchangeDebug('선택된 셀 렌더링: $content, 교사열=$isTeacherColumn, 선택됨=$isSelected');
     // }
 
-    // 셀 전체 영역에서 마우스 호버가 감지되도록 크기를 채웁니다.
-    final cellBody = GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        height: double.infinity,
-        padding: EdgeInsets.zero,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: style.backgroundColor,
-          border: style.border,
-        ),
-        child: Stack(
-          children: [
-            // 기본 셀 내용 — FittedBox로 좁은 셀에서도 글자 잘림 방지
-            Center(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  content,
-                  style: style.textStyle,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.clip,
-                ),
-              ),
-            ),
-            // 상태 강조 테두리 (레이아웃 밖 오버레이)
-            if (style.statusBorder != null)
-              CellStatusBorderOverlay(border: style.statusBorder!),
-            // 빠진 수업(X)·맡은 수업(O)·교체 불가(X) 반투명 오버레이
-            if (showStatusSymbols && isNonExchangeable)
-              const ExchangedCellStatusOverlay(
-                type: CellStatusSymbolType.nonExchangeable,
-              ),
-            if (showStatusSymbols && isExchangedSourceCell)
-              const ExchangedCellStatusOverlay(
-                type: CellStatusSymbolType.missedClass,
-              ),
-            if (showStatusSymbols && isExchangedDestinationCell)
-              const ExchangedCellStatusOverlay(
-                type: CellStatusSymbolType.takenClass,
-              ),
-            // 테마에서 제공하는 오버레이 위젯 (교체 가능한 셀에 숫자 1 표시)
-            if (style.overlayWidget != null) style.overlayWidget!,
-            // 날짜 꼬리표는 셀 안이 아니라 그리드 위 층에 그린다.
-            // 여기 값은 "?" 툴팁에만 쓴다.
-          ],
-        ),
-      ),
-    );
-
     // 빠진 수업·맡은 수업·교체 불가 수업 셀에만 툴팁을 표시합니다.
     final baseTooltipMessage = CellStatusTooltips.forCellState(
       isTeacherColumn: isTeacherColumn,
@@ -155,6 +104,95 @@ class SimplifiedTimetableCell extends StatelessWidget {
         overlayDate == '?' && baseTooltipMessage != null
             ? '$baseTooltipMessage\n순환/2중 교체는 노드별 날짜가 저장되지 않아 결강일 주에 표시합니다.'
             : baseTooltipMessage;
+
+    final bool hasNonExchangeableSymbol =
+        showStatusSymbols && isNonExchangeable;
+    final bool hasSourceSymbol = showStatusSymbols && isExchangedSourceCell;
+    final bool hasDestinationSymbol =
+        showStatusSymbols && isExchangedDestinationCell;
+    final bool hasOverlay =
+        style.statusBorder != null ||
+        style.overlayWidget != null ||
+        hasNonExchangeableSymbol ||
+        hasSourceSymbol ||
+        hasDestinationSymbol;
+
+    // 성능: 한 화면에 셀이 1000개 넘게 뜨므로 셀 하나의 렌더 오브젝트 수가
+    // 그대로 스크롤 비용이 된다.
+    //
+    // 오버레이도 툴팁도 없는 "평범한" 셀(대부분)은 위젯을 쌓는 대신
+    // 캔버스에 직접 그려 렌더 오브젝트를 4개 → 1개로 줄인다.
+    // 그리는 내용은 아래 위젯 트리와 동일하다(PlainTimetableCellPainter 주석 참고).
+    if (!hasOverlay && tooltipMessage == null && onTap == null) {
+      return CustomPaint(
+        size: Size.infinite,
+        painter: PlainTimetableCellPainter(
+          content: content,
+          backgroundColor: style.backgroundColor,
+          textStyle: style.textStyle,
+          border: style.border,
+        ),
+      );
+    }
+
+    // 나머지(오버레이·툴팁이 있는 특수 셀)는 기존 위젯 트리를 그대로 쓴다.
+    // - onTap은 보통 쓰이지 않는다(탭은 SfDataGrid.onCellTap이 처리) → 있을 때만 감싼다
+    // - Container 대신 DecoratedBox (ConstrainedBox·Align 래퍼 제거)
+    // 모든 오버레이는 Positioned.fill 계열이라 레이아웃 결과는 동일하다.
+
+    // 기본 셀 내용 — FittedBox로 좁은 셀에서도 글자 잘림 방지
+    Widget content0 = Center(
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          content,
+          style: style.textStyle,
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.clip,
+        ),
+      ),
+    );
+
+    if (hasOverlay) {
+      content0 = Stack(
+        children: [
+          content0,
+          // 상태 강조 테두리 (레이아웃 밖 오버레이)
+          if (style.statusBorder != null)
+            CellStatusBorderOverlay(border: style.statusBorder!),
+          // 빠진 수업(X)·맡은 수업(O)·교체 불가(X) 반투명 오버레이
+          if (hasNonExchangeableSymbol)
+            const ExchangedCellStatusOverlay(
+              type: CellStatusSymbolType.nonExchangeable,
+            ),
+          if (hasSourceSymbol)
+            const ExchangedCellStatusOverlay(
+              type: CellStatusSymbolType.missedClass,
+            ),
+          if (hasDestinationSymbol)
+            const ExchangedCellStatusOverlay(
+              type: CellStatusSymbolType.takenClass,
+            ),
+          // 테마에서 제공하는 오버레이 위젯 (교체 가능한 셀에 숫자 1 표시)
+          if (style.overlayWidget != null) style.overlayWidget!,
+          // 날짜 꼬리표는 셀 안이 아니라 그리드 위 층에 그린다.
+          // 여기 값은 "?" 툴팁에만 쓴다.
+        ],
+      );
+    }
+
+    Widget cellBody = DecoratedBox(
+      decoration: BoxDecoration(
+        color: style.backgroundColor,
+        border: style.border,
+      ),
+      child: content0,
+    );
+
+    if (onTap != null) {
+      cellBody = GestureDetector(onTap: onTap, child: cellBody);
+    }
 
     if (tooltipMessage == null) {
       return cellBody;
