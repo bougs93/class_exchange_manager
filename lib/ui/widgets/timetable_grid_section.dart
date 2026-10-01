@@ -777,6 +777,12 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
                     widget.stackedHeaders,
                     zoomFactor,
                   ),
+                  // 칸을 구분하는 얇은 격자선은 Syncfusion이 그린다. 끄면 안 된다.
+                  //
+                  // 셀 테마에도 좌·우·하단 BorderSide가 있지만 두께가 0.2px라
+                  // 화면에서는 보이지 않는 선이다(요일 경계의 굵은 2px 선만 셀이
+                  // 그린다). 성능을 위해 이 옵션을 none으로 바꿨다가 칸 구분선이
+                  // 통째로 사라진 적이 있어(2026-10-01) 다시 되돌렸다.
                   gridLinesVisibility: GridLinesVisibility.both,
                   headerGridLinesVisibility: GridLinesVisibility.both,
                   headerRowHeight: GridScalingHelper.scaleHeaderHeight(

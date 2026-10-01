@@ -25,6 +25,7 @@ class SimplifiedTimetableTheme {
   /// 폰트 사이즈 배율 설정 (줌 인/아웃 시 호출)
   static void setFontScaleFactor(double factor) {
     _fontScaleFactor = factor;
+    _invalidateStyleCache();
     // 테마 설정 저장
     _saveThemeSettings();
   }
@@ -35,6 +36,7 @@ class SimplifiedTimetableTheme {
   /// - `color`: 설정할 색상
   static void setNonExchangeableColor(Color color) {
     _nonExchangeableColor = color;
+    _invalidateStyleCache();
     // 테마 설정 저장
     _saveThemeSettings();
   }
@@ -63,11 +65,13 @@ class SimplifiedTimetableTheme {
       // 폰트 사이즈 배율 로드
       final fontScaleFactor = await _themeStorage.getFontScaleFactor();
       _fontScaleFactor = fontScaleFactor;
+      _invalidateStyleCache();
 
       // 교체불가 셀 색상 로드
       final loadedColor = await _themeStorage.getNonExchangeableColor();
       if (loadedColor != null) {
         _nonExchangeableColor = loadedColor;
+        _invalidateStyleCache();
         AppLogger.info(
           '교체불가 셀 색상 로드 완료: ${_nonExchangeableColor.toARGB32().toRadixString(16)}',
         );
@@ -97,6 +101,7 @@ class SimplifiedTimetableTheme {
         _highlightedTeacherColor = TeacherRowHighlightColors.resolveSavedColor(
           colorValue,
         );
+        _invalidateStyleCache();
         AppLogger.info(
           '하이라이트 교사 행 색상 로드 완료: ${_highlightedTeacherColor.toARGB32().toRadixString(16)}',
         );
@@ -126,10 +131,12 @@ class SimplifiedTimetableTheme {
   /// 전체 데이터 삭제 뒤에 쓴다. [setHighlightedTeacherColor]는 파일을 다시 만든다.
   static void resetHighlightedTeacherColorInMemory() {
     _highlightedTeacherColor = TeacherRowHighlightColors.defaultColor;
+    _invalidateStyleCache();
   }
 
   static Future<void> setHighlightedTeacherColor(Color color) async {
     _highlightedTeacherColor = color;
+    _invalidateStyleCache();
     // 앱 설정에 저장
     final appSettings = AppSettingsStorageService();
     await appSettings.saveHighlightedTeacherColor(color.toARGB32());
@@ -242,15 +249,63 @@ class SimplifiedTimetableTheme {
 
   /// 교체된 셀 선택 시 헤더 색상 비활성화 설정
   static void setExchangedCellSelectedHeaderDisabled(bool isDisabled) {
+    if (_isExchangedCellSelectedHeaderDisabled == isDisabled) return;
     _isExchangedCellSelectedHeaderDisabled = isDisabled;
+    _invalidateStyleCache();
   }
 
   /// 교체된 셀 선택 시 헤더 색상 비활성화 상태 반환
   static bool get isExchangedCellSelectedHeaderDisabled =>
       _isExchangedCellSelectedHeaderDisabled;
 
+  // ==================== 셀 스타일 캐시 ====================
+
+  /// 계산된 셀 스타일 캐시
+  ///
+  /// 셀 스타일은 전적으로 `CellStyleConfig`의 불린 플래그와 단계 번호,
+  /// 그리고 아래 정적 설정값(폰트 배율·색상·헤더 비활성 플래그)으로만 결정된다.
+  /// 교체 화면은 한 화면에 셀이 1,000개 넘게 뜨는데, 대부분은 플래그가 모두
+  /// 꺼진 동일한 조합이라 실제로 필요한 스타일은 열 개 남짓이다.
+  /// 캐시하지 않으면 프레임마다 TextStyle·Border·CellStyle을 셀 수만큼 새로
+  /// 할당하게 된다.
+  static final Map<int, CellStyle> _styleCache = {};
+
+  /// 정적 설정이 바뀌면 캐시를 버린다(색상·폰트 배율 변경 등).
+  static void _invalidateStyleCache() => _styleCache.clear();
+
+  /// 캐시 키 — 플래그 비트마스크 + 단계 번호
+  static int _styleCacheKey(CellStyleConfig c) {
+    var bits = 0;
+    if (c.isTeacherColumn) bits |= 1 << 0;
+    if (c.isSelected) bits |= 1 << 1;
+    if (c.isExchangeable) bits |= 1 << 2;
+    if (c.isLastColumnOfDay) bits |= 1 << 3;
+    if (c.isFirstColumnOfDay) bits |= 1 << 4;
+    if (c.isHeader) bits |= 1 << 5;
+    if (c.isInCircularPath) bits |= 1 << 6;
+    if (c.isInSelectedPath) bits |= 1 << 7;
+    if (c.isInDualPath) bits |= 1 << 8;
+    if (c.isTargetCell) bits |= 1 << 9;
+    if (c.isNonExchangeable) bits |= 1 << 10;
+    if (c.isExchangedSourceCell) bits |= 1 << 11;
+    if (c.isExchangedDestinationCell) bits |= 1 << 12;
+    if (c.isTeacherNameSelected) bits |= 1 << 13;
+    if (c.isHighlightedTeacher) bits |= 1 << 14;
+    // 단계 번호는 1~5 수준이라 각각 8비트면 충분하다 (null은 0).
+    bits |= ((c.circularPathStep ?? 0) & 0xFF) << 15;
+    bits |= ((c.pathStepNumber ?? 0) & 0xFF) << 23;
+    return bits;
+  }
+
   /// 통합된 셀 스타일 생성 (개선된 버전 - CellStyleConfig 사용)
   static CellStyle getCellStyleFromConfig(CellStyleConfig config) {
+    final key = _styleCacheKey(config);
+    final cached = _styleCache[key];
+    if (cached != null) return cached;
+    return _styleCache[key] = _buildCellStyle(config);
+  }
+
+  static CellStyle _buildCellStyle(CellStyleConfig config) {
     return CellStyle(
       backgroundColor: _getBackgroundColor(
         isTeacherColumn: config.isTeacherColumn,
