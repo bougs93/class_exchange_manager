@@ -98,7 +98,27 @@ class TimetableDataSource extends DataGridSource {
     _initializeData(timeSlots, teachers);
   }
 
-  final WidgetRef ref;
+  /// 셀 상태를 읽을 때 쓰는 화면의 ref
+  ///
+  /// final이 아니다 — [attachRef] 참고.
+  WidgetRef ref;
+
+  /// 살아 있는 화면의 ref를 다시 연결한다.
+  ///
+  /// 이 데이터소스는 전역 `exchangeScreenProvider`에 담겨 있어서 그것을 만든
+  /// 화면보다 오래 산다. 웹 로그인 게이트(`WebLoginGate`)가 로그아웃/재로그인
+  /// 때 화면 트리를 통째로 새로 만들면, Provider에는 이미 사라진 화면의
+  /// WidgetRef를 쥔 데이터소스가 남는다. 그 상태로 그리드를 그리면
+  /// `Bad state: Cannot use "ref" after the widget was disposed`로 빨간 화면이
+  /// 떴다(2026-10-01). 교체 화면이 빌드될 때마다 현재 ref를 다시 붙여 막는다.
+  void attachRef(WidgetRef newRef) {
+    if (identical(ref, newRef)) return;
+    ref = newRef;
+    // 이전 화면 기준으로 읽어 둔 값은 모두 버린다.
+    _renderContext = null;
+    _localCache.clear();
+  }
+
   List<TimeSlot> _timeSlots = [];
   List<Teacher> _teachers = [];
   List<DataGridRow> _dataGridRows = [];

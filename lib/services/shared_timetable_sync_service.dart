@@ -63,9 +63,35 @@ class SharedTimetableSyncService {
   }
 
   /// 다운로드 조건 (계획서 3.3절): 캐시가 없거나 버전이 다르면 다운로드.
-  static bool shouldDownload({required int? localVersion, required int remoteVersion}) {
+  static bool shouldDownload({
+    required int? localVersion,
+    required int remoteVersion,
+  }) {
     if (localVersion == null) return true;
     return localVersion != remoteVersion;
+  }
+
+  /// 버전을 1 올리고 새 버전을 반환한다.
+  Future<int> _bumpVersion() {
+    return _firestore.runTransaction((txn) async {
+      final snap = await txn.get(_versionDoc);
+      final current = (snap.data()?['version'] as int?) ?? 0;
+      final next = current + 1;
+      txn.set(_versionDoc, {'version': next}, SetOptions(merge: true));
+      return next;
+    });
+  }
+
+  /// Storage에 JSON을 올린다. 버전은 이미 증가한 뒤이므로 실패를 그대로 전달한다.
+  Future<void> _uploadJson(String jsonString, int version) async {
+    try {
+      await _storage
+          .ref(storagePath)
+          .putData(Uint8List.fromList(utf8.encode(jsonString)));
+    } catch (e) {
+      AppLogger.error('공용 시간표 업로드 실패 (버전 $version은 이미 증가됨): $e', e);
+      rethrow;
+    }
   }
 
   /// 공용 시간표 게시 (관리자용).
@@ -77,26 +103,19 @@ class SharedTimetableSyncService {
     required String timetableId,
   }) async {
     final lessons = await repo.getAllLessons(timetableId);
-    final jsonString = encodeLessons(lessons);
-
-    final newVersion = await _firestore.runTransaction((txn) async {
-      final snap = await txn.get(_versionDoc);
-      final current = (snap.data()?['version'] as int?) ?? 0;
-      final next = current + 1;
-      txn.set(_versionDoc, {'version': next}, SetOptions(merge: true));
-      return next;
-    });
-
-    try {
-      await _storage
-          .ref(storagePath)
-          .putData(Uint8List.fromList(utf8.encode(jsonString)));
-    } catch (e) {
-      AppLogger.error('공용 시간표 업로드 실패 (버전 $newVersion은 이미 증가됨): $e', e);
-      rethrow;
-    }
-
+    final newVersion = await _bumpVersion();
+    await _uploadJson(encodeLessons(lessons), newVersion);
     AppLogger.info('공용 시간표 게시 완료: 버전 $newVersion, ${lessons.length}건');
+    return newVersion;
+  }
+
+  /// 서버의 공용 시간표를 비운다.
+  ///
+  /// 버전을 올린 뒤 빈 목록을 올린다. 접속자는 다음 동기화에서 빈 시간표를 받는다.
+  Future<int> clearPublishedTimetable() async {
+    final newVersion = await _bumpVersion();
+    await _uploadJson('[]', newVersion);
+    AppLogger.info('공용 시간표 삭제 완료: 버전 $newVersion');
     return newVersion;
   }
 
@@ -115,8 +134,15 @@ class SharedTimetableSyncService {
     final hasCache =
         localVersion != null && await repo.getSharedLessonCount() > 0;
     if (hasCache &&
-        !shouldDownload(localVersion: localVersion, remoteVersion: remoteVersion)) {
-      return (status: SharedTimetableSyncStatus.upToDate, version: remoteVersion, count: 0);
+        !shouldDownload(
+          localVersion: localVersion,
+          remoteVersion: remoteVersion,
+        )) {
+      return (
+        status: SharedTimetableSyncStatus.upToDate,
+        version: remoteVersion,
+        count: 0,
+      );
     }
 
     final data = await _storage.ref(storagePath).getData(maxDownloadBytes);

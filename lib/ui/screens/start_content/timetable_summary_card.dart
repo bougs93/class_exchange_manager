@@ -133,6 +133,8 @@ class _TimetableSummaryCardState extends ConsumerState<TimetableSummaryCard> {
   @override
   Widget build(BuildContext context) {
     final entry = ref.watch(activeTimetableEntryProvider);
+    // 선생님/관리자 전환 시 추가·관리 버튼이 같이 바뀌게 구독한다.
+    ref.watch(webLoginStatusProvider);
     _syncSchoolField(entry);
 
     return AppContentCard(
@@ -158,6 +160,15 @@ class _TimetableSummaryCardState extends ConsumerState<TimetableSummaryCard> {
   /// 본다. 네이티브 앱은 그대로 등록할 수 있다.
   bool _canRegisterTimetable() {
     return !kIsWeb;
+  }
+
+  /// 시간표 추가·관리(삭제 포함) 표시 여부.
+  ///
+  /// 웹 선생님(접속자)은 공용 시간표를 지우거나 새로 등록하지 않는다.
+  /// 관리자와 PC/모바일은 그대로 둔다.
+  bool _canManageTimetable() {
+    if (!kIsWeb) return true;
+    return ref.read(webLoginStatusProvider) == WebLoginStatus.adminOk;
   }
 
   /// 등록된 시간표가 없을 때
@@ -264,7 +275,6 @@ class _TimetableSummaryCardState extends ConsumerState<TimetableSummaryCard> {
         ),
         const SizedBox(width: 8),
         _buildSwitchMenu(entry),
-        const SizedBox(width: 4),
         _buildFooterActions(),
       ],
     );
@@ -283,21 +293,26 @@ class _TimetableSummaryCardState extends ConsumerState<TimetableSummaryCard> {
       tooltip: '시간표 전환',
       position: PopupMenuPosition.under,
       onSelected: (value) async {
-        if (value == '__add__') {
-          await widget.onAddTimetable();
-        } else if (value == '__manage__') {
-          await widget.onOpenManager();
-        } else {
-          await _switchTo(value);
+        if (value == '__add__' || value == '__manage__') {
+          if (!_canManageTimetable()) return;
+          if (value == '__add__') {
+            await widget.onAddTimetable();
+          } else {
+            await widget.onOpenManager();
+          }
+          return;
         }
+        await _switchTo(value);
       },
-      itemBuilder:
-          (context) => [
-            for (final e in entries)
-              PopupMenuItem<String>(
-                value: e.id,
-                child: _buildSwitchMenuRow(e, isActive: e.id == active.id),
-              ),
+      itemBuilder: (context) {
+        final canManage = _canManageTimetable();
+        return [
+          for (final e in entries)
+            PopupMenuItem<String>(
+              value: e.id,
+              child: _buildSwitchMenuRow(e, isActive: e.id == active.id),
+            ),
+          if (canManage) ...[
             const PopupMenuDivider(),
             const PopupMenuItem<String>(
               value: '__add__',
@@ -318,6 +333,8 @@ class _TimetableSummaryCardState extends ConsumerState<TimetableSummaryCard> {
               ),
             ),
           ],
+        ];
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
@@ -595,23 +612,27 @@ class _TimetableSummaryCardState extends ConsumerState<TimetableSummaryCard> {
     );
   }
 
-  /// 하단 액션 (추가 · 관리)
+  /// 하단 액션 (추가 · 관리). 웹 선생님에게는 보이지 않는다.
   Widget _buildFooterActions() {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        TextButton.icon(
-          onPressed: () => widget.onAddTimetable(),
-          icon: const Icon(Icons.add, size: 18),
-          label: const Text('시간표 추가', style: TextStyle(fontSize: 13)),
-        ),
-        const SizedBox(width: 4),
-        TextButton(
-          onPressed: () => widget.onOpenManager(),
-          child: const Text('시간표 관리 >', style: TextStyle(fontSize: 13)),
-        ),
-      ],
+    if (!_canManageTimetable()) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          TextButton.icon(
+            onPressed: () => widget.onAddTimetable(),
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('시간표 추가', style: TextStyle(fontSize: 13)),
+          ),
+          const SizedBox(width: 4),
+          TextButton(
+            onPressed: () => widget.onOpenManager(),
+            child: const Text('시간표 관리 >', style: TextStyle(fontSize: 13)),
+          ),
+        ],
+      ),
     );
   }
 

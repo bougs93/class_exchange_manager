@@ -689,6 +689,11 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     // Provider에서 상태 읽기
     final screenState = ref.watch(exchangeScreenProvider);
 
+    // 데이터소스는 전역 Provider에 담겨 이 화면보다 오래 산다. 웹 로그인
+    // 게이트가 로그아웃/재로그인으로 화면 트리를 새로 만들면 이전 화면의
+    // ref를 쥔 채로 남아 그리드를 그릴 때 터진다. 빌드마다 현재 ref를 붙인다.
+    screenState.dataSource?.attachRef(ref);
+
     // 시간표의 교사가 바뀌면(홈에서 선택하거나 시간표를 전환하면)
     // 그리드 행 하이라이트 캐시를 갱신한다.
     // DataSource가 교사명을 캐시하므로 이 갱신이 없으면 이전 교사가 계속 강조된다.

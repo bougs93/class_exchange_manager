@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 
 import '../../models/dated_timetable.dart';
+import '../../models/lesson.dart';
 import '../../providers/timetable_registry_provider.dart';
 import '../../providers/timetable_repository_provider.dart';
 import '../../services/excel_service.dart';
@@ -43,7 +44,13 @@ class _WebAdminSettingsScreenState
   final _adminPasswordController = TextEditingController();
   final _adminPasswordConfirmController = TextEditingController();
   final _loginMessageController = TextEditingController();
-  bool _busy = false;
+  bool _saving = false;
+  bool _publishing = false;
+  bool _deleting = false;
+  bool _publishFailed = false;
+  String? _publishMessage;
+  String? _publishResult;
+  String? _publishedName;
   bool _viewerVisible = false;
   bool _adminVisible = false;
 
@@ -161,15 +168,15 @@ class _WebAdminSettingsScreenState
 
   /// Firestore 작업을 실행하고, 실패 시 오류 문자열을 반환한다 (성공 시 null).
   Future<String?> _runGuarded(Future<void> Function() task) async {
-    if (_busy) return '처리 중입니다. 잠시 후 다시 시도하세요.';
-    setState(() => _busy = true);
+    if (_saving) return '처리 중입니다. 잠시 후 다시 시도하세요.';
+    setState(() => _saving = true);
     try {
       await task();
       return null;
     } catch (e) {
       return '$e';
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -185,12 +192,7 @@ class _WebAdminSettingsScreenState
     return Scaffold(
       appBar: AppBar(
         title: const Text('접속 설정 (관리자)'),
-        actions: [
-          TextButton(
-            onPressed: _busy ? null : _logout,
-            child: const Text('로그아웃'),
-          ),
-        ],
+        actions: [TextButton(onPressed: _logout, child: const Text('로그아웃'))],
       ),
       body: Center(
         child: ConstrainedBox(
@@ -222,7 +224,7 @@ class _WebAdminSettingsScreenState
               Align(
                 alignment: Alignment.centerRight,
                 child: ElevatedButton(
-                  onPressed: _busy ? null : _saveViewerPassword,
+                  onPressed: _saving ? null : _saveViewerPassword,
                   style: ElevatedButton.styleFrom(
                     visualDensity: VisualDensity.compact,
                   ),
@@ -252,7 +254,7 @@ class _WebAdminSettingsScreenState
               Align(
                 alignment: Alignment.centerRight,
                 child: ElevatedButton(
-                  onPressed: _busy ? null : _saveAdminPassword,
+                  onPressed: _saving ? null : _saveAdminPassword,
                   style: ElevatedButton.styleFrom(
                     visualDensity: VisualDensity.compact,
                   ),
@@ -278,7 +280,7 @@ class _WebAdminSettingsScreenState
               Align(
                 alignment: Alignment.centerRight,
                 child: ElevatedButton(
-                  onPressed: _busy ? null : _saveLoginMessage,
+                  onPressed: _saving ? null : _saveLoginMessage,
                   style: ElevatedButton.styleFrom(
                     visualDensity: VisualDensity.compact,
                   ),
@@ -297,10 +299,12 @@ class _WebAdminSettingsScreenState
                 style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
               const SizedBox(height: 6),
+              _buildPublishStatus(),
+              const SizedBox(height: 6),
               Align(
                 alignment: Alignment.centerRight,
                 child: ElevatedButton(
-                  onPressed: _busy ? null : _publishSharedTimetable,
+                  onPressed: _publishing ? null : _publishSharedTimetable,
                   style: ElevatedButton.styleFrom(
                     visualDensity: VisualDensity.compact,
                   ),
@@ -312,6 +316,163 @@ class _WebAdminSettingsScreenState
         ),
       ),
     );
+  }
+
+  /// 공용 시간표 올리기 진행·결과. 다른 설정 버튼은 막지 않는다.
+  Widget _buildPublishStatus() {
+    final active = ref.watch(activeTimetableEntryProvider);
+    final activeName = active?.name;
+    final currentName =
+        (_publishedName != null && _publishedName!.isNotEmpty)
+            ? _publishedName!
+            : activeName;
+
+    if (_publishing) {
+      return Row(
+        children: [
+          const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _publishMessage ?? '공용 시간표를 올리는 중…',
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (_publishResult != null)
+          Text(
+            _publishResult!,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color:
+                  _publishFailed ? Colors.red.shade700 : Colors.green.shade800,
+            ),
+          ),
+        if (currentName != null && currentName.isNotEmpty) ...[
+          if (_publishResult != null) const SizedBox(height: 2),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '현재 시간표: $currentName',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+              if (active != null)
+                TextButton(
+                  onPressed: _deleting ? null : _deleteCurrentTimetable,
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(_deleting ? '삭제 중…' : '삭제'),
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// 현재 시간표를 이 기기와 서버에서 함께 지운다.
+  Future<void> _deleteCurrentTimetable() async {
+    if (_deleting || _publishing) return;
+    final entry = ref.read(activeTimetableEntryProvider);
+    if (entry == null) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('현재 시간표 삭제'),
+          content: Text(
+            "'${entry.name}'을(를) 삭제할까요?\n"
+            '이 기기의 시간표와 서버에 올린 공용 시간표가 함께 지워지며 되돌릴 수 없습니다.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('삭제'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirm != true || !mounted) return;
+
+    setState(() => _deleting = true);
+    try {
+      await SharedTimetableSyncService().clearPublishedTimetable();
+      final repository = await ref.read(timetableRepositoryProvider.future);
+      await repository.deleteTimetable(entry.id);
+      final removed = await ref
+          .read(timetableRegistryProvider.notifier)
+          .removeTimetable(entry.id);
+      if (!removed) {
+        throw Exception('시간표 삭제에 실패했습니다.');
+      }
+      if (!mounted) return;
+      setState(() {
+        _publishedName = null;
+        _publishFailed = false;
+        _publishResult = '시간표를 삭제했습니다.';
+      });
+      SnackBarHelper.showSuccess(context, "'${entry.name}' 시간표를 삭제했습니다.");
+    } catch (e) {
+      AppLogger.error('현재 시간표 삭제 실패: $e', e);
+      if (mounted) {
+        setState(() {
+          _publishFailed = true;
+          _publishResult = '삭제 실패: $e';
+        });
+        SnackBarHelper.showError(context, '삭제 실패: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _deleting = false);
+    }
+  }
+
+  /// 화면이 멈춘 것처럼 보이지 않게, 상태 문구를 그린 뒤 다음 작업으로 넘긴다.
+  Future<void> _setPublishMessage(String message) async {
+    if (!mounted) return;
+    setState(() => _publishMessage = message);
+    await Future<void>.delayed(Duration.zero);
+  }
+
+  /// 웹 SQLite는 한 번에 넣으면 화면이 길게 멈춘다. 나눠 넣고 진행을 갱신한다.
+  Future<void> _insertLessonChunks({
+    required Future<void> Function(List<Lesson> lessons) insert,
+    required List<Lesson> lessons,
+    required String label,
+  }) async {
+    const chunkSize = 400;
+    if (lessons.isEmpty) return;
+    for (var start = 0; start < lessons.length; start += chunkSize) {
+      final end = min(start + chunkSize, lessons.length);
+      await insert(lessons.sublist(start, end));
+      if (!mounted) return;
+      setState(() => _publishMessage = '$label ($end/${lessons.length})');
+      await Future<void>.delayed(Duration.zero);
+    }
   }
 
   /// 보기/숨기기 토글이 달린 비밀번호 입력란.
@@ -349,7 +510,7 @@ class _WebAdminSettingsScreenState
       SnackBarHelper.showInfo(context, '공용 게시는 웹에서만 할 수 있습니다.');
       return;
     }
-    if (_busy) return;
+    if (_publishing) return;
 
     // 1. 엑셀 파일 선택 (바이트 직접 수신)
     FilePickerResult? result;
@@ -375,7 +536,13 @@ class _WebAdminSettingsScreenState
       return;
     }
 
-    setState(() => _busy = true);
+    setState(() {
+      _publishing = true;
+      _publishFailed = false;
+      _publishResult = null;
+      _publishMessage = '엑셀 파일을 읽는 중…';
+    });
+    await Future<void>.delayed(Duration.zero);
     try {
       // 2. 파싱
       final excel = await ExcelService.readExcelFromBytes(bytes);
@@ -408,15 +575,27 @@ class _WebAdminSettingsScreenState
         context,
         initialName: defaultName,
       );
-      if (registration == null || !mounted) return;
+      if (registration == null || !mounted) {
+        if (mounted) {
+          setState(() {
+            _publishing = false;
+            _publishMessage = null;
+          });
+        }
+        return;
+      }
+      final timetableName =
+          registration.name.isNotEmpty ? registration.name : defaultName;
+      _publishedName = timetableName;
+      SnackBarHelper.showInfo(context, '\'$timetableName\' 시간표를 올리고 있습니다.');
+      await _setPublishMessage('\'$timetableName\' 등록 중…');
 
       // 5. 레지스트리 등록 (교사·학교명은 기존 활성이 있으면 유지)
       final prevActive = ref.read(activeTimetableEntryProvider);
       final entry = await ref
           .read(timetableRegistryProvider.notifier)
           .registerTimetable(
-            name:
-                registration.name.isNotEmpty ? registration.name : defaultName,
+            name: timetableName,
             fileName: fileName,
             filePath: '',
             hash: hashes.hash,
@@ -432,6 +611,7 @@ class _WebAdminSettingsScreenState
       if (!mounted) return;
 
       // 6. 날짜별 생성·저장 + 활성 전환
+      await _setPublishMessage('\'$timetableName\' 수업을 만드는 중…');
       final repository = await ref.read(timetableRepositoryProvider.future);
       final lessons = SemesterTimetableGenerator.generate(
         timetableId: entry.id,
@@ -448,8 +628,19 @@ class _WebAdminSettingsScreenState
           registeredAt: entry.registeredAt,
         ),
       );
-      await repository.insertLessons(lessons);
-      await repository.insertSnapshot(lessons);
+      await _insertLessonChunks(
+        insert: repository.insertLessons,
+        lessons: lessons,
+        label: '\'$timetableName\' 수업 저장 중',
+      );
+      if (!mounted) return;
+      await _insertLessonChunks(
+        insert: repository.insertSnapshot,
+        lessons: lessons,
+        label: '\'$timetableName\' 원본 저장 중',
+      );
+      if (!mounted) return;
+      await _setPublishMessage('\'$timetableName\' 서버에 올리는 중…');
       await ref.read(timetableRegistryProvider.notifier).switchActive(entry.id);
 
       // 7. 서버 게시
@@ -458,15 +649,29 @@ class _WebAdminSettingsScreenState
         timetableId: entry.id,
       );
       if (!mounted) return;
-      SnackBarHelper.showSuccess(
-        context,
-        "공용 시간표 게시 완료 (버전 $version, '${entry.name}')",
-      );
+      final result = "게시 완료 (버전 $version)";
+      setState(() {
+        _publishFailed = false;
+        _publishResult = result;
+        _publishedName = entry.name;
+      });
+      SnackBarHelper.showSuccess(context, "$result · 현재 시간표: '${entry.name}'");
     } catch (e) {
       AppLogger.error('공용 시간표 게시 실패: $e', e);
-      if (mounted) SnackBarHelper.showError(context, '게시 실패: $e');
+      if (mounted) {
+        setState(() {
+          _publishFailed = true;
+          _publishResult = '게시 실패: $e';
+        });
+        SnackBarHelper.showError(context, '게시 실패: $e');
+      }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _publishing = false;
+          _publishMessage = null;
+        });
+      }
     }
   }
 }
