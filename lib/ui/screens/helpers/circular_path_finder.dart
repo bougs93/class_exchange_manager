@@ -1,8 +1,7 @@
-import 'package:flutter/foundation.dart';
+import '../../../services/search/search_runner.dart';
 import 'package:flutter/material.dart';
 import '../../../models/circular_exchange_path.dart';
 import '../../../models/time_slot.dart';
-import '../../../models/teacher.dart';
 import '../../../services/circular_exchange_service.dart';
 import '../../../utils/logger.dart';
 import '../../../utils/snackbar_helper.dart';
@@ -15,6 +14,8 @@ class CircularPathFinder {
   /// **현재 주의 합성 결과**를 넘겨야 같은 주의 선행 교체가 반영된다(§10.8 4d).
   static Future<CircularPathResult> findCircularPathsWithProgress({
     required CircularExchangeService circularExchangeService,
+    required ExchangeSearchRunner runner,
+    required bool Function() isCurrent,
     required TimetableData? timetableData,
     required List<TimeSlot> validationTimeSlots,
     required Function(double) updateProgress,
@@ -38,7 +39,7 @@ class CircularPathFinder {
         '경로 탐색 실행 시작 - 선택된 셀: ${circularExchangeService.selectedTeacher}, ${circularExchangeService.selectedDay}, ${circularExchangeService.selectedPeriod}',
       );
 
-      // 백그라운드에서 경로 탐색 실행 (compute 사용)
+      // 웹은 Worker, 네이티브는 compute에서 같은 탐색 엔진을 실행한다.
       // null 체크 강화
       final selectedTeacher = circularExchangeService.selectedTeacher;
       final selectedDay = circularExchangeService.selectedDay;
@@ -57,18 +58,15 @@ class CircularPathFinder {
         );
       }
 
-      Map<String, dynamic> data = {
-        'timeSlots': validationTimeSlots,
-        'teachers': timetableData!.teachers,
-        'selectedTeacher': selectedTeacher,
-        'selectedDay': selectedDay,
-        'selectedPeriod': selectedPeriod,
-      };
-
-      List<CircularExchangePath> paths = await compute(
-        _findCircularExchangePathsInBackground,
-        data,
-      );
+      final result = await runner.run({
+        'kind': 'circular',
+        'timeSlots': validationTimeSlots.map((slot) => slot.toJson()).toList(),
+        'teacher': selectedTeacher,
+        'day': selectedDay,
+        'period': selectedPeriod,
+      });
+      if (!isCurrent()) throw const SearchCancelled();
+      final paths = result.map(CircularExchangePath.fromJson).toList();
 
       AppLogger.exchangeDebug('경로 탐색 완료 - 발견된 경로 수: ${paths.length}');
 
@@ -93,7 +91,7 @@ class CircularPathFinder {
       AppLogger.exchangeDebug('순환교체 경로 ${paths.length}개 발견');
       circularExchangeService.logCircularExchangeInfo(
         paths,
-        timetableData.timeSlots,
+        timetableData!.timeSlots,
       );
 
       // 경로에 따른 사이드바 표시 설정
@@ -111,13 +109,19 @@ class CircularPathFinder {
         shouldShowSidebar: shouldShowSidebar,
         error: null,
       );
+    } on SearchCancelled {
+      return CircularPathResult(
+        paths: [],
+        shouldShowSidebar: false,
+        error: 'cancelled',
+      );
     } catch (e, stackTrace) {
       // 오류 처리
       AppLogger.exchangeDebug('순환교체 경로 탐색 중 오류 발생: $e');
       AppLogger.exchangeDebug('스택 트레이스: $stackTrace');
 
       // 사용자에게 오류 알림
-      if (context != null && context.mounted) {
+      if (isCurrent() && context != null && context.mounted) {
         SnackBarHelper.showError(context, '순환교체 경로 탐색 중 오류가 발생했습니다: $e');
       }
 
@@ -128,42 +132,6 @@ class CircularPathFinder {
       );
     }
   }
-}
-
-/// 백그라운드에서 순환교체 경로 탐색을 실행하는 함수
-/// compute 함수에서 사용하기 위해 클래스 외부에 정의
-List<CircularExchangePath> _findCircularExchangePathsInBackground(
-  Map<String, dynamic> data,
-) {
-  // 백그라운드에서 새로운 CircularExchangeService 인스턴스 생성
-  CircularExchangeService service = CircularExchangeService();
-
-  // 선택된 셀 정보 검증
-  final selectedTeacher = data['selectedTeacher'];
-  final selectedDay = data['selectedDay'];
-  final selectedPeriod = data['selectedPeriod'];
-
-  if (selectedTeacher == null ||
-      selectedDay == null ||
-      selectedPeriod == null) {
-    AppLogger.exchangeDebug(
-      '순환교체: 백그라운드 탐색 - 셀 정보 누락 (teacher=$selectedTeacher, day=$selectedDay, period=$selectedPeriod)',
-    );
-    return [];
-  }
-
-  // 선택된 셀 정보 설정
-  service.selectCell(
-    selectedTeacher as String,
-    selectedDay as String,
-    selectedPeriod as int,
-  );
-
-  // 경로 탐색 실행
-  return service.findCircularExchangePaths(
-    data['timeSlots'] as List<TimeSlot>,
-    data['teachers'] as List<Teacher>,
-  );
 }
 
 /// 순환교체 경로 탐색 결과

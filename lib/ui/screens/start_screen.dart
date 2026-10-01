@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'exchange_screen.dart';
 import 'personal_schedule_screen.dart';
@@ -144,7 +145,7 @@ class _StartScreenState extends ConsumerState<StartScreen> {
           );
           if (isStale()) return;
 
-          if (savedFilePath != null) {
+          if (!kIsWeb && savedFilePath != null && savedFilePath.isNotEmpty) {
             final file = File(savedFilePath);
             if (await file.exists()) {
               _stateProxy?.setSelectedFile(file);

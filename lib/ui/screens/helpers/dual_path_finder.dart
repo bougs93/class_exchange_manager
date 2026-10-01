@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import '../../../services/search/search_runner.dart';
 import '../../../models/dual_exchange_path.dart';
 import '../../../models/time_slot.dart';
 import '../../../models/teacher.dart';
@@ -11,6 +11,8 @@ class DualPathFinder {
   /// 진행률과 함께 2중교체 경로 탐색
   static Future<DualPathResult> findDualPathsWithProgress({
     required DualExchangeService dualExchangeService,
+    required ExchangeSearchRunner runner,
+    required bool Function() isCurrent,
     required List<TimeSlot> timeSlots,
     required List<Teacher> teachers,
   }) async {
@@ -28,15 +30,15 @@ class DualPathFinder {
     AppLogger.exchangeInfo('2중교체: 경로 탐색 시작');
 
     try {
-      // 백그라운드에서 2중교체 경로 탐색
-      List<DualExchangePath> paths = await compute(_findDualPathsInBackground, {
-        'timeSlots': timeSlots,
-        'teachers': teachers,
+      final result = await runner.run({
+        'kind': 'dual',
+        'timeSlots': timeSlots.map((slot) => slot.toJson()).toList(),
         'teacher': dualExchangeService.selectedTeacher!,
         'day': dualExchangeService.selectedDay!,
         'period': dualExchangeService.selectedPeriod!,
-        'className': dualExchangeService.selectedClass ?? '',
       });
+      if (!isCurrent()) throw const SearchCancelled();
+      final paths = result.map(DualExchangePath.fromJson).toList();
 
       // 경로에 따른 사이드바 표시 설정
       bool shouldShowSidebar;
@@ -63,6 +65,14 @@ class DualPathFinder {
         message: message,
         error: null,
       );
+    } on SearchCancelled {
+      return DualPathResult(
+        paths: [],
+        filteredPaths: [],
+        shouldShowSidebar: false,
+        message: null,
+        error: 'cancelled',
+      );
     } catch (e) {
       AppLogger.error('2중교체 경로 탐색 오류: $e');
       return DualPathResult(
@@ -74,25 +84,6 @@ class DualPathFinder {
       );
     }
   }
-}
-
-/// 백그라운드에서 실행할 함수
-List<DualExchangePath> _findDualPathsInBackground(Map<String, dynamic> data) {
-  List<TimeSlot> timeSlots = data['timeSlots'];
-  List<Teacher> teachers = data['teachers'];
-  String teacher = data['teacher'];
-  String day = data['day'];
-  int period = data['period'];
-
-  DualExchangeService service = DualExchangeService();
-
-  // startDualExchange를 직접 호출하지 않고,
-  // timeSlots를 전달하여 내부에서 className을 찾도록 함
-  // 임시 DataGridCellTapDetails를 생성할 수 없으므로
-  // findDualExchangePaths에서 timeSlots를 통해 className을 찾음
-  service.selectCell(teacher, day, period);
-
-  return service.findDualExchangePaths(timeSlots, teachers);
 }
 
 /// 2중교체 경로 탐색 결과

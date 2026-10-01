@@ -1,3 +1,4 @@
+import '../../services/search/search_runner.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
@@ -68,6 +69,14 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
         PathSelectionHandlerMixin, // 경로 선택 핸들러
         FilterSearchHandler, // 필터 및 검색
         SidebarBuilder {
+  final ExchangeSearchRunner _searchRunner = ExchangeSearchRunner();
+  int _searchGeneration = 0;
+
+  void _cancelSearch() {
+    _searchGeneration++;
+    _searchRunner.cancel();
+  }
+
   // 사이드바 빌더
   // 로컬 UI 상태 - Provider를 통해 관리
   // TimetableDataSource? _dataSource;
@@ -114,8 +123,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   /// 선행 교체가 반영되고(이미 교체된 칸을 다시 제시하지 않음), 다른 주의
   /// 교체에는 영향받지 않는다.
   @override
-  List<TimeSlot> get validationTimeSlots =>
-      ref.read(resolvedTimetableProvider);
+  List<TimeSlot> get validationTimeSlots => ref.read(resolvedTimetableProvider);
 
   @override
   TimetableDataSource? get dataSource => _dataSource;
@@ -175,6 +183,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     }
 
     final screenState = ref.read(exchangeScreenProvider);
+
     if (screenState.timetableData == null) {
       AppLogger.exchangeDebug('⏭️ [교사 스크롤] 시간표 미로드 — 스크롤 건너뜀');
       return;
@@ -208,6 +217,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
   /// 교체 모드 변경 (TabBar에서 호출)
   void _changeMode(ExchangeMode newMode) {
+    _cancelSearch();
+    ref.read(exchangeScreenProvider.notifier).setPathsLoading(false);
     if (newMode == ExchangeMode.dualExchange &&
         !ref.read(dualExchangeEnabledProvider)) {
       return;
@@ -671,6 +682,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
   @override
   void dispose() {
+    _searchGeneration++;
+    _searchRunner.dispose();
     // 컨트롤러 정리
     _searchController.dispose();
 
@@ -687,7 +700,48 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   @override
   Widget build(BuildContext context) {
     // Provider에서 상태 읽기
-    final screenState = ref.watch(exchangeScreenProvider);
+    ref.watch(
+      exchangeScreenProvider.select(
+        (s) => (
+          s.timetableData,
+          s.dataSource,
+          s.columns,
+          s.stackedHeaders,
+          s.currentMode,
+          s.errorMessage,
+          s.fileLoadId,
+          s.selectedCircularPath,
+          s.selectedDualPath,
+          s.selectedOneToOnePath,
+          s.selectedSupplementPath,
+        ),
+      ),
+    );
+    final screenState = ref.read(exchangeScreenProvider);
+
+    ref.listen(resolvedTimetableProvider, (previous, next) {
+      if (identical(previous, next)) return;
+      _cancelSearch();
+      if (ref.read(exchangeScreenProvider).isPathsLoading) {
+        ref.read(exchangeScreenProvider.notifier).setPathsLoading(false);
+      }
+    });
+    ref.listen(
+      cellSelectionProvider.select(
+        (s) => (
+          s.selectedTeacher,
+          s.selectedDay,
+          s.selectedPeriod,
+          s.currentMode,
+        ),
+      ),
+      (previous, next) {
+        _cancelSearch();
+        if (ref.read(exchangeScreenProvider).isPathsLoading) {
+          ref.read(exchangeScreenProvider.notifier).setPathsLoading(false);
+        }
+      },
+    );
 
     // 데이터소스는 전역 Provider에 담겨 이 화면보다 오래 산다. 웹 로그인
     // 게이트가 로그아웃/재로그인으로 화면 트리를 새로 만들면 이전 화면의
@@ -700,7 +754,10 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     ref.listen<String>(activeTeacherNameProvider, (previous, next) {
       if (previous == next) return;
       AppLogger.info('시간표 교사 변경 감지: 하이라이트 갱신 ($previous → $next)');
-      ref.read(exchangeScreenProvider).dataSource?.refreshHighlightedTeacherName();
+      ref
+          .read(exchangeScreenProvider)
+          .dataSource
+          ?.refreshHighlightedTeacherName();
 
       // 교사가 바뀌면 그 교사 행이 보이도록 한 번 스크롤한다.
       // (앱 진입 시 스크롤과 별개 — 세션 중 언제 교사를 바꿔도 매번 동작해야 함)
@@ -772,6 +829,7 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
     // 교체불가 편집 모드 상태가 변경될 때마다 TimetableDataSource에 전달
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       screenState.dataSource?.setNonExchangeableEditMode(
         screenState.currentMode == ExchangeMode.nonExchangeableEdit,
       );
@@ -786,19 +844,6 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
         _lastProcessedFileLoadId = screenState.fileLoadId;
       }
     });
-
-    // 로컬 변수로 캐싱 (build 메서드 내에서 사용)
-    final isSidebarVisible = screenState.isSidebarVisible;
-    final isExchangeModeEnabled =
-        screenState.currentMode == ExchangeMode.oneToOneExchange;
-    final isCircularExchangeModeEnabled =
-        screenState.currentMode == ExchangeMode.circularExchange;
-    final isDualExchangeModeEnabled =
-        screenState.currentMode == ExchangeMode.dualExchange;
-
-    // 통합된 경로 접근
-    final availablePaths = screenState.availablePaths;
-    final isPathsLoading = screenState.isPathsLoading;
 
     return Scaffold(
       // ExchangeAppBar 제거 - StartScreen의 공통 AppBar 사용
@@ -822,33 +867,44 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
               onClearError: _clearError,
               onHeaderThemeUpdate: _updateHeaderTheme, // 헤더 테마 업데이트 콜백 전달
               onShowWeekHeaderChanged:
-                  () => _updateHeaderTheme(forceUpdate: true), // 날짜표시 스위치 변경 시 헤더 강제 재생성 (S1.5)
+                  () => _updateHeaderTheme(
+                    forceUpdate: true,
+                  ), // 날짜표시 스위치 변경 시 헤더 강제 재생성 (S1.5)
             ),
           ),
 
-          // 통합 교체 사이드바
-          if (isSidebarVisible &&
-              ((isExchangeModeEnabled &&
-                      (ExchangePathUtils.hasPathsOfType<OneToOneExchangePath>(
-                            availablePaths,
-                          ) ||
-                          isPathsLoading)) ||
-                  (isCircularExchangeModeEnabled &&
-                      (ExchangePathUtils.hasPathsOfType<CircularExchangePath>(
-                            availablePaths,
-                          ) ||
-                          isPathsLoading)) ||
-                  (isDualExchangeModeEnabled &&
-                      (ExchangePathUtils.hasPathsOfType<DualExchangePath>(
-                            availablePaths,
-                          ) ||
-                          isPathsLoading)) ||
-                  (_isSupplementExchangeModeEnabled &&
-                      ref
-                          .read(cellSelectionProvider.notifier)
-                          .hasSelectedCell) // 보강 모드에서는 셀 선택 시에만 사이드바 표시
-                  ))
-            buildUnifiedExchangeSidebar(),
+          // Progress, search text and result filters only rebuild the sidebar.
+          Consumer(
+            builder: (context, sidebarRef, child) {
+              final state = sidebarRef.watch(exchangeScreenProvider);
+              final selected = sidebarRef.watch(
+                cellSelectionProvider.select(
+                  (s) => (s.selectedTeacher, s.selectedDay, s.selectedPeriod),
+                ),
+              );
+              final hasPaths = switch (state.currentMode) {
+                ExchangeMode.oneToOneExchange => state.availablePaths.any(
+                  (p) => p is OneToOneExchangePath,
+                ),
+                ExchangeMode.circularExchange => state.availablePaths.any(
+                  (p) => p is CircularExchangePath,
+                ),
+                ExchangeMode.dualExchange => state.availablePaths.any(
+                  (p) => p is DualExchangePath,
+                ),
+                ExchangeMode.supplementExchange =>
+                  selected.$1 != null &&
+                      selected.$2 != null &&
+                      selected.$3 != null,
+                _ => false,
+              };
+              if (!state.isSidebarVisible ||
+                  !(hasPaths || state.isPathsLoading)) {
+                return const SizedBox.shrink();
+              }
+              return buildUnifiedExchangeSidebar();
+            },
+          ),
         ],
       ),
     );
@@ -860,6 +916,8 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
   /// 셀 탭 이벤트 핸들러 - 교체 모드가 활성화된 경우만 동작
   void _onCellTap(DataGridCellTapDetails details) {
+    _cancelSearch();
+    ref.read(exchangeScreenProvider.notifier).setPathsLoading(false);
     // 교사명 열 클릭 처리 (교체불가 편집 모드에서만 동작)
     if (details.column.columnName == 'teacher' &&
         ref.read(exchangeScreenProvider).currentMode ==
@@ -1079,6 +1137,13 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
   @override
   Future<void> findCircularPathsWithProgress() async {
+    final slots = validationTimeSlots;
+    final generation = ++_searchGeneration;
+    bool isCurrent() =>
+        mounted &&
+        generation == _searchGeneration &&
+        identical(slots, validationTimeSlots);
+
     // 로딩 상태 시작
     final notifier = ref.read(exchangeScreenProvider.notifier);
     notifier.setPathsLoading(true);
@@ -1088,14 +1153,17 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     // 헬퍼를 사용하여 경로 탐색
     final result = await CircularPathFinder.findCircularPathsWithProgress(
       circularExchangeService: circularExchangeService,
+      runner: _searchRunner,
+      isCurrent: isCurrent,
       timetableData: _timetableData,
-      validationTimeSlots: validationTimeSlots,
+      validationTimeSlots: slots,
       updateProgress: _updateProgressSmoothly,
       updateAvailableSteps: updateAvailableSteps,
       resetFilters: resetFilters,
       dataSource: _dataSource,
       context: mounted ? context : null,
     );
+    if (!isCurrent()) return;
 
     // 결과 적용
     List<ExchangePath> newPaths = ExchangePathUtils.replacePaths(
@@ -1210,6 +1278,13 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
   @override
   Future<void> findDualPathsWithProgress() async {
+    final slots = validationTimeSlots;
+    final generation = ++_searchGeneration;
+    bool isCurrent() =>
+        mounted &&
+        generation == _searchGeneration &&
+        identical(slots, validationTimeSlots);
+
     if (_timetableData == null || !dualExchangeService.hasSelectedCell()) {
       AppLogger.warning('2중교체: 시간표 데이터 없음 또는 셀 미선택');
       return;
@@ -1232,10 +1307,13 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     // 헬퍼를 사용하여 경로 탐색
     final result = await DualPathFinder.findDualPathsWithProgress(
       dualExchangeService: dualExchangeService,
+      runner: _searchRunner,
+      isCurrent: isCurrent,
       // 판정은 현재 주의 합성 결과 기준(§10.8 4d)
-      timeSlots: validationTimeSlots,
+      timeSlots: slots,
       teachers: _timetableData!.teachers,
     );
+    if (!isCurrent()) return;
 
     // 결과 적용
     List<ExchangePath> newPaths = ExchangePathUtils.replacePaths(
@@ -1250,6 +1328,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
 
     if (result.message != null) {
       showSnackBar(result.message!);
+    }
+    if (result.error != null) {
+      notifier.setErrorMessage('교체 경로 탐색에 실패했습니다: ${result.error}');
     }
   }
 
@@ -1382,9 +1463,9 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   void _updateProgressSmoothly(double targetProgress) {
     // 의미 없는 미세 변화로 전체 화면을 다시 빌드하지 않는다.
     if ((_loadingProgress - targetProgress).abs() < 0.01) return;
-    ref.read(exchangeScreenProvider.notifier).setLoadingProgress(
-      targetProgress,
-    );
+    ref
+        .read(exchangeScreenProvider.notifier)
+        .setLoadingProgress(targetProgress);
   }
 
   /// 교사 정보에서 과목명 추출

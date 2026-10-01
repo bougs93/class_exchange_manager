@@ -131,6 +131,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
 
   // 그리드 영역의 마지막 레이아웃 크기 (창 최대화/리사이즈 감지용)
   Size? _lastGridSize;
+  Widget? _cachedDataGrid;
 
   // ExchangeExecutor (필요 시 생성)
   late final ExchangeExecutor _exchangeExecutor;
@@ -191,6 +192,12 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
   @override
   void didUpdateWidget(TimetableGridSection oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!identical(widget.dataSource, oldWidget.dataSource) ||
+        !identical(widget.timetableData, oldWidget.timetableData) ||
+        !identical(widget.columns, oldWidget.columns) ||
+        !identical(widget.stackedHeaders, oldWidget.stackedHeaders)) {
+      _cachedDataGrid = null;
+    }
 
     // 🔥 스크롤 문제 해결: 과거 커밋의 단순한 구조를 참고하여 불필요한 재빌드 방지
     // ValueKey는 fileLoadId를 사용하므로 파일 로드 시에만 변경됨
@@ -572,7 +579,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
         return Consumer(
           // child는 경로가 바뀌어도 다시 만들지 않는다.
           // 그리드 위젯(GlobalKey)의 부모를 유지하기 위해서다.
-          child: _buildDataGrid(),
+          child: _cachedDataGrid ??= _buildDataGrid(),
           builder: (context, ref, child) {
             final cellState = ref.watch(cellSelectionProvider);
             final currentSelectedPath =

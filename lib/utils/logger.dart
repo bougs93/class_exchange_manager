@@ -1,5 +1,4 @@
 import 'dart:developer' as developer;
-import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
 
 /// 애플리케이션 전용 로깅 유틸리티 클래스
@@ -8,6 +7,9 @@ import 'package:logger/logger.dart';
 /// 디버그 모드에서만 상세한 로그가 출력되며, 릴리즈 모드에서는
 /// 중요한 에러 로그만 출력됩니다.
 class AppLogger {
+  static const bool kDebugMode =
+      !bool.fromEnvironment('dart.vm.product') &&
+      !bool.fromEnvironment('dart.vm.profile');
   static final Logger _logger = Logger(
     printer: SimplePrinter(), // 간단한 출력을 위한 SimplePrinter 사용
   );

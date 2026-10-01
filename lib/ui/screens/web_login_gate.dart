@@ -1,11 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:async';
 
 import '../../config/firebase_app_config.dart';
 import '../../constants/app_info.dart';
 import '../../providers/timetable_repository_provider.dart';
+import '../../providers/timetable_registry_provider.dart';
 import '../../services/shared_timetable_sync_service.dart';
 import '../../services/web_auth_service.dart';
 import '../../utils/logger.dart';
@@ -56,6 +57,8 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
   bool _showAdmin = false;
   bool _showMasterForm = false;
   String? _loginMessage;
+  String? _syncError;
+  bool _pendingAdmin = false;
 
   @override
   void initState() {
@@ -87,13 +90,11 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
     final session = await WebAuthService.loadSession();
     if (!mounted) return;
     if (session.admin) {
-      ref.read(webLoginStatusProvider.notifier).state = WebLoginStatus.adminOk;
-      unawaited(_syncSharedTimetable());
+      await _enterSession(admin: true);
       return;
     }
     if (session.viewer) {
-      ref.read(webLoginStatusProvider.notifier).state = WebLoginStatus.viewerOk;
-      unawaited(_syncSharedTimetable());
+      await _enterSession(admin: false);
       return;
     }
 
@@ -125,9 +126,7 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
       if (!mounted) return;
       if (ok) {
         await WebAuthService.saveSession(viewer: true);
-        ref.read(webLoginStatusProvider.notifier).state =
-            WebLoginStatus.viewerOk;
-        unawaited(_syncSharedTimetable());
+        await _enterSession(admin: false);
       } else {
         SnackBarHelper.showError(context, '비밀번호가 맞지 않습니다.');
       }
@@ -145,9 +144,7 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
       if (!mounted) return;
       if (ok) {
         await WebAuthService.saveSession(viewer: true, admin: true);
-        ref.read(webLoginStatusProvider.notifier).state =
-            WebLoginStatus.adminOk;
-        unawaited(_syncSharedTimetable());
+        await _enterSession(admin: true);
       } else {
         SnackBarHelper.showError(context, '관리자 비밀번호가 맞지 않습니다.');
       }
@@ -156,43 +153,100 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
     }
   }
 
-  void _submitMaster() {
+  Future<void> _submitMaster() async {
     final ok = WebAuthService.verifyMaster(
       _masterIdController.text.trim(),
       _masterPasswordController.text,
     );
     if (!mounted) return;
     if (ok) {
-      WebAuthService.saveSession(viewer: true, admin: true);
-      ref.read(webLoginStatusProvider.notifier).state = WebLoginStatus.adminOk;
-      unawaited(_syncSharedTimetable());
+      await WebAuthService.saveSession(viewer: true, admin: true);
+      await _enterSession(admin: true);
+      if (!mounted) return;
       SnackBarHelper.showInfo(context, '마스터 계정으로 진입했습니다. 관리자 비밀번호를 새로 설정하세요.');
     } else {
       SnackBarHelper.showError(context, '마스터 ID 또는 비밀번호가 맞지 않습니다.');
     }
   }
 
-  /// 통과 후 공용 시간표를 백그라운드로 동기화한다.
-  ///
-  /// 로그인을 막지 않도록 기다리지 않으며(`unawaited`), 실패해도 조용히
-  /// 로그만 남긴다 — 다음 접속 때 버전 비교로 다시 시도된다.
-  Future<void> _syncSharedTimetable() async {
+  /// 새 브라우저에서는 공용 시간표 등록을 마친 뒤 메인 화면을 연다.
+  Future<void> _enterSession({required bool admin}) async {
+    if (!mounted) return;
+    setState(() {
+      _pendingAdmin = admin;
+      _syncError = null;
+    });
+    ref.read(webLoginStatusProvider.notifier).state = WebLoginStatus.checking;
+    var stage = '브라우저 저장소 초기화';
     try {
+      // FutureProvider는 실패한 결과도 보관하므로 재시도 전에 초기화한다.
+      if (ref.read(timetableDatabaseProvider).hasError) {
+        ref.invalidate(timetableDatabaseProvider);
+      }
+      if (ref.read(timetableRepositoryProvider).hasError) {
+        ref.invalidate(timetableRepositoryProvider);
+      }
       final repo = await ref.read(timetableRepositoryProvider.future);
-      final result = await SharedTimetableSyncService().syncSharedTimetable(
+      await SharedTimetableSyncService().syncSharedTimetable(
         repo: repo,
+        onStage: (value) => stage = value,
       );
-      AppLogger.info(
-        '공용 시간표 동기화: ${result.status.name}, 버전 ${result.version}, ${result.count}건',
-      );
-    } catch (e) {
-      AppLogger.warning('공용 시간표 동기화 실패 (다음 접속 시 재시도): $e');
+      if (!mounted) return;
+      ref.invalidate(timetableRegistryProvider);
+      ref.read(webLoginStatusProvider.notifier).state =
+          admin ? WebLoginStatus.adminOk : WebLoginStatus.viewerOk;
+    } catch (e, st) {
+      AppLogger.error('공용 시간표 동기화 실패 ($stage)', e, st);
+      if (mounted) {
+        final code = e is FirebaseException ? '\n오류 코드: ${e.code}' : '';
+        setState(
+          () =>
+              _syncError =
+                  '공용 시간표를 불러오지 못했습니다.\n실패 단계: $stage$code\n다시 시도해 주세요.',
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final status = ref.watch(webLoginStatusProvider);
+    if (_syncError != null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(_syncError!, textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => _enterSession(admin: _pendingAdmin),
+                child: const Text('다시 시도'),
+              ),
+              if (_pendingAdmin)
+                TextButton(
+                  onPressed: () {
+                    setState(() => _syncError = null);
+                    ref.read(webLoginStatusProvider.notifier).state =
+                        WebLoginStatus.adminOk;
+                  },
+                  child: const Text('관리자로 계속'),
+                ),
+              TextButton(
+                onPressed: () async {
+                  await WebAuthService.clearSession();
+                  if (!mounted) return;
+                  setState(() => _syncError = null);
+                  ref.read(webLoginStatusProvider.notifier).state =
+                      WebLoginStatus.locked;
+                },
+                child: const Text('접속 화면으로'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     if (status == WebLoginStatus.viewerOk) {
       // 접속자: 우측 상단에 로그아웃 버튼을 띄운다.
       return Stack(
@@ -248,7 +302,14 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
             padding: const EdgeInsets.all(24),
             child:
                 status == WebLoginStatus.checking
-                    ? const Center(child: CircularProgressIndicator())
+                    ? const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('시간표를 불러오는 중…'),
+                      ],
+                    )
                     : _buildLockForm(context),
           ),
         ),

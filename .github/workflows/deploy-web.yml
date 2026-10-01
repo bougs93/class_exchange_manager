@@ -42,6 +42,9 @@ jobs:
           --dart-define=MASTER_ID=${{ secrets.MASTER_ID }}
           --dart-define=MASTER_PASSWORD_HASH=${{ secrets.MASTER_PASSWORD_HASH }}
 
+      - name: Build exchange search worker
+        run: dart compile js -O2 -Ddart.vm.product=true tool/exchange_search_worker.dart -o build/web/exchange_search_worker.js
+
       - name: Fingerprint web entrypoints
         run: node tool/fingerprint_web_build.mjs build/web
 

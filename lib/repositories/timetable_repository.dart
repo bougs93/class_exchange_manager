@@ -133,6 +133,33 @@ class TimetableRepository {
     await db.insert('timetables', timetable.toMap());
   }
 
+  /// 내려받은 공용 시간표의 날짜별 수업과 원본을 함께 교체한다.
+  Future<void> replaceImportedTimetable(
+    DatedTimetable timetable,
+    List<Lesson> lessons,
+  ) async {
+    await db.transaction((txn) async {
+      final existing = await txn.query('timetables',
+          where: 'id = ?', whereArgs: [timetable.id], limit: 1);
+      if (existing.isEmpty) {
+        await txn.insert('timetables', timetable.toMap());
+      } else {
+        await txn.update('timetables', timetable.toMap(),
+            where: 'id = ?', whereArgs: [timetable.id]);
+      }
+      for (final table in ['lessons', 'lesson_snapshots']) {
+        await txn.delete(table, where: 'timetable_id = ?', whereArgs: [timetable.id]);
+      }
+      final batch = txn.batch();
+      for (final lesson in lessons) {
+        batch.insert('lessons', lesson.toMap());
+        batch.insert('lesson_snapshots', lesson.toMap());
+      }
+      await batch.commit(noResult: true);
+    });
+    _templateCacheByTimetable.remove(timetable.id);
+  }
+
   Future<DatedTimetable?> getTimetable(String id) async {
     final rows = await db.query(
       'timetables',

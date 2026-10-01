@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
@@ -67,6 +68,25 @@ class CellStateInfo {
     this.overlayDate,
   });
 
+  Object get visualSignature => (
+    isSelected,
+    isTargetCell,
+    isExchangeableTeacher,
+    isLastColumnOfDay,
+    isFirstColumnOfDay,
+    isInCircularPath,
+    circularPathStep,
+    isInSelectedPath,
+    isInDualPath,
+    pathStepNumber,
+    isNonExchangeable,
+    isExchangedSourceCell,
+    isExchangedDestinationCell,
+    isTeacherNameSelected,
+    isHighlightedTeacher,
+    overlayDate,
+  );
+
   factory CellStateInfo.empty() {
     return CellStateInfo(
       isSelected: false,
@@ -114,6 +134,8 @@ class TimetableDataSource extends DataGridSource {
   void attachRef(WidgetRef newRef) {
     if (identical(ref, newRef)) return;
     ref = newRef;
+    _rowSignatures.clear();
+    _rowAdapters.clear();
     // 이전 화면 기준으로 읽어 둔 값은 모두 버린다.
     _renderContext = null;
     _localCache.clear();
@@ -143,32 +165,90 @@ class TimetableDataSource extends DataGridSource {
   /// 체감 지연의 큰 원인이었다. 알림(notify) 한 번에 한 번만 모아 읽는다.
   _CellRenderContext? _renderContext;
 
-  // 알림 배칭 — 초기화/경로 변경 한 번에 DataGrid를 여러 번 다시 그리지 않도록 모은다.
+  // Coalesce synchronous changes from selection, path reset and header refresh.
   int _batchDepth = 0;
   bool _pendingNotify = false;
+  bool _structuralNotify = false;
+  bool _disposed = false;
+  final Map<DataGridRow, List<Object>> _rowSignatures = {};
+  final Map<DataGridRow, DataGridRowAdapter> _rowAdapters = {};
 
-  /// 여러 상태 변경을 묶어 DataGrid 재빌드를 한 번만 일으킨다.
   void runBatched(void Function() action) {
     _batchDepth++;
     try {
       action();
     } finally {
       _batchDepth--;
-      if (_batchDepth == 0 && _pendingNotify) {
-        _pendingNotify = false;
-        notifyDataSourceListeners();
-      }
+      if (_batchDepth == 0 && _pendingNotify) _scheduleNotify();
     }
   }
 
-  /// 내부 전용 알림 — 배칭 중이면 모았다가 한 번만 보낸다.
-  void _notify() {
-    _renderContext = null; // 다음 빌드에서 최신 상태로 다시 읽는다
-    if (_batchDepth > 0) {
-      _pendingNotify = true;
+  void _notify({bool structural = false}) {
+    _renderContext = null;
+    _rowAdapters.clear();
+    _structuralNotify |= structural;
+    if (_pendingNotify) return;
+    _pendingNotify = true;
+    if (_batchDepth == 0) _scheduleNotify();
+  }
+
+  void _scheduleNotify() => scheduleMicrotask(_flushNotifications);
+
+  List<Object> _signatures(DataGridRow row, _CellRenderContext ctx) {
+    final teacher = _extractTeacherName(row);
+    final highlighted = teacher.isNotEmpty && ctx.highlightedTeacher == teacher;
+    return [
+      for (final cell in row.getCells())
+        (
+          cell.value,
+          (cell.columnName == 'teacher'
+                  ? _createTeacherColumnState(ctx, teacher, highlighted)
+                  : _createDataCellState(ctx, cell, teacher, highlighted))
+              .visualSignature,
+          ctx.showStatusSymbols,
+          SimplifiedTimetableTheme.fontScaleFactor,
+          SimplifiedTimetableTheme.nonExchangeableColor,
+          SimplifiedTimetableTheme.highlightedTeacherColor,
+        ),
+    ];
+  }
+
+  void _flushNotifications() {
+    if (_disposed || !_pendingNotify || _batchDepth > 0) return;
+    _pendingNotify = false;
+    if (_structuralNotify || _rowSignatures.isEmpty) {
+      _structuralNotify = false;
+      _rowSignatures.clear();
+      notifyDataSourceListeners();
       return;
     }
-    notifyDataSourceListeners();
+    // A data source can outlive a login screen. Leave it invalidated until
+    // attachRef reconnects it; never read a disposed WidgetRef asynchronously.
+    _CellRenderContext ctx;
+    try {
+      ctx = _renderContext ??= _buildRenderContext();
+    } on StateError {
+      _rowSignatures.clear();
+      return;
+    }
+    final changed = <RowColumnIndex>[];
+    for (var rowIndex = 0; rowIndex < _dataGridRows.length; rowIndex++) {
+      final row = _dataGridRows[rowIndex];
+      final previous = _rowSignatures[row];
+      if (previous == null) {
+        continue; // Not built yet; it will read fresh state.
+      }
+      final next = _signatures(row, ctx);
+      for (var column = 0; column < next.length; column++) {
+        if (column >= previous.length || previous[column] != next[column]) {
+          changed.add(RowColumnIndex(rowIndex, column));
+        }
+      }
+      _rowSignatures[row] = next;
+    }
+    for (final cell in changed) {
+      notifyDataSourceListeners(rowColumnIndex: cell);
+    }
   }
 
   /// 공통 데이터 초기화 메서드
@@ -282,6 +362,9 @@ class TimetableDataSource extends DataGridSource {
   @override
   DataGridRowAdapter? buildRow(DataGridRow row) {
     final ctx = _renderContext ??= _buildRenderContext();
+    final cached = _rowAdapters[row];
+    if (cached != null) return cached;
+    _rowSignatures[row] = _signatures(row, ctx);
 
     // 교사명은 행마다 한 번만 추출한다.
     // (예전에는 셀마다 행 전체를 훑어 셀 수의 제곱만큼 비교가 일어났다)
@@ -290,7 +373,7 @@ class TimetableDataSource extends DataGridSource {
     final bool isHighlightedTeacher =
         teacherName.isNotEmpty && ctx.highlightedTeacher == teacherName;
 
-    return DataGridRowAdapter(
+    return _rowAdapters[row] = DataGridRowAdapter(
       cells: [
         for (final dataGridCell in cells)
           _buildCellWidget(
@@ -726,12 +809,38 @@ class TimetableDataSource extends DataGridSource {
 
   /// 데이터 업데이트
   void updateData(List<TimeSlot> timeSlots, List<Teacher> teachers) {
+    final previousRows = _dataGridRows;
     _initializeData(timeSlots, teachers);
-    _notify();
+    _localCache.clear();
+    final nextRows = _dataGridRows;
+    final sameShape =
+        previousRows.length == nextRows.length &&
+        List.generate(nextRows.length, (i) {
+          final before = previousRows[i].getCells();
+          final after = nextRows[i].getCells();
+          return before.length == after.length &&
+              before.first.value == after.first.value &&
+              List.generate(
+                after.length,
+                (j) => before[j].columnName == after[j].columnName,
+              ).every((v) => v);
+        }).every((v) => v);
+    if (sameShape) {
+      for (var i = 0; i < nextRows.length; i++) {
+        final before = previousRows[i].getCells();
+        final after = nextRows[i].getCells();
+        for (var j = 0; j < after.length; j++) {
+          if (before[j].value != after[j].value) before[j] = after[j];
+        }
+      }
+      _dataGridRows = previousRows;
+    }
+    _notify(structural: !sameShape);
   }
 
   /// 교체불가 편집 모드 설정
   void setNonExchangeableEditMode(bool isEditMode) {
+    if (isNonExchangeableEditMode == isEditMode) return;
     _nonExchangeableManager.setNonExchangeableEditMode(isEditMode);
     _clearCacheAndNotify();
   }
@@ -742,7 +851,8 @@ class TimetableDataSource extends DataGridSource {
 
   /// UI 업데이트 전용 메서드 (데이터 변경 없이 UI만 갱신)
   void refreshUI() {
-    _clearCacheAndNotify();
+    _localCache.clear();
+    _notify(structural: true);
   }
 
   /// 특정 교사의 모든 TimeSlot을 교체불가로 설정
@@ -902,6 +1012,9 @@ class TimetableDataSource extends DataGridSource {
   /// 메모리 정리 메서드 (dispose)
   @override
   void dispose() {
+    _disposed = true;
+    _rowSignatures.clear();
+    _rowAdapters.clear();
     // 캐시 정리
     _localCache.clear();
 

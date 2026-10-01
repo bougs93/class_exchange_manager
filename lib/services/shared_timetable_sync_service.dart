@@ -6,6 +6,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/lesson.dart';
+import '../models/dated_timetable.dart';
+import 'shared_timetable_installer.dart';
 import '../repositories/timetable_repository.dart';
 import '../utils/logger.dart';
 
@@ -72,12 +74,18 @@ class SharedTimetableSyncService {
   }
 
   /// 버전을 1 올리고 새 버전을 반환한다.
-  Future<int> _bumpVersion() {
+  Future<int> _bumpVersion({DatedTimetable? timetable}) {
     return _firestore.runTransaction((txn) async {
       final snap = await txn.get(_versionDoc);
       final current = (snap.data()?['version'] as int?) ?? 0;
       final next = current + 1;
-      txn.set(_versionDoc, {'version': next}, SetOptions(merge: true));
+      txn.set(_versionDoc, {
+        'version': next,
+        'timetable':
+            timetable == null
+                ? null
+                : (timetable.toMap()..remove('teacher_name')),
+      }, SetOptions(merge: true));
       return next;
     });
   }
@@ -103,7 +111,8 @@ class SharedTimetableSyncService {
     required String timetableId,
   }) async {
     final lessons = await repo.getAllLessons(timetableId);
-    final newVersion = await _bumpVersion();
+    final metadata = await repo.getTimetable(timetableId);
+    final newVersion = await _bumpVersion(timetable: metadata);
     await _uploadJson(encodeLessons(lessons), newVersion);
     AppLogger.info('공용 시간표 게시 완료: 버전 $newVersion, ${lessons.length}건');
     return newVersion;
@@ -124,15 +133,25 @@ class SharedTimetableSyncService {
   /// 로컬 캐시가 없거나 버전이 다르면 다운로드 후 로컬 DB에 반영하고,
   /// 최신이면 다운로드을 생략한다.
   Future<({SharedTimetableSyncStatus status, int version, int count})>
-  syncSharedTimetable({required TimetableRepository repo}) async {
+  syncSharedTimetable({
+    required TimetableRepository repo,
+    void Function(String stage)? onStage,
+  }) async {
+    onStage?.call('브라우저 저장 정보 읽기');
     final prefs = await SharedPreferences.getInstance();
     final localVersion = prefs.getInt(localVersionKey);
 
+    onStage?.call('서버 시간표 정보 조회');
     final remoteSnap = await _versionDoc.get();
     final remoteVersion = (remoteSnap.data()?['version'] as int?) ?? 0;
+    if (!remoteSnap.exists) {
+      return (status: SharedTimetableSyncStatus.upToDate, version: 0, count: 0);
+    }
+    final installer = SharedTimetableInstaller();
 
+    onStage?.call('저장된 시간표 확인');
     final hasCache =
-        localVersion != null && await repo.getSharedLessonCount() > 0;
+        localVersion != null && await installer.isReady(remoteVersion, repo);
     if (hasCache &&
         !shouldDownload(
           localVersion: localVersion,
@@ -145,12 +164,27 @@ class SharedTimetableSyncService {
       );
     }
 
+    onStage?.call('공용 시간표 다운로드');
     final data = await _storage.ref(storagePath).getData(maxDownloadBytes);
     if (data == null) {
       throw StateError('공용 시간표 다운로드 결과가 비어 있습니다.');
     }
+    onStage?.call('공용 시간표 데이터 읽기');
     final lessons = decodeLessons(utf8.decode(data));
+    final metadata = remoteSnap.data()?['timetable'];
+    final timetableMetadata =
+        metadata is Map
+            ? DatedTimetable.fromMap(Map<String, Object?>.from(metadata))
+            : null;
+    onStage?.call('브라우저에 시간표 저장');
+    await installer.install(
+      lessons: lessons,
+      version: remoteVersion,
+      repo: repo,
+      metadata: timetableMetadata,
+    );
     await repo.replaceSharedLessons(lessons);
+    onStage?.call('동기화 완료 정보 저장');
     await prefs.setInt(localVersionKey, remoteVersion);
 
     AppLogger.info('공용 시간표 동기화 완료: 버전 $remoteVersion, ${lessons.length}건');
