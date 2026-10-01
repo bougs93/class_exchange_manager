@@ -4,4 +4,4 @@
 // - 웹: `database_platform_web.dart` (`sqflite_common_ffi_web`, WASM+IndexedDB)
 export 'database_platform_stub.dart'
     if (dart.library.io) 'database_platform_io.dart'
-    if (dart.library.html) 'database_platform_web.dart';
+    if (dart.library.js_interop) 'database_platform_web.dart';

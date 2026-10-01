@@ -7,4 +7,4 @@
 // 필요 없다. 로직 변경 없이 분리만 한다.
 export 'storage_service_stub.dart'
     if (dart.library.io) 'storage_service_io.dart'
-    if (dart.library.html) 'storage_service_web.dart';
+    if (dart.library.js_interop) 'storage_service_web.dart';
