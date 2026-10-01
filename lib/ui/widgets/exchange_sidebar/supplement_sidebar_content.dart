@@ -14,6 +14,7 @@ import '../empty_state_message.dart';
 import 'sidebar_color_scheme.dart';
 import 'sidebar_constants.dart';
 import 'animated_sidebar_node.dart';
+import '../instant_tap_ink_well.dart';
 
 /// 보강 모드 사이드바 콘텐츠
 ///
@@ -143,7 +144,8 @@ class _SupplementSidebarContentState
         children: [
           // 2개 노드를 감싸는 박스 — 더블클릭 시 [보강 실행]과 동일
           // (다른 교체 경로와 동일하게 onTap + onDoubleTap 병행)
-          InkWell(
+          // InkWell에 onDoubleTap을 직접 주면 단일 탭이 300ms 늦게 실행된다.
+          InstantTapInkWell(
             onTap: () {},
             onDoubleTap: canExecute ? widget.onExecuteSupplement : null,
             borderRadius: BorderRadius.circular(6),
@@ -642,7 +644,8 @@ class _SupplementSidebarContentState
 
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
-      child: InkWell(
+      // onDoubleTap을 InkWell에 직접 주면 단일 탭이 300ms 늦어진다.
+      child: InstantTapInkWell(
         onTap: () => _onTeacherButtonTap(teacherName, day, period),
         onDoubleTap:
             isSelected && _canExecuteSupplement()

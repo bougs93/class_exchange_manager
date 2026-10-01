@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../models/exchange_path.dart';
 import '../../../models/exchange_node.dart';
@@ -38,27 +39,39 @@ mixin PathSelectionHandlerMixin<T extends StatefulWidget> on State<T> {
       '통합 경로 선택: ${path.id}, 타입: ${pathSelectionManager.getPathTypeName(path)}',
     );
 
-    // 선택된 경로의 한 줄 요약 정보 출력
-    String pathSummary = _generatePathSummary(path);
-    AppLogger.exchangeDebug('📋 [선택된 경로 요약] $pathSummary');
-
-    // 경로 유형별 적절한 핸들러 호출
-    switch (path.type) {
-      case ExchangePathType.circular:
-        handleCircularPathChanged(path as CircularExchangePath);
-        break;
-      case ExchangePathType.dual:
-        handleDualPathChanged(path as DualExchangePath);
-        break;
-      case ExchangePathType.oneToOne:
-        handleOneToOnePathChanged(path as OneToOneExchangePath);
-        break;
-      case ExchangePathType.supplement:
-        handleSupplementPathChanged(path as SupplementExchangePath);
-        break;
+    // 경로 요약은 디버그 로그 전용이다. 문자열을 먼저 만들면 릴리스에서도
+    // 조립 비용만 치르고 버려지므로 디버그 모드에서만 만든다.
+    if (kDebugMode) {
+      AppLogger.exchangeDebug('📋 [선택된 경로 요약] ${_generatePathSummary(path)}');
     }
 
-    pathSelectionManager.selectPath(path);
+    // 경로 선택 한 번에 "경로 설정 → 타겟 셀 설정 → 헤더 갱신"이 이어지는데,
+    // 각 단계가 DataGrid 전체를 다시 그리게 한다. 하나로 묶어 한 번만 그린다.
+    void applySelection() {
+      switch (path.type) {
+        case ExchangePathType.circular:
+          handleCircularPathChanged(path as CircularExchangePath);
+          break;
+        case ExchangePathType.dual:
+          handleDualPathChanged(path as DualExchangePath);
+          break;
+        case ExchangePathType.oneToOne:
+          handleOneToOnePathChanged(path as OneToOneExchangePath);
+          break;
+        case ExchangePathType.supplement:
+          handleSupplementPathChanged(path as SupplementExchangePath);
+          break;
+      }
+
+      pathSelectionManager.selectPath(path);
+    }
+
+    final source = dataSource;
+    if (source != null) {
+      source.runBatched(applySelection);
+    } else {
+      applySelection();
+    }
   }
 
   /// 경로 모델에 저장된 모든 정보를 한 줄로 출력 (내부 동작 확인용)

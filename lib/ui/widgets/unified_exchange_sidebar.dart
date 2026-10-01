@@ -18,6 +18,7 @@ import '../../theme/design_tokens.dart';
 import 'timetable_grid/exchange_executor.dart';
 import 'timetable_grid/grid_header_widgets.dart';
 import 'exchange_sidebar/sidebar_constants.dart';
+import 'instant_tap_ink_well.dart';
 import 'exchange_sidebar/sidebar_color_scheme.dart';
 import 'exchange_sidebar/animated_sidebar_node.dart';
 import 'exchange_sidebar/supplement_sidebar_content.dart';
@@ -495,7 +496,9 @@ class _UnifiedExchangeSidebarState
             ),
         ],
       ),
-      child: InkWell(
+      // InkWell에 onDoubleTap을 함께 주면 단일 탭이 300ms 늦게 실행된다
+      // (경로 선택 하이라이트·시간표 반영 지연의 원인) — InstantTapInkWell 참고.
+      child: InstantTapInkWell(
         onTap: () => _onPathTap(path, index),
         onDoubleTap: () => _onPathDoubleTap(path, index),
         borderRadius: BorderRadius.circular(6),
