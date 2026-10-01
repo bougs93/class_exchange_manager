@@ -103,6 +103,9 @@ class TimetableDataSource extends DataGridSource {
   List<Teacher> _teachers = [];
   List<DataGridRow> _dataGridRows = [];
 
+  /// 정렬된 요일 중 첫 요일(보통 '월') — 요일 구분선 생략 판단용
+  String? _firstDayName;
+
   // 교체 옵션 정보
   List<ExchangeOption> _exchangeOptions = [];
 
@@ -170,6 +173,7 @@ class TimetableDataSource extends DataGridSource {
 
     // 요일 목록 추출 및 정렬
     List<String> days = groupedData.keys.toList()..sort(DayUtils.compareDays);
+    _firstDayName = days.isEmpty ? null : days.first;
 
     _dataGridRows = _createRows(groupedData, days);
   }
@@ -623,9 +627,13 @@ class TimetableDataSource extends DataGridSource {
     return isLastPeriod && !isLastDay;
   }
 
-  /// 요일별 첫 번째 교시 확인
+  /// 요일별 첫 번째 교시 확인 (굵은 요일 구분선을 그릴지 여부)
+  ///
+  /// 첫 요일(보통 월)은 제외한다. 요일 구분선은 요일과 요일 "사이"를 나누는
+  /// 선인데, 첫 요일 왼쪽은 이미 교사명 고정열 경계라 선이 겹쳐 보였다
+  /// (2026-10-01 요청으로 제거 — 헤더의 `FixedHeaderStyleManager`와 같은 기준).
   bool _isFirstColumnOfDay(String day, int period) {
-    return period == 1; // 모든 요일의 첫 번째 교시
+    return period == 1 && day != _firstDayName;
   }
 
   /// 선택 상태 업데이트 (재렌더링 방지)

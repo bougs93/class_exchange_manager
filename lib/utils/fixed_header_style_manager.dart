@@ -80,7 +80,15 @@ class FixedHeaderStyleManager {
   ///
   /// [date]가 주어지면 `목 (8/27)`처럼 날짜를 함께 표시한다(§10.5) —
   /// 지금 보고 있는 것이 며칠인지 그리드 위에 항상 드러내기 위함이다.
-  static Widget buildDayHeaderCell(String dayName, {DateTime? date}) {
+  ///
+  /// [isFirstDay]면 왼쪽 굵은 구분선을 그리지 않는다. 요일 구분선은 요일과
+  /// 요일 "사이"를 나누기 위한 것인데, 첫 요일 왼쪽은 이미 교사명 고정열
+  /// 경계라 선이 겹쳐 보였다(2026-10-01 요청으로 제거).
+  static Widget buildDayHeaderCell(
+    String dayName, {
+    DateTime? date,
+    bool isFirstDay = false,
+  }) {
     final label =
         date == null ? dayName : '$dayName (${date.month}/${date.day})';
     return Container(
@@ -89,7 +97,7 @@ class FixedHeaderStyleManager {
       decoration: BoxDecoration(
         color: dayHeaderBackgroundColor,
         border: Border(
-          left: dayDividerBorder,
+          left: isFirstDay ? BorderSide.none : dayDividerBorder,
           right: normalBorder,
           bottom: normalBorder,
         ),
@@ -217,7 +225,8 @@ class FixedHeaderStyleManager {
     );
 
     // 요일별 헤더 셀
-    for (String day in days) {
+    for (int dayIndex = 0; dayIndex < days.length; dayIndex++) {
+      final String day = days[dayIndex];
       List<int> dayPeriods = (groupedData[day]?.keys.toList() ?? [])..sort();
       List<String> dayColumnNames =
           dayPeriods.map((period) => '${day}_$period').toList();
@@ -229,6 +238,7 @@ class FixedHeaderStyleManager {
             date: weekMonday?.add(
               Duration(days: DayUtils.getDayNumber(day) - 1),
             ),
+            isFirstDay: dayIndex == 0,
           ),
           columnNames: dayColumnNames,
         ),
@@ -278,12 +288,15 @@ class FixedHeaderStyleManager {
     );
 
     // 요일별 교시 열
-    for (String day in days) {
+    for (int dayIndex = 0; dayIndex < days.length; dayIndex++) {
+      final String day = days[dayIndex];
       List<int> dayPeriods = (groupedData[day]?.keys.toList() ?? [])..sort();
 
       for (int i = 0; i < dayPeriods.length; i++) {
         int period = dayPeriods[i];
-        bool isFirstPeriod = i == 0;
+        // 첫 요일 왼쪽은 교사명 고정열 경계라 굵은 요일 구분선을 그리지 않는다
+        // (buildDayHeaderCell의 isFirstDay와 같은 기준 — 선이 중간에 끊기지 않도록).
+        bool isFirstPeriod = i == 0 && dayIndex > 0;
         bool isLastPeriod = i == dayPeriods.length - 1;
 
         // 선택 상태 및 교체 가능 여부 확인
