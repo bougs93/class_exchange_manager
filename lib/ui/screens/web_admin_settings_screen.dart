@@ -25,7 +25,7 @@ class WebAdminSettingsScreen extends ConsumerStatefulWidget {
   const WebAdminSettingsScreen({super.key});
 
   @override
-  ConsumerState< WebAdminSettingsScreen> createState() =>
+  ConsumerState<WebAdminSettingsScreen> createState() =>
       _WebAdminSettingsScreenState();
 }
 
@@ -95,12 +95,12 @@ class _WebAdminSettingsScreenState
     }
   }
 
-  Future<void> _saveLoginMessage() async {    final message = _loginMessageController.text.trim();
+  Future<void> _saveLoginMessage() async {
+    final message = _loginMessageController.text.trim();
     final error = await _runGuarded(() async {
-      await FirebaseFirestore.instance
-          .collection('config')
-          .doc('public')
-          .set({'loginMessage': message}, SetOptions(merge: true));
+      await FirebaseFirestore.instance.collection('config').doc('public').set({
+        'loginMessage': message,
+      }, SetOptions(merge: true));
     });
     if (!mounted) return;
     if (error == null) {

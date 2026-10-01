@@ -9,6 +9,7 @@ import '../../services/shared_timetable_sync_service.dart';
 import '../../services/web_auth_service.dart';
 import '../../utils/logger.dart';
 import '../../utils/snackbar_helper.dart';
+import 'web_admin_settings_screen.dart';
 
 /// 웹 접속 비밀번호 화면 상태.
 enum WebLoginStatus {
@@ -26,8 +27,9 @@ enum WebLoginStatus {
 }
 
 /// 웹 접속 비밀번호 화면 상태 Provider (웹 전용).
-final webLoginStatusProvider =
-    StateProvider<WebLoginStatus>((ref) => WebLoginStatus.checking);
+final webLoginStatusProvider = StateProvider<WebLoginStatus>(
+  (ref) => WebLoginStatus.checking,
+);
 
 /// 웹 전용 접속 게이트 (웹 전환 2단계, 계획서 4.3·4.5절).
 ///
@@ -73,8 +75,7 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
     if (!FirebaseAppConfig.isConfigured) {
       // 설정 미주입 빌드 — 안내만 보여주고 진행 불가.
       if (mounted) {
-        ref.read(webLoginStatusProvider.notifier).state =
-            WebLoginStatus.locked;
+        ref.read(webLoginStatusProvider.notifier).state = WebLoginStatus.locked;
       }
       return;
     }
@@ -90,8 +91,7 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
       return;
     }
     if (session.viewer) {
-      ref.read(webLoginStatusProvider.notifier).state =
-          WebLoginStatus.viewerOk;
+      ref.read(webLoginStatusProvider.notifier).state = WebLoginStatus.viewerOk;
       unawaited(_syncSharedTimetable());
       return;
     }
@@ -105,8 +105,7 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
               .get();
       final data = doc.data();
       // 콘솔에서 필드명 대소문자를 틀리는 실수에 대비해 둘 다 읽는다.
-      message =
-          (data?['loginMessage'] ?? data?['LoginMessage']) as String?;
+      message = (data?['loginMessage'] ?? data?['LoginMessage']) as String?;
     } catch (_) {
       message = null;
     }
@@ -192,9 +191,32 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
   @override
   Widget build(BuildContext context) {
     final status = ref.watch(webLoginStatusProvider);
-    if (status == WebLoginStatus.viewerOk ||
-        status == WebLoginStatus.adminOk) {
+    if (status == WebLoginStatus.viewerOk) {
       return widget.child;
+    }
+    // 관리자 통과 시: 앱 위에 접속 설정 진입 버튼을 띄운다.
+    if (status == WebLoginStatus.adminOk) {
+      return Stack(
+        children: [
+          widget.child,
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 8,
+            right: 8,
+            child: FloatingActionButton.small(
+              heroTag: 'webAdminSettings',
+              tooltip: '접속 설정 (관리자)',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const WebAdminSettingsScreen(),
+                  ),
+                );
+              },
+              child: const Icon(Icons.admin_panel_settings_outlined),
+            ),
+          ),
+        ],
+      );
     }
 
     return Scaffold(
@@ -203,9 +225,10 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
           constraints: const BoxConstraints(maxWidth: 420),
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: status == WebLoginStatus.checking
-                ? const Center(child: CircularProgressIndicator())
-                : _buildLockForm(context),
+            child:
+                status == WebLoginStatus.checking
+                    ? const Center(child: CircularProgressIndicator())
+                    : _buildLockForm(context),
           ),
         ),
       ),
@@ -239,8 +262,7 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
         ),
         const SizedBox(height: 12),
         ElevatedButton(
-          onPressed:
-              _busy ? null : (_showAdmin ? _submitAdmin : _submitViewer),
+          onPressed: _busy ? null : (_showAdmin ? _submitAdmin : _submitViewer),
           child:
               _busy
                   ? const SizedBox(
