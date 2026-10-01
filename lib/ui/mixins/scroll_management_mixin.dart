@@ -130,6 +130,9 @@ mixin ScrollManagementMixin<T extends ConsumerStatefulWidget>
           _setGlobalScrolling(true);
         }
       },
+      // 포인터가 움직일 때마다 불리는 자리다. 여기에 로그를 넣으면
+      // 디버그 빌드에서 이동 한 번에 콘솔 출력이 두 번씩 일어나 스크롤이
+      // 끊긴다(웹 console 출력은 특히 비싸다). 로그를 되살리지 말 것.
       onScaleUpdate: (details) {
         if (details.pointerCount == 2 &&
             _rightClickDragStart != null &&
@@ -144,9 +147,6 @@ mixin ScrollManagementMixin<T extends ConsumerStatefulWidget>
               horizontalScrollController.position.maxScrollExtent,
             );
             horizontalScrollController.jumpTo(newH);
-            AppLogger.exchangeDebug(
-              '🖱️ [스크롤] 두 손가락 터치 수평 스크롤: ${_rightClickScrollStartH!.toStringAsFixed(1)} → ${newH.toStringAsFixed(1)} (델타: ${delta.dx.toStringAsFixed(1)})',
-            );
           }
 
           // 수직 스크롤
@@ -156,9 +156,6 @@ mixin ScrollManagementMixin<T extends ConsumerStatefulWidget>
               verticalScrollController.position.maxScrollExtent,
             );
             verticalScrollController.jumpTo(newV);
-            AppLogger.exchangeDebug(
-              '🖱️ [스크롤] 두 손가락 터치 수직 스크롤: ${_rightClickScrollStartV!.toStringAsFixed(1)} → ${newV.toStringAsFixed(1)} (델타: ${delta.dy.toStringAsFixed(1)})',
-            );
           }
         }
       },

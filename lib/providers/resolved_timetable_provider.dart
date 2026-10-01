@@ -105,3 +105,29 @@ ResolvedWeek _resolveOnWeek(
   });
   return ResolvedWeek.dateAware(base: base, events: events, weekMonday: weekMonday);
 }
+
+/// `교사|요일번호|교시` → 과목명 색인
+///
+/// 사이드바는 경로 노드마다 과목명을 보여주는데, 예전에는 노드 하나당
+/// 시간표 전체(1,000칸 이상)를 선형 탐색하면서 요일 문자열까지 매번
+/// 숫자로 바꿨다. 화면에 보이는 노드가 수십 개라 경로를 고를 때마다
+/// 수만 번 비교가 일어나 반응이 눈에 띄게 늦었다(2026-10-01).
+///
+/// 시간표가 바뀔 때만 한 번 만들어 두고 O(1)로 찾는다.
+/// `resolvedTimetableProvider`를 watch하므로 교체·주 변경이 자동 반영된다.
+final resolvedSubjectIndexProvider = Provider<Map<String, String>>((ref) {
+  final slots = ref.watch(resolvedTimetableProvider);
+
+  final index = <String, String>{};
+  for (final slot in slots) {
+    final teacher = slot.teacher;
+    final dayOfWeek = slot.dayOfWeek;
+    final period = slot.period;
+    final subject = slot.subject;
+    if (teacher == null || dayOfWeek == null || period == null) continue;
+    if (subject == null || subject.isEmpty) continue;
+    // 선형 탐색이 먼저 찾은 값과 같도록 앞선 항목을 유지한다.
+    index.putIfAbsent('$teacher|$dayOfWeek|$period', () => subject);
+  }
+  return index;
+});

@@ -1388,19 +1388,18 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
   }
 
   /// 교사 정보에서 과목명 추출
+  ///
+  /// 사이드바가 보이는 경로 노드마다 호출한다. 예전에는 호출할 때마다
+  /// 시간표 전체를 훑고 요일 문자열까지 루프 안에서 숫자로 바꿔서,
+  /// 경로를 고를 때마다 수만 번 비교가 일어났다(반응 지연의 주원인).
+  /// 지금은 시간표가 바뀔 때만 만들어 두는 색인에서 O(1)로 찾는다.
   String _getSubjectName(ExchangeNode node) {
     if (_timetableData == null) return '과목명 없음';
 
-    // 시간표 데이터에서 해당 교사, 요일, 교시의 과목 정보 찾기
-    for (var timeSlot in validationTimeSlots) {
-      if (timeSlot.teacher == node.teacherName &&
-          timeSlot.dayOfWeek == DayUtils.getDayNumber(node.day) &&
-          timeSlot.period == node.period) {
-        return timeSlot.subject ?? '과목명 없음';
-      }
-    }
-
-    return '과목명 없음';
+    final index = ref.read(resolvedSubjectIndexProvider);
+    final key =
+        '${node.teacherName}|${DayUtils.getDayNumber(node.day)}|${node.period}';
+    return index[key] ?? '과목명 없음';
   }
 
   /// 사이드바 토글
