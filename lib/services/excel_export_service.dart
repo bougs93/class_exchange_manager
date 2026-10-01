@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:excel/excel.dart';
 import 'package:flutter/material.dart';
 import '../providers/substitution_plan_viewmodel.dart';
@@ -12,10 +13,13 @@ class ExcelExportService {
   /// 결보강 계획서 내보내기
   ///
   /// [planData]: 내보낼 데이터 리스트
-  /// [outputPath]: 저장할 파일 경로
-  static Future<bool> exportSubstitutionPlan({
+  /// [outputPath]: 저장할 파일 경로 (웹에서는 null — 파일 저장 생략)
+  ///
+  /// Returns: 엑셀 바이트 (성공 시). [outputPath]가 있으면 파일로도 저장한다.
+  /// 실패 시 null.
+  static Future<Uint8List?> exportSubstitutionPlan({
     required List<SubstitutionPlanData> planData,
-    required String outputPath,
+    String? outputPath,
     required BuildContext context,
   }) async {
     try {
@@ -36,22 +40,25 @@ class ExcelExportService {
 
       AppLogger.info('✅ 데이터 입력 완료: ${planData.length}개 레코드');
 
-      // 파일 저장
-      final outputFile = File(outputPath);
-      await outputFile.parent.create(recursive: true);
-
+      // 엑셀 바이트 생성 (항상)
       final encodedBytes = excel.encode();
       if (encodedBytes == null) {
         throw Exception('엑셀 파일 인코딩 실패');
       }
+      final bytes = Uint8List.fromList(encodedBytes);
 
-      await outputFile.writeAsBytes(encodedBytes, flush: true);
+      // 파일 저장 (경로가 있을 때만 — 웹에서는 생략하고 바이트만 반환)
+      if (outputPath != null && outputPath.isNotEmpty) {
+        final outputFile = File(outputPath);
+        await outputFile.parent.create(recursive: true);
+        await outputFile.writeAsBytes(bytes, flush: true);
+        AppLogger.info('✅ 파일 저장 완료: $outputPath');
+      }
 
-      AppLogger.info('✅ 파일 저장 완료: $outputPath');
-      return true;
+      return bytes;
     } catch (e, stackTrace) {
       AppLogger.error('엑셀 내보내기 실패: $e\n$stackTrace');
-      return false;
+      return null;
     }
   }
 

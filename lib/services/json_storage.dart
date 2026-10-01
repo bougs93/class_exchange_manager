@@ -1,10 +1,8 @@
-import 'storage_service.dart';
-
 /// JSON 저장소 추상 인터페이스
 ///
-/// 서비스 계층이 실제 파일 I/O([StorageService])와 테스트용 인메모리 구현을
-/// 교체할 수 있도록 분리합니다. 모든 메서드는 [StorageService]와 시그니처가
-/// 동일합니다.
+/// 서비스 계층이 실제 파일 I/O(`storage_service_io.dart`의 [StorageService])와
+/// 테스트용 인메모리 구현을 교체할 수 있도록 분리합니다. 모든 메서드는
+/// [StorageService]와 시그니처가 동일합니다.
 abstract class JsonStorage {
   /// JSON 데이터를 파일에 저장
   Future<bool> saveJson(String filename, dynamic data);

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -1916,16 +1917,64 @@ class SubstitutionOutputWidgetState
       // 1. 체크된 교체 건만 수집 (내용 수정 화면의 선택과 동일)
       final planData = ref.read(checkedSubstitutionPlanDataProvider);
 
+      // 2. 템플릿 경로 결정 (웹은 로컬 파일이 없으므로 에셋 양식만 사용)
+      final String templatePath =
+          kIsWeb
+              ? kPdfTemplates[_selectedTemplateIndex].assetPath
+              : (_selectedTemplateFilePath ??
+                  kPdfTemplates[_selectedTemplateIndex].assetPath);
+
+      // 3. PDF 생성 (웹: 메모리 바이트, 네이티브: 임시 파일)
+      if (kIsWeb) {
+        final pdfBytes = await PdfExportService.exportSubstitutionPlan(
+          planData: planData,
+          templatePath: templatePath,
+          fontSize: _fontSize,
+          remarksFontSize: _remarksFontSize,
+          fontType: _selectedFont,
+          includeRemarks: _includeRemarks,
+          additionalFields: {
+            'teacherName': _teacherNameController.text,
+            'absencePeriod': _absencePeriodController.text,
+            'workStatus': _workStatusController.text,
+            'reasonForAbsence': _reasonForAbsenceController.text,
+            'notes': _notesController.text,
+            'schoolName': _schoolNameController.text,
+          },
+        );
+
+        if (!mounted) return;
+
+        if (pdfBytes == null) {
+          _showSnackBar('PDF 미리보기 생성 실패', Colors.red);
+          return;
+        }
+
+        // 4. PDF 출력 설정 저장 (문서 출력 버튼 클릭 시, 양식별로 저장)
+        await _saveCurrentSettings();
+
+        // 5. 미리보기 화면으로 이동 (저장 파일명 초기값: 최초 결강일 기준)
+        if (mounted) {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder:
+                  (context) => PdfPreviewScreen(
+                    pdfBytes: pdfBytes,
+                    initialFileName: _buildPdfSaveFileName(planData),
+                  ),
+            ),
+          );
+        }
+        return;
+      }
+
       // 2. 임시 파일 경로 생성
       final tempDir = await getTemporaryDirectory();
       final tempPath =
           '${tempDir.path}${Platform.pathSeparator}preview_${DateTime.now().millisecondsSinceEpoch}.pdf';
 
       // 3. PDF 생성
-      final String templatePath =
-          _selectedTemplateFilePath ??
-          kPdfTemplates[_selectedTemplateIndex].assetPath;
-      final success = await PdfExportService.exportSubstitutionPlan(
+      final pdfBytes = await PdfExportService.exportSubstitutionPlan(
         planData: planData,
         outputPath: tempPath,
         templatePath: templatePath,
@@ -1945,7 +1994,7 @@ class SubstitutionOutputWidgetState
 
       if (!mounted) return;
 
-      if (!success) {
+      if (pdfBytes == null) {
         _showSnackBar('PDF 미리보기 생성 실패', Colors.red);
         return;
       }

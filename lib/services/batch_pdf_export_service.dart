@@ -143,7 +143,7 @@ class BatchPdfExportService {
           fields['absencePeriod'] = absencePeriod;
         }
 
-        final success = await PdfExportService.exportSubstitutionPlan(
+        final pdfBytes = await PdfExportService.exportSubstitutionPlan(
           planData: item.rows,
           outputPath: outputPath,
           templatePath: templatePath,
@@ -156,7 +156,7 @@ class BatchPdfExportService {
           additionalFields: fields,
         );
 
-        if (success) {
+        if (pdfBytes != null) {
           successCount++;
           AppLogger.info('일괄 출력 성공: $outputPath');
         } else {

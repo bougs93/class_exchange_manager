@@ -43,16 +43,17 @@
 
 ## 2. 전체 아키텍처
 
-> **호스팅: Cloudflare Pages 사용 확정.** Cloudflare Pages는 정적 파일
-> 호스팅만 제공하므로(`flutter build web` 산출물 배포), 인증과 공용 시간표
-> 저장소는 별도 백엔드 서비스가 필요하다 — 이 역할은 Firebase
-> (Firestore + Storage)가 담당한다. 단, Cloudflare Pages 기본 빌드
-> 이미지에는 Flutter SDK가 없으므로 GitHub Actions 등에서 빌드 후
-> 배포하는 방식을 쓴다 (8장 5단계).
+> **호스팅: Firebase Hosting 사용 확정 (2026-10-01, 변경).** 당초 Cloudflare
+> Pages로 확정했었으나, 이미 백엔드(Firestore/Storage/Auth)를 Firebase로
+> 쓰는 이상 호스팅까지 Firebase로 묶는 쪽이 관리 포인트가 하나로 줄고,
+> Authentication의 "승인된 도메인"에 Firebase Hosting 도메인이 자동
+> 등록되어 별도 도메인 등록 단계도 필요 없다. 빌드는 여전히 로컬/CI에서
+> `flutter build web`으로 생성한 뒤 `firebase deploy --only hosting`으로
+> 배포한다 (8장 5단계).
 
 ```
 ┌───────────────────────────────┐        ┌──────────────────────────────┐
-│   PC / 모바일 (기존, 동작 동일)   │        │   웹 (Cloudflare Pages 배포)    │
+│   PC / 모바일 (기존, 동작 동일)   │        │   웹 (Firebase Hosting 배포)    │
 │                                │        │                                │
 │  로컬 Excel 파일 가져오기         │        │  Firebase 접속 비밀번호 화면     │
 │  로컬 SQLite + 로컬 JSON 저장소  │        │       ↓                        │
@@ -371,7 +372,9 @@ $0, 넘는 만큼만 과금"**되는 종량제(pay-as-you-go)입니다. 결제�
    - 관리자 측: 로컬 `Lesson` 데이터를 JSON으로 직렬화해 Storage 업로드 +
      `config/sharedTimetable.version` 증가 (업로드 전 버전 증가 순서, 3.3절)
    - 클라이언트 측: 버전 비교 후 JSON 다운로드 → 로컬 SQLite에 반영 (3.2·3.3절)
-   - Storage CORS 설정 적용 (Cloudflare Pages 도메인에서 Storage 접근 허용)
+   - Storage CORS 설정 적용 (Firebase Hosting 도메인에서 Storage 접근 허용 —
+     같은 Firebase 프로젝트라 대부분 기본 설정으로 충분하나 커스텀 도메인
+     연결 시 재확인)
    - Firestore/Storage 규칙 적용 및 검증 (4.4절)
 5. **4단계 — 파일 I/O 기반 기능 웹 대응**
    - PDF 내보내기: `printing` 패키지의 웹 지원 기능(`sharePdf`)으로 전환
@@ -379,15 +382,17 @@ $0, 넘는 만큼만 과금"**되는 종량제(pay-as-you-go)입니다. 결제�
    - 엑셀 업로드: 죽은 `kIsWeb` 분기 정리, 실제 동작 경로로 통합
    - 클립보드 붙여넣기: 웹에서는 기능 제한 고지 또는 Async Clipboard API로 대체
    - 라이선스 만료 처리: `kIsWeb`일 때 만료 검사 건너뛰도록 분기 (계속 운영 확정, 7장 표 참고)
-6. **5단계 — 호스팅 및 배포 (Cloudflare Pages)**
-   - GitHub Actions에서 `flutter build web` 실행 후 `wrangler pages deploy
-     build/web`로 배포 (Cloudflare Pages 자체 빌드 이미지에는 Flutter SDK 없음)
-   - `--base-href`, 캐시 헤더(`_headers`: `index.html`/서비스워커는
-     no-cache, 해시가 붙은 정적 자산은 immutable) 설정
+6. **5단계 — 호스팅 및 배포 (Firebase Hosting)**
+   - `firebase init hosting`으로 프로젝트에 Hosting 연결, `public` 디렉터리를
+     `build/web`로 지정
+   - GitHub Actions(또는 로컬)에서 `flutter build web` 실행 후
+     `firebase deploy --only hosting`으로 배포
+   - `firebase.json`에 캐시 헤더 설정 (`index.html`/서비스워커는 no-cache,
+     해시가 붙은 정적 자산은 immutable), SPA 라우팅용 `rewrites` 설정
    - 마스터/초기 비밀번호 등 민감 값은 `--dart-define` + CI Secret으로 주입
      (소스코드에 직접 커밋하지 않음)
-   - Firebase 프로젝트의 승인된 도메인(Authentication) 목록에 Cloudflare
-     Pages 배포 도메인 추가
+   - Authentication 승인된 도메인은 Firebase Hosting 도메인이 **자동
+     등록**되므로 별도 작업 불필요
 
 ## 10. 리스크 및 트레이드오프
 
@@ -413,7 +418,12 @@ $0, 넘는 만큼만 과금"**되는 종량제(pay-as-you-go)입니다. 결제�
 
 ## 11. 결정 대기 사항
 
-- [x] 호스팅: Cloudflare Pages 사용 확정 (단, 빌드는 GitHub Actions 경유)
+- [x] 호스팅: **Firebase Hosting 사용으로 변경 확정 (2026-10-01)** — 당초
+      Cloudflare Pages로 확정하고 `class-swap` 프로젝트까지 생성했으나,
+      백엔드(Firestore/Storage/Auth)와 호스팅을 한 서비스로 묶어 관리를
+      단순화하기 위해 Firebase Hosting으로 전환. **Cloudflare Pages
+      `class-swap` 프로젝트는 더 이상 사용하지 않음** (삭제 여부는
+      선택사항 — 비용이 들지 않으므로 그냥 방치해도 무방)
 - [x] 공용 시간표 동기화 범위: 웹 전용, PC/모바일 미적용 확정
 - [x] 보안 수준: 편의성 우선 + 비밀번호 평문 노출 방지 최소 조치 확정
 - [x] 기존 로컬 데이터 호환성: 불필요 확정
@@ -421,8 +431,6 @@ $0, 넘는 만큼만 과금"**되는 종량제(pay-as-you-go)입니다. 결제�
 - [x] 공용 시간표 전송 방식: SQLite 파일 통째 전송 → **JSON 방식으로 변경 확정**
 - [x] Firebase 요금제: Blaze(결제수단 등록) + 예산 알림으로 무료 운영 확정
 - [x] 관리자 비밀번호 분실 대비: 마스터 ID+비밀번호 조합으로 강화 확정
-- [x] Cloudflare Pages 프로젝트: **`class-swap`로 생성 완료** → 기본 도메인
-      `class-swap.pages.dev` 사용 (커스텀 도메인 연결은 추후 필요 시 진행)
 - [x] 공용 시간표(웹)와 PC/모바일 관계: **완전히 분리된 별도 시스템으로
       운영, 동기화·정본 개념 불필요** 확정 — 교사 안내도 "서로 다른
       독립 도구"라는 점만 전달하면 됨
@@ -433,3 +441,5 @@ $0, 넘는 만큼만 과금"**되는 종량제(pay-as-you-go)입니다. 결제�
 - [ ] 마스터 ID·비밀번호 실제 값 (코드에 고정될 값)
 - [ ] 관리자 비밀번호 초기값, 접속자 비밀번호 초기값
 - [ ] 로그인 안내 메시지 초기 문구
+- [ ] Firebase Hosting 도메인(기본 `*.web.app`/`*.firebaseapp.com` 사용 여부,
+      커스텀 도메인 연결 여부)

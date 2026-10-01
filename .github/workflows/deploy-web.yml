@@ -1,0 +1,49 @@
+# 웹 전환 5단계: Firebase Hosting 배포 (2026-10-01 변경 — Cloudflare Pages 대신 사용)
+#
+# main 브랜치 push 시 Flutter 웹 빌드 후 Firebase Hosting에 배포한다.
+#
+# 필요한 GitHub Secrets (저장소 Settings → Secrets and variables → Actions):
+# - FIREBASE_SERVICE_ACCOUNT: 서비스 계정 비공개 키 JSON 전체
+#   (Firebase 콘솔 → 프로젝트 설정 → 서비스 계정 → 새 비공개 키 생성)
+# - FIREBASE_API_KEY, FIREBASE_AUTH_DOMAIN, FIREBASE_PROJECT_ID,
+#   FIREBASE_STORAGE_BUCKET, FIREBASE_MESSAGING_SENDER_ID, FIREBASE_APP_ID
+#   (Firebase 콘솔 → 프로젝트 설정 → 웹 앱 구성 값 — 소스코드에 커밋 금지)
+# - MASTER_ID, MASTER_PASSWORD_HASH (마스터 계정, 소스코드에 커밋 금지)
+name: Deploy Web to Firebase Hosting
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.8'
+          channel: stable
+          cache: true
+
+      - name: Build web (release)
+        run: >
+          flutter build web --release --no-wasm-dry-run
+          --dart-define=FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }}
+          --dart-define=FIREBASE_AUTH_DOMAIN=${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          --dart-define=FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
+          --dart-define=FIREBASE_STORAGE_BUCKET=${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          --dart-define=FIREBASE_MESSAGING_SENDER_ID=${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          --dart-define=FIREBASE_APP_ID=${{ secrets.FIREBASE_APP_ID }}
+          --dart-define=MASTER_ID=${{ secrets.MASTER_ID }}
+          --dart-define=MASTER_PASSWORD_HASH=${{ secrets.MASTER_PASSWORD_HASH }}
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          channelId: live
+          projectId: ${{ secrets.FIREBASE_PROJECT_ID }}

@@ -1,0 +1,13 @@
+// 웹 전환 2단계, 계획서 4.4절.
+//
+// 공용 시간표 JSON 저장소. 읽기는 공개, 쓰기는 익명 로그인 필요
+// (요구사항상 허용된 느슨한 보호).
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /shared_timetable/{file} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}

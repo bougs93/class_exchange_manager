@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'constants/app_info.dart';
 import 'config/debug_config.dart';
 import 'providers/theme_provider.dart';
 import 'ui/widgets/expiry_check_wrapper.dart';
+import 'ui/screens/web_login_gate.dart';
 import 'utils/logger.dart';
 
 /// 앱의 진입점
@@ -76,7 +78,11 @@ class MyApp extends ConsumerWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [Locale('ko', 'KR'), Locale('en', 'US')],
-      home: const ExpiryCheckWrapper(),
+      // 웹은 접속 비밀번호 게이트를 거치고 만료 검사를 건너뛴다 (계속 운영 확정).
+      // PC/모바일은 기존 만료 검사 흐름 그대로.
+      home: kIsWeb
+          ? const WebLoginGate(child: ExpiryCheckWrapper())
+          : const ExpiryCheckWrapper(),
     );
   }
 }

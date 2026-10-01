@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:developer' as developer;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import '../providers/substitution_plan_viewmodel.dart';
@@ -206,15 +207,39 @@ class PdfExportService {
     }
   }
 
+  /// 웹 번들 한글 폰트 로드 (Noto Sans KR, OFL 라이선스).
+  ///
+  /// 웹에는 시스템 폰트가 없으므로 에셋 폰트를 쓴다. 바이트는 1회만 읽어
+  /// 캐시한다 (10MB 수준이라 매번 읽으면 느림).
+  static Uint8List? _webFontBytes;
+
+  static Future<PdfFont?> _loadBundledWebFont(double fontSize) async {
+    try {
+      _webFontBytes ??=
+          (await rootBundle.load(
+            'lib/assets/fonts/NotoSansKR-VF.ttf',
+          )).buffer.asUint8List();
+      developer.log('웹 번들 한글 폰트 로드 성공 (${_webFontBytes!.length} bytes)');
+      return PdfTrueTypeFont(_webFontBytes!, fontSize);
+    } catch (e) {
+      developer.log('웹 번들 한글 폰트 로드 실패: $e');
+      return null;
+    }
+  }
+
   /// 한글 폰트 로드 (Public API)
-  /// 1. 에셋 폰트 우선 사용 (배포된 앱에서 안정적)
-  /// 2. 로컬 시스템 폰트 폴백 (개발/테스트용)
+  /// 1. 웹: 번들 폰트 사용 (에셋 Noto Sans KR — 시스템 폰트 없음)
+  /// 2. 네이티브: 에셋 폰트 우선 사용 (배포된 앱에서 안정적)
+  /// 3. 로컬 시스템 폰트 폴백 (개발/테스트용)
   /// [fontSize] 폰트 크기 (기본값: defaultFontSize 상수 사용)
-  /// [fontType] 폰트 종류 (null이면 자동 선택)
+  /// [fontType] 폰트 종류 (웹에서는 무시, 번들 폰트 고정)
   static Future<PdfFont?> loadKoreanFont({
     double fontSize = defaultFontSize,
     String? fontType,
   }) async {
+    if (kIsWeb) {
+      return _loadBundledWebFont(fontSize);
+    }
     try {
       developer.log(
         '한글 폰트 검색 시작 (폰트 크기: ${fontSize}pt, 폰트 종류: ${fontType ?? "자동"})',
@@ -337,18 +362,19 @@ class PdfExportService {
   ///
   /// [planData] 교체 데이터 목록
   /// [templatePath] 사용자 선택 PDF 템플릿 경로(파일 시스템 경로 또는 에셋 경로)
-  /// [outputPath] 생성될 PDF 파일의 저장 경로
+  /// [outputPath] 생성될 PDF 파일의 저장 경로 (웹에서는 null — 파일 저장 생략)
   /// [fontSize] 폰트 크기 (기본값: defaultFontSize)
   /// [remarksFontSize] 비고 필드 폰트 크기 (기본값: remarksFontSize)
   /// [fontType] 폰트 종류 (Windows 시스템 폰트 파일명: malgun.ttf, malgunbd.ttf, gulim.ttc, batang.ttc, dotum.ttc, gungsuh.ttc)
   /// [includeRemarks] 비고 필드 출력 여부 (기본값: true)
   /// [additionalFields] 추가 필드 데이터 (teacherName, absencePeriod, workStatus, reasonForAbsence, notes, schoolName)
   ///
-  /// Returns: 성공 시 true
-  static Future<bool> exportSubstitutionPlan({
+  /// Returns: PDF 바이트 (성공 시, 웹 저장·공유용). [outputPath]가 있으면
+  /// 파일로도 저장한다. 실패 시 null.
+  static Future<Uint8List?> exportSubstitutionPlan({
     required List<SubstitutionPlanData> planData,
+    String? outputPath,
     required String templatePath,
-    required String outputPath,
     double? fontSize,
     double? remarksFontSize,
     String? fontType,
@@ -635,19 +661,21 @@ class PdfExportService {
         developer.log('폼 필드 평탄화 중 오류: $e');
       }
 
-      // 6) PDF 저장
-      final file = File(outputPath);
-      final List<int> bytes = await document.save();
-      await file.writeAsBytes(bytes);
-      developer.log('PDF 저장 완료: $outputPath (${bytes.length} bytes)');
+      // 6) PDF 바이트 생성 (항상) + 파일 저장 (경로가 있을 때만)
+      final Uint8List bytes = Uint8List.fromList(await document.save());
+      if (outputPath != null && outputPath.isNotEmpty) {
+        final file = File(outputPath);
+        await file.writeAsBytes(bytes);
+        developer.log('PDF 저장 완료: $outputPath (${bytes.length} bytes)');
+      }
 
       // 7) 문서 닫기
       document.dispose();
 
-      return true;
+      return bytes;
     } catch (e) {
       developer.log('PDF 내보내기 오류: $e');
-      return false;
+      return null;
     }
   }
 

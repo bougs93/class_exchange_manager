@@ -84,10 +84,8 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
         oldWidget.isExchangeViewEnabled != widget.isExchangeViewEnabled;
     final slotsChanged = !identical(oldWidget.timeSlots, widget.timeSlots);
     final datesChanged = !_sameDates(oldWidget.weekDates, widget.weekDates);
-    final exchangeInfoChanged = !listEquals(
-      oldWidget.exchangeInfoList,
-      widget.exchangeInfoList,
-    );
+    final exchangeInfoChanged =
+        !listEquals(oldWidget.exchangeInfoList, widget.exchangeInfoList);
 
     if (teacherChanged || zoomChanged || slotsChanged || datesChanged) {
       _rebuildCachedLayout();
@@ -112,9 +110,7 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
     return true;
   }
 
-  PersonalTimetableDataSource _createDataSource(
-    List<DataGridRow> rows,
-  ) {
+  PersonalTimetableDataSource _createDataSource(List<DataGridRow> rows) {
     _lastRowCount = rows.length;
     return PersonalTimetableDataSource(
       rows: rows,
@@ -149,10 +145,7 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
     _gridHeight =
         _headerHeight * (_stackedHeaders!.length + 1) +
         _rowHeight * result.rows.length;
-    _gridWidth = _columns!.fold<double>(
-      0,
-      (sum, column) => sum + column.width,
-    );
+    _gridWidth = _columns!.fold<double>(0, (sum, column) => sum + column.width);
 
     if (_dataSource == null || _lastRowCount != result.rows.length) {
       _dataSource = _createDataSource(result.rows);
@@ -286,14 +279,16 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
             ),
           ),
           // 이미지 복사 버튼 — 화면에만 표시, 캡처 이미지에는 포함하지 않음
-          Positioned(
-            top:
-                (TeacherCardGridConstants.cardHeaderHeight -
-                    TeacherCardGridConstants.copyButtonReserveWidth) /
-                2,
-            right: TeacherCardGridConstants.cardInnerPadding,
-            child: _buildCopyImageButton(highlightColor),
-          ),
+          // 웹 미지원: 브라우저 클립보드는 이미지 쓰기에 제약이 있어 숨긴다.
+          if (!kIsWeb)
+            Positioned(
+              top:
+                  (TeacherCardGridConstants.cardHeaderHeight -
+                      TeacherCardGridConstants.copyButtonReserveWidth) /
+                  2,
+              right: TeacherCardGridConstants.cardInnerPadding,
+              child: _buildCopyImageButton(highlightColor),
+            ),
         ],
       ),
     );

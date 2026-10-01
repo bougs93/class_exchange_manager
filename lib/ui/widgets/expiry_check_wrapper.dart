@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../constants/app_info.dart';
@@ -24,6 +25,8 @@ class _ExpiryCheckWrapperState extends State<ExpiryCheckWrapper> {
   @override
   void initState() {
     super.initState();
+    // 웹은 만료 없이 계속 운영하기로 확정 — 검사 자체를 건너뛴다.
+    if (kIsWeb) return;
     // 위젯 트리가 빌드된 후 만료 체크 및 다이얼로그 표시
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAndHandleExpiry();

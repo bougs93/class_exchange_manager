@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:developer' as developer;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
@@ -13,17 +14,27 @@ import '../../../utils/snackbar_helper.dart';
 /// 출력 미리 보기 화면
 ///
 /// PDF 파일을 화면에 표시하고 줌, 저장, 인쇄 기능을 제공합니다.
+/// - 네이티브: 임시 PDF 파일 경로([pdfPath])로 표시·저장·인쇄.
+/// - 웹: 메모리 바이트([pdfBytes])로 표시, 저장은 브라우저 다운로드,
+///   인쇄는 브라우저 인쇄 다이얼로그로 처리.
 class PdfPreviewScreen extends StatefulWidget {
-  final String pdfPath;
+  final String? pdfPath;
+
+  /// 웹용 PDF 바이트 (네이티브에서는 null).
+  final Uint8List? pdfBytes;
 
   /// 저장 다이얼로그 파일명의 초기값 (없으면 오늘 날짜 기준 이름 사용)
   final String? initialFileName;
 
   const PdfPreviewScreen({
     super.key,
-    required this.pdfPath,
+    this.pdfPath,
+    this.pdfBytes,
     this.initialFileName,
-  });
+  }) : assert(
+         pdfPath != null || pdfBytes != null,
+         'pdfPath와 pdfBytes 중 하나는 반드시 있어야 합니다.',
+       );
 
   @override
   State<PdfPreviewScreen> createState() => _PdfPreviewScreenState();
@@ -89,8 +100,15 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
 
   /// PDF 파일 확인
   Future<void> _checkFile() async {
+    // 웹(메모리 바이트)은 파일 검사가 필요 없다.
+    if (widget.pdfBytes != null) {
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
     try {
-      final file = File(widget.pdfPath);
+      final file = File(widget.pdfPath!);
       if (!await file.exists()) {
         setState(() {
           _hasError = true;
@@ -241,8 +259,26 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
   Widget _buildPdfViewer(DesignTokens tokens) {
     try {
       _pdfViewerController ??= PdfViewerController();
+      if (widget.pdfBytes != null) {
+        return SfPdfViewer.memory(
+          widget.pdfBytes!,
+          controller: _pdfViewerController,
+          canShowScrollHead: true,
+          canShowScrollStatus: true,
+          enableDoubleTapZooming: true,
+          enableTextSelection: false,
+          onDocumentLoadFailed: (PdfDocumentLoadFailedDetails details) {
+            if (mounted && !_isDisposed) {
+              setState(() {
+                _hasError = true;
+                _errorMessage = 'PDF 로드 실패: ${details.error}';
+              });
+            }
+          },
+        );
+      }
       return SfPdfViewer.file(
-        File(widget.pdfPath),
+        File(widget.pdfPath!),
         controller: _pdfViewerController,
         canShowScrollHead: true,
         canShowScrollStatus: true,
@@ -294,11 +330,12 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
               label: const Text('돌아가기'),
             ),
             const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: _openFileExplorer,
-              icon: const Icon(Icons.folder_open),
-              label: const Text('파일 위치 열기'),
-            ),
+            if (!kIsWeb)
+              ElevatedButton.icon(
+                onPressed: _openFileExplorer,
+                icon: const Icon(Icons.folder_open),
+                label: const Text('파일 위치 열기'),
+              ),
           ],
         ),
       ),
@@ -352,7 +389,19 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
   /// 인쇄
   Future<void> _handlePrint() async {
     try {
-      final file = File(widget.pdfPath);
+      // 웹(메모리 바이트): 브라우저 인쇄 다이얼로그.
+      if (widget.pdfBytes != null) {
+        await Printing.layoutPdf(
+          onLayout: (format) async => widget.pdfBytes!,
+          name: '결보강계획서',
+        );
+        if (mounted) {
+          _showSnackBar('인쇄 다이얼로그가 열렸습니다.', Colors.green);
+        }
+        return;
+      }
+
+      final file = File(widget.pdfPath!);
       if (!await file.exists()) {
         if (mounted) {
           _showSnackBar('인쇄할 PDF 파일을 찾을 수 없습니다.', Colors.red);
@@ -433,7 +482,16 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
   /// 저장
   Future<void> _handleSave() async {
     try {
-      final sourceFile = File(widget.pdfPath);
+      // 웹(메모리 바이트): 브라우저 다운로드로 저장.
+      if (widget.pdfBytes != null) {
+        await Printing.sharePdf(
+          bytes: widget.pdfBytes!,
+          filename: '${_getSaveFileName()}.pdf',
+        );
+        return;
+      }
+
+      final sourceFile = File(widget.pdfPath!);
       if (!await sourceFile.exists()) {
         if (mounted) {
           _showSnackBar('저장할 PDF 파일을 찾을 수 없습니다.', Colors.red);
@@ -474,10 +532,11 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
     }
   }
 
-  /// 파일 탐색기 열기
+  /// 파일 탐색기 열기 (네이티브 전용 — 웹에서는 동작하지 않음)
   Future<void> _openFileExplorer() async {
+    if (kIsWeb || widget.pdfPath == null) return;
     try {
-      final file = File(widget.pdfPath);
+      final file = File(widget.pdfPath!);
       final directory = file.parent.path;
       if (Platform.isWindows) {
         Process.run('explorer.exe', [directory]);

@@ -1,0 +1,13 @@
+{
+  "name": "cap-billing",
+  "version": "1.0.0",
+  "description": "예산 초과 시 프로젝트 결제를 자동 중지 (웹 전환, 과금 상한 대체 수단)",
+  "main": "index.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@google-cloud/billing": "^5.0.0",
+    "@google-cloud/functions-framework": "^3.0.0"
+  }
+}

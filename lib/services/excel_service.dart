@@ -2,7 +2,6 @@ import 'dart:io';
 import 'dart:developer' as developer;
 import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import '../models/teacher.dart';
 import '../models/time_slot.dart';
 import '../utils/day_utils.dart';
@@ -205,6 +204,11 @@ class ExcelService {
   ///   // 파일이 선택됨
   /// }
   /// ```
+  /// 네이티브 전용 파일 선택 (File 반환).
+  ///
+  /// 웹에서는 파일 경로가 존재하지 않으므로 이 메서드를 쓰지 않는다.
+  /// 웹 업로드 경로는 `ExchangeOperationManager._selectExcelFileWeb` →
+  /// `processExcelBytes` → `readExcelFromBytes`로 통합되어 있다.
   static Future<File?> pickExcelFile() async {
     try {
       // 파일 선택 다이얼로그 표시
@@ -220,19 +224,9 @@ class ExcelService {
 
       // 사용자가 파일을 선택했는지 확인
       if (result != null && result.files.isNotEmpty) {
-        // Web 플랫폼에서는 다른 방식으로 처리
-        if (kIsWeb) {
-          // Web에서는 bytes를 직접 사용
-          final bytes = result.files.first.bytes;
-          if (bytes != null) {
-            // 임시 파일로 저장 (Web에서는 실제 파일 시스템 접근 불가)
-            return null; // Web에서는 File 객체 대신 bytes를 직접 사용
-          }
-        } else {
-          // 선택된 파일의 경로를 File 객체로 변환
-          String filePath = result.files.first.path!;
-          return File(filePath);
-        }
+        // 선택된 파일의 경로를 File 객체로 변환
+        String filePath = result.files.first.path!;
+        return File(filePath);
       }
 
       // 파일을 선택하지 않았거나 취소한 경우
