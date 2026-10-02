@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -59,6 +58,12 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
   String? _loginMessage;
   String? _syncError;
   bool _pendingAdmin = false;
+
+  /// 지금 진행 중인 동기화 단계 (진행 화면 안내문)
+  String? _syncStage;
+
+  /// 다운로드 진행률 (0.0~1.0). null이면 진행률을 알 수 없어 비확정 막대.
+  double? _downloadProgress;
 
   @override
   void initState() {
@@ -175,6 +180,8 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
     setState(() {
       _pendingAdmin = admin;
       _syncError = null;
+      _syncStage = null;
+      _downloadProgress = null;
     });
     ref.read(webLoginStatusProvider.notifier).state = WebLoginStatus.checking;
     var stage = '브라우저 저장소 초기화';
@@ -189,7 +196,13 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
       final repo = await ref.read(timetableRepositoryProvider.future);
       await SharedTimetableSyncService().syncSharedTimetable(
         repo: repo,
-        onStage: (value) => stage = value,
+        onStage: (value) {
+          stage = value;
+          if (mounted) setState(() => _syncStage = value);
+        },
+        onDownloadProgress: (value) {
+          if (mounted) setState(() => _downloadProgress = value);
+        },
       );
       if (!mounted) return;
       ref.invalidate(timetableRegistryProvider);
@@ -198,14 +211,32 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
     } catch (e, st) {
       AppLogger.error('공용 시간표 동기화 실패 ($stage)', e, st);
       if (mounted) {
-        final code = e is FirebaseException ? '\n오류 코드: ${e.code}' : '';
         setState(
           () =>
               _syncError =
-                  '공용 시간표를 불러오지 못했습니다.\n실패 단계: $stage$code\n다시 시도해 주세요.',
+                  '공용 시간표를 불러오지 못했습니다.\n실패 단계: $stage'
+                  '\n${_describeSyncError(e)}\n다시 시도해 주세요.',
         );
       }
     }
+  }
+
+  /// 동기화 실패 원인을 사용자가 전달할 수 있는 한 줄로 바꾼다.
+  ///
+  /// 예전에는 `FirebaseException`일 때만 코드를 보여 줬는데, 정작 가장 흔한
+  /// 실패인 **Storage 버킷 CORS 미설정**은 `FirebaseException`이 아니라
+  /// package:http의 `ClientException: Failed to fetch`로 올라온다
+  /// (`firebase_storage_web.getData()`가 내부적으로 평범한 http GET을 쓴다).
+  /// 그래서 화면에 아무 단서도 남지 않아 원인 파악이 늦어졌다(2026-10-02).
+  String _describeSyncError(Object e) {
+    if (e is FirebaseException) {
+      return '오류 코드: ${e.code}';
+    }
+    final text = e.toString();
+    if (text.contains('Failed to fetch') || text.contains('ClientException')) {
+      return '원인: 저장소에 브라우저 접근이 차단되었습니다 (CORS 설정 필요)';
+    }
+    return '원인: $text';
   }
 
   @override
@@ -302,18 +333,37 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
             padding: const EdgeInsets.all(24),
             child:
                 status == WebLoginStatus.checking
-                    ? const Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 16),
-                        Text('시간표를 불러오는 중…'),
-                      ],
-                    )
+                    ? _buildSyncProgress()
                     : _buildLockForm(context),
           ),
         ),
       ),
+    );
+  }
+
+  /// 동기화 진행 화면 — 단계 안내 + 다운로드 진행 막대
+  ///
+  /// 다운로드 중에는 실제 수신 바이트 기준으로 막대가 찬다. 그 외 단계
+  /// (DB 저장 등)는 남은 양을 알 수 없어 비확정 막대로 돈다.
+  Widget _buildSyncProgress() {
+    final progress = _downloadProgress;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 220,
+          child: LinearProgressIndicator(value: progress, minHeight: 6),
+        ),
+        const SizedBox(height: 14),
+        Text(_syncStage ?? '시간표를 불러오는 중…'),
+        if (progress != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            '${(progress * 100).round()}%',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ],
     );
   }
 

@@ -1,0 +1,17 @@
+[
+  {
+    "origin": [
+      "https://class-swap-helper.web.app",
+      "https://class-swap-helper.firebaseapp.com",
+      "http://localhost:5000"
+    ],
+    "method": ["GET", "HEAD"],
+    "responseHeader": [
+      "Content-Type",
+      "Content-Length",
+      "Content-Range",
+      "Content-Encoding"
+    ],
+    "maxAgeSeconds": 3600
+  }
+]

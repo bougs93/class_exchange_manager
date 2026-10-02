@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:archive/archive.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/lesson.dart';
@@ -74,13 +76,18 @@ class SharedTimetableSyncService {
   }
 
   /// 버전을 1 올리고 새 버전을 반환한다.
-  Future<int> _bumpVersion({DatedTimetable? timetable}) {
+  ///
+  /// [rawBytes]는 **압축 전** JSON 크기다. 받는 쪽이 진행률 막대를 그릴 때
+  /// 쓴다 — gzip으로 올리면 HTTP의 `content-length`는 압축된 크기라서
+  /// 브라우저가 풀어 주는 바이트 수와 단위가 맞지 않는다.
+  Future<int> _bumpVersion({DatedTimetable? timetable, int? rawBytes}) {
     return _firestore.runTransaction((txn) async {
       final snap = await txn.get(_versionDoc);
       final current = (snap.data()?['version'] as int?) ?? 0;
       final next = current + 1;
       txn.set(_versionDoc, {
         'version': next,
+        'bytes': rawBytes,
         'timetable':
             timetable == null
                 ? null
@@ -90,15 +97,89 @@ class SharedTimetableSyncService {
     });
   }
 
-  /// Storage에 JSON을 올린다. 버전은 이미 증가한 뒤이므로 실패를 그대로 전달한다.
+  /// Storage에 JSON을 **gzip으로 압축해서** 올린다.
+  ///
+  /// 수업 JSON은 같은 필드 이름이 수만 번 반복돼 압축률이 매우 높다.
+  /// 실측에서 9.49MB를 받는 데 2.79초가 걸렸는데(2026-10-02), 첫 접속 지연의
+  /// 가장 큰 몫이었다.
+  ///
+  /// `contentEncoding: gzip`을 붙여 두면 받는 쪽은 아무것도 바꿀 필요가 없다 —
+  /// 브라우저가 HTTP 단계에서 알아서 풀어 주고, `Accept-Encoding: gzip`을
+  /// 보내지 않는 클라이언트에게는 GCS가 서버에서 풀어 보낸다. 압축 이전에
+  /// 올려 둔 파일도 그대로 읽힌다.
+  ///
+  /// `dart:io`의 gzip은 웹에서 쓸 수 없어 순수 Dart인 `archive`를 쓴다
+  /// (관리자도 웹에서 업로드한다).
+  ///
+  /// 버전은 이미 증가한 뒤이므로 실패를 그대로 전달한다.
   Future<void> _uploadJson(String jsonString, int version) async {
     try {
+      final raw = utf8.encode(jsonString);
+      final compressed = Uint8List.fromList(GZipEncoder().encode(raw)!);
+      AppLogger.info(
+        '공용 시간표 압축: ${raw.length}B → ${compressed.length}B '
+        '(${(compressed.length / raw.length * 100).toStringAsFixed(1)}%)',
+      );
       await _storage
           .ref(storagePath)
-          .putData(Uint8List.fromList(utf8.encode(jsonString)));
+          .putData(
+            compressed,
+            SettableMetadata(
+              contentType: 'application/json',
+              contentEncoding: 'gzip',
+            ),
+          );
     } catch (e) {
       AppLogger.error('공용 시간표 업로드 실패 (버전 $version은 이미 증가됨): $e', e);
       rethrow;
+    }
+  }
+
+  /// 공용 시간표 JSON 내려받기
+  ///
+  /// `Reference.getData()`를 쓰지 않는다. 웹 구현은 내부적으로
+  /// **메타데이터 조회 → 다운로드 URL 조회 → 실제 다운로드**로 왕복을 세 번
+  /// 하는데, 실측에서 앞의 두 번만 약 0.96초를 썼다(2026-10-02).
+  /// 크기 제한은 내려받은 뒤 바이트 수로 확인하면 충분하므로 왕복을 한 번 줄인다.
+  ///
+  /// 받는 동안 [onReceived]로 지금까지 받은 바이트 수를 알린다. `http` 1.5의
+  /// 웹 구현은 `fetch` + `ReadableStream`이라 조각 단위로 흘러오므로 진행률
+  /// 막대를 실제 수신량에 맞춰 그릴 수 있다.
+  Future<Uint8List> _downloadJsonBytes({
+    void Function(int receivedBytes)? onReceived,
+  }) async {
+    final url = await _storage.ref(storagePath).getDownloadURL();
+    final client = http.Client();
+    try {
+      final response = await client.send(
+        http.Request('GET', Uri.parse(url)),
+      );
+      if (response.statusCode != 200) {
+        throw StateError('공용 시간표 다운로드 실패: HTTP ${response.statusCode}');
+      }
+
+      final chunks = <List<int>>[];
+      var received = 0;
+      await for (final chunk in response.stream) {
+        chunks.add(chunk);
+        received += chunk.length;
+        if (received > maxDownloadBytes) {
+          throw StateError(
+            '공용 시간표가 너무 큽니다: ${received}B 초과 (최대 ${maxDownloadBytes}B)',
+          );
+        }
+        onReceived?.call(received);
+      }
+
+      final bytes = Uint8List(received);
+      var offset = 0;
+      for (final chunk in chunks) {
+        bytes.setRange(offset, offset + chunk.length, chunk);
+        offset += chunk.length;
+      }
+      return bytes;
+    } finally {
+      client.close();
     }
   }
 
@@ -112,8 +193,13 @@ class SharedTimetableSyncService {
   }) async {
     final lessons = await repo.getAllLessons(timetableId);
     final metadata = await repo.getTimetable(timetableId);
-    final newVersion = await _bumpVersion(timetable: metadata);
-    await _uploadJson(encodeLessons(lessons), newVersion);
+    final jsonString = encodeLessons(lessons);
+    // 압축 전 크기를 버전 문서에 함께 적어 둔다 — 받는 쪽 진행률 계산용.
+    final newVersion = await _bumpVersion(
+      timetable: metadata,
+      rawBytes: utf8.encode(jsonString).length,
+    );
+    await _uploadJson(jsonString, newVersion);
     AppLogger.info('공용 시간표 게시 완료: 버전 $newVersion, ${lessons.length}건');
     return newVersion;
   }
@@ -122,7 +208,7 @@ class SharedTimetableSyncService {
   ///
   /// 버전을 올린 뒤 빈 목록을 올린다. 접속자는 다음 동기화에서 빈 시간표를 받는다.
   Future<int> clearPublishedTimetable() async {
-    final newVersion = await _bumpVersion();
+    final newVersion = await _bumpVersion(rawBytes: 2); // '[]'
     await _uploadJson('[]', newVersion);
     AppLogger.info('공용 시간표 삭제 완료: 버전 $newVersion');
     return newVersion;
@@ -136,6 +222,7 @@ class SharedTimetableSyncService {
   syncSharedTimetable({
     required TimetableRepository repo,
     void Function(String stage)? onStage,
+    void Function(double? progress)? onDownloadProgress,
   }) async {
     onStage?.call('브라우저 저장 정보 읽기');
     final prefs = await SharedPreferences.getInstance();
@@ -165,8 +252,20 @@ class SharedTimetableSyncService {
     }
 
     onStage?.call('공용 시간표 다운로드');
-    final data = await _storage.ref(storagePath).getData(maxDownloadBytes);
-    if (data == null) {
+    // 게시할 때 적어 둔 **압축 전** 크기. 예전 업로드에는 없을 수 있고,
+    // 그때는 진행률을 알 수 없으므로 막대를 비확정으로 둔다.
+    final expectedBytes = (remoteSnap.data()?['bytes'] as num?)?.toInt();
+    onDownloadProgress?.call(expectedBytes == null ? null : 0);
+    final data = await _downloadJsonBytes(
+      onReceived:
+          expectedBytes == null || expectedBytes <= 0
+              ? null
+              : (received) => onDownloadProgress?.call(
+                (received / expectedBytes).clamp(0.0, 1.0),
+              ),
+    );
+    onDownloadProgress?.call(null);
+    if (data.isEmpty) {
       throw StateError('공용 시간표 다운로드 결과가 비어 있습니다.');
     }
     onStage?.call('공용 시간표 데이터 읽기');
@@ -177,13 +276,18 @@ class SharedTimetableSyncService {
             ? DatedTimetable.fromMap(Map<String, Object?>.from(metadata))
             : null;
     onStage?.call('브라우저에 시간표 저장');
+    // `install`이 수업 전체를 `lessons`·`lesson_snapshots`에 넣는다.
+    //
+    // 예전에는 여기서 `repo.replaceSharedLessons(lessons)`로 `shared_lessons`
+    // 테이블에도 같은 수업을 한 벌 더 적었는데, 그 테이블을 읽는 코드가 앱에는
+    // 없다(테스트만 저장소 API를 직접 검증한다). 첫 접속 때 수업 수만큼의
+    // insert를 한 번 더 치르는 순수한 낭비라 제거했다(2026-10-02).
     await installer.install(
       lessons: lessons,
       version: remoteVersion,
       repo: repo,
       metadata: timetableMetadata,
     );
-    await repo.replaceSharedLessons(lessons);
     onStage?.call('동기화 완료 정보 저장');
     await prefs.setInt(localVersionKey, remoteVersion);
 
