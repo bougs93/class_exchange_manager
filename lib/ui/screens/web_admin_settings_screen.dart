@@ -44,6 +44,7 @@ class _WebAdminSettingsScreenState
   final _adminPasswordController = TextEditingController();
   final _adminPasswordConfirmController = TextEditingController();
   final _loginMessageController = TextEditingController();
+  final _defaultSchoolNameController = TextEditingController();
   bool _saving = false;
   bool _publishing = false;
   bool _deleting = false;
@@ -60,7 +61,7 @@ class _WebAdminSettingsScreenState
     _loadCurrentMessage();
   }
 
-  /// 현재 로그인 안내 메시지를 입력란에 미리 채운다.
+  /// 현재 로그인 안내 메시지·기본 학교명을 입력란에 미리 채운다.
   Future<void> _loadCurrentMessage() async {
     try {
       final doc =
@@ -71,8 +72,12 @@ class _WebAdminSettingsScreenState
       final data = doc.data();
       final message =
           (data?['loginMessage'] ?? data?['LoginMessage']) as String?;
-      if (!mounted || message == null) return;
-      setState(() => _loginMessageController.text = message);
+      final schoolName = data?['defaultSchoolName'] as String?;
+      if (!mounted) return;
+      setState(() {
+        if (message != null) _loginMessageController.text = message;
+        if (schoolName != null) _defaultSchoolNameController.text = schoolName;
+      });
     } catch (_) {
       // 조회 실패 시 빈칸 유지
     }
@@ -85,6 +90,7 @@ class _WebAdminSettingsScreenState
     _adminPasswordController.dispose();
     _adminPasswordConfirmController.dispose();
     _loginMessageController.dispose();
+    _defaultSchoolNameController.dispose();
     super.dispose();
   }
 
@@ -161,6 +167,33 @@ class _WebAdminSettingsScreenState
     if (!mounted) return;
     if (error == null) {
       SnackBarHelper.showSuccess(context, '안내 메시지를 변경했습니다.');
+    } else {
+      SnackBarHelper.showError(context, '저장 실패: $error');
+    }
+  }
+
+  /// 기본 학교명 저장.
+  ///
+  /// 교사·학교명은 전역 설정이 아니라 시간표 속성이다(문서 §2) — 이 값은
+  /// 그 규칙을 바꾸지 않는다. "준비 > 학교명"과 "계획서 > 결보강 출력 >
+  /// 학교명"이 아직 비어 있을 때만 채워 주는 1회성 추천값일 뿐이고, 교사가
+  /// 각자 다르게 입력하면 그 값이 그대로 유지된다(2026-10-02 요청).
+  Future<void> _saveDefaultSchoolName() async {
+    final schoolName = _defaultSchoolNameController.text.trim();
+    final error = await _runGuarded(() async {
+      await FirebaseFirestore.instance.collection('config').doc('public').set({
+        'defaultSchoolName': schoolName,
+      }, SetOptions(merge: true));
+    });
+    if (!mounted) return;
+    if (error == null) {
+      // `defaultSchoolNameProvider`는 Firestore 문서를 실시간 구독하는
+      // StreamProvider라 여기서 따로 무효화하지 않아도 된다 — 이 저장이
+      // 끝나는 순간 열려 있는 모든 탭(관리자 포함)에 새 값이 자동으로
+      // 푸시된다. (처음엔 한 번만 읽는 FutureProvider였는데, 관리자와
+      // 교사가 서로 다른 탭을 쓰면 교사 쪽에 무효화 신호가 닿지 않아
+      // 반영되지 않았다 — 2026-10-02 실제 보고로 스트림 방식으로 바꿨다.)
+      SnackBarHelper.showSuccess(context, '기본 학교명을 변경했습니다.');
     } else {
       SnackBarHelper.showError(context, '저장 실패: $error');
     }
@@ -285,6 +318,31 @@ class _WebAdminSettingsScreenState
                     visualDensity: VisualDensity.compact,
                   ),
                   child: const Text('안내 메시지 저장'),
+                ),
+              ),
+              const Divider(height: 24),
+              const Text(
+                '기본 학교명 설정',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _defaultSchoolNameController,
+                decoration: const InputDecoration(
+                  labelText: '예: 월계중학교',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerRight,
+                child: ElevatedButton(
+                  onPressed: _saving ? null : _saveDefaultSchoolName,
+                  style: ElevatedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  child: const Text('기본 학교명 저장'),
                 ),
               ),
               const Divider(height: 24),

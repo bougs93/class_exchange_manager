@@ -56,8 +56,6 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
   bool _showAdmin = false;
   bool _showMasterForm = false;
   String? _loginMessage;
-  String? _syncError;
-  bool _pendingAdmin = false;
 
   /// 지금 진행 중인 동기화 단계 (진행 화면 안내문)
   String? _syncStage;
@@ -186,11 +184,17 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
   }
 
   /// 새 브라우저에서는 공용 시간표 등록을 마친 뒤 메인 화면을 연다.
+  ///
+  /// 공용 시간표 동기화가 실패해도 앱 진입 자체는 막지 않는다 — 예전에는
+  /// 실패 시 "다시 시도/계속/로그아웃" 중 하나를 고르게 하는 화면을
+  /// 띄웠는데, 공용 시간표는 앱 기능 중 하나일 뿐 전체가 거기 의존하진
+  /// 않으므로 굳이 물어볼 필요가 없다(2026-10-02 요청). 실패 원인은 로그로만
+  /// 남기고 평소처럼 들여보낸다 — 로컬에 캐시된 이전 버전이 있으면 그게
+  /// 계속 보이고, 받은 적이 없으면 공용 시간표 없이 시작한다. 이후 접속
+  /// 때마다 다시 시도되므로 서버가 복구되면 저절로 받아진다.
   Future<void> _enterSession({required bool admin}) async {
     if (!mounted) return;
     setState(() {
-      _pendingAdmin = admin;
-      _syncError = null;
       _syncStage = '시간표 준비 중';
       _downloadProgress = null;
     });
@@ -217,78 +221,17 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
       );
       if (!mounted) return;
       ref.invalidate(timetableRegistryProvider);
-      ref.read(webLoginStatusProvider.notifier).state =
-          admin ? WebLoginStatus.adminOk : WebLoginStatus.viewerOk;
     } catch (e, st) {
-      AppLogger.error('공용 시간표 동기화 실패 ($stage)', e, st);
-      if (mounted) {
-        setState(
-          () =>
-              _syncError =
-                  '공용 시간표를 불러오지 못했습니다.\n실패 단계: $stage'
-                  '\n${_describeSyncError(e)}\n다시 시도해 주세요.',
-        );
-      }
+      AppLogger.error('공용 시간표 동기화 실패 — 캐시된 시간표로 계속 진행 ($stage)', e, st);
     }
-  }
-
-  /// 동기화 실패 원인을 사용자가 전달할 수 있는 한 줄로 바꾼다.
-  ///
-  /// 예전에는 `FirebaseException`일 때만 코드를 보여 줬는데, 정작 가장 흔한
-  /// 실패인 **Storage 버킷 CORS 미설정**은 `FirebaseException`이 아니라
-  /// package:http의 `ClientException: Failed to fetch`로 올라온다
-  /// (`firebase_storage_web.getData()`가 내부적으로 평범한 http GET을 쓴다).
-  /// 그래서 화면에 아무 단서도 남지 않아 원인 파악이 늦어졌다(2026-10-02).
-  String _describeSyncError(Object e) {
-    if (e is FirebaseException) {
-      return '오류 코드: ${e.code}';
-    }
-    final text = e.toString();
-    if (text.contains('Failed to fetch') || text.contains('ClientException')) {
-      return '원인: 저장소에 브라우저 접근이 차단되었습니다 (CORS 설정 필요)';
-    }
-    return '원인: $text';
+    if (!mounted) return;
+    ref.read(webLoginStatusProvider.notifier).state =
+        admin ? WebLoginStatus.adminOk : WebLoginStatus.viewerOk;
   }
 
   @override
   Widget build(BuildContext context) {
     final status = ref.watch(webLoginStatusProvider);
-    if (_syncError != null) {
-      return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(_syncError!, textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => _enterSession(admin: _pendingAdmin),
-                child: const Text('다시 시도'),
-              ),
-              if (_pendingAdmin)
-                TextButton(
-                  onPressed: () {
-                    setState(() => _syncError = null);
-                    ref.read(webLoginStatusProvider.notifier).state =
-                        WebLoginStatus.adminOk;
-                  },
-                  child: const Text('관리자로 계속'),
-                ),
-              TextButton(
-                onPressed: () async {
-                  await WebAuthService.clearSession();
-                  if (!mounted) return;
-                  setState(() => _syncError = null);
-                  ref.read(webLoginStatusProvider.notifier).state =
-                      WebLoginStatus.locked;
-                },
-                child: const Text('접속 화면으로'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
     if (status == WebLoginStatus.viewerOk) {
       // 접속자: 우측 상단에 로그아웃 버튼을 띄운다.
       return Stack(

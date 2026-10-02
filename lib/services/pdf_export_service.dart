@@ -207,38 +207,112 @@ class PdfExportService {
     }
   }
 
-  /// 웹 번들 한글 폰트 로드 (Noto Sans KR, OFL 라이선스).
+  /// 번들 한글 폰트 로드 (Noto Sans/Serif KR 서브셋, OFL 라이선스 —
+  /// `OFL.txt` 동봉).
   ///
-  /// 웹에는 시스템 폰트가 없으므로 에셋 폰트를 쓴다. 바이트는 1회만 읽어
-  /// 캐시한다 (10MB 수준이라 매번 읽으면 느림).
-  static Uint8List? _webFontBytes;
+  /// 웹과 모바일(Android/iOS)에서는 유일한 폰트 소스이고(시스템 폰트가
+  /// 없음), 데스크톱(Windows)에서는 시스템 폰트를 하나도 찾지 못했을 때의
+  /// 최종 폴백이다(아래 [loadKoreanFont] 참고). [fontType]은
+  /// [KoreanFontConstants.bundledFontFiles]에 속한 파일명이어야 하고,
+  /// 아니면(데스크톱용 "malgun.ttf" 등) 기본값으로 대체한다. 폰트별 바이트는
+  /// 1회만 읽어 각각 캐시한다.
+  ///
+  /// ## 왜 원본 Noto Sans KR(10.4MB)을 그대로 쓰지 않는가
+  ///
+  /// 원본은 **가변 폰트**(Variable Font)라 굵기 100~900을 하나의 파일에서
+  /// 보간하도록 설계돼 있는데, `syncfusion_flutter_pdf`의 `PdfTrueTypeFont`는
+  /// 가변 폰트 보간을 지원하지 않아 축(axis) 보정 없이 그대로 읽는다. 그
+  /// 결과 기본값(`wght=100`, 즉 **Thin**)으로 글자가 그려져, 의도한 굵기가
+  /// 아니었을 가능성이 높다. 또한 이 학교 시간표 앱에서 쓰이지 않는 한자
+  /// 8천여 자, 키릴·그리스 문자, 레이아웃(GSUB/GPOS) 테이블도 전부 들어
+  /// 있어 매우 크다.
+  ///
+  /// `fonttools`로 **① 원하는 굵기를 고정한 정적 인스턴스로 변환**(보간
+  /// 데이터 제거 — 글자 모양은 그대로) **② 실제 쓰이는 문자만 남기는
+  /// 서브셋**(현대 한글 완성형 11,172자 전부 + 영문 + 일반 구두점 — 한자·타
+  /// 문자권·레이아웃 테이블 제외)을 적용했다(2026-10-02). 현대 한글 음절을
+  /// 전부 남겼으므로 교사명·과목명 등 실사용 텍스트에서 글자가 빠질 일은
+  /// 없다.
+  ///
+  /// | 파일 | 원본 | 가공 후 |
+  /// |---|---|---|
+  /// | NotoSansKR-Subset.ttf (고딕체, 모바일 기본값) | 10.4MB | 2.4MB |
+  /// | NotoSerifKR-Subset.ttf (명조체, 웹 기본값) | 23.8MB | 8.4MB |
+  ///
+  /// 굵게(Bold) 변형은 넣지 않았다(2026-10-02 요청) — 가족마다 Regular
+  /// 하나씩만 제공한다. 기본값은 웹과 모바일이 서로 다르다(2026-10-02
+  /// 요청) — [KoreanFontConstants.platformDefaultFont] 참고.
+  ///
+  /// 명조체는 획에 삐침이 있는 구조라 외곽선 데이터 자체가 더 커서, 같은
+  /// 작업을 거쳐도 고딕체보다 크다. 세 파일 모두 `pubspec.yaml`의
+  /// `assets:`(폰트 전용 `fonts:`가 아님)로 등록돼 있어 **쓰이는 것만, 실제로
+  /// 쓰일 때만** 내려받는다 — 첫 화면 로딩에는 영향이 없고, 그 서체를 처음
+  /// 선택해 내보낼 때만 받는다.
+  static final Map<String, Uint8List> _bundledFontBytesByFile = {};
 
-  static Future<PdfFont?> _loadBundledWebFont(double fontSize) async {
+  static Future<PdfFont?> _loadBundledKoreanFont(
+    double fontSize, {
+    String? fontType,
+  }) async {
+    // fontType이 없거나 유효하지 않으면 현재 플랫폼의 기본값(웹: 명조체,
+    // 모바일: 고딕체)으로 떨어진다.
+    final fileName =
+        (fontType != null &&
+                KoreanFontConstants.bundledFontFiles.contains(fontType))
+            ? fontType
+            : KoreanFontConstants.platformDefaultFont;
     try {
-      _webFontBytes ??=
-          (await rootBundle.load(
-            'lib/assets/fonts/NotoSansKR-VF.ttf',
-          )).buffer.asUint8List();
-      developer.log('웹 번들 한글 폰트 로드 성공 (${_webFontBytes!.length} bytes)');
-      return PdfTrueTypeFont(_webFontBytes!, fontSize);
+      var bytes = _bundledFontBytesByFile[fileName];
+      if (bytes == null) {
+        bytes =
+            (await rootBundle.load(
+              'lib/assets/fonts/$fileName',
+            )).buffer.asUint8List();
+        _bundledFontBytesByFile[fileName] = bytes;
+      }
+      developer.log('번들 한글 폰트 로드 성공: $fileName (${bytes.length} bytes)');
+      return PdfTrueTypeFont(bytes, fontSize);
     } catch (e) {
-      developer.log('웹 번들 한글 폰트 로드 실패: $e');
+      developer.log('번들 한글 폰트 로드 실패 ($fileName): $e');
       return null;
     }
   }
 
   /// 한글 폰트 로드 (Public API)
-  /// 1. 웹: 번들 폰트 사용 (에셋 Noto Sans KR — 시스템 폰트 없음)
-  /// 2. 네이티브: 에셋 폰트 우선 사용 (배포된 앱에서 안정적)
-  /// 3. 로컬 시스템 폰트 폴백 (개발/테스트용)
+  ///
+  /// 플랫폼을 세 갈래로 나눠 처리한다 — 웹/모바일/데스크톱이 폰트를 구할 수
+  /// 있는 방법이 서로 다르기 때문이다.
+  ///
+  /// 1. **웹·모바일(Android/iOS)**: 번들 폰트 사용 — [fontType]으로
+  ///    고딕체/명조체 중 선택. 시스템에 깔린 한글 폰트를 앱이 알 수 없으니
+  ///    (웹은 OS 접근 자체가 없고, 모바일은 `C:\Windows\Fonts`가 존재하지
+  ///    않는다), Windows 전용 9종은 애초에 쓸 수 없다. 저작권 때문에 맑은
+  ///    고딕 등을 그대로 번들에 넣을 수도 없어 OFL 라이선스의 Noto
+  ///    Sans/Serif KR로 대신한다 —
+  ///    [KoreanFontConstants.bundledFontListWithNames] 참고.
+  ///    (예전에는 `kIsWeb` 하나로만 갈라서 모바일이 데스크톱과 같은 9종
+  ///    목록을 보고 있었다 — 그 목록을 골라도 기기에 파일이 없어 매번
+  ///    조용히 기본값으로 떨어졌다. 2026-10-02 발견)
+  /// 2. **데스크톱(Windows)**: 시스템 폰트 우선 — 사용자가 선택한 폰트
+  ///    ([fontType])를 존중해 기존 인쇄물과 같은 글꼴로 출력할 수 있게 한다.
+  /// 3. 데스크톱에서 시스템 폰트를 하나도 못 찾으면 번들 폰트로 최종
+  ///    폴백한다 (예전에는 여기서 null을 반환해 한글이 통째로 비어 있었다).
+  ///
   /// [fontSize] 폰트 크기 (기본값: defaultFontSize 상수 사용)
-  /// [fontType] 폰트 종류 (웹에서는 무시, 번들 폰트 고정)
+  /// [fontType] 폰트 종류. 웹·모바일에서는
+  /// [KoreanFontConstants.bundledFontFiles] 중 하나, 데스크톱에서는 Windows
+  /// 폰트 파일명("malgun.ttf" 등)이어야 한다 — 어느 쪽이든
+  /// [KoreanFontConstants.platformFontListWithNames]로 고른 값을 그대로
+  /// 넘기면 된다.
   static Future<PdfFont?> loadKoreanFont({
     double fontSize = defaultFontSize,
     String? fontType,
   }) async {
-    if (kIsWeb) {
-      return _loadBundledWebFont(fontSize);
+    // 웹과 모바일은 시스템 폰트에 접근할 방법이 없다 — Windows 전용 탐색을
+    // 아예 건너뛰고 바로 번들 폰트로 간다 (불필요한 디렉터리 접근 시도·로그
+    // 소음도 함께 없앤다).
+    if (kIsWeb || Platform.isAndroid || Platform.isIOS) {
+      return _loadBundledKoreanFont(fontSize, fontType: fontType);
     }
     try {
       developer.log(
@@ -350,11 +424,13 @@ class PdfExportService {
         return fallbackFont;
       }
 
-      developer.log('✗ 한글 폰트를 찾지 못했습니다. 한글 텍스트가 표시되지 않을 수 있습니다.');
-      return null;
+      // 시스템 폰트를 전혀 찾지 못했다 — Android 등 `C:\Windows\Fonts`가
+      // 없는 플랫폼이 여기로 떨어진다. 번들 폰트로 최종 폴백한다.
+      developer.log('시스템 한글 폰트 없음 — 번들 폰트로 폴백');
+      return _loadBundledKoreanFont(fontSize);
     } catch (e) {
-      developer.log('한글 폰트 로드 중 오류: $e');
-      return null;
+      developer.log('한글 폰트 로드 중 오류: $e — 번들 폰트로 폴백');
+      return _loadBundledKoreanFont(fontSize);
     }
   }
 

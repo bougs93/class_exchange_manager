@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../models/print_profile.dart';
 import '../../../models/timetable_registry.dart';
+import '../../../providers/default_school_name_provider.dart';
 import '../../../providers/print_profile_provider.dart';
 import '../../../providers/timetable_registry_provider.dart';
 import '../../../providers/timetable_summary_provider.dart';
@@ -61,6 +62,14 @@ class _TimetableSummaryCardState extends ConsumerState<TimetableSummaryCard> {
   /// 컨트롤러에 반영된 시간표 ID (전환 감지용)
   String? _syncedEntryId;
 
+  /// 현재 시간표에 관리자 기본 학교명을 이미 시도해 봤는지
+  ///
+  /// 한 번 시도하고 나면(적용했든, 이미 텍스트가 있어 건너뛰었든) 더 이상
+  /// 건드리지 않는다 — 그렇지 않으면 관리자 기본값 Provider가 로드되기
+  /// 전/후로 rebuild가 반복될 때마다 사용자가 막 지운 칸을 자꾸 다시
+  /// 채우게 된다.
+  bool _triedAdminDefaultForCurrentEntry = false;
+
   @override
   void initState() {
     super.initState();
@@ -78,10 +87,27 @@ class _TimetableSummaryCardState extends ConsumerState<TimetableSummaryCard> {
   }
 
   /// 활성 시간표가 바뀌면 학교명 입력란을 그 시간표 값으로 교체
-  void _syncSchoolField(TimetableRegistryEntry? entry) {
-    if (entry?.id == _syncedEntryId) return;
-    _syncedEntryId = entry?.id;
-    _schoolController.text = entry?.schoolName ?? '';
+  ///
+  /// 시간표에 학교명이 없으면(아직 아무도 입력한 적 없음) 관리자가 접속
+  /// 설정에서 지정한 기본 학교명으로 미리 채운다(2026-10-02 요청). 어디까지나
+  /// "추천값"이라 교사가 지우거나 다르게 입력하면 그 값이 그대로 유지된다
+  /// — 시간표 속성이라는 원칙(문서 §2)은 바뀌지 않는다.
+  void _syncSchoolField(TimetableRegistryEntry? entry, String adminDefault) {
+    if (entry?.id != _syncedEntryId) {
+      _syncedEntryId = entry?.id;
+      _triedAdminDefaultForCurrentEntry = false;
+      _schoolController.text = entry?.schoolName ?? '';
+    }
+
+    if (_triedAdminDefaultForCurrentEntry || adminDefault.isEmpty) return;
+    // 관리자 기본값은 비동기로 로드되므로 이 시점엔 아직 빈 문자열일 수
+    // 있다 — 그래서 entry.id 전환 시점이 아니라 매 build마다 한 번씩
+    // 조건을 다시 본다. 일단 값이 들어오면 더는 재시도하지 않는다.
+    _triedAdminDefaultForCurrentEntry = true;
+    final hasOwnSchoolName = (entry?.schoolName?.trim().isNotEmpty ?? false);
+    if (!hasOwnSchoolName && _schoolController.text.trim().isEmpty) {
+      _schoolController.text = adminDefault;
+    }
   }
 
   /// 실제로 선택 가능한 교사 (엑셀 교사 목록에 없으면 null)
@@ -135,7 +161,9 @@ class _TimetableSummaryCardState extends ConsumerState<TimetableSummaryCard> {
     final entry = ref.watch(activeTimetableEntryProvider);
     // 선생님/관리자 전환 시 추가·관리 버튼이 같이 바뀌게 구독한다.
     ref.watch(webLoginStatusProvider);
-    _syncSchoolField(entry);
+    final adminDefaultSchoolName =
+        ref.watch(defaultSchoolNameProvider).valueOrNull ?? '';
+    _syncSchoolField(entry, adminDefaultSchoolName);
 
     return AppContentCard(
       child: Column(

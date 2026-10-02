@@ -183,6 +183,36 @@ class SharedTimetableSyncService {
     }
   }
 
+  /// [_downloadJsonBytes]를 짧은 간격으로 최대 3번 시도한다.
+  ///
+  /// 관리자가 막 게시를 끝낸 직후 접속하면 "Failed to fetch"로 다운로드가
+  /// 실패하는 경우가 실제로 보고됐다(2026-10-02) — 원인 문구만 보면
+  /// CORS 미설정과 똑같지만, 버킷 CORS는 이미 적용·확인됐고 매번 재현되는
+  /// 것도 아니라 CORS 자체의 문제는 아니다. `_bumpVersion()`(Firestore 버전
+  /// 증가)이 `_uploadJson()`(Storage 업로드)보다 먼저 끝나므로, 그 틈에
+  /// 들어온 클라이언트는 "새 버전이 있다"는 걸 알면서도 아직 완전히
+  /// 준비되지 않은 객체를 내려받으려다 생기는 일시적 경합으로 보인다.
+  /// 몇 초 안에 안정되므로 가볍게 재시도로 흡수한다. 그래도 실패하면
+  /// 기존처럼 오류 화면의 [다시 시도] 버튼으로 넘어간다.
+  Future<Uint8List> _downloadJsonBytesWithRetry({
+    void Function(int receivedBytes)? onReceived,
+  }) async {
+    const maxAttempts = 3;
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await _downloadJsonBytes(onReceived: onReceived);
+      } catch (e) {
+        if (attempt == maxAttempts) rethrow;
+        AppLogger.warning(
+          '공용 시간표 다운로드 재시도 ($attempt/$maxAttempts): $e',
+        );
+        await Future.delayed(Duration(milliseconds: 600 * attempt));
+      }
+    }
+    // 위 루프는 반드시 return 또는 rethrow로 끝나지만, 컴파일러를 위해 둔다.
+    throw StateError('공용 시간표 다운로드 재시도 로직 오류');
+  }
+
   /// 공용 시간표 게시 (관리자용).
   ///
   /// [timetableId] 시간표의 전체 수업을 JSON으로 Storage에 올리고,
@@ -256,7 +286,7 @@ class SharedTimetableSyncService {
     // 그때는 진행률을 알 수 없으므로 막대를 비확정으로 둔다.
     final expectedBytes = (remoteSnap.data()?['bytes'] as num?)?.toInt();
     onDownloadProgress?.call(expectedBytes == null ? null : 0);
-    final data = await _downloadJsonBytes(
+    final data = await _downloadJsonBytesWithRetry(
       onReceived:
           expectedBytes == null || expectedBytes <= 0
               ? null

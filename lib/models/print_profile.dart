@@ -1,4 +1,6 @@
-﻿/// 인쇄 프로파일(계획서) 1건
+﻿import '../constants/korean_fonts.dart';
+
+/// 인쇄 프로파일(계획서) 1건
 ///
 /// 시간표 안에서 교사별로 여러 개를 관리하며, 교체 건에 지정되어
 /// PDF 출력 설정(양식·폰트·비고·추가 필드 등)을 제공합니다.
@@ -140,7 +142,15 @@ class PrintProfile {
       templateIndex: (json['templateIndex'] as num?)?.toInt() ?? 0,
       fontSize: (json['fontSize'] as num?)?.toDouble() ?? 10.0,
       remarksFontSize: (json['remarksFontSize'] as num?)?.toDouble() ?? 7.0,
-      selectedFont: (json['selectedFont'] as String?) ?? 'hanbatang.ttf',
+      // 저장된 값이 없을 때의 기본값은 플랫폼에 맞는 것을 쓴다.
+      // 예전에는 데스크톱 전용 파일명('hanbatang.ttf')을 하드코딩해서,
+      // 웹·모바일에서 이 기본값이 그대로 쓰일 뻔한 적이 있었다(실제로는
+      // 화면에 반영되기 전에 `_applyProfileToUi`가 다시 검증하므로 사용자
+      // 눈에 보이는 문제로 이어지진 않았지만, 저장되는 값 자체가 플랫폼과
+      // 맞지 않는 건 불필요한 혼선이다. 2026-10-02 점검 중 발견).
+      selectedFont:
+          (json['selectedFont'] as String?) ??
+          KoreanFontConstants.platformDefaultFont,
       includeRemarks: json['includeRemarks'] as bool? ?? false,
       additionalFields: fields,
       selectedTemplateFilePath: json['selectedTemplateFilePath'] as String?,

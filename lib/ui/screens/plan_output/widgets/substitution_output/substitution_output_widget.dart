@@ -9,6 +9,7 @@ import '../../../../../constants/screen_usage_hints.dart';
 import '../../../../../models/plan_output_menu.dart';
 import '../../../../../models/print_profile.dart';
 import '../../../../../models/timetable_registry.dart';
+import '../../../../../providers/default_school_name_provider.dart';
 import '../../../../../providers/exchange_screen_provider.dart';
 import '../../../../../providers/plan_output_menu_provider.dart';
 import '../../../../../providers/print_profile_provider.dart';
@@ -68,7 +69,7 @@ class SubstitutionOutputWidgetState
   // 폰트 설정
   double _fontSize = 10.0;
   double _remarksFontSize = 7.0;
-  String _selectedFont = KoreanFontConstants.defaultFont;
+  String _selectedFont = KoreanFontConstants.platformDefaultFont;
   bool _includeRemarks = true;
 
   // 폰트 사이즈 옵션
@@ -402,7 +403,7 @@ class SubstitutionOutputWidgetState
       // 폰트 설정 업데이트
       double newFontSize = 10.0;
       double newRemarksFontSize = 7.0;
-      String newSelectedFont = KoreanFontConstants.defaultFont;
+      String newSelectedFont = KoreanFontConstants.platformDefaultFont;
       bool newIncludeRemarks = true;
       String? newSelectedTemplateFilePath;
 
@@ -422,14 +423,14 @@ class SubstitutionOutputWidgetState
         // 폰트 값 유효성 검사: 드롭다운 아이템에 있는 값인지 확인
         final savedFont = settings['selectedFont'] as String?;
         final availableFonts =
-            KoreanFontConstants.fontListWithNames
+            KoreanFontConstants.platformFontListWithNames
                 .map((font) => font['file']!)
                 .toList();
         // 저장된 폰트가 유효한 목록에 있는지 확인하고, 없으면 기본 폰트 사용
         newSelectedFont =
             (savedFont != null && availableFonts.contains(savedFont))
                 ? savedFont
-                : KoreanFontConstants.defaultFont;
+                : KoreanFontConstants.platformDefaultFont;
         newIncludeRemarks = settings['includeRemarks'] as bool? ?? true;
 
         // 저장된 PDF 템플릿 파일 경로 로드 (파일 존재 여부 확인)
@@ -504,13 +505,13 @@ class SubstitutionOutputWidgetState
         // 폰트 값 유효성 검사
         final defaultFont = defaultSettings['selectedFont'] as String?;
         final availableFonts =
-            KoreanFontConstants.fontListWithNames
+            KoreanFontConstants.platformFontListWithNames
                 .map((font) => font['file']!)
                 .toList();
         newSelectedFont =
             (defaultFont != null && availableFonts.contains(defaultFont))
                 ? defaultFont
-                : KoreanFontConstants.defaultFont;
+                : KoreanFontConstants.platformDefaultFont;
         newIncludeRemarks = defaultSettings['includeRemarks'] as bool? ?? true;
         newSelectedTemplateFilePath = null;
 
@@ -563,12 +564,26 @@ class SubstitutionOutputWidgetState
   /// 교사명·학교명은 전역 설정이 아니라 활성 시간표의 속성입니다(문서 §2).
   /// 사용자가 매번 타이핑하지 않도록 비어 있는 칸만 자동으로 채웁니다.
   ///
+  /// 학교명은 2단계로 찾는다: ① 시간표에 지정된 학교명 ② (그것도 없으면)
+  /// 관리자가 접속 설정에서 지정한 기본 학교명(2026-10-02 요청, 웹 전용).
+  /// 어느 쪽이든 "추천값"일 뿐이라 교사가 입력하면 그 값이 유지된다.
+  ///
   /// 외부에서 호출 가능한 public 메서드입니다.
   /// 결보강 문서 탭 클릭 시 호출됩니다.
   Future<void> loadDefaultValuesIfEmpty() async {
     try {
       final entry = ref.read(activeTimetableEntryProvider);
 
+      // 시간표에 학교명이 없을 때만 필요하므로, 그 경우에만 기다린다.
+      final needsAdminDefault =
+          _schoolNameController.text.trim().isEmpty &&
+          (entry?.schoolName?.trim().isEmpty ?? true);
+      final adminDefaultSchoolName =
+          needsAdminDefault
+              ? await ref.read(defaultSchoolNameProvider.future)
+              : '';
+
+      if (!mounted) return;
       setState(() {
         // 결강교사 입력란이 비어있으면 시간표에 지정된 교사로 채우기
         if (_teacherNameController.text.trim().isEmpty) {
@@ -579,12 +594,15 @@ class SubstitutionOutputWidgetState
           }
         }
 
-        // 학교명 입력란이 비어있으면 시간표에 지정된 학교명으로 채우기
+        // 학교명 입력란이 비어있으면 시간표 → 관리자 기본값 순으로 채우기
         if (_schoolNameController.text.trim().isEmpty) {
           final schoolName = entry?.schoolName?.trim() ?? '';
           if (schoolName.isNotEmpty) {
             _schoolNameController.text = schoolName;
             AppLogger.info('시간표 설정에서 학교명 자동 입력: $schoolName');
+          } else if (adminDefaultSchoolName.isNotEmpty) {
+            _schoolNameController.text = adminDefaultSchoolName;
+            AppLogger.info('관리자 기본값에서 학교명 자동 입력: $adminDefaultSchoolName');
           }
         }
       });
@@ -784,13 +802,13 @@ class SubstitutionOutputWidgetState
 
     // 폰트 유효성 검사
     final availableFonts =
-        KoreanFontConstants.fontListWithNames
+        KoreanFontConstants.platformFontListWithNames
             .map((font) => font['file']!)
             .toList();
     final font =
         availableFonts.contains(profile.selectedFont)
             ? profile.selectedFont
-            : KoreanFontConstants.defaultFont;
+            : KoreanFontConstants.platformDefaultFont;
 
     // 템플릿 파일 경로 유효성 검사
     String? templatePath = profile.selectedTemplateFilePath;
@@ -985,6 +1003,22 @@ class SubstitutionOutputWidgetState
 
     // 준비 교사명이 바뀌면 이 화면도 다시 그려 드롭다운이 최신 값을 반영
     ref.watch(activeTeacherNameProvider);
+
+    // 관리자가 기본 학교명을 바꾸면(실시간 구독) 비어 있는 학교명 칸에
+    // 바로 반영한다. 예전에는 "결보강 출력" 탭을 새로 클릭할 때만
+    // `loadDefaultValuesIfEmpty()`가 돌아서, 이미 그 탭에 머물러 있던
+    // 화면이나 관리자와는 다른 탭에서 연 화면에는 반영되지 않았다
+    // (2026-10-02 실제 보고). 값이 처음 도착할 때도 호출되므로, 탭을 한
+    // 번도 새로 누르지 않은 화면도 채워진다.
+    ref.listen<AsyncValue<String>>(defaultSchoolNameProvider, (
+      previous,
+      next,
+    ) {
+      final value = next.valueOrNull;
+      if (value == null || value.isEmpty) return;
+      if (previous?.valueOrNull == value) return;
+      loadDefaultValuesIfEmpty();
+    });
 
     // 체크 선택(제외 목록)이 바뀔 때만 결강기간 재계산
     ref.listen<(String?, List<String>)>(

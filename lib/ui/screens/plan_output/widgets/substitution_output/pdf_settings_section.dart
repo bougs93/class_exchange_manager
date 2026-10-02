@@ -284,7 +284,7 @@ class PdfFontSettingsSection extends StatelessWidget {
         isDense: true,
         style: const TextStyle(color: Colors.black, fontSize: 13),
         items:
-            KoreanFontConstants.fontListWithNames.map((font) {
+            KoreanFontConstants.platformFontListWithNames.map((font) {
               return DropdownMenuItem(
                 value: font['file']!,
                 child: Text(
