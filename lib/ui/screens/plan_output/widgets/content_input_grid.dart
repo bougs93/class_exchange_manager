@@ -731,6 +731,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
                     initialValue: selectedId,
                     isDense: true,
                     isExpanded: true,
+                    style: const TextStyle(fontSize: 13),
                     decoration: InputDecoration(
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(
@@ -748,6 +749,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
                           child: Text(
                             profile.name,
                             overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 13),
                           ),
                         ),
                     ],

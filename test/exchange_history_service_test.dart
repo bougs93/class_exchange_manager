@@ -120,14 +120,14 @@ void main() {
       expect(service.canUndo, isTrue);
       expect(service.canRedo, isFalse);
 
-      expect(service.undoLastExchange()?.description, 'C');
+      expect(service.undoLastExchange()?.item.description, 'C');
       expect(_activeDescriptions(service), ['A', 'B']);
       expect(service.canRedo, isTrue);
 
-      expect(service.undoLastExchange()?.description, 'B');
+      expect(service.undoLastExchange()?.item.description, 'B');
       expect(_activeDescriptions(service), ['A']);
 
-      expect(service.undoLastExchange()?.description, 'A');
+      expect(service.undoLastExchange()?.item.description, 'A');
       expect(_activeDescriptions(service), isEmpty);
       expect(service.canUndo, isFalse);
       expect(service.canRedo, isTrue);
@@ -147,13 +147,13 @@ void main() {
       service.undoLastExchange();
       service.undoLastExchange();
 
-      expect(service.redoLastExchange()?.description, 'A');
+      expect(service.redoLastExchange()?.item.description, 'A');
       expect(_activeDescriptions(service), ['A']);
 
-      expect(service.redoLastExchange()?.description, 'B');
+      expect(service.redoLastExchange()?.item.description, 'B');
       expect(_activeDescriptions(service), ['A', 'B']);
 
-      expect(service.redoLastExchange()?.description, 'C');
+      expect(service.redoLastExchange()?.item.description, 'C');
       expect(_activeDescriptions(service), ['A', 'B', 'C']);
       expect(service.canRedo, isFalse);
       expect(service.canUndo, isTrue);
@@ -200,7 +200,7 @@ void main() {
       expect(service.getExchangeList(), isEmpty);
     });
 
-    test('removeFromExchangeList → 스택에서도 제거', () {
+    test('removeFromExchangeList → 삭제도 되돌릴 수 있다', () {
       _addTestExchange(service, '1', description: 'A');
       _addTestExchange(service, '2', description: 'B');
       final itemB = service.getExchangeList().last;
@@ -208,23 +208,120 @@ void main() {
       service.removeFromExchangeList(itemB.id);
 
       expect(_activeDescriptions(service), ['A']);
-      expect(service.getUndoStack().map((e) => e.description), ['A']);
-      expect(service.undoLastExchange()?.description, 'A');
-      expect(service.canUndo, isFalse);
+      // 삭제가 undo 스택에 남는다
+      expect(service.canUndo, isTrue);
+
+      // 되돌리면 삭제됐던 B가 복원된다
+      final undone = service.undoLastExchange();
+      expect(undone?.item.description, 'B');
+      expect(undone?.wasDelete, isTrue);
+      expect(_activeDescriptions(service), ['A', 'B']);
+      expect(service.canRedo, isTrue);
+
+      // 다시 실행하면 B가 다시 삭제된다
+      final redone = service.redoLastExchange();
+      expect(redone?.item.description, 'B');
+      expect(redone?.wasDelete, isTrue);
+      expect(_activeDescriptions(service), ['A']);
+      expect(service.canUndo, isTrue);
     });
 
-    test('maxUndoItems(10) 초과 시 스택은 10개만 유지', () {
-      for (var i = 1; i <= 11; i++) {
+    test('실행→삭제→되돌리기→다시실행 교차 동작', () {
+      _addTestExchange(service, '1', description: 'A');
+      _addTestExchange(service, '2', description: 'B');
+      final itemB = service.getExchangeList().last;
+
+      // B 삭제 후 되돌리면 B 복원
+      service.removeFromExchangeList(itemB.id);
+      expect(service.undoLastExchange()?.wasDelete, isTrue);
+      expect(_activeDescriptions(service), ['A', 'B']);
+
+      // 다음 되돌리기는 그 앞 동작(A 실행 취소) — B의 실행 항목은
+      // 삭제 시점에 스택에서 빠졌으므로 건너뛰어진다
+      final undone = service.undoLastExchange();
+      expect(undone?.wasDelete, isFalse);
+      expect(undone?.item.description, 'A');
+      expect(_activeDescriptions(service), ['B']);
+
+      // 다시 실행하면 A 활성화
+      expect(service.redoLastExchange()?.wasDelete, isFalse);
+      expect(_activeDescriptions(service), ['A', 'B']);
+    });
+
+    test('삭제 후 새 교체 실행 → redo 스택 초기화', () {
+      _addTestExchange(service, '1', description: 'A');
+      _addTestExchange(service, '2', description: 'B');
+      final itemB = service.getExchangeList().last;
+
+      service.removeFromExchangeList(itemB.id);
+      service.undoLastExchange(); // B 복원 → redo 가능
+      expect(service.canRedo, isTrue);
+
+      _addTestExchange(service, '3', description: 'C');
+      expect(service.canRedo, isFalse);
+      expect(_activeDescriptions(service), ['A', 'B', 'C']);
+    });
+
+    test('없는 항목 삭제 → 아무 일도 일어나지 않음', () {
+      _addTestExchange(service, '1', description: 'A');
+
+      service.removeFromExchangeList('no-such-id');
+
+      expect(_activeDescriptions(service), ['A']);
+      // 삭제가 일어나지 않았으므로 undo 대상은 A의 실행뿐
+      expect(service.getUndoStack().length, 1);
+    });
+
+    test('findDeletableItem → 동일 경로 중복 실행 시 활성·최신을 우선', () {
+      // 같은 경로 객체로 두 번 실행 → originalPath.id 중복
+      final path = _createTestPath('dup');
+      service.addExchange(
+        path,
+        customDescription: '첫째',
+        absenceDate: _testAbsenceDate,
+        substitutionDate: _testSubstitutionDate,
+      );
+      service.addExchange(
+        path,
+        customDescription: '둘째',
+        absenceDate: _testAbsenceDate,
+        substitutionDate: _testSubstitutionDate,
+      );
+
+      // 둘 다 활성이면 가장 최근(둘째) 선택
+      expect(service.findDeletableItem(path.id)?.description, '둘째');
+
+      // 둘째를 되돌리면(비활성) 활성 상태인 첫째가 선택됨
+      service.undoLastExchange();
+      expect(service.findDeletableItem(path.id)?.description, '첫째');
+    });
+
+    test('findDeletableItem → 전부 되돌려졌으면 가장 최근 반환, 없으면 null', () {
+      final path = _createTestPath('dup');
+      service.addExchange(
+        path,
+        customDescription: '첫째',
+        absenceDate: _testAbsenceDate,
+        substitutionDate: _testSubstitutionDate,
+      );
+
+      service.undoLastExchange();
+      expect(service.findDeletableItem(path.id)?.description, '첫째');
+      expect(service.findDeletableItem('no-such-path'), isNull);
+    });
+
+    test('maxUndoItems(50) 초과 시 스택은 50개만 유지', () {
+      for (var i = 1; i <= 51; i++) {
         _addTestExchange(service, '$i', description: 'E$i');
       }
 
-      expect(service.getExchangeList().length, 11);
-      expect(service.getUndoStack().length, 10);
+      expect(service.getExchangeList().length, 51);
+      expect(service.getUndoStack().length, 50);
       expect(service.getUndoStack().first.description, 'E2');
-      expect(service.getUndoStack().last.description, 'E11');
+      expect(service.getUndoStack().last.description, 'E51');
 
-      // 스택에 있는 10건만 undo 가능
-      for (var i = 0; i < 10; i++) {
+      // 스택에 있는 50건만 undo 가능
+      for (var i = 0; i < 50; i++) {
         expect(service.canUndo, isTrue);
         service.undoLastExchange();
       }
@@ -335,7 +432,10 @@ void main() {
       _addTestExchange(service, '1', description: 'A');
       final id = service.getExchangeList().single.id;
 
-      final updated = service.updateDates(id, absenceDate: DateTime(2026, 9, 3));
+      final updated = service.updateDates(
+        id,
+        absenceDate: DateTime(2026, 9, 3),
+      );
 
       expect(updated!.absenceDate, DateTime(2026, 9, 3));
       expect(updated.substitutionDate, _testSubstitutionDate);
@@ -363,7 +463,10 @@ void main() {
       );
       final id = service.getExchangeList().single.id;
 
-      final updated = service.updateDates(id, absenceDate: DateTime(2026, 9, 3));
+      final updated = service.updateDates(
+        id,
+        absenceDate: DateTime(2026, 9, 3),
+      );
 
       expect(updated!.weekMonday, DateTime(2026, 8, 31));
     });
@@ -438,7 +541,12 @@ void main() {
       final id = service.getExchangeList().single.id;
       final versionBefore = service.getExchangeListVersion();
 
-      service.updateNodeDate(id, dayName: '화', period: 2, date: DateTime(2026, 9, 8));
+      service.updateNodeDate(
+        id,
+        dayName: '화',
+        period: 2,
+        date: DateTime(2026, 9, 8),
+      );
 
       expect(service.getExchangeListVersion(), greaterThan(versionBefore));
     });

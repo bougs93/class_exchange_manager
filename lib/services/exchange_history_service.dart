@@ -23,11 +23,19 @@ class ExchangeHistoryService {
   // 내부 생성자
   ExchangeHistoryService._internal();
 
-  // 되돌리기용 스택 (메모리 저장, 최근 10개)
+  // 되돌리기용 스택 (메모리 저장, 최근 50개)
   final List<ExchangeHistoryItem> _undoStack = [];
 
   // 다시 실행용 스택 (되돌리기 후 1단계씩 복구)
   final List<ExchangeHistoryItem> _redoStack = [];
+
+  /// 삭제 동작 표시 — undo/redo 스택 항목 중 "삭제"인 항목의 id 집합.
+  ///
+  /// 스택 자체는 기존처럼 [ExchangeHistoryItem]을 그대로 들고, 삭제 여부만
+  /// 별도로 표시한다. 교체 실행과 삭제가 하나의 LIFO 순서로 되돌려지므로,
+  /// 스택 타입을 바꾸지 않고 삭제 undo/redo를 지원한다.
+  final Set<String> _deletedUndoIds = {};
+  final Set<String> _deletedRedoIds = {};
 
   // 교체 리스트용 아카이브 (로컬 저장소, 모든 교체 보관)
   final List<ExchangeHistoryItem> _exchangeList = [];
@@ -35,7 +43,7 @@ class ExchangeHistoryService {
   // 교체된 셀 관리는 _exchangeList를 통해 직접 확인
 
   // 최대 되돌리기 항목 수
-  static const int maxUndoItems = 10;
+  static const int maxUndoItems = 50;
 
   // 교체 리스트 변경 추적을 위한 버전 카운터
   // 이 값이 변경되면 교체 리스트가 변경된 것으로 간주합니다.
@@ -170,24 +178,39 @@ class ExchangeHistoryService {
     _exchangeListVersion++;
     _notifyVersionChanged();
 
-    // 되돌리기 스택에 추가 (최근 10개만)
-    _undoStack.add(item);
-    if (_undoStack.length > maxUndoItems) {
-      _undoStack.removeAt(0);
-      // 메모리에서만 제거, 로컬 저장소는 유지
-    }
+    // 되돌리기 스택에 추가 (최근 50개만)
+    _pushUndo(item);
 
     // 새 교체 실행 시 다시 실행 스택 초기화 (표준 undo/redo 동작)
     _redoStack.clear();
+    _deletedRedoIds.clear();
+  }
+
+  /// undo 스택에 추가 (상한 초과 시 가장 오래된 것부터 버리고 표시 정리).
+  void _pushUndo(ExchangeHistoryItem item) {
+    _undoStack.add(item);
+    while (_undoStack.length > maxUndoItems) {
+      final evicted = _undoStack.removeAt(0);
+      _deletedUndoIds.remove(evicted.id);
+    }
   }
 
   /// 교체 리스트에서 특정 항목 삭제
-  /// 삭제 버튼 클릭 시 호출
+  /// 삭제 버튼 클릭 시 호출 — 삭제도 되돌릴 수 있도록 스택에 남긴다.
   void removeFromExchangeList(String itemId) {
-    _exchangeList.removeWhere((item) => item.id == itemId);
+    final index = _exchangeList.indexWhere((item) => item.id == itemId);
+    if (index == -1) return;
+    final removed = _exchangeList.removeAt(index);
     _purgeItemFromStacks(itemId);
 
     _removeFromLocalStorage(itemId);
+
+    // 삭제도 되돌릴 수 있도록 스택에 남긴다.
+    // 새 조작이므로 redo는 비운다 (표준 undo/redo 동작).
+    _pushUndo(removed);
+    _deletedUndoIds.add(itemId);
+    _redoStack.clear();
+    _deletedRedoIds.clear();
 
     _exchangeListVersion++;
     _notifyVersionChanged();
@@ -226,6 +249,8 @@ class ExchangeHistoryService {
     _exchangeList.addAll(items);
     _undoStack.clear();
     _redoStack.clear();
+    _deletedUndoIds.clear();
+    _deletedRedoIds.clear();
 
     _exchangeListVersion++;
     _notifyVersionChanged();
@@ -237,6 +262,8 @@ class ExchangeHistoryService {
     _exchangeList.clear();
     _undoStack.clear();
     _redoStack.clear();
+    _deletedUndoIds.clear();
+    _deletedRedoIds.clear();
     _clearLocalStorage();
 
     // 🔥 교체 리스트 변경 추적: 버전 증가
@@ -262,10 +289,29 @@ class ExchangeHistoryService {
 
   /// 가장 최근 교체 작업 되돌리기
   /// 되돌리기 버튼 클릭 시 호출
-  ExchangeHistoryItem? undoLastExchange() {
+  ///
+  /// Returns: 되돌린 항목과 삭제-되돌리기 여부.
+  /// 삭제 되돌리기(`wasDelete: true`)면 목록에서 지워졌던 항목이 복원된다
+  /// (맨 뒤에 다시 추가된다 — 원래 순서는 보장하지 않는다).
+  ({ExchangeHistoryItem item, bool wasDelete})? undoLastExchange() {
     if (_undoStack.isEmpty) return null;
 
     final item = _undoStack.removeLast();
+
+    // 삭제 되돌리기: 목록에 복원한다.
+    if (_deletedUndoIds.remove(item.id)) {
+      if (_exchangeList.every((i) => i.id != item.id)) {
+        _exchangeList.add(item);
+        _saveToLocalStorage(item);
+      }
+      // 목록에 이미 있으면(가져오기 등으로 복원됨) 중복 추가 없이 상태만 갱신.
+      _exchangeListVersion++;
+      _notifyVersionChanged();
+
+      _redoStack.add(item);
+      _deletedRedoIds.add(item.id);
+      return (item: item, wasDelete: true);
+    }
 
     final index = _exchangeList.indexWhere((i) => i.id == item.id);
     if (index == -1) {
@@ -284,15 +330,32 @@ class ExchangeHistoryService {
     // 다시 실행 스택에 추가
     _redoStack.add(item);
 
-    return item;
+    return (item: item, wasDelete: false);
   }
 
   /// 되돌리기한 교체 1건 다시 실행
   /// 다시 실행 버튼 클릭 시 호출
-  ExchangeHistoryItem? redoLastExchange() {
+  ///
+  /// Returns: 복구된 항목과 삭제-다시실행 여부.
+  /// 삭제 다시실행(`wasDelete: true`)이면 복원됐던 항목이 다시 삭제된다.
+  ({ExchangeHistoryItem item, bool wasDelete})? redoLastExchange() {
     if (_redoStack.isEmpty) return null;
 
     final item = _redoStack.removeLast();
+
+    // 삭제 다시 실행: 목록에서 다시 제거한다.
+    // 처리 중인 항목은 이미 꺼냈으므로 purge 없이 직접 제거한다.
+    if (_deletedRedoIds.remove(item.id)) {
+      _exchangeList.removeWhere((i) => i.id == item.id);
+      _removeFromLocalStorage(item.id);
+
+      _exchangeListVersion++;
+      _notifyVersionChanged();
+
+      _pushUndo(item);
+      _deletedUndoIds.add(item.id);
+      return (item: item, wasDelete: true);
+    }
 
     final index = _exchangeList.indexWhere((i) => i.id == item.id);
     if (index == -1) {
@@ -306,27 +369,28 @@ class ExchangeHistoryService {
     _updateInLocalStorage(restoredItem);
 
     // 되돌리기 스택에 다시 추가
-    _undoStack.add(item);
-    if (_undoStack.length > maxUndoItems) {
-      _undoStack.removeAt(0);
-    }
+    _pushUndo(item);
 
     _exchangeListVersion++;
     _notifyVersionChanged();
 
-    return restoredItem;
+    return (item: restoredItem, wasDelete: false);
   }
 
   /// 되돌리기 스택 초기화
   void clearUndoStack() {
     _undoStack.clear();
     _redoStack.clear();
+    _deletedUndoIds.clear();
+    _deletedRedoIds.clear();
   }
 
   /// undo/redo 스택에서 특정 항목 제거
   void _purgeItemFromStacks(String itemId) {
     _undoStack.removeWhere((item) => item.id == itemId);
     _redoStack.removeWhere((item) => item.id == itemId);
+    _deletedUndoIds.remove(itemId);
+    _deletedRedoIds.remove(itemId);
   }
 
   /// 단위 테스트용 상태 초기화 (로컬 저장소 I/O 없음)
@@ -335,6 +399,8 @@ class ExchangeHistoryService {
     _exchangeList.clear();
     _undoStack.clear();
     _redoStack.clear();
+    _deletedUndoIds.clear();
+    _deletedRedoIds.clear();
     _exchangeListVersion = 0;
     _legacyDataBackedUp = false;
     // 싱글톤이라 다른 테스트(Provider 트리를 빌드한 위젯 테스트 등)가 미리
@@ -351,6 +417,23 @@ class ExchangeHistoryService {
     } catch (e) {
       return null;
     }
+  }
+
+  /// 삭제 대상 조회 — 경로 ID 기준.
+  ///
+  /// 같은 경로를 여러 번 실행하면 `originalPath.id`가 중복될 수 있다
+  /// (실행→되돌리기→재실행 등). 이때 무조건 첫 항목을 지우면(`firstWhere`)
+  /// 엉뚱한 교체가 삭제된다. 선택된 셀이 보여주는 것은 가장 최근 상태이므로,
+  /// 활성(`!isReverted`) 항목 중 가장 최근 것을 우선하고, 없으면 전체 중
+  /// 가장 최근 것을 반환한다. 없으면 null.
+  ExchangeHistoryItem? findDeletableItem(String pathId) {
+    final candidates =
+        _exchangeList.where((item) => item.originalPath.id == pathId).toList();
+    if (candidates.isEmpty) return null;
+    for (var i = candidates.length - 1; i >= 0; i--) {
+      if (!candidates[i].isReverted) return candidates[i];
+    }
+    return candidates.last;
   }
 
   /// 교체 리스트에서 설명으로 검색
@@ -639,7 +722,9 @@ class ExchangeHistoryService {
 
     final item = _exchangeList[index];
     if (!item.supportsNodeDates) {
-      AppLogger.warning('노드 날짜는 순환·2중 교체에만 지정할 수 있음: $itemId (${item.type.name})');
+      AppLogger.warning(
+        '노드 날짜는 순환·2중 교체에만 지정할 수 있음: $itemId (${item.type.name})',
+      );
       return null;
     }
     if (date.weekday != DayUtils.getDayNumber(dayName)) {

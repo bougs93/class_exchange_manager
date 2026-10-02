@@ -113,9 +113,8 @@ class ExchangeExecutor {
   /// 결강 기준 노드(비게 되는 수업)와 교체 기준 노드(보강/이동되는 수업)는
   /// 경로 타입마다 다르므로, 스낵바 메시지를 만들 때 쓰는 것과 같은
   /// "대표 노드 2개" 선택 규칙을 그대로 따릅니다.
-  ({DateTime absenceDate, DateTime substitutionDate, DateTime weekMonday}) _computeExchangeDates(
-    ExchangePath exchangePath,
-  ) {
+  ({DateTime absenceDate, DateTime substitutionDate, DateTime weekMonday})
+  _computeExchangeDates(ExchangePath exchangePath) {
     final weekMonday = ref.read(selectedWeekProvider);
 
     final ExchangeNode absenceNode;
@@ -406,12 +405,11 @@ class ExchangeExecutor {
       }
     }
 
-    // 1. 교체 리스트에서 찾아서 삭제
-    final exchangeList = historyService.getExchangeList();
-    final targetItem = exchangeList.firstWhere(
-      (item) => item.originalPath.id == exchangePath.id,
-      orElse: () => throw StateError('해당 교체 경로를 교체 리스트에서 찾을 수 없습니다'),
-    );
+    // 1. 교체 리스트에서 찾아서 삭제 (중복 실행된 동일 경로는 활성·최신 우선)
+    final targetItem = historyService.findDeletableItem(exchangePath.id);
+    if (targetItem == null) {
+      throw StateError('해당 교체 경로를 교체 리스트에서 찾을 수 없습니다');
+    }
 
     historyService.removeFromExchangeList(targetItem.id);
 
@@ -460,9 +458,10 @@ class ExchangeExecutor {
     VoidCallback onInternalPathClear,
   ) {
     final historyService = ref.read(exchangeHistoryServiceProvider);
-    final item = historyService.undoLastExchange();
+    final result = historyService.undoLastExchange();
 
-    if (item != null) {
+    if (result != null) {
+      final item = result.item;
       // §10.5 확정: 되돌리기는 '전체 최근 1건'을 되돌리되, 그 교체가 속한 주로
       // 화면을 자동 이동한다. 다른 주의 교체를 되돌리면 화면이 점프하므로
       // 안내가 필수다 — 없으면 "버튼을 눌렀더니 화면이 멋대로 바뀌었다"가 된다.
@@ -501,7 +500,9 @@ class ExchangeExecutor {
 
       final weekLabel = ExchangeWeekCollector.monthWeekLabel(item.weekMonday);
       final baseMessage =
-          jumpedToOtherWeek
+          result.wasDelete
+              ? '삭제된 교체 "${item.description}"가 복원되었습니다'
+              : jumpedToOtherWeek
               ? '$weekLabel의 교체를 되돌렸습니다'
               : '교체 "${item.description}"가 되돌려졌습니다';
       final message =
@@ -525,13 +526,12 @@ class ExchangeExecutor {
     }
   }
 
-
   /// 다시 실행 기능 (되돌리기 후 1단계 복구)
   void redoLastExchange(BuildContext context) {
     final historyService = ref.read(exchangeHistoryServiceProvider);
-    final item = historyService.redoLastExchange();
+    final result = historyService.redoLastExchange();
 
-    if (item == null) {
+    if (result == null) {
       SnackBarHelper.showWithAction(
         context,
         '다시 실행할 교체가 없습니다',
@@ -540,6 +540,7 @@ class ExchangeExecutor {
       );
       return;
     }
+    final item = result.item;
 
     _applyExchangeStateAfterHistoryChange(item, isRedo: true);
 
@@ -555,7 +556,9 @@ class ExchangeExecutor {
 
     SnackBarHelper.showWithAction(
       context,
-      '교체 "${item.description}"가 다시 실행되었습니다',
+      result.wasDelete
+          ? '교체 "${item.description}" 삭제가 다시 적용되었습니다'
+          : '교체 "${item.description}"가 다시 실행되었습니다',
       backgroundColor: Colors.green,
       duration: const Duration(seconds: 2),
     );
