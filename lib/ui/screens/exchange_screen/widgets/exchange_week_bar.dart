@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../models/school_semester.dart';
 import '../../../../providers/combined_view_switch_provider.dart';
 import '../../../../providers/dated_semester_provider.dart';
 import '../../../../providers/exchange_view_provider.dart';
@@ -8,17 +9,20 @@ import '../../../../providers/selected_week_provider.dart';
 import '../../../../providers/show_week_header_provider.dart';
 import '../../../../utils/week_date_calculator.dart';
 import '../../../../utils/week_semester_status.dart';
-import '../../../widgets/app_switch.dart';
+import '../../../widgets/exchange_control_panel.dart';
+import '../../../widgets/plan_selector_chip.dart';
 import '../../../widgets/timetable_grid/grid_header_widgets.dart';
 import '../../personal_schedule_screen/exchange_week_collector.dart';
 
 /// 교체 화면 상단 주차 선택 바 (§10.5)
 ///
-/// - 교체가 있는 주는 칩으로 표시하고 건수를 함께 보여준다(결강일 기준 · A안).
-///   교체·보강 수업만 걸린 주는 회색 배지로 따로 센다. 칩은 날짜순, 이번 주는 "이번주"
+/// 행 구성: [계획서 선택 | 날짜·교체 반영 버튼 | ◀ 주차 칩 ▶]
+/// - 계획서 칩: 결보강 작성의 기준. 선택은 전역(lastUsedProfileId)에 반영
+/// - 날짜 범·건수 텍스트는 삭제 — 건수는 주 칩 뱃지로, 범위 밖 안내는
+///   해당 주 칩의 주황 테두리로 표시한다
 /// - `◀ ▶`로는 교체가 없는 주로도 이동할 수 있다 — 새 교체를 만들려면
 ///   빈 주로도 갈 수 있어야 하기 때문이다
-/// - 날짜 반영 OFF에서는 `◀ ▶`·칩을 숨기고 전체 건수만 보인다 ([_setShowWeekHeader])
+/// - 날짜 반영 OFF에서는 `◀ ▶`·칩을 숨긴다 ([_setShowWeekHeader])
 /// - 주를 바꾸면 [selectedWeekProvider]만 갱신한다. 그리드 재합성은
 ///   이 값을 구독하는 쪽(교체 화면)에서 처리한다
 class ExchangeWeekBar extends ConsumerWidget {
@@ -42,8 +46,10 @@ class ExchangeWeekBar extends ConsumerWidget {
 
   void _moveWeek(WidgetRef ref, int offset) {
     final current = ref.read(selectedWeekProvider);
-    ref.read(selectedWeekProvider.notifier).state =
-        WeekDateCalculator.moveWeek(current, offset);
+    ref.read(selectedWeekProvider.notifier).state = WeekDateCalculator.moveWeek(
+      current,
+      offset,
+    );
     onWeekChanged?.call();
   }
 
@@ -95,12 +101,12 @@ class ExchangeWeekBar extends ConsumerWidget {
     final weeks = ref.watch(exchangeVisibleWeeksProvider);
     final showWeekHeader = ref.watch(showWeekHeaderProvider);
 
-    // OFF는 모든 주를 한 장에 합쳐 보여주므로 건수도 전체(결강일 기준 1건씩 → 합 = 전체)
-    final currentCount =
-        showWeekHeader
-            ? exchangeCountForWeek(counts, selectedWeek)
-            : counts.values.fold(0, (sum, n) => sum + n);
-    final substitutionCounts = ref.watch(exchangeSubstitutionWeekCountsProvider);
+    // OFF는 모든 주를 한 장에 합쳐 보여주므로 칩 목록은 숨긴다.
+    // 학기 범위 밖 안내는 각 주 칩의 테두리로 표시한다.
+    // (datedSemester는 아래에서 주 칩의 범위 밖 표시에 쓴다)
+    final substitutionCounts = ref.watch(
+      exchangeSubstitutionWeekCountsProvider,
+    );
     // 보고 있는 주가 목록에 없으면(진짜 빈 주) 끼워 넣고 날짜순으로 정렬한다 —
     // 끝에 따로 붙이면 [9월3주][10월1주][이번주]처럼 순서가 뒤섞인다.
     final chipWeeks = [
@@ -109,38 +115,36 @@ class ExchangeWeekBar extends ConsumerWidget {
         selectedWeek,
     ]..sort((a, b) => a.compareTo(b));
 
-    // 학기 범위 밖 주 안내 (S4.2) — 날짜표시가 꺼져 있으면 실제 날짜 개념 자체가
-    // 화면에 드러나지 않으므로 이 아이콘도 함께 숨긴다(OQ-5 확정).
+    // 학기 정보는 주 칩의 범위 밖 표시에만 쓴다.
     final datedSemester = ref.watch(datedSemesterProvider).valueOrNull;
-    final weekSemesterStatus = WeekSemesterStatusChecker.check(
-      weekMonday: selectedWeek,
-      semester: datedSemester,
-    );
-    final showOutOfSemesterIcon =
-        showWeekHeader &&
-        (weekSemesterStatus == WeekSemesterStatus.beforeRange ||
-            weekSemesterStatus == WeekSemesterStatus.afterRange);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.35,
+        ),
         border: Border(
           bottom: BorderSide(color: theme.dividerColor.withValues(alpha: 0.5)),
         ),
       ),
       child: Row(
         children: [
+          // 계획서 선택 — 결보강 작성의 기준
+          const PlanSelectorChip(width: 200),
+          const ToolbarGroupDivider(),
+          // 날짜·교체 반영 버튼 (스위치 대신)
+          ..._buildDateAndExchangeSwitches(context, ref, theme, showWeekHeader),
+          const ToolbarGroupDivider(),
           // ◀ ▶·주차 칩은 날짜 반영 ON에서만 — OFF는 주 개념이 없는 한 장짜리 화면이다
           // (선택 주를 이번 주로 고정하는 이유는 `_setShowWeekHeader` 참고)
-          if (showWeekHeader)
-            IconButton(
-              icon: const Icon(Icons.chevron_left, size: 20),
+          if (showWeekHeader) ...[
+            _buildWeekNavButton(
+              theme,
+              icon: Icons.chevron_left,
               tooltip: '이전 주',
-              visualDensity: VisualDensity.compact,
               onPressed: () => _moveWeek(ref, -1),
             ),
-          if (showWeekHeader)
             Expanded(
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -160,150 +164,194 @@ class ExchangeWeekBar extends ConsumerWidget {
                             week,
                             selectedWeek,
                           ),
+                          outOfRange: _isOutOfRangeWeek(week, datedSemester),
                           onTap: () => _selectWeek(ref, week),
                         ),
                       ),
                   ],
                 ),
               ),
-            )
-          else
-            const Spacer(),
-          if (showWeekHeader)
-            IconButton(
-              icon: const Icon(Icons.chevron_right, size: 20),
+            ),
+            _buildWeekNavButton(
+              theme,
+              icon: Icons.chevron_right,
               tooltip: '다음 주',
-              visualDensity: VisualDensity.compact,
               onPressed: () => _moveWeek(ref, 1),
             ),
-          const SizedBox(width: 4),
-          Text(
-            // 날짜표시 OFF(기본값)일 때는 실제 날짜 범위를 숨기고 건수만 표시한다 (S1.5)
-            showWeekHeader
-                ? '${WeekDateCalculator.formatWeekRange(selectedWeek)} · 교체 $currentCount건'
-                : '교체 $currentCount건',
-            style: theme.textTheme.bodySmall?.copyWith(
-              // 학기 범위 밖 주는 날짜 텍스트도 아이콘과 같은 색으로 강조한다 (S4.2, 2026-09-29 피드백)
-              color:
-                  showOutOfSemesterIcon
-                      ? Colors.orange.shade700
-                      : theme.colorScheme.onSurfaceVariant,
-              fontWeight: showOutOfSemesterIcon ? FontWeight.w600 : null,
-            ),
-          ),
-          if (showOutOfSemesterIcon) ...[
-            const SizedBox(width: 4),
-            Tooltip(
-              message:
-                  weekSemesterStatus == WeekSemesterStatus.beforeRange
-                      ? '학기 시작 전 주입니다'
-                      : '학기 종료 후 주입니다',
-              // 눈에 잘 안 띈다는 피드백(2026-09-29)에 따라 주황 계열로 강조한다.
-              child: Icon(Icons.info_outline, size: 16, color: Colors.orange.shade700),
-            ),
-          ],
-          const SizedBox(width: 8),
-          ..._buildDateAndExchangeSwitches(context, ref, theme, showWeekHeader),
+          ] else
+            const Spacer(),
         ],
       ),
     );
   }
 
-  /// "날짜 반영"·"교체" 스위치 — 통합 여부는 "준비 > 기타 설정"의
+  /// 학기 범위 밖 주 여부 (S4.2) — 해당 주 칩에 주황 테두리로 표시한다.
+  /// 날짜표시가 꺼져 있으면 날짜 개념 자체가 화면에 드러나지 않으므로
+  /// 항상 false다 (OQ-5 확정).
+  bool _isOutOfRangeWeek(DateTime week, SchoolSemester? semester) {
+    if (semester == null) return false;
+    final status = WeekSemesterStatusChecker.check(
+      weekMonday: week,
+      semester: semester,
+    );
+    return status == WeekSemesterStatus.beforeRange ||
+        status == WeekSemesterStatus.afterRange;
+  }
+
+  /// 주 이동 버튼 — 기존 가는 아이콘보다 배경·테두리를 주어 잘 보이게 한다.
+  Widget _buildWeekNavButton(
+    ThemeData theme, {
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return IconButton(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 22),
+      tooltip: tooltip,
+      visualDensity: VisualDensity.compact,
+      style: IconButton.styleFrom(
+        backgroundColor: theme.colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.6,
+        ),
+        side: BorderSide(color: theme.dividerColor),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  /// "날짜 반영"·"교체" 버튼 — 통합 여부는 "준비 > 기타 설정"의
   /// [combinedViewSwitchProvider]로 사용자가 고른다(2026-09-30, 기본 통합).
-  /// 통합이면 스위치 하나로 둘 다 같이 켜고 끄고, 아니면 예전처럼 각각
+  /// 통합이면 버튼 하나로 둘 다 같이 켜고 끄고, 아니면 예전처럼 각각
   /// 따로 켜고 끌 수 있게 나눠서 보여준다(둘 중 하나만 켜야 하는 경우가
   /// 실제로 있다는 사용자 확인에 따라 계속 남겨둔 선택지).
+  ///
+  /// 스위치 대신 버튼으로 그린 이유: 계획서 칩·주 이동 버튼과 같은 행에
+  /// 두기 위해 같은 버튼 계열로 통일한다. ON/OFF는 색으로 구분한다.
   List<Widget> _buildDateAndExchangeSwitches(
     BuildContext context,
     WidgetRef ref,
     ThemeData theme,
     bool showWeekHeader,
   ) {
-    // onToggleExchangeView가 없으면(시간표 미로드 등) "교체" 스위치 자체를
+    // onToggleExchangeView가 없으면(시간표 미로드 등) "교체" 버튼 자체를
     // 못 그리므로, 통합 모드든 아니든 "날짜 반영" 하나만 보여준다.
     if (onToggleExchangeView == null) {
-      return [_dateReflectSwitch(ref, theme, showWeekHeader)];
+      return [
+        _reflectToggleButton(
+          theme,
+          value: showWeekHeader,
+          icon: Icons.calendar_month,
+          label: '날짜 반영',
+          tooltip: showWeekHeader ? '날짜 반영 끄기' : '날짜 반영 켜기',
+          onPressed: () => _setShowWeekHeader(ref, !showWeekHeader),
+        ),
+      ];
     }
 
     final combined = ref.watch(combinedViewSwitchProvider);
     if (!combined) {
       return [
-        _dateReflectSwitch(ref, theme, showWeekHeader),
-        const SizedBox(width: 6),
-        SizedBox(
-          height: 20,
-          child: VerticalDivider(
-            width: 1,
-            thickness: 1,
-            color: theme.dividerColor.withValues(alpha: 0.5),
-          ),
+        _reflectToggleButton(
+          theme,
+          value: showWeekHeader,
+          icon: Icons.calendar_month,
+          label: '날짜 반영',
+          tooltip: showWeekHeader ? '날짜 반영 끄기' : '날짜 반영 켜기',
+          onPressed: () => _setShowWeekHeader(ref, !showWeekHeader),
         ),
         const SizedBox(width: 6),
-        ExchangeViewCheckbox(
-          isEnabled: ref.watch(isExchangeViewEnabledProvider),
-          onChanged: (value) => onToggleExchangeView!.call(value ?? false),
-        ),
+        _exchangeViewToggleButton(ref, theme),
       ];
     }
 
-    // 통합 스위치 — 둘 다 켜져 있을 때만 ON으로 보이고, 누르면 둘 다
+    // 통합 버튼 — 둘 다 켜져 있을 때만 ON으로 보이고, 누르면 둘 다
     // 같은 값으로 맞춘다.
     final isExchangeViewEnabled = ref.watch(isExchangeViewEnabledProvider);
     final combinedOn = showWeekHeader && isExchangeViewEnabled;
     return [
-      Tooltip(
-        message: combinedOn ? '날짜·교체 반영 끄기' : '날짜·교체 반영 켜기',
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '날짜·교체 반영',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            AppSwitch(
-              value: combinedOn,
-              onChanged: (value) {
-                _setShowWeekHeader(ref, value);
-                onToggleExchangeView!.call(value);
-              },
-            ),
-          ],
-        ),
+      _toggleButton(
+        theme,
+        value: combinedOn,
+        icon: Icons.event_repeat,
+        label: '날짜·교체 반영',
+        tooltip: combinedOn ? '날짜·교체 반영 끄기' : '날짜·교체 반영 켜기',
+        onPressed: () {
+          final next = !combinedOn;
+          _setShowWeekHeader(ref, next);
+          onToggleExchangeView!.call(next);
+        },
       ),
     ];
   }
 
-  Widget _dateReflectSwitch(WidgetRef ref, ThemeData theme, bool showWeekHeader) {
-    return Tooltip(
-      message: showWeekHeader ? '날짜 반영 끄기' : '날짜 반영 켜기',
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            '날짜 반영',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          AppSwitch(
-            value: showWeekHeader,
-            onChanged: (value) => _setShowWeekHeader(ref, value),
-          ),
-        ],
-      ),
+  /// "교체" 단독 토글 버튼 (스위치 분리 모드용).
+  Widget _exchangeViewToggleButton(WidgetRef ref, ThemeData theme) {
+    final isEnabled = ref.watch(isExchangeViewEnabledProvider);
+    return _toggleButton(
+      theme,
+      value: isEnabled,
+      icon: Icons.swap_horiz,
+      label: '교체',
+      tooltip: isEnabled ? '교체된 시간표 보기 끄기' : '교체된 시간표 보기 켜기',
+      onPressed: () => onToggleExchangeView!.call(!isEnabled),
+    );
+  }
+
+  /// "날짜 반영" 단독 토글 버튼 (스위치 분리 모드·시간표 미로드용).
+  Widget _reflectToggleButton(
+    ThemeData theme, {
+    required bool value,
+    required IconData icon,
+    required String label,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return _toggleButton(
+      theme,
+      value: value,
+      icon: icon,
+      label: label,
+      tooltip: tooltip,
+      onPressed: onPressed,
+    );
+  }
+
+  /// ON/OFF를 색으로 구분하는 토글 버튼.
+  Widget _toggleButton(
+    ThemeData theme, {
+    required bool value,
+    required IconData icon,
+    required String label,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return CompactToolbarLabelButton(
+      onPressed: onPressed,
+      icon: icon,
+      label: label,
+      tooltip: tooltip,
+      height: 30,
+      fontSize: 12,
+      iconSize: 16,
+      backgroundColor:
+          value
+              ? theme.colorScheme.primary.withValues(alpha: 0.2)
+              : Colors.grey.shade100,
+      foregroundColor: value ? theme.colorScheme.primary : Colors.grey.shade700,
+      borderColor: value ? theme.colorScheme.primary : Colors.grey.shade400,
     );
   }
 }
 
-/// 주차 칩 — 라벨 + 결강 건수(파란 배지) + 교체·보강 수업만 걸린 건수(회색 배지)
+/// 주차 칩 — 라벨 + 결강 건수(파란 배지) + 교체·보강 수업만 걸린 건수(회색 배지).
+/// 학기 범위 밖 주는 주황 테두리로 표시한다.
 class _WeekChip extends StatelessWidget {
   final String label;
   final int count;
   final int substitutionCount;
   final bool selected;
+  final bool outOfRange;
   final VoidCallback onTap;
 
   const _WeekChip({
@@ -311,6 +359,7 @@ class _WeekChip extends StatelessWidget {
     required this.count,
     required this.substitutionCount,
     required this.selected,
+    this.outOfRange = false,
     required this.onTap,
   });
 
@@ -338,7 +387,7 @@ class _WeekChip extends StatelessWidget {
     final theme = Theme.of(context);
     final alpha = selected ? 1.0 : 0.6;
 
-    return ChoiceChip(
+    final chip = ChoiceChip(
       label: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -358,8 +407,14 @@ class _WeekChip extends StatelessWidget {
         color: selected ? theme.colorScheme.onPrimaryContainer : null,
       ),
       selectedColor: theme.colorScheme.primaryContainer,
+      side:
+          outOfRange
+              ? BorderSide(color: Colors.orange.shade700, width: 1.5)
+              : null,
       visualDensity: VisualDensity.compact,
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
+    if (!outOfRange) return chip;
+    return Tooltip(message: '학기 범위 밖 주입니다', child: chip);
   }
 }
