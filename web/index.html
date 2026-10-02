@@ -33,11 +33,20 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
-  <!-- Syncfusion PDF Viewer 웹 렌더링용 pdf.js (필수 — 없으면 미리보기 로드 실패) -->
-  <script src="//cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
-  <script type="text/javascript">
-    pdfjsLib.GlobalWorkerOptions.workerSrc = "//cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js";
-  </script>
+  <!-- Syncfusion PDF Viewer 웹 렌더링용 pdf.js (필수 — 없으면 미리보기 로드 실패)
+
+       async로 받는다. 예전에는 async/defer 없이 받아서 이 스크립트가 끝날
+       때까지 HTML 파싱이 멈췄고, 그만큼 아래 Flutter 부트스트랩 실행이
+       늦어졌다. pdf.js는 문서 출력 화면에서 미리보기를 열 때만 쓰므로
+       첫 화면이 뜨는 길목에 둘 이유가 없다(2026-10-02).
+
+       워커 경로 설정은 인라인 스크립트로 두면 async 로드보다 먼저 실행돼
+       `pdfjsLib`가 없어 터진다. 그래서 onload 시점으로 옮겼다. -->
+  <script
+    async
+    src="//cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"
+    onload="window.pdfjsLib && (pdfjsLib.GlobalWorkerOptions.workerSrc='//cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js')"
+  ></script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

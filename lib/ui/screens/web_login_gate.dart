@@ -80,6 +80,14 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
   }
 
   /// Firebase 초기화 → 익명 로그인 → 세션 확인 → 공개 안내문 로드.
+  ///
+  /// 이 구간에서는 아직 시간표를 받지 않는다. 예전에는 화면에 계속
+  /// "시간표를 불러오는 중…"이 떠서, 비밀번호 입력 전인데도 시간표를 받는 줄
+  /// 알게 했다(2026-10-02). 단계마다 실제로 하는 일을 적는다.
+  void _setStage(String stage) {
+    if (mounted) setState(() => _syncStage = stage);
+  }
+
   Future<void> _bootstrap() async {
     if (!FirebaseAppConfig.isConfigured) {
       // 설정 미주입 빌드 — 안내만 보여주고 진행 불가.
@@ -89,9 +97,11 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
       return;
     }
 
+    _setStage('서버 연결 준비 중');
     await FirebaseAppConfig.ensureInitialized();
     await WebAuthService.ensureAnonymousSignIn();
 
+    _setStage('접속 정보 확인 중');
     final session = await WebAuthService.loadSession();
     if (!mounted) return;
     if (session.admin) {
@@ -103,6 +113,7 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
       return;
     }
 
+    _setStage('접속 화면 준비 중');
     String? message;
     try {
       final doc =
@@ -180,7 +191,7 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
     setState(() {
       _pendingAdmin = admin;
       _syncError = null;
-      _syncStage = null;
+      _syncStage = '시간표 준비 중';
       _downloadProgress = null;
     });
     ref.read(webLoginStatusProvider.notifier).state = WebLoginStatus.checking;
@@ -355,7 +366,7 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
           child: LinearProgressIndicator(value: progress, minHeight: 6),
         ),
         const SizedBox(height: 14),
-        Text(_syncStage ?? '시간표를 불러오는 중…'),
+        Text(_syncStage ?? '접속 준비 중…'),
         if (progress != null) ...[
           const SizedBox(height: 6),
           Text(
