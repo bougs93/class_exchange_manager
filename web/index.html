@@ -47,6 +47,37 @@
     src="//cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"
     onload="window.pdfjsLib && (pdfjsLib.GlobalWorkerOptions.workerSrc='//cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js')"
   ></script>
+  <!-- 휠 버튼 드래그 스크롤. 브라우저 자동 스크롤(가운데 클릭)과 겹치지 않게 막는다. -->
+  <script>
+    window.addEventListener('mousedown', function (event) {
+      if (event.button === 1) event.preventDefault();
+    });
+  </script>
+  <!--
+    아이콘 글자 파일(MaterialIcons) 주소는 배포해도 그대로다.
+    일반 브라우저는 이전 배포의 글자 파일을 계속 써서, 그 파일에 없는
+    관리자·로그아웃 아이콘만 빈 버튼으로 남는다. 시크릿 창은 캐시가
+    없어 최신 파일을 받으므로 아이콘이 보인다.
+    목록과 아이콘 글자만 서버에 다시 확인한다. 한글 글자체는 건드리지 않는다.
+  -->
+  <script>
+    (function () {
+      var originalFetch = window.fetch.bind(window);
+      window.fetch = function (input, init) {
+        var url = typeof input === 'string' ? input : (input && input.url) || '';
+        if (
+          url.indexOf('FontManifest.json') !== -1 ||
+          url.indexOf('MaterialIcons') !== -1 ||
+          url.indexOf('CupertinoIcons') !== -1
+        ) {
+          var next = init ? Object.assign({}, init) : {};
+          next.cache = 'no-cache';
+          return originalFetch(input, next);
+        }
+        return originalFetch(input, init);
+      };
+    })();
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

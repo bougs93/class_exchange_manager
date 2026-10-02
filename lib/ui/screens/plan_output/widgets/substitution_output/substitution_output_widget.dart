@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../../../../constants/screen_usage_hints.dart';
+import '../../../../../models/exchange_history_item.dart';
 import '../../../../../models/plan_output_menu.dart';
 import '../../../../../models/print_profile.dart';
 import '../../../../../models/timetable_registry.dart';
@@ -1010,10 +1012,7 @@ class SubstitutionOutputWidgetState
     // 화면이나 관리자와는 다른 탭에서 연 화면에는 반영되지 않았다
     // (2026-10-02 실제 보고). 값이 처음 도착할 때도 호출되므로, 탭을 한
     // 번도 새로 누르지 않은 화면도 채워진다.
-    ref.listen<AsyncValue<String>>(defaultSchoolNameProvider, (
-      previous,
-      next,
-    ) {
+    ref.listen<AsyncValue<String>>(defaultSchoolNameProvider, (previous, next) {
       final value = next.valueOrNull;
       if (value == null || value.isEmpty) return;
       if (previous?.valueOrNull == value) return;
@@ -1284,11 +1283,10 @@ class SubstitutionOutputWidgetState
     }
 
     final historyService = ref.read(exchangeHistoryServiceProvider);
-    final items =
-        historyService
-            .getExchangeList()
-            .where((e) => e.profileId == selected.id)
-            .toList();
+    final items = _itemsForPlanBackup(
+      historyService.getExchangeList(),
+      selected.id,
+    );
 
     if (items.isEmpty) {
       if (mounted) {
@@ -1299,22 +1297,59 @@ class SubstitutionOutputWidgetState
 
     final activeEntry = ref.read(activeTimetableEntryProvider);
 
+    // 교체 직후엔 내역의 profileId가 비어 있다. 파일에는 이 계획서 소속으로 적는다.
+    final bundled =
+        items
+            .map(
+              (e) =>
+                  e.profileId == selected.id
+                      ? e
+                      : e.copyWithProfileId(selected.id),
+            )
+            .toList();
+
     final bundle = SubstitutionBackupBundle(
       timetableName: activeEntry?.name,
       teacherName: activeEntry?.teacherName,
       schoolName: activeEntry?.schoolName,
-      exchangeItems: items,
+      exchangeItems: bundled,
       printProfiles: [selected],
     );
     final jsonString = const SubstitutionBackupService().encode(bundle);
+    final fileName = '${_buildBackupFileName(selected.name)}.json';
+
+    // 웹은 경로가 없고, saveFile이 바이트로 바로 다운로드한 뒤 null을 반환한다.
+    if (kIsWeb) {
+      try {
+        await FilePicker.saveFile(
+          dialogTitle: '결보강 내보내기',
+          fileName: fileName,
+          type: FileType.custom,
+          allowedExtensions: const ['json'],
+          bytes: Uint8List.fromList(utf8.encode(jsonString)),
+        );
+        if (mounted) {
+          SnackBarHelper.showSuccess(
+            context,
+            "계획서 '${selected.name}' ${items.length}건을 내보냈습니다.",
+          );
+        }
+      } catch (e) {
+        AppLogger.error('결보강 내역 내보내기 실패: $e', e);
+        if (mounted) {
+          SnackBarHelper.showError(context, '내보내기에 실패했습니다: $e');
+        }
+      }
+      return;
+    }
 
     String? outputPath;
     try {
       outputPath = await FilePicker.saveFile(
         dialogTitle: '결보강 내보내기',
-        fileName: _buildBackupFileName(selected.name),
+        fileName: fileName,
         type: FileType.custom,
-        allowedExtensions: ['json'],
+        allowedExtensions: const ['json'],
       );
     } catch (e) {
       AppLogger.error('결보강 내역 저장 대화상자 실패: $e', e);
@@ -1342,6 +1377,20 @@ class SubstitutionOutputWidgetState
     }
   }
 
+  /// 선택한 계획서의 결보강 내역.
+  ///
+  /// 내용 수정에서 이 계획서로 지정된 건을 우선한다. 한 건도 없으면, 아직
+  /// 어느 계획서에도 안 묶인 교체(교체 직후)를 그 계획서의 내역으로 본다.
+  /// 다른 계획서에 이미 묶인 건은 넣지 않는다.
+  List<ExchangeHistoryItem> _itemsForPlanBackup(
+    List<ExchangeHistoryItem> all,
+    String profileId,
+  ) {
+    final assigned = all.where((e) => e.profileId == profileId).toList();
+    if (assigned.isNotEmpty) return assigned;
+    return all.where((e) => e.profileId == null).toList();
+  }
+
   /// 백업 파일에서 가져온다.
   ///
   /// 계획서를 선택한 상태면: 가져온 교체 건을 현재 계획서에 귀속시키고, 파일
@@ -1365,19 +1414,33 @@ class SubstitutionOutputWidgetState
         type: FileType.custom,
         allowedExtensions: ['json'],
         allowMultiple: false,
-        withData: false,
+        // 웹은 path가 없다. 바이트로 읽는다. PC/모바일은 기존처럼 경로만 쓴다.
+        withData: kIsWeb,
       );
     } catch (e) {
       AppLogger.error('결보강 가져오기 대화상자 실패: $e', e);
     }
     if (result == null || result.files.isEmpty) return;
-    final path = result.files.single.path;
-    if (path == null) return;
+    final picked = result.files.single;
 
     const backupService = SubstitutionBackupService();
     final SubstitutionBackupBundle bundle;
     try {
-      final content = await File(path).readAsString();
+      final String content;
+      if (kIsWeb) {
+        final bytes = picked.bytes;
+        if (bytes == null || bytes.isEmpty) {
+          if (mounted) {
+            SnackBarHelper.showError(context, '올바른 결보강 백업 파일이 아닙니다.');
+          }
+          return;
+        }
+        content = utf8.decode(bytes);
+      } else {
+        final path = picked.path;
+        if (path == null) return;
+        content = await File(path).readAsString();
+      }
       bundle = backupService.decode(content);
     } catch (e) {
       AppLogger.error('결보강 가져오기 실패(파일 읽기/형식): $e', e);

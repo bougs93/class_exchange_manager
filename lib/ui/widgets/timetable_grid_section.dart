@@ -1120,6 +1120,9 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
   /// 셀 탭 이벤트 처리
   /// 🔥 스크롤 문제 해결: 과거 커밋의 단순한 구조를 참고하여 스크롤 위치 보존
   void _handleCellTap(DataGridCellTapDetails details) {
+    // 왼쪽을 끌어 시간표를 옮긴 직후의 탭은 칸 선택으로 보지 않는다.
+    if (dragScrollBlocksTap) return;
+
     final teacherName = _extractTeacherNameFromRowIndex(
       details.rowColumnIndex.rowIndex,
     );

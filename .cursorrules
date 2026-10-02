@@ -1,0 +1,8 @@
+## Commit Message Rules
+
+When generating a Git commit message, write the whole message in Korean.
+
+- Subject and body are Korean. Do not write them in English.
+- Keep the existing type prefix (`fix:`, `feat:`, `refactor:`).
+- Class names, file names, and API names may stay in English.
+- One concise subject line. Add a short body only when the reason is not obvious.

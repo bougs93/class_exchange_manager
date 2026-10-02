@@ -15,7 +15,7 @@ import 'teacher_timetable_card.dart';
 
 /// 교사별 시간표 카드를 그리드(Wrap) 형태로 배치합니다.
 ///
-/// 마우스 오른쪽 버튼 드래그로 세로 스크롤이 가능합니다.
+/// PC는 오른쪽 버튼, 웹은 휠 버튼, 왼쪽은 끌어서 세로 스크롤이 가능합니다.
 /// (교체 관리 화면과 동일한 [ScrollManagementMixin] 사용)
 class TeacherCardGridView extends ConsumerStatefulWidget {
   final List<TeacherCardTarget> targets;

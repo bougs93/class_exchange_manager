@@ -857,17 +857,21 @@ class _UnifiedExchangeSidebarState
     return Column(children: nodeWidgets);
   }
 
-  /// 노드 탭 처리 (경로 선택 또는 스크롤)
+  /// 노드 탭 — 경로를 고르고 그 칸으로 스크롤한다.
   void _handleNodeTap(ExchangeNode node, String nodeKey, bool isSelected) {
-    // 경로가 선택되지 않은 상태라면 경로만 선택
     if (!isSelected) {
       _selectPathFromNodeKey(nodeKey);
-      return; // 경로 선택만 하고 스크롤은 하지 않음
     }
-
-    // 이미 선택된 경로의 노드를 클릭한 경우 해당 셀로 스크롤
-    // (물결 효과는 AnimatedSidebarNode가 자체적으로 재생)
     _requestNodeScroll(node);
+  }
+
+  /// 노드 더블 클릭 — 그 경로의 교체를 실행한다.
+  void _handleNodeDoubleTap(String nodeKey) {
+    final keyParts = nodeKey.split('_');
+    if (keyParts.length < 2) return;
+    final pathIndex = int.tryParse(keyParts[0]) ?? -1;
+    if (pathIndex < 0 || pathIndex >= widget.filteredPaths.length) return;
+    _onPathDoubleTap(widget.filteredPaths[pathIndex], pathIndex);
   }
 
   /// 🆕 노드 스크롤 요청
@@ -926,6 +930,7 @@ class _UnifiedExchangeSidebarState
           labelOverride ??
           '${node.day}${node.period}|${node.className}|${node.teacherName}|${widget.getSubjectName(node)}',
       onTap: () => _handleNodeTap(node, nodeKey, isSelected),
+      onDoubleTap: () => _handleNodeDoubleTap(nodeKey),
     );
   }
 }

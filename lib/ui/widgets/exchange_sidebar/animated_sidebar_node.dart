@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../models/exchange_node.dart';
+import '../instant_tap_ink_well.dart';
 import 'sidebar_color_scheme.dart';
 import 'sidebar_constants.dart';
 
@@ -23,6 +24,9 @@ class AnimatedSidebarNode extends StatefulWidget {
   /// 노드 탭 콜백(경로 선택 또는 스크롤 처리)
   final VoidCallback onTap;
 
+  /// 노드를 다시 누르면 그 경로의 교체를 실행한다. 없으면 단일 탭만 한다.
+  final VoidCallback? onDoubleTap;
+
   const AnimatedSidebarNode({
     super.key,
     required this.node,
@@ -30,6 +34,7 @@ class AnimatedSidebarNode extends StatefulWidget {
     required this.colorScheme,
     required this.label,
     required this.onTap,
+    this.onDoubleTap,
     this.isLastNode = false,
     this.isSecondNode = false,
   });
@@ -69,8 +74,10 @@ class _AnimatedSidebarNodeState extends State<AnimatedSidebarNode>
   Widget build(BuildContext context) {
     final scheme = widget.colorScheme;
 
-    return GestureDetector(
+    return InstantTapInkWell(
       onTap: _handleTap,
+      onDoubleTap: widget.onDoubleTap,
+      borderRadius: BorderRadius.circular(3),
       child: AnimatedBuilder(
         animation: _scale,
         builder: (context, child) {
