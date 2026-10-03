@@ -221,14 +221,24 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    // 참고: 420px에서 dualExchangeEnabled=true(기본값)·circular=false 조합은
-    // ExchangeControlPanel의 모드 버튼 5개가 들어가지 않아 기존에도 49px
-    // 오버플로가 발생한다(이 화면의 사전 존재 이슈 — 본 테스트 작업 범위 밖이라
-    // 수정하지 않음). 여기서는 2중교체를 끈 4버튼 조합으로 레이아웃만 검증한다.
     testWidgets('420px 좁은 너비에서도 오버플로가 없다', (tester) async {
       await pumpAt(
         tester,
         buildScreen(overrides: buildOverrides(dualExchangeEnabled: false)),
+        width: 420,
+      );
+
+      expect(tester.takeException(), isNull);
+    });
+
+    // 기본 설정(2중교체 ON·순환교체 OFF)은 모드 버튼이 5개라 420px에
+    // 들어가지 않는다. 예전에는 여기서 49px 오버플로가 났는데,
+    // `ExchangeControlPanel`을 가로 스크롤로 감싸 해결했다(2026-10-04).
+    // 같은 화면의 `_buildModeSelectorRow`는 원래부터 그렇게 하고 있었다.
+    testWidgets('420px + 기본 설정(모드 버튼 5개)에서도 오버플로가 없다', (tester) async {
+      await pumpAt(
+        tester,
+        buildScreen(overrides: buildOverrides(dualExchangeEnabled: true)),
         width: 420,
       );
 

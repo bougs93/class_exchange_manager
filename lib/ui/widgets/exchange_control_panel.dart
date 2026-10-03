@@ -556,10 +556,18 @@ class ExchangeControlPanel extends StatelessWidget {
               bottom: BorderSide(color: tokens.cardBorder, width: 1),
             ),
           ),
-          child: ExchangeModeSelector(
-            currentMode: currentMode,
-            onModeChanged: onModeChanged,
-            labelStyle: labelStyle,
+          // 축약 라벨로 줄여도 들어가지 않는 폭이 있다 — 예를 들어 420px에
+          // 2중교체까지 켜면 버튼이 5개라 49px이 넘쳤다(2026-10-04 수정).
+          // 버튼을 숨기면 그 모드로 아예 못 가므로, 넘칠 때는 가로로
+          // 스크롤되게 둔다. 같은 선택자를 쓰는 `TimetableGridSection.
+          // _buildModeSelectorRow`도 원래부터 이 방식이다.
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ExchangeModeSelector(
+              currentMode: currentMode,
+              onModeChanged: onModeChanged,
+              labelStyle: labelStyle,
+            ),
           ),
         );
       },
