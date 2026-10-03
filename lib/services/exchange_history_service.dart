@@ -1,14 +1,13 @@
 ﻿import '../models/exchange_history_item.dart';
 import '../models/exchange_path.dart';
-import '../models/one_to_one_exchange_path.dart';
-import '../models/circular_exchange_path.dart';
-import '../models/dual_exchange_path.dart';
-import '../models/supplement_exchange_path.dart';
 import '../utils/day_utils.dart';
 import '../utils/logger.dart';
 import 'package:flutter/foundation.dart';
-import 'exchange_list_storage_service.dart';
-import 'dart:developer' as developer;
+import 'exchange_history/exchange_history_cell_lookup.dart';
+import 'exchange_history/exchange_history_query.dart';
+import 'exchange_history/exchange_history_debug_printer.dart';
+import 'exchange_history/exchange_history_storage_queue.dart';
+import 'exchange_history/exchange_history_undo_redo_stacks.dart';
 
 /// 교체 히스토리를 관리하는 서비스 클래스
 /// 교체 실행, 되돌리기, 교체 리스트 관리를 담당
@@ -23,19 +22,8 @@ class ExchangeHistoryService {
   // 내부 생성자
   ExchangeHistoryService._internal();
 
-  // 되돌리기용 스택 (메모리 저장, 최근 50개)
-  final List<ExchangeHistoryItem> _undoStack = [];
-
-  // 다시 실행용 스택 (되돌리기 후 1단계씩 복구)
-  final List<ExchangeHistoryItem> _redoStack = [];
-
-  /// 삭제 동작 표시 — undo/redo 스택 항목 중 "삭제"인 항목의 id 집합.
-  ///
-  /// 스택 자체는 기존처럼 [ExchangeHistoryItem]을 그대로 들고, 삭제 여부만
-  /// 별도로 표시한다. 교체 실행과 삭제가 하나의 LIFO 순서로 되돌려지므로,
-  /// 스택 타입을 바꾸지 않고 삭제 undo/redo를 지원한다.
-  final Set<String> _deletedUndoIds = {};
-  final Set<String> _deletedRedoIds = {};
+  // 되돌리기/다시 실행 스택 (삭제 표시 Set 포함)을 소유하는 전용 객체
+  final ExchangeHistoryUndoRedoStacks _stacks = ExchangeHistoryUndoRedoStacks();
 
   // 교체 리스트용 아카이브 (로컬 저장소, 모든 교체 보관)
   final List<ExchangeHistoryItem> _exchangeList = [];
@@ -43,7 +31,7 @@ class ExchangeHistoryService {
   // 교체된 셀 관리는 _exchangeList를 통해 직접 확인
 
   // 최대 되돌리기 항목 수
-  static const int maxUndoItems = 50;
+  static const int maxUndoItems = ExchangeHistoryUndoRedoStacks.maxUndoItems;
 
   // 교체 리스트 변경 추적을 위한 버전 카운터
   // 이 값이 변경되면 교체 리스트가 변경된 것으로 간주합니다.
@@ -179,20 +167,10 @@ class ExchangeHistoryService {
     _notifyVersionChanged();
 
     // 되돌리기 스택에 추가 (최근 50개만)
-    _pushUndo(item);
+    _stacks.pushUndo(item);
 
     // 새 교체 실행 시 다시 실행 스택 초기화 (표준 undo/redo 동작)
-    _redoStack.clear();
-    _deletedRedoIds.clear();
-  }
-
-  /// undo 스택에 추가 (상한 초과 시 가장 오래된 것부터 버리고 표시 정리).
-  void _pushUndo(ExchangeHistoryItem item) {
-    _undoStack.add(item);
-    while (_undoStack.length > maxUndoItems) {
-      final evicted = _undoStack.removeAt(0);
-      _deletedUndoIds.remove(evicted.id);
-    }
+    _stacks.clearRedo();
   }
 
   /// 교체 리스트에서 특정 항목 삭제
@@ -201,16 +179,15 @@ class ExchangeHistoryService {
     final index = _exchangeList.indexWhere((item) => item.id == itemId);
     if (index == -1) return;
     final removed = _exchangeList.removeAt(index);
-    _purgeItemFromStacks(itemId);
+    _stacks.purgeItem(itemId);
 
     _removeFromLocalStorage(itemId);
 
     // 삭제도 되돌릴 수 있도록 스택에 남긴다.
     // 새 조작이므로 redo는 비운다 (표준 undo/redo 동작).
-    _pushUndo(removed);
-    _deletedUndoIds.add(itemId);
-    _redoStack.clear();
-    _deletedRedoIds.clear();
+    _stacks.pushUndo(removed);
+    _stacks.addDeletedUndoMark(itemId);
+    _stacks.clearRedo();
 
     _exchangeListVersion++;
     _notifyVersionChanged();
@@ -247,10 +224,7 @@ class ExchangeHistoryService {
       _exchangeList.clear();
     }
     _exchangeList.addAll(items);
-    _undoStack.clear();
-    _redoStack.clear();
-    _deletedUndoIds.clear();
-    _deletedRedoIds.clear();
+    _stacks.clear();
 
     _exchangeListVersion++;
     _notifyVersionChanged();
@@ -260,10 +234,7 @@ class ExchangeHistoryService {
   /// 교체 리스트 전체 삭제
   void clearExchangeList() {
     _exchangeList.clear();
-    _undoStack.clear();
-    _redoStack.clear();
-    _deletedUndoIds.clear();
-    _deletedRedoIds.clear();
+    _stacks.clear();
     _clearLocalStorage();
 
     // 🔥 교체 리스트 변경 추적: 버전 증가
@@ -273,18 +244,18 @@ class ExchangeHistoryService {
 
   /// 되돌리기 스택 조회
   List<ExchangeHistoryItem> getUndoStack() {
-    return List.from(_undoStack);
+    return _stacks.undoStack;
   }
 
   /// 되돌리기 가능 여부
-  bool get canUndo => _undoStack.isNotEmpty;
+  bool get canUndo => _stacks.canUndo;
 
   /// 다시 실행 가능 여부 (되돌리기 직후에만)
-  bool get canRedo => _redoStack.isNotEmpty;
+  bool get canRedo => _stacks.canRedo;
 
   /// 다시 실행 스택 조회
   List<ExchangeHistoryItem> getRedoStack() {
-    return List.from(_redoStack);
+    return _stacks.redoStack;
   }
 
   /// 가장 최근 교체 작업 되돌리기
@@ -294,12 +265,12 @@ class ExchangeHistoryService {
   /// 삭제 되돌리기(`wasDelete: true`)면 목록에서 지워졌던 항목이 복원된다
   /// (맨 뒤에 다시 추가된다 — 원래 순서는 보장하지 않는다).
   ({ExchangeHistoryItem item, bool wasDelete})? undoLastExchange() {
-    if (_undoStack.isEmpty) return null;
+    if (_stacks.isUndoEmpty) return null;
 
-    final item = _undoStack.removeLast();
+    final item = _stacks.removeLastUndo();
 
     // 삭제 되돌리기: 목록에 복원한다.
-    if (_deletedUndoIds.remove(item.id)) {
+    if (_stacks.removeDeletedUndoMark(item.id)) {
       if (_exchangeList.every((i) => i.id != item.id)) {
         _exchangeList.add(item);
         _saveToLocalStorage(item);
@@ -308,14 +279,14 @@ class ExchangeHistoryService {
       _exchangeListVersion++;
       _notifyVersionChanged();
 
-      _redoStack.add(item);
-      _deletedRedoIds.add(item.id);
+      _stacks.addToRedo(item);
+      _stacks.addDeletedRedoMark(item.id);
       return (item: item, wasDelete: true);
     }
 
     final index = _exchangeList.indexWhere((i) => i.id == item.id);
     if (index == -1) {
-      _undoStack.add(item);
+      _stacks.pushBackUndo(item);
       return null;
     }
 
@@ -328,7 +299,7 @@ class ExchangeHistoryService {
     _notifyVersionChanged();
 
     // 다시 실행 스택에 추가
-    _redoStack.add(item);
+    _stacks.addToRedo(item);
 
     return (item: item, wasDelete: false);
   }
@@ -339,27 +310,27 @@ class ExchangeHistoryService {
   /// Returns: 복구된 항목과 삭제-다시실행 여부.
   /// 삭제 다시실행(`wasDelete: true`)이면 복원됐던 항목이 다시 삭제된다.
   ({ExchangeHistoryItem item, bool wasDelete})? redoLastExchange() {
-    if (_redoStack.isEmpty) return null;
+    if (_stacks.isRedoEmpty) return null;
 
-    final item = _redoStack.removeLast();
+    final item = _stacks.removeLastRedo();
 
     // 삭제 다시 실행: 목록에서 다시 제거한다.
     // 처리 중인 항목은 이미 꺼냈으므로 purge 없이 직접 제거한다.
-    if (_deletedRedoIds.remove(item.id)) {
+    if (_stacks.removeDeletedRedoMark(item.id)) {
       _exchangeList.removeWhere((i) => i.id == item.id);
       _removeFromLocalStorage(item.id);
 
       _exchangeListVersion++;
       _notifyVersionChanged();
 
-      _pushUndo(item);
-      _deletedUndoIds.add(item.id);
+      _stacks.pushUndo(item);
+      _stacks.addDeletedUndoMark(item.id);
       return (item: item, wasDelete: true);
     }
 
     final index = _exchangeList.indexWhere((i) => i.id == item.id);
     if (index == -1) {
-      _redoStack.add(item);
+      _stacks.pushBackRedo(item);
       return null;
     }
 
@@ -369,7 +340,7 @@ class ExchangeHistoryService {
     _updateInLocalStorage(restoredItem);
 
     // 되돌리기 스택에 다시 추가
-    _pushUndo(item);
+    _stacks.pushUndo(item);
 
     _exchangeListVersion++;
     _notifyVersionChanged();
@@ -379,28 +350,14 @@ class ExchangeHistoryService {
 
   /// 되돌리기 스택 초기화
   void clearUndoStack() {
-    _undoStack.clear();
-    _redoStack.clear();
-    _deletedUndoIds.clear();
-    _deletedRedoIds.clear();
-  }
-
-  /// undo/redo 스택에서 특정 항목 제거
-  void _purgeItemFromStacks(String itemId) {
-    _undoStack.removeWhere((item) => item.id == itemId);
-    _redoStack.removeWhere((item) => item.id == itemId);
-    _deletedUndoIds.remove(itemId);
-    _deletedRedoIds.remove(itemId);
+    _stacks.clear();
   }
 
   /// 단위 테스트용 상태 초기화 (로컬 저장소 I/O 없음)
   @visibleForTesting
   void resetForTesting() {
     _exchangeList.clear();
-    _undoStack.clear();
-    _redoStack.clear();
-    _deletedUndoIds.clear();
-    _deletedRedoIds.clear();
+    _stacks.clear();
     _exchangeListVersion = 0;
     _legacyDataBackedUp = false;
     // 싱글톤이라 다른 테스트(Provider 트리를 빌드한 위젯 테스트 등)가 미리
@@ -412,11 +369,7 @@ class ExchangeHistoryService {
 
   /// 교체 리스트에서 특정 항목 조회
   ExchangeHistoryItem? getExchangeItem(String itemId) {
-    try {
-      return _exchangeList.firstWhere((item) => item.id == itemId);
-    } catch (e) {
-      return null;
-    }
+    return ExchangeHistoryQuery.getExchangeItem(_exchangeList, itemId);
   }
 
   /// 삭제 대상 조회 — 경로 ID 기준.
@@ -427,47 +380,27 @@ class ExchangeHistoryService {
   /// 활성(`!isReverted`) 항목 중 가장 최근 것을 우선하고, 없으면 전체 중
   /// 가장 최근 것을 반환한다. 없으면 null.
   ExchangeHistoryItem? findDeletableItem(String pathId) {
-    final candidates =
-        _exchangeList.where((item) => item.originalPath.id == pathId).toList();
-    if (candidates.isEmpty) return null;
-    for (var i = candidates.length - 1; i >= 0; i--) {
-      if (!candidates[i].isReverted) return candidates[i];
-    }
-    return candidates.last;
+    return ExchangeHistoryQuery.findDeletableItem(_exchangeList, pathId);
   }
 
   /// 교체 리스트에서 설명으로 검색
   List<ExchangeHistoryItem> searchByDescription(String query) {
-    if (query.isEmpty) return getExchangeList();
-
-    return _exchangeList
-        .where(
-          (item) =>
-              item.description.toLowerCase().contains(query.toLowerCase()),
-        )
-        .toList();
+    return ExchangeHistoryQuery.searchByDescription(_exchangeList, query);
   }
 
   /// 교체 리스트에서 날짜별 필터링
   List<ExchangeHistoryItem> filterByDate(DateTime start, DateTime end) {
-    return _exchangeList
-        .where(
-          (item) =>
-              item.timestamp.isAfter(start) && item.timestamp.isBefore(end),
-        )
-        .toList();
+    return ExchangeHistoryQuery.filterByDate(_exchangeList, start, end);
   }
 
   /// 교체 리스트에서 타입별 필터링
   List<ExchangeHistoryItem> filterByType(ExchangePathType type) {
-    return _exchangeList.where((item) => item.type == type).toList();
+    return ExchangeHistoryQuery.filterByType(_exchangeList, type);
   }
 
   /// 교체 리스트에서 태그별 필터링
   List<ExchangeHistoryItem> filterByTags(List<String> tags) {
-    return _exchangeList
-        .where((item) => tags.any((tag) => item.tags.contains(tag)))
-        .toList();
+    return ExchangeHistoryQuery.filterByTags(_exchangeList, tags);
   }
 
   /// 교체 리스트 항목 수정 (메모, 태그)
@@ -500,66 +433,24 @@ class ExchangeHistoryService {
 
   /// 교체 리스트 통계 정보
   Map<String, dynamic> getExchangeListStats() {
-    final total = _exchangeList.length;
-    final reverted = _exchangeList.where((item) => item.isReverted).length;
-    final active = total - reverted;
-
-    final typeStats = <ExchangePathType, int>{};
-    for (final item in _exchangeList) {
-      typeStats[item.type] = (typeStats[item.type] ?? 0) + 1;
-    }
-
-    return {
-      'total': total,
-      'active': active,
-      'reverted': reverted,
-      'typeStats': typeStats,
-      'lastExchange':
-          _exchangeList.isNotEmpty ? _exchangeList.last.timestamp : null,
-    };
+    return ExchangeHistoryQuery.getExchangeListStats(_exchangeList);
   }
 
   // ========== 로컬 저장소 관련 메서드들 ==========
 
-  // 교체 리스트 저장 서비스
-  final ExchangeListStorageService _storageService =
-      ExchangeListStorageService();
-
-  // Serialize file mutations. The public history API is synchronous, and
-  // overlapping unawaited writes can otherwise race on Windows.
-  Future<void> _storageQueue = Future<void>.value();
-
-  Future<void> _enqueueStorageOperation(
-    Future<void> Function() operation,
-    String errorMessage,
-  ) {
-    _storageQueue = _storageQueue.then((_) => operation()).catchError((error) {
-      AppLogger.error('$errorMessage: $error', error);
-    });
-    return _storageQueue;
-  }
+  // 교체 리스트 저장 큐 (JSON 저장 → SQLite 미러 순서를 보장하는 직렬 큐)
+  final ExchangeHistoryStorageQueue _storageQueue =
+      ExchangeHistoryStorageQueue();
 
   void _enqueueExchangeListSave(String errorMessage) {
     final snapshot = List<ExchangeHistoryItem>.from(_exchangeList);
     final scopedTimetableId = timetableId;
-    _enqueueStorageOperation(
-      () => _storageService.saveExchangeList(
-        snapshot,
-        timetableId: scopedTimetableId,
-      ),
+    _storageQueue.enqueueExchangeListSave(
+      snapshot,
+      scopedTimetableId,
+      mirrorSink,
       errorMessage,
     );
-
-    // S5.1: JSON 저장 직후 같은 큐에 SQLite 미러 쓰기를 추가한다. JSON
-    // 저장과 순서는 보장되지만, 실패해도(sink==null 포함) JSON 경로에는
-    // 아무 영향이 없다 — 부가 기록일 뿐이다.
-    final sink = mirrorSink;
-    if (sink != null && scopedTimetableId != null) {
-      _enqueueStorageOperation(
-        () => sink(snapshot, scopedTimetableId),
-        '교체 이벤트 SQLite 미러 저장 실패',
-      );
-    }
   }
 
   /// 교체 항목을 로컬 저장소에 저장
@@ -585,20 +476,7 @@ class ExchangeHistoryService {
 
   /// 로컬 저장소에서 교체 리스트 전체 삭제
   void _clearLocalStorage() {
-    final scopedTimetableId = timetableId;
-    _enqueueStorageOperation(
-      () => _storageService.clearExchangeList(timetableId: scopedTimetableId),
-      '교체 리스트 삭제 실패',
-    );
-
-    // S5.1: JSON과 함께 SQLite 저널 미러도 비운다.
-    final clearSink = mirrorClearSink;
-    if (clearSink != null && scopedTimetableId != null) {
-      _enqueueStorageOperation(
-        () => clearSink(scopedTimetableId),
-        '교체 이벤트 SQLite 미러 삭제 실패',
-      );
-    }
+    _storageQueue.clearLocalStorage(timetableId, mirrorClearSink);
   }
 
   /// 지금까지 큐에 쌓인 저장 작업(JSON 저장 → SQLite 미러 쓰기 → `replayInto`)이
@@ -608,14 +486,11 @@ class ExchangeHistoryService {
   /// 공개 API는 계속 동기로 유지하면서(호출부를 async로 바꾸지 않기 위해)
   /// 필요한 곳에서만 명시적으로 "다 쓸 때까지 기다려" 달라고 요청하는
   /// 용도다 — `_storageQueue` 자체를 외부에 노출하지 않는다.
-  Future<void> flushPendingWrites() => _storageQueue;
+  Future<void> flushPendingWrites() => _storageQueue.flushPendingWrites();
 
   /// 예약된 저장을 마친 뒤 특정 시간표의 교체 목록 파일을 삭제합니다.
   Future<void> clearStoredDataForTimetable(String timetableId) {
-    return _enqueueStorageOperation(
-      () => _storageService.clearExchangeList(timetableId: timetableId),
-      '교체 리스트 삭제 실패',
-    );
+    return _storageQueue.clearStoredDataForTimetable(timetableId);
   }
 
   /// [profileId]가 지정된 모든 교체 건을 삭제한다.
@@ -635,7 +510,7 @@ class ExchangeHistoryService {
 
     _exchangeList.removeWhere((item) => idsToRemove.contains(item.id));
     for (final id in idsToRemove) {
-      _purgeItemFromStacks(id);
+      _stacks.purgeItem(id);
     }
 
     _exchangeListVersion++;
@@ -749,8 +624,7 @@ class ExchangeHistoryService {
   /// 로드되지 않도록 스코프 해제와 함께 사용합니다.
   void resetInMemoryState() {
     _exchangeList.clear();
-    _undoStack.clear();
-    _redoStack.clear();
+    _stacks.clearStacksOnly();
     _exchangeListVersion++;
     _notifyVersionChanged();
     AppLogger.info('교체 리스트 메모리 상태 초기화 (파일 미변경)');
@@ -767,7 +641,7 @@ class ExchangeHistoryService {
 
       // A scope can be switched immediately after a synchronous history
       // mutation. Read only after all earlier writes for that scope finish.
-      await _storageQueue;
+      await _storageQueue.flushPendingWrites();
 
       // S5.4b: 이 시간표가 이미 SQLite로 이관됐으면(=이전에 한 번이라도
       // mirrorSink가 성공했으면) 거기서 읽는다 — "여기서부터 신규가 진실
@@ -781,8 +655,7 @@ class ExchangeHistoryService {
             if (sqliteItems.isNotEmpty) {
               if (timetableId != requestedTimetableId) return;
 
-              _undoStack.clear();
-              _redoStack.clear();
+              _stacks.clearStacksOnly();
               _exchangeList.clear();
               _exchangeList.addAll(sqliteItems);
               _legacyDataBackedUp = false;
@@ -802,7 +675,7 @@ class ExchangeHistoryService {
       }
 
       // 스코프 전환 대비: 이전 시간표의 undo/redo 스택 초기화
-      final loadResult = await _storageService.loadExchangeList(
+      final loadResult = await _storageQueue.loadExchangeList(
         timetableId: requestedTimetableId,
       );
 
@@ -812,8 +685,7 @@ class ExchangeHistoryService {
       }
 
       // 메모리 교체 리스트를 로드된 데이터로 교체
-      _undoStack.clear();
-      _redoStack.clear();
+      _stacks.clearStacksOnly();
       _exchangeList.clear();
       _exchangeList.addAll(loadResult.items);
       _legacyDataBackedUp = loadResult.legacyBackupPerformed;
@@ -832,7 +704,7 @@ class ExchangeHistoryService {
       final sink = mirrorSink;
       final scopedTimetableId = timetableId;
       if (sink != null && scopedTimetableId != null) {
-        _enqueueStorageOperation(
+        _storageQueue.enqueueOperation(
           () => sink(
             List<ExchangeHistoryItem>.from(_exchangeList),
             scopedTimetableId,
@@ -849,96 +721,37 @@ class ExchangeHistoryService {
 
   /// 교체 리스트를 콘솔에 출력
   void printExchangeList() {
-    _printList('[교체 리스트]', _exchangeList);
+    ExchangeHistoryDebugPrinter.printExchangeList(_exchangeList);
   }
 
   /// 되돌리기 히스토리를 콘솔에 출력
   void printUndoHistory() {
-    _printList('[되돌리기 히스토리]', _undoStack);
+    ExchangeHistoryDebugPrinter.printUndoHistory(_stacks.undoStack);
   }
 
   /// 다시 실행 히스토리를 콘솔에 출력
   void printRedoHistory() {
-    _printList('[다시 실행 히스토리]', _redoStack);
-  }
-
-  /// 공통 리스트 출력 메서드
-  void _printList(String title, List<ExchangeHistoryItem> list) {
-    AppLogger.exchangeInfo('$title 총 ${list.length}개');
-    if (list.isEmpty) {
-      AppLogger.exchangeInfo('  비어있습니다.');
-    } else {
-      for (int i = 0; i < list.length; i++) {
-        final item = list[i];
-        AppLogger.exchangeInfo(
-          '  ${i + 1} Type: ${item.type.displayName} - ${_getNodeInfo(item.originalPath)}',
-        );
-      }
-    }
+    ExchangeHistoryDebugPrinter.printRedoHistory(_stacks.redoStack);
   }
 
   /// 전체 히스토리 통계를 콘솔에 출력
   void printHistoryStats() {
     final stats = getExchangeListStats();
-    AppLogger.exchangeInfo('\n=== 교체 히스토리 통계 ===');
-    AppLogger.exchangeInfo('전체 교체: ${stats['total']}개');
-    AppLogger.exchangeInfo('활성 교체: ${stats['active']}개');
-    AppLogger.exchangeInfo('되돌린 교체: ${stats['reverted']}개');
-    AppLogger.exchangeInfo('되돌리기 가능: ${_undoStack.length}개');
-    AppLogger.exchangeInfo('다시 실행 가능: ${_redoStack.length}개');
-
-    final typeStats = stats['typeStats'] as Map<ExchangePathType, int>;
-    AppLogger.exchangeInfo('\n교체 타입별 통계:');
-    typeStats.forEach((type, count) {
-      AppLogger.exchangeInfo('  ${type.displayName}: $count개');
-    });
-
-    if (stats['lastExchange'] != null) {
-      AppLogger.exchangeInfo('\n마지막 교체: ${stats['lastExchange']}');
-    }
-    AppLogger.exchangeInfo('========================\n');
-  }
-
-  /// ExchangePath에서 노드 정보를 요약해서 반환
-  String _getNodeInfo(ExchangePath path) {
-    try {
-      if (path is OneToOneExchangePath) {
-        return _formatNodes([path.sourceNode, path.targetNode]);
-      } else if (path is CircularExchangePath) {
-        return _formatNodes(path.nodes);
-      } else if (path is DualExchangePath) {
-        // 2중교체: 4개 노드 모두 출력 (node1, node2, nodeA, nodeB)
-        return _formatNodes([path.node1, path.node2, path.nodeA, path.nodeB]);
-      } else if (path is SupplementExchangePath) {
-        return _formatNodes([path.sourceNode, path.targetNode]);
-      }
-    } catch (e) {
-      developer.log('노드 정보 추출 실패: $e');
-    }
-    return path.displayTitle;
-  }
-
-  /// 노드 리스트를 포맷팅
-  String _formatNodes(List<dynamic> nodes) {
-    return nodes
-        .asMap()
-        .entries
-        .map((entry) {
-          final node = entry.value;
-          return '[${entry.key}]${node.day}|${node.period}|${node.className}|${node.teacherName}|${node.subjectName}';
-        })
-        .join(', ');
+    ExchangeHistoryDebugPrinter.printHistoryStats(
+      stats,
+      undoCount: _stacks.undoLength,
+      redoCount: _stacks.redoLength,
+    );
   }
 
   /// 특정 셀이 교체된 셀인지 확인 (활성 교체만)
   bool isCellExchanged(String teacherName, String day, int period) {
-    for (final item in _exchangeList) {
-      if (item.isReverted) continue;
-      if (_isCellInExchangePath(item.originalPath, teacherName, day, period)) {
-        return true;
-      }
-    }
-    return false;
+    return ExchangeHistoryCellLookup.isCellExchanged(
+      _exchangeList,
+      teacherName,
+      day,
+      period,
+    );
   }
 
   /// 교체된 셀에 해당하는 교체 경로 찾기 (활성 교체만)
@@ -947,47 +760,11 @@ class ExchangeHistoryService {
     String day,
     int period,
   ) {
-    for (final item in _exchangeList) {
-      if (item.isReverted) continue;
-      if (_isCellInExchangePath(item.originalPath, teacherName, day, period)) {
-        return item.originalPath;
-      }
-    }
-    return null;
-  }
-
-  /// ExchangePath에서 특정 셀이 포함되어 있는지 확인
-  bool _isCellInExchangePath(
-    ExchangePath path,
-    String teacherName,
-    String day,
-    int period,
-  ) {
-    try {
-      final nodes = _getNodesFromPath(path);
-      return nodes.any(
-        (node) =>
-            node.teacherName == teacherName &&
-            node.day == day &&
-            node.period == period,
-      );
-    } catch (e) {
-      developer.log('셀 확인 중 오류 발생: $e');
-      return false;
-    }
-  }
-
-  /// ExchangePath에서 노드 리스트 추출
-  List<dynamic> _getNodesFromPath(ExchangePath path) {
-    if (path is OneToOneExchangePath) {
-      return [path.sourceNode, path.targetNode];
-    } else if (path is CircularExchangePath) {
-      return path.nodes;
-    } else if (path is DualExchangePath) {
-      return [path.nodeA, path.nodeB, path.node1, path.node2];
-    } else if (path is SupplementExchangePath) {
-      return [path.sourceNode, path.targetNode];
-    }
-    return [];
+    return ExchangeHistoryCellLookup.findExchangePathByCell(
+      _exchangeList,
+      teacherName,
+      day,
+      period,
+    );
   }
 }
