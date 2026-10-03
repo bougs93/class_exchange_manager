@@ -697,8 +697,13 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
+  /// Provider 구독(watch/listen) 등록 — build()에서 매 빌드마다 호출된다.
+  ///
+  /// 코드 구성만 분리한 것으로, 호출 시점·등록 순서·로직은 원래 build()에
+  /// 있던 것과 완전히 동일하다(Riverpod의 ref.listen/ref.watch는 build() 콜
+  /// 스택 내에서 동기로 호출되기만 하면 되므로, 이 메서드로 옮겨도 동작은
+  /// 그대로다).
+  ExchangeScreenState _watchAndRegisterListeners() {
     // Provider에서 상태 읽기
     ref.watch(
       exchangeScreenProvider.select(
@@ -844,6 +849,13 @@ class _ExchangeScreenState extends ConsumerState<ExchangeScreen>
         _lastProcessedFileLoadId = screenState.fileLoadId;
       }
     });
+
+    return screenState;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenState = _watchAndRegisterListeners();
 
     return Scaffold(
       // ExchangeAppBar 제거 - StartScreen의 공통 AppBar 사용
