@@ -3,10 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/dated_timetable.dart';
-import '../../models/print_profile.dart';
 import '../../models/timetable_registry.dart';
 import '../../providers/exchange_screen_provider.dart';
-import '../../providers/print_profile_provider.dart';
 import '../../providers/timetable_registry_provider.dart';
 import '../../providers/timetable_repository_provider.dart';
 import '../../providers/timetable_summary_provider.dart';
@@ -17,6 +15,9 @@ import '../../utils/logger.dart';
 import '../../utils/snackbar_helper.dart';
 import 'exchange_screen/exchange_screen_state_proxy.dart';
 import 'exchange_screen/managers/exchange_operation_manager.dart';
+import 'timetable_file/timetable_file_card.dart';
+import 'timetable_file/timetable_file_dialogs.dart';
+import 'timetable_file/timetable_file_empty_state.dart';
 import 'timetable_file_register_dialog.dart';
 
 /// 시간표(학기) 관리 화면
@@ -121,7 +122,11 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
           );
           if (!mounted) return;
 
-          final proceed = await _confirmContentChange(existing, summary);
+          final proceed = await showConfirmContentChangeDialog(
+            context,
+            existing,
+            summary,
+          );
           if (proceed != true) {
             // 취소: 이미 메모리에 올라온 새 파일 내용을 버리고 원래 상태로 복구
             await ref.read(timetableRegistryProvider.notifier).reloadActive();
@@ -246,48 +251,6 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
     }
   }
 
-  /// 시간표 이름 입력 다이얼로그
-  ///
-  /// [showCancel]이 true면 취소 버튼을 표시하고 취소 시 null을 반환합니다.
-  Future<String?> _showNameDialog({
-    required String title,
-    required String initialValue,
-    bool showCancel = true,
-  }) {
-    final controller = TextEditingController(text: initialValue);
-    return showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: Text(title),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            decoration: const InputDecoration(
-              hintText: '예: 월계중1학기',
-              labelText: '시간표 이름',
-            ),
-            onSubmitted:
-                (value) => Navigator.of(dialogContext).pop(value.trim()),
-          ),
-          actions: [
-            if (showCancel)
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('취소'),
-              ),
-            ElevatedButton(
-              onPressed:
-                  () => Navigator.of(dialogContext).pop(controller.text.trim()),
-              child: const Text('확인'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   /// 교사·학교명 자동 추정
   ///
   /// 직전에 사용하던 시간표의 교사가 새로 파싱된 교사 목록에도 있으면 그대로 씁니다.
@@ -311,103 +274,6 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
         (candidate != null && teachers.contains(candidate)) ? candidate : null;
 
     return (teacher: teacher, school: previous.schoolName);
-  }
-
-  /// 원본 내용 변경 확인 다이얼로그
-  ///
-  /// 무엇이 지워지고 무엇이 남는지 건수로 보여준 뒤에만 진행합니다.
-  Future<bool?> _confirmContentChange(
-    TimetableRegistryEntry entry,
-    TimetableSummary summary,
-  ) {
-    final removed = <String>[
-      if (summary.exchangeCount > 0) '교체 ${summary.exchangeCount}건',
-      if (summary.planEntryCount > 0) '결보강 입력 ${summary.planEntryCount}건',
-    ];
-
-    return showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: Row(
-            children: [
-              Icon(
-                Icons.warning_amber_rounded,
-                color: Colors.orange.shade700,
-                size: 26,
-              ),
-              const SizedBox(width: 10),
-              const Expanded(child: Text('시간표 내용이 변경되었습니다')),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "'${entry.name}'의 원본 파일 내용이 이전과 다릅니다.\n"
-                '기존 교체 결과는 새 시간표와 맞지 않아 초기화해야 합니다.',
-              ),
-              const SizedBox(height: 14),
-              _confirmLine(
-                icon: Icons.delete_outline,
-                color: Colors.red,
-                label: '삭제됨',
-                value: removed.isEmpty ? '없음' : removed.join(' · '),
-              ),
-              const SizedBox(height: 6),
-              _confirmLine(
-                icon: Icons.check_circle_outline,
-                color: Colors.green,
-                label: '유지됨',
-                value:
-                    summary.profileCount > 0
-                        ? '계획서 ${summary.profileCount}개'
-                        : '없음',
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('취소'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('갱신'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  /// 확인 다이얼로그의 "삭제됨 / 유지됨" 한 줄
-  Widget _confirmLine({
-    required IconData icon,
-    required Color color,
-    required String label,
-    required String value,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 16, color: color),
-        const SizedBox(width: 6),
-        SizedBox(
-          width: 52,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-        ),
-        Expanded(child: Text(value, style: const TextStyle(fontSize: 12.5))),
-      ],
-    );
   }
 
   /// 시간표 전환
@@ -451,7 +317,8 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
 
   /// 시간표 이름 변경
   Future<void> _renameTimetable(TimetableRegistryEntry entry) async {
-    final newName = await _showNameDialog(
+    final newName = await showTimetableNameDialog(
+      context,
       title: '시간표 이름 변경',
       initialValue: entry.name,
     );
@@ -637,7 +504,7 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
                     ),
                 data: (registry) {
                   if (registry.timetables.isEmpty) {
-                    return _buildEmptyState(context, tokens);
+                    return const TimetableFileEmptyState();
                   }
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -652,11 +519,12 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
                       ),
                       const SizedBox(height: 12),
                       ...registry.timetables.map(
-                        (entry) => _buildTimetableCard(
-                          context,
-                          theme,
-                          entry,
+                        (entry) => TimetableFileCard(
+                          entry: entry,
                           isActive: entry.id == activeEntry?.id,
+                          onSwitch: () => _switchTimetable(entry),
+                          onRename: () => _renameTimetable(entry),
+                          onDelete: () => _deleteTimetable(entry),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -672,333 +540,6 @@ class _TimetableFileScreenState extends ConsumerState<TimetableFileScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  /// 빈 상태 안내
-  Widget _buildEmptyState(BuildContext context, DesignTokens tokens) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        color: tokens.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: tokens.cardBorder),
-      ),
-      child: Column(
-        children: [
-          Icon(Icons.table_chart_outlined, size: 48, color: tokens.textMuted),
-          const SizedBox(height: 12),
-          Text(
-            '등록된 시간표가 없습니다',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: tokens.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '상단의 [시간표 추가] 버튼으로\n엑셀 시간표를 등록하세요.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: tokens.textMuted),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 시간표 카드 1건
-  ///
-  /// 활성 항목만 계층 트리(교사 → 계획서)를 펼치고, 비활성 항목은 한 줄로 접습니다.
-  /// 교체·결보강 건수는 교사가 아니라 **시간표 아래**에 표시해, 교체 상태가
-  /// 교사와 무관하게 공유된다는 원칙을 배치로 드러냅니다(문서 §3①).
-  Widget _buildTimetableCard(
-    BuildContext context,
-    ThemeData theme,
-    TimetableRegistryEntry entry, {
-    required bool isActive,
-  }) {
-    final tokens = context.tokens;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: tokens.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color:
-              isActive
-                  ? theme.primaryColor.withValues(alpha: 0.5)
-                  : tokens.cardBorder,
-          width: isActive ? 2 : 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildCardTitleRow(theme, tokens, entry, isActive: isActive),
-          const SizedBox(height: 6),
-          _buildCardSourceLine(tokens, entry),
-          if (isActive)
-            _buildActiveCardBody(tokens, entry)
-          else
-            _buildCollapsedCardBody(tokens, entry),
-          const SizedBox(height: 10),
-          _buildCardActions(entry, isActive: isActive),
-        ],
-      ),
-    );
-  }
-
-  /// 카드 제목 줄 (선택 표시 + 이름 + '사용 중' 배지)
-  Widget _buildCardTitleRow(
-    ThemeData theme,
-    DesignTokens tokens,
-    TimetableRegistryEntry entry, {
-    required bool isActive,
-  }) {
-    return Row(
-      children: [
-        Icon(
-          isActive ? Icons.check_circle : Icons.radio_button_unchecked,
-          size: 20,
-          color: isActive ? theme.primaryColor : tokens.textMuted,
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            entry.name,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: tokens.textPrimary,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        if (isActive)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: theme.primaryColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              '사용 중',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: theme.primaryColor,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  /// 원본 파일·학교명·등록일 한 줄
-  Widget _buildCardSourceLine(
-    DesignTokens tokens,
-    TimetableRegistryEntry entry,
-  ) {
-    final parts = <String>[
-      if (entry.schoolName != null) entry.schoolName!,
-      entry.fileName.isEmpty ? '원본 정보 없음' : entry.fileName,
-      '${entry.registeredAt.month}/${entry.registeredAt.day} 등록',
-    ];
-
-    return Padding(
-      padding: const EdgeInsets.only(left: 28),
-      child: Row(
-        children: [
-          Icon(Icons.school_outlined, size: 13, color: tokens.textMuted),
-          const SizedBox(width: 4),
-          Expanded(
-            child: Text(
-              parts.join(' · '),
-              style: TextStyle(fontSize: 12, color: tokens.textSecondary),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 활성 시간표: 교사 → 계획서 트리 + 시간표 단위 건수
-  Widget _buildActiveCardBody(
-    DesignTokens tokens,
-    TimetableRegistryEntry entry,
-  ) {
-    final store = ref.watch(printProfileStoreProvider);
-    final summary = ref.watch(timetableSummaryProvider(entry.id)).valueOrNull;
-
-    // 계획서를 가진 교사 목록. 지정 교사는 계획서가 없어도 항상 맨 앞에 보인다
-    final teachers = <String>[
-      if (entry.hasTeacher) entry.teacherName!,
-      ...store.teacherNames.where((t) => t != entry.teacherName),
-    ];
-
-    return Padding(
-      padding: const EdgeInsets.only(left: 28, top: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                entry.hasTeacher
-                    ? Icons.person_outline
-                    : Icons.warning_amber_rounded,
-                size: 14,
-                color: entry.hasTeacher ? tokens.textSecondary : Colors.orange,
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  entry.hasTeacher
-                      ? '교사: ${entry.teacherName}'
-                      : '교사 미지정 — 홈 화면에서 선택하세요',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color:
-                        entry.hasTeacher ? tokens.textSecondary : Colors.orange,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          for (int i = 0; i < teachers.length; i++)
-            _buildTeacherTreeRow(
-              tokens,
-              teachers[i],
-              store.byTeacher(teachers[i]),
-              isLast: i == teachers.length - 1,
-            ),
-          const SizedBox(height: 6),
-          Text(
-            summary == null
-                ? '데이터 확인 중…'
-                : '${summary.description}  (시간표 전체가 공유)',
-            style: TextStyle(fontSize: 11.5, color: tokens.textMuted),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 트리 한 줄 (교사 → 그 교사의 계획서들)
-  Widget _buildTeacherTreeRow(
-    DesignTokens tokens,
-    String teacher,
-    List<PrintProfile> profiles, {
-    required bool isLast,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 2),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            isLast ? '└─ ' : '├─ ',
-            style: TextStyle(fontSize: 12, color: tokens.textMuted),
-          ),
-          Text(
-            teacher,
-            style: TextStyle(fontSize: 12.5, color: tokens.textPrimary),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              profiles.isEmpty
-                  ? '계획서 없음'
-                  : profiles.map((p) => p.name).join(' · '),
-              style: TextStyle(
-                fontSize: 12,
-                color: profiles.isEmpty ? tokens.textMuted : tokens.textPrimary,
-                fontStyle:
-                    profiles.isEmpty ? FontStyle.italic : FontStyle.normal,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 비활성 시간표: 교사·계획서·교체 건수를 한 줄 요약으로 접는다
-  Widget _buildCollapsedCardBody(
-    DesignTokens tokens,
-    TimetableRegistryEntry entry,
-  ) {
-    final summary = ref.watch(timetableSummaryProvider(entry.id)).valueOrNull;
-    final hasTeacher = entry.hasTeacher;
-
-    final parts = <String>[
-      hasTeacher ? entry.teacherName! : '교사 미지정',
-      if (summary != null) summary.description,
-    ];
-
-    return Padding(
-      padding: const EdgeInsets.only(left: 28, top: 4),
-      child: Row(
-        children: [
-          Icon(
-            hasTeacher ? Icons.person_outline : Icons.warning_amber_rounded,
-            size: 13,
-            color: hasTeacher ? tokens.textMuted : Colors.orange,
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: Text(
-              parts.join(' · '),
-              style: TextStyle(
-                fontSize: 12,
-                color: hasTeacher ? tokens.textMuted : Colors.orange,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 카드 하단 액션 버튼들
-  Widget _buildCardActions(
-    TimetableRegistryEntry entry, {
-    required bool isActive,
-  }) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        if (!isActive)
-          TextButton.icon(
-            onPressed: () => _switchTimetable(entry),
-            icon: const Icon(Icons.swap_horiz, size: 18),
-            label: const Text('전환'),
-          ),
-        TextButton.icon(
-          onPressed: () => _renameTimetable(entry),
-          icon: const Icon(Icons.edit_outlined, size: 18),
-          label: const Text('이름 변경'),
-        ),
-        TextButton.icon(
-          onPressed: () => _deleteTimetable(entry),
-          icon: const Icon(Icons.delete_outline, size: 18),
-          label: const Text('삭제'),
-          style: TextButton.styleFrom(foregroundColor: Colors.red),
-        ),
-      ],
     );
   }
 }
