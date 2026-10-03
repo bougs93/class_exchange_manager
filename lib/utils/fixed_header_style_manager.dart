@@ -299,13 +299,7 @@ class FixedHeaderStyleManager {
         bool isFirstPeriod = i == 0 && dayIndex > 0;
         bool isLastPeriod = i == dayPeriods.length - 1;
 
-        // 선택 상태 및 교체 가능 여부 확인
-        bool isSelected = SimplifiedTimetableTheme.isPeriodSelected(
-          day,
-          period,
-          selectedDay,
-          selectedPeriod,
-        );
+        // 목적지 및 교체 경로 표시는 유지하되 교시 헤더는 선택 강조하지 않는다.
         bool isTargetCell = SimplifiedTimetableTheme.isPeriodTarget(
           day,
           period,
@@ -342,7 +336,7 @@ class FixedHeaderStyleManager {
         // CellStyleConfig로 통합 관리
         final config = CellStyleConfig(
           isTeacherColumn: false,
-          isSelected: isSelected,
+          isSelected: false,
           isExchangeable: isExchangeablePeriod,
           isLastColumnOfDay: isLastPeriod,
           isFirstColumnOfDay: isFirstPeriod,

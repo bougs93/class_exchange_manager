@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../constants/screen_usage_hints.dart';
-import '../../../../models/exchange_history_item.dart';
 import '../../../../models/plan_output_menu.dart';
 import '../../../../models/print_profile.dart';
 import '../../../../providers/exchange_screen_provider.dart';
@@ -25,6 +24,9 @@ import '../../../widgets/content_toolbar_layout.dart';
 import '../../../widgets/content_usage_hint_bar.dart';
 import '../../../widgets/timetable_grid/exchange_executor.dart';
 import '../../../widgets/timetable_grid/grid_header_widgets.dart';
+import 'plan_backup/backup_plan_list_pane.dart';
+import 'plan_backup/backup_teacher_list_pane.dart';
+import 'plan_backup/plan_backup_io.dart';
 
 /// 계획서 > 백업 — 결강 교사 · 계획서 선택 후 내보내기/가져오기
 class PlanBackupScreen extends ConsumerStatefulWidget {
@@ -50,10 +52,7 @@ class _PlanBackupScreenState extends ConsumerState<PlanBackupScreen> {
     return names;
   }
 
-  void _ensureSelection(
-    List<String> teachers,
-    PrintProfileStore store,
-  ) {
+  void _ensureSelection(List<String> teachers, PrintProfileStore store) {
     if (teachers.isEmpty) {
       if (_selectedTeacher != null || _selectedProfileId != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -221,7 +220,7 @@ class _PlanBackupScreenState extends ConsumerState<PlanBackupScreen> {
               children: [
                 SizedBox(
                   width: 200,
-                  child: _TeacherListPane(
+                  child: BackupTeacherListPane(
                     teachers: teachers,
                     selectedTeacher: teacher,
                     store: store,
@@ -232,7 +231,7 @@ class _PlanBackupScreenState extends ConsumerState<PlanBackupScreen> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _PlanListPane(
+                  child: BackupPlanListPane(
                     teacher: teacher,
                     profiles: profiles,
                     selectedProfileId: selectedProfile?.id,
@@ -308,32 +307,6 @@ class _PlanBackupScreenState extends ConsumerState<PlanBackupScreen> {
     );
   }
 
-  /// 예: `정원길 결보강 26.10.05_20261003_결보강백업`
-  String _buildBackupFileName({
-    required String? teacherName,
-    required String? profileName,
-  }) {
-    final now = DateTime.now();
-    final stamp =
-        '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
-    final plan =
-        (profileName == null || profileName.trim().isEmpty)
-            ? '결보강백업'
-            : profileName.trim();
-    final teacher = teacherName?.trim() ?? '';
-    final prefix = teacher.isEmpty ? plan : '$teacher $plan';
-    return '${prefix}_${stamp}_결보강백업';
-  }
-
-  List<ExchangeHistoryItem> _itemsForPlanBackup(
-    List<ExchangeHistoryItem> all,
-    String profileId,
-  ) {
-    final assigned = all.where((e) => e.profileId == profileId).toList();
-    if (assigned.isNotEmpty) return assigned;
-    return all.where((e) => e.profileId == null).toList();
-  }
-
   Future<void> _handleExportBackup() async {
     final profileStore = ref.read(printProfileStoreProvider);
     final selected = profileStore.getById(_selectedProfileId);
@@ -345,7 +318,7 @@ class _PlanBackupScreenState extends ConsumerState<PlanBackupScreen> {
     }
 
     final historyService = ref.read(exchangeHistoryServiceProvider);
-    final items = _itemsForPlanBackup(
+    final items = PlanBackupIo.itemsForPlanBackup(
       historyService.getExchangeList(),
       selected.id,
     );
@@ -376,7 +349,7 @@ class _PlanBackupScreenState extends ConsumerState<PlanBackupScreen> {
     );
     final jsonString = const SubstitutionBackupService().encode(bundle);
     final fileName =
-        '${_buildBackupFileName(teacherName: selected.teacherName, profileName: selected.name)}.json';
+        '${PlanBackupIo.buildBackupFileName(teacherName: selected.teacherName, profileName: selected.name, now: DateTime.now())}.json';
 
     if (kIsWeb) {
       try {
@@ -637,310 +610,6 @@ class _PlanBackupScreenState extends ConsumerState<PlanBackupScreen> {
               ),
             ],
           ),
-    );
-  }
-}
-
-/// 선택 목록 행 — 왼쪽 accent 막대 + 배경 하이라이트 (라디오 대신)
-class _SelectableListRow extends StatelessWidget {
-  const _SelectableListRow({
-    required this.selected,
-    required this.accent,
-    required this.tokens,
-    required this.label,
-    required this.onTap,
-    this.countBadge,
-  });
-
-  final bool selected;
-  final Color accent;
-  final DesignTokens tokens;
-  final String label;
-  final VoidCallback onTap;
-
-  /// 있으면 이름 옆에 원형 숫자 배지 (예: 계획서 개수)
-  final int? countBadge;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? accent.withValues(alpha: 0.12) : Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                width: 3,
-                color: selected ? accent : Colors.transparent,
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  child: Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          label,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight:
-                                selected ? FontWeight.w600 : FontWeight.normal,
-                            color: tokens.textPrimary,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (countBadge != null) ...[
-                        const SizedBox(width: 8),
-                        _CountCircleBadge(
-                          count: countBadge!,
-                          accent: accent,
-                          selected: selected,
-                          muted: tokens.textMuted,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 계획서 개수 원형 배지 — 정원길 ① 형태
-class _CountCircleBadge extends StatelessWidget {
-  const _CountCircleBadge({
-    required this.count,
-    required this.accent,
-    required this.selected,
-    required this.muted,
-  });
-
-  final int count;
-  final Color accent;
-  final bool selected;
-  final Color muted;
-
-  @override
-  Widget build(BuildContext context) {
-    final border = selected ? accent : muted;
-    final fg = selected ? accent : muted;
-    return Container(
-      width: 22,
-      height: 22,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: border, width: 1.2),
-        color: selected ? accent.withValues(alpha: 0.08) : Colors.transparent,
-      ),
-      child: Text(
-        '$count',
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: fg,
-          height: 1,
-        ),
-      ),
-    );
-  }
-}
-
-class _TeacherListPane extends StatelessWidget {
-  const _TeacherListPane({
-    required this.teachers,
-    required this.selectedTeacher,
-    required this.store,
-    required this.accent,
-    required this.tokens,
-    required this.onSelect,
-  });
-
-  final List<String> teachers;
-  final String? selectedTeacher;
-  final PrintProfileStore store;
-  final Color accent;
-  final DesignTokens tokens;
-  final ValueChanged<String> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: tokens.sectionBackground,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: tokens.cardBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-            child: Text(
-              '결강 교사',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: tokens.textSecondary,
-              ),
-            ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child:
-                teachers.isEmpty
-                    ? Center(
-                      child: Text(
-                        '결강 교사가 없습니다',
-                        style: TextStyle(fontSize: 13, color: tokens.textMuted),
-                      ),
-                    )
-                    : Material(
-                      color: Colors.transparent,
-                      child: ListView.builder(
-                        itemCount: teachers.length,
-                        itemBuilder: (context, index) {
-                          final name = teachers[index];
-                          final selected = name == selectedTeacher;
-                          final planCount = store.byTeacher(name).length;
-                          return _SelectableListRow(
-                            selected: selected,
-                            accent: accent,
-                            tokens: tokens,
-                            label: name,
-                            countBadge: planCount,
-                            onTap: () => onSelect(name),
-                          );
-                        },
-                      ),
-                    ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PlanListPane extends StatelessWidget {
-  const _PlanListPane({
-    required this.teacher,
-    required this.profiles,
-    required this.selectedProfileId,
-    required this.accent,
-    required this.tokens,
-    required this.onSelect,
-    required this.onOpenContentEdit,
-    this.onDeleteSelected,
-  });
-
-  final String? teacher;
-  final List<PrintProfile> profiles;
-  final String? selectedProfileId;
-  final Color accent;
-  final DesignTokens tokens;
-  final ValueChanged<PrintProfile> onSelect;
-  final VoidCallback onOpenContentEdit;
-  final VoidCallback? onDeleteSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: tokens.sectionBackground,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: tokens.cardBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 8, 6),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    teacher == null ? '계획서 목록' : '$teacher 계획서',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: tokens.textSecondary,
-                    ),
-                  ),
-                ),
-                TextButton(
-                  onPressed: onOpenContentEdit,
-                  style: TextButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    minimumSize: const Size(0, 28),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                  ),
-                  child: const Text('결보강 일정', style: TextStyle(fontSize: 12)),
-                ),
-                TextButton(
-                  onPressed: onDeleteSelected,
-                  style: TextButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    minimumSize: const Size(0, 28),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    foregroundColor:
-                        onDeleteSelected == null
-                            ? null
-                            : Colors.red.shade700,
-                  ),
-                  child: const Text('계획서 삭제', style: TextStyle(fontSize: 12)),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child:
-                teacher == null
-                    ? Center(
-                      child: Text(
-                        '왼쪽에서 결강 교사를 선택하세요',
-                        style: TextStyle(fontSize: 13, color: tokens.textMuted),
-                      ),
-                    )
-                    : profiles.isEmpty
-                    ? Center(
-                      child: Text(
-                        '이 교사의 계획서가 없습니다',
-                        style: TextStyle(fontSize: 13, color: tokens.textMuted),
-                      ),
-                    )
-                    : Material(
-                      color: Colors.transparent,
-                      child: ListView.builder(
-                        itemCount: profiles.length,
-                        itemBuilder: (context, index) {
-                          final profile = profiles[index];
-                          final selected = profile.id == selectedProfileId;
-                          return _SelectableListRow(
-                            selected: selected,
-                            accent: accent,
-                            tokens: tokens,
-                            label: profile.name,
-                            onTap: () => onSelect(profile),
-                          );
-                        },
-                      ),
-                    ),
-          ),
-        ],
-      ),
     );
   }
 }
