@@ -3,12 +3,15 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:file_picker/file_picker.dart';
 
+import '../../constants/app_assets.dart';
 import '../../models/dated_timetable.dart';
 import '../../models/lesson.dart';
+import '../../models/web_login_branding.dart';
 import '../../providers/timetable_registry_provider.dart';
 import '../../providers/timetable_repository_provider.dart';
 import '../../services/excel_service.dart';
@@ -16,8 +19,10 @@ import '../../services/semester_timetable_generator.dart';
 import '../../services/shared_timetable_sync_service.dart';
 import '../../services/timetable_storage_service.dart';
 import '../../services/web_auth_service.dart';
+import '../../services/web_branding_service.dart';
 import '../../utils/logger.dart';
 import '../../utils/snackbar_helper.dart';
+import '../widgets/web_login_screen_preview.dart';
 import 'timetable_file_register_dialog.dart';
 import 'web_login_gate.dart';
 
@@ -25,7 +30,7 @@ import 'web_login_gate.dart';
 ///
 /// - 접속자 비밀번호 변경 (새 salt 발급 + 해시 저장)
 /// - 관리자 비밀번호 변경
-/// - 로그인 안내 메시지 변경 (`config/public`)
+/// - 접속 화면 브랜딩 (제목·안내·학교 로고·홈페이지)
 /// - 로그아웃 (세션 삭제)
 ///
 /// 관리자 권한(`webLoginStatusProvider == adminOk`)일 때만 진입시킨다.
@@ -44,7 +49,17 @@ class _WebAdminSettingsScreenState
   final _adminPasswordController = TextEditingController();
   final _adminPasswordConfirmController = TextEditingController();
   final _loginMessageController = TextEditingController();
+  final _loginNoticeController = TextEditingController();
+  final _schoolHomeUrlController = TextEditingController();
   final _defaultSchoolNameController = TextEditingController();
+  final _brandingService = WebBrandingService();
+  WebLoginBranding _branding = const WebLoginBranding();
+  /// 서버에 저장된 로고 (표시용). 웹에선 network 이미지 대신 이걸 쓴다.
+  Uint8List? _storedLogoBytes;
+  /// 아직 업로드하지 않은 새로 고른 로고.
+  Uint8List? _pendingLogoBytes;
+  String _pendingLogoContentType = 'image/png';
+  bool _removeLogo = false;
   bool _saving = false;
   bool _publishing = false;
   bool _deleting = false;
@@ -61,26 +76,40 @@ class _WebAdminSettingsScreenState
     _loadCurrentMessage();
   }
 
-  /// 현재 로그인 안내 메시지·기본 학교명을 입력란에 미리 채운다.
+  /// 현재 로그인 브랜딩·기본 학교명을 입력란에 미리 채운다.
   Future<void> _loadCurrentMessage() async {
     try {
+      final branding = await _brandingService.load();
+      final logoBytes =
+          branding.hasLogo
+              ? await _brandingService.resolveLogoBytes(branding)
+              : null;
       final doc =
           await FirebaseFirestore.instance
               .collection('config')
               .doc('public')
               .get();
-      final data = doc.data();
-      final message =
-          (data?['loginMessage'] ?? data?['LoginMessage']) as String?;
-      final schoolName = data?['defaultSchoolName'] as String?;
+      final schoolName = doc.data()?['defaultSchoolName'] as String?;
       if (!mounted) return;
       setState(() {
-        if (message != null) _loginMessageController.text = message;
+        _branding = branding;
+        _storedLogoBytes = logoBytes;
+        _loginMessageController.text = branding.title;
+        _loginNoticeController.text = branding.notice;
+        _schoolHomeUrlController.text = branding.homeUrl;
+        _pendingLogoBytes = null;
+        _removeLogo = false;
         if (schoolName != null) _defaultSchoolNameController.text = schoolName;
       });
     } catch (_) {
       // 조회 실패 시 빈칸 유지
     }
+  }
+
+  /// 편집/미리보기에 쓸 로고 바이트 (새 선택 > 저장본).
+  Uint8List? get _displayLogoBytes {
+    if (_removeLogo) return null;
+    return _pendingLogoBytes ?? _storedLogoBytes;
   }
 
   @override
@@ -90,6 +119,8 @@ class _WebAdminSettingsScreenState
     _adminPasswordController.dispose();
     _adminPasswordConfirmController.dispose();
     _loginMessageController.dispose();
+    _loginNoticeController.dispose();
+    _schoolHomeUrlController.dispose();
     _defaultSchoolNameController.dispose();
     super.dispose();
   }
@@ -157,18 +188,142 @@ class _WebAdminSettingsScreenState
     }
   }
 
-  Future<void> _saveLoginMessage() async {
-    final message = _loginMessageController.text.trim();
+  WebLoginBranding _draftBranding() {
+    return _branding.copyWith(
+      title: _loginMessageController.text.trim(),
+      notice: _loginNoticeController.text.trim(),
+      homeUrl: _schoolHomeUrlController.text.trim(),
+      logoUrl: _removeLogo ? '' : _branding.logoUrl,
+      logoBase64: _removeLogo ? '' : _branding.logoBase64,
+      logoUpdatedAt: _removeLogo ? 0 : _branding.logoUpdatedAt,
+    );
+  }
+
+  Future<void> _pickSchoolLogo() async {
+    FilePickerResult? result;
+    try {
+      result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['png', 'jpg', 'jpeg', 'webp', 'gif'],
+        allowMultiple: false,
+        withData: true,
+      );
+    } catch (e) {
+      if (mounted) SnackBarHelper.showError(context, '로고 선택 실패: $e');
+      return;
+    }
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.first;
+    final bytes = file.bytes;
+    if (bytes == null || bytes.isEmpty) {
+      if (mounted) SnackBarHelper.showError(context, '로고 파일을 읽을 수 없습니다.');
+      return;
+    }
+    if (bytes.length > WebBrandingService.maxLogoBytes) {
+      if (mounted) {
+        SnackBarHelper.showError(context, '로고는 2MB 이하만 올릴 수 있습니다.');
+      }
+      return;
+    }
+    final name = file.name.toLowerCase();
+    final type =
+        name.endsWith('.jpg') || name.endsWith('.jpeg')
+            ? 'image/jpeg'
+            : name.endsWith('.webp')
+            ? 'image/webp'
+            : name.endsWith('.gif')
+            ? 'image/gif'
+            : 'image/png';
+    setState(() {
+      _pendingLogoBytes = bytes;
+      _pendingLogoContentType = type;
+      _removeLogo = false;
+    });
+  }
+
+  Future<void> _saveLoginBranding() async {
+    final homeUrl = _schoolHomeUrlController.text.trim();
+    if (homeUrl.isNotEmpty) {
+      final uri = Uri.tryParse(homeUrl);
+      if (uri == null || !(uri.isScheme('http') || uri.isScheme('https'))) {
+        SnackBarHelper.showError(context, '홈페이지 주소는 http:// 또는 https:// 로 시작해야 합니다.');
+        return;
+      }
+    }
+
+    final pendingBytes = _pendingLogoBytes;
     final error = await _runGuarded(() async {
-      await FirebaseFirestore.instance.collection('config').doc('public').set({
-        'loginMessage': message,
-      }, SetOptions(merge: true));
+      var next = _draftBranding();
+      if (_removeLogo && _branding.logoUrl.isNotEmpty) {
+        next = await _brandingService.clearLogo(next);
+      }
+      if (pendingBytes != null) {
+        next = await _brandingService.uploadLogo(
+          bytes: pendingBytes,
+          contentType: _pendingLogoContentType,
+          current: next,
+        );
+      } else {
+        await _brandingService.saveBranding(next);
+      }
+      _branding = next;
+      if (_removeLogo) {
+        _storedLogoBytes = null;
+      } else if (pendingBytes != null) {
+        // 저장 직후 network URL 대신 방금 올린 바이트를 계속 보여 준다.
+        _storedLogoBytes = pendingBytes;
+      }
+      _pendingLogoBytes = null;
+      _removeLogo = false;
     });
     if (!mounted) return;
     if (error == null) {
-      SnackBarHelper.showSuccess(context, '안내 메시지를 변경했습니다.');
+      setState(() {});
+      SnackBarHelper.showSuccess(context, '접속 화면 설정을 저장했습니다.');
     } else {
       SnackBarHelper.showError(context, '저장 실패: $error');
+    }
+  }
+
+  void _showLoginPreview() {
+    final draft = _draftBranding();
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('로그인 화면 미리보기'),
+          content: SizedBox(
+            width: 420,
+            child: SingleChildScrollView(
+              child: WebLoginScreenPreview(
+                branding: draft,
+                localLogoBytes: _displayLogoBytes,
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('닫기'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 소스에 묶인 기본 안내 문구를 입력란에 넣는다. 저장은 [접속 화면 저장]으로.
+  Future<void> _applyDefaultLoginNotice() async {
+    try {
+      final text = (await rootBundle.loadString(
+        AppAssets.loginNoticeDefault,
+      )).trim();
+      if (!mounted) return;
+      setState(() => _loginNoticeController.text = text);
+      SnackBarHelper.showInfo(context, '기본 안내 문구를 넣었습니다. 저장을 눌러 반영하세요.');
+    } catch (e) {
+      if (!mounted) return;
+      SnackBarHelper.showError(context, '기본 안내 문구를 읽지 못했습니다: $e');
     }
   }
 
@@ -296,29 +451,105 @@ class _WebAdminSettingsScreenState
               ),
               const Divider(height: 24),
               const Text(
-                '로그인 안내 메시지 변경',
+                '접속 화면 (학교 로고·안내)',
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
+              const Text(
+                '버전 정보 아래에 학교 로고·제목·안내 박스가 보입니다. '
+                '로고를 누르면 홈페이지로 이동합니다.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 10),
+              Center(child: _buildLogoEditorPreview()),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                alignment: WrapAlignment.center,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _saving ? null : _pickSchoolLogo,
+                    icon: const Icon(Icons.image_outlined, size: 18),
+                    label: const Text('로고 선택'),
+                  ),
+                  if (_displayLogoBytes != null ||
+                      (!_removeLogo && _branding.logoUrl.isNotEmpty))
+                    TextButton(
+                      onPressed:
+                          _saving
+                              ? null
+                              : () => setState(() {
+                                _pendingLogoBytes = null;
+                                _removeLogo = true;
+                              }),
+                      child: const Text('로고 제거'),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _schoolHomeUrlController,
+                decoration: const InputDecoration(
+                  labelText: '학교 홈페이지 주소',
+                  hintText: 'https://example.sen.ms.kr',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                keyboardType: TextInputType.url,
+              ),
+              const SizedBox(height: 8),
               TextField(
                 controller: _loginMessageController,
                 maxLines: 2,
                 decoration: const InputDecoration(
-                  labelText: '접속 화면에 보여줄 문구',
+                  labelText: '제목 (예: 월계중학교 2026년 2학기 시간표)',
                   border: OutlineInputBorder(),
                   isDense: true,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _loginNoticeController,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: '안내 문구 (사각형 박스)',
+                  hintText: '선생님 전용입니다. 비밀번호를 입력해 주세요.',
+                  border: OutlineInputBorder(),
+                  alignLabelWithHint: true,
                 ),
               ),
               const SizedBox(height: 6),
               Align(
                 alignment: Alignment.centerRight,
-                child: ElevatedButton(
-                  onPressed: _saving ? null : _saveLoginMessage,
-                  style: ElevatedButton.styleFrom(
+                child: TextButton(
+                  onPressed: _saving ? null : _applyDefaultLoginNotice,
+                  style: TextButton.styleFrom(
                     visualDensity: VisualDensity.compact,
                   ),
-                  child: const Text('안내 메시지 저장'),
+                  child: const Text('기본값'),
                 ),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  OutlinedButton(
+                    onPressed: _showLoginPreview,
+                    style: OutlinedButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    child: const Text('미리보기'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: _saving ? null : _saveLoginBranding,
+                    style: ElevatedButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    child: const Text('접속 화면 저장'),
+                  ),
+                ],
               ),
               const Divider(height: 24),
               const Text(
@@ -377,6 +608,30 @@ class _WebAdminSettingsScreenState
   }
 
   /// 공용 시간표 올리기 진행·결과. 다른 설정 버튼은 막지 않는다.
+  /// 접속 설정에서 고른/저장된 학교 로고 미리보기.
+  Widget _buildLogoEditorPreview() {
+    final bytes = _displayLogoBytes;
+    final Widget child =
+        bytes != null
+            ? Image.memory(bytes, fit: BoxFit.contain)
+            : Icon(
+              Icons.school_outlined,
+              size: 40,
+              color: Colors.grey.shade400,
+            );
+    return Container(
+      width: 96,
+      height: 96,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    );
+  }
+
   Widget _buildPublishStatus() {
     final active = ref.watch(activeTimetableEntryProvider);
     final activeName = active?.name;

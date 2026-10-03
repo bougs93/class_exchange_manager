@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 2.0.92
+version: 2.0.93
 
 environment:
   sdk: ^3.7.0
@@ -122,6 +122,8 @@ flutter:
     - lib/assets/docs/
     # 프로그램 아이콘
     - lib/assets/images/app_icon.png
+    # 웹 접속 화면 기본 안내 문구
+    - lib/assets/web/login_notice_default.txt
     # PDF 출력용 번들 한글 폰트 (Noto Sans KR 서브셋, OFL 라이선스 — OFL.txt 동봉).
     # 웹에서는 유일한 폰트, 네이티브에서는 시스템 폰트를 못 찾았을 때의 폴백.
     - lib/assets/fonts/

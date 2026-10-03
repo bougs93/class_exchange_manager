@@ -5,6 +5,9 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    // 공용 시간표 JSON + 학교 로고(school_logo).
+    // 학교 로고는 별도 school_branding/ 규칙 배포 전에도 동작하도록
+    // 같은 경로 아래에 둔다 (앱: shared_timetable/school_logo).
     match /shared_timetable/{file} {
       allow read: if true;
       allow write: if request.auth != null;

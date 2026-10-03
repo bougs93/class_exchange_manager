@@ -1,15 +1,19 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/firebase_app_config.dart';
 import '../../constants/app_info.dart';
+import '../../models/web_login_branding.dart';
 import '../../providers/timetable_repository_provider.dart';
 import '../../providers/timetable_registry_provider.dart';
 import '../../services/shared_timetable_sync_service.dart';
 import '../../services/web_auth_service.dart';
+import '../../services/web_branding_service.dart';
 import '../../utils/logger.dart';
 import '../../utils/snackbar_helper.dart';
+import '../widgets/web_login_branding_block.dart';
 import 'web_admin_settings_screen.dart';
 
 /// 웹 접속 비밀번호 화면 상태.
@@ -55,7 +59,8 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
   bool _busy = false;
   bool _showAdmin = false;
   bool _showMasterForm = false;
-  String? _loginMessage;
+  WebLoginBranding _branding = const WebLoginBranding();
+  Uint8List? _logoBytes;
 
   /// 지금 진행 중인 동기화 단계 (진행 화면 안내문)
   String? _syncStage;
@@ -112,22 +117,18 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
     }
 
     _setStage('접속 화면 준비 중');
-    String? message;
-    try {
-      final doc =
-          await FirebaseFirestore.instance
-              .collection('config')
-              .doc('public')
-              .get();
-      final data = doc.data();
-      // 콘솔에서 필드명 대소문자를 틀리는 실수에 대비해 둘 다 읽는다.
-      message = (data?['loginMessage'] ?? data?['LoginMessage']) as String?;
-    } catch (e) {
-      AppLogger.warning('로그인 안내문 조회 실패: $e');
-      message = null;
-    }
+    final brandingService = WebBrandingService();
+    final branding = await brandingService.load();
+    // base64가 있으면 바로 쓰고, 없으면 Storage/URL에서 받는다.
+    final logoBytes =
+        branding.hasLogo
+            ? await brandingService.resolveLogoBytes(branding)
+            : null;
     if (!mounted) return;
-    setState(() => _loginMessage = message);
+    setState(() {
+      _branding = branding;
+      _logoBytes = logoBytes;
+    });
     ref.read(webLoginStatusProvider.notifier).state = WebLoginStatus.locked;
   }
 
@@ -370,12 +371,10 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
           ),
         ),
         const SizedBox(height: 20),
-        if (_loginMessage != null && _loginMessage!.isNotEmpty)
-          Text(
-            _loginMessage!,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-          ),
+        WebLoginBrandingBlock(
+          branding: _branding,
+          localLogoBytes: _logoBytes,
+        ),
         const SizedBox(height: 20),
         TextField(
           controller: _passwordController,
