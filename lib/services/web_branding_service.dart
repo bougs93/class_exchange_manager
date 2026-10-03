@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:http/http.dart' as http;
 
+import '../config/firebase_app_config.dart';
 import '../models/web_login_branding.dart';
 import '../utils/logger.dart';
 import 'web_auth_service.dart';
@@ -33,7 +34,9 @@ class WebBrandingService {
   /// 공개 설정에서 브랜딩을 읽는다 (로그인 전에도 가능).
   Future<WebLoginBranding> load() async {
     try {
-      final doc = await _publicDoc.get();
+      final doc = await _publicDoc.get().timeout(
+        FirebaseAppConfig.networkTimeout,
+      );
       return WebLoginBranding.fromMap(doc.data());
     } catch (e) {
       AppLogger.warning('학교 브랜딩 조회 실패: $e');
@@ -51,7 +54,10 @@ class WebBrandingService {
   /// Storage/URL에서 로고 바이트를 받는다.
   Future<Uint8List?> downloadLogoBytes({String? logoUrl}) async {
     try {
-      final data = await _storage.ref(storagePath).getData(maxLogoBytes);
+      final data = await _storage
+          .ref(storagePath)
+          .getData(maxLogoBytes)
+          .timeout(FirebaseAppConfig.networkTimeout);
       if (data != null && data.isNotEmpty) return data;
     } catch (e) {
       AppLogger.warning('학교 로고 getData 실패: $e');
@@ -60,7 +66,9 @@ class WebBrandingService {
     final url = logoUrl?.trim() ?? '';
     if (url.isEmpty) return null;
     try {
-      final response = await http.get(Uri.parse(url));
+      final response = await http
+          .get(Uri.parse(url))
+          .timeout(FirebaseAppConfig.networkTimeout);
       if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
         return response.bodyBytes;
       }

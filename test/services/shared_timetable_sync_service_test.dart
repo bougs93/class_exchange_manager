@@ -108,6 +108,62 @@ void main() {
       );
     });
 
+    group('shouldSyncOnChange — 실시간 감지 판정', () {
+      test('문서가 없으면 아무것도 하지 않는다', () {
+        expect(
+          SharedTimetableSyncService.shouldSyncOnChange(
+            meta: const SharedTimetableRemoteMeta(exists: false, version: 0),
+            canSkip: true,
+          ),
+          isFalse,
+        );
+      });
+
+      test('관리자가 지운 경우(비어 있음)는 canSkip과 무관하게 정리한다', () {
+        // canSkipFullSync는 빈 원격에 true를 주지만, 그대로 건너뛰면
+        // 로컬에 남은 옛 시간표가 영영 안 지워진다.
+        expect(
+          SharedTimetableSyncService.shouldSyncOnChange(
+            meta: const SharedTimetableRemoteMeta(
+              exists: true,
+              version: 7,
+              lessonCount: 0,
+            ),
+            canSkip: true,
+          ),
+          isTrue,
+        );
+      });
+
+      test('내용이 있고 최신이면 건너뛴다', () {
+        expect(
+          SharedTimetableSyncService.shouldSyncOnChange(
+            meta: const SharedTimetableRemoteMeta(
+              exists: true,
+              version: 7,
+              lessonCount: 100,
+            ),
+            canSkip: true,
+          ),
+          isFalse,
+        );
+      });
+
+      test('내용이 있고 버전이 다르면 받는다', () {
+        expect(
+          SharedTimetableSyncService.shouldSyncOnChange(
+            meta: const SharedTimetableRemoteMeta(
+              exists: true,
+              version: 8,
+              lessonCount: 100,
+            ),
+            canSkip: false,
+          ),
+          isTrue,
+        );
+      });
+    });
+
     test('SharedTimetableRemoteMeta.isEmpty는 isRemoteEmpty를 따른다', () {
       expect(
         const SharedTimetableRemoteMeta(exists: false, version: 0).isEmpty,

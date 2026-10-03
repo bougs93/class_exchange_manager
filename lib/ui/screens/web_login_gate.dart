@@ -14,6 +14,7 @@ import '../../services/web_auth_service.dart';
 import '../../services/web_branding_service.dart';
 import '../../utils/logger.dart';
 import '../../utils/snackbar_helper.dart';
+import '../widgets/shared_timetable_auto_sync.dart';
 import '../widgets/web_login_branding_block.dart';
 import 'web_admin_settings_screen.dart';
 
@@ -138,13 +139,16 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
     if (input.isEmpty || _busy) return;
     setState(() => _busy = true);
     try {
-      final ok = await WebAuthService.verifyViewerPassword(input);
+      final result = await WebAuthService.verifyViewerPassword(input);
       if (!mounted) return;
-      if (ok) {
-        await WebAuthService.saveSession(viewer: true);
-        await _enterSession(admin: false);
-      } else {
-        SnackBarHelper.showError(context, '비밀번호가 맞지 않습니다.');
+      switch (result) {
+        case WebPasswordResult.ok:
+          await WebAuthService.saveSession(viewer: true);
+          await _enterSession(admin: false);
+        case WebPasswordResult.wrong:
+          SnackBarHelper.showError(context, '비밀번호가 맞지 않습니다.');
+        case WebPasswordResult.unavailable:
+          SnackBarHelper.showError(context, '서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.');
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -156,13 +160,16 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
     if (input.isEmpty || _busy) return;
     setState(() => _busy = true);
     try {
-      final ok = await WebAuthService.verifyAdminPassword(input);
+      final result = await WebAuthService.verifyAdminPassword(input);
       if (!mounted) return;
-      if (ok) {
-        await WebAuthService.saveSession(viewer: true, admin: true);
-        await _enterSession(admin: true);
-      } else {
-        SnackBarHelper.showError(context, '관리자 비밀번호가 맞지 않습니다.');
+      switch (result) {
+        case WebPasswordResult.ok:
+          await WebAuthService.saveSession(viewer: true, admin: true);
+          await _enterSession(admin: true);
+        case WebPasswordResult.wrong:
+          SnackBarHelper.showError(context, '관리자 비밀번호가 맞지 않습니다.');
+        case WebPasswordResult.unavailable:
+          SnackBarHelper.showError(context, '서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.');
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -204,7 +211,7 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
     var stage = '서버 시간표 확인';
     try {
       final sync = SharedTimetableSyncService();
-      // Firestore 메타만 먼저 본다 — 없거나 최시면 SQLite/Storage를 열지 않는다.
+      // Firestore 메타만 먼저 본다 — 없거나 최신이면 SQLite/Storage를 열지 않는다.
       SharedTimetableRemoteMeta? meta;
       try {
         meta = await sync.fetchRemoteMeta();
@@ -212,7 +219,20 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
         AppLogger.warning('공용 시간표 메타 조회 실패 — 캐시로 계속: $e');
       }
 
-      if (meta != null && await sync.canSkipFullSync(meta)) {
+      // 메타를 못 받았으면 서버 상태를 전혀 모르므로 여기서 끝낸다.
+      // 예전에는 이 경우에도 SQLite를 열고 syncSharedTimetable을 불러
+      // **같은 조회를 한 번 더** 했는데(prefetchedMeta: null), 어차피 또
+      // 실패해 catch로 삼켜질 뿐이라 타임아웃만 두 번 겪었다(2026-10-03).
+      // 로컬 캐시가 있으면 그게 계속 보이고, 다음 접속 때 다시 시도된다.
+      if (meta == null) {
+        AppLogger.info('공용 시간표 상태 확인 불가 — 캐시로 바로 접속');
+        if (!mounted) return;
+        ref.read(webLoginStatusProvider.notifier).state =
+            admin ? WebLoginStatus.adminOk : WebLoginStatus.viewerOk;
+        return;
+      }
+
+      if (await sync.canSkipFullSync(meta)) {
         AppLogger.info(
           meta.isEmpty
               ? '공용 시간표 없음 — 바로 접속'
@@ -221,10 +241,11 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
         if (!mounted) return;
         ref.read(webLoginStatusProvider.notifier).state =
             admin ? WebLoginStatus.adminOk : WebLoginStatus.viewerOk;
-        // 빈 원격인데 로컬만 남은 경우 백그라운드로 정리(접속은 막지 않음).
-        if (meta.isEmpty && meta.exists) {
-          unawaited(_syncSharedInBackground(sync, meta));
-        }
+        // 빈 원격인데 로컬만 남은 경우의 정리는 여기서 하지 않는다.
+        // 진입 직후 장착되는 `SharedTimetableAutoSync`가 같은 메타를 받아
+        // 똑같은 정리를 하므로, 여기서도 하면 **같은 설치가 두 번 동시에**
+        // 돌아 레지스트리·manifest 쓰기가 겹친다(2026-10-03). 정리 주체를
+        // 감시자 하나로 모으면 교사에게 삭제 사실도 안내된다.
         return;
       }
 
@@ -258,26 +279,6 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
         admin ? WebLoginStatus.adminOk : WebLoginStatus.viewerOk;
   }
 
-  /// 접속을 막지 않고 빈 공용 시간표를 로컬에 반영한다.
-  Future<void> _syncSharedInBackground(
-    SharedTimetableSyncService sync,
-    SharedTimetableRemoteMeta meta,
-  ) async {
-    try {
-      if (ref.read(timetableDatabaseProvider).hasError) {
-        ref.invalidate(timetableDatabaseProvider);
-      }
-      if (ref.read(timetableRepositoryProvider).hasError) {
-        ref.invalidate(timetableRepositoryProvider);
-      }
-      final repo = await ref.read(timetableRepositoryProvider.future);
-      await sync.syncSharedTimetable(repo: repo, prefetchedMeta: meta);
-      ref.invalidate(timetableRegistryProvider);
-    } catch (e, st) {
-      AppLogger.error('공용 시간표 백그라운드 정리 실패: $e', e, st);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final status = ref.watch(webLoginStatusProvider);
@@ -285,7 +286,7 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
       // 접속자: 우측 상단에 로그아웃 버튼을 띄운다.
       return Stack(
         children: [
-          widget.child,
+          SharedTimetableAutoSync(child: widget.child),
           Positioned(
             top: MediaQuery.paddingOf(context).top + 8,
             right: 8,
@@ -307,7 +308,7 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
     if (status == WebLoginStatus.adminOk) {
       return Stack(
         children: [
-          widget.child,
+          SharedTimetableAutoSync(child: widget.child),
           Positioned(
             top: MediaQuery.paddingOf(context).top + 8,
             right: 8,

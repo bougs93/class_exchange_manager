@@ -7,6 +7,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/firebase_app_config.dart';
 import '../models/lesson.dart';
 import '../models/dated_timetable.dart';
 import 'shared_timetable_installer.dart';
@@ -62,8 +63,8 @@ class SharedTimetableSyncService {
   /// 다운로드 최대 크기 (20MB).
   static const int maxDownloadBytes = 20 * 1024 * 1024;
 
-  /// Firestore 버전 조회 타임아웃.
-  static const Duration metaTimeout = Duration(seconds: 5);
+  /// Firestore 버전 조회 타임아웃 (접속 흐름 공통값을 따른다).
+  static const Duration metaTimeout = FirebaseAppConfig.networkTimeout;
 
   /// Storage 다운로드 전체 상한 (재시도 포함).
   static const Duration downloadTimeout = Duration(seconds: 60);
@@ -119,35 +120,66 @@ class SharedTimetableSyncService {
     return false;
   }
 
+  /// Firestore 스냅샷 → 메타 (조회·구독이 같은 해석을 쓰도록 공유).
+  static SharedTimetableRemoteMeta metaFromSnapshot(
+    DocumentSnapshot<Map<String, dynamic>> snap,
+  ) {
+    if (!snap.exists) {
+      return const SharedTimetableRemoteMeta(exists: false, version: 0);
+    }
+    final data = snap.data();
+    final rawTimetable = data?['timetable'];
+    return SharedTimetableRemoteMeta(
+      exists: true,
+      version: (data?['version'] as num?)?.toInt() ?? 0,
+      bytes: (data?['bytes'] as num?)?.toInt(),
+      lessonCount: (data?['lessonCount'] as num?)?.toInt(),
+      timetable:
+          rawTimetable is Map ? Map<String, Object?>.from(rawTimetable) : null,
+    );
+  }
+
   /// Firestore 버전 문서만 읽는다 (Storage/DB 없음).
   Future<SharedTimetableRemoteMeta> fetchRemoteMeta() async {
     try {
-      final snap = await _versionDoc.get().timeout(metaTimeout);
-      if (!snap.exists) {
-        return const SharedTimetableRemoteMeta(exists: false, version: 0);
-      }
-      final data = snap.data();
-      final rawTimetable = data?['timetable'];
-      return SharedTimetableRemoteMeta(
-        exists: true,
-        version: (data?['version'] as num?)?.toInt() ?? 0,
-        bytes: (data?['bytes'] as num?)?.toInt(),
-        lessonCount: (data?['lessonCount'] as num?)?.toInt(),
-        timetable:
-            rawTimetable is Map
-                ? Map<String, Object?>.from(rawTimetable)
-                : null,
-      );
+      return metaFromSnapshot(await _versionDoc.get().timeout(metaTimeout));
     } catch (e) {
       AppLogger.warning('공용 시간표 메타 조회 실패: $e');
       rethrow;
     }
   }
 
+  /// 버전 문서 실시간 구독 (문서 1개짜리라 비용이 거의 없다).
+  ///
+  /// 관리자가 새 시간표를 게시하면 열려 있는 모든 탭이 즉시 새 버전을 받는다.
+  /// 폴링과 달리 **값이 바뀔 때만** 읽기가 발생하므로 더 싸다 —
+  /// `defaultSchoolNameProvider`가 같은 이유로 쓰는 방식이다.
+  Stream<SharedTimetableRemoteMeta> watchRemoteMeta() {
+    return _versionDoc.snapshots().map(metaFromSnapshot);
+  }
+
   /// 로컬 prefs 버전.
   Future<int?> loadLocalVersion() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt(localVersionKey);
+  }
+
+  /// 실시간 버전 감지에서 동기화를 돌려야 하는지 (순수 판정).
+  ///
+  /// [canSkip]은 [canSkipFullSync] 결과를 넣는다. 둘을 나눠 둔 이유는
+  /// **삭제 처리** 때문이다 — `canSkipFullSync`는 원격이 비어 있으면 무조건
+  /// true를 주는데, 그 말을 그대로 따르면 관리자가 공용 시간표를 지워도
+  /// 로컬에 남은 옛 시간표가 영영 안 지워진다. 그래서 "비어 있음"은
+  /// 건너뛰기가 아니라 **정리해야 할 변경**으로 따로 판정한다.
+  static bool shouldSyncOnChange({
+    required SharedTimetableRemoteMeta meta,
+    required bool canSkip,
+  }) {
+    // 문서 자체가 없으면 받을 것도 지울 것도 없다.
+    if (!meta.exists) return false;
+    // 관리자가 지운 경우 — 로컬 정리가 필요하다.
+    if (meta.isEmpty) return true;
+    return !canSkip;
   }
 
   /// Storage 다운로드 없이 바로 들어가도 되는지.

@@ -9,6 +9,20 @@ import '../config/firebase_app_config.dart';
 import '../config/master_credentials.dart';
 import '../utils/logger.dart';
 
+/// 비밀번호 확인 결과.
+///
+/// "틀렸다"와 "확인할 수 없었다"를 구분해야 안내 문구를 제대로 고를 수 있다.
+enum WebPasswordResult {
+  /// 비밀번호 일치.
+  ok,
+
+  /// 비밀번호 불일치.
+  wrong,
+
+  /// 서버 설정을 받지 못했거나(네트워크·타임아웃) 비밀번호가 미설정이다.
+  unavailable,
+}
+
 /// 웹 전용 인증 서비스 (웹 전환 2단계, 계획서 4장)
 ///
 /// - 접속자: 비밀번호 1개 (Firestore `config/auth`의 salted SHA-256 해시 비교)
@@ -33,7 +47,9 @@ class WebAuthService {
     try {
       final auth = FirebaseAuth.instance;
       if (auth.currentUser == null) {
-        await auth.signInAnonymously();
+        await auth.signInAnonymously().timeout(
+          FirebaseAppConfig.networkTimeout,
+        );
       }
     } catch (e) {
       AppLogger.warning('익명 로그인 실패 (공개 조회만 가능): $e');
@@ -43,11 +59,11 @@ class WebAuthService {
   /// `config/auth` 문서 조회 (salt + 해시).
   static Future<Map<String, dynamic>?> loadAuthConfig() async {
     try {
-      final doc =
-          await FirebaseFirestore.instance
-              .collection('config')
-              .doc('auth')
-              .get();
+      final doc = await FirebaseFirestore.instance
+          .collection('config')
+          .doc('auth')
+          .get()
+          .timeout(FirebaseAppConfig.networkTimeout);
       if (!doc.exists) return null;
       return doc.data();
     } catch (e) {
@@ -57,32 +73,50 @@ class WebAuthService {
   }
 
   /// 접속자 비밀번호 확인.
-  static Future<bool> verifyViewerPassword(String password) async {
-    try {
-      final config = await loadAuthConfig();
-      if (config == null) return false;
-      final salt = (config['viewerSalt'] ?? '') as String;
-      final hash = (config['viewerPasswordHash'] ?? '') as String;
-      if (salt.isEmpty || hash.isEmpty) return false;
-      return hashPassword(password, salt) == hash;
-    } catch (e) {
-      AppLogger.warning('접속자 비밀번호 확인 실패: $e');
-      return false;
-    }
+  static Future<WebPasswordResult> verifyViewerPassword(String password) {
+    return _verifyPassword(
+      password,
+      saltField: 'viewerSalt',
+      hashField: 'viewerPasswordHash',
+      label: '접속자',
+    );
   }
 
   /// 관리자 비밀번호 확인.
-  static Future<bool> verifyAdminPassword(String password) async {
+  static Future<WebPasswordResult> verifyAdminPassword(String password) {
+    return _verifyPassword(
+      password,
+      saltField: 'adminSalt',
+      hashField: 'adminPasswordHash',
+      label: '관리자',
+    );
+  }
+
+  /// 비밀번호 대조 공통 로직.
+  ///
+  /// "설정을 못 받음"과 "비밀번호 틀림"을 반드시 구분한다. 예전에는 둘 다
+  /// false였는데, 접속 흐름에 3초 타임아웃이 생기면서(2026-10-03) 네트워크가
+  /// 느릴 때마다 **맞는 비밀번호에도 "비밀번호가 맞지 않습니다"**가 뜰 수
+  /// 있게 됐다. 교사가 비밀번호를 의심하며 계속 다시 치게 만드는 안내다.
+  static Future<WebPasswordResult> _verifyPassword(
+    String password, {
+    required String saltField,
+    required String hashField,
+    required String label,
+  }) async {
     try {
       final config = await loadAuthConfig();
-      if (config == null) return false;
-      final salt = (config['adminSalt'] ?? '') as String;
-      final hash = (config['adminPasswordHash'] ?? '') as String;
-      if (salt.isEmpty || hash.isEmpty) return false;
-      return hashPassword(password, salt) == hash;
+      if (config == null) return WebPasswordResult.unavailable;
+      final salt = (config[saltField] ?? '') as String;
+      final hash = (config[hashField] ?? '') as String;
+      // 비밀번호가 아직 설정되지 않은 상태 — 틀린 게 아니라 못 쓰는 상태다.
+      if (salt.isEmpty || hash.isEmpty) return WebPasswordResult.unavailable;
+      return hashPassword(password, salt) == hash
+          ? WebPasswordResult.ok
+          : WebPasswordResult.wrong;
     } catch (e) {
-      AppLogger.warning('관리자 비밀번호 확인 실패: $e');
-      return false;
+      AppLogger.warning('$label 비밀번호 확인 실패: $e');
+      return WebPasswordResult.unavailable;
     }
   }
 

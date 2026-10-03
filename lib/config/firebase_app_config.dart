@@ -21,6 +21,15 @@ class FirebaseAppConfig {
   );
   static const String appId = String.fromEnvironment('FIREBASE_APP_ID');
 
+  /// 접속 흐름에서 서버 응답을 기다리는 최대 시간 (2026-10-03 사용자 확정: 3초).
+  ///
+  /// 접속 게이트에서 쓰는 Firebase 호출은 **전부** 이 값으로 끊는다. 예전에는
+  /// 타임아웃이 아예 없어서, 서버가 응답하지 않으면 "서버 연결 준비 중"에서
+  /// 무한정 멈춰 있었다. 공용 시간표·브랜딩·비밀번호 설정은 모두 "없으면
+  /// 없는 대로 진행"할 수 있는 값이므로, 오래 기다리느니 로컬 캐시로 바로
+  /// 들여보내는 쪽이 낫다.
+  static const Duration networkTimeout = Duration(seconds: 3);
+
   /// 웹에서 Firebase를 쓸 준비가 됐는지 (필수 값 존재 여부).
   static bool get isConfigured {
     return apiKey.isNotEmpty &&
@@ -43,6 +52,6 @@ class FirebaseAppConfig {
   static Future<void> ensureInitialized() async {
     if (!kIsWeb || !isConfigured) return;
     if (Firebase.apps.isNotEmpty) return;
-    await Firebase.initializeApp(options: options);
+    await Firebase.initializeApp(options: options).timeout(networkTimeout);
   }
 }
