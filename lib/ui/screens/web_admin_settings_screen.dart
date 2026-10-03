@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:file_picker/file_picker.dart';
 
+import '../../config/firebase_app_config.dart';
 import '../../constants/app_assets.dart';
 import '../../constants/login_notice_default.dart';
 import '../../models/dated_timetable.dart';
@@ -85,11 +86,11 @@ class _WebAdminSettingsScreenState
           branding.hasLogo
               ? await _brandingService.resolveLogoBytes(branding)
               : null;
-      final doc =
-          await FirebaseFirestore.instance
-              .collection('config')
-              .doc('public')
-              .get();
+      final doc = await FirebaseFirestore.instance
+          .collection('config')
+          .doc('public')
+          .get()
+          .timeout(FirebaseAppConfig.networkTimeout);
       final schoolName = doc.data()?['defaultSchoolName'] as String?;
       if (!mounted) return;
       setState(() {
@@ -102,8 +103,10 @@ class _WebAdminSettingsScreenState
         _removeLogo = false;
         if (schoolName != null) _defaultSchoolNameController.text = schoolName;
       });
-    } catch (_) {
-      // 조회 실패 시 빈칸 유지
+    } catch (e) {
+      // 조회 실패 시 빈칸 유지 — 화면은 열어 두되 원인은 로그로 남긴다.
+      // 아무 기록 없이 삼키면 "저장한 설정이 왜 안 보이지?"를 추적할 수 없다.
+      AppLogger.warning('접속 설정 조회 실패 — 입력란을 비운 채 표시: $e');
     }
   }
 
