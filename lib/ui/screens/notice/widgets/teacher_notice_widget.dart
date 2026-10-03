@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../models/notice_message.dart';
 import '../../../../providers/notice_message_provider.dart';
 import '../../../widgets/notice_message_card.dart';
 import '../../../widgets/notice_control_panel.dart';
@@ -119,77 +118,3 @@ class _TeacherNoticeWidgetState extends ConsumerState<TeacherNoticeWidget> {
 /// 교사안내 통계 위젯
 ///
 /// 교사별 메시지 통계를 표시하는 위젯입니다.
-class TeacherNoticeStatsWidget extends ConsumerWidget {
-  const TeacherNoticeStatsWidget({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final noticeState = ref.watch(noticeMessageProvider);
-
-    if (noticeState.teacherMessageGroups.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    final noticeNotifier = ref.read(noticeMessageProvider.notifier);
-    final totalMessages = noticeNotifier.totalTeacherMessages;
-    final exchangeTypeStats = noticeNotifier.teacherExchangeTypeStats;
-
-    return Card(
-      elevation: 1,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            Icon(
-              Icons.analytics_outlined,
-              color: Colors.orange.shade600,
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              '총 ${noticeState.teacherMessageGroups.length}명 교사, $totalMessages개 메시지',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: Colors.orange.shade700,
-              ),
-            ),
-            const Spacer(),
-            if (exchangeTypeStats.isNotEmpty) ...[
-              ...exchangeTypeStats.entries.map((entry) {
-                return Padding(
-                  padding: const EdgeInsets.only(left: 8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color:
-                          entry.key == ExchangeType.substitution
-                              ? Colors.blue.shade100
-                              : Colors.orange.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      '${entry.key.displayName} ${entry.value}개',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color:
-                            entry.key == ExchangeType.substitution
-                                ? Colors.blue.shade800
-                                : Colors.orange.shade800,
-                      ),
-                    ),
-                  ),
-                );
-              }),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}

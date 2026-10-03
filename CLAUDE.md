@@ -265,32 +265,90 @@ Excel 파일 (읽기 전용) → ExcelService → Models → Providers → UI
 > ⚠️ 위 수치는 **2025년 1월 시점의 기록**이다. 이후 웹 전환·결보강·계획서
 > 기능이 더해지며 파일이 다시 커졌다. 현재 상태는 아래 절을 볼 것.
 
-## 현재 대형 파일 (2026-10-03 실측)
+## 현재 대형 파일 (2026-10-04 실측)
 
-1,000줄이 넘는 파일은 읽을 때 토큰을 많이 쓰고 수정 위험도 크다. 손대기 전에
-해당 파일 전체를 읽지 말고, 필요한 부분만 찾아 읽을 것.
+손대기 전에 파일 전체를 읽지 말고, 필요한 부분만 찾아 읽을 것.
 
-| 줄 수 | 파일 |
-|------:|------|
-| 1,749 | `lib/ui/screens/plan_output/widgets/substitution_output/substitution_output_widget.dart` |
-| 1,639 | `lib/ui/widgets/timetable_grid_section.dart` |
-| 1,585 | `lib/ui/screens/plan_output/widgets/content_input_grid.dart` |
-| 1,567 | `lib/ui/screens/exchange_screen.dart` |
-| 1,497 | `lib/services/excel_service.dart` |
-| 1,324 | `lib/services/exchange_service.dart` |
-| 1,130 | `lib/ui/widgets/timetable_grid/exchange_arrow_painter.dart` |
-| 1,093 | `lib/utils/timetable_data_source.dart` |
-| 1,052 | `lib/ui/screens/web_admin_settings_screen.dart` |
-| 1,047 | `lib/ui/screens/start_content/start_settings_card.dart` |
+| 줄 수 | 파일 | 메모 |
+|------:|------|------|
+| 1,579 | `lib/ui/screens/exchange_screen.dart` | Mixin 7개. UI는 이미 Mixin에 있음 |
+| 1,388 | `lib/ui/widgets/timetable_grid_section.dart` | Syncfusion 민감 (아래 이슈 참고) |
+| 1,277 | `.../substitution_output/substitution_output_widget.dart` | |
+|   993 | `lib/services/exchange_history_service.dart` | 미착수 |
+|   960 | `lib/repositories/timetable_repository.dart` | 미착수 |
+|   946 | `.../plan_output/widgets/plan_backup_screen.dart` | 미착수 |
+|   936 | `lib/ui/widgets/unified_exchange_sidebar.dart` | 미착수 |
 
-## 죽은 코드 제거 (2026-10-03)
+## 파일 분할 이력 (2026-10-03~04)
 
-참조가 전혀 없던 9개 파일 + `ExchangeAlgorithm` 클래스 **약 2,200줄**을
-삭제했다. 이 이름들이 옛 문서·주석에 남아 있을 수 있으나 **더 이상 존재하지
-않는다**: `SettingsScreen`, `ExcelExportService`, `CellStateManager`,
-`CellCacheManager`, `ExchangePathManager`, `PersonalScheduleDebugHelper`,
-`ExchangeVisualizer`, `SelectedTimetableFileBanner`, `CommonAppBar`,
-`ExchangeAlgorithm`.
+대형 파일을 기능 단위로 쪼갰다. **파사드는 그대로 두고 `export`로 기존 import
+경로를 유지**했으므로 호출부는 수정하지 않았다.
+
+| 파일 | 전 → 후 | 분리된 곳 |
+|---|---|---|
+| `notice_message_generator.dart` | 1,031 → 52 | `lib/utils/notice/` |
+| `exchange_service.dart` | 1,324 → 235 | `lib/services/exchange/` |
+| `excel_service.dart` | 1,497 → 430 | `lib/services/excel_parsing/` |
+| `start_settings_card.dart` | 1,047 → 460 | `lib/ui/screens/start_content/settings/` |
+| `timetable_file_screen.dart` | 1,004 → 545 | `lib/ui/screens/timetable_file/` |
+| `content_input_grid.dart` | 1,585 → 755 | `.../plan_output/widgets/content_input/` |
+| `web_admin_settings_screen.dart` | 1,052 → 774 | `lib/ui/screens/web_admin/` |
+| `timetable_data_source.dart` | 1,093 → 833 | `lib/utils/timetable_grid_source/` |
+| `exchange_arrow_painter.dart` | 1,130 → 862 | `timetable_grid/arrow_geometry.dart` |
+
+또 `TimetableData`·`ExcelParsingConfig`는 `lib/models/timetable_data.dart`로,
+`ExchangeResult`는 `lib/models/exchange_result.dart`로 옮겼다 — 전에는 이 타입
+하나를 쓰려고 24개 파일이 `excel_service.dart`(그리고 `dart:io`·`package:excel`)를
+통째로 import했다.
+
+## 죽은 코드 제거 (2026-10-03~04)
+
+참조가 전혀 없던 **약 2,400줄**을 삭제했다. 아래 이름이 옛 문서·주석에 남아
+있을 수 있으나 **더 이상 존재하지 않는다**:
+`SettingsScreen`, `ExcelExportService`, `CellStateManager`, `CellCacheManager`,
+`ExchangePathManager`, `PersonalScheduleDebugHelper`, `ExchangeVisualizer`,
+`SelectedTimetableFileBanner`, `CommonAppBar`, `ExchangeAlgorithm`,
+`ExchangeViewCheckbox`, `TeacherNoticeStatsWidget`, `ClassNoticeStatsWidget`.
+
+## 위젯 테스트 작성법 (이 프로젝트 고유)
+
+테스트는 478개 → **600개**로 늘었다. 새 위젯 테스트를 쓸 때는 아래를 따를 것.
+선례: `test/widgets/timetable_file_screen_test.dart`,
+`test/widgets/substitution_output_widget_test.dart`.
+
+- **`pumpAndSettle()`을 쓰지 말 것** — 이 프로젝트에서는 무한 대기에 빠진다.
+  경계가 있는 `pump()` 루프를 쓴다.
+- `initState`에서 디스크를 읽는 위젯은 `tester.runAsync()`로 감싸야 실제 I/O가
+  진행된다.
+- 디스크 없는 가짜는 `test/helpers/in_memory_json_storage.dart`.
+- 오버플로 검사: `tester.view.physicalSize`로 폭을 바꾸고
+  `expect(tester.takeException(), isNull)`.
+
+### ⚠️ 서비스를 State 필드에서 직접 생성하지 말 것
+
+`final _svc = SomeService();`처럼 State **필드 초기화자**에서 외부 서비스를
+만들면, 그 생성자가 `FirebaseFirestore.instance` 같은 걸 평가하는 순간
+**`initState`보다 먼저, try/catch 밖에서** 터진다. 실제로 접속 설정 화면이
+이것 때문에 테스트를 하나도 쓸 수 없었다(2026-10-03). Provider를 거칠 것:
+
+```dart
+// 나쁨
+final _brandingService = WebBrandingService();
+// 좋음 — 실제 사용 시점까지 생성이 미뤄지고, 테스트가 override할 수 있다
+WebBrandingService get _brandingService => ref.read(webBrandingServiceProvider);
+```
+
+### ⚠️ `dispose()`에서 `ref.read`를 쓰지 말 것
+
+Flutter는 `dispose()` 호출 **전에** element의 context를 비우므로
+`dispose()` 안의 `ref.read`는 **반드시** `StateError`를 던진다(조용히 삼켜진다).
+필요한 notifier는 `initState`에서 미리 캐시해 둘 것.
+
+### ⚠️ Windows에서 한글 파일을 PowerShell로 자르지 말 것
+
+PowerShell `Get-Content`/`Set-Content`로 줄을 잘라 다시 쓰면 **한글 UTF-8이
+조용히 깨진다**(실제 발생). `sed -i 'N,Md'`나 편집 도구를 쓰고, 대량 삭제 후엔
+`grep -c '[가-힣]'`로 전후를 대조할 것.
 
 ## 주요 이슈 및 해결 방법
 

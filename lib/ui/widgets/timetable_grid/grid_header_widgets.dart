@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../utils/simplified_timetable_theme.dart';
-import '../app_switch.dart';
 import '../cell_status_legend_item.dart';
 import '../exchanged_cell_status_overlay.dart';
 
@@ -573,42 +572,6 @@ class CellThemeLegend extends StatelessWidget {
 }
 
 /// 교체 적용 스위치 위젯
-class ExchangeViewCheckbox extends StatelessWidget {
-  final bool isEnabled;
-  final ValueChanged<bool?> onChanged;
-
-  const ExchangeViewCheckbox({
-    super.key,
-    required this.isEnabled,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // 스위치 OFF → 원본 시간표, ON → 교체된 시간표
-    final theme = Theme.of(context);
-    final label = isEnabled ? '교체' : '원본';
-
-    return Tooltip(
-      message: isEnabled ? '교체된 시간표' : '원본 시간표',
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          AppSwitch(value: isEnabled, onChanged: onChanged),
-        ],
-      ),
-    );
-  }
-}
-
-/// 교체 작업 버튼 그룹 (되돌리기·다시 실행 — 교체 버튼은 사이드바 헤더로 이동)
 class ExchangeActionButtons extends StatelessWidget {
   final VoidCallback? onUndo;
   final VoidCallback? onRepeat;
