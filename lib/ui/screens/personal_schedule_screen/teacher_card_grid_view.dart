@@ -25,6 +25,9 @@ class TeacherCardGridView extends ConsumerStatefulWidget {
   final bool isExchangeViewEnabled;
   final PersonalScheduleState scheduleState;
 
+  /// 헤더 계획서·선택 교사 기준으로 걸러진 교체 행 (셀 하이라이트용)
+  final List<SubstitutionPlanData> relatedPlanData;
+
   const TeacherCardGridView({
     super.key,
     required this.targets,
@@ -33,6 +36,7 @@ class TeacherCardGridView extends ConsumerStatefulWidget {
     required this.weekDates,
     required this.isExchangeViewEnabled,
     required this.scheduleState,
+    required this.relatedPlanData,
   });
 
   @override
@@ -70,15 +74,8 @@ class _TeacherCardGridViewState extends ConsumerState<TeacherCardGridView>
     }
 
     final zoomFactor = ref.watch(zoomProvider.select((s) => s.zoomFactor));
-    final selectedTeacher = widget.scheduleState.teacherName ?? '';
-    final allPlanData = ref.read(
-      substitutionPlanViewModelProvider.select((s) => s.planData),
-    );
-    // 선택 교사와 관련된 교체 건만 셀 하이라이트에 사용합니다.
-    final planData = PersonalExchangeInfoExtractor.plansRelatedToTeacher(
-      allPlanData,
-      selectedTeacher,
-    );
+    // 부모에서 넘긴 헤더 계획서 기준 행을 그대로 쓴다 (교사로 재필터하지 않음).
+    final planData = widget.relatedPlanData;
 
     // 오른쪽 버튼 드래그로 스크롤 가능하도록 믹신으로 감쌉니다.
     return wrapWithDragScroll(

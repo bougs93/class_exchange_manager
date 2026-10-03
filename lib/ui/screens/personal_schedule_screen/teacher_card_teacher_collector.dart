@@ -1,5 +1,4 @@
 import '../../../providers/substitution_plan_viewmodel.dart';
-import '../../../utils/personal_exchange_info_extractor.dart';
 
 /// 시간표 카드에 표시할 교사 역할
 enum TeacherCardRole {
@@ -50,14 +49,14 @@ class TeacherCardTarget {
   String? get dateStatusMessage => hasUnspecifiedDate ? '날짜 미지정' : null;
 }
 
-/// 선택 교사 + 그 교사의 교체·보강 상대만 카드 목록으로 모읍니다.
+/// 선택 교사 + [planData]에 나온 결강·교체·보강 교사를 카드로 모읍니다.
 ///
-/// 계획서 전체의 다른 교사 카드는 넣지 않습니다.
-/// (다인 카드가 한꺼번에 그려지면 시간표 화면이 멈출 수 있습니다.)
+/// [planData]는 호출측에서 이미 걸러 둔 목록이어야 합니다
+/// (헤더 선택 계획서 + 선택 교사 관련 행). 여기서 다시 교사 필터하지 않습니다.
 class TeacherCardTeacherCollector {
   TeacherCardTeacherCollector._();
 
-  /// [savedTeacherName]을 맨 앞에 두고, 그 교사와 연결된 결강·교체·보강 교사만 추가합니다.
+  /// [savedTeacherName]을 맨 앞에 두고, [planData] 행의 교사들을 이어서 추가합니다.
   static List<TeacherCardTarget> collect({
     required String? savedTeacherName,
     required List<SubstitutionPlanData> planData,
@@ -80,14 +79,7 @@ class TeacherCardTeacherCollector {
       addRole(selected, TeacherCardRole.saved);
     }
 
-    // 선택 교사가 들어 있는 행만 사용합니다.
-    final relatedPlans = PersonalExchangeInfoExtractor.plansRelatedToTeacher(
-      planData,
-      selected,
-    );
-
-    for (final plan in relatedPlans) {
-      // 선택 교사가 교체 상대일 때, 결강 교사 카드도 보여 줍니다.
+    for (final plan in planData) {
       addRole(plan.teacher, TeacherCardRole.absence);
       addRole(plan.substitutionTeacher, TeacherCardRole.substitution);
       addRole(plan.supplementTeacher, TeacherCardRole.supplement);
@@ -98,7 +90,7 @@ class TeacherCardTeacherCollector {
           (name) => TeacherCardTarget(
             name: name,
             roles: Set.unmodifiable(roleMap[name] ?? {}),
-            hasUnspecifiedDate: _hasUnspecifiedDate(name, relatedPlans),
+            hasUnspecifiedDate: _hasUnspecifiedDate(name, planData),
           ),
         )
         .toList();

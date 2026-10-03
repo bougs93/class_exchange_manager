@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/timetable_registry_provider.dart';
 import '../../providers/exchange_screen_provider.dart';
 import '../../providers/personal_schedule_provider.dart';
+import '../../providers/print_profile_provider.dart';
 import '../../utils/week_date_calculator.dart';
 import '../../utils/logger.dart';
 import '../../utils/snackbar_helper.dart';
@@ -29,7 +30,8 @@ import 'personal_schedule_screen/teacher_card_grid_constants.dart';
 
 /// 개인 시간표 화면
 ///
-/// 설정에서 저장한 교사와, 그 교사의 교체·보강 상대 시간표만 카드로 표시합니다.
+/// 설정에서 저장한 교사 카드와, 헤더에서 고른 계획서에 포함된 결강·교체·보강
+/// 교사 카드를 함께 표시합니다.
 /// - 2열: 계획서 칩 · 교체 보기 · 주 이동(교체 페이지와 동일 뼈대)
 /// - 3열: 줌 컨트롤
 /// - 본문: 교사 카드 그리드
@@ -360,20 +362,29 @@ class _PersonalScheduleScreenState
       _hasInitializedExchangeView = true;
     }
 
-    // 선택 교사 + 그 교사의 교체·보강 상대만 카드로 표시
+    // 헤더 계획서 칩(lastUsed)의 체크 포함 행 + 선택 교사 관련 행 → 카드·주차
+    // (내용 수정 체크·결보강 출력과 동일: deselectedGroupIds)
     final planData = ref.watch(
       substitutionPlanViewModelProvider.select((state) => state.planData),
     );
-    final relatedPlanData = PersonalExchangeInfoExtractor.plansRelatedToTeacher(
-      planData,
-      teacherName,
-    );
+    final profileStore = ref.watch(printProfileStoreProvider);
+    final selectedProfileId = profileStore.lastUsedProfileId;
+    final deselectedGroupIds =
+        profileStore.getById(selectedProfileId)?.deselectedGroupIds ??
+        const <String>[];
+    final relatedPlanData =
+        PersonalExchangeInfoExtractor.plansForPersonalSchedule(
+          planData: planData,
+          teacherName: teacherName,
+          selectedProfileId: selectedProfileId,
+          deselectedGroupIds: deselectedGroupIds,
+        );
     final cardTargets = TeacherCardTeacherCollector.collect(
       savedTeacherName: teacherName,
       planData: relatedPlanData,
     );
 
-    // 선택 교사와 관련된 결강·교체 날짜가 속한 주차만 표시
+    // 선택 교사·헤더 계획서 행의 결강·교체 날짜가 속한 주차만 표시
     final activeEntry = ref.watch(activeTimetableEntryProvider);
     final exchangeWeeks = ExchangeWeekCollector.collectWeekMondays(
       relatedPlanData,
@@ -414,6 +425,7 @@ class _PersonalScheduleScreenState
                         weekDates: weekDates,
                         isExchangeViewEnabled: _isExchangeViewEnabled,
                         scheduleState: scheduleState,
+                        relatedPlanData: relatedPlanData,
                       ),
                     ),
                     Padding(

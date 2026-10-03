@@ -104,6 +104,44 @@ class PersonalExchangeInfoExtractor {
         .toList();
   }
 
+  /// 개인 시간표에 쓸 교체 행 (헤더 계획서 칩과 동일 기준).
+  ///
+  /// 헤더 계획서의 **체크 포함 행**은 결보강 출력([checkedSubstitutionPlanDataProvider])과
+  /// 같습니다 — `deselectedGroupIds`에 없는 행. (`profileId` 배정과 무관)
+  ///
+  /// 1) 헤더에 계획서가 있으면: 그 계획서에 체크된 행 전부
+  ///    + 선택 교사가 결강·교체·보강으로 들어간 행
+  /// 2) 계획서 미선택이면: 선택 교사 관련 행만
+  static List<SubstitutionPlanData> plansForPersonalSchedule({
+    required List<SubstitutionPlanData> planData,
+    required String teacherName,
+    String? selectedProfileId,
+    List<String> deselectedGroupIds = const [],
+  }) {
+    final name = teacherName.trim();
+    if (name.isEmpty) return const [];
+
+    final profileId = selectedProfileId?.trim();
+    final hasSelectedProfile =
+        profileId != null &&
+        profileId.isNotEmpty &&
+        profileId != '__default__';
+
+    // 계획서 미선택: 기존처럼 선택 교사와 직접 연결된 행만
+    if (!hasSelectedProfile) {
+      return plansRelatedToTeacher(planData, name);
+    }
+
+    final deselected = deselectedGroupIds.toSet();
+    return planData.where((plan) {
+      if (isRelatedToTeacher(plan, name)) return true;
+      final groupId = plan.groupId;
+      // 체크 해제 목록에 없으면 헤더 계획서에 포함된 행
+      if (groupId == null || groupId.isEmpty) return true;
+      return !deselected.contains(groupId);
+    }).toList();
+  }
+
   static bool _planHasAssignedDate(SubstitutionPlanData plan) {
     if (plan.substitutionTeacher.isEmpty && plan.supplementTeacher.isNotEmpty) {
       return _isAssigned(plan.absenceDate);
