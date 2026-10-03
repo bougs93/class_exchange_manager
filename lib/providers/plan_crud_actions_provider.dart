@@ -1,10 +1,10 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// 내용 수정 화면이 등록하는 계획서 CRUD 액션.
+/// 결보강 일정 화면이 등록하는 계획서 CRUD 액션.
 ///
 /// 2열 헤더([PlanContextHeaderBar])에서 호출한다.
-/// IndexedStack으로 내용 수정 위젯이 살아 있어도, 헤더는
+/// IndexedStack으로 결보강 일정 위젯이 살아 있어도, 헤더는
 /// `showPlanCrud`로 계획서 탭에서만 버튼을 그린다.
 @immutable
 class PlanCrudActions {
@@ -23,5 +23,5 @@ class PlanCrudActions {
   final bool canModify;
 }
 
-/// 내용 수정(ContentInputGrid)이 최신 콜백을 넣고, dispose 시 null로 비운다.
+/// 결보강 일정(ContentInputGrid)이 최신 콜백을 넣고, dispose 시 null로 비운다.
 final planCrudActionsProvider = StateProvider<PlanCrudActions?>((ref) => null);

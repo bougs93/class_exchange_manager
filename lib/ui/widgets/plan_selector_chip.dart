@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -167,8 +167,8 @@ class PlanSelectorDropdown extends StatelessWidget {
 ///
 /// 결보강 작성의 기준이 되는 계획서를 어느 화면에서든 고를 수 있게 한다.
 /// 선택은 전역(`PrintProfileStore.lastUsedProfileId`)에 바로 반영되며,
-/// 내용 수정·결보강 출력 화면이 같은 값을 기준으로 동작한다.
-/// 계획서 만들기·수정·삭제는 내용 수정 화면에서만 한다.
+/// 결보강 일정·결보강 출력 화면이 같은 값을 기준으로 동작한다.
+/// 계획서 만들기·수정·삭제는 결보강 일정 화면에서만 한다.
 class PlanSelectorChip extends ConsumerWidget {
   /// 교체·계획서·안내·시간표 헤더에서 공통으로 쓰는 칩 너비.
   /// ("교사 · 결보강 YY.MM.DD" 한 줄이 잘리지 않는 최소 폭)

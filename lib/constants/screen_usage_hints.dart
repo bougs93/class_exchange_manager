@@ -4,13 +4,13 @@
 class ScreenUsageHints {
   ScreenUsageHints._();
 
-  /// 계획서 출력 > 내용 수정
+  /// 계획서 출력 > 결보강 일정
   static const String contentInput =
-      '표에서 정보를 입력하고, 출력할 교체 건만 체크하세요. 결보강 출력에서 체크한 건만 PDF로 미리보기·인쇄됩니다.';
+      '파란 칸(결강일·교체일·보강 과목)을 눌러 실제 일정을 수정하고, 출력할 교체 건만 체크하세요.';
 
   /// 계획서 출력 > 결보강 출력
   static const String substitutionOutput =
-      '내용 수정에서 체크한 교체 건만 출력됩니다. 입력란을 확인한 뒤 PDF 미리보기, 인쇄를 누르세요.';
+      '결보강 일정에서 체크한 교체 건만 출력됩니다. 입력란을 확인한 뒤 PDF 미리보기, 인쇄를 누르세요.';
 
   /// 계획서 출력 > 결보강 백업
   static const String planBackup =

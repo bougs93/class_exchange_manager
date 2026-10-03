@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:async';
 import '../../../models/exchange_node.dart';
@@ -196,7 +196,7 @@ class ExchangeExecutor {
   ///
   /// 이름은 결강일 기준 "결보강 YY.MM.DD", 귀속 교사는 준비 교사를 우선하고
   /// 없으면 결강 노드의 교사를 쓴다. 교체 건→계획서 지정은 기존 흐름
-  /// (내용 수정의 계획서 적용)이 담당하므로 여기서는 생성만 한다.
+  /// (결보강 일정의 계획서 적용)이 담당하므로 여기서는 생성만 한다.
   /// 실패해도 교체 실행 자체에는 영향을 주지 않는다.
   Future<void> _ensurePlanExistsAfterExecution({
     required DateTime absenceDate,

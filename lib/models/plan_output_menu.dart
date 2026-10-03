@@ -2,7 +2,7 @@
 
 /// 계획서 출력 화면 왼쪽 서브 메뉴
 enum PlanOutputMenu {
-  /// 내용 수정 (결강일·교체일·보강 과목 등)
+  /// 결보강 일정 (결강일·교체일·보강 과목 등)
   contentInput,
 
   /// 결보강 출력 (PDF 저장·인쇄)
@@ -17,7 +17,7 @@ extension PlanOutputMenuExtension on PlanOutputMenu {
   String get displayName {
     switch (this) {
       case PlanOutputMenu.contentInput:
-        return '내용 수정';
+        return '결보강 일정';
       case PlanOutputMenu.substitutionOutput:
         return '결보강 출력';
       case PlanOutputMenu.backup:

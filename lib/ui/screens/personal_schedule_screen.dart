@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/timetable_registry_provider.dart';
 import '../../providers/exchange_screen_provider.dart';
@@ -363,7 +363,7 @@ class _PersonalScheduleScreenState
     }
 
     // 헤더 계획서 칩(lastUsed)의 체크 포함 행 + 선택 교사 관련 행 → 카드·주차
-    // (내용 수정 체크·결보강 출력과 동일: deselectedGroupIds)
+    // (결보강 일정 체크·결보강 출력과 동일: deselectedGroupIds)
     final planData = ref.watch(
       substitutionPlanViewModelProvider.select((state) => state.planData),
     );

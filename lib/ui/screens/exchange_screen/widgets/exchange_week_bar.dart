@@ -5,8 +5,10 @@ import '../../../../providers/combined_view_switch_provider.dart';
 import '../../../../providers/dated_semester_provider.dart';
 import '../../../../providers/exchange_view_provider.dart';
 import '../../../../providers/exchange_week_summary_provider.dart';
+import '../../../../providers/plan_output_menu_provider.dart';
 import '../../../../providers/selected_week_provider.dart';
 import '../../../../providers/show_week_header_provider.dart';
+import '../../../../theme/design_tokens.dart';
 import '../../../../utils/week_date_calculator.dart';
 import '../../../../utils/week_semester_status.dart';
 import '../../../widgets/exchange_control_panel.dart';
@@ -16,7 +18,7 @@ import '../../personal_schedule_screen/exchange_week_collector.dart';
 
 /// 교체 화면 상단 주차 선택 바 (§10.5)
 ///
-/// 행 구성: [계획서 선택 | 날짜·교체 반영 버튼 | ◀ 주차 칩 ▶]
+/// 행 구성: [계획서 선택 | 날짜·교체 반영 | 날짜 수정 안내·바로가기 | ◀ 주차 칩 ▶]
 /// - 계획서 칩: 결보강 작성의 기준. 선택은 전역(lastUsedProfileId)에 반영
 /// - 날짜 범·건수 텍스트는 삭제 — 건수는 주 칩 뱃지로, 범위 밖 안내는
 ///   해당 주 칩의 주황 테두리로 표시한다
@@ -136,9 +138,15 @@ class ExchangeWeekBar extends ConsumerWidget {
           // 날짜·교체 반영 버튼 (스위치 대신)
           ..._buildDateAndExchangeSwitches(context, ref, theme, showWeekHeader),
           const ToolbarGroupDivider(),
+          // 날짜 수정 안내 + 바로가기 (여백이 있을 때 표시)
+          if (showWeekHeader)
+            Flexible(child: _buildDateScheduleHint(context, ref))
+          else
+            Expanded(child: _buildDateScheduleHint(context, ref)),
           // ◀ ▶·주차 칩은 날짜 반영 ON에서만 — OFF는 주 개념이 없는 한 장짜리 화면이다
           // (선택 주를 이번 주로 고정하는 이유는 `_setShowWeekHeader` 참고)
           if (showWeekHeader) ...[
+            const SizedBox(width: 6),
             _buildWeekNavButton(
               theme,
               icon: Icons.chevron_left,
@@ -178,8 +186,45 @@ class ExchangeWeekBar extends ConsumerWidget {
               tooltip: '다음 주',
               onPressed: () => _moveWeek(ref, 1),
             ),
-          ] else
-            const Spacer(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// 결강·교체 날짜 수정 안내 + 결보강 일정 바로가기
+  Widget _buildDateScheduleHint(BuildContext context, WidgetRef ref) {
+    final tokens = context.tokens;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.info_outline, size: 14, color: tokens.textSecondary),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              '결강·교체 날짜는 계획서 > 결보강 일정에서 수정하세요',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, color: tokens.textSecondary),
+            ),
+          ),
+          const SizedBox(width: 6),
+          TextButton(
+            onPressed: () => navigateToPlanDateSelection(ref),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              foregroundColor: tokens.primary,
+              textStyle: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            child: const Text('바로가기'),
+          ),
         ],
       ),
     );

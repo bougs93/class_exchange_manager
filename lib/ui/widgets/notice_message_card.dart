@@ -20,11 +20,23 @@ class NoticeMessageCard extends StatelessWidget {
   /// 복사 성공 시 표시할 스낵바 메시지
   final String? copySuccessMessage;
 
+  /// 학급안내 PDF용 체크박스 표시
+  final bool showCheckbox;
+
+  /// 체크박스 선택 여부
+  final bool isSelected;
+
+  /// 체크박스 변경 콜백
+  final ValueChanged<bool>? onSelectionChanged;
+
   const NoticeMessageCard({
     super.key,
     required this.messageGroup,
     this.cardColor,
     this.copySuccessMessage,
+    this.showCheckbox = false,
+    this.isSelected = false,
+    this.onSelectionChanged,
   });
 
   @override
@@ -55,7 +67,18 @@ class NoticeMessageCard extends StatelessWidget {
   Widget _buildHeader(BuildContext context) {
     return Row(
       children: [
-        const SizedBox(width: 8),
+        if (showCheckbox) ...[
+          Checkbox(
+            value: isSelected,
+            onChanged:
+                onSelectionChanged == null
+                    ? null
+                    : (value) => onSelectionChanged!(value ?? false),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+          ),
+        ] else
+          const SizedBox(width: 8),
         // 그룹 식별자 (학급명 또는 교사명)
         Text(
           messageGroup.groupIdentifier,
@@ -251,12 +274,24 @@ class NoticeMessageCardList extends StatelessWidget {
   /// 카드 색상 테마
   final Color? cardColor;
 
+  /// 학급안내 PDF용 체크박스 표시
+  final bool showCheckbox;
+
+  /// 선택된 그룹 식별자
+  final Set<String> selectedIdentifiers;
+
+  /// 선택 변경 (식별자, 선택 여부)
+  final void Function(String identifier, bool selected)? onSelectionChanged;
+
   const NoticeMessageCardList({
     super.key,
     required this.messageGroups,
     this.emptyMessage = '표시할 메시지가 없습니다.',
     this.emptyIcon = Icons.message_outlined,
     this.cardColor,
+    this.showCheckbox = false,
+    this.selectedIdentifiers = const {},
+    this.onSelectionChanged,
   });
 
   @override
@@ -271,9 +306,16 @@ class NoticeMessageCardList extends StatelessWidget {
       itemCount: messageGroups.length,
       itemBuilder: (context, index) {
         final messageGroup = messageGroups[index];
+        final id = messageGroup.groupIdentifier;
         return NoticeMessageCard(
           messageGroup: messageGroup,
           cardColor: cardColor,
+          showCheckbox: showCheckbox,
+          isSelected: selectedIdentifiers.contains(id),
+          onSelectionChanged:
+              onSelectionChanged == null
+                  ? null
+                  : (selected) => onSelectionChanged!(id, selected),
         );
       },
     );

@@ -1,11 +1,19 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
+
+import '../../constants/korean_fonts.dart';
 import '../../constants/screen_usage_hints.dart';
 import '../../models/notice_message.dart';
 import '../../providers/notice_message_provider.dart';
+import '../../services/class_notice_pdf_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/snackbar_helper.dart';
+import '../screens/plan_output/pdf_preview_screen.dart';
 import 'content_toolbar_layout.dart';
 import 'content_usage_hint_bar.dart';
 import 'timetable_grid/grid_header_widgets.dart';
@@ -22,11 +30,46 @@ class NoticeControlPanelConfig {
   /// 안내 방식 버튼 간격
   static const double messageOptionButtonGap = 4.0;
 
+  /// 학급안내 폰트 드롭다운 폭
+  static const double pdfFontDropdownWidth = 128.0;
+
+  /// 선택 인쇄 버튼 폭
+  static const double selectPrintButtonWidth = 100.0;
+
+  /// 전체 복사 라벨 버튼 최소 폭 (고정 width면 말줄임되므로 minWidth만 사용)
+  static const double copyAllButtonMinWidth = 96.0;
+
+  /// 학급안내 우측(구분선·폰트·드롭다운·선택 인쇄) 예약 폭
+  static double get classNoticeRightSideWidth =>
+      ContentToolbarLayout.buttonGap +
+      1 + // 구분선
+      ContentToolbarLayout.buttonGap +
+      28 + // '폰트' 라벨 대략 폭
+      6 +
+      pdfFontDropdownWidth +
+      ContentToolbarLayout.buttonGap +
+      selectPrintButtonWidth;
+
   /// 라벨+아이콘 버튼 표시에 필요한 최소 가로 폭
   static double minWidthForFullLabels(int buttonCount) {
     if (buttonCount <= 0) return 0;
     return messageOptionButtonWidth * buttonCount +
         messageOptionButtonGap * (buttonCount - 1);
+  }
+
+  /// 전체 복사에 텍스트 라벨을 붙일 수 있는 최소 툴바 폭
+  static double minWidthForCopyLabel({
+    required int optionButtonCount,
+    required bool isClassNotice,
+  }) {
+    final optionsWidth = minWidthForFullLabels(optionButtonCount);
+    final right = isClassNotice ? classNoticeRightSideWidth : 0.0;
+    return ContentToolbarLayout.buttonHeight +
+        ContentToolbarLayout.buttonGap +
+        optionsWidth +
+        ContentToolbarLayout.buttonGap +
+        copyAllButtonMinWidth +
+        right;
   }
 }
 
@@ -34,7 +77,7 @@ class NoticeControlPanelConfig {
 ///
 /// 새로고침 버튼과 안내 방식 선택 버튼을 포함하는 공통 위젯입니다.
 /// - 교사안내: 질문 / 교체 안내 / 수업 안내
-/// - 학급안내: 교체 안내 / 수업 안내 (질문 미지원)
+/// - 학급안내: 교체 안내 / 수업 안내 + 폰트 선택 + 선택 인쇄
 class NoticeControlPanel extends ConsumerWidget {
   /// 메시지 타입 (학급 또는 교사)
   final NoticeMessageType messageType;
@@ -64,6 +107,7 @@ class NoticeControlPanel extends ConsumerWidget {
     final optionButtons = _availableMessageOptionButtons();
     final tokens = context.tokens;
     const buttonHeight = ContentToolbarLayout.buttonHeight;
+    final isClassNotice = messageType == NoticeMessageType.classNotice;
 
     return Card(
       elevation: 1,
@@ -80,76 +124,192 @@ class NoticeControlPanel extends ConsumerWidget {
             ContentToolbarLayout.hintToToolbarSpacer,
             Padding(
               padding: ContentToolbarLayout.toolbarPadding,
-              child: Row(
-                children: [
-                  // 새로고침 — 중립 스타일 (선택된 안내 방식 버튼과 구분)
-                  CompactToolbarIconButton(
-                    onPressed: () => noticeNotifier.refreshAllMessages(),
-                    icon: Icons.refresh,
-                    tooltip: '새로고침',
-                    backgroundColor: _neutralActionColors(tokens).background,
-                    foregroundColor: _neutralActionColors(tokens).foreground,
-                    borderColor: _neutralActionColors(tokens).border,
-                    iconSize: ContentToolbarLayout.buttonIconSize,
-                    size: buttonHeight,
-                  ),
-                  const SizedBox(width: ContentToolbarLayout.buttonGap),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final showCopyLabel =
+                      constraints.maxWidth >=
+                      NoticeControlPanelConfig.minWidthForCopyLabel(
+                        optionButtonCount: optionButtons.length,
+                        isClassNotice: isClassNotice,
+                      );
+                  final neutral = _neutralActionColors(tokens);
 
-                  // 공간 부족 시 아이콘만, 충분하면 고정 폭 라벨 버튼
-                  Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final showLabels =
-                            constraints.maxWidth >=
-                            NoticeControlPanelConfig.minWidthForFullLabels(
-                              optionButtons.length,
-                            );
+                  return Row(
+                    children: [
+                      CompactToolbarIconButton(
+                        onPressed:
+                            noticeState.isGeneratingPdf
+                                ? null
+                                : () => noticeNotifier.refreshAllMessages(),
+                        icon: Icons.refresh,
+                        tooltip: '새로고침',
+                        backgroundColor: neutral.background,
+                        foregroundColor: neutral.foreground,
+                        borderColor: neutral.border,
+                        iconSize: ContentToolbarLayout.buttonIconSize,
+                        size: buttonHeight,
+                      ),
+                      const SizedBox(width: ContentToolbarLayout.buttonGap),
 
-                        return Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            for (int i = 0; i < optionButtons.length; i++) ...[
-                              _buildMessageOptionButton(
-                                option: optionButtons[i].option,
-                                icon: optionButtons[i].icon,
-                                label: optionButtons[i].option.toolbarLabel,
-                                currentOption: currentOption,
-                                buttonHeight: buttonHeight,
-                                showLabel: showLabels,
-                                tokens: tokens,
-                                onSelected:
-                                    (option) => _setMessageOption(
-                                      noticeNotifier,
-                                      option,
+                      Expanded(
+                        child: LayoutBuilder(
+                          builder: (context, optionConstraints) {
+                            final showLabels =
+                                optionConstraints.maxWidth >=
+                                NoticeControlPanelConfig.minWidthForFullLabels(
+                                  optionButtons.length,
+                                );
+
+                            return Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                for (
+                                  int i = 0;
+                                  i < optionButtons.length;
+                                  i++
+                                ) ...[
+                                  _buildMessageOptionButton(
+                                    option: optionButtons[i].option,
+                                    icon: optionButtons[i].icon,
+                                    label:
+                                        optionButtons[i].option.toolbarLabel,
+                                    currentOption: currentOption,
+                                    buttonHeight: buttonHeight,
+                                    showLabel: showLabels,
+                                    tokens: tokens,
+                                    onSelected:
+                                        (option) => _setMessageOption(
+                                          noticeNotifier,
+                                          option,
+                                        ),
+                                  ),
+                                  if (i < optionButtons.length - 1)
+                                    const SizedBox(
+                                      width:
+                                          NoticeControlPanelConfig
+                                              .messageOptionButtonGap,
                                     ),
-                              ),
-                              if (i < optionButtons.length - 1)
-                                const SizedBox(
-                                  width:
-                                      NoticeControlPanelConfig
-                                          .messageOptionButtonGap,
-                                ),
-                            ],
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                  // 전체 복사 — 중립 스타일 (선택 상태처럼 보이지 않도록)
-                  CompactToolbarIconButton(
-                    onPressed: () => _copyAllMessages(context, noticeState),
-                    icon: Icons.copy,
-                    tooltip: '전체 복사',
-                    backgroundColor: _neutralActionColors(tokens).background,
-                    foregroundColor: _neutralActionColors(tokens).foreground,
-                    borderColor: _neutralActionColors(tokens).border,
-                    iconSize: ContentToolbarLayout.buttonIconSize,
-                    size: buttonHeight,
-                  ),
-                ],
+                                ],
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+
+                      _buildCopyAllButton(
+                        showLabel: showCopyLabel,
+                        buttonHeight: buttonHeight,
+                        tokens: tokens,
+                        enabled: !noticeState.isGeneratingPdf,
+                        onPressed:
+                            () => _copyAllMessages(context, noticeState),
+                      ),
+
+                      if (isClassNotice) ...[
+                        const SizedBox(width: ContentToolbarLayout.buttonGap),
+                        Container(
+                          width: 1,
+                          height: buttonHeight * 0.7,
+                          color: tokens.cardBorder,
+                        ),
+                        const SizedBox(width: ContentToolbarLayout.buttonGap),
+                        Text(
+                          '폰트',
+                          style: TextStyle(
+                            fontSize: ContentToolbarLayout.buttonFontSize,
+                            color: tokens.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        SizedBox(
+                          width: NoticeControlPanelConfig.pdfFontDropdownWidth,
+                          height: buttonHeight,
+                          child: _buildPdfFontDropdown(
+                            tokens: tokens,
+                            selectedFont: noticeState.effectivePdfFont,
+                            enabled: !noticeState.isGeneratingPdf,
+                            onChanged: noticeNotifier.setSelectedPdfFont,
+                          ),
+                        ),
+                        const SizedBox(width: ContentToolbarLayout.buttonGap),
+                        CompactToolbarLabelButton(
+                          onPressed:
+                              noticeState.isGeneratingPdf
+                                  ? null
+                                  : () => _printSelectedClassNotices(
+                                    context,
+                                    ref,
+                                  ),
+                          icon:
+                              noticeState.isGeneratingPdf
+                                  ? Icons.hourglass_top
+                                  : Icons.print,
+                          label: '선택 인쇄',
+                          tooltip: '선택한 학급 안내 PDF 미리보기',
+                          backgroundColor: neutral.background,
+                          foregroundColor: neutral.foreground,
+                          borderColor: neutral.border,
+                          width:
+                              NoticeControlPanelConfig.selectPrintButtonWidth,
+                          height: buttonHeight,
+                          fontSize: ContentToolbarLayout.buttonFontSize,
+                          iconSize: ContentToolbarLayout.buttonIconSize,
+                        ),
+                      ],
+                    ],
+                  );
+                },
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPdfFontDropdown({
+    required DesignTokens tokens,
+    required String selectedFont,
+    required bool enabled,
+    required ValueChanged<String> onChanged,
+  }) {
+    final items = KoreanFontConstants.platformFontListWithNames;
+    final value =
+        items.any((f) => f['file'] == selectedFont)
+            ? selectedFont
+            : KoreanFontConstants.platformDefaultFont;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        border: Border.all(color: tokens.cardBorder),
+        borderRadius: BorderRadius.circular(6),
+        color: tokens.sectionBackground,
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          isDense: true,
+          style: TextStyle(color: tokens.textPrimary, fontSize: 12),
+          items:
+              items
+                  .map(
+                    (font) => DropdownMenuItem(
+                      value: font['file']!,
+                      child: Text(
+                        font['name']!,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
+                  .toList(),
+          onChanged:
+              enabled
+                  ? (newFont) {
+                    if (newFont != null) onChanged(newFont);
+                  }
+                  : null,
         ),
       ),
     );
@@ -172,6 +332,45 @@ class NoticeControlPanel extends ConsumerWidget {
     return _messageOptionButtons;
   }
 
+  /// 전체 복사 — 폭이 충분하면 라벨 표시
+  Widget _buildCopyAllButton({
+    required bool showLabel,
+    required double buttonHeight,
+    required DesignTokens tokens,
+    required bool enabled,
+    required VoidCallback onPressed,
+  }) {
+    final neutral = _neutralActionColors(tokens);
+    final action = enabled ? onPressed : null;
+
+    if (!showLabel) {
+      return CompactToolbarIconButton(
+        onPressed: action,
+        icon: Icons.copy,
+        tooltip: '전체 복사',
+        backgroundColor: neutral.background,
+        foregroundColor: neutral.foreground,
+        borderColor: neutral.border,
+        iconSize: ContentToolbarLayout.buttonIconSize,
+        size: buttonHeight,
+      );
+    }
+
+    return CompactToolbarLabelButton(
+      onPressed: action,
+      icon: Icons.copy,
+      label: '전체 복사',
+      tooltip: '전체 복사',
+      backgroundColor: neutral.background,
+      foregroundColor: neutral.foreground,
+      borderColor: neutral.border,
+      minWidth: NoticeControlPanelConfig.copyAllButtonMinWidth,
+      height: buttonHeight,
+      fontSize: ContentToolbarLayout.buttonFontSize,
+      iconSize: ContentToolbarLayout.buttonIconSize,
+    );
+  }
+
   /// 안내 방식 선택 버튼 (교체 화면 CompactToolbar 스타일)
   Widget _buildMessageOptionButton({
     required MessageOption option,
@@ -191,7 +390,6 @@ class NoticeControlPanel extends ConsumerWidget {
         isSelected ? selectedColors.foreground : tokens.textSecondary;
     final borderColor = isSelected ? selectedColors.border : tokens.cardBorder;
 
-    // 가로 폭 부족: 아이콘만 표시 (Tooltip으로 라벨 제공)
     if (!showLabel) {
       return CompactToolbarIconButton(
         onPressed: () => onSelected(option),
@@ -220,7 +418,6 @@ class NoticeControlPanel extends ConsumerWidget {
     );
   }
 
-  /// 일반 동작 버튼(새로고침·복사) — 문서 툴바와 동일한 중립 색
   ({Color background, Color foreground, Color border}) _neutralActionColors(
     DesignTokens tokens,
   ) {
@@ -231,7 +428,6 @@ class NoticeControlPanel extends ConsumerWidget {
     );
   }
 
-  /// 선택된 안내 방식 버튼 강조 색 (탭별 주황·초록 등)
   ({Color background, Color foreground, Color border}) _refreshColors(
     DesignTokens tokens,
   ) {
@@ -257,14 +453,12 @@ class NoticeControlPanel extends ConsumerWidget {
     );
   }
 
-  /// 현재 메시지 옵션 가져오기
   MessageOption _getCurrentMessageOption(NoticeMessageState noticeState) {
     final option =
         messageType == NoticeMessageType.classNotice
             ? noticeState.classMessageOption
             : noticeState.teacherMessageOption;
 
-    // 학급안내는 질문(option1) 미지원 — 표시/선택 상태도 교체 안내로 맞춤
     if (messageType == NoticeMessageType.classNotice &&
         option == MessageOption.option1) {
       return MessageOption.option2;
@@ -272,7 +466,6 @@ class NoticeControlPanel extends ConsumerWidget {
     return option;
   }
 
-  /// 메시지 옵션 설정하기
   void _setMessageOption(
     NoticeMessageNotifier noticeNotifier,
     MessageOption option,
@@ -281,13 +474,11 @@ class NoticeControlPanel extends ConsumerWidget {
           ? noticeNotifier.setClassMessageOption(option)
           : noticeNotifier.setTeacherMessageOption(option);
 
-  /// 전체 메시지를 클립보드에 복사
   Future<void> _copyAllMessages(
     BuildContext context,
     NoticeMessageState noticeState,
   ) async {
     try {
-      // 메시지 타입에 따라 메시지 그룹 선택
       final messageGroups =
           messageType == NoticeMessageType.classNotice
               ? noticeState.classMessageGroups
@@ -300,7 +491,6 @@ class NoticeControlPanel extends ConsumerWidget {
         return;
       }
 
-      // 모든 메시지를 하나의 문자열로 합치기 (개별 복사와 동일하게 본문만)
       final buffer = StringBuffer();
       for (int i = 0; i < messageGroups.length; i++) {
         final group = messageGroups[i];
@@ -310,7 +500,6 @@ class NoticeControlPanel extends ConsumerWidget {
         }
       }
 
-      // 클립보드에 복사
       await Clipboard.setData(ClipboardData(text: buffer.toString()));
 
       if (context.mounted) {
@@ -323,6 +512,85 @@ class NoticeControlPanel extends ConsumerWidget {
       if (context.mounted) {
         SnackBarHelper.showError(context, '복사 중 오류가 발생했습니다: $e');
       }
+    }
+  }
+
+  /// 선택한 학급 안내 → PDF 생성 → 미리보기
+  Future<void> _printSelectedClassNotices(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final noticeNotifier = ref.read(noticeMessageProvider.notifier);
+    noticeNotifier.ensurePdfFontInitialized();
+
+    final selectedGroups = noticeNotifier.selectedClassMessageGroups;
+    if (selectedGroups.isEmpty) {
+      if (context.mounted) {
+        SnackBarHelper.showWarning(context, '인쇄할 학급을 선택하세요.');
+      }
+      return;
+    }
+
+    final noticeState = ref.read(noticeMessageProvider);
+    final messageOption =
+        noticeState.classMessageOption == MessageOption.option1
+            ? MessageOption.option2
+            : noticeState.classMessageOption;
+    final fontType = noticeState.effectivePdfFont;
+
+    noticeNotifier.setGeneratingPdf(true);
+    try {
+      final pdfBytes = await ClassNoticePdfService.generate(
+        groups: selectedGroups,
+        messageOption: messageOption,
+        fontType: fontType,
+      );
+
+      if (!context.mounted) return;
+
+      if (pdfBytes == null) {
+        SnackBarHelper.showError(context, 'PDF 미리보기 생성에 실패했습니다.');
+        return;
+      }
+
+      final fileName = ClassNoticePdfService.buildFileName();
+
+      if (kIsWeb) {
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder:
+                (context) => PdfPreviewScreen(
+                  pdfBytes: pdfBytes,
+                  initialFileName: fileName,
+                ),
+          ),
+        );
+        return;
+      }
+
+      final tempDir = await getTemporaryDirectory();
+      final tempPath =
+          '${tempDir.path}${Platform.pathSeparator}class_notice_${DateTime.now().millisecondsSinceEpoch}.pdf';
+      final file = File(tempPath);
+      await file.writeAsBytes(pdfBytes, flush: true);
+
+      if (!context.mounted) return;
+
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder:
+              (context) => PdfPreviewScreen(
+                pdfPath: tempPath,
+                initialFileName: fileName,
+              ),
+        ),
+      );
+    } catch (e) {
+      if (context.mounted) {
+        SnackBarHelper.showError(context, 'PDF 생성 중 오류가 발생했습니다: $e');
+      }
+    } finally {
+      noticeNotifier.setGeneratingPdf(false);
     }
   }
 }

@@ -1,4 +1,4 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../constants/nav_indices.dart';
 import '../models/plan_output_menu.dart';
@@ -9,7 +9,7 @@ final planOutputMenuProvider = StateProvider<PlanOutputMenu>(
   (ref) => PlanOutputMenu.contentInput,
 );
 
-/// [계획서] 탭의 [내용 수정] 서브 메뉴로 이동합니다.
+/// [계획서] 탭의 [결보강 일정] 서브 메뉴로 이동합니다.
 void navigateToPlanDateSelection(WidgetRef ref) {
   ref.read(planOutputMenuProvider.notifier).state = PlanOutputMenu.contentInput;
   ref.read(navigationProvider.notifier).state = NavIndices.planOutput;

@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -500,7 +500,7 @@ class PdfExportService {
       int successCount = 0;
       int failCount = 0;
 
-      // 내용 수정 표와 동일한 순서(결강일 → 결강교시)로 정렬
+      // 결보강 일정 표와 동일한 순서(결강일 → 결강교시)로 정렬
       final sortedPlanData = List<SubstitutionPlanData>.from(planData)
         ..sort((a, b) {
           final aDate = DateFormatUtils.parseYearMonthDay(a.absenceDate);

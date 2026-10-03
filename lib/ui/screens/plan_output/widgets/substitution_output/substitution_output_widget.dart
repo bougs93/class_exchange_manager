@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -109,7 +109,7 @@ class SubstitutionOutputWidgetState
   /// 그대로 읽는다.
   ///
   /// 결보강 출력은 별도 로컬 선택을 유지하지 않는다. 교체 화면의 공용 행·
-  /// 내용 수정과 같은 값을 바라보므로, 어느 화면에서 바꿔도 모두 적용된다.
+  /// 결보강 일정과 같은 값을 바라보므로, 어느 화면에서 바꿔도 모두 적용된다.
   /// 현재 보고 있는 교사의 소속이 아니면 해당 화면에서는 미지정(null)으로
   /// 보인다 (교사 드롭다운과 계획서 드롭다운의 정합성 유지).
   String? get _selectedProfileId {
@@ -363,7 +363,7 @@ class SubstitutionOutputWidgetState
   /// 결강기간 자동 계산 및 업데이트 (외부에서 호출 가능한 public 메서드)
   /// 탭 진입 시 PlanOutputScreen에서 호출됩니다.
   void updateAbsencePeriod() {
-    // 내용 수정에서 체크된 건만 결강기간에 반영
+    // 결보강 일정에서 체크된 건만 결강기간에 반영
     final planData = ref.read(checkedSubstitutionPlanDataProvider);
     _updateAbsencePeriod(planData);
   }
@@ -736,7 +736,7 @@ class SubstitutionOutputWidgetState
           .setLastSelectedTeacher(teacher);
     }
 
-    // 내용 수정에서 만든 계획서가 다른/빈 교사명으로 저장된 경우
+    // 결보강 일정에서 만든 계획서가 다른/빈 교사명으로 저장된 경우
     // 현재 준비 교사에게 편입해 목록에 보이게 한다
     if (teacher != null) {
       await _attachOrphanProfilesToTeacher(teacher);
@@ -777,7 +777,7 @@ class SubstitutionOutputWidgetState
     }
   }
 
-  /// 내용 수정에서 만든 계획서를 현재 준비 교사에게 편입
+  /// 결보강 일정에서 만든 계획서를 현재 준비 교사에게 편입
   ///
   /// byTeacher(준비교사)가 비어 있을 때만:
   /// - 교사명이 비어 있는 계획서
@@ -955,7 +955,7 @@ class SubstitutionOutputWidgetState
 
     final store = ref.read(printProfileStoreProvider);
     final profiles = store.byTeacher(teacher);
-    // 내용 수정에서 쓰던 마지막 계획서를 우선 선택
+    // 결보강 일정에서 쓰던 마지막 계획서를 우선 선택
     final lastUsed = store.getById(store.lastUsedProfileId);
     final preferred =
         (lastUsed != null && profiles.any((p) => p.id == lastUsed.id))
@@ -1074,7 +1074,7 @@ class SubstitutionOutputWidgetState
     // 시간표 데이터 변경 감지 → 교사 드롭다운 갱신 (select로 재빌드 최소화)
     ref.watch(exchangeScreenProvider.select((state) => state.timetableData));
 
-    // 다른 화면(교체 공용 행·내용 수정)에서 계획서 선택이 바뀌면 이 화면도
+    // 다른 화면(교체 공용 행·결보강 일정)에서 계획서 선택이 바뀌면 이 화면도
     // 따라간다 (공용 선택). 먼저 현재 입력 내용을 적용 중인 계획서에
     // 저장한 뒤 새 계획을 적용하므로 입력 유실이 없다.
     // 선택 getter가 전역을 직접 읽으므로, 삭제된 계획서는 자동으로
@@ -1113,7 +1113,7 @@ class SubstitutionOutputWidgetState
     // SingleChildScrollView로 감싸서 작은 창에서 스크롤 가능하도록 함
     return Container(
       width: double.infinity,
-      // 내용 수정(ContentInputGrid) 등 다른 문서 탭과 동일한 16px 여백
+      // 결보강 일정(ContentInputGrid) 등 다른 문서 탭과 동일한 16px 여백
       padding: const EdgeInsets.all(16),
       alignment: Alignment.topLeft,
       // SingleChildScrollView를 사용하여 내용이 화면 높이를 초과할 때 스크롤 가능하게 함
@@ -1242,7 +1242,7 @@ class SubstitutionOutputWidgetState
 
   /// 현재 선택된 계획서만 삭제하는 버튼 (2026-09-30)
   ///
-  /// 결보강 내역 전체 초기화는 내용 수정 화면에 이미 있다 — 여기는 "지금
+  /// 결보강 내역 전체 초기화는 결보강 일정 화면에 이미 있다 — 여기는 "지금
   /// 보고 있는 계획서 1건만" 지우고 싶을 때 쓴다. 선택된 계획서가 없으면
   /// 비활성화된다.
   Widget _buildDeleteProfileButton(PrintProfile? selectedProfile) {
@@ -1280,7 +1280,7 @@ class SubstitutionOutputWidgetState
 
     if (success) {
       // 계획서는 특정 결보강 내역 묶음을 대표한다 — 계획서를 지우면 거기
-      // 연결된 교체 건도 함께 지워야 "내용 수정"·교체 화면과 어긋나지 않는다.
+      // 연결된 교체 건도 함께 지워야 "결보강 일정"·교체 화면과 어긋나지 않는다.
       ref
           .read(exchangeHistoryServiceProvider)
           .removeExchangeItemsByProfile(profile.id);
@@ -1297,8 +1297,8 @@ class SubstitutionOutputWidgetState
 
   /// 교사·계획서 선택 바
   ///
-  /// 결보강 출력은 내용 수정에서 만든 계획서를 **선택·출력만** 합니다.
-  /// 새로 만들기/이름 변경/삭제는 내용 수정 화면에서 합니다.
+  /// 결보강 출력은 결보강 일정에서 만든 계획서를 **선택·출력만** 합니다.
+  /// 새로 만들기/이름 변경/삭제는 결보강 일정 화면에서 합니다.
   ///
   /// 화면이 넓으면 교사·계획서를 1행에, 좁으면 2행에 배치한다.
   Widget _buildProfileBar() {
@@ -1342,7 +1342,7 @@ class SubstitutionOutputWidgetState
               // 선택 바 본문 (안내 문구 제외)
               final Widget selectors;
               if (constraints.maxWidth >= 620) {
-                // 1행: 교사 | 계획서 | 내용 수정
+                // 1행: 교사 | 계획서 | 결보강 일정
                 selectors = Row(
                   children: [
                     Icon(
@@ -1382,7 +1382,7 @@ class SubstitutionOutputWidgetState
                   ],
                 );
               } else {
-                // 2행: 1행 교사 선택, 2행 계획서 선택 + 내용 수정
+                // 2행: 1행 교사 선택, 2행 계획서 선택 + 결보강 일정
                 selectors = Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1443,7 +1443,7 @@ class SubstitutionOutputWidgetState
                       children: [
                         Expanded(
                           child: Text(
-                            "'$teacher'의 계획서가 없습니다. [내용 수정]에서 결강일을 지정해 계획서를 만드세요.",
+                            "'$teacher'의 계획서가 없습니다. [결보강 일정]에서 결강일을 지정해 계획서를 만드세요.",
                             style: TextStyle(
                               fontSize: 12,
                               color: tokens.textMuted,
@@ -1529,7 +1529,7 @@ class SubstitutionOutputWidgetState
   ) {
     if (profiles.isEmpty) {
       return Text(
-        '계획서 없음 — 내용 수정에서 지정',
+        '계획서 없음 — 결보강 일정에서 지정',
         style: TextStyle(fontSize: 13, color: tokens.textMuted),
       );
     }
@@ -1559,7 +1559,7 @@ class SubstitutionOutputWidgetState
     );
   }
 
-  /// 내용 수정으로 이동 버튼 (계획서 생성·관리는 그쪽에서)
+  /// 결보강 일정으로 이동 버튼 (계획서 생성·관리는 그쪽에서)
   Widget _buildContentEditNavButton() {
     return TextButton(
       onPressed: () => navigateToPlanDateSelection(ref),
@@ -1569,7 +1569,7 @@ class SubstitutionOutputWidgetState
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         padding: const EdgeInsets.symmetric(horizontal: 8),
       ),
-      child: const Text('내용 수정', style: TextStyle(fontSize: 12)),
+      child: const Text('결보강 일정', style: TextStyle(fontSize: 12)),
     );
   }
 
@@ -1619,18 +1619,18 @@ class SubstitutionOutputWidgetState
     // 미지정(계획서 없음)이면 출력 불가
     if (_selectedProfileId == null) {
       _showSnackBar(
-        '계획서를 선택한 뒤에만 PDF를 출력할 수 있습니다. 내용 수정에서 계획서를 지정하세요.',
+        '계획서를 선택한 뒤에만 PDF를 출력할 수 있습니다. 결보강 일정에서 계획서를 지정하세요.',
         Colors.orange,
       );
       return;
     }
 
     try {
-      // 1. 체크된 교체 건만 수집 (내용 수정 화면의 선택과 동일)
+      // 1. 체크된 교체 건만 수집 (결보강 일정 화면의 선택과 동일)
       final planData = ref.read(checkedSubstitutionPlanDataProvider);
       if (planData.isEmpty) {
         _showSnackBar(
-          '출력할 교체 건이 없습니다. 내용 수정에서 체크한 뒤 다시 시도하세요.',
+          '출력할 교체 건이 없습니다. 결보강 일정에서 체크한 뒤 다시 시도하세요.',
           Colors.orange,
         );
         return;

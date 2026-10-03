@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../../../constants/korean_fonts.dart';
+import '../../../../constants/screen_usage_hints.dart';
 import 'package:flutter/services.dart';
+import '../../../../models/plan_output_menu.dart';
 import '../../../../models/print_profile.dart';
 import '../../../../providers/plan_crud_actions_provider.dart';
 import '../../../../providers/plan_output_menu_provider.dart';
@@ -18,6 +20,7 @@ import '../../../../providers/timetable_registry_provider.dart';
 import '../../../../theme/design_tokens.dart';
 import '../../../../ui/screens/personal_schedule_screen/exchange_week_collector.dart';
 import '../../../../ui/widgets/content_toolbar_layout.dart';
+import '../../../../ui/widgets/content_usage_hint_bar.dart';
 import '../../../../ui/widgets/empty_state_message.dart';
 import '../../../../ui/widgets/timetable_grid/exchange_executor.dart';
 import '../../../../ui/widgets/timetable_grid/grid_header_widgets.dart';
@@ -683,6 +686,14 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildActionButtons(context, ref, viewModel, planData),
+          ContentToolbarLayout.hintToToolbarSpacer,
+          ContentUsageHintBar(
+            message: ScreenUsageHints.contentInput,
+            accentColor:
+                context.tokens.monochromeMenuAccents
+                    ? context.tokens.primary
+                    : PlanOutputMenu.contentInput.color,
+          ),
           const SizedBox(height: 10),
           _buildDataGrid(context, ref, planData, isLoading, viewModel),
         ],

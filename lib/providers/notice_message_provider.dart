@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../constants/korean_fonts.dart';
 import '../models/notice_message.dart';
+import '../providers/print_profile_provider.dart';
 import '../providers/substitution_plan_viewmodel.dart';
 import '../utils/notice_message_generator.dart';
 import '../utils/logger.dart';
@@ -18,6 +20,18 @@ class NoticeMessageState {
   /// 교사 메시지 옵션
   final MessageOption teacherMessageOption;
 
+  /// 학급안내 PDF용 선택된 학급 식별자
+  final Set<String> selectedClassIdentifiers;
+
+  /// 학급안내 PDF 폰트 파일명
+  final String selectedPdfFont;
+
+  /// lastUsed 프로필 등으로 폰트 초기화 완료 여부
+  final bool pdfFontInitialized;
+
+  /// PDF 생성 중
+  final bool isGeneratingPdf;
+
   /// 로딩 상태
   final bool isLoading;
 
@@ -29,6 +43,10 @@ class NoticeMessageState {
     this.teacherMessageGroups = const [],
     this.classMessageOption = MessageOption.option3,
     this.teacherMessageOption = MessageOption.option3,
+    this.selectedClassIdentifiers = const {},
+    this.selectedPdfFont = '',
+    this.pdfFontInitialized = false,
+    this.isGeneratingPdf = false,
     this.isLoading = false,
     this.errorMessage,
   });
@@ -39,23 +57,48 @@ class NoticeMessageState {
     List<NoticeMessageGroup>? teacherMessageGroups,
     MessageOption? classMessageOption,
     MessageOption? teacherMessageOption,
+    Set<String>? selectedClassIdentifiers,
+    String? selectedPdfFont,
+    bool? pdfFontInitialized,
+    bool? isGeneratingPdf,
     bool? isLoading,
     String? errorMessage,
+    bool clearErrorMessage = false,
   }) {
     return NoticeMessageState(
       classMessageGroups: classMessageGroups ?? this.classMessageGroups,
       teacherMessageGroups: teacherMessageGroups ?? this.teacherMessageGroups,
       classMessageOption: classMessageOption ?? this.classMessageOption,
       teacherMessageOption: teacherMessageOption ?? this.teacherMessageOption,
+      selectedClassIdentifiers:
+          selectedClassIdentifiers ?? this.selectedClassIdentifiers,
+      selectedPdfFont: selectedPdfFont ?? this.selectedPdfFont,
+      pdfFontInitialized: pdfFontInitialized ?? this.pdfFontInitialized,
+      isGeneratingPdf: isGeneratingPdf ?? this.isGeneratingPdf,
       isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage,
+      errorMessage:
+          clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
     );
+  }
+
+  /// 유효한 PDF 폰트 (미초기화·플랫폼 불일치 시 플랫폼 기본값)
+  String get effectivePdfFont {
+    if (selectedPdfFont.isNotEmpty &&
+        KoreanFontConstants.platformFontFiles.contains(selectedPdfFont)) {
+      return selectedPdfFont;
+    }
+    return KoreanFontConstants.platformDefaultFont;
   }
 }
 
 /// 안내 메시지 Notifier
 class NoticeMessageNotifier extends StateNotifier<NoticeMessageState> {
-  NoticeMessageNotifier(this._ref) : super(const NoticeMessageState());
+  NoticeMessageNotifier(this._ref)
+    : super(
+        NoticeMessageState(
+          selectedPdfFont: KoreanFontConstants.platformDefaultFont,
+        ),
+      );
 
   final Ref _ref;
 
@@ -77,13 +120,76 @@ class NoticeMessageNotifier extends StateNotifier<NoticeMessageState> {
     _regenerateTeacherMessages();
   }
 
+  /// 학급 선택 토글
+  void toggleClassSelection(String classIdentifier) {
+    final next = Set<String>.from(state.selectedClassIdentifiers);
+    if (next.contains(classIdentifier)) {
+      next.remove(classIdentifier);
+    } else {
+      next.add(classIdentifier);
+    }
+    state = state.copyWith(selectedClassIdentifiers: next);
+  }
+
+  /// 학급 선택 직접 설정
+  void setClassSelected(String classIdentifier, bool selected) {
+    final next = Set<String>.from(state.selectedClassIdentifiers);
+    if (selected) {
+      next.add(classIdentifier);
+    } else {
+      next.remove(classIdentifier);
+    }
+    state = state.copyWith(selectedClassIdentifiers: next);
+  }
+
+  /// 학급안내 PDF 폰트 변경 (결보강 프로필은 변경하지 않음)
+  void setSelectedPdfFont(String fontFile) {
+    if (!KoreanFontConstants.platformFontFiles.contains(fontFile)) {
+      return;
+    }
+    state = state.copyWith(
+      selectedPdfFont: fontFile,
+      pdfFontInitialized: true,
+    );
+  }
+
+  /// lastUsed 계획서 폰트로 초기화 (플랫폼 목록에 있을 때만)
+  void ensurePdfFontInitialized() {
+    if (state.pdfFontInitialized) return;
+
+    final store = _ref.read(printProfileStoreProvider);
+    final profile = store.getById(store.lastUsedProfileId);
+    final candidate = profile?.selectedFont;
+    final font =
+        (candidate != null &&
+                KoreanFontConstants.platformFontFiles.contains(candidate))
+            ? candidate
+            : KoreanFontConstants.platformDefaultFont;
+
+    state = state.copyWith(
+      selectedPdfFont: font,
+      pdfFontInitialized: true,
+    );
+  }
+
+  void setGeneratingPdf(bool value) {
+    state = state.copyWith(isGeneratingPdf: value);
+  }
+
+  /// 선택된 학급 메시지 그룹
+  List<NoticeMessageGroup> get selectedClassMessageGroups {
+    final selected = state.selectedClassIdentifiers;
+    return state.classMessageGroups
+        .where((g) => selected.contains(g.groupIdentifier))
+        .toList(growable: false);
+  }
+
   /// 모든 메시지 새로고침
   Future<void> refreshAllMessages() async {
     AppLogger.exchangeDebug('모든 안내 메시지 새로고침 시작');
-    state = state.copyWith(isLoading: true, errorMessage: null);
+    state = state.copyWith(isLoading: true, clearErrorMessage: true);
 
     try {
-      // 교체 계획 데이터 가져오기
       final planData = _ref.read(substitutionPlanViewModelProvider).planData;
 
       if (planData.isEmpty) {
@@ -91,26 +197,32 @@ class NoticeMessageNotifier extends StateNotifier<NoticeMessageState> {
         state = state.copyWith(
           classMessageGroups: [],
           teacherMessageGroups: [],
+          selectedClassIdentifiers: {},
           isLoading: false,
         );
         return;
       }
 
-      // 학급 메시지 생성 (질문 옵션은 사용하지 않음)
       final classGroups = NoticeMessageGenerator.generateClassMessages(
         planData,
         _effectiveClassMessageOption(state.classMessageOption),
       );
 
-      // 교사 메시지 생성
       final teacherGroups = NoticeMessageGenerator.generateTeacherMessages(
         planData,
         state.teacherMessageOption,
       );
 
+      final nextSelection = _mergeClassSelection(
+        previousSelected: state.selectedClassIdentifiers,
+        previousGroups: state.classMessageGroups,
+        nextGroups: classGroups,
+      );
+
       state = state.copyWith(
         classMessageGroups: classGroups,
         teacherMessageGroups: teacherGroups,
+        selectedClassIdentifiers: nextSelection,
         isLoading: false,
       );
 
@@ -132,7 +244,10 @@ class NoticeMessageNotifier extends StateNotifier<NoticeMessageState> {
       final planData = _ref.read(substitutionPlanViewModelProvider).planData;
 
       if (planData.isEmpty) {
-        state = state.copyWith(classMessageGroups: []);
+        state = state.copyWith(
+          classMessageGroups: [],
+          selectedClassIdentifiers: {},
+        );
         return;
       }
 
@@ -141,7 +256,16 @@ class NoticeMessageNotifier extends StateNotifier<NoticeMessageState> {
         _effectiveClassMessageOption(state.classMessageOption),
       );
 
-      state = state.copyWith(classMessageGroups: classGroups);
+      final nextSelection = _mergeClassSelection(
+        previousSelected: state.selectedClassIdentifiers,
+        previousGroups: state.classMessageGroups,
+        nextGroups: classGroups,
+      );
+
+      state = state.copyWith(
+        classMessageGroups: classGroups,
+        selectedClassIdentifiers: nextSelection,
+      );
       AppLogger.exchangeDebug('학급 메시지 재생성 완료 - 그룹 개수: ${classGroups.length}');
     } catch (e) {
       AppLogger.error('학급 메시지 재생성 중 오류 발생', e);
@@ -170,6 +294,28 @@ class NoticeMessageNotifier extends StateNotifier<NoticeMessageState> {
       AppLogger.error('교사 메시지 재생성 중 오류 발생', e);
       state = state.copyWith(errorMessage: '교사 메시지 생성 중 오류가 발생했습니다: $e');
     }
+  }
+
+  /// 새 학급은 선택, 기존은 유지, 사라진 학급은 제거
+  Set<String> _mergeClassSelection({
+    required Set<String> previousSelected,
+    required List<NoticeMessageGroup> previousGroups,
+    required List<NoticeMessageGroup> nextGroups,
+  }) {
+    final nextIds =
+        nextGroups.map((g) => g.groupIdentifier).toSet();
+    if (previousGroups.isEmpty) {
+      return nextIds;
+    }
+
+    final oldIds = previousGroups.map((g) => g.groupIdentifier).toSet();
+    final nextSelected = <String>{};
+    for (final id in nextIds) {
+      if (!oldIds.contains(id) || previousSelected.contains(id)) {
+        nextSelected.add(id);
+      }
+    }
+    return nextSelected;
   }
 
   /// 학급안내에서 사용할 메시지 옵션 (질문 option1 → 교체 안내 option2)

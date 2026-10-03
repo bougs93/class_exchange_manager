@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../constants/nav_indices.dart';
 import '../../models/plan_output_menu.dart';
@@ -12,7 +12,7 @@ import 'plan_output/widgets/content_input_grid.dart';
 import 'plan_output/widgets/plan_backup_screen.dart';
 import 'plan_output/widgets/substitution_output/substitution_output_widget.dart';
 
-/// 계획서 출력 화면 (내용 수정 · 결보강 출력 · 백업)
+/// 계획서 출력 화면 (결보강 일정 · 결보강 출력 · 백업)
 class PlanOutputScreen extends ConsumerStatefulWidget {
   const PlanOutputScreen({super.key});
 
@@ -87,7 +87,7 @@ class _PlanOutputScreenState extends ConsumerState<PlanOutputScreen> {
   Widget build(BuildContext context) {
     final selectedMenu = ref.watch(planOutputMenuProvider);
 
-    // 사이드바·내용 수정의 '결보강 출력' 등 provider 직접 전환도 동기화
+    // 사이드바·결보강 일정의 '결보강 출력' 등 provider 직접 전환도 동기화
     ref.listen<PlanOutputMenu>(planOutputMenuProvider, (previous, next) {
       if (next != PlanOutputMenu.substitutionOutput) return;
       if (previous == next) return;
@@ -230,14 +230,14 @@ class _PlanOutputScreenState extends ConsumerState<PlanOutputScreen> {
 
   /// 오른쪽 컨텐츠 영역
   ///
-  /// IndexedStack으로 결보강 위젯을 유지해, 내용 수정으로 다녀와도
+  /// IndexedStack으로 결보강 위젯을 유지해, 결보강 일정으로 다녀와도
   /// 준비>교사 listen이 끊기지 않습니다.
   Widget _buildContent(PlanOutputMenu selectedType) {
     return IndexedStack(
       index: _contentIndex(selectedType),
       sizing: StackFit.expand,
       children: [
-        // 0: 내용 수정 (항상)
+        // 0: 결보강 일정 (항상)
         const ContentInputGrid(),
         // 1: 결보강 출력 (한 번 활성화된 뒤부터 유지)
         if (_substitutionTabActivated)

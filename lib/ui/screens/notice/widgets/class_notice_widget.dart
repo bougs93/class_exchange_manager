@@ -20,9 +20,11 @@ class _ClassNoticeWidgetState extends ConsumerState<ClassNoticeWidget> {
   @override
   void initState() {
     super.initState();
-    // 위젯 초기화 시 메시지 새로고침
+    // 위젯 초기화 시 메시지 새로고침 + PDF 폰트 초기값
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(noticeMessageProvider.notifier).refreshAllMessages();
+      final notifier = ref.read(noticeMessageProvider.notifier);
+      notifier.ensurePdfFontInitialized();
+      notifier.refreshAllMessages();
     });
   }
 
@@ -69,6 +71,13 @@ class _ClassNoticeWidgetState extends ConsumerState<ClassNoticeWidget> {
     return NoticeMessageCardList(
       messageGroups: noticeState.classMessageGroups,
       cardColor: Colors.green.shade50,
+      showCheckbox: true,
+      selectedIdentifiers: noticeState.selectedClassIdentifiers,
+      onSelectionChanged: (identifier, selected) {
+        ref
+            .read(noticeMessageProvider.notifier)
+            .setClassSelected(identifier, selected);
+      },
     );
   }
 

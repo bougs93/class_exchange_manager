@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -240,7 +240,7 @@ class _PlanBackupScreenState extends ConsumerState<PlanBackupScreen> {
                     tokens: tokens,
                     onSelect: _selectProfile,
                     onOpenContentEdit: () async {
-                      // 2열에서 고른 계획서를 전역 선택에 맞춘 뒤 내용 수정으로 이동
+                      // 2열에서 고른 계획서를 전역 선택에 맞춘 뒤 결보강 일정으로 이동
                       final profile = selectedProfile;
                       if (profile != null) {
                         await ref
@@ -878,7 +878,7 @@ class _PlanListPane extends StatelessWidget {
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                   ),
-                  child: const Text('내용 수정', style: TextStyle(fontSize: 12)),
+                  child: const Text('결보강 일정', style: TextStyle(fontSize: 12)),
                 ),
                 TextButton(
                   onPressed: onDeleteSelected,

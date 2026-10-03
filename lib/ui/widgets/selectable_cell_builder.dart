@@ -5,6 +5,9 @@ import '../screens/plan_output/widgets/content_input_grid_helpers.dart';
 ///
 /// DateCellRenderer와 SupplementSubjectCellRenderer에서 공통으로 사용하는
 /// 스타일 로직을 통합하여 코드 중복을 제거합니다.
+///
+/// 값이 채워진 뒤에도 재선택이 가능하므로, [isSelectable]이면 빈 칸·채움
+/// 모두 배경·테두리·텍스트 색으로 구분한다.
 class SelectableCellBuilder {
   /// 선택 가능 셀의 배경 색상
   static final Color selectableBackgroundColor = Colors.blue.shade50;
@@ -24,33 +27,29 @@ class SelectableCellBuilder {
   /// 셀 컨테이너 데코레이션 생성
   ///
   /// [isSelectable] 셀이 선택 가능한지 여부
-  /// [isEmpty] 셀이 비어있는지 여부
-  ///
-  /// Returns: BoxDecoration 객체
+  /// [isEmpty] 빈 칸이면 테두리를 조금 더 진하게 (클릭 유도)
   static BoxDecoration buildDecoration(bool isSelectable, bool isEmpty) {
-    if (!isSelectable || !isEmpty) {
+    if (!isSelectable) {
       return const BoxDecoration();
     }
 
     return BoxDecoration(
       color: selectableBackgroundColor,
-      border: Border.all(color: selectableBorderColor),
+      border: Border.all(
+        color: isEmpty ? Colors.blue.shade300 : selectableBorderColor,
+        width: isEmpty ? 1.2 : 1.0,
+      ),
       borderRadius: BorderRadius.circular(borderRadius),
     );
   }
 
   /// 셀 텍스트 스타일 생성
-  ///
-  /// [isSelectable] 셀이 선택 가능한지 여부
-  /// [isEmpty] 셀이 비어있는지 여부
-  ///
-  /// Returns: TextStyle 객체
   static TextStyle buildTextStyle(bool isSelectable, bool isEmpty) {
     return TextStyle(
       fontSize: ContentInputGridConfig.cellFontSize,
       height: 1.0,
-      color: isSelectable && isEmpty ? selectableTextColor : normalTextColor,
-      fontWeight: isSelectable && isEmpty ? FontWeight.w500 : FontWeight.normal,
+      color: isSelectable ? selectableTextColor : normalTextColor,
+      fontWeight: isSelectable ? FontWeight.w500 : FontWeight.normal,
       decoration: TextDecoration.none,
     );
   }
@@ -58,29 +57,33 @@ class SelectableCellBuilder {
   /// 선택 가능한 셀 위젯 생성
   ///
   /// [isSelectable] 셀이 선택 가능한지 여부
-  /// [isEmpty] 셀이 비어있는지 여부
+  /// [isEmpty] 셀이 비어있는지 여부 (시각 강조 정도)
   /// [displayText] 표시할 텍스트
-  /// [onTap] 셀 탭 콜백 (선택 가능하고 비어있을 때만 동작)
-  ///
-  /// Returns: 완성된 셀 위젯
+  /// [onTap] 셀 탭 콜백 (선택 가능할 때 동작)
   static Widget build({
     required bool isSelectable,
     required bool isEmpty,
     required String displayText,
     VoidCallback? onTap,
   }) {
-    return GestureDetector(
-      onTap: (isSelectable && onTap != null) ? onTap : null,
-      child: Container(
-        alignment: Alignment.center,
-        padding: ContentInputGridConfig.cellPadding,
-        decoration: buildDecoration(isSelectable, isEmpty),
-        child: Text(
-          displayText,
-          style: buildTextStyle(isSelectable, isEmpty),
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+    return MouseRegion(
+      cursor:
+          isSelectable
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+      child: GestureDetector(
+        onTap: (isSelectable && onTap != null) ? onTap : null,
+        child: Container(
+          alignment: Alignment.center,
+          padding: ContentInputGridConfig.cellPadding,
+          decoration: buildDecoration(isSelectable, isEmpty),
+          child: Text(
+            displayText,
+            style: buildTextStyle(isSelectable, isEmpty),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       ),
     );
