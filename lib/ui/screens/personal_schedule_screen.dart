@@ -19,21 +19,20 @@ import '../../providers/zoom_provider.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/simplified_timetable_theme.dart';
 import '../widgets/cell_status_legend_item.dart';
-import '../widgets/plan_selector_chip.dart';
 import '../widgets/exchanged_cell_status_overlay.dart';
 import 'personal_schedule_screen/teacher_selection_dialog.dart';
 import 'personal_schedule_screen/teacher_card_grid_view.dart';
 import 'personal_schedule_screen/teacher_card_teacher_collector.dart';
 import 'personal_schedule_screen/exchange_week_collector.dart';
-import 'personal_schedule_screen/exchange_week_selector.dart';
+import 'personal_schedule_screen/personal_schedule_header_bar.dart';
 import 'personal_schedule_screen/teacher_card_grid_constants.dart';
 
 /// 개인 시간표 화면
 ///
 /// 설정에서 저장한 교사와, 그 교사의 교체·보강 상대 시간표만 카드로 표시합니다.
-/// - 세로행: 교시
-/// - 가로행: 요일 (날짜 포함)
-/// - 교체 뷰 스위치로 교체관리와 동일한 기능 제공
+/// - 2열: 계획서 칩 · 교체 보기 · 주 이동(교체 페이지와 동일 뼈대)
+/// - 3열: 줌 컨트롤
+/// - 본문: 교사 카드 그리드
 class PersonalScheduleScreen extends ConsumerStatefulWidget {
   const PersonalScheduleScreen({super.key});
 
@@ -384,121 +383,54 @@ class _PersonalScheduleScreenState
     );
 
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: TeacherCardGridConstants.scheduleAppBarHeight,
-        titleSpacing: 8,
-        title: LayoutBuilder(
-          builder: (context, constraints) {
-            final showDateRange =
-                constraints.maxWidth >=
-                TeacherCardGridConstants.scheduleAppBarDateRangeMinWidth;
-
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // 계획서 선택 칩 — 계획서·안내 화면과 동일한 공통 헤더 요소.
-                // 좁은 창에서는 날짜 범위와 함께 숨겨 기존 요소들의 overflow를 막는다.
-                if (showDateRange) ...[
-                  const PlanSelectorChip(),
-                  const ToolbarGroupDivider(),
-                ],
-                // 교사 선택 버튼 (아이콘 + 교사명, 검색 기능 유지)
-                InkWell(
-                  onTap: _showTeacherSelectionDialog,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.person_search, size: 18),
-                        const SizedBox(width: 4),
-                        Text(
-                          teacherName,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                // 현재 주차로 이동 (교사명 바로 옆)
-                IconButton(
-                  icon: const Icon(Icons.today, size: 20),
-                  onPressed:
-                      _isCurrentWeek(scheduleState.currentWeekMonday)
-                          ? null
-                          : () {
-                            ref
-                                .read(personalScheduleProvider.notifier)
-                                .moveToThisWeek();
-                          },
-                  tooltip: '현재 주차로 이동',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 28,
-                    minHeight: 28,
-                  ),
-                  color:
-                      _isCurrentWeek(scheduleState.currentWeekMonday)
-                          ? tokens.textMuted
-                          : null,
-                ),
-                if (showDateRange) ...[
-                  const SizedBox(width: 8),
-                  _buildWeekDateRangeSelector(scheduleState),
-                ],
-                const SizedBox(width: 8),
-                // 교체 주 선택 + 이전/다음 교체 주 이동
-                ExchangeWeekToolbar(
-                  exchangeWeeks: exchangeWeeks,
-                  currentWeekMonday: scheduleState.currentWeekMonday,
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 2, 8, 8),
-        child: Card(
-          elevation: 2,
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildScheduleToolbar(
-                exchangeWeeks: exchangeWeeks,
-                scheduleState: scheduleState,
-                weekDates: weekDates,
-                tokens: tokens,
-              ),
-              Expanded(
-                child: TeacherCardGridView(
-                  targets: cardTargets,
-                  timetableData: timetableData,
-                  timeSlots: timeSlotsToUse,
-                  weekDates: weekDates,
-                  isExchangeViewEnabled: _isExchangeViewEnabled,
-                  scheduleState: scheduleState,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(
-                  left: TeacherCardGridConstants.toolbarHorizontalPadding,
-                  right: TeacherCardGridConstants.toolbarHorizontalPadding,
-                  bottom: 8,
-                ),
-                child: _buildLegend(),
-              ),
-            ],
+      body: Column(
+        children: [
+          // 2열 — 교체 페이지 ExchangeWeekBar와 같은 뼈대
+          PersonalScheduleHeaderBar(
+            exchangeWeeks: exchangeWeeks,
+            relatedPlanData: relatedPlanData,
+            isExchangeViewEnabled: _isExchangeViewEnabled,
+            onToggleExchangeView: (enabled) {
+              _handleExchangeViewToggle(enabled, weekDates);
+            },
+            semesterStart: activeEntry?.semesterStart,
+            semesterEnd: activeEntry?.semesterEnd,
           ),
-        ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(8, 2, 8, 8),
+              child: Card(
+                elevation: 2,
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildZoomToolbar(tokens, _isExchangeViewEnabled),
+                    Expanded(
+                      child: TeacherCardGridView(
+                        targets: cardTargets,
+                        timetableData: timetableData,
+                        timeSlots: timeSlotsToUse,
+                        weekDates: weekDates,
+                        isExchangeViewEnabled: _isExchangeViewEnabled,
+                        scheduleState: scheduleState,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        left: TeacherCardGridConstants.toolbarHorizontalPadding,
+                        right:
+                            TeacherCardGridConstants.toolbarHorizontalPadding,
+                        bottom: 8,
+                      ),
+                      child: _buildLegend(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -530,60 +462,12 @@ class _PersonalScheduleScreenState
     );
   }
 
-  /// 현재 주차인지 확인
-  ///
-  /// 현재 표시 중인 주가 오늘 날짜가 속한 주인지 확인합니다.
-  bool _isCurrentWeek(DateTime currentWeekMonday) {
-    final thisWeekMonday = WeekDateCalculator.getThisWeekMonday();
-    // 날짜만 비교 (시간 제외)
-    return currentWeekMonday.year == thisWeekMonday.year &&
-        currentWeekMonday.month == thisWeekMonday.month &&
-        currentWeekMonday.day == thisWeekMonday.day;
-  }
-
-  /// AppBar — ◀ yyyy.mm.dd ~ yyyy.mm.dd ▶ 주간 이동
-  Widget _buildWeekDateRangeSelector(PersonalScheduleState scheduleState) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          icon: const Icon(Icons.chevron_left, size: 20),
-          onPressed: () {
-            ref.read(personalScheduleProvider.notifier).moveToPreviousWeek();
-          },
-          tooltip: '이전 주',
-          padding: EdgeInsets.zero,
-          visualDensity: VisualDensity.compact,
-          constraints: const BoxConstraints(minWidth: 20, minHeight: 28),
-        ),
-        Text(
-          WeekDateCalculator.formatWeekRange(scheduleState.currentWeekMonday),
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-          maxLines: 1,
-        ),
-        IconButton(
-          icon: const Icon(Icons.chevron_right, size: 20),
-          onPressed: () {
-            ref.read(personalScheduleProvider.notifier).moveToNextWeek();
-          },
-          tooltip: '다음 주',
-          padding: EdgeInsets.zero,
-          visualDensity: VisualDensity.compact,
-          constraints: const BoxConstraints(minWidth: 20, minHeight: 28),
-        ),
-      ],
-    );
-  }
-
-  /// 주차 칩 + 줌/교체 스위치 툴바
-  /// 넓을 때 1줄: [줌·교체] [주차 칩] / 좁을 때 2줄로 분리
-  Widget _buildScheduleToolbar({
-    required List<DateTime> exchangeWeeks,
-    required PersonalScheduleState scheduleState,
-    required List<DateTime> weekDates,
-    required DesignTokens tokens,
-  }) {
-    final hasChips = exchangeWeeks.isNotEmpty;
+  /// 3열 — 줌 + 교체 보기 상태 안내 (주차 칩·토글은 2열 헤더)
+  Widget _buildZoomToolbar(DesignTokens tokens, bool isExchangeViewEnabled) {
+    final statusText =
+        isExchangeViewEnabled
+            ? '결보강이 반영된 시간표입니다'
+            : '원본 시간표입니다';
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -594,109 +478,40 @@ class _PersonalScheduleScreenState
             top: TeacherCardGridConstants.chipRowPaddingTop,
             bottom: TeacherCardGridConstants.zoomToolbarPaddingBottom,
           ),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final useSingleRow =
-                  !hasChips ||
-                  constraints.maxWidth >=
-                      TeacherCardGridConstants.scheduleToolbarSingleRowMinWidth;
-
-              if (useSingleRow) {
-                return SizedBox(
-                  height: kExchangeUnifiedToolbarHeight,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      _buildControlPanel(scheduleState, weekDates),
-                      if (hasChips) ...[
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: ExchangeWeekChipRow(
-                            exchangeWeeks: exchangeWeeks,
-                            currentWeekMonday: scheduleState.currentWeekMonday,
-                            inline: true,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                    ],
+          child: SizedBox(
+            height: kExchangeUnifiedToolbarHeight,
+            child: Row(
+              children: [
+                const SizedBox(width: 8),
+                Consumer(
+                  builder: (context, ref, child) {
+                    final zoomState = ref.watch(zoomProvider);
+                    final zoomNotifier = ref.read(zoomProvider.notifier);
+                    return ZoomControlWidget(
+                      zoomPercentage: zoomState.zoomPercentage,
+                      zoomFactor: zoomState.zoomFactor,
+                      minZoom: zoomState.minZoom,
+                      maxZoom: zoomState.maxZoom,
+                      onZoomIn: zoomNotifier.zoomIn,
+                      onZoomOut: zoomNotifier.zoomOut,
+                      onResetZoom: zoomNotifier.resetZoom,
+                    );
+                  },
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    statusText,
+                    style: TextStyle(fontSize: 12, color: tokens.textMuted),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                );
-              }
-
-              // 좁은 폭: 1줄=줌·교체, 2줄=주차 칩
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    height: kExchangeUnifiedToolbarHeight,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: _buildControlPanel(scheduleState, weekDates),
-                    ),
-                  ),
-                  const SizedBox(
-                    height:
-                        TeacherCardGridConstants.scheduleToolbarWrappedRowGap,
-                  ),
-                  ExchangeWeekChipRow(
-                    exchangeWeeks: exchangeWeeks,
-                    currentWeekMonday: scheduleState.currentWeekMonday,
-                    inline: false,
-                  ),
-                ],
-              );
-            },
+                ),
+              ],
+            ),
           ),
         ),
         Divider(height: 1, thickness: 1, color: tokens.cardBorder),
-      ],
-    );
-  }
-
-  /// 컨트롤 패널 위젯 (줌 컨트롤 + 교체 뷰 스위치)
-  ///
-  /// 교체 관리 페이지와 동일한 헤더 스타일로 표시
-  /// 레이아웃 순서: 줌 컨트롤 → 교체 뷰 스위치
-  /// 기간선택은 AppBar로 이동됨
-  Widget _buildControlPanel(
-    PersonalScheduleState scheduleState,
-    List<DateTime> weekDates,
-  ) {
-    return Row(
-      children: [
-        const SizedBox(width: 8),
-
-        // 확대/축소 컨트롤
-        Consumer(
-          builder: (context, ref, child) {
-            final zoomState = ref.watch(zoomProvider);
-            final zoomNotifier = ref.read(zoomProvider.notifier);
-
-            return ZoomControlWidget(
-              zoomPercentage: zoomState.zoomPercentage,
-              zoomFactor: zoomState.zoomFactor,
-              minZoom: zoomState.minZoom,
-              maxZoom: zoomState.maxZoom,
-              onZoomIn: zoomNotifier.zoomIn,
-              onZoomOut: zoomNotifier.zoomOut,
-              onResetZoom: zoomNotifier.resetZoom,
-            );
-          },
-        ),
-
-        const SizedBox(width: 8),
-
-        // 교체 뷰 스위치
-        ExchangeViewCheckbox(
-          isEnabled: _isExchangeViewEnabled,
-          onChanged: (enabled) {
-            if (enabled != null) {
-              _handleExchangeViewToggle(enabled, scheduleState.weekDates);
-            }
-          },
-        ),
       ],
     );
   }

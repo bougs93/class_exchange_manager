@@ -51,6 +51,42 @@ class ExchangeWeekCollector {
     return labels;
   }
 
+  /// 주(월요일)별 관련 교체 건수 — groupId가 있으면 그룹 단위, 없으면 행 단위.
+  static Map<String, int> countByWeek(
+    List<SubstitutionPlanData> planData, {
+    DateTime? referenceDate,
+    DateTime? semesterStart,
+    DateTime? semesterEnd,
+  }) {
+    final ref = referenceDate ?? DateTime.now();
+    final groupsByWeek = <String, Set<String>>{};
+    var fallbackIndex = 0;
+
+    for (final plan in planData) {
+      final groupKey =
+          (plan.groupId != null && plan.groupId!.isNotEmpty)
+              ? plan.groupId!
+              : 'row-${fallbackIndex++}';
+
+      for (final rawDate in [plan.absenceDate, plan.substitutionDate]) {
+        final date = _parsePlanDate(
+          rawDate,
+          referenceDate: ref,
+          semesterStart: semesterStart,
+          semesterEnd: semesterEnd,
+        );
+        if (date == null) continue;
+
+        final key = weekKey(WeekDateCalculator.getWeekMonday(date));
+        (groupsByWeek[key] ??= <String>{}).add(groupKey);
+      }
+    }
+
+    return {
+      for (final entry in groupsByWeek.entries) entry.key: entry.value.length,
+    };
+  }
+
   /// 해당 월에서 몇 번째 월요일인지 (1~5) — "6월5주" 등 라벨용
   static int mondayIndexInMonth(DateTime weekMonday) {
     final normalized = _normalizeDate(weekMonday);

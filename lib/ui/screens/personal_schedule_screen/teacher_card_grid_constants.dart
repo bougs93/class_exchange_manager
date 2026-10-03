@@ -33,19 +33,7 @@ class TeacherCardGridConstants {
   /// 툴바와 시간표 그리드 사이 간격
   static const double toolbarGridGap = 8.0;
 
-  /// 시간표 AppBar 높이 (기본 56 → 컴팩트)
-  static const double scheduleAppBarHeight = 40.0;
-
-  /// AppBar에서 ◀ 날짜범위 ▶ 표시에 필요한 최소 가로 폭
-  static const double scheduleAppBarDateRangeMinWidth = 640.0;
-
-  /// 툴바 1줄(줌+교체 | 주차칩) 배치 최소 가로 폭 — 미만이면 2줄
-  static const double scheduleToolbarSingleRowMinWidth = 480.0;
-
-  /// 툴바 2줄일 때 그룹 간 세로 간격
-  static const double scheduleToolbarWrappedRowGap = 4.0;
-
-  /// 주차 칩 가로·세로 내부 패딩
+  /// 주차 칩 가로·세로 내부 패딩 (카드 등에서 재사용)
   static const double weekChipPaddingHorizontal = 2.0;
   static const double weekChipLabelPaddingHorizontal = 4.0;
 
