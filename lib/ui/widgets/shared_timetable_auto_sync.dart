@@ -39,6 +39,17 @@ class _SharedTimetableAutoSyncState
 
   Future<void> _applyIfChanged(SharedTimetableRemoteMeta meta) async {
     if (_applying || _handledVersion == meta.version) return;
+
+    // 접속 게이트가 방금 이 버전으로 실패했다면 곧바로 또 받지 않는다.
+    // 없으면 CORS로 막힌 환경에서 3회 재시도가 두 번(총 6회) 돌고 오류도
+    // 두 번 떴다(2026-10-04 보고). 서버 문서가 다시 바뀌면 버전이 달라져
+    // 정상적으로 재시도된다.
+    if (ref.read(sharedTimetableFailedVersionProvider) == meta.version) {
+      AppLogger.info('공용 시간표 v${meta.version}은 접속 때 이미 실패 — 자동 반영 생략');
+      _handledVersion = meta.version;
+      return;
+    }
+
     _applying = true;
     try {
       final sync = SharedTimetableSyncService();
@@ -102,6 +113,9 @@ class _SharedTimetableAutoSyncState
     } catch (e, st) {
       // 받지 못해도 기존 시간표로 계속 쓸 수 있어야 하므로 화면을 막지 않는다.
       AppLogger.error('공용 시간표 자동 반영 실패: $e', e, st);
+      // 이 버전은 실패로 표시 — 구독이 같은 값을 다시 흘려도 재시도하지 않는다.
+      ref.read(sharedTimetableFailedVersionProvider.notifier).state =
+          meta.version;
       if (mounted) {
         SnackBarHelper.showWarning(context, '새 공용시간표를 받지 못했습니다.');
       }

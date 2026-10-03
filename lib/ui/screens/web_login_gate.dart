@@ -8,6 +8,7 @@ import '../../config/firebase_app_config.dart';
 import '../../models/web_login_branding.dart';
 import '../../providers/timetable_repository_provider.dart';
 import '../../providers/timetable_registry_provider.dart';
+import '../../providers/shared_timetable_meta_provider.dart';
 import '../../services/shared_timetable_sync_service.dart';
 import '../../services/web_auth_service.dart';
 import '../../services/web_branding_service.dart';
@@ -208,10 +209,11 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
     });
     ref.read(webLoginStatusProvider.notifier).state = WebLoginStatus.checking;
     var stage = '서버 시간표 확인';
+    // catch에서도 실패한 버전을 기록해야 해 try 바깥에 둔다.
+    SharedTimetableRemoteMeta? meta;
     try {
       final sync = SharedTimetableSyncService();
       // Firestore 메타만 먼저 본다 — 없거나 최신이면 SQLite/Storage를 열지 않는다.
-      SharedTimetableRemoteMeta? meta;
       try {
         meta = await sync.fetchRemoteMeta();
       } catch (e) {
@@ -272,6 +274,13 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
       ref.invalidate(timetableRegistryProvider);
     } catch (e, st) {
       AppLogger.error('공용 시간표 동기화 실패 — 캐시된 시간표로 계속 진행 ($stage)', e, st);
+      // 실패한 버전을 남겨, 진입 직후 장착되는 `SharedTimetableAutoSync`가
+      // 같은 버전을 곧바로 또 받으려 하지 않게 한다. 이게 없으면 CORS로 막힌
+      // 환경에서 3회 재시도가 두 번(총 6회) 돌고 오류도 두 번 떴다(2026-10-04).
+      if (meta != null) {
+        ref.read(sharedTimetableFailedVersionProvider.notifier).state =
+            meta.version;
+      }
     }
     if (!mounted) return;
     ref.read(webLoginStatusProvider.notifier).state =
@@ -353,10 +362,7 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
                           ),
                           child: _buildSyncProgress(),
                         )
-                        : _buildLockForm(
-                          context,
-                          formMaxWidth: formMaxWidth,
-                        ),
+                        : _buildLockForm(context, formMaxWidth: formMaxWidth),
               ),
             ),
           );
@@ -402,10 +408,7 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
     );
   }
 
-  Widget _buildLockForm(
-    BuildContext context, {
-    required double formMaxWidth,
-  }) {
+  Widget _buildLockForm(BuildContext context, {required double formMaxWidth}) {
     if (!FirebaseAppConfig.isConfigured) {
       return _formWidth(
         formMaxWidth,
@@ -435,10 +438,7 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
         const SizedBox(height: 20),
         // 제목·안내 박스(로고는 헤더에서 프로그램 로고 옆에 표시).
         // 안내 박스만 넓은 부모 폭(폼의 1.26배)을 사용한다.
-        WebLoginBrandingBlock(
-          branding: _branding,
-          localLogoBytes: _logoBytes,
-        ),
+        WebLoginBrandingBlock(branding: _branding, localLogoBytes: _logoBytes),
         const SizedBox(height: 20),
         _formWidth(
           formMaxWidth,
@@ -481,9 +481,7 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
               const SizedBox(height: 12),
               ElevatedButton(
                 onPressed:
-                    _busy
-                        ? null
-                        : (_showAdmin ? _submitAdmin : _submitViewer),
+                    _busy ? null : (_showAdmin ? _submitAdmin : _submitViewer),
                 style:
                     _showAdmin
                         ? ElevatedButton.styleFrom(
@@ -498,9 +496,7 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
                           width: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                        : Text(
-                          _showAdmin ? '관리자로 들어가기' : '선생님 들어가기',
-                        ),
+                        : Text(_showAdmin ? '관리자로 들어가기' : '선생님 들어가기'),
               ),
               const SizedBox(height: 8),
               TextButton(
