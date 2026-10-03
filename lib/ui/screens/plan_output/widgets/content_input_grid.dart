@@ -394,14 +394,19 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     PrintProfileStore store,
     List<SubstitutionPlanData> planData,
   ) {
-    // 삭제된 ID가 _selectedPlanId에 남아 있으면 무시
+    // 전역 lastUsed 우선 — 백업·상단 칩·2열 헤더와 동일 계획서를 본다.
+    // (로컬 _selectedPlanId만 우선하면 백업에서 고른 뒤 상단 수정/삭제가
+    // 이전 계획서를 건드리는 어긋남이 난다.)
+    final lastUsed = store.lastUsedProfileId;
+    if (lastUsed != null &&
+        lastUsed != '__default__' &&
+        store.profiles.any((p) => p.id == lastUsed)) {
+      return lastUsed;
+    }
     if (_selectedPlanId != null &&
         _selectedPlanId != '__default__' &&
         store.profiles.any((p) => p.id == _selectedPlanId)) {
       return _selectedPlanId;
-    }
-    if (store.profiles.any((p) => p.id == store.lastUsedProfileId)) {
-      return store.lastUsedProfileId;
     }
     if (store.profiles.isNotEmpty) return store.profiles.first.id;
     // 저장된 계획서가 없으면 null — 결강일 기반 임시 이름을 계획서처럼 보여주지 않음
@@ -664,10 +669,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
 
     // 마지막 사용 계획서·저장된 체크 상태를 UI에 맞춤 (기본: 모두 선택)
     final resolvedId = _resolveSelectedPlanId(store, planData);
-    if (resolvedId != null &&
-        resolvedId != '__default__' &&
-        _selectedPlanId != resolvedId &&
-        _selectedPlanId == null) {
+    if (resolvedId != _selectedPlanId) {
       _selectedPlanId = resolvedId;
     }
     _hydrateSelectionFromPlan(store, planData);

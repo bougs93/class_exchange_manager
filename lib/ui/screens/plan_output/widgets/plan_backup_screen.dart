@@ -239,7 +239,16 @@ class _PlanBackupScreenState extends ConsumerState<PlanBackupScreen> {
                     accent: accent,
                     tokens: tokens,
                     onSelect: _selectProfile,
-                    onOpenContentEdit: () => navigateToPlanDateSelection(ref),
+                    onOpenContentEdit: () async {
+                      // 2열에서 고른 계획서를 전역 선택에 맞춘 뒤 내용 수정으로 이동
+                      final profile = selectedProfile;
+                      if (profile != null) {
+                        await ref
+                            .read(printProfileStoreProvider.notifier)
+                            .setLastUsedProfile(profile.id);
+                      }
+                      navigateToPlanDateSelection(ref);
+                    },
                     onDeleteSelected:
                         selectedProfile == null
                             ? null
