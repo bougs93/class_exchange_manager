@@ -308,15 +308,21 @@ class _PlanBackupScreenState extends ConsumerState<PlanBackupScreen> {
     );
   }
 
-  String _buildBackupFileName(String? profileName) {
+  /// 예: `정원길 결보강 26.10.05_20261003_결보강백업`
+  String _buildBackupFileName({
+    required String? teacherName,
+    required String? profileName,
+  }) {
     final now = DateTime.now();
     final stamp =
         '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
-    final name =
+    final plan =
         (profileName == null || profileName.trim().isEmpty)
             ? '결보강백업'
             : profileName.trim();
-    return '${name}_${stamp}_결보강백업';
+    final teacher = teacherName?.trim() ?? '';
+    final prefix = teacher.isEmpty ? plan : '$teacher $plan';
+    return '${prefix}_${stamp}_결보강백업';
   }
 
   List<ExchangeHistoryItem> _itemsForPlanBackup(
@@ -369,7 +375,8 @@ class _PlanBackupScreenState extends ConsumerState<PlanBackupScreen> {
       printProfiles: [selected],
     );
     final jsonString = const SubstitutionBackupService().encode(bundle);
-    final fileName = '${_buildBackupFileName(selected.name)}.json';
+    final fileName =
+        '${_buildBackupFileName(teacherName: selected.teacherName, profileName: selected.name)}.json';
 
     if (kIsWeb) {
       try {

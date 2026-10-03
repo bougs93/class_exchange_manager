@@ -241,28 +241,16 @@ double estimateModeButtonWidth({
   return innerWidth + kModeButtonSpacing;
 }
 
-/// 원본 스위치 + 전체삭제 + undo/redo 그룹 최소 폭
+/// 전체삭제 + undo/redo(+선택교체 삭제) 그룹 최소 폭
+///
+/// "교체/원본" 스위치는 주차 바([ExchangeWeekBar])로 옮겨졌으므로
+/// 폭 추정에 포함하지 않는다 (포함 시 라벨이 꺼진 채 빈 여백만 남는 문제).
 double estimateActionToolbarItemsWidth({bool withButtonLabels = false}) {
-  final switchLabelWidth = _measureToolbarTextWidth(
-    '교체',
-    fontSize: 12,
-    fontWeight: FontWeight.w500,
-  );
-  const switchAreaWidth = 34.0;
-  const labelToSwitchGap = 4.0;
-  const checkboxToDeleteGap = 6.0;
   const compactButtonSize = kCompactToolbarHeight;
   const buttonGap = 4.0;
 
-  final switchPart =
-      switchLabelWidth +
-      labelToSwitchGap +
-      switchAreaWidth +
-      checkboxToDeleteGap;
-
   if (!withButtonLabels) {
-    return switchPart +
-        compactButtonSize + // 전체 초기화
+    return compactButtonSize + // 전체 삭제
         buttonGap +
         compactButtonSize + // 되돌리기
         buttonGap +
@@ -285,8 +273,8 @@ double estimateActionToolbarItemsWidth({bool withButtonLabels = false}) {
         .clamp(compactButtonSize, double.infinity);
   }
 
-  return switchPart +
-      labeledButtonWidth('전체 초기화') +
+  // ResetExchangeListButton / ExchangeActionButtons 실제 라벨과 동일
+  return labeledButtonWidth('전체 삭제') +
       buttonGap +
       labeledButtonWidth('되돌리기') +
       buttonGap +
