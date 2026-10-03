@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/exchange_path.dart';
-import '../../models/circular_exchange_path.dart';
-import '../../models/one_to_one_exchange_path.dart';
-import '../../models/dual_exchange_path.dart';
 import '../../models/supplement_exchange_path.dart';
 import '../../models/exchange_node.dart';
 import '../../utils/logger.dart';
@@ -16,12 +13,12 @@ import 'empty_state_message.dart';
 import 'exchange_filter_widget.dart';
 import '../../theme/design_tokens.dart';
 import 'timetable_grid/exchange_executor.dart';
-import 'timetable_grid/grid_header_widgets.dart';
 import 'exchange_sidebar/sidebar_constants.dart';
 import 'instant_tap_ink_well.dart';
 import 'exchange_sidebar/sidebar_color_scheme.dart';
-import 'exchange_sidebar/animated_sidebar_node.dart';
 import 'exchange_sidebar/supplement_sidebar_content.dart';
+import 'exchange_sidebar/path_node_renderer.dart';
+import 'exchange_sidebar/sidebar_header.dart';
 
 /// 통합 교체 사이드바 위젯
 /// 1:1교체와 순환교체 경로를 모두 표시할 수 있는 통합 사이드바
@@ -105,7 +102,13 @@ class _UnifiedExchangeSidebarState
       ),
       child: Column(
         children: [
-          _buildHeader(tokens),
+          SidebarHeader(
+            mode: widget.mode,
+            selectedPath: widget.selectedPath,
+            isLoading: widget.isLoading,
+            onToggleSidebar: widget.onToggleSidebar,
+            onExecute: _executeExchangeForPath,
+          ),
           // 보강 모드가 아닌 경우에만 검색바 표시
           if (widget.mode != ExchangePathType.supplement) _buildSearchBar(),
           // 순환교체, 1:1 교체, 2중교체 모드에서 검색 필터 그룹 표시
@@ -127,104 +130,6 @@ class _UnifiedExchangeSidebarState
           Expanded(child: _buildContent(tokens)),
         ],
       ),
-    );
-  }
-
-  /// 헤더 구성 — [교체 실행] | [닫기]  (경로 개수는 검색 필터 헤더에 표시)
-  Widget _buildHeader(DesignTokens tokens) {
-    // 보강: 경로 미선택 시 안내, 선택 시 다른 모드와 동일하게 [교체 실행] 표시
-    if (widget.mode == ExchangePathType.supplement &&
-        widget.selectedPath == null) {
-      final headerText = widget.isLoading ? '보강 준비 중...' : '보강 선택';
-      return _buildHeaderContainer(
-        tokens,
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                headerText,
-                style: TextStyle(
-                  fontSize: SidebarFontSizes.headerText,
-                  color: tokens.primary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            _buildCloseButton(tokens),
-          ],
-        ),
-      );
-    }
-
-    return Consumer(
-      builder: (context, ref, _) {
-        final cellState = ref.watch(cellSelectionProvider);
-
-        // 사이드바에서 사용자가 클릭하여 선택한 경로만 사용
-        // (cellSelectionProvider 잔여값으로 잘못 활성화되는 것 방지)
-        final selectedPath = widget.selectedPath;
-        final isFromExchangedCell = cellState.isFromExchangedCell;
-
-        // 경로를 명시적으로 선택했고, 교체된 셀 조회가 아니며, 로딩 중이 아닐 때만 활성화
-        final canExchange =
-            selectedPath != null && !isFromExchangedCell && !widget.isLoading;
-
-        VoidCallback? onExchange;
-        if (canExchange) {
-          onExchange = () => _executeExchangeForPath(selectedPath);
-        }
-
-        // 보강 모드는 '보강 실행', 그 외는 '교체 실행'
-        final executeLabel =
-            widget.mode == ExchangePathType.supplement ? '보강 실행' : '교체 실행';
-
-        return _buildHeaderContainer(
-          tokens,
-          child: Row(
-            children: [
-              CompactToolbarLabelButton(
-                onPressed: onExchange,
-                icon: Icons.swap_horiz,
-                label: executeLabel,
-                tooltip: executeLabel,
-                minWidth: 140,
-                height: 33,
-                fontSize: 12,
-                iconSize: 18,
-                backgroundColor: tokens.primary.withValues(alpha: 0.2),
-                foregroundColor: tokens.primary,
-                borderColor: tokens.primary,
-              ),
-              const Spacer(),
-              _buildCloseButton(tokens),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  /// 헤더 공통 컨테이너
-  Widget _buildHeaderContainer(DesignTokens tokens, {required Widget child}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 3.0),
-      decoration: BoxDecoration(
-        color: tokens.appBarSubtleBackground,
-        border: Border(bottom: BorderSide(color: tokens.cardBorder)),
-      ),
-      child: child,
-    );
-  }
-
-  /// 사이드바 닫기 버튼
-  Widget _buildCloseButton(DesignTokens tokens) {
-    return IconButton(
-      icon: const Icon(Icons.close),
-      onPressed: widget.onToggleSidebar,
-      color: tokens.primary,
-      iconSize: 16,
-      padding: const EdgeInsets.all(3),
-      constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
     );
   }
 
@@ -516,7 +421,7 @@ class _UnifiedExchangeSidebarState
     );
   }
 
-  /// 경로 노드들 구성 (타입별 화살표 차별화)
+  /// 경로 노드들 구성 (타입별 화살표 차별화) — PathNodeRenderer로 위임
   Widget _buildPathNodes(
     ExchangePath path,
     int index,
@@ -524,337 +429,16 @@ class _UnifiedExchangeSidebarState
     PathColorScheme colorScheme,
     DesignTokens tokens,
   ) {
-    if (path.type == ExchangePathType.oneToOne) {
-      return _buildOneToOneNodes(
-        path as OneToOneExchangePath,
-        index,
-        isSelected,
-        colorScheme,
-        tokens,
-      );
-    } else if (path.type == ExchangePathType.circular) {
-      return _buildCircularNodes(
-        path as CircularExchangePath,
-        index,
-        isSelected,
-        colorScheme,
-        tokens,
-      );
-    } else {
-      return _buildDualNodes(
-        path as DualExchangePath,
-        index,
-        isSelected,
-        colorScheme,
-        tokens,
-      );
-    }
-  }
-
-  /// 화살표 + 단계 숫자 배지 (2중·순환교체 공통)
-  ///
-  /// [arrow] 방향 아이콘(2중: swap_vert, 순환: arrow_downward),
-  /// [badgeColor] 선택 시 배지 색상(2중: 빨강, 순환: 경로색),
-  /// [arrowColor] 선택 시 화살표 색상(2중은 배지와 달리 경로색을 쓰므로 분리).
-  ///   생략 시 [badgeColor]와 동일. [number] 단계 번호. 미선택 시 회색으로 통일된다.
-  Widget _buildArrowWithBadge(
-    DesignTokens tokens, {
-    required IconData arrow,
-    required double arrowSize,
-    required String number,
-    required Color badgeColor,
-    required bool isSelected,
-    Color? arrowColor,
-    EdgeInsets margin = const EdgeInsets.symmetric(vertical: 2),
-  }) {
-    final effectiveBadgeColor = isSelected ? badgeColor : tokens.textMuted;
-    final effectiveArrowColor =
-        isSelected ? (arrowColor ?? badgeColor) : tokens.textMuted;
-
-    return Container(
-      margin: margin,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(arrow, color: effectiveArrowColor, size: arrowSize),
-          const SizedBox(width: 4),
-          Container(
-            width: 20,
-            height: 16,
-            decoration: BoxDecoration(
-              color: effectiveBadgeColor,
-              borderRadius: BorderRadius.circular(3),
-              border: Border.all(color: effectiveBadgeColor, width: 1),
-            ),
-            child: Center(
-              child: Text(
-                number,
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+    return PathNodeRenderer(
+      path: path,
+      index: index,
+      isSelected: isSelected,
+      colorScheme: colorScheme,
+      tokens: tokens,
+      getSubjectName: widget.getSubjectName,
+      onNodeTap: _handleNodeTap,
+      onNodeDoubleTap: _handleNodeDoubleTap,
     );
-  }
-
-  /// 1:1교체 노드들 구성
-  Widget _buildOneToOneNodes(
-    OneToOneExchangePath path,
-    int index,
-    bool isSelected,
-    PathColorScheme colorScheme,
-    DesignTokens tokens,
-  ) {
-    return Column(
-      children: [
-        // 첫 번째 노드 (선택된 셀)
-        _buildNodeContainer(
-          path.nodes[0],
-          '${index}_0',
-          isSelected,
-          true,
-          colorScheme,
-        ),
-
-        // 양방향 화살표 (1:1교체 특징)
-        // 선택됨: 각 경로 타입별 색상, 선택안됨: 회색으로 통일
-        Container(
-          margin: const EdgeInsets.symmetric(vertical: 2),
-          child: Icon(
-            Icons.swap_vert,
-            color: isSelected ? colorScheme.primary : tokens.textMuted,
-            size: 14,
-          ),
-        ),
-
-        // 두 번째 노드 (교체 대상 셀, 진한 색상 적용)
-        _buildNodeContainer(
-          path.nodes[1],
-          '${index}_1',
-          isSelected,
-          false,
-          colorScheme,
-          isSecondNode: true,
-        ),
-      ],
-    );
-  }
-
-  // 기존 _buildCircularPathItem 메서드 제거 (공통 메서드로 통합됨)
-
-  /// 2중교체 노드들 구성
-  Widget _buildDualNodes(
-    DualExchangePath path,
-    int index,
-    bool isSelected,
-    PathColorScheme colorScheme,
-    DesignTokens tokens,
-  ) {
-    List<Widget> nodeWidgets = [];
-
-    // 2중교체 단계별 표시:
-    // 1단계: node1 ↔ node2
-    // 2단계: nodeA ↔ nodeB
-
-    // 1단계: node2 ↔ node1 (순서 수정)
-    nodeWidgets.add(
-      _buildNodeContainer(
-        path.node2,
-        '${index}_2',
-        isSelected,
-        false,
-        colorScheme,
-      ),
-    );
-
-    // 1단계 양방향 화살표와 빨간색 숫자 박스
-    nodeWidgets.add(
-      _buildArrowWithBadge(
-        tokens,
-        arrow: Icons.swap_vert,
-        arrowSize: 14,
-        number: '1',
-        badgeColor: Colors.red,
-        arrowColor: colorScheme.primary,
-        isSelected: isSelected,
-      ),
-    );
-
-    nodeWidgets.add(
-      _buildNodeContainer(
-        path.node1,
-        '${index}_1',
-        isSelected,
-        false,
-        colorScheme,
-      ),
-    );
-
-    // 단계 간 구분선 (선택사항)
-    nodeWidgets.add(
-      Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        height: 1,
-        color: tokens.cardBorder,
-      ),
-    );
-
-    // 2단계: nodeA ↔ nodeB
-    nodeWidgets.add(
-      _buildNodeContainer(
-        path.nodeA,
-        '${index}_A',
-        isSelected,
-        false,
-        colorScheme,
-      ),
-    );
-
-    // 2단계 양방향 화살표와 빨간색 숫자 박스
-    nodeWidgets.add(
-      _buildArrowWithBadge(
-        tokens,
-        arrow: Icons.swap_vert,
-        arrowSize: 14,
-        number: '2',
-        badgeColor: Colors.red,
-        arrowColor: colorScheme.primary,
-        isSelected: isSelected,
-      ),
-    );
-
-    nodeWidgets.add(
-      _buildNodeContainer(
-        path.nodeB,
-        '${index}_B',
-        isSelected,
-        false,
-        colorScheme,
-        isSecondNode: true,
-      ),
-    );
-
-    return Column(children: nodeWidgets);
-  }
-
-  /// 순환교체 노드들 구성
-  Widget _buildCircularNodes(
-    CircularExchangePath path,
-    int index,
-    bool isSelected,
-    PathColorScheme colorScheme,
-    DesignTokens tokens,
-  ) {
-    List<Widget> nodeWidgets = [];
-
-    // 시작점 표시 (첫 번째 노드)
-    nodeWidgets.add(
-      _buildNodeContainer(
-        path.nodes[0],
-        '${index}_0',
-        isSelected,
-        true,
-        colorScheme,
-      ),
-    );
-
-    // 노드 길이가 3인 경우: 1번째와 2번째 노드 사이를 상하 화살표로 (3번째 노드는 숨김)
-    if (path.nodes.length == 3) {
-      // 상하 화살표만 표시 (숫자 박스 제거)
-      nodeWidgets.add(
-        Container(
-          margin: const EdgeInsets.symmetric(vertical: 2),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.swap_vert, // 상하 화살표
-                color: isSelected ? colorScheme.primary : tokens.textMuted,
-                size: 14,
-              ),
-            ],
-          ),
-        ),
-      );
-
-      // 두 번째 노드 (마지막으로 표시되는 노드, 진한 색상 적용)
-      nodeWidgets.add(
-        _buildNodeContainer(
-          path.nodes[1],
-          '${index}_1',
-          isSelected,
-          false,
-          colorScheme,
-          isSecondNode: true,
-        ),
-      );
-
-      // 3번째 노드는 표시하지 않음 (숨김)
-    } else {
-      // 노드 길이가 4 이상인 경우: 각 화살표에 단계별 숫자 추가
-      for (int i = 1; i < path.nodes.length - 1; i++) {
-        // 단방향 화살표와 숫자 (순환교체 특징)
-        nodeWidgets.add(
-          _buildArrowWithBadge(
-            tokens,
-            arrow: Icons.arrow_downward,
-            arrowSize: 12,
-            number: '$i',
-            badgeColor: colorScheme.primary,
-            isSelected: isSelected,
-            margin: const EdgeInsets.symmetric(vertical: 1),
-          ),
-        );
-
-        // 노드 (2번째 노드인 경우 진한 색상 적용)
-        bool isSecondNode = (i == 1); // 인덱스 1이 2번째 노드
-        nodeWidgets.add(
-          _buildNodeContainer(
-            path.nodes[i],
-            '${index}_$i',
-            isSelected,
-            false,
-            colorScheme,
-            isSecondNode: isSecondNode,
-          ),
-        );
-      }
-
-      // 마지막 노드 추가 (4개 이상인 경우)
-      if (path.nodes.length > 3) {
-        // 마지막 화살표와 숫자
-        nodeWidgets.add(
-          _buildArrowWithBadge(
-            tokens,
-            arrow: Icons.arrow_downward,
-            arrowSize: 12,
-            number: '${path.nodes.length - 1}',
-            badgeColor: colorScheme.primary,
-            isSelected: isSelected,
-            margin: const EdgeInsets.symmetric(vertical: 1),
-          ),
-        );
-
-        // 마지막 노드 (연하게 표시)
-        nodeWidgets.add(
-          _buildNodeContainer(
-            path.nodes.last,
-            '${index}_${path.nodes.length - 1}',
-            isSelected,
-            false,
-            colorScheme,
-            isLastNode: true,
-          ),
-        );
-      }
-    }
-
-    return Column(children: nodeWidgets);
   }
 
   /// 노드 탭 — 경로를 고르고 그 칸으로 스크롤한다.
@@ -905,32 +489,5 @@ class _UnifiedExchangeSidebarState
         widget.onSelectPath(targetPath);
       }
     }
-  }
-
-  /// 노드 컨테이너 구성 (공통) — 물결 효과를 가진 AnimatedSidebarNode로 위임
-  ///
-  /// [isStartNode]는 호출부 호환을 위해 유지하나 표시에는 사용하지 않는다.
-  Widget _buildNodeContainer(
-    ExchangeNode node,
-    String nodeKey,
-    bool isSelected,
-    bool isStartNode,
-    PathColorScheme colorScheme, {
-    bool isLastNode = false,
-    bool isSecondNode = false,
-    String? labelOverride,
-  }) {
-    return AnimatedSidebarNode(
-      node: node,
-      isSelected: isSelected,
-      colorScheme: colorScheme,
-      isLastNode: isLastNode,
-      isSecondNode: isSecondNode,
-      label:
-          labelOverride ??
-          '${node.day}${node.period}|${node.className}|${node.teacherName}|${widget.getSubjectName(node)}',
-      onTap: () => _handleNodeTap(node, nodeKey, isSelected),
-      onDoubleTap: () => _handleNodeDoubleTap(nodeKey),
-    );
   }
 }
