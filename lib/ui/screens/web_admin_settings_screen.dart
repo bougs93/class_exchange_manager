@@ -450,7 +450,7 @@ class _WebAdminSettingsScreenState
               ),
               const SizedBox(height: 4),
               const Text(
-                '버전 정보 아래에 학교 로고·제목·안내 박스가 보입니다. '
+                '프로그램 로고 옆에 학교 로고가, 아래에 제목·안내 박스가 보입니다. '
                 '로고를 누르면 홈페이지로 이동합니다.',
                 style: TextStyle(fontSize: 12, color: Colors.grey),
               ),

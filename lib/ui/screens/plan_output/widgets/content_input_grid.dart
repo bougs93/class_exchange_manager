@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../../../constants/korean_fonts.dart';
 import '../../../../constants/screen_usage_hints.dart';
 import 'package:flutter/services.dart';
@@ -11,27 +10,23 @@ import '../../../../models/print_profile.dart';
 import '../../../../providers/plan_crud_actions_provider.dart';
 import '../../../../providers/plan_output_menu_provider.dart';
 import '../../../../providers/print_profile_provider.dart';
-import '../../../../providers/selected_week_provider.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
-import '../../../../providers/exchange_screen_provider.dart';
 import '../../../../providers/services_provider.dart';
 import '../../../../providers/state_reset_provider.dart';
 import '../../../../theme/design_tokens.dart';
 import '../../../../ui/widgets/content_toolbar_layout.dart';
 import '../../../../ui/widgets/content_usage_hint_bar.dart';
-import '../../../../ui/widgets/empty_state_message.dart';
 import '../../../../ui/widgets/timetable_grid/exchange_executor.dart';
-import '../../../../ui/widgets/timetable_grid/grid_header_widgets.dart';
 import '../../../../utils/logger.dart';
 import '../../../../utils/date_format_utils.dart';
-import '../../../../utils/day_utils.dart';
 import '../../../../utils/snackbar_helper.dart';
 import '../../../../utils/dialog_helper.dart';
 import '../../../mixins/scroll_management_mixin.dart';
+import 'content_input/content_input_data_grid.dart';
+import 'content_input/content_input_grid_action_toolbar.dart';
+import 'content_input/content_input_grid_states.dart';
 import 'content_input_grid_helpers.dart';
 import 'content_input_grid_plan_ops.dart';
-import 'plan_date_picker_dialog.dart';
-import 'substitution_plan_data_source.dart';
 
 /// 보강계획서 그리드 위젯 (리팩토링 버전)
 class ContentInputGrid extends ConsumerStatefulWidget {
@@ -52,9 +47,20 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
   /// 체크 UI를 계획서에서 한 번 이상 맞췄는지 (초기 전체선택 동기화용)
   bool _selectionHydrated = false;
 
+  /// 2열 헤더 CRUD 버튼 콜백 Provider의 notifier.
+  ///
+  /// dispose()에서 콜백을 해제할 때 `ref.read`를 다시 호출하면 안 된다 —
+  /// Flutter는 `StatefulElement.unmount()`에서 위젯/컨텍스트를 먼저 비운
+  /// 뒤에 `state.dispose()`를 호출하므로, dispose() 안에서의 `ref.read`는
+  /// 항상 `Cannot use "ref" after the widget was disposed` 오류를 던진다.
+  /// initState에서 미리 읽어 둔 notifier 인스턴스를 그대로 쓰면 이 문제를
+  /// 피할 수 있다(Provider 컨테이너 자체는 아직 살아있으므로 안전하다).
+  late final StateController<PlanCrudActions?> _planCrudActionsNotifier;
+
   @override
   void initState() {
     super.initState();
+    _planCrudActionsNotifier = ref.read(planCrudActionsProvider.notifier);
     // 공통 스크롤 관리 믹신 초기화
     initializeScrollControllers();
   }
@@ -62,7 +68,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
   @override
   void dispose() {
     // 2열 헤더 CRUD 버튼 콜백 해제
-    ref.read(planCrudActionsProvider.notifier).state = null;
+    _planCrudActionsNotifier.state = null;
     // 공통 스크롤 관리 믹신 해제
     disposeScrollControllers();
     super.dispose();
@@ -399,7 +405,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildActionButtons(context, ref, viewModel, planData),
+          _buildActionToolbar(context, ref, viewModel, planData),
           ContentToolbarLayout.hintToToolbarSpacer,
           ContentUsageHintBar(
             message: ScreenUsageHints.contentInput,
@@ -531,14 +537,12 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     if (mounted) setState(() => _selectedPlanId = null);
   }
 
-  Widget _buildActionButtons(
+  Widget _buildActionToolbar(
     BuildContext context,
     WidgetRef ref,
     SubstitutionPlanViewModel viewModel,
     List<SubstitutionPlanData> planData,
   ) {
-    const buttonHeight = ContentToolbarLayout.buttonHeight;
-    final tokens = context.tokens;
     // 교체 화면과 동일 스택 — 버전 변경 시 되돌리기/다시실행 활성 갱신
     ref.watch(exchangeListVersionProvider);
     final historyService = ref.read(exchangeHistoryServiceProvider);
@@ -550,137 +554,32 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
         allIds.isNotEmpty && _checkedGroupIds.containsAll(allIds);
     final hasSelection = _checkedGroupIds.isNotEmpty;
 
-    return Row(
-      children: [
-        // 왼쪽: 새로고침 · 선택 · 삭제 · 되돌리기 · 다시실행
-        Expanded(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                CompactToolbarIconButton(
-                  onPressed: () async {
-                    await viewModel.loadPlanData();
-                    if (!context.mounted) return;
-                    final currentPlanData = ref.read(
-                      substitutionPlanViewModelProvider.select(
-                        (s) => s.planData,
-                      ),
-                    );
-                    ContentInputGridDebugger.printTable(currentPlanData);
-                    SnackBarHelper.showInfo(context, '표를 새로고침했습니다.');
-                  },
-                  icon: Icons.refresh,
-                  tooltip: '표 새로고침',
-                  backgroundColor: ContentToolbarLayout.neutralButtonBackground(
-                    tokens,
-                  ),
-                  foregroundColor: ContentToolbarLayout.neutralButtonForeground(
-                    tokens,
-                  ),
-                  borderColor: ContentToolbarLayout.neutralButtonBorder(tokens),
-                  iconSize: ContentToolbarLayout.buttonIconSize,
-                  size: buttonHeight,
-                ),
-                const SizedBox(width: ContentToolbarLayout.buttonGap),
-                CompactToolbarLabelButton(
-                  onPressed:
-                      allIds.isEmpty ? null : () => _toggleSelectAll(planData),
-                  icon: Icons.checklist,
-                  label: allSelected ? '선택 해제' : '모두 선택',
-                  tooltip: '결보강 출력에 포함할 교체 건을 선택/해제합니다',
-                  backgroundColor: ContentToolbarLayout.neutralButtonBackground(
-                    tokens,
-                  ),
-                  foregroundColor: ContentToolbarLayout.neutralButtonForeground(
-                    tokens,
-                  ),
-                  borderColor: ContentToolbarLayout.neutralButtonBorder(tokens),
-                  height: buttonHeight,
-                  fontSize: ContentToolbarLayout.buttonFontSize,
-                  iconSize: ContentToolbarLayout.buttonIconSize,
-                ),
-                const SizedBox(width: ContentToolbarLayout.buttonGap),
-                CompactToolbarLabelButton(
-                  onPressed:
-                      hasSelection
-                          ? () => _deleteSelectedExchanges(context, ref)
-                          : null,
-                  icon: Icons.delete_outline,
-                  label: '선택 삭제',
-                  tooltip: '선택한 교체 건만 삭제합니다. 되돌리기로 1건씩 복원할 수 있습니다.',
-                  backgroundColor: Colors.red.shade50,
-                  foregroundColor: Colors.red.shade700,
-                  borderColor: Colors.red.shade300,
-                  height: buttonHeight,
-                  fontSize: ContentToolbarLayout.buttonFontSize,
-                  iconSize: ContentToolbarLayout.buttonIconSize,
-                ),
-                const SizedBox(width: ContentToolbarLayout.buttonGap),
-                CompactToolbarLabelButton(
-                  onPressed:
-                      canUndo ? () => _runHistoryUndo(context, ref) : null,
-                  icon: Icons.undo,
-                  label: '되돌리기',
-                  tooltip: canUndo ? '되돌리기 (교체와 동일)' : '되돌리기 (불가)',
-                  backgroundColor: Colors.orange.shade100,
-                  foregroundColor: Colors.orange.shade700,
-                  borderColor: Colors.orange.shade300,
-                  height: buttonHeight,
-                  fontSize: ContentToolbarLayout.buttonFontSize,
-                  iconSize: ContentToolbarLayout.buttonIconSize,
-                ),
-                const SizedBox(width: ContentToolbarLayout.buttonGap),
-                CompactToolbarLabelButton(
-                  onPressed:
-                      canRedo ? () => _runHistoryRedo(context, ref) : null,
-                  icon: Icons.redo,
-                  label: '다시실행',
-                  tooltip: canRedo ? '다시 실행 (교체와 동일)' : '다시 실행 (불가)',
-                  backgroundColor: Colors.purple.shade100,
-                  foregroundColor: Colors.purple.shade700,
-                  borderColor: Colors.purple.shade300,
-                  height: buttonHeight,
-                  fontSize: ContentToolbarLayout.buttonFontSize,
-                  iconSize: ContentToolbarLayout.buttonIconSize,
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: ContentToolbarLayout.buttonGap),
-        // 오른쪽: 엑셀 복사 → 결보강 출력(맨 끝)
-        CompactToolbarLabelButton(
-          onPressed: () => _copyTableToClipboard(context, ref),
-          icon: Icons.copy,
-          label: '엑셀서식 복사',
-          tooltip: '엑셀서식 복사',
-          backgroundColor: ContentToolbarLayout.neutralButtonBackground(tokens),
-          foregroundColor: ContentToolbarLayout.neutralButtonForeground(tokens),
-          borderColor: ContentToolbarLayout.neutralButtonBorder(tokens),
-          height: buttonHeight,
-          fontSize: ContentToolbarLayout.buttonFontSize,
-          iconSize: ContentToolbarLayout.buttonIconSize,
-        ),
-        const SizedBox(width: ContentToolbarLayout.buttonGap),
-        CompactToolbarLabelButton(
-          onPressed: () async {
-            // 체크 상태가 디스크에 반영된 뒤 이동 (미리보기와 선택 일치 보장)
-            await _persistSelectionToCurrentPlan();
-            if (!context.mounted) return;
-            navigateToPlanSubstitutionOutput(ref);
-          },
-          icon: Icons.print,
-          label: '결보강 출력',
-          tooltip: '체크한 교체 건만 결보강 출력에서 PDF 미리보기·인쇄',
-          backgroundColor: Colors.purple.shade50,
-          foregroundColor: Colors.purple.shade600,
-          borderColor: Colors.purple.shade600,
-          height: buttonHeight,
-          fontSize: ContentToolbarLayout.buttonFontSize,
-          iconSize: ContentToolbarLayout.buttonIconSize,
-        ),
-      ],
+    return PlanGridActionToolbar(
+      allSelected: allSelected,
+      hasAnyGroup: allIds.isNotEmpty,
+      hasSelection: hasSelection,
+      canUndo: canUndo,
+      canRedo: canRedo,
+      onRefresh: () async {
+        await viewModel.loadPlanData();
+        if (!context.mounted) return;
+        final currentPlanData = ref.read(
+          substitutionPlanViewModelProvider.select((s) => s.planData),
+        );
+        ContentInputGridDebugger.printTable(currentPlanData);
+        SnackBarHelper.showInfo(context, '표를 새로고침했습니다.');
+      },
+      onToggleSelectAll: () => _toggleSelectAll(planData),
+      onDeleteSelected: () => _deleteSelectedExchanges(context, ref),
+      onUndo: () => _runHistoryUndo(context, ref),
+      onRedo: () => _runHistoryRedo(context, ref),
+      onCopyTable: () => _copyTableToClipboard(context, ref),
+      onPrint: () async {
+        // 체크 상태가 디스크에 반영된 뒤 이동 (미리보기와 선택 일치 보장)
+        await _persistSelectionToCurrentPlan();
+        if (!context.mounted) return;
+        navigateToPlanSubstitutionOutput(ref);
+      },
     );
   }
 
@@ -783,419 +682,30 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     SubstitutionPlanViewModel viewModel,
   ) {
     if (isLoading) {
-      return _buildLoadingIndicator();
+      return const PlanGridLoadingIndicator();
     }
 
     if (planData.isEmpty) {
-      return _buildEmptyState();
+      return const PlanGridEmptyState();
     }
 
-    final dataSource = SubstitutionPlanDataSource(
-      planData,
-      onDateCellTap:
-          (exchangeId, columnName) => _showDatePicker(
-            context,
-            ref,
-            viewModel,
-            exchangeId,
-            columnName,
-            planData,
-          ),
-      onSupplementSubjectTap:
-          (exchangeId) => _showSubjectPickerDialog(
-            context,
-            ref,
-            viewModel,
-            exchangeId,
-            planData,
-          ),
-      isSelected: (groupId) => _checkedGroupIds.contains(groupId),
-      onToggleSelect: _toggleGroupSelection,
-      profileOptions: _profileOptionsForTeacher,
+    return PlanGridDataTable(
+      planData: planData,
+      viewModel: viewModel,
+      isGroupSelected: (groupId) => _checkedGroupIds.contains(groupId),
+      onToggleGroupSelection: _toggleGroupSelection,
+      profileOptionsForTeacher: _profileOptionsForTeacher,
       onCreateProfile: _createProfileForRow,
-      selectedProfileId: _selectedProfileIdForGroup,
+      selectedProfileIdForGroup: _selectedProfileIdForGroup,
       onProfileChanged: _onGroupProfileChanged,
-      groupWeeks: _buildGroupWeeks(ref),
-    );
-
-    return Expanded(
-      child: wrapWithDragScroll(
-        SfDataGrid(
-          source: dataSource,
-          columns: ContentInputGridConfig.getColumns(context.tokens),
-          stackedHeaderRows: ContentInputGridConfig.getStackedHeaders(
-            context.tokens,
-          ),
-          allowColumnsResizing: true,
-          columnResizeMode: ColumnResizeMode.onResize,
-          gridLinesVisibility: GridLinesVisibility.both,
-          // 헤더 가로선은 컬럼 Container 테두리로만 표시 (비고 1·2행 사이 선 제거)
-          headerGridLinesVisibility: GridLinesVisibility.vertical,
-          selectionMode: SelectionMode.single,
-          headerRowHeight: ContentInputGridConfig.headerRowHeight,
-          rowHeight: 28,
-          allowEditing: false,
-          // 주차 그룹핑 (§10.8 6단계) — 캡션에는 _weekKey 값(원본 문자열)만 전달
-          allowExpandCollapseGroup: true,
-          groupCaptionTitleFormat: '{Key}',
-          // 교체 관리 시간표와 동일한 스크롤 컨트롤러 적용 (공통 믹신 사용)
-          horizontalScrollController: horizontalScrollController,
-          verticalScrollController: verticalScrollController,
-        ),
-      ),
-    );
-  }
-
-  /// 교체 건(groupId) → 소속 주(週)의 월요일. 그 주 안에서 반복 조회하지
-  /// 않도록 그리드 빌드 시점에 한 번만 만든다.
-  Map<String, DateTime> _buildGroupWeeks(WidgetRef ref) {
-    final history = ref.read(exchangeHistoryServiceProvider).getExchangeList();
-    return {for (final item in history) item.id: item.weekMonday};
-  }
-
-  Widget _buildLoadingIndicator() {
-    return Expanded(
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: context.tokens.cardBorder),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: const Center(child: CircularProgressIndicator()),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Expanded(
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: context.tokens.cardBorder),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: const Padding(
-          padding: EdgeInsets.all(16.0),
-          child: EmptyStateMessage(
-            icon: Icons.description_outlined,
-            iconSize: 50,
-            message: '교체 기록이 없습니다',
-            messageFontSize: 18,
-            messageFontWeight: FontWeight.w500,
-            subMessage: '교체를 실행하면 여기에 기록이 표시됩니다',
-            expand: false,
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// 과목 선택 다이얼로그 표시
-  Future<void> _showSubjectPickerDialog(
-    BuildContext context,
-    WidgetRef ref,
-    SubstitutionPlanViewModel viewModel,
-    String exchangeId,
-    List<SubstitutionPlanData> planData,
-  ) async {
-    // 1) 행 데이터에서 교사명 결정 (보강교사 우선, 없으면 원래 교사)
-    final SubstitutionPlanData rowData = planData.firstWhere(
-      (d) => d.exchangeId == exchangeId,
-      orElse:
-          () => SubstitutionPlanData(
-            exchangeId: '',
-            absenceDate: '',
-            absenceDay: '',
-            period: '',
-            grade: '',
-            className: '',
-            subject: '',
-            teacher: '',
-            supplementSubject: '',
-            supplementTeacher: '',
-            substitutionDate: '',
-            substitutionDay: '',
-            substitutionPeriod: '',
-            substitutionSubject: '',
-            substitutionTeacher: '',
-            remarks: '',
-          ),
-    );
-
-    if (rowData.exchangeId.isEmpty) {
-      SnackBarHelper.showInfo(context, '행 정보를 찾을 수 없습니다.');
-      return;
-    }
-
-    final String teacherName =
-        (rowData.supplementTeacher.isNotEmpty)
-            ? rowData.supplementTeacher
-            : rowData.teacher;
-
-    if (teacherName.isEmpty) {
-      SnackBarHelper.showInfo(context, '교사 정보를 찾을 수 없습니다.');
-      return;
-    }
-
-    // 2) 전역 시간표에서 해당 교사가 실제로 가르친 과목 목록 추출
-    final timetableData = ref.read(exchangeScreenProvider).timetableData;
-    if (timetableData == null) {
-      SnackBarHelper.showInfo(context, '시간표 데이터가 없어 과목을 불러올 수 없습니다.');
-      return;
-    }
-
-    final Set<String> subjectSet = <String>{};
-    for (final slot in timetableData.timeSlots) {
-      if (slot.teacher == teacherName &&
-          (slot.subject != null) &&
-          slot.subject!.trim().isNotEmpty) {
-        subjectSet.add(slot.subject!.trim());
-      }
-    }
-
-    final List<String> subjects = subjectSet.toList()..sort();
-
-    if (subjects.isEmpty) {
-      SnackBarHelper.showInfo(context, '교사 "$teacherName"의 과목 정보를 찾지 못했습니다.');
-      return;
-    }
-
-    final selected = await showDialog<String>(
-      context: context,
-      builder: (ctx) {
-        String customInput = '';
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: Text('보강 과목 선택 - $teacherName'),
-              content: SizedBox(
-                width: 380,
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      ...subjects.map(
-                        (s) => ListTile(
-                          title: Text(s),
-                          onTap: () => Navigator.of(ctx).pop(s),
-                        ),
-                      ),
-                      const Divider(),
-                      const Text('직접 입력'),
-                      const SizedBox(height: 8),
-                      TextField(
-                        decoration: const InputDecoration(
-                          hintText: '과목명을 입력하세요',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                        onChanged: (v) => setState(() => customInput = v),
-                        onSubmitted: (v) {
-                          final t = v.trim();
-                          if (t.isNotEmpty) Navigator.of(ctx).pop(t);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('취소'),
-                ),
-                TextButton(
-                  onPressed:
-                      customInput.trim().isEmpty
-                          ? null
-                          : () => Navigator.of(ctx).pop(customInput.trim()),
-                  child: const Text('입력 적용'),
-                ),
-              ],
-            );
-          },
-        );
+      onAbsenceDateSelected: (date, planData) async {
+        if (!mounted) return;
+        await _renameSelectedPlanToAbsenceDate(date, planData);
       },
+      horizontalScrollController: horizontalScrollController,
+      verticalScrollController: verticalScrollController,
+      wrapWithDragScroll: wrapWithDragScroll,
     );
-
-    if (selected != null && selected.isNotEmpty) {
-      if (!context.mounted) return;
-      viewModel.updateSupplementSubject(exchangeId, selected);
-      SnackBarHelper.showInfo(context, '보강 과목이 "$selected"(으)로 설정되었습니다.');
-    }
-  }
-
-  Future<void> _showDatePicker(
-    BuildContext context,
-    WidgetRef ref,
-    SubstitutionPlanViewModel viewModel,
-    String exchangeId,
-    String columnName,
-    List<SubstitutionPlanData> planData,
-  ) async {
-    AppLogger.exchangeDebug(
-      '날짜 선택 시작 - exchangeId: $exchangeId, columnName: $columnName',
-    );
-
-    // 해당 데이터 찾기
-    try {
-      final data = planData.firstWhere((d) => d.exchangeId == exchangeId);
-      AppLogger.exchangeDebug('데이터 찾기 성공');
-
-      // 요일 정보 추출
-      final targetWeekday =
-          columnName == 'absenceDate' ? data.absenceDay : data.substitutionDay;
-      AppLogger.exchangeDebug('대상 요일: $targetWeekday');
-
-      // 이미 입력된 날짜가 있으면 달력 기본값으로 사용 (없으면 오늘)
-      final rawDate =
-          columnName == 'absenceDate'
-              ? data.absenceDate
-              : data.substitutionDate;
-      final initialDate =
-          DateFormatUtils.parseYearMonthDay(
-            DateFormatUtils.normalizePlanDate(rawDate),
-          ) ??
-          DateTime.now();
-
-      // 요일 제한이 생기기 전(빈 문자열)이면 대상 요일이 없다는 뜻 — 오늘
-      // 요일 이름으로 보여줄 것이 없으므로 초기 날짜의 요일명을 그대로 쓴다.
-      final effectiveWeekday =
-          targetWeekday.isNotEmpty
-              ? targetWeekday
-              : DayUtils.getDayName(initialDate.weekday);
-
-      final isAbsence = columnName == 'absenceDate';
-      final periodLabel = isAbsence ? data.period : data.substitutionPeriod;
-      final subjectLabel = isAbsence ? data.subject : data.substitutionSubject;
-      final teacherLabel = isAbsence ? data.teacher : data.substitutionTeacher;
-      final classLabel = '${data.grade}-${data.className}';
-
-      // 날짜 선택기 표시 (계획서 전용 팝업 — 요일·교시·학급·과목·교사 표시)
-      final selectedDate = await showPlanDatePickerDialog(
-        context,
-        initialDate: initialDate,
-        currentWeekMonday: ref.read(selectedWeekProvider),
-        targetWeekday: effectiveWeekday,
-        periodLabel: periodLabel,
-        classLabel: classLabel,
-        subjectLabel: subjectLabel,
-        teacherLabel: teacherLabel,
-      );
-
-      AppLogger.exchangeDebug('선택 결과: $selectedDate');
-
-      if (selectedDate != null) {
-        if (targetWeekday.isNotEmpty &&
-            !_isTargetWeekday(selectedDate, targetWeekday)) {
-          AppLogger.warning(
-            '요일 불일치 - 선택: ${selectedDate.weekday}, 대상: $targetWeekday',
-          );
-          if (context.mounted) {
-            SnackBarHelper.showError(
-              context,
-              '$targetWeekday요일이 아닌 날짜는 선택할 수 없습니다.',
-            );
-          }
-          return;
-        }
-
-        // §10.10: 날짜는 ExchangeHistoryItem에 직접 반영한다 (savedDates 제거).
-        if (!context.mounted) return;
-        final saved = await _applyDateSelection(
-          context,
-          data,
-          columnName,
-          selectedDate,
-        );
-        if (!saved) return;
-
-        // 결강일 선택 → 현재 계획서 이름을 "결보강 YY.MM.DD"로 (여러 건이면 마지막 선택이 기준)
-        if (columnName == 'absenceDate' && mounted) {
-          await _renameSelectedPlanToAbsenceDate(selectedDate, planData);
-        }
-      } else {
-        AppLogger.exchangeDebug('날짜 선택 취소됨');
-      }
-    } catch (e) {
-      AppLogger.error('날짜 선택 중 오류 발생', e);
-      if (context.mounted) {
-        SnackBarHelper.showError(context, '날짜 선택 중 오류가 발생했습니다: $e');
-      }
-    }
-  }
-
-  /// 선택한 날짜를 교체 건(`ExchangeHistoryItem`)에 반영한다 (§10.10).
-  ///
-  /// 2026-09-29 사용자 확정: 다른 주로 옮기는 변경이어도 확인 다이얼로그 없이
-  /// 즉시 저장한다. 과거에는 §10.5 A안에 따라 결강일이 실제로 다른 주로
-  /// 이동할 때만 "다른 주로 이동" 확인을 띄웠으나(교체일 수정 시 불필요하게
-  /// 뜨던 버그는 이미 고쳤었다), 사용자가 그 확인 자체도 없애 달라고 요청했다.
-  ///
-  /// 대상이 순환·2중이면(S5.6.6) 이 행이 가리키는 노드(요일·교시) 하나에만
-  /// 확정 날짜를 저장한다(`updateNodeDate`) — 같은 그룹의 다른 행(다른 노드)은
-  /// 건드리지 않는다. 1:1·보강은 기존 `updateDates`(항목 전체의 결강일/교체일
-  /// 쌍) 그대로다. `updateNodeDate`가 가드에 걸려 null을 반환하면(요일 불일치
-  /// 등) "저장 안 됨"으로 끝내지 않고 기존 경로로 폴백한다.
-  ///
-  /// 반환값: 실제로 저장했으면 true, 실패했으면 false.
-  Future<bool> _applyDateSelection(
-    BuildContext context,
-    SubstitutionPlanData data,
-    String columnName,
-    DateTime selectedDate,
-  ) async {
-    final groupId = data.groupId;
-    if (groupId == null || groupId.isEmpty) {
-      SnackBarHelper.showError(context, '교체 건을 찾을 수 없어 날짜를 저장하지 못했습니다.');
-      return false;
-    }
-
-    final historyService = ref.read(exchangeHistoryServiceProvider);
-    final item = historyService.getExchangeItem(groupId);
-    if (item == null) {
-      SnackBarHelper.showError(context, '교체 건을 찾을 수 없어 날짜를 저장하지 못했습니다.');
-      return false;
-    }
-
-    if (item.supportsNodeDates) {
-      final dayName =
-          columnName == 'absenceDate' ? data.absenceDay : data.substitutionDay;
-      final periodStr =
-          columnName == 'absenceDate' ? data.period : data.substitutionPeriod;
-      final period = int.tryParse(periodStr);
-      if (dayName.isNotEmpty && period != null) {
-        final saved = historyService.updateNodeDate(
-          groupId,
-          dayName: dayName,
-          period: period,
-          date: selectedDate,
-        );
-        if (saved != null) {
-          AppLogger.exchangeInfo(
-            '노드 날짜 업데이트: $groupId, $dayName|$period → ${DateFormatUtils.toYearMonthDay(selectedDate)}',
-          );
-          return true;
-        }
-        // 가드에 걸렸다(요일 불일치 등) — 아래 기존 경로로 폴백한다. 이론상
-        // 발생하지 않아야 한다(달력이 이미 이 행의 요일만 고를 수 있게
-        // 강제한다) — 발생하면 노드별 정밀도 없이 항목 전체 날짜로만
-        // 저장되어 다른 노드와 격차가 생길 수 있으므로 진단용으로 남긴다.
-        AppLogger.warning('노드 날짜 저장 실패 → 항목 전체 날짜로 폴백(격차 발생 가능): $groupId');
-      }
-    }
-
-    historyService.updateDates(
-      groupId,
-      absenceDate: columnName == 'absenceDate' ? selectedDate : null,
-      substitutionDate: columnName == 'substitutionDate' ? selectedDate : null,
-    );
-    AppLogger.exchangeInfo(
-      '날짜 업데이트: $groupId.$columnName → ${DateFormatUtils.toYearMonthDay(selectedDate)}',
-    );
-    return true;
-  }
-
-  bool _isTargetWeekday(DateTime date, String targetWeekday) {
-    return ContentInputGridPlanOps.isTargetWeekday(date, targetWeekday);
   }
 
   /// 테이블 데이터를 엑셀 형식으로 클립보드에 복사

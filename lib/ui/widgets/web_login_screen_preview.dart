@@ -2,8 +2,6 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
-import '../../constants/app_assets.dart';
-import '../../constants/app_info.dart';
 import '../../models/web_login_branding.dart';
 import 'web_login_branding_block.dart';
 
@@ -26,36 +24,10 @@ class WebLoginScreenPreview extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Center(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: Image.asset(
-              AppAssets.appIcon,
-              width: 96,
-              height: 96,
-              fit: BoxFit.cover,
-              errorBuilder:
-                  (_, _, _) => const Icon(
-                    Icons.swap_horiz_rounded,
-                    size: 72,
-                    color: Colors.teal,
-                  ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-        const Center(
-          child: Text(
-            AppInfo.programName,
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Center(
-          child: Text(
-            'Version : ${AppInfo.versionLabel}',
-            style: const TextStyle(fontSize: 12, color: Colors.grey),
-          ),
+        WebLoginIdentityHeader(
+          branding: branding,
+          localLogoBytes: localLogoBytes,
+          compact: true,
         ),
         const SizedBox(height: 20),
         WebLoginBrandingBlock(

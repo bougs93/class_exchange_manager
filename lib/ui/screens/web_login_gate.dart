@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/firebase_app_config.dart';
-import '../../constants/app_info.dart';
 import '../../models/web_login_branding.dart';
 import '../../providers/timetable_repository_provider.dart';
 import '../../providers/timetable_registry_provider.dart';
@@ -428,48 +427,13 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
       children: [
         _formWidth(
           formMaxWidth,
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
-                  child: Image.asset(
-                    'lib/assets/images/app_icon.png',
-                    width: 96,
-                    height: 96,
-                    fit: BoxFit.cover,
-                    errorBuilder:
-                        (_, _, _) => const Icon(
-                          Icons.swap_horiz_rounded,
-                          size: 72,
-                          color: Colors.teal,
-                        ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Center(
-                child: Text(
-                  AppInfo.programName,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Center(
-                child: Text(
-                  'Version : ${AppInfo.versionLabel}',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ),
-            ],
+          WebLoginIdentityHeader(
+            branding: _branding,
+            localLogoBytes: _logoBytes,
           ),
         ),
         const SizedBox(height: 20),
+        // 제목·안내 박스(로고는 헤더에서 프로그램 로고 옆에 표시).
         // 안내 박스만 넓은 부모 폭(폼의 1.26배)을 사용한다.
         WebLoginBrandingBlock(
           branding: _branding,
