@@ -1,17 +1,15 @@
 {
-  // 웹 디버깅용 실행 설정 (F5).
+  // F5. 기기는 상태 표시줄에서 고른 것(Windows, Chrome 등)을 따른다.
   // Firebase·마스터 값을 채워 넣으세요 (GitHub Secrets와 동일한 값).
   // 주의: 실제 키를 넣은 뒤에는 git에 커밋하지 마세요.
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "웹 디버그 (Firebase 연결)",
+      "name": "앱 디버그 (선택한 기기)",
       "request": "launch",
       "type": "dart",
       "program": "lib/main.dart",
-      "args": [
-        "-d",
-        "chrome",
+      "toolArgs": [
         "--dart-define=FIREBASE_API_KEY=AIzaSyDh6yo4vqm8x5e-C7ckRpSuuq2KEup6g_A",
         "--dart-define=FIREBASE_AUTH_DOMAIN=class-swap-helper.firebaseapp.com",
         "--dart-define=FIREBASE_PROJECT_ID=class-swap-helper",

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../theme/design_tokens.dart';
 import 'notice/widgets/class_notice_widget.dart';
 import 'notice/widgets/teacher_notice_widget.dart';
+import '../widgets/plan_context_header_bar.dart';
 import '../widgets/unified_navigation_bar.dart';
 
 /// 안내 화면
@@ -37,15 +38,23 @@ class _NoticeScreenState extends State<NoticeScreen> {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     return Scaffold(
-      body: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: Column(
         children: [
-          _buildSidebar(tokens),
+          // 2번째 줄 헤더 — 사이드바 포함 전체 폭 위에 계획서 칩 표시
+          const PlanContextHeaderBar(),
           Expanded(
-            child: Align(
-              alignment: Alignment.topLeft,
-              widthFactor: 1.0,
-              child: _buildContent(),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildSidebar(tokens),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    widthFactor: 1.0,
+                    child: _buildContent(),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

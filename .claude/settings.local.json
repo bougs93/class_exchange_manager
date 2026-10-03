@@ -75,7 +75,8 @@
       "Skill(claude-api)",
       "Bash(grep -n '^```$' docs/date_based_timetable_handoff.md)",
       "Read(//d//**)",
-      "Bash(xargs grep -l \"Isolate\")"
+      "Bash(xargs grep -l \"Isolate\")",
+      "Bash(tee /tmp/flutter_run.log)"
     ],
     "deny": [],
     "ask": []

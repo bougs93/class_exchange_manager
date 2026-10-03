@@ -6,10 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../../../constants/korean_fonts.dart';
 import 'package:flutter/services.dart';
-import '../../../../constants/screen_usage_hints.dart';
 import '../../../../models/exchange_history_item.dart';
-import '../../../../models/plan_output_menu.dart';
 import '../../../../models/print_profile.dart';
+import '../../../../providers/plan_crud_actions_provider.dart';
 import '../../../../providers/plan_output_menu_provider.dart';
 import '../../../../providers/print_profile_provider.dart';
 import '../../../../providers/selected_week_provider.dart';
@@ -23,7 +22,6 @@ import '../../../../services/batch_pdf_export_service.dart';
 import '../../../../theme/design_tokens.dart';
 import '../../../../ui/screens/personal_schedule_screen/exchange_week_collector.dart';
 import '../../../../ui/widgets/content_toolbar_layout.dart';
-import '../../../../ui/widgets/content_usage_hint_bar.dart';
 import '../../../../ui/widgets/empty_state_message.dart';
 import '../../../../ui/widgets/timetable_grid/exchange_executor.dart';
 import '../../../../ui/widgets/timetable_grid/grid_header_widgets.dart';
@@ -341,9 +339,37 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
 
   @override
   void dispose() {
+    // 2열 헤더 CRUD 버튼 콜백 해제
+    ref.read(planCrudActionsProvider.notifier).state = null;
     // 공통 스크롤 관리 믹신 해제
     disposeScrollControllers();
     super.dispose();
+  }
+
+  /// 2열 헤더용 CRUD 액션을 Provider에 등록한다.
+  void _publishCrudActions(List<SubstitutionPlanData> planData) {
+    final store = ref.read(printProfileStoreProvider);
+    final selectedId = _resolveSelectedPlanId(store, planData);
+    final selectedProfile = store.getById(selectedId);
+    final actions = PlanCrudActions(
+      onCreate: () => unawaited(_createPlanFromFirstRow(planData)),
+      onRename: () {
+        final id = selectedProfile?.id;
+        if (id == null) return;
+        unawaited(_renamePlan(id, planData));
+      },
+      onDelete: () {
+        final id = selectedProfile?.id;
+        if (id == null) return;
+        unawaited(_deletePlan(id));
+      },
+      canCreate: planData.isNotEmpty,
+      canModify: selectedProfile != null,
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(planCrudActionsProvider.notifier).state = actions;
+    });
   }
 
   /// 그룹(교체 건)의 지정 계획서 ID 조회 (삭제된 계획서면 null → 미지정)
@@ -683,151 +709,19 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     }
     _hydrateSelectionFromPlan(store, planData);
 
+    // [새계획][수정][삭제]는 2열 헤더(PlanContextHeaderBar)로 이동
+    _publishCrudActions(planData);
+
     return Container(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ContentUsageHintBar(
-            message: ScreenUsageHints.contentInput,
-            accentColor:
-                context.tokens.monochromeMenuAccents
-                    ? context.tokens.primary
-                    : PlanOutputMenu.contentInput.color,
-          ),
-          ContentToolbarLayout.hintToToolbarSpacer,
-          _buildPlanManagementBar(planData),
-          const SizedBox(height: 8),
           _buildActionButtons(context, ref, viewModel, planData),
           const SizedBox(height: 10),
           _buildDataGrid(context, ref, planData, isLoading, viewModel),
         ],
       ),
-    );
-  }
-
-  Widget _buildPlanManagementBar(List<SubstitutionPlanData> planData) {
-    final store = ref.watch(printProfileStoreProvider);
-    final profiles = store.profiles;
-    final selectedId = _resolveSelectedPlanId(store, planData);
-    final selectedProfile = store.getById(selectedId);
-    final hasSavedPlans = profiles.isNotEmpty;
-
-    return Row(
-      children: [
-        const Text('계획서 이름 :', style: TextStyle(fontSize: 13)),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 190,
-          height: 34,
-          // 항목 0개인 DropdownButtonFormField는 레이아웃 예외를 낼 수 있어
-          // 저장된 계획서가 없을 때는 단순 표시 위젯을 씁니다.
-          child:
-              hasSavedPlans
-                  ? DropdownButtonFormField<String>(
-                    key: ValueKey(
-                      'plan-dd-${selectedId ?? 'none'}-${selectedProfile?.name ?? 'empty'}-${profiles.length}',
-                    ),
-                    initialValue: selectedId,
-                    isDense: true,
-                    isExpanded: true,
-                    style: const TextStyle(fontSize: 13),
-                    decoration: InputDecoration(
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                    ),
-                    items: [
-                      for (final profile in profiles)
-                        DropdownMenuItem<String>(
-                          value: profile.id,
-                          child: Text(
-                            profile.name,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                        ),
-                    ],
-                    onChanged: (id) {
-                      if (id == null) return;
-                      setState(() {
-                        _selectedPlanId = id;
-                        _selectionHydrated = false;
-                      });
-                      _applyPlanToAllRows(id, planData);
-                      unawaited(
-                        ref
-                            .read(printProfileStoreProvider.notifier)
-                            .setLastUsedProfile(id),
-                      );
-                      _hydrateSelectionFromPlan(
-                        ref.read(printProfileStoreProvider),
-                        planData,
-                      );
-                      setState(() {});
-                    },
-                  )
-                  : InputDecorator(
-                    decoration: InputDecoration(
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 8,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                    ),
-                    child: Text(
-                      '계획서 없음',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: context.tokens.textMuted,
-                      ),
-                    ),
-                  ),
-        ),
-        const SizedBox(width: 6),
-        TextButton(
-          onPressed:
-              planData.isEmpty ? null : () => _createPlanFromFirstRow(planData),
-          style: TextButton.styleFrom(
-            minimumSize: const Size(0, 34),
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          child: const Text('새 계획서'),
-        ),
-        TextButton(
-          onPressed:
-              selectedProfile == null
-                  ? null
-                  : () => _renamePlan(selectedProfile.id, planData),
-          style: TextButton.styleFrom(
-            minimumSize: const Size(0, 34),
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          child: const Text('수정'),
-        ),
-        TextButton(
-          onPressed:
-              selectedProfile == null
-                  ? null
-                  : () => _deletePlan(selectedProfile.id),
-          style: TextButton.styleFrom(
-            minimumSize: const Size(0, 34),
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          child: const Text('삭제'),
-        ),
-      ],
     );
   }
 
@@ -854,7 +748,9 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
       }
     }
     unawaited(
-      ref.read(printProfileStoreProvider.notifier).setLastUsedProfile(profileId),
+      ref
+          .read(printProfileStoreProvider.notifier)
+          .setLastUsedProfile(profileId),
     );
     setState(() {});
   }
@@ -935,7 +831,8 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     final confirmed = await DialogHelper.showConfirmDialog(
       context,
       title: '계획서 삭제',
-      message: '선택한 계획서와 여기 연결된 결보강 내역(교체 기록)이 모두 삭제됩니다.\n'
+      message:
+          '선택한 계획서와 여기 연결된 결보강 내역(교체 기록)이 모두 삭제됩니다.\n'
           '이 작업은 되돌릴 수 없습니다. 삭제하시겠습니까?',
       confirmText: '삭제',
       isDangerous: true,
@@ -944,7 +841,9 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     await ref.read(printProfileStoreProvider.notifier).deleteProfile(profileId);
     // 계획서는 특정 결보강 내역 묶음을 대표한다 — 계획서를 지우면 거기
     // 연결된 교체 건도 함께 지워야 결보강 출력·교체 화면과 어긋나지 않는다.
-    ref.read(exchangeHistoryServiceProvider).removeExchangeItemsByProfile(profileId);
+    ref
+        .read(exchangeHistoryServiceProvider)
+        .removeExchangeItemsByProfile(profileId);
     ExchangeExecutor.restoreExchangedCells(ref);
     if (mounted) setState(() => _selectedPlanId = null);
   }
@@ -1028,10 +927,12 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
                 ),
                 const SizedBox(width: ContentToolbarLayout.buttonGap),
                 CompactToolbarLabelButton(
-                  onPressed: () => _clearAllSupplementSubjects(context, viewModel),
+                  onPressed:
+                      () => _clearAllSupplementSubjects(context, viewModel),
                   icon: Icons.clear,
                   label: '보강 과목 초기화',
-                  tooltip: '선택한 보강 과목을 모두 초기화 (결강일·교체일은 교체 실행 시 자동 확정되어 초기화 대상이 아님)',
+                  tooltip:
+                      '선택한 보강 과목을 모두 초기화 (결강일·교체일은 교체 실행 시 자동 확정되어 초기화 대상이 아님)',
                   backgroundColor: ContentToolbarLayout.neutralButtonBackground(
                     tokens,
                   ),
@@ -1677,8 +1578,10 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     }
 
     if (item.supportsNodeDates) {
-      final dayName = columnName == 'absenceDate' ? data.absenceDay : data.substitutionDay;
-      final periodStr = columnName == 'absenceDate' ? data.period : data.substitutionPeriod;
+      final dayName =
+          columnName == 'absenceDate' ? data.absenceDay : data.substitutionDay;
+      final periodStr =
+          columnName == 'absenceDate' ? data.period : data.substitutionPeriod;
       final period = int.tryParse(periodStr);
       if (dayName.isNotEmpty && period != null) {
         final saved = historyService.updateNodeDate(

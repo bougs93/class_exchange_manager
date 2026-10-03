@@ -109,8 +109,34 @@ class SubstitutionOutputWidgetState
   /// 현재 선택 교사 (null이면 교사 선택 전)
   String? _selectedTeacher;
 
-  /// 현재 선택 계획서 ID (null이면 미지정 → 레거시 양식 설정 사용)
-  String? _selectedProfileId;
+  /// 현재 선택 계획서 ID — 전역(`PrintProfileStore.lastUsedProfileId`)을
+  /// 그대로 읽는다.
+  ///
+  /// 결보강 출력은 별도 로컬 선택을 유지하지 않는다. 교체 화면의 공용 행·
+  /// 내용 수정과 같은 값을 바라보므로, 어느 화면에서 바꿔도 모두 적용된다.
+  /// 현재 보고 있는 교사의 소속이 아니면 해당 화면에서는 미지정(null)으로
+  /// 보인다 (교사 드롭다운과 계획서 드롭다운의 정합성 유지).
+  String? get _selectedProfileId {
+    final store = ref.read(printProfileStoreProvider);
+    final id = store.lastUsedProfileId;
+    final profile = id == null ? null : store.getById(id);
+    if (profile == null) return null;
+    final teacher = _selectedTeacher;
+    if (teacher != null &&
+        profile.teacherName.trim().isNotEmpty &&
+        !store.byTeacher(teacher).any((p) => p.id == id)) {
+      return null;
+    }
+    return id;
+  }
+
+  /// 화면 입력값이 실제로 반영하고 있는 계획서 ID.
+  ///
+  /// 저장(자동 저장 포함)은 항상 이 ID를 대상으로 한다 — 선택이 바뀌는
+  /// 순간과 저장 타이밍이 어긋나도 다른 계획서에 덮어쓰지 않기 위함.
+  /// [_applyProfileToUi]에서 계획서를 적용할 때 갱신하고,
+  /// [_loadSavedSettings]에서 레거시 표시로 돌아갈 때 null로 비운다.
+  String? _appliedProfileId;
 
   /// 계획서 설정에 반영되는 입력 컨트롤러 목록 (자동 저장 감지용)
   List<TextEditingController> get _profileFieldControllers => [
@@ -148,6 +174,9 @@ class SubstitutionOutputWidgetState
     if (!mounted) return;
     await _saveCurrentSettings();
   }
+
+  /// 공용 선택 따라가기 실행 번호 (연속 변경 시 이전 실행 무시용).
+  int _followRunId = 0;
 
   /// 준비 화면 교사 변경 구독 (build의 ref.listen은 재빌드 타이밍에 끊길 수 있음)
   ProviderSubscription<String>? _prepareTeacherSubscription;
@@ -261,9 +290,13 @@ class SubstitutionOutputWidgetState
     if (!mounted) return;
 
     try {
-      // 계획서가 선택된 경우: 계획서에 저장
+      // 화면이 실제로 보여주는 계획서에 저장 (선택 변경과 저장 타이밍이
+      // 어긋나도 다른 계획서에 덮어쓰지 않는다).
       final store = ref.read(printProfileStoreProvider);
-      final selected = store.getById(_selectedProfileId);
+      final selected =
+          _appliedProfileId == null
+              ? null
+              : store.getById(_appliedProfileId);
       if (selected != null) {
         final success = await ref
             .read(printProfileStoreProvider.notifier)
@@ -393,6 +426,8 @@ class SubstitutionOutputWidgetState
   /// 매개변수:
   /// - `templateIndex`: 로드할 양식 인덱스 (기본값: 현재 선택된 양식)
   Future<void> _loadSavedSettings({int? templateIndex}) async {
+    // 레거시 양식 표시로 돌아가므로 적용 중 계획서는 없다.
+    _appliedProfileId = null;
     try {
       // 지정된 양식 인덱스가 없으면 현재 선택된 양식 사용
       final targetIndex = templateIndex ?? _selectedTemplateIndex;
@@ -722,19 +757,20 @@ class SubstitutionOutputWidgetState
           (lastUsed != null && profiles.any((p) => p.id == lastUsed.id))
               ? lastUsed
               : profiles.first;
-      _selectedProfileId = selected.id;
       _applyProfileToUi(selected);
+      // 공용 선택에 반영 (이미 같은 값이면 저장소가 생략한다)
+      await ref
+          .read(printProfileStoreProvider.notifier)
+          .setLastUsedProfile(selected.id);
       // 결강교사 = 준비 화면(또는 선택) 교사로 맞춤
       if (mounted && teacher != null) {
-        _autoSaveSuspended = true;
         _teacherNameController.text = teacher;
-        _autoSaveSuspended = false;
         setState(() {});
       }
       AppLogger.info("계획서 복원: 교사=$teacher, 계획서='${selected.name}'");
     } else {
       // 선택 교사의 계획서가 없으면 미지정 → 레거시 양식 설정 로드
-      _selectedProfileId = null;
+      // (공용 선택은 그대로 둔다 — 다른 교사의 계획서일 수 있다)
       await _loadLastSelectedTemplateIndex();
       // 결강교사 입력란도 준비 화면 교사로 채움
       if (mounted && teacher != null) {
@@ -794,13 +830,16 @@ class SubstitutionOutputWidgetState
   Future<void> _reinitAfterTimetableSwitch() async {
     if (!mounted) return;
     _selectedTeacher = null;
-    _selectedProfileId = null;
     await _initializeProfileFlow();
   }
 
   /// 계획서 설정 → 화면 UI 적용
+  ///
+  /// 호출 후에는 화면 입력값이 [profile]을 반영하므로
+  /// [_appliedProfileId]도 함께 갱신한다.
   void _applyProfileToUi(PrintProfile profile) {
     if (!mounted) return;
+    _appliedProfileId = profile.id;
 
     // 폰트 유효성 검사
     final availableFonts =
@@ -929,7 +968,6 @@ class SubstitutionOutputWidgetState
 
     setState(() {
       _selectedTeacher = teacher;
-      _selectedProfileId = preferred?.id;
       if (syncAbsenceTeacherField) {
         // 추가 필드 입력 > 결강교사
         _teacherNameController.text = teacher;
@@ -948,6 +986,11 @@ class SubstitutionOutputWidgetState
 
     if (preferred != null) {
       _applyProfileToUi(preferred);
+      // 공용 선택에 반영 (적용 후 기록해야 follow 리스너가 건너뛴다.
+      // 이미 같은 값이면 저장소가 생략한다)
+      await ref
+          .read(printProfileStoreProvider.notifier)
+          .setLastUsedProfile(preferred.id);
       // 계획서 additionalFields의 옛 결강교사가 덮어쓸 수 있으므로 항상 재적용
       if (syncAbsenceTeacherField) {
         setState(() => _teacherNameController.text = teacher);
@@ -977,10 +1020,9 @@ class SubstitutionOutputWidgetState
     final store = ref.read(printProfileStoreProvider);
     final profile = store.getById(profileId);
 
-    setState(() => _selectedProfileId = profile?.id);
-
     if (profile != null) {
       _applyProfileToUi(profile);
+      // 공용 선택에 반영 (이미 같은 값이면 저장소가 생략한다)
       await ref
           .read(printProfileStoreProvider.notifier)
           .setLastUsedProfile(profile.id);
@@ -1036,17 +1078,37 @@ class SubstitutionOutputWidgetState
     // 시간표 데이터 변경 감지 → 교사 드롭다운 갱신 (select로 재빌드 최소화)
     ref.watch(exchangeScreenProvider.select((state) => state.timetableData));
 
-    // 다른 화면(내용 수정)에서 지금 선택 중인 계획서를 삭제한 경우 —
-    // 드롭다운 표시는 store.getById가 null을 반환해 이미 안전하게
-    // "미지정"으로 보이지만, _selectedProfileId 필드 자체는 그대로 남아
-    // PDF 출력 가능 여부(canPrint) 판정이 죽은 ID를 기준으로 계속 true가
-    // 되는 문제가 있었다 — 여기서 직접 정리한다.
-    ref.listen<PrintProfileStore>(printProfileStoreProvider, (previous, next) {
-      if (_selectedProfileId != null &&
-          next.getById(_selectedProfileId) == null) {
-        setState(() => _selectedProfileId = null);
-        _loadSavedSettings();
+    // 다른 화면(교체 공용 행·내용 수정)에서 계획서 선택이 바뀌면 이 화면도
+    // 따라간다 (공용 선택). 먼저 현재 입력 내용을 적용 중인 계획서에
+    // 저장한 뒤 새 계획을 적용하므로 입력 유실이 없다.
+    // 선택 getter가 전역을 직접 읽으므로, 삭제된 계획서는 자동으로
+    // 미지정으로 보인다 (별도 정리 불필요).
+    ref.listen<String?>(printProfileStoreProvider.select((s) {
+      final id = s.lastUsedProfileId;
+      return s.getById(id)?.id;
+    }), (previous, next) async {
+      if (previous == next) return;
+      final runId = ++_followRunId;
+      await _flushAutoSave();
+      if (!mounted || runId != _followRunId) return;
+      // 자신이 바꾼 값이면 이미 적용돼 있으므로 건너뛴다.
+      if (next == _appliedProfileId) return;
+      final store = ref.read(printProfileStoreProvider);
+      final profile = store.getById(next);
+      if (profile == null) {
+        await _loadSavedSettings();
+        return;
       }
+      // 다른 교사 소속이어도 따라가되, 교사 드롭다운을 함께 맞춘다.
+      final teacherName = profile.teacherName.trim();
+      if (teacherName.isNotEmpty &&
+          teacherName != _selectedTeacher &&
+          _availableTeachers().contains(teacherName)) {
+        setState(() => _selectedTeacher = teacherName);
+      }
+      if (!mounted || runId != _followRunId) return;
+      _applyProfileToUi(profile);
+      updateAbsencePeriod();
     });
 
     // build는 PlanOutputScreen의 TabController 리스너에서 호출되는 updateAbsencePeriod()로 처리
@@ -1584,7 +1646,6 @@ class SubstitutionOutputWidgetState
       if (mounted && _availableTeachers().contains(toSelect.teacherName)) {
         setState(() {
           _selectedTeacher = toSelect.teacherName;
-          _selectedProfileId = toSelect.id;
         });
         _applyProfileToUi(toSelect);
         updateAbsencePeriod();
@@ -1670,7 +1731,6 @@ class SubstitutionOutputWidgetState
           .removeExchangeItemsByProfile(profile.id);
       ExchangeExecutor.restoreExchangedCells(ref);
 
-      setState(() => _selectedProfileId = null);
       await _loadSavedSettings();
       if (mounted) {
         SnackBarHelper.showSuccess(context, "'${profile.name}' 계획서를 삭제했습니다.");

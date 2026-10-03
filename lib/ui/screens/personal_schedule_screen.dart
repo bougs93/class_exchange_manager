@@ -19,6 +19,7 @@ import '../../providers/zoom_provider.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/simplified_timetable_theme.dart';
 import '../widgets/cell_status_legend_item.dart';
+import '../widgets/plan_selector_chip.dart';
 import '../widgets/exchanged_cell_status_overlay.dart';
 import 'personal_schedule_screen/teacher_selection_dialog.dart';
 import 'personal_schedule_screen/teacher_card_grid_view.dart';
@@ -395,6 +396,12 @@ class _PersonalScheduleScreenState
             return Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                // 계획서 선택 칩 — 계획서·안내 화면과 동일한 공통 헤더 요소.
+                // 좁은 창에서는 날짜 범위와 함께 숨겨 기존 요소들의 overflow를 막는다.
+                if (showDateRange) ...[
+                  const PlanSelectorChip(),
+                  const ToolbarGroupDivider(),
+                ],
                 // 교사 선택 버튼 (아이콘 + 교사명, 검색 기능 유지)
                 InkWell(
                   onTap: _showTeacherSelectionDialog,

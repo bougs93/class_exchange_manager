@@ -131,7 +131,7 @@ class ExchangeWeekBar extends ConsumerWidget {
       child: Row(
         children: [
           // 계획서 선택 — 결보강 작성의 기준
-          const PlanSelectorChip(width: 200),
+          const PlanSelectorChip(),
           const ToolbarGroupDivider(),
           // 날짜·교체 반영 버튼 (스위치 대신)
           ..._buildDateAndExchangeSwitches(context, ref, theme, showWeekHeader),
@@ -331,7 +331,7 @@ class ExchangeWeekBar extends ConsumerWidget {
       icon: icon,
       label: label,
       tooltip: tooltip,
-      height: 30,
+      height: 34,
       fontSize: 12,
       iconSize: 16,
       backgroundColor:

@@ -5,6 +5,7 @@ import '../../models/plan_output_menu.dart';
 import '../../providers/navigation_provider.dart';
 import '../../providers/plan_output_menu_provider.dart';
 import '../../theme/design_tokens.dart';
+import '../../ui/widgets/plan_context_header_bar.dart';
 import '../../ui/widgets/unified_navigation_bar.dart';
 import '../../utils/logger.dart';
 import 'plan_output/widgets/content_input_grid.dart';
@@ -101,19 +102,27 @@ class _PlanOutputScreenState extends ConsumerState<PlanOutputScreen> {
 
     return Scaffold(
       // AppBar 제거 - StartScreen의 공통 AppBar 사용
-      body: Row(
-        // 세로 전체 높이 사용 + 각 영역 내용은 상단 정렬 (출력 탭 > 출력 메뉴)
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: Column(
         children: [
-          // 왼쪽 사이드바
-          _buildSidebar(context, selectedMenu),
-
-          // 오른쪽 컨텐츠 영역 (상단부터 표시)
+          // 2번째 줄 헤더 — 계획서 칩 + [새계획][수정][삭제]
+          const PlanContextHeaderBar(showPlanCrud: true),
           Expanded(
-            child: Align(
-              alignment: Alignment.topLeft,
-              widthFactor: 1.0,
-              child: _buildContent(selectedMenu),
+            child: Row(
+              // 세로 전체 높이 사용 + 각 영역 내용은 상단 정렬 (출력 탭 > 출력 메뉴)
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 왼쪽 사이드바
+                _buildSidebar(context, selectedMenu),
+
+                // 오른쪽 컨텐츠 영역 (상단부터 표시)
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    widthFactor: 1.0,
+                    child: _buildContent(selectedMenu),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
