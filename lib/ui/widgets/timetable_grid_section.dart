@@ -12,7 +12,6 @@ import '../../providers/cell_selection_provider.dart';
 import '../../models/exchange_mode.dart';
 import '../../utils/timetable_data_source.dart';
 import '../../utils/snackbar_helper.dart';
-import 'timetable_grid/grid_column_locator.dart';
 import '../../utils/day_utils.dart';
 import 'timetable_grid/arrow_state_manager.dart';
 import '../../utils/logger.dart';
@@ -39,42 +38,11 @@ import 'timetable_grid/overlay_date_chip_painter.dart';
 import 'timetable_grid/exchange_executor.dart';
 import 'timetable_grid/grid_header_widgets.dart';
 import 'timetable_grid/grid_scaling_helper.dart';
+import 'timetable_grid/grid_scroll_controller_helper.dart';
 import 'exchange_control_panel.dart';
 import '../mixins/scroll_management_mixin.dart';
 
-/// 교체된 셀의 원본 정보를 저장하는 클래스
-/// 복원에 필요한 최소한의 정보만 포함
-class ExchangeBackupInfo {
-  final String teacher; // 교사명
-  final int dayOfWeek; // 요일 (1-5)
-  final int period; // 교시
-  final String? subject; // 과목명
-  final String? className; // 학급명
-
-  ExchangeBackupInfo({
-    required this.teacher,
-    required this.dayOfWeek,
-    required this.period,
-    this.subject,
-    this.className,
-  });
-
-  /// TimeSlot에서 ExchangeBackupInfo 생성
-  factory ExchangeBackupInfo.fromTimeSlot(TimeSlot slot) {
-    return ExchangeBackupInfo(
-      teacher: slot.teacher ?? '',
-      dayOfWeek: slot.dayOfWeek ?? 0,
-      period: slot.period ?? 0,
-      subject: slot.subject,
-      className: slot.className,
-    );
-  }
-
-  /// 디버깅용 문자열 반환
-  String get debugInfo {
-    return 'ExchangeBackupInfo(teacher: $teacher, dayOfWeek: $dayOfWeek, period: $period, subject: $subject, className: $className)';
-  }
-}
+export 'timetable_grid/exchange_backup_info.dart' show ExchangeBackupInfo;
 
 /// 시간표 그리드 섹션 위젯
 /// Syncfusion DataGrid를 사용한 시간표 표시를 담당
@@ -136,6 +104,21 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
   // ExchangeExecutor (필요 시 생성)
   late final ExchangeExecutor _exchangeExecutor;
 
+  // 🆕 그리드 스크롤 로직 헬퍼 (교사/노드 스크롤 등 순수 로직 분리)
+  // ScrollManagementMixin의 컨트롤러가 initState에서 초기화된 후 첫 사용 시
+  // 생성되도록 지연 초기화한다.
+  GridScrollControllerHelper? _scrollHelperInstance;
+  GridScrollControllerHelper get _scrollHelper =>
+      _scrollHelperInstance ??= GridScrollControllerHelper(
+        dataGridController: _dataGridController,
+        horizontalScrollController: horizontalScrollController,
+        verticalScrollController: verticalScrollController,
+        ref: ref,
+        columnsProvider: () => widget.columns,
+        dataSourceProvider: () => widget.dataSource,
+        isMounted: () => mounted,
+      );
+
   /// 교체 모드인지 확인 (1:1, 순환, 2중 중 하나라도 활성화된 경우)
   bool get isInExchangeMode =>
       widget.isExchangeModeEnabled ||
@@ -144,9 +127,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
 
   /// 🆕 노드 스크롤 콜백 설정
   void _setupNodeScrollCallback() {
-    // 외부에서 노드 스크롤을 요청할 수 있도록 콜백 연결
-    // 실제 구현에서는 Provider나 다른 상태 관리 방식을 사용할 수 있음
-    AppLogger.exchangeDebug('🔄 [노드 스크롤] 콜백 설정 완료');
+    _scrollHelper.setupNodeScrollCallback();
   }
 
   @override
@@ -615,25 +596,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
   /// 창 최대화/리사이즈로 인해 Syncfusion 내부 스크롤 오프셋이 조용히 보정되어
   /// scrollProvider 값과 어긋나는 경우, 실제 위치로 맞춰 화살표 좌표를 정정한다.
   void _syncScrollOffsetFromControllers() {
-    final horizontal =
-        horizontalScrollController.hasClients
-            ? horizontalScrollController.offset
-            : 0.0;
-    final vertical =
-        verticalScrollController.hasClients
-            ? verticalScrollController.offset
-            : 0.0;
-
-    final current = ref.read(scrollProvider);
-    // 미세한 차이는 무시하여 불필요한 재빌드 방지
-    if ((current.horizontalOffset - horizontal).abs() > 0.5 ||
-        (current.verticalOffset - vertical).abs() > 0.5) {
-      ref.read(scrollProvider.notifier).updateOffset(horizontal, vertical);
-      AppLogger.exchangeDebug(
-        '🔄 [스크롤 동기화] 리사이즈 후 오프셋 보정: '
-        'h=${horizontal.toStringAsFixed(1)}, v=${vertical.toStringAsFixed(1)}',
-      );
-    }
+    _scrollHelper.syncScrollOffsetFromControllers();
   }
 
   /// 교체된 칸의 날짜 꼬리표. 셀 글자 위가 아니라 칸 경계에 그린다.
@@ -826,222 +789,11 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
   /// [node] 교체 경로의 노드 정보
   /// 홈에서 지정한 교사명 행으로 스크롤 (교체 화면 첫 진입 시 사용)
   void scrollToTeacher(String teacherName, {int retryCount = 0}) {
-    try {
-      AppLogger.exchangeDebug('🔍 [교사 스크롤] 시작: $teacherName');
-
-      final locator = GridColumnLocator(widget.columns, widget.dataSource);
-      final teacherRowIndex = locator.findTeacherRowIndex(teacherName);
-      if (teacherRowIndex == -1) {
-        AppLogger.exchangeDebug(
-          '❌ [교사 스크롤] 교사를 찾을 수 없음(재시도 $retryCount): $teacherName',
-        );
-        // 그리드가 아직 생성 중이라 못 찾았을 수 있으므로 재시도
-        if (retryCount < 5 && mounted) {
-          Future.delayed(Duration(milliseconds: 120 * (retryCount + 1)), () {
-            if (mounted) {
-              scrollToTeacher(teacherName, retryCount: retryCount + 1);
-            }
-          });
-        }
-        return;
-      }
-
-      _dataGridController.scrollToCell(
-        teacherRowIndex.toDouble(),
-        0,
-        canAnimate: retryCount == 0,
-        rowPosition: DataGridScrollPosition.center,
-        columnPosition: DataGridScrollPosition.center,
-      );
-
-      AppLogger.exchangeDebug(
-        '🎯 [교사 스크롤] 완료: $teacherName | 행:$teacherRowIndex',
-      );
-    } catch (e) {
-      AppLogger.exchangeDebug('❌ [교사 스크롤] 실패(재시도 $retryCount): $e');
-      if (retryCount < 5 && mounted) {
-        Future.delayed(Duration(milliseconds: 120 * (retryCount + 1)), () {
-          if (mounted) {
-            scrollToTeacher(teacherName, retryCount: retryCount + 1);
-          }
-        });
-      }
-    }
+    _scrollHelper.scrollToTeacher(teacherName, retryCount: retryCount);
   }
 
   void scrollToExchangeNode(ExchangeNode node) {
-    try {
-      AppLogger.exchangeDebug(
-        '🔍 [노드 스크롤] 시작: ${node.teacherName} | ${node.day}요일 ${node.period}교시',
-      );
-
-      // 1. DataGridController 상태 확인
-      // DataGridController는 hasClients 속성이 없으므로 다른 방법으로 확인
-      try {
-        // 간단한 테스트로 컨트롤러가 작동하는지 확인
-        AppLogger.exchangeDebug('🔍 [노드 스크롤] DataGridController 상태 확인 중...');
-      } catch (e) {
-        AppLogger.exchangeDebug(
-          '❌ [노드 스크롤] DataGridController가 아직 초기화되지 않음: $e',
-        );
-        // 잠시 후 재시도
-        Future.delayed(const Duration(milliseconds: 100), () {
-          scrollToExchangeNode(node);
-        });
-        return;
-      }
-
-      // 2. 교사명으로 행 인덱스 찾기
-      final locator = GridColumnLocator(widget.columns, widget.dataSource);
-      final teacherRowIndex = locator.findTeacherRowIndex(node.teacherName);
-      if (teacherRowIndex == -1) {
-        AppLogger.exchangeDebug('❌ [노드 스크롤] 교사를 찾을 수 없음: ${node.teacherName}');
-        return;
-      }
-
-      // 3. 요일과 교시로 열 인덱스 계산
-      final dayOfWeekInt = DayUtils.getDayNumber(node.day);
-      final columnIndex = locator.calculateColumnIndex(
-        dayOfWeekInt,
-        node.period,
-      );
-      if (columnIndex == -1) {
-        AppLogger.exchangeDebug(
-          '❌ [노드 스크롤] 열 인덱스 계산 실패: 요일=${node.day}, 교시=${node.period}',
-        );
-        return;
-      }
-
-      // 4. 인덱스 유효성 검증
-      final dataSource = widget.dataSource;
-      if (dataSource == null) {
-        AppLogger.exchangeDebug('❌ [노드 스크롤] 데이터 소스가 null');
-        return;
-      }
-
-      final maxRowIndex = dataSource.rows.length - 1;
-      final maxColumnIndex = widget.columns.length - 1;
-
-      if (teacherRowIndex > maxRowIndex) {
-        AppLogger.exchangeDebug(
-          '❌ [노드 스크롤] 행 인덱스 범위 초과: $teacherRowIndex > $maxRowIndex',
-        );
-        return;
-      }
-
-      if (columnIndex > maxColumnIndex) {
-        AppLogger.exchangeDebug(
-          '❌ [노드 스크롤] 열 인덱스 범위 초과: $columnIndex > $maxColumnIndex',
-        );
-        return;
-      }
-
-      AppLogger.exchangeDebug(
-        '✅ [노드 스크롤] 인덱스 검증 완료: 행=$teacherRowIndex/$maxRowIndex, 열=$columnIndex/$maxColumnIndex',
-      );
-
-      // 5. Syncfusion DataGrid의 내장 스크롤 기능 사용
-      _dataGridController.scrollToCell(
-        teacherRowIndex.toDouble(), // 행 인덱스 (double로 변환)
-        columnIndex.toDouble(), // 열 인덱스 (double로 변환)
-        canAnimate: true, // 부드러운 애니메이션 효과 적용
-        rowPosition: DataGridScrollPosition.center, // 행을 수직 중앙에 위치
-        columnPosition: DataGridScrollPosition.center, // 열을 수평 중앙에 위치
-      );
-
-      AppLogger.exchangeDebug(
-        '🎯 [노드 스크롤] 셀 중앙 이동 완료: ${node.teacherName} | ${node.day}요일 ${node.period}교시 | 행:$teacherRowIndex, 열:$columnIndex',
-      );
-
-      // 6. 스크롤 실행 확인 (잠시 후)
-      Future.delayed(const Duration(milliseconds: 500), () {
-        _verifyScrollExecution(node, teacherRowIndex, columnIndex);
-      });
-    } catch (e) {
-      AppLogger.exchangeDebug('❌ [노드 스크롤] 스크롤 실패: $e');
-    }
-  }
-
-  /// 🆕 스크롤 실행 확인 메서드
-  /// 실제로 스크롤이 실행되었는지 확인
-  void _verifyScrollExecution(
-    ExchangeNode node,
-    int expectedRowIndex,
-    int expectedColumnIndex,
-  ) {
-    try {
-      // 현재 스크롤 위치 확인
-      final currentHorizontalOffset =
-          horizontalScrollController.hasClients
-              ? horizontalScrollController.offset
-              : 0.0;
-      final currentVerticalOffset =
-          verticalScrollController.hasClients
-              ? verticalScrollController.offset
-              : 0.0;
-
-      AppLogger.exchangeDebug(
-        '🔍 [스크롤 확인] 현재 위치: 수평=${currentHorizontalOffset.toStringAsFixed(1)}, 수직=${currentVerticalOffset.toStringAsFixed(1)}',
-      );
-
-      // 스크롤이 실제로 발생했는지 확인
-      if (currentHorizontalOffset > 0 || currentVerticalOffset > 0) {
-        AppLogger.exchangeDebug('✅ [스크롤 확인] 스크롤 실행됨');
-      } else {
-        AppLogger.exchangeDebug('⚠️ [스크롤 확인] 스크롤이 실행되지 않음 - 대체 방법 시도');
-        _tryAlternativeScrollMethod(
-          node,
-          expectedRowIndex,
-          expectedColumnIndex,
-        );
-      }
-    } catch (e) {
-      AppLogger.exchangeDebug('❌ [스크롤 확인] 확인 실패: $e');
-    }
-  }
-
-  /// 🆕 대체 스크롤 방법 시도
-  /// DataGridController가 작동하지 않을 때 ScrollController 직접 사용
-  void _tryAlternativeScrollMethod(
-    ExchangeNode node,
-    int rowIndex,
-    int columnIndex,
-  ) {
-    try {
-      AppLogger.exchangeDebug('🔄 [대체 스크롤] ScrollController 직접 사용 시도');
-
-      // ScrollController를 직접 사용하여 스크롤
-      if (horizontalScrollController.hasClients &&
-          verticalScrollController.hasClients) {
-        // 대략적인 위치 계산 (실제 구현에서는 더 정밀한 계산 필요)
-        final estimatedHorizontalOffset = columnIndex * 100.0; // 열당 대략 100px
-        final estimatedVerticalOffset = rowIndex * 50.0; // 행당 대략 50px
-
-        horizontalScrollController.animateTo(
-          estimatedHorizontalOffset.clamp(
-            0.0,
-            horizontalScrollController.position.maxScrollExtent,
-          ),
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
-
-        verticalScrollController.animateTo(
-          estimatedVerticalOffset.clamp(
-            0.0,
-            verticalScrollController.position.maxScrollExtent,
-          ),
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
-
-        AppLogger.exchangeDebug(
-          '🔄 [대체 스크롤] ScrollController 스크롤 실행: 수평=${estimatedHorizontalOffset.toStringAsFixed(1)}, 수직=${estimatedVerticalOffset.toStringAsFixed(1)}',
-        );
-      }
-    } catch (e) {
-      AppLogger.exchangeDebug('❌ [대체 스크롤] 실패: $e');
-    }
+    _scrollHelper.scrollToExchangeNode(node);
   }
 
   /// 교체된 셀 클릭 처리 (Riverpod 기반)
@@ -1583,10 +1335,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
                   Navigator.pop(context);
                   _deleteExchangeList(context, ref);
                 },
-                child: Text(
-                  '삭제',
-                  style: TextStyle(color: Colors.red.shade600),
-                ),
+                child: Text('삭제', style: TextStyle(color: Colors.red.shade600)),
               ),
             ],
           ),

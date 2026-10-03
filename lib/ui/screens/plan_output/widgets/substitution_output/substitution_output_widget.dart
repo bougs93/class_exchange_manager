@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -32,6 +32,8 @@ import '../../../../../utils/snackbar_helper.dart';
 import 'pdf_settings_section.dart';
 import 'pdf_field_inputs_section.dart';
 import '../../pdf_preview_screen.dart';
+import 'substitution_output_profile_flow.dart';
+import 'substitution_output_settings_io.dart';
 
 /// 결강기간 업데이트 모드
 enum AbsencePeriodUpdateMode {
@@ -290,9 +292,7 @@ class SubstitutionOutputWidgetState
       // 어긋나도 다른 계획서에 덮어쓰지 않는다).
       final store = ref.read(printProfileStoreProvider);
       final selected =
-          _appliedProfileId == null
-              ? null
-              : store.getById(_appliedProfileId);
+          _appliedProfileId == null ? null : store.getById(_appliedProfileId);
       if (selected != null) {
         final success = await ref
             .read(printProfileStoreProvider.notifier)
@@ -433,153 +433,28 @@ class SubstitutionOutputWidgetState
         templateIndex: targetIndex,
       );
 
-      // 폰트 설정 업데이트
-      double newFontSize = 10.0;
-      double newRemarksFontSize = 7.0;
-      String newSelectedFont = KoreanFontConstants.platformDefaultFont;
-      bool newIncludeRemarks = true;
-      String? newSelectedTemplateFilePath;
-
-      // 추가 필드 값
-      String newTeacherName = '';
-      String newWorkStatus = '';
-      String newReasonForAbsence = '';
-      String newSchoolName = '';
-      String newNotes = PdfNotesTemplate.defaultNotes;
-
-      if (settings != null) {
-        // 저장된 설정이 있는 경우: 저장된 값으로 로드
-        newFontSize = (settings['fontSize'] as num?)?.toDouble() ?? 10.0;
-        newRemarksFontSize =
-            (settings['remarksFontSize'] as num?)?.toDouble() ?? 7.0;
-
-        // 폰트 값 유효성 검사: 드롭다운 아이템에 있는 값인지 확인
-        final savedFont = settings['selectedFont'] as String?;
-        final availableFonts =
-            KoreanFontConstants.platformFontListWithNames
-                .map((font) => font['file']!)
-                .toList();
-        // 저장된 폰트가 유효한 목록에 있는지 확인하고, 없으면 기본 폰트 사용
-        newSelectedFont =
-            (savedFont != null && availableFonts.contains(savedFont))
-                ? savedFont
-                : KoreanFontConstants.platformDefaultFont;
-        newIncludeRemarks = settings['includeRemarks'] as bool? ?? true;
-
-        // 저장된 PDF 템플릿 파일 경로 로드 (파일 존재 여부 확인)
-        final savedTemplatePath =
-            settings['selectedTemplateFilePath'] as String?;
-        if (savedTemplatePath != null && savedTemplatePath.isNotEmpty) {
-          // 파일이 존재하는지 확인
-          final file = File(savedTemplatePath);
-          if (file.existsSync()) {
-            newSelectedTemplateFilePath = savedTemplatePath;
-            AppLogger.info(
-              '저장된 PDF 템플릿 파일 경로 로드 (양식 ${targetIndex + 1}): $savedTemplatePath',
-            );
-          } else {
-            AppLogger.warning('저장된 PDF 템플릿 파일이 존재하지 않습니다: $savedTemplatePath');
-            // 파일이 없으면 경로 초기화
-            newSelectedTemplateFilePath = null;
-          }
-        } else {
-          // 저장된 경로가 없으면 null로 설정
-          newSelectedTemplateFilePath = null;
-        }
-
-        // 추가 필드 로드
-        final additionalFields =
-            settings['additionalFields'] as Map<String, dynamic>?;
-        // 양식별 기본값 가져오기 (notes 필드 기본값 사용)
-        final defaultSettings = _pdfSettingsStorage.getDefaultSettings(
-          templateIndex: targetIndex,
-        );
-        final defaultNotes =
-            (defaultSettings['additionalFields']
-                    as Map<String, dynamic>?)?['notes']
-                as String? ??
-            PdfNotesTemplate.defaultNotes;
-
-        if (additionalFields != null) {
-          // 결강교사: 저장된 값이 있으면 사용, 없으면 빈 문자열
-          newTeacherName = additionalFields['teacherName'] as String? ?? '';
-
-          // 결강기간은 자동 계산으로 덮어씌우므로 저장된 값은 무시
-          // _absencePeriodController.text = additionalFields['absencePeriod'] as String? ?? '';
-
-          newWorkStatus = additionalFields['workStatus'] as String? ?? '';
-          newReasonForAbsence =
-              additionalFields['reasonForAbsence'] as String? ?? '';
-
-          // 학교명: 저장된 값이 있으면 사용, 없으면 빈 문자열
-          newSchoolName = additionalFields['schoolName'] as String? ?? '';
-
-          // notes: 저장된 값이 있으면 사용, 없으면 양식별 기본값 사용
-          newNotes = additionalFields['notes'] as String? ?? defaultNotes;
-        } else {
-          // 추가 필드가 없는 경우 양식별 기본값으로 초기화
-          newTeacherName = '';
-          newWorkStatus = '';
-          newReasonForAbsence = '';
-          newSchoolName = '';
-          newNotes = defaultNotes;
-        }
-
-        AppLogger.info('양식 ${targetIndex + 1}의 설정 로드 완료');
-      } else {
-        // 저장된 설정이 없는 경우: 양식별 기본값으로 초기화
-        final defaultSettings = _pdfSettingsStorage.getDefaultSettings(
-          templateIndex: targetIndex,
-        );
-        newFontSize = (defaultSettings['fontSize'] as num?)?.toDouble() ?? 10.0;
-        newRemarksFontSize =
-            (defaultSettings['remarksFontSize'] as num?)?.toDouble() ?? 7.0;
-
-        // 폰트 값 유효성 검사
-        final defaultFont = defaultSettings['selectedFont'] as String?;
-        final availableFonts =
-            KoreanFontConstants.platformFontListWithNames
-                .map((font) => font['file']!)
-                .toList();
-        newSelectedFont =
-            (defaultFont != null && availableFonts.contains(defaultFont))
-                ? defaultFont
-                : KoreanFontConstants.platformDefaultFont;
-        newIncludeRemarks = defaultSettings['includeRemarks'] as bool? ?? true;
-        newSelectedTemplateFilePath = null;
-
-        // 추가 필드도 양식별 기본값으로 초기화
-        final defaultAdditionalFields =
-            defaultSettings['additionalFields'] as Map<String, dynamic>?;
-        newTeacherName = '';
-        newWorkStatus = '';
-        newReasonForAbsence = '';
-        newSchoolName = '';
-        // notes는 양식별 기본값 사용 (양식 2는 빈값, 양식 1은 기본 템플릿 값)
-        newNotes =
-            defaultAdditionalFields?['notes'] as String? ??
-            PdfNotesTemplate.defaultNotes;
-
-        AppLogger.info(
-          '양식 ${targetIndex + 1}의 저장된 설정이 없어 기본값으로 초기화 (폰트: $newSelectedFont, 비고 출력: $newIncludeRemarks)',
-        );
-      }
+      // 저장된(또는 양식별 기본) 설정 → 화면에 반영할 값으로 변환 (순수 로직)
+      final snapshot = resolvePdfExportSettingsSnapshot(
+        settings: settings,
+        targetIndex: targetIndex,
+        storage: _pdfSettingsStorage,
+      );
 
       // UI 업데이트: setState로 상태 변경 및 Controller 값 업데이트
       setState(() {
         // 폰트 설정 업데이트
-        _fontSize = newFontSize;
-        _remarksFontSize = newRemarksFontSize;
-        _selectedFont = newSelectedFont;
-        _includeRemarks = newIncludeRemarks;
-        _selectedTemplateFilePath = newSelectedTemplateFilePath;
+        _fontSize = snapshot.fontSize;
+        _remarksFontSize = snapshot.remarksFontSize;
+        _selectedFont = snapshot.selectedFont;
+        _includeRemarks = snapshot.includeRemarks;
+        _selectedTemplateFilePath = snapshot.selectedTemplateFilePath;
 
         // 추가 필드 Controller 값 업데이트 (UI에 반영됨)
-        _teacherNameController.text = newTeacherName;
-        _workStatusController.text = newWorkStatus;
-        _reasonForAbsenceController.text = newReasonForAbsence;
-        _schoolNameController.text = newSchoolName;
-        _notesController.text = newNotes;
+        _teacherNameController.text = snapshot.teacherName;
+        _workStatusController.text = snapshot.workStatus;
+        _reasonForAbsenceController.text = snapshot.reasonForAbsence;
+        _schoolNameController.text = snapshot.schoolName;
+        _notesController.text = snapshot.notes;
       });
 
       // 설정에서 교사명, 학교명 로드 (입력란이 비어있을 때만 사용)
@@ -665,14 +540,7 @@ class SubstitutionOutputWidgetState
     final teachers = ref.read(exchangeScreenProvider).timetableData?.teachers;
     if (teachers == null) return const [];
     // 준비 화면(activeTimetableTeachersProvider)과 동일하게 trim 후 비교
-    final names =
-        teachers
-            .map((t) => t.name.trim())
-            .where((n) => n.isNotEmpty)
-            .toSet()
-            .toList()
-          ..sort();
-    return names;
+    return sortedAvailableTeacherNames(teachers.map((t) => t.name));
   }
 
   /// 결보강 출력 '교사' 드롭다운의 초기/우선 교사
@@ -682,21 +550,15 @@ class SubstitutionOutputWidgetState
   /// 2. 계획서에서 마지막으로 고른 교사
   /// 3. 시간표 교사 목록의 첫 번째
   String? _resolvePreferredTeacher(List<String> teachers) {
-    if (teachers.isEmpty) return null;
-
     // 준비 > 교사 선택이 단일 출처 (activeTeacherNameProvider)
     final prepared =
         ref.read(activeTimetableEntryProvider)?.teacherName?.trim() ?? '';
-    if (prepared.isNotEmpty && teachers.contains(prepared)) {
-      return prepared;
-    }
-
     final last = ref.read(printProfileStoreProvider).lastSelectedTeacher;
-    if (last != null && teachers.contains(last)) {
-      return last;
-    }
-
-    return teachers.first;
+    return resolvePreferredTeacher(
+      teachers: teachers,
+      preparedTeacher: prepared,
+      lastSelectedTeacher: last,
+    );
   }
 
   /// 계획서 선택 흐름 초기화
@@ -838,14 +700,7 @@ class SubstitutionOutputWidgetState
     _appliedProfileId = profile.id;
 
     // 폰트 유효성 검사
-    final availableFonts =
-        KoreanFontConstants.platformFontListWithNames
-            .map((font) => font['file']!)
-            .toList();
-    final font =
-        availableFonts.contains(profile.selectedFont)
-            ? profile.selectedFont
-            : KoreanFontConstants.platformDefaultFont;
+    final font = resolveValidFont(profile.selectedFont);
 
     // 템플릿 파일 경로 유효성 검사
     String? templatePath = profile.selectedTemplateFilePath;
@@ -881,21 +736,20 @@ class SubstitutionOutputWidgetState
 
   /// 현재 화면 설정 → 계획서 객체로 수집
   PrintProfile _collectProfileFromUi(PrintProfile base) {
-    return base.copyWith(
+    return collectProfileFromFields(
+      base: base,
       templateIndex: _selectedTemplateIndex,
       fontSize: _fontSize,
       remarksFontSize: _remarksFontSize,
       selectedFont: _selectedFont,
       includeRemarks: _includeRemarks,
       selectedTemplateFilePath: _selectedTemplateFilePath,
-      additionalFields: {
-        'teacherName': _teacherNameController.text,
-        'absencePeriod': _absencePeriodController.text,
-        'workStatus': _workStatusController.text,
-        'reasonForAbsence': _reasonForAbsenceController.text,
-        'schoolName': _schoolNameController.text,
-        'notes': _notesController.text,
-      },
+      teacherName: _teacherNameController.text,
+      absencePeriod: _absencePeriodController.text,
+      workStatus: _workStatusController.text,
+      reasonForAbsence: _reasonForAbsenceController.text,
+      schoolName: _schoolNameController.text,
+      notes: _notesController.text,
     );
   }
 
@@ -1079,33 +933,36 @@ class SubstitutionOutputWidgetState
     // 저장한 뒤 새 계획을 적용하므로 입력 유실이 없다.
     // 선택 getter가 전역을 직접 읽으므로, 삭제된 계획서는 자동으로
     // 미지정으로 보인다 (별도 정리 불필요).
-    ref.listen<String?>(printProfileStoreProvider.select((s) {
-      final id = s.lastUsedProfileId;
-      return s.getById(id)?.id;
-    }), (previous, next) async {
-      if (previous == next) return;
-      final runId = ++_followRunId;
-      await _flushAutoSave();
-      if (!mounted || runId != _followRunId) return;
-      // 자신이 바꾼 값이면 이미 적용돼 있으므로 건너뛴다.
-      if (next == _appliedProfileId) return;
-      final store = ref.read(printProfileStoreProvider);
-      final profile = store.getById(next);
-      if (profile == null) {
-        await _loadSavedSettings();
-        return;
-      }
-      // 다른 교사 소속이어도 따라가되, 교사 드롭다운을 함께 맞춘다.
-      final teacherName = profile.teacherName.trim();
-      if (teacherName.isNotEmpty &&
-          teacherName != _selectedTeacher &&
-          _availableTeachers().contains(teacherName)) {
-        setState(() => _selectedTeacher = teacherName);
-      }
-      if (!mounted || runId != _followRunId) return;
-      _applyProfileToUi(profile);
-      updateAbsencePeriod();
-    });
+    ref.listen<String?>(
+      printProfileStoreProvider.select((s) {
+        final id = s.lastUsedProfileId;
+        return s.getById(id)?.id;
+      }),
+      (previous, next) async {
+        if (previous == next) return;
+        final runId = ++_followRunId;
+        await _flushAutoSave();
+        if (!mounted || runId != _followRunId) return;
+        // 자신이 바꾼 값이면 이미 적용돼 있으므로 건너뛴다.
+        if (next == _appliedProfileId) return;
+        final store = ref.read(printProfileStoreProvider);
+        final profile = store.getById(next);
+        if (profile == null) {
+          await _loadSavedSettings();
+          return;
+        }
+        // 다른 교사 소속이어도 따라가되, 교사 드롭다운을 함께 맞춘다.
+        final teacherName = profile.teacherName.trim();
+        if (teacherName.isNotEmpty &&
+            teacherName != _selectedTeacher &&
+            _availableTeachers().contains(teacherName)) {
+          setState(() => _selectedTeacher = teacherName);
+        }
+        if (!mounted || runId != _followRunId) return;
+        _applyProfileToUi(profile);
+        updateAbsencePeriod();
+      },
+    );
 
     // build는 PlanOutputScreen의 TabController 리스너에서 호출되는 updateAbsencePeriod()로 처리
     // 여기서는 UI만 렌더링
@@ -1597,23 +1454,6 @@ class SubstitutionOutputWidgetState
     );
   }
 
-  /// PDF 저장 다이얼로그 파일명의 초기값 생성
-  ///
-  /// 체크된 계획 중 가장 이른 결강일 기준 "MM.DD 결보강계획서"를 반환합니다.
-  /// 결강일이 하나도 없으면 null을 반환하고, 호출부는 오늘 날짜 기준으로 폴백합니다.
-  String? _buildPdfSaveFileName(List<SubstitutionPlanData> planData) {
-    DateTime? earliest;
-    for (final row in planData) {
-      final date = DateFormatUtils.parseYearMonthDay(row.absenceDate);
-      if (date == null) continue;
-      if (earliest == null || date.isBefore(earliest)) earliest = date;
-    }
-    if (earliest == null) return null;
-    final mm = earliest.month.toString().padLeft(2, '0');
-    final dd = earliest.day.toString().padLeft(2, '0');
-    return '$mm.$dd 결보강계획서';
-  }
-
   /// 출력 미리 보기 처리
   Future<void> _handlePreview() async {
     if (!mounted) return;
@@ -1681,7 +1521,7 @@ class SubstitutionOutputWidgetState
               builder:
                   (context) => PdfPreviewScreen(
                     pdfBytes: pdfBytes,
-                    initialFileName: _buildPdfSaveFileName(planData),
+                    initialFileName: buildPdfSaveFileName(planData),
                   ),
             ),
           );
@@ -1730,7 +1570,7 @@ class SubstitutionOutputWidgetState
             builder:
                 (context) => PdfPreviewScreen(
                   pdfPath: tempPath,
-                  initialFileName: _buildPdfSaveFileName(planData),
+                  initialFileName: buildPdfSaveFileName(planData),
                 ),
           ),
         );

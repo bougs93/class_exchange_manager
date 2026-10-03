@@ -7,6 +7,7 @@ import 'package:class_exchange_manager/models/teacher.dart';
 import 'package:class_exchange_manager/models/time_slot.dart';
 import 'package:class_exchange_manager/services/exchange_service.dart';
 import 'package:class_exchange_manager/utils/timetable_data_source.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -90,6 +91,8 @@ void main() {
       );
       final details = DataGridCellTapDetails(
         globalPosition: Offset.zero,
+        localPosition: Offset.zero,
+        kind: PointerDeviceKind.touch,
         rowColumnIndex: RowColumnIndex(2, 0),
         column: GridColumn(columnName: 'teacher', label: const SizedBox()),
       );
@@ -109,6 +112,8 @@ void main() {
       );
       final details = DataGridCellTapDetails(
         globalPosition: Offset.zero,
+        localPosition: Offset.zero,
+        kind: PointerDeviceKind.touch,
         rowColumnIndex: RowColumnIndex(2, 1),
         column: GridColumn(
           columnName: 'invalidColumn',
@@ -131,6 +136,8 @@ void main() {
       );
       final details = DataGridCellTapDetails(
         globalPosition: Offset.zero,
+        localPosition: Offset.zero,
+        kind: PointerDeviceKind.touch,
         rowColumnIndex: RowColumnIndex(2, 1),
         column: GridColumn(columnName: '월_1', label: const SizedBox()),
       );
@@ -155,6 +162,8 @@ void main() {
       );
       final details = DataGridCellTapDetails(
         globalPosition: Offset.zero,
+        localPosition: Offset.zero,
+        kind: PointerDeviceKind.touch,
         rowColumnIndex: RowColumnIndex(2, 1),
         column: GridColumn(columnName: '월_1', label: const SizedBox()),
       );
@@ -174,6 +183,9 @@ void main() {
       final slots = [
         lesson(teacher: '문유란', dayOfWeek: 1, period: 1, className: '1-1'),
         lesson(teacher: '이숙기', dayOfWeek: 2, period: 2, className: '1-1'),
+        // 교체 목적지 TimeSlot(같은 교사·다른 시간대)도 실제 시간표처럼 미리 존재해야 한다
+        emptySlot(teacher: '이숙기', dayOfWeek: 1, period: 1),
+        emptySlot(teacher: '문유란', dayOfWeek: 2, period: 2),
       ];
 
       final result = service.performOneToOneExchange(
@@ -190,6 +202,9 @@ void main() {
       // 교체 후: 문유란은 화2교시로, 이숙기는 월1교시로 이동 → 원래 자리는 비워짐
       expect(slots[0].isEmpty, isTrue);
       expect(slots[1].isEmpty, isTrue);
+      // 목적지 자리에 서로의 수업 내용이 채워진다
+      expect(slots[2].className, '1-1'); // 이숙기 월1교시
+      expect(slots[3].className, '1-1'); // 문유란 화2교시
     });
 
     test('다른 학급을 가르치는 교사끼리는 교체할 수 없다', () {
@@ -368,9 +383,19 @@ void main() {
 
   group('performCircularExchange', () {
     test('3개 노드로 구성된 순환 교체는 성공한다', () {
+      // 순환 교체는 각 교사가 다음 노드의 "자기 자신" 자리로 이동하므로
+      // A가 월2교시로 이동하려면 A의 월2교시 TimeSlot이 미리 존재해야 한다.
+      // 실제 시간표에서는 모든 교사가 모든 교시에 TimeSlot을 갖고 있으므로
+      // (수업이 없으면 빈 TimeSlot) 아래처럼 3x3 매트릭스를 모두 채워준다.
       final slots = [
         lesson(teacher: 'A', dayOfWeek: 1, period: 1, className: '1-1'),
+        emptySlot(teacher: 'A', dayOfWeek: 1, period: 2),
+        emptySlot(teacher: 'A', dayOfWeek: 1, period: 3),
+        emptySlot(teacher: 'B', dayOfWeek: 1, period: 1),
         lesson(teacher: 'B', dayOfWeek: 1, period: 2, className: '1-1'),
+        emptySlot(teacher: 'B', dayOfWeek: 1, period: 3),
+        emptySlot(teacher: 'C', dayOfWeek: 1, period: 1),
+        emptySlot(teacher: 'C', dayOfWeek: 1, period: 2),
         lesson(teacher: 'C', dayOfWeek: 1, period: 3, className: '1-1'),
       ];
 

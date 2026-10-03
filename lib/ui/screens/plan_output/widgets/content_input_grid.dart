@@ -16,9 +16,7 @@ import '../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../../providers/exchange_screen_provider.dart';
 import '../../../../providers/services_provider.dart';
 import '../../../../providers/state_reset_provider.dart';
-import '../../../../providers/timetable_registry_provider.dart';
 import '../../../../theme/design_tokens.dart';
-import '../../../../ui/screens/personal_schedule_screen/exchange_week_collector.dart';
 import '../../../../ui/widgets/content_toolbar_layout.dart';
 import '../../../../ui/widgets/content_usage_hint_bar.dart';
 import '../../../../ui/widgets/empty_state_message.dart';
@@ -31,251 +29,9 @@ import '../../../../utils/snackbar_helper.dart';
 import '../../../../utils/dialog_helper.dart';
 import '../../../mixins/scroll_management_mixin.dart';
 import 'content_input_grid_helpers.dart';
+import 'content_input_grid_plan_ops.dart';
 import 'plan_date_picker_dialog.dart';
-
-/// 주(週) 정보를 알 수 없는 행의 그룹 정렬 키 — 항상 맨 뒤로 정렬되도록
-/// 실제 날짜보다 큰 값을 쓴다.
-const String _unresolvedWeekKey = '9999-99-99';
-
-/// DateTime → 그룹 정렬용 ISO 날짜 키 ('yyyy-MM-dd', 사전식 정렬 = 날짜순)
-String _weekSortKey(DateTime weekMonday) {
-  final y = weekMonday.year.toString().padLeft(4, '0');
-  final m = weekMonday.month.toString().padLeft(2, '0');
-  final d = weekMonday.day.toString().padLeft(2, '0');
-  return '$y-$m-$d';
-}
-
-DateTime? _parseWeekSortKey(String key) {
-  if (key == _unresolvedWeekKey) return null;
-  return DateTime.tryParse(key);
-}
-
-/// 보강계획서 데이터 소스
-class SubstitutionPlanDataSource extends DataGridSource {
-  final List<SubstitutionPlanData> planData;
-  final Function(String, String)? onDateCellTap;
-  final Function(String)? onSupplementSubjectTap;
-
-  /// 그룹(교체 건) 선택 상태 조회
-  final bool Function(String groupId)? isSelected;
-
-  /// 그룹 선택 토글
-  final ValueChanged<String>? onToggleSelect;
-
-  /// 행 교사의 계획서 목록 조회
-  final List<PrintProfile> Function(String teacher)? profileOptions;
-
-  /// 행 드롭다운의 '＋ 새 계획서…' 선택 콜백
-  final void Function(String groupId, String teacher)? onCreateProfile;
-
-  /// 그룹의 지정 계획서 ID 조회
-  final String? Function(String groupId)? selectedProfileId;
-
-  /// 계획서 지정 변경
-  final Function(String groupId, String? profileId)? onProfileChanged;
-
-  /// 그룹(교체 건) ID → 소속 주(週)의 월요일 (§10.8 6단계)
-  ///
-  /// `ExchangeHistoryItem.weekMonday`(결강일 기준)에서 만든다. 여기 없는
-  /// groupId는 "주 미지정"으로 묶인다.
-  final Map<String, DateTime> groupWeeks;
-
-  SubstitutionPlanDataSource(
-    this.planData, {
-    this.onDateCellTap,
-    this.onSupplementSubjectTap,
-    this.isSelected,
-    this.onToggleSelect,
-    this.profileOptions,
-    this.onCreateProfile,
-    this.selectedProfileId,
-    this.onProfileChanged,
-    this.groupWeeks = const {},
-  }) {
-    // 결강일이 속한 주(週) 기준으로 그룹핑 — sortGroupRows로 주 순서 정렬
-    addColumnGroup(ColumnGroup(name: '_weekKey', sortGroupRows: true));
-  }
-
-  /// 행의 주차 정렬 키 (groupId로 [groupWeeks] 조회, 없으면 미지정 키)
-  String _weekKeyFor(SubstitutionPlanData data) {
-    final groupId = data.groupId;
-    if (groupId == null || groupId.isEmpty) return _unresolvedWeekKey;
-    final week = groupWeeks[groupId];
-    if (week == null) return _unresolvedWeekKey;
-    return _weekSortKey(week);
-  }
-
-  /// 화면 표시용 정렬 — 주 그룹 → 결강일 → 결강교시 순
-  ///
-  /// 주 그룹핑(`_weekKey`)은 유지한 채, 그룹 안의 행이 결강일·교시 순으로
-  /// 나타나도록 정렬한다. 날짜 파싱에 실패한 행은 각 그룹의 맨 뒤로 보낸다.
-  List<SubstitutionPlanData> get _sortedPlanData {
-    final sorted = List<SubstitutionPlanData>.from(planData);
-    sorted.sort((a, b) {
-      final weekCompare = _weekKeyFor(a).compareTo(_weekKeyFor(b));
-      if (weekCompare != 0) return weekCompare;
-
-      final aDate = DateFormatUtils.parseYearMonthDay(a.absenceDate);
-      final bDate = DateFormatUtils.parseYearMonthDay(b.absenceDate);
-      if (aDate != null && bDate != null) {
-        final dateCompare = aDate.compareTo(bDate);
-        if (dateCompare != 0) return dateCompare;
-      } else if (aDate != null) {
-        return -1;
-      } else if (bDate != null) {
-        return 1;
-      }
-
-      final aPeriod = int.tryParse(a.period) ?? 9999;
-      final bPeriod = int.tryParse(b.period) ?? 9999;
-      final periodCompare = aPeriod.compareTo(bPeriod);
-      if (periodCompare != 0) return periodCompare;
-
-      return a.absenceDate.compareTo(b.absenceDate);
-    });
-    return sorted;
-  }
-
-  @override
-  List<DataGridRow> get rows =>
-      _sortedPlanData.map<DataGridRow>((data) {
-        return DataGridRow(
-          cells: [
-            // exchangeId를 첫 번째 숨김 컬럼으로 추가
-            DataGridCell<String>(
-              columnName: '_exchangeId',
-              value: data.exchangeId,
-            ),
-            // groupId (교체 건 ID) 숨김 컬럼 — 선택·계획서 지정은 그룹 단위
-            DataGridCell<String>(
-              columnName: '_groupId',
-              value: data.groupId ?? '',
-            ),
-            // 주차 그룹핑용 숨김 컬럼 (§10.8 6단계)
-            DataGridCell<String>(
-              columnName: '_weekKey',
-              value: _weekKeyFor(data),
-            ),
-            DataGridCell<String>(
-              columnName: 'absenceDate',
-              value: data.absenceDate,
-            ),
-            DataGridCell<String>(
-              columnName: 'absenceDay',
-              value: data.absenceDay,
-            ),
-            DataGridCell<String>(columnName: 'period', value: data.period),
-            DataGridCell<String>(columnName: 'grade', value: data.grade),
-            DataGridCell<String>(
-              columnName: 'className',
-              value: data.className,
-            ),
-            DataGridCell<String>(columnName: 'subject', value: data.subject),
-            DataGridCell<String>(columnName: 'teacher', value: data.teacher),
-            DataGridCell<String>(
-              columnName: 'supplementSubject',
-              value: data.supplementSubject,
-            ),
-            DataGridCell<String>(
-              columnName: 'supplementTeacher',
-              value: data.supplementTeacher,
-            ),
-            DataGridCell<String>(
-              columnName: 'substitutionDate',
-              value: data.substitutionDate,
-            ),
-            DataGridCell<String>(
-              columnName: 'substitutionDay',
-              value: data.substitutionDay,
-            ),
-            DataGridCell<String>(
-              columnName: 'substitutionPeriod',
-              value: data.substitutionPeriod,
-            ),
-            DataGridCell<String>(
-              columnName: 'substitutionSubject',
-              value: data.substitutionSubject,
-            ),
-            DataGridCell<String>(
-              columnName: 'substitutionTeacher',
-              value: data.substitutionTeacher,
-            ),
-            DataGridCell<String>(columnName: 'remarks', value: data.remarks),
-          ],
-        );
-      }).toList();
-
-  @override
-  DataGridRowAdapter buildRow(DataGridRow row) {
-    final selectCell = CellRendererFactory.build(
-      row.getCells().firstWhere(
-        (c) => c.columnName == 'select',
-        orElse:
-            () => const DataGridCell<String>(columnName: 'select', value: ''),
-      ),
-      row,
-      isSelected: isSelected,
-      onToggleSelect: onToggleSelect,
-      profileOptions: profileOptions,
-      onCreateProfile: onCreateProfile,
-      selectedProfileId: selectedProfileId,
-      onProfileChanged: onProfileChanged,
-    );
-
-    // exchangeId·groupId 컬럼을 제외한 나머지 셀들만 렌더링
-    final cells =
-        row
-            .getCells()
-            .where(
-              (cell) =>
-                  cell.columnName != '_exchangeId' &&
-                  cell.columnName != '_groupId' &&
-                  cell.columnName != '_weekKey' &&
-                  cell.columnName != 'select' &&
-                  cell.columnName != 'profile',
-            )
-            .map<Widget>((cell) {
-              return CellRendererFactory.build(
-                cell,
-                row,
-                onDateCellTap: onDateCellTap,
-                onSupplementSubjectTap: onSupplementSubjectTap,
-              );
-            })
-            .toList();
-
-    return DataGridRowAdapter(cells: [selectCell, ...cells]);
-  }
-
-  /// 주차 캡션 행 — `SfDataGrid.groupCaptionTitleFormat: '{Key}'`로
-  /// [summaryValue]에 `_weekKey`(ISO 날짜 문자열)가 그대로 전달된다.
-  ///
-  /// 체크된 건은 결보강 출력(미리보기)에서 PDF에 반영된다.
-  @override
-  Widget? buildGroupCaptionCellWidget(
-    RowColumnIndex rowColumnIndex,
-    String summaryValue,
-  ) {
-    final weekMonday = _parseWeekSortKey(summaryValue);
-    final label =
-        weekMonday == null
-            ? '주 미지정'
-            : ExchangeWeekCollector.monthWeekLabel(weekMonday);
-
-    final weekCount =
-        planData.where((d) => _weekKeyFor(d) == summaryValue).length;
-
-    return Container(
-      color: const Color(0x14000000),
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      alignment: Alignment.centerLeft,
-      child: Text(
-        '$label · 교체 $weekCount건',
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-}
+import 'substitution_plan_data_source.dart';
 
 /// 보강계획서 그리드 위젯 (리팩토링 버전)
 class ContentInputGrid extends ConsumerStatefulWidget {
@@ -340,20 +96,12 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
 
   /// 그룹(교체 건)의 지정 계획서 ID 조회 (삭제된 계획서면 null → 미지정)
   String? _selectedProfileIdForGroup(String groupId) {
-    final item =
-        ref
-            .read(exchangeHistoryServiceProvider)
-            .getExchangeList()
-            .where((h) => h.id == groupId)
-            .firstOrNull;
-    if (item == null) return null;
-    final store = ref.read(printProfileStoreProvider);
-    return store.getById(item.profileId)?.id;
+    return ContentInputGridPlanOps.selectedProfileIdForGroup(ref, groupId);
   }
 
   /// 행 교사의 계획서 목록
   List<PrintProfile> _profileOptionsForTeacher(String teacher) {
-    return ref.read(printProfileStoreProvider).byTeacher(teacher);
+    return ContentInputGridPlanOps.profileOptionsForTeacher(ref, teacher);
   }
 
   /// 그룹 선택 토글 — 즉시 현재 계획서 파일에 저장
@@ -385,11 +133,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
   }
 
   Set<String> _allGroupIds(List<SubstitutionPlanData> planData) {
-    return planData
-        .map((d) => d.groupId)
-        .whereType<String>()
-        .where((id) => id.isNotEmpty)
-        .toSet();
+    return ContentInputGridPlanOps.allGroupIds(planData);
   }
 
   /// 상단 드롭다운에 표시할 현재 계획서 ID (저장된 계획서만, 없으면 null)
@@ -397,29 +141,15 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     PrintProfileStore store,
     List<SubstitutionPlanData> planData,
   ) {
-    // 전역 lastUsed 우선 — 백업·상단 칩·2열 헤더와 동일 계획서를 본다.
-    // (로컬 _selectedPlanId만 우선하면 백업에서 고른 뒤 상단 수정/삭제가
-    // 이전 계획서를 건드리는 어긋남이 난다.)
-    final lastUsed = store.lastUsedProfileId;
-    if (lastUsed != null &&
-        lastUsed != '__default__' &&
-        store.profiles.any((p) => p.id == lastUsed)) {
-      return lastUsed;
-    }
-    if (_selectedPlanId != null &&
-        _selectedPlanId != '__default__' &&
-        store.profiles.any((p) => p.id == _selectedPlanId)) {
-      return _selectedPlanId;
-    }
-    if (store.profiles.isNotEmpty) return store.profiles.first.id;
-    // 저장된 계획서가 없으면 null — 결강일 기반 임시 이름을 계획서처럼 보여주지 않음
-    return null;
+    return ContentInputGridPlanOps.resolveSelectedPlanId(
+      store: store,
+      planData: planData,
+      selectedPlanId: _selectedPlanId,
+    );
   }
 
   PrintProfile? _currentProfile(PrintProfileStore store) {
-    final id = _selectedPlanId ?? store.lastUsedProfileId;
-    if (id == null || id == '__default__') return null;
-    return store.getById(id);
+    return ContentInputGridPlanOps.currentProfile(store, _selectedPlanId);
   }
 
   /// 계획서의 제외 목록 → 체크 UI 반영 (기본: 모두 선택)
@@ -427,20 +157,13 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     PrintProfileStore store,
     List<SubstitutionPlanData> planData,
   ) {
-    final allIds = _allGroupIds(planData);
-    final profile = _currentProfile(store);
-    final deselected = profile?.deselectedGroupIds.toSet() ?? const <String>{};
-
-    final next = allIds.where((id) => !deselected.contains(id)).toSet();
-    final same =
-        next.length == _checkedGroupIds.length &&
-        next.containsAll(_checkedGroupIds);
-    if (same && _selectionHydrated) return;
-
-    _checkedGroupIds
-      ..clear()
-      ..addAll(next);
-    _selectionHydrated = true;
+    _selectionHydrated = ContentInputGridPlanOps.hydrateSelectionFromPlan(
+      store: store,
+      planData: planData,
+      selectedPlanId: _selectedPlanId,
+      checkedGroupIds: _checkedGroupIds,
+      selectionHydrated: _selectionHydrated,
+    );
   }
 
   /// 체크 상태를 현재 계획서에 저장 (없으면 준비 교사 기준으로 계획서 생성)
@@ -469,11 +192,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
   }
 
   bool _listEquals(List<String> a, List<String> b) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
+    return ContentInputGridPlanOps.listEquals(a, b);
   }
 
   /// 현재 계획서가 없으면 생성하고, 있으면 그대로 반환
@@ -551,12 +270,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
 
   /// 계획서에 귀속시킬 교사명 (준비 교사 → 없으면 첫 행 결강 교사)
   String _resolvePlanTeacherName(List<SubstitutionPlanData> planData) {
-    final prepared = ref.read(activeTeacherNameProvider).trim();
-    if (prepared.isNotEmpty) return prepared;
-    if (planData.isNotEmpty && planData.first.teacher.trim().isNotEmpty) {
-      return planData.first.teacher.trim();
-    }
-    return '';
+    return ContentInputGridPlanOps.resolvePlanTeacherName(ref, planData);
   }
 
   /// 결강일 선택 시 현재 계획서 이름을 "결보강 YY.MM.DD"로 변경
@@ -702,14 +416,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
   }
 
   String _defaultPlanName(List<SubstitutionPlanData> planData) {
-    if (planData.isEmpty ||
-        planData.first.absenceDate.isEmpty ||
-        planData.first.absenceDate == '선택') {
-      return '결보강';
-    }
-    return DateFormatUtils.toSubstitutionPlanNameFromStored(
-      planData.first.absenceDate,
-    );
+    return ContentInputGridPlanOps.defaultPlanName(planData);
   }
 
   void _applyPlanToAllRows(
@@ -881,8 +588,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
                       allIds.isEmpty ? null : () => _toggleSelectAll(planData),
                   icon: Icons.checklist,
                   label: allSelected ? '선택 해제' : '모두 선택',
-                  tooltip:
-                      '결보강 출력에 포함할 교체 건을 선택/해제합니다',
+                  tooltip: '결보강 출력에 포함할 교체 건을 선택/해제합니다',
                   backgroundColor: ContentToolbarLayout.neutralButtonBackground(
                     tokens,
                   ),
@@ -902,8 +608,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
                           : null,
                   icon: Icons.delete_outline,
                   label: '선택 삭제',
-                  tooltip:
-                      '선택한 교체 건만 삭제합니다. 되돌리기로 1건씩 복원할 수 있습니다.',
+                  tooltip: '선택한 교체 건만 삭제합니다. 되돌리기로 1건씩 복원할 수 있습니다.',
                   backgroundColor: Colors.red.shade50,
                   foregroundColor: Colors.red.shade700,
                   borderColor: Colors.red.shade300,
@@ -1490,12 +1195,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
   }
 
   bool _isTargetWeekday(DateTime date, String targetWeekday) {
-    const weekdayMap = {'일': 0, '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6};
-    final targetWeekdayNumber = weekdayMap[targetWeekday];
-    if (targetWeekdayNumber == null) return true;
-
-    final dateWeekday = date.weekday == 7 ? 0 : date.weekday;
-    return dateWeekday == targetWeekdayNumber;
+    return ContentInputGridPlanOps.isTargetWeekday(date, targetWeekday);
   }
 
   /// 테이블 데이터를 엑셀 형식으로 클립보드에 복사
@@ -1540,46 +1240,6 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
   ///
   /// 엑셀에서 붙여넣기 시 각 셀에 자동으로 데이터가 분리됩니다.
   String _generateTableText(List<SubstitutionPlanData> data) {
-    final buffer = StringBuffer();
-
-    // 헤더 행 (탭으로 구분)
-    const headers = [
-      '결강일',
-      '교시',
-      '학년',
-      '반',
-      '과목',
-      '교사',
-      '보강/수업변경 과목',
-      '보강/수업변경 성명',
-      '교체일',
-      '교체 교시',
-      '교체 과목',
-      '교체 교사',
-      '비고',
-    ];
-    buffer.writeln(headers.join('\t'));
-
-    // 데이터 행
-    for (final row in data) {
-      final cells = [
-        '${DateFormatUtils.toMonthDay(row.absenceDate)}(${row.absenceDay})', // 결강일(요일) - 월.일 형식
-        row.period, // 교시
-        row.grade, // 학년
-        row.className, // 반
-        row.subject, // 과목 (결강)
-        row.teacher, // 교사 (결강)
-        row.supplementSubject, // 보강/수업변경 과목
-        row.supplementTeacher, // 보강/수업변경 성명
-        '${DateFormatUtils.toMonthDay(row.substitutionDate)}(${row.substitutionDay})', // 교체일(교체 요일) - 월.일 형식
-        row.substitutionPeriod, // 교체 교시
-        row.substitutionSubject, // 교체 과목
-        row.substitutionTeacher, // 교체 교사
-        row.remarks, // 비고
-      ];
-      buffer.writeln(cells.join('\t'));
-    }
-
-    return buffer.toString();
+    return ContentInputGridPlanOps.generateTableText(data);
   }
 }

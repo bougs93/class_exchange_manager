@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:class_exchange_manager/providers/substitution_plan_viewmodel.dart';
-import 'package:class_exchange_manager/ui/screens/plan_output/widgets/content_input_grid.dart';
+import 'package:class_exchange_manager/ui/screens/plan_output/widgets/substitution_plan_data_source.dart';
 
 SubstitutionPlanData _row({required String groupId, String teacher = '홍길동'}) {
   return SubstitutionPlanData(
