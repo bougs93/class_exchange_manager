@@ -24,6 +24,9 @@ import '../../utils/logger.dart';
 import '../../utils/snackbar_helper.dart';
 import '../widgets/web_login_screen_preview.dart';
 import 'timetable_file_register_dialog.dart';
+import 'web_admin/web_admin_logo_preview.dart';
+import 'web_admin/web_admin_password_field.dart';
+import 'web_admin/web_admin_publish_status.dart';
 import 'web_login_gate.dart';
 
 /// 관리자용 접속 설정 변경 화면 (웹 전용, 웹 전환 2단계).
@@ -54,8 +57,10 @@ class _WebAdminSettingsScreenState
   final _defaultSchoolNameController = TextEditingController();
   final _brandingService = WebBrandingService();
   WebLoginBranding _branding = const WebLoginBranding();
+
   /// 서버에 저장된 로고 (표시용). 웹에선 network 이미지 대신 이걸 쓴다.
   Uint8List? _storedLogoBytes;
+
   /// 아직 업로드하지 않은 새로 고른 로고.
   Uint8List? _pendingLogoBytes;
   String _pendingLogoContentType = 'image/png';
@@ -248,7 +253,10 @@ class _WebAdminSettingsScreenState
     if (homeUrl.isNotEmpty) {
       final uri = Uri.tryParse(homeUrl);
       if (uri == null || !(uri.isScheme('http') || uri.isScheme('https'))) {
-        SnackBarHelper.showError(context, '홈페이지 주소는 http:// 또는 https:// 로 시작해야 합니다.');
+        SnackBarHelper.showError(
+          context,
+          '홈페이지 주소는 http:// 또는 https:// 로 시작해야 합니다.',
+        );
         return;
       }
     }
@@ -387,7 +395,7 @@ class _WebAdminSettingsScreenState
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 6),
-              _buildPasswordField(
+              WebAdminPasswordField(
                 controller: _viewerPasswordController,
                 label: '새 접속자 비밀번호 (4자 이상)',
                 visible: _viewerVisible,
@@ -395,7 +403,7 @@ class _WebAdminSettingsScreenState
                     () => setState(() => _viewerVisible = !_viewerVisible),
               ),
               const SizedBox(height: 8),
-              _buildPasswordField(
+              WebAdminPasswordField(
                 controller: _viewerPasswordConfirmController,
                 label: '새 접속자 비밀번호 확인',
                 visible: _viewerVisible,
@@ -419,14 +427,14 @@ class _WebAdminSettingsScreenState
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
-              _buildPasswordField(
+              WebAdminPasswordField(
                 controller: _adminPasswordController,
                 label: '새 관리자 비밀번호 (4자 이상)',
                 visible: _adminVisible,
                 onToggle: () => setState(() => _adminVisible = !_adminVisible),
               ),
               const SizedBox(height: 8),
-              _buildPasswordField(
+              WebAdminPasswordField(
                 controller: _adminPasswordConfirmController,
                 label: '새 관리자 비밀번호 확인',
                 visible: _adminVisible,
@@ -455,7 +463,7 @@ class _WebAdminSettingsScreenState
                 style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
               const SizedBox(height: 10),
-              Center(child: _buildLogoEditorPreview()),
+              Center(child: WebAdminLogoPreview(logoBytes: _displayLogoBytes)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -582,7 +590,15 @@ class _WebAdminSettingsScreenState
                 style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
               const SizedBox(height: 6),
-              _buildPublishStatus(),
+              WebAdminPublishStatus(
+                publishing: _publishing,
+                publishMessage: _publishMessage,
+                publishResult: _publishResult,
+                publishFailed: _publishFailed,
+                publishedName: _publishedName,
+                deleting: _deleting,
+                onDelete: _deleteCurrentTimetable,
+              ),
               const SizedBox(height: 6),
               Align(
                 alignment: Alignment.centerRight,
@@ -598,119 +614,6 @@ class _WebAdminSettingsScreenState
           ),
         ),
       ),
-    );
-  }
-
-  /// 공용 시간표 올리기 진행·결과. 다른 설정 버튼은 막지 않는다.
-  /// 접속 설정에서 고른/저장된 학교 로고 미리보기.
-  Widget _buildLogoEditorPreview() {
-    final bytes = _displayLogoBytes;
-    final Widget child =
-        bytes != null
-            ? Image.memory(bytes, fit: BoxFit.contain)
-            : Icon(
-              Icons.school_outlined,
-              size: 40,
-              color: Colors.grey.shade400,
-            );
-    return Container(
-      width: 96,
-      height: 96,
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: child,
-    );
-  }
-
-  Widget _buildPublishStatus() {
-    final active = ref.watch(activeTimetableEntryProvider);
-    final activeName = active?.name;
-    final currentName =
-        (_publishedName != null && _publishedName!.isNotEmpty)
-            ? _publishedName!
-            : activeName;
-
-    if (_publishing) {
-      return Row(
-        children: [
-          const SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              _publishMessage ?? '공용 시간표를 올리는 중…',
-              style: const TextStyle(fontSize: 12),
-            ),
-          ),
-        ],
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (_publishResult != null)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color:
-                  _publishFailed
-                      ? Colors.red.shade50
-                      : Colors.green.shade50,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color:
-                    _publishFailed
-                        ? Colors.red.shade200
-                        : Colors.green.shade200,
-              ),
-            ),
-            child: Text(
-              _publishResult!,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color:
-                    _publishFailed
-                        ? Colors.red.shade700
-                        : Colors.green.shade800,
-              ),
-            ),
-          ),
-        if (currentName != null && currentName.isNotEmpty) ...[
-          if (_publishResult != null) const SizedBox(height: 2),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '현재 시간표: $currentName',
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ),
-              if (active != null)
-                TextButton(
-                  onPressed: _deleting ? null : _deleteCurrentTimetable,
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.red,
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    minimumSize: const Size(0, 32),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: Text(_deleting ? '삭제 중…' : '삭제'),
-                ),
-            ],
-          ),
-        ],
-      ],
     );
   }
 
@@ -799,32 +702,6 @@ class _WebAdminSettingsScreenState
       setState(() => _publishMessage = '$label ($end/${lessons.length})');
       await Future<void>.delayed(Duration.zero);
     }
-  }
-
-  /// 보기/숨기기 토글이 달린 비밀번호 입력란.
-  Widget _buildPasswordField({
-    required TextEditingController controller,
-    required String label,
-    required bool visible,
-    required VoidCallback onToggle,
-  }) {
-    return TextField(
-      controller: controller,
-      obscureText: !visible,
-      decoration: InputDecoration(
-        labelText: label,
-        border: const OutlineInputBorder(),
-        isDense: true,
-        suffixIcon: IconButton(
-          tooltip: visible ? '숨기기' : '보기',
-          icon: Icon(
-            visible ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-            size: 20,
-          ),
-          onPressed: onToggle,
-        ),
-      ),
-    );
   }
 
   /// Exception 접두어 없이 사용자용 문구만 남긴다.
@@ -921,8 +798,7 @@ class _WebAdminSettingsScreenState
       if (!mounted) return;
       if (timetableData == null) {
         _showPublishFailure(
-          ExcelService.lastParseFailureReason ??
-              '시간표 데이터를 파싱할 수 없습니다.',
+          ExcelService.lastParseFailureReason ?? '시간표 데이터를 파싱할 수 없습니다.',
         );
         return;
       }
