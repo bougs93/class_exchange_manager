@@ -149,11 +149,42 @@ class PersonalScheduleHeaderBar extends ConsumerWidget {
     bool isThisWeek,
     VoidCallback onPressed,
   ) {
+    // CompactToolbarLabelButton은 onPressed==null일 때 "(경로를 선택하세요)"를
+    // 툴팁에 붙이므로, 이번 주면 동일 스타일의 비활성 칩으로 그린다.
+    if (isThisWeek) {
+      return Tooltip(
+        message: '이번 주입니다',
+        child: Material(
+          color: Colors.grey.shade100,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(6),
+            side: BorderSide(color: Colors.grey.shade300),
+          ),
+          child: SizedBox(
+            height: 34,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.today, size: 16, color: Colors.grey.shade400),
+                  const SizedBox(width: 4),
+                  Text(
+                    '이번주',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     return CompactToolbarLabelButton(
-      onPressed: isThisWeek ? null : onPressed,
+      onPressed: onPressed,
       icon: Icons.today,
       label: '이번주',
-      tooltip: isThisWeek ? '이번 주입니다' : '이번 주로 이동',
+      tooltip: '이번 주로 이동',
       height: 34,
       fontSize: 12,
       iconSize: 16,

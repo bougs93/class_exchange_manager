@@ -358,8 +358,8 @@ class ResetExchangeListButton extends StatelessWidget {
     return CompactToolbarAdaptiveLabelButton(
       onPressed: onPressed,
       icon: Icons.clear,
-      label: '전체 초기화',
-      tooltip: '결보강 전체 초기화',
+      label: '전체 삭제',
+      tooltip: '결보강 내역·계획서를 모두 삭제합니다',
       showLabel: showLabel,
       backgroundColor: Colors.grey.shade100,
       foregroundColor: Colors.grey.shade700,

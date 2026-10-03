@@ -6,11 +6,16 @@ class ScreenUsageHints {
 
   /// 계획서 출력 > 내용 수정
   static const String contentInput =
-      '표에서 선택 항목을 클릭해 필수 정보를 입력하세요. 입력이 끝나면 결보강 출력에서 PDF를 저장할 수 있습니다.';
+      '표에서 정보를 입력하고, 출력할 교체 건만 체크하세요. 결보강 출력에서 체크한 건만 PDF로 미리보기·인쇄됩니다.';
 
   /// 계획서 출력 > 결보강 출력
   static const String substitutionOutput =
-      '입력란을 확인한 후 PDF 미리보기, 인쇄 버튼을 눌러 결보강 계획서를 저장하거나 인쇄하세요.';
+      '내용 수정에서 체크한 교체 건만 출력됩니다. 입력란을 확인한 뒤 PDF 미리보기, 인쇄를 누르세요.';
+
+  /// 계획서 출력 > 결보강 백업
+  static const String planBackup =
+      '왼쪽에서 결강 교사를 고른 뒤 계획서를 선택하고 내보내기를 누르세요. '
+      '다른 PC 백업은 가져오기로 복원합니다(계획서 미선택이어도 가능).';
 
   /// 안내 > 교사안내
   static const String teacherNotice =

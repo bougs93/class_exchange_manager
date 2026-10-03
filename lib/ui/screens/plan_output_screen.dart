@@ -9,9 +9,10 @@ import '../../ui/widgets/plan_context_header_bar.dart';
 import '../../ui/widgets/unified_navigation_bar.dart';
 import '../../utils/logger.dart';
 import 'plan_output/widgets/content_input_grid.dart';
+import 'plan_output/widgets/plan_backup_screen.dart';
 import 'plan_output/widgets/substitution_output/substitution_output_widget.dart';
 
-/// 계획서 출력 화면 (내용 수정 · 결보강 출력)
+/// 계획서 출력 화면 (내용 수정 · 결보강 출력 · 백업)
 class PlanOutputScreen extends ConsumerStatefulWidget {
   const PlanOutputScreen({super.key});
 
@@ -71,11 +72,22 @@ class _PlanOutputScreenState extends ConsumerState<PlanOutputScreen> {
     }
   }
 
+  int _contentIndex(PlanOutputMenu menu) {
+    switch (menu) {
+      case PlanOutputMenu.contentInput:
+        return 0;
+      case PlanOutputMenu.substitutionOutput:
+        return 1;
+      case PlanOutputMenu.backup:
+        return 2;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final selectedMenu = ref.watch(planOutputMenuProvider);
 
-    // 사이드바뿐 아니라 '0건 일괄 출력' 등 provider 직접 전환도 동기화
+    // 사이드바·내용 수정의 '결보강 출력' 등 provider 직접 전환도 동기화
     ref.listen<PlanOutputMenu>(planOutputMenuProvider, (previous, next) {
       if (next != PlanOutputMenu.substitutionOutput) return;
       if (previous == next) return;
@@ -221,10 +233,8 @@ class _PlanOutputScreenState extends ConsumerState<PlanOutputScreen> {
   /// IndexedStack으로 결보강 위젯을 유지해, 내용 수정으로 다녀와도
   /// 준비>교사 listen이 끊기지 않습니다.
   Widget _buildContent(PlanOutputMenu selectedType) {
-    final showSubstitution = selectedType == PlanOutputMenu.substitutionOutput;
-
     return IndexedStack(
-      index: showSubstitution ? 1 : 0,
+      index: _contentIndex(selectedType),
       sizing: StackFit.expand,
       children: [
         // 0: 내용 수정 (항상)
@@ -234,6 +244,8 @@ class _PlanOutputScreenState extends ConsumerState<PlanOutputScreen> {
           SubstitutionOutputWidget(key: _substitutionOutputWidgetKey)
         else
           const SizedBox.shrink(),
+        // 2: 백업
+        const PlanBackupScreen(),
       ],
     );
   }

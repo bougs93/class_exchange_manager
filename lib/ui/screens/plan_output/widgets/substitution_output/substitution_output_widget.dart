@@ -1,13 +1,10 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../../../../constants/screen_usage_hints.dart';
-import '../../../../../models/exchange_history_item.dart';
 import '../../../../../models/plan_output_menu.dart';
 import '../../../../../models/print_profile.dart';
 import '../../../../../models/timetable_registry.dart';
@@ -18,7 +15,6 @@ import '../../../../../providers/print_profile_provider.dart';
 import '../../../../../providers/services_provider.dart';
 import '../../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../../../providers/timetable_registry_provider.dart';
-import '../../../../../services/substitution_backup_service.dart';
 import '../../../../../theme/design_tokens.dart';
 import '../../../../../utils/dialog_helper.dart';
 import '../../../../widgets/content_toolbar_layout.dart';
@@ -1144,7 +1140,7 @@ class SubstitutionOutputWidgetState
 
             const SizedBox(height: 15),
 
-            // 출력·백업 동작 행 (PDF가 주 동작, 백업은 부 동작)
+            // PDF 출력 (백업은 사이드 메뉴 [백업]으로 분리)
             _buildOutputActionsRow(),
 
             const SizedBox(height: 15),
@@ -1239,450 +1235,9 @@ class SubstitutionOutputWidgetState
     );
   }
 
-  /// 출력·백업 동작 행 (A안)
-  ///
-  /// [PDF 미리보기, 인쇄]가 주 동작, 백업 내보내기/가져오기는 선택한 계획서
-  /// 1건에 대한 부 동작이다. 좁은 화면에서는 2행으로 나뉜다.
+  /// PDF 출력 행
   Widget _buildOutputActionsRow() {
-    final canDo = _selectedProfileId != null;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final pdfButton = _buildPdfOutputButton();
-        // 내보내기는 계획서 선택 필요, 가져오기는 선택 없이 가능
-        final backupActions = _buildBackupActions(
-          canExport: canDo,
-          canImport: true,
-        );
-        if (constraints.maxWidth >= 560) {
-          return Row(
-            children: [
-              Expanded(flex: 3, child: pdfButton),
-              const SizedBox(width: 24),
-              backupActions,
-            ],
-          );
-        }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            pdfButton,
-            const SizedBox(height: 8),
-            Align(alignment: Alignment.centerRight, child: backupActions),
-          ],
-        );
-      },
-    );
-  }
-
-  /// 선택한 계획서 1건의 백업 동작 (내보내기/가져오기)
-  ///
-  /// 같은 시간표를 여러 PC에서 쓸 때, 선택한 계획서와 그 계획서의 결보강
-  /// 내역을 파일로 주고받아 복원할 수 있게 한다. 자세한 검증 규칙은
-  /// [SubstitutionBackupService] 참고.
-  Widget _buildBackupActions({
-    required bool canExport,
-    required bool canImport,
-  }) {
-    final tokens = context.tokens;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text('백업', style: TextStyle(fontSize: 12, color: tokens.textMuted)),
-        const SizedBox(width: 6),
-        CompactToolbarLabelButton(
-          onPressed: canExport ? _handleExportBackup : null,
-          icon: Icons.upload_outlined,
-          label: '내보내기',
-          tooltip:
-              canExport
-                  ? '선택한 계획서 1건을 파일로 저장 (다른 PC로 옮길 때 사용)'
-                  : '계획서를 선택한 뒤에만 내보낼 수 있습니다',
-          backgroundColor: ContentToolbarLayout.neutralButtonBackground(tokens),
-          foregroundColor: ContentToolbarLayout.neutralButtonForeground(tokens),
-          borderColor: ContentToolbarLayout.neutralButtonBorder(tokens),
-          height: ContentToolbarLayout.buttonHeight,
-          fontSize: ContentToolbarLayout.buttonFontSize,
-          iconSize: ContentToolbarLayout.buttonIconSize,
-        ),
-        const SizedBox(width: ContentToolbarLayout.buttonGap),
-        CompactToolbarLabelButton(
-          onPressed: canImport ? _handleImportBackup : null,
-          icon: Icons.download_outlined,
-          label: '가져오기',
-          tooltip: '백업 파일에서 복원합니다 (계획서 미선택 시 새 계획서로 복원)',
-          backgroundColor: ContentToolbarLayout.neutralButtonBackground(tokens),
-          foregroundColor: ContentToolbarLayout.neutralButtonForeground(tokens),
-          borderColor: ContentToolbarLayout.neutralButtonBorder(tokens),
-          height: ContentToolbarLayout.buttonHeight,
-          fontSize: ContentToolbarLayout.buttonFontSize,
-          iconSize: ContentToolbarLayout.buttonIconSize,
-        ),
-      ],
-    );
-  }
-
-  /// 파일명 기본값: "<계획서명>_YYYYMMDD_결보강백업"
-  String _buildBackupFileName(String? profileName) {
-    final now = DateTime.now();
-    final stamp =
-        '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
-    final name =
-        (profileName == null || profileName.trim().isEmpty)
-            ? '결보강백업'
-            : profileName.trim();
-    return '${name}_${stamp}_결보강백업';
-  }
-
-  /// 선택한 계획서 1건(+그 계획서의 결보강 내역)을 파일로 내보낸다.
-  Future<void> _handleExportBackup() async {
-    final profileStore = ref.read(printProfileStoreProvider);
-    final selected = profileStore.getById(_selectedProfileId);
-    if (selected == null) {
-      if (mounted) {
-        SnackBarHelper.showInfo(context, '백업할 계획서를 먼저 선택하세요.');
-      }
-      return;
-    }
-
-    final historyService = ref.read(exchangeHistoryServiceProvider);
-    final items = _itemsForPlanBackup(
-      historyService.getExchangeList(),
-      selected.id,
-    );
-
-    if (items.isEmpty) {
-      if (mounted) {
-        SnackBarHelper.showInfo(context, '내보낼 결보강 내역이 없습니다.');
-      }
-      return;
-    }
-
-    final activeEntry = ref.read(activeTimetableEntryProvider);
-
-    // 교체 직후엔 내역의 profileId가 비어 있다. 파일에는 이 계획서 소속으로 적는다.
-    final bundled =
-        items
-            .map(
-              (e) =>
-                  e.profileId == selected.id
-                      ? e
-                      : e.copyWithProfileId(selected.id),
-            )
-            .toList();
-
-    final bundle = SubstitutionBackupBundle(
-      timetableName: activeEntry?.name,
-      teacherName: activeEntry?.teacherName,
-      schoolName: activeEntry?.schoolName,
-      exchangeItems: bundled,
-      printProfiles: [selected],
-    );
-    final jsonString = const SubstitutionBackupService().encode(bundle);
-    final fileName = '${_buildBackupFileName(selected.name)}.json';
-
-    // 웹은 경로가 없고, saveFile이 바이트로 바로 다운로드한 뒤 null을 반환한다.
-    if (kIsWeb) {
-      try {
-        await FilePicker.saveFile(
-          dialogTitle: '결보강 내보내기',
-          fileName: fileName,
-          type: FileType.custom,
-          allowedExtensions: const ['json'],
-          bytes: Uint8List.fromList(utf8.encode(jsonString)),
-        );
-        if (mounted) {
-          SnackBarHelper.showSuccess(
-            context,
-            "계획서 '${selected.name}' ${items.length}건을 내보냈습니다.",
-          );
-        }
-      } catch (e) {
-        AppLogger.error('결보강 내역 내보내기 실패: $e', e);
-        if (mounted) {
-          SnackBarHelper.showError(context, '내보내기에 실패했습니다: $e');
-        }
-      }
-      return;
-    }
-
-    String? outputPath;
-    try {
-      outputPath = await FilePicker.saveFile(
-        dialogTitle: '결보강 내보내기',
-        fileName: fileName,
-        type: FileType.custom,
-        allowedExtensions: const ['json'],
-      );
-    } catch (e) {
-      AppLogger.error('결보강 내역 저장 대화상자 실패: $e', e);
-    }
-    if (outputPath == null || outputPath.isEmpty) return;
-
-    final path =
-        outputPath.toLowerCase().endsWith('.json')
-            ? outputPath
-            : '$outputPath.json';
-
-    try {
-      await File(path).writeAsString(jsonString);
-      if (mounted) {
-        SnackBarHelper.showSuccess(
-          context,
-          "계획서 '${selected.name}' ${items.length}건을 내보냈습니다.",
-        );
-      }
-    } catch (e) {
-      AppLogger.error('결보강 내역 내보내기 실패: $e', e);
-      if (mounted) {
-        SnackBarHelper.showError(context, '내보내기에 실패했습니다: $e');
-      }
-    }
-  }
-
-  /// 선택한 계획서의 결보강 내역.
-  ///
-  /// 내용 수정에서 이 계획서로 지정된 건을 우선한다. 한 건도 없으면, 아직
-  /// 어느 계획서에도 안 묶인 교체(교체 직후)를 그 계획서의 내역으로 본다.
-  /// 다른 계획서에 이미 묶인 건은 넣지 않는다.
-  List<ExchangeHistoryItem> _itemsForPlanBackup(
-    List<ExchangeHistoryItem> all,
-    String profileId,
-  ) {
-    final assigned = all.where((e) => e.profileId == profileId).toList();
-    if (assigned.isNotEmpty) return assigned;
-    return all.where((e) => e.profileId == null).toList();
-  }
-
-  /// 백업 파일에서 가져온다.
-  ///
-  /// 계획서를 선택한 상태면: 가져온 교체 건을 현재 계획서에 귀속시키고, 파일
-  /// 안의 계획서 설정(양식·폰트·입력값·체크 상태)도 현재 계획서에 덮어쓴다.
-  /// 계획서의 id·이름·교사는 유지된다.
-  ///
-  /// 계획서 미선택 상태면: 파일 안의 계획서와 교체 건을 그대로 복원하고,
-  /// 복원한 계획서를 바로 선택한 상태로 보여준다.
-  ///
-  /// 1차: 원본 칸 정보로 같은 시간표인지 확인 → 다르면 확인 후 진행.
-  /// 2차: 날짜(결강일/교체일) 충돌 확인 → 겹치면 확인 후 처리.
-  /// (선택 상태: 현재 계획서의 기존 내역을 지우고 교체 / 미선택 상태: 추가)
-  Future<void> _handleImportBackup() async {
-    final profileStore = ref.read(printProfileStoreProvider);
-    final selected = profileStore.getById(_selectedProfileId);
-
-    FilePickerResult? result;
-    try {
-      result = await FilePicker.pickFiles(
-        dialogTitle: '결보강 가져오기',
-        type: FileType.custom,
-        allowedExtensions: ['json'],
-        allowMultiple: false,
-        // 웹은 path가 없다. 바이트로 읽는다. PC/모바일은 기존처럼 경로만 쓴다.
-        withData: kIsWeb,
-      );
-    } catch (e) {
-      AppLogger.error('결보강 가져오기 대화상자 실패: $e', e);
-    }
-    if (result == null || result.files.isEmpty) return;
-    final picked = result.files.single;
-
-    const backupService = SubstitutionBackupService();
-    final SubstitutionBackupBundle bundle;
-    try {
-      final String content;
-      if (kIsWeb) {
-        final bytes = picked.bytes;
-        if (bytes == null || bytes.isEmpty) {
-          if (mounted) {
-            SnackBarHelper.showError(context, '올바른 결보강 백업 파일이 아닙니다.');
-          }
-          return;
-        }
-        content = utf8.decode(bytes);
-      } else {
-        final path = picked.path;
-        if (path == null) return;
-        content = await File(path).readAsString();
-      }
-      bundle = backupService.decode(content);
-    } catch (e) {
-      AppLogger.error('결보강 가져오기 실패(파일 읽기/형식): $e', e);
-      if (mounted) {
-        SnackBarHelper.showError(context, '올바른 결보강 백업 파일이 아닙니다.');
-      }
-      return;
-    }
-
-    if (bundle.exchangeItems.isEmpty) {
-      if (mounted) {
-        SnackBarHelper.showInfo(context, '가져올 결보강 내역이 없습니다.');
-      }
-      return;
-    }
-
-    final currentTimeSlots =
-        ref.read(
-          exchangeScreenProvider.select(
-            (state) => state.timetableData?.timeSlots,
-          ),
-        ) ??
-        const [];
-
-    final matches = backupService.matchesCurrentTimetable(
-      bundle.exchangeItems,
-      currentTimeSlots,
-    );
-    if (!mounted) return;
-    if (!matches) {
-      final proceed = await _showBackupConfirmDialog(
-        title: '다른 시간표일 수 있습니다',
-        message:
-            '가져올 파일의 교체 내역이 지금 이 시간표와 일치하지 않습니다'
-            '(다른 시간표이거나, 그 사이 시간표가 바뀌었을 수 있습니다).\n\n'
-            '그래도 가져오시겠습니까?',
-        confirmLabel: '그래도 가져오기',
-      );
-      if (proceed != true) return;
-    }
-
-    // 가져온 교체 건을 현재 계획서에 귀속시킨다 (미선택 시 원본 귀속 유지)
-    final String? selectedId = selected?.id;
-    final String? selectedName = selected?.name;
-    final retargeted =
-        selectedId == null
-            ? bundle.exchangeItems
-            : bundle.exchangeItems
-                .map((e) => e.copyWithProfileId(selectedId))
-                .toList();
-
-    final historyService = ref.read(exchangeHistoryServiceProvider);
-    final existingItems =
-        selectedId == null
-            ? historyService.getExchangeList()
-            : historyService
-                .getExchangeList()
-                .where((e) => e.profileId == selectedId)
-                .toList();
-    final hasConflict = backupService.hasDateConflict(
-      retargeted,
-      existingItems,
-    );
-
-    if (hasConflict) {
-      if (!mounted) return;
-      final proceed = await _showBackupConfirmDialog(
-        title: '날짜가 겹칩니다',
-        message:
-            selectedName == null
-                ? '가져올 결보강 내역이 기존 내역과 날짜가 겹칩니다.\n'
-                    '계속하면 가져온 내용을 기존 내역 뒤에 추가합니다.\n\n'
-                    '계속하시겠습니까?'
-                : "가져올 결보강 내역이 계획서 '$selectedName'의 기존 내역과 "
-                    '날짜가 겹칩니다.\n'
-                    '계속하면 현재 계획서의 기존 내역을 모두 지우고 가져온 내용으로 교체합니다.\n\n'
-                    '계속하시겠습니까?',
-        confirmLabel: selectedName == null ? '추가하기' : '지우고 가져오기',
-      );
-      if (proceed != true) return;
-      // 선택 상태의 충돌만 덮어쓰기로 처리한다 (미선택 추가는 항상 병합)
-      if (selectedId != null) {
-        historyService.removeExchangeItemsByProfile(selectedId);
-      }
-    }
-
-    historyService.importExchangeItems(retargeted, overwrite: false);
-
-    // 교체 화면 그리드의 "교체된 셀" 강조는 실행/삭제 시점에 명시적으로
-    // 갱신해야 한다 — exchangeListVersionProvider 리스너는 데이터그리드
-    // 다시 그리기만 트리거할 뿐 cellSelectionProvider는 건드리지 않는다
-    // (교체 목록 초기화 때도 _deleteExchangeList가 이렇게 직접 호출한다).
-    ExchangeExecutor.restoreExchangedCells(ref);
-
-    if (selected != null) {
-      // 파일 안의 계획서 설정을 현재 계획서에 덮어쓴다 (id·이름·교사는 유지)
-      if (bundle.printProfiles.isNotEmpty) {
-        final src = bundle.printProfiles.first;
-        final updated = selected.copyWith(
-          templateIndex: src.templateIndex,
-          fontSize: src.fontSize,
-          remarksFontSize: src.remarksFontSize,
-          selectedFont: src.selectedFont,
-          includeRemarks: src.includeRemarks,
-          additionalFields: Map<String, String>.from(src.additionalFields),
-          selectedTemplateFilePath: src.selectedTemplateFilePath,
-          clearTemplateFilePath: src.selectedTemplateFilePath == null,
-          deselectedGroupIds: List<String>.from(src.deselectedGroupIds),
-        );
-        await ref.read(printProfileStoreProvider.notifier).saveProfile(updated);
-        if (mounted) {
-          _applyProfileToUi(updated);
-          updateAbsencePeriod();
-        }
-      }
-
-      if (mounted) {
-        SnackBarHelper.showSuccess(
-          context,
-          hasConflict
-              ? "계획서 '$selectedName'의 기존 내역을 지우고 가져왔습니다."
-              : "계획서 '$selectedName'에 ${retargeted.length}건을 가져왔습니다.",
-        );
-      }
-      return;
-    }
-
-    // 미선택 상태: 파일 안의 계획서를 그대로 복원하고 바로 선택한다
-    if (bundle.printProfiles.isNotEmpty) {
-      final profileNotifier = ref.read(printProfileStoreProvider.notifier);
-      final currentStore = ref.read(printProfileStoreProvider);
-      PrintProfile? firstRestored;
-      for (final profile in bundle.printProfiles) {
-        if (currentStore.getById(profile.id) == null) {
-          await profileNotifier.saveProfile(profile);
-          firstRestored ??= profile;
-        }
-      }
-
-      final toSelect = firstRestored ?? bundle.printProfiles.first;
-      if (mounted && _availableTeachers().contains(toSelect.teacherName)) {
-        setState(() {
-          _selectedTeacher = toSelect.teacherName;
-        });
-        _applyProfileToUi(toSelect);
-        updateAbsencePeriod();
-        await profileNotifier.setLastSelectedTeacher(toSelect.teacherName);
-        await profileNotifier.setLastUsedProfile(toSelect.id);
-      }
-    }
-
-    if (mounted) {
-      SnackBarHelper.showSuccess(context, '${retargeted.length}건을 가져왔습니다.');
-    }
-  }
-
-  /// 가져오기 중 사용자 확인이 필요한 경고 다이얼로그 (확인/취소)
-  Future<bool?> _showBackupConfirmDialog({
-    required String title,
-    required String message,
-    required String confirmLabel,
-  }) {
-    return showDialog<bool>(
-      context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            title: Text(title),
-            content: Text(message),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('취소'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: Text(confirmLabel),
-              ),
-            ],
-          ),
-    );
+    return _buildPdfOutputButton();
   }
 
   /// 현재 선택된 계획서만 삭제하는 버튼 (2026-09-30)
@@ -2073,6 +1628,13 @@ class SubstitutionOutputWidgetState
     try {
       // 1. 체크된 교체 건만 수집 (내용 수정 화면의 선택과 동일)
       final planData = ref.read(checkedSubstitutionPlanDataProvider);
+      if (planData.isEmpty) {
+        _showSnackBar(
+          '출력할 교체 건이 없습니다. 내용 수정에서 체크한 뒤 다시 시도하세요.',
+          Colors.orange,
+        );
+        return;
+      }
 
       // 2. 템플릿 경로 결정 (웹은 로컬 파일이 없으므로 에셋 양식만 사용)
       final String templatePath =

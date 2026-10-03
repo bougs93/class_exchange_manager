@@ -7,6 +7,9 @@ enum PlanOutputMenu {
 
   /// 결보강 출력 (PDF 저장·인쇄)
   substitutionOutput,
+
+  /// 백업 (결보강 내역 내보내기·가져오기)
+  backup,
 }
 
 /// [PlanOutputMenu] 표시 이름·아이콘·색상
@@ -17,6 +20,8 @@ extension PlanOutputMenuExtension on PlanOutputMenu {
         return '내용 수정';
       case PlanOutputMenu.substitutionOutput:
         return '결보강 출력';
+      case PlanOutputMenu.backup:
+        return '결보강 백업';
     }
   }
 
@@ -26,6 +31,8 @@ extension PlanOutputMenuExtension on PlanOutputMenu {
         return Icons.description;
       case PlanOutputMenu.substitutionOutput:
         return Icons.file_present;
+      case PlanOutputMenu.backup:
+        return Icons.import_export;
     }
   }
 
@@ -35,6 +42,8 @@ extension PlanOutputMenuExtension on PlanOutputMenu {
         return Colors.blue;
       case PlanOutputMenu.substitutionOutput:
         return Colors.purple;
+      case PlanOutputMenu.backup:
+        return Colors.teal;
     }
   }
 }

@@ -1568,7 +1568,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('결보강 전체 초기화'),
+            title: const Text('결보강 전체 삭제'),
             content: const Text('결보강 내역과 계획서를 모두 삭제하겠습니까?\n이 작업은 되돌릴 수 없습니다.'),
             actions: [
               TextButton(
@@ -1584,7 +1584,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
                   _deleteExchangeList(context, ref);
                 },
                 child: Text(
-                  '초기화',
+                  '삭제',
                   style: TextStyle(color: Colors.red.shade600),
                 ),
               ),
