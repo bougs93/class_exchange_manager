@@ -124,6 +124,41 @@ class PrintProfileStoreNotifier extends StateNotifier<PrintProfileStore> {
     }
   }
 
+  /// 복원된 교체 건을 선택 상태로 맞춘다 (제외 목록에서 제거).
+  ///
+  /// 메모리를 먼저 갱신해 결보강 일정 hydrate가 선택을 다시 끄지 않게 하고,
+  /// 디스크 저장은 비동기로 이어간다.
+  Future<void> markGroupsSelected({
+    required Iterable<String> groupIds,
+    required Iterable<String> profileIds,
+  }) async {
+    if (_timetableId == null) return;
+    final groups = groupIds.where((id) => id.isNotEmpty).toSet();
+    final targets = profileIds.where((id) => id.isNotEmpty).toSet();
+    if (groups.isEmpty || targets.isEmpty) return;
+
+    var changed = false;
+    final updated = state.profiles.map((profile) {
+      if (!targets.contains(profile.id)) return profile;
+      final next =
+          profile.deselectedGroupIds
+              .where((id) => !groups.contains(id))
+              .toList();
+      if (next.length == profile.deselectedGroupIds.length &&
+          next.every(profile.deselectedGroupIds.contains)) {
+        return profile;
+      }
+      changed = true;
+      return profile.copyWith(deselectedGroupIds: next);
+    }).toList();
+
+    if (!changed) return;
+
+    final nextStore = state.copyWith(profiles: updated);
+    state = nextStore;
+    await _storage.saveStore(_timetableId, nextStore);
+  }
+
   /// 여러 계획서의 교사 귀속을 한 번에 갱신 (디스크 쓰기 1회)
   ///
   /// 연속 saveProfile 호출은 UI를 멈추게 할 수 있어 배치로 처리합니다.

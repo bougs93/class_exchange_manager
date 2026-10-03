@@ -453,10 +453,10 @@ class ExchangeExecutor {
   }
 
   /// 되돌리기 기능
-  void undoLastExchange(
+  Future<void> undoLastExchange(
     BuildContext context,
     VoidCallback onInternalPathClear,
-  ) {
+  ) async {
     final historyService = ref.read(exchangeHistoryServiceProvider);
     final result = historyService.undoLastExchange();
 
@@ -480,6 +480,15 @@ class ExchangeExecutor {
       }
 
       _applyExchangeStateAfterHistoryChange(item);
+
+      // 삭제 되돌리기 등으로 목록에 다시 보이면 계획서 체크도 선택으로 맞춘다.
+      // hydrate보다 먼저 끝나야 선택이 다시 꺼지지 않는다.
+      if (_isActiveAfterHistoryChange(
+        wasDelete: result.wasDelete,
+        isRedo: false,
+      )) {
+        await _selectRestoredExchangeInPlans(item);
+      }
 
       historyService.printExchangeList();
       historyService.printUndoHistory();
@@ -510,6 +519,7 @@ class ExchangeExecutor {
               ? baseMessage
               : '$baseMessage (참고: 이후 교체 ${dependents.length}건이 이 교체를 전제로 합니다)';
 
+      if (!context.mounted) return;
       SnackBarHelper.showWithAction(
         context,
         message,
@@ -527,7 +537,7 @@ class ExchangeExecutor {
   }
 
   /// 다시 실행 기능 (되돌리기 후 1단계 복구)
-  void redoLastExchange(BuildContext context) {
+  Future<void> redoLastExchange(BuildContext context) async {
     final historyService = ref.read(exchangeHistoryServiceProvider);
     final result = historyService.redoLastExchange();
 
@@ -544,6 +554,14 @@ class ExchangeExecutor {
 
     _applyExchangeStateAfterHistoryChange(item, isRedo: true);
 
+    // 교체 다시실행으로 목록에 다시 보이면 계획서 체크도 선택으로 맞춘다.
+    if (_isActiveAfterHistoryChange(
+      wasDelete: result.wasDelete,
+      isRedo: true,
+    )) {
+      await _selectRestoredExchangeInPlans(item);
+    }
+
     historyService.printExchangeList();
     historyService.printUndoHistory();
     historyService.printRedoHistory();
@@ -554,6 +572,7 @@ class ExchangeExecutor {
 
     dataSource?.notifyDataChanged();
 
+    if (!context.mounted) return;
     SnackBarHelper.showWithAction(
       context,
       result.wasDelete
@@ -562,6 +581,49 @@ class ExchangeExecutor {
       backgroundColor: Colors.green,
       duration: const Duration(seconds: 2),
     );
+  }
+
+  /// 되돌리기/다시실행 결과로 해당 교체가 활성 목록에 보이는지.
+  ///
+  /// - 삭제 되돌리기 / 교체 다시실행 → 활성(복원)
+  /// - 교체 되돌리기 / 삭제 다시실행 → 비활성
+  bool _isActiveAfterHistoryChange({
+    required bool wasDelete,
+    required bool isRedo,
+  }) {
+    return wasDelete != isRedo;
+  }
+
+  /// 복원된 교체를 계획서 제외 목록에서 빼 선택 상태로 저장한다.
+  ///
+  /// 교체 화면에서 undo/redo 해도 결보강 일정 체크가 풀리지 않게 한다.
+  /// 메모리를 먼저 갱신하므로 직후 hydrate가 선택을 다시 끄지 않는다.
+  Future<void> _selectRestoredExchangeInPlans(ExchangeHistoryItem item) async {
+    try {
+      final exchangeId = item.id;
+      if (exchangeId.isEmpty) return;
+
+      final store = ref.read(printProfileStoreProvider);
+      final targetIds = <String>{};
+      final assigned = item.profileId?.trim() ?? '';
+      if (assigned.isNotEmpty) targetIds.add(assigned);
+      final lastUsed = store.lastUsedProfileId;
+      if (lastUsed != null && lastUsed != '__default__') {
+        targetIds.add(lastUsed);
+      }
+      // 배정·최근 사용이 없으면 열린 계획서 전부에 반영해 선택 복원을 놓치지 않는다.
+      if (targetIds.isEmpty) {
+        targetIds.addAll(store.profiles.map((p) => p.id));
+      }
+      if (targetIds.isEmpty) return;
+
+      await ref.read(printProfileStoreProvider.notifier).markGroupsSelected(
+        groupIds: {exchangeId},
+        profileIds: targetIds,
+      );
+    } catch (e) {
+      AppLogger.warning('복원 교체 계획서 선택 반영 실패(무시): $e');
+    }
   }
 
   /// 되돌리기/다시 실행 후 시간표·셀 스타일 동기화

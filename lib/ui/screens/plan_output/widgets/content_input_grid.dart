@@ -603,14 +603,43 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     unawaited(_persistSelectionToCurrentPlan());
   }
 
-  void _runHistoryUndo(BuildContext context, WidgetRef ref) {
-    _historyExecutor(ref).undoLastExchange(context, () {});
-    _pruneCheckedSelection(ref);
+  Set<String> _activeExchangeIds(WidgetRef ref) {
+    return ref
+        .read(exchangeHistoryServiceProvider)
+        .getActiveExchangeList()
+        .map((e) => e.id)
+        .toSet();
   }
 
-  void _runHistoryRedo(BuildContext context, WidgetRef ref) {
-    _historyExecutor(ref).redoLastExchange(context);
-    _pruneCheckedSelection(ref);
+  /// 되돌리기/다시실행 후: 복원된 행은 선택, 빠진 행은 선택 해제 후 계획서에 저장
+  void _syncCheckedAfterHistory(
+    WidgetRef ref, {
+    required Set<String> activeBefore,
+  }) {
+    final activeAfter = _activeExchangeIds(ref);
+    if (!mounted) return;
+    setState(() {
+      ContentInputGridPlanOps.syncCheckedWithActiveChange(
+        checkedGroupIds: _checkedGroupIds,
+        activeBefore: activeBefore,
+        activeAfter: activeAfter,
+      );
+    });
+    unawaited(_persistSelectionToCurrentPlan());
+  }
+
+  Future<void> _runHistoryUndo(BuildContext context, WidgetRef ref) async {
+    final activeBefore = _activeExchangeIds(ref);
+    await _historyExecutor(ref).undoLastExchange(context, () {});
+    if (!mounted) return;
+    _syncCheckedAfterHistory(ref, activeBefore: activeBefore);
+  }
+
+  Future<void> _runHistoryRedo(BuildContext context, WidgetRef ref) async {
+    final activeBefore = _activeExchangeIds(ref);
+    await _historyExecutor(ref).redoLastExchange(context);
+    if (!mounted) return;
+    _syncCheckedAfterHistory(ref, activeBefore: activeBefore);
   }
 
   /// 체크된 교체 건만 삭제 (계획서는 유지)

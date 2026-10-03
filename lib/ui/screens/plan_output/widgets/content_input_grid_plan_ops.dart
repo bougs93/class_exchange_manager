@@ -94,6 +94,31 @@ class ContentInputGridPlanOps {
     return true;
   }
 
+  /// 되돌리기/다시실행 후 체크 집합 갱신.
+  ///
+  /// 다시 활성이 된 id(복원)는 항상 선택에 넣고, 비활성이 된 id는 선택에서 뺀다.
+  static void syncCheckedWithActiveChange({
+    required Set<String> checkedGroupIds,
+    required Set<String> activeBefore,
+    required Set<String> activeAfter,
+  }) {
+    final restored = activeAfter.difference(activeBefore);
+    final removed = activeBefore.difference(activeAfter);
+    checkedGroupIds
+      ..removeAll(removed)
+      ..addAll(restored);
+  }
+
+  /// 복원된 교체 id를 제외 목록에서 제거한다 (선택 상태).
+  static List<String> deselectedWithoutRestoredIds(
+    List<String> deselected,
+    Iterable<String> restoredIds,
+  ) {
+    final drop = restoredIds.toSet();
+    if (drop.isEmpty) return List<String>.from(deselected);
+    return deselected.where((id) => !drop.contains(id)).toList();
+  }
+
   /// 그룹(교체 건)의 지정 계획서 ID 조회 (삭제된 계획서면 null → 미지정)
   static String? selectedProfileIdForGroup(WidgetRef ref, String groupId) {
     final item =

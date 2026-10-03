@@ -13,10 +13,10 @@ import '../../models/dated_timetable.dart';
 import '../../models/lesson.dart';
 import '../../models/web_login_branding.dart';
 import '../../providers/timetable_registry_provider.dart';
+import '../../providers/web_services_provider.dart';
 import '../../providers/timetable_repository_provider.dart';
 import '../../services/excel_service.dart';
 import '../../services/semester_timetable_generator.dart';
-import '../../services/shared_timetable_sync_service.dart';
 import '../../services/timetable_storage_service.dart';
 import '../../services/web_auth_service.dart';
 import '../../services/web_branding_service.dart';
@@ -24,9 +24,10 @@ import '../../utils/logger.dart';
 import '../../utils/snackbar_helper.dart';
 import '../widgets/web_login_screen_preview.dart';
 import 'timetable_file_register_dialog.dart';
-import 'web_admin/web_admin_logo_preview.dart';
-import 'web_admin/web_admin_password_field.dart';
-import 'web_admin/web_admin_publish_status.dart';
+import 'web_admin/web_admin_default_school_name_section.dart';
+import 'web_admin/web_admin_login_branding_section.dart';
+import 'web_admin/web_admin_password_section.dart';
+import 'web_admin/web_admin_publish_section.dart';
 import 'web_login_gate.dart';
 
 /// 관리자용 접속 설정 변경 화면 (웹 전용, 웹 전환 2단계).
@@ -55,7 +56,18 @@ class _WebAdminSettingsScreenState
   final _loginNoticeController = TextEditingController();
   final _schoolHomeUrlController = TextEditingController();
   final _defaultSchoolNameController = TextEditingController();
-  final _brandingService = WebBrandingService();
+
+  /// 브랜딩 서비스 — **직접 생성하지 않고 Provider를 거친다.**
+  ///
+  /// 예전에는 `final _brandingService = WebBrandingService();`였는데, 그
+  /// 생성자가 기본값으로 `FirebaseFirestore.instance`를 평가하는 바람에
+  /// State가 만들어지는 순간(= `initState`보다 먼저, try/catch 밖) Firebase를
+  /// 건드려 **위젯 테스트를 단 하나도 쓸 수 없었다**(2026-10-03).
+  /// getter로 두면 실제로 쓸 때까지 생성이 미뤄지고, 테스트는 Provider를
+  /// override해 가짜를 넣을 수 있다.
+  WebBrandingService get _brandingService =>
+      ref.read(webBrandingServiceProvider);
+
   WebLoginBranding _branding = const WebLoginBranding();
 
   /// 서버에 저장된 로고 (표시용). 웹에선 network 이미지 대신 이걸 쓴다.
@@ -390,207 +402,50 @@ class _WebAdminSettingsScreenState
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             children: [
-              const Text(
-                '접속자 비밀번호 변경',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 6),
-              WebAdminPasswordField(
-                controller: _viewerPasswordController,
-                label: '새 접속자 비밀번호 (4자 이상)',
-                visible: _viewerVisible,
-                onToggle:
+              WebAdminPasswordSection(
+                saving: _saving,
+                viewerPasswordController: _viewerPasswordController,
+                viewerPasswordConfirmController:
+                    _viewerPasswordConfirmController,
+                viewerVisible: _viewerVisible,
+                onToggleViewerVisible:
                     () => setState(() => _viewerVisible = !_viewerVisible),
-              ),
-              const SizedBox(height: 8),
-              WebAdminPasswordField(
-                controller: _viewerPasswordConfirmController,
-                label: '새 접속자 비밀번호 확인',
-                visible: _viewerVisible,
-                onToggle:
-                    () => setState(() => _viewerVisible = !_viewerVisible),
-              ),
-              const SizedBox(height: 6),
-              Align(
-                alignment: Alignment.centerRight,
-                child: ElevatedButton(
-                  onPressed: _saving ? null : _saveViewerPassword,
-                  style: ElevatedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  child: const Text('접속자 비밀번호 저장'),
-                ),
+                onSaveViewerPassword: _saveViewerPassword,
+                adminPasswordController: _adminPasswordController,
+                adminPasswordConfirmController: _adminPasswordConfirmController,
+                adminVisible: _adminVisible,
+                onToggleAdminVisible:
+                    () => setState(() => _adminVisible = !_adminVisible),
+                onSaveAdminPassword: _saveAdminPassword,
               ),
               const Divider(height: 24),
-              const Text(
-                '관리자 비밀번호 변경',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 8),
-              WebAdminPasswordField(
-                controller: _adminPasswordController,
-                label: '새 관리자 비밀번호 (4자 이상)',
-                visible: _adminVisible,
-                onToggle: () => setState(() => _adminVisible = !_adminVisible),
-              ),
-              const SizedBox(height: 8),
-              WebAdminPasswordField(
-                controller: _adminPasswordConfirmController,
-                label: '새 관리자 비밀번호 확인',
-                visible: _adminVisible,
-                onToggle: () => setState(() => _adminVisible = !_adminVisible),
-              ),
-              const SizedBox(height: 6),
-              Align(
-                alignment: Alignment.centerRight,
-                child: ElevatedButton(
-                  onPressed: _saving ? null : _saveAdminPassword,
-                  style: ElevatedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  child: const Text('관리자 비밀번호 저장'),
-                ),
+              WebAdminLoginBrandingSection(
+                saving: _saving,
+                displayLogoBytes: _displayLogoBytes,
+                showRemoveLogoButton:
+                    _displayLogoBytes != null ||
+                    (!_removeLogo && _branding.logoUrl.isNotEmpty),
+                onPickLogo: _pickSchoolLogo,
+                onRemoveLogo:
+                    () => setState(() {
+                      _pendingLogoBytes = null;
+                      _removeLogo = true;
+                    }),
+                schoolHomeUrlController: _schoolHomeUrlController,
+                loginMessageController: _loginMessageController,
+                loginNoticeController: _loginNoticeController,
+                onApplyDefaultNotice: _applyDefaultLoginNotice,
+                onShowPreview: _showLoginPreview,
+                onSaveBranding: _saveLoginBranding,
               ),
               const Divider(height: 24),
-              const Text(
-                '접속 화면 (학교 로고·안내)',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                '프로그램 로고 옆에 학교 로고가, 아래에 제목·안내 박스가 보입니다. '
-                '로고를 누르면 홈페이지로 이동합니다.',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-              const SizedBox(height: 10),
-              Center(child: WebAdminLogoPreview(logoBytes: _displayLogoBytes)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                alignment: WrapAlignment.center,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: _saving ? null : _pickSchoolLogo,
-                    icon: const Icon(Icons.image_outlined, size: 18),
-                    label: const Text('로고 선택'),
-                  ),
-                  if (_displayLogoBytes != null ||
-                      (!_removeLogo && _branding.logoUrl.isNotEmpty))
-                    TextButton(
-                      onPressed:
-                          _saving
-                              ? null
-                              : () => setState(() {
-                                _pendingLogoBytes = null;
-                                _removeLogo = true;
-                              }),
-                      child: const Text('로고 제거'),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _schoolHomeUrlController,
-                decoration: const InputDecoration(
-                  labelText: '학교 홈페이지 주소',
-                  hintText: 'https://example.sen.ms.kr',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-                keyboardType: TextInputType.url,
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _loginMessageController,
-                maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: '제목 (예: 월계중학교 2026년 2학기 시간표)',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _loginNoticeController,
-                maxLines: 4,
-                decoration: const InputDecoration(
-                  labelText: '안내 문구 (사각형 박스)',
-                  hintText: '선생님 전용입니다. 비밀번호를 입력해 주세요.',
-                  border: OutlineInputBorder(),
-                  alignLabelWithHint: true,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: _saving ? null : _applyDefaultLoginNotice,
-                  style: TextButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  child: const Text('기본값'),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  OutlinedButton(
-                    onPressed: _showLoginPreview,
-                    style: OutlinedButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    child: const Text('미리보기'),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: _saving ? null : _saveLoginBranding,
-                    style: ElevatedButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    child: const Text('접속 화면 저장'),
-                  ),
-                ],
-              ),
-              const Divider(height: 24),
-              const Text(
-                '기본 학교명 설정',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 6),
-              TextField(
+              WebAdminDefaultSchoolNameSection(
+                saving: _saving,
                 controller: _defaultSchoolNameController,
-                decoration: const InputDecoration(
-                  labelText: '예: 월계중학교',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Align(
-                alignment: Alignment.centerRight,
-                child: ElevatedButton(
-                  onPressed: _saving ? null : _saveDefaultSchoolName,
-                  style: ElevatedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  child: const Text('기본 학교명 저장'),
-                ),
+                onSave: _saveDefaultSchoolName,
               ),
               const Divider(height: 24),
-              const Text(
-                '공용 시간표 올리기',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                '엑셀 파일을 고르면 등록부터 서버 게시까지 한 번에 처리합니다. '
-                '버전부터 올린 뒤 파일을 전송하므로, 실패해도 접속자는 구버전을 유지합니다.',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-              const SizedBox(height: 6),
-              WebAdminPublishStatus(
+              WebAdminPublishSection(
                 publishing: _publishing,
                 publishMessage: _publishMessage,
                 publishResult: _publishResult,
@@ -598,17 +453,7 @@ class _WebAdminSettingsScreenState
                 publishedName: _publishedName,
                 deleting: _deleting,
                 onDelete: _deleteCurrentTimetable,
-              ),
-              const SizedBox(height: 6),
-              Align(
-                alignment: Alignment.centerRight,
-                child: ElevatedButton(
-                  onPressed: _publishing ? null : _publishSharedTimetable,
-                  style: ElevatedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  child: const Text('공용 시간표 게시'),
-                ),
+                onPublish: _publishSharedTimetable,
               ),
             ],
           ),
@@ -650,7 +495,9 @@ class _WebAdminSettingsScreenState
 
     setState(() => _deleting = true);
     try {
-      await SharedTimetableSyncService().clearPublishedTimetable();
+      await ref
+          .read(sharedTimetableSyncServiceProvider)
+          .clearPublishedTimetable();
       final repository = await ref.read(timetableRepositoryProvider.future);
       await repository.deleteTimetable(entry.id);
       final removed = await ref
@@ -896,10 +743,9 @@ class _WebAdminSettingsScreenState
       await ref.read(timetableRegistryProvider.notifier).switchActive(entry.id);
 
       // 7. 서버 게시
-      final version = await SharedTimetableSyncService().publishTimetable(
-        repo: repository,
-        timetableId: entry.id,
-      );
+      final version = await ref
+          .read(sharedTimetableSyncServiceProvider)
+          .publishTimetable(repo: repository, timetableId: entry.id);
       if (!mounted) return;
       final result = "게시 완료 (버전 $version)";
       setState(() {
