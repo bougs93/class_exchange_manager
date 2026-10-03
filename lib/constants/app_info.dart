@@ -23,13 +23,13 @@ class AppInfo {
   static const String programName = '수업 교체 도우미 beta';
 
   /// 앱 버전 (이 값만 수정 — pubspec.yaml은 tool/bump_version.dart가 자동 동기화)
-  static const String version = '3.1.99';
+  static const String version = '3.1.100';
 
   /// 마지막 수정 일시 (빌드 정보).
   ///
   /// 커밋 시 tool/bump_version.dart가 자동 갱신하므로 수동 편집 금지.
   /// 빌드 시 --dart-define=BUILD_STAMP 가 없으면 이 값을 화면에 표시한다.
-  static const String lastUpdated = '2026.10.03 19:03';
+  static const String lastUpdated = '2026.10.03 19:19';
 
   // 소속
   static const String affiliation = '기술쿠키 & Noah Lab 후원';
