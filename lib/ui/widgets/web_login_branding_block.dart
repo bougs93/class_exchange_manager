@@ -68,7 +68,7 @@ class WebLoginBrandingBlock extends StatelessWidget {
               branding.notice,
               textAlign: TextAlign.left,
               style: TextStyle(
-                fontSize: 15,
+                fontSize: 13,
                 height: 1.45,
                 color: Colors.grey.shade800,
               ),

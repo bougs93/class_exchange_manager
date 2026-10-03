@@ -74,10 +74,15 @@ Excel 파일 (읽기 전용) → ExcelService → Models → Providers → UI
 - `CircularExchangeService` - 2-5명 교사 순환 교체 처리
 - `DualExchangeService` - 2중 교체 처리
 
-**핵심 알고리즘** (`lib/utils/`):
-- `ExchangeAlgorithm` - 메인 교체 경로 탐색 및 검증
-- `ExchangeVisualizer` - 교체 가능성에 대한 실시간 색상 코딩
-- `ExchangePathConverter` - 다양한 교체 표현 간 변환
+**핵심 알고리즘**:
+- 경로 탐색·검증은 **서비스 계층**이 담당한다 (`ExchangeService`,
+  `CircularExchangeService`, `DualExchangeService`). 예전에 있던
+  `ExchangeAlgorithm` 클래스는 어디서도 쓰이지 않아 제거했다(2026-10-03).
+  `lib/utils/exchange_algorithm.dart`에는 이제 두 서비스가 공유하는
+  `ExchangeOption`·`ExchangeType` 타입만 남아 있다.
+- `ExchangePathConverter` (`lib/utils/`) - 다양한 교체 표현 간 변환
+- 셀 색상 결정은 `lib/utils/simplified_timetable_theme.dart`가 한다
+  (`ExchangeVisualizer`는 미사용이라 제거됨, 2026-10-03).
 
 ### UI 아키텍처
 
@@ -178,7 +183,9 @@ Excel 파일 (읽기 전용) → ExcelService → Models → Providers → UI
 - ✅ Helper 클래스 생성 (Grid, CellTap)
 - ✅ Provider Proxy 패턴 (상태 중앙 집중화)
 - ✅ Composition over Inheritance (11 Mixin → 8 Mixin + 1 Manager)
-- ✅ **최종 결과**: exchange_screen.dart 1133 → 877 lines (22.6% 감소)
+- ⚠️ 당시 exchange_screen.dart는 877줄까지 줄었으나, 이후 기능 추가로
+  **다시 1,500줄대로 늘었다**(아래 "현재 대형 파일" 참고). 이 절의 수치는
+  2025년 1월 시점의 기록이며 현재 상태가 아니다.
 
 **Phase 4 - 코드 정리 및 최적화 (2025년 10월 완료)**:
 - ✅ Provider 편의 메서드 제거 (select 패턴으로 전환)
@@ -201,11 +208,14 @@ Excel 파일 (읽기 전용) → ExcelService → Models → Providers → UI
 - `lib/providers/services_provider.dart` - 서비스 인스턴스 제공
 - `lib/ui/screens/exchange_screen/exchange_screen_state_proxy.dart` - Provider 상태 중앙 집중화
 
-**UI 컴포넌트** (리팩토링 완료):
-- `lib/ui/screens/exchange_screen.dart` - 메인 교체 화면 (877 lines, 8 Mixin)
+**UI 컴포넌트**:
+- `lib/ui/screens/exchange_screen.dart` - 메인 교체 화면 (약 1,570줄, 8 Mixin)
 - `lib/ui/screens/exchange_screen/widgets/exchange_app_bar.dart` - AppBar 위젯
 - `lib/ui/screens/exchange_screen/widgets/timetable_tab_content.dart` - 시간표 탭 컨텐츠
-- `lib/ui/screens/home_screen.dart` - ConsumerWidget 기반 홈 화면
+- `lib/ui/screens/start_screen.dart` - 앱 셸. 상단 `UnifiedNavigationBar` +
+  `IndexedStack`으로 6개 탭(준비·교체·계획서·안내·시간표·도움말)을 전환한다.
+  각 탭 화면은 자체 AppBar 없이 이 셸 아래에 그려진다.
+  (예전 `home_screen.dart`는 더 이상 없다.)
 
 **ViewModel & Manager** (Composition 패턴):
 - `lib/ui/screens/exchange_screen/exchange_screen_viewmodel.dart` - 비즈니스 로직 분리
@@ -223,7 +233,7 @@ Excel 파일 (읽기 전용) → ExcelService → Models → Providers → UI
 
 **유틸리티**:
 - `lib/utils/cell_style_config.dart` - 셀 스타일 데이터 클래스 (12-parameter 문제 해결)
-- `lib/utils/cell_cache_manager.dart` - 통합 캐시 관리 (enum 패턴)
+- `lib/utils/simplified_timetable_theme.dart` - 셀 스타일 결정 + 캐시
 - `lib/utils/syncfusion_timetable_helper.dart` - Syncfusion 헬퍼 (중복 제거)
 
 **문서**:
@@ -247,11 +257,40 @@ Excel 파일 (읽기 전용) → ExcelService → Models → Providers → UI
 4. **Provider Proxy** - ExchangeScreenStateProxy로 84개 getter/setter 중앙 집중화
 5. **Composition** - ExchangeOperationManager (263 lines)로 3개 Mixin 대체
 
-### 성과
+### 성과 (2025년 1월 당시 기록)
 - **코드 라인 감소**: 1133 → 877 lines (22.6%)
 - **Mixin 감소**: 11개 → 8개 + 1 Manager
 - **flutter analyze**: No issues found
-- **유지보수성**: 매우 향상 (테스트 용이, 의존성 명확)
+
+> ⚠️ 위 수치는 **2025년 1월 시점의 기록**이다. 이후 웹 전환·결보강·계획서
+> 기능이 더해지며 파일이 다시 커졌다. 현재 상태는 아래 절을 볼 것.
+
+## 현재 대형 파일 (2026-10-03 실측)
+
+1,000줄이 넘는 파일은 읽을 때 토큰을 많이 쓰고 수정 위험도 크다. 손대기 전에
+해당 파일 전체를 읽지 말고, 필요한 부분만 찾아 읽을 것.
+
+| 줄 수 | 파일 |
+|------:|------|
+| 1,749 | `lib/ui/screens/plan_output/widgets/substitution_output/substitution_output_widget.dart` |
+| 1,639 | `lib/ui/widgets/timetable_grid_section.dart` |
+| 1,585 | `lib/ui/screens/plan_output/widgets/content_input_grid.dart` |
+| 1,567 | `lib/ui/screens/exchange_screen.dart` |
+| 1,497 | `lib/services/excel_service.dart` |
+| 1,324 | `lib/services/exchange_service.dart` |
+| 1,130 | `lib/ui/widgets/timetable_grid/exchange_arrow_painter.dart` |
+| 1,093 | `lib/utils/timetable_data_source.dart` |
+| 1,052 | `lib/ui/screens/web_admin_settings_screen.dart` |
+| 1,047 | `lib/ui/screens/start_content/start_settings_card.dart` |
+
+## 죽은 코드 제거 (2026-10-03)
+
+참조가 전혀 없던 9개 파일 + `ExchangeAlgorithm` 클래스 **약 2,200줄**을
+삭제했다. 이 이름들이 옛 문서·주석에 남아 있을 수 있으나 **더 이상 존재하지
+않는다**: `SettingsScreen`, `ExcelExportService`, `CellStateManager`,
+`CellCacheManager`, `ExchangePathManager`, `PersonalScheduleDebugHelper`,
+`ExchangeVisualizer`, `SelectedTimetableFileBanner`, `CommonAppBar`,
+`ExchangeAlgorithm`.
 
 ## 주요 이슈 및 해결 방법
 
