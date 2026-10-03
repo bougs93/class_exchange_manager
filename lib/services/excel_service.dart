@@ -192,6 +192,15 @@ class ExcelService {
   // 내부 생성자
   ExcelService._internal();
 
+  /// 최근 [parseTimetableData] 실패 사유 (성공 시 null). UI 안내용.
+  static String? lastParseFailureReason;
+
+  static TimetableData? _failParse(String reason) {
+    lastParseFailureReason = reason;
+    developer.log(reason, name: 'ExcelService');
+    return null;
+  }
+
   /// 사용자가 엑셀 파일을 선택할 수 있게 하는 메서드
   ///
   /// 반환값:
@@ -482,6 +491,7 @@ class ExcelService {
     Excel excel, {
     ExcelParsingConfig? config,
   }) {
+    lastParseFailureReason = null;
     try {
       developer.log(
         '시간표 파싱 시작: ${config ?? const ExcelParsingConfig()}',
@@ -492,8 +502,7 @@ class ExcelService {
       var sheet = excel.tables.values.first;
 
       if (sheet.maxRows < 2) {
-        developer.log('시트에 데이터 행이 부족합니다.', name: 'ExcelService');
-        return null;
+        return _failParse('시트에 데이터 행이 부족합니다.');
       }
 
       // 교사명 헤더 찾기 (1~10행까지 검색)
@@ -503,8 +512,10 @@ class ExcelService {
       int foundTeacherColumn = teacherHeaderResult['column'] as int;
 
       if (foundTeacherHeaderRow == 0 || foundTeacherColumn == 0) {
-        developer.log('교사명 헤더를 찾을 수 없습니다.', name: 'ExcelService');
-        return null;
+        return _failParse(
+          '1~10행에서 교사명 헤더를 찾을 수 없습니다. '
+          '엑셀 상단에 "교사" 또는 "성명" 열이 있는지 확인해 주세요.',
+        );
       }
 
       // 요일 헤더 찾기 (1~10행까지 검색)
@@ -516,8 +527,7 @@ class ExcelService {
           (dayHeaderResult['days'] as List).cast<String>();
 
       if (dayHeaders.isEmpty || foundDayHeaderRow == 0) {
-        developer.log('요일 헤더를 찾을 수 없습니다.', name: 'ExcelService');
-        return null;
+        return _failParse('요일 헤더(월·화·수…)를 찾을 수 없습니다.');
       }
 
       // 교시 헤더 행 계산: 요일 헤더 행의 다음 행
@@ -535,8 +545,7 @@ class ExcelService {
         dayHeaders,
       );
       if (dataStartColumn == null) {
-        developer.log('데이터 시작 열을 찾을 수 없습니다.', name: 'ExcelService');
-        return null;
+        return _failParse('데이터 시작 열(1교시)을 찾을 수 없습니다.');
       }
 
       // 동적으로 찾은 헤더 정보를 사용하여 설정 업데이트
@@ -556,8 +565,7 @@ class ExcelService {
 
       // 동적 설정으로 유효성 재검사
       if (!_validateParsingConfig(dynamicConfig, sheet)) {
-        developer.log('동적으로 찾은 파싱 설정이 유효하지 않습니다.', name: 'ExcelService');
-        return null;
+        return _failParse('시간표 레이아웃을 해석할 수 없습니다. 엑셀 양식을 확인해 주세요.');
       }
 
       // 교사 정보 추출 (동적 설정 사용)
@@ -569,7 +577,7 @@ class ExcelService {
           dynamicConfig,
         );
       } on DuplicateTeacherException catch (e) {
-        // 중복 교사 이름 예외를 그대로 전파하여 상위 호출자에서 처리하도록 함
+        lastParseFailureReason = e.userMessage;
         developer.log('교사 이름 중복 오류: ${e.toString()}', name: 'ExcelService');
         rethrow;
       }
@@ -582,8 +590,7 @@ class ExcelService {
         dynamicConfig,
       );
       if (periodsByDay.isEmpty) {
-        developer.log('교시 번호를 찾을 수 없습니다.', name: 'ExcelService');
-        return null;
+        return _failParse('교시 번호를 찾을 수 없습니다.');
       }
 
       // 요일별 교시 정보 로그 출력
@@ -620,11 +627,9 @@ class ExcelService {
 
       // 셀 순서 패턴을 확인할 수 없는 경우 파싱 중단
       if (cellOrderPattern == CellOrderPattern.unknown) {
-        developer.log(
-          '셀 순서 패턴을 확인할 수 없어 파싱을 중단합니다. 충분한 샘플 데이터가 없거나 패턴이 일관되지 않습니다.',
-          name: 'ExcelService',
+        return _failParse(
+          '셀 내용 형식(학급·과목)을 확인할 수 없습니다. 샘플 데이터가 충분한지 확인해 주세요.',
         );
-        return null;
       }
 
       // 시간표 데이터 추출 (동적 설정 사용, 셀 순서 패턴 및 교사 행 개수 전달)
@@ -662,15 +667,14 @@ class ExcelService {
 
       return result;
     } on DuplicateTeacherException catch (e) {
-      // 중복 교사 이름 예외는 그대로 전파하여 상위 호출자에서 처리하도록 함
+      lastParseFailureReason ??= e.userMessage;
       developer.log(
         '시간표 파싱 중 교사 이름 중복 오류: ${e.toString()}',
         name: 'ExcelService',
       );
       rethrow;
     } catch (e) {
-      developer.log('시간표 파싱 중 오류 발생: $e', name: 'ExcelService');
-      return null;
+      return _failParse('시간표 파싱 중 오류가 발생했습니다: $e');
     }
   }
 

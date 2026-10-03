@@ -14,7 +14,9 @@ import 'pdf_font_cache_manager.dart';
 class ClassNoticePdfService {
   ClassNoticePdfService._();
 
-  static const double _margin = 24;
+  /// 프린터 불가 영역(보통 ~10mm)을 고려한 인쇄용 여백.
+  /// Syncfusion 단위는 pt(1/72"). 36pt ≈ 12.7mm(0.5").
+  static const double _margin = 36;
   static const double _minFontSize = 8;
   static const double _maxFontSize = 120;
   static const double _lineGapFactor = 0.15;

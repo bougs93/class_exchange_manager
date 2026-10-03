@@ -408,13 +408,32 @@ class _WebAdminSettingsScreenState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (_publishResult != null)
-          Text(
-            _publishResult!,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
               color:
-                  _publishFailed ? Colors.red.shade700 : Colors.green.shade800,
+                  _publishFailed
+                      ? Colors.red.shade50
+                      : Colors.green.shade50,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color:
+                    _publishFailed
+                        ? Colors.red.shade200
+                        : Colors.green.shade200,
+              ),
+            ),
+            child: Text(
+              _publishResult!,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color:
+                    _publishFailed
+                        ? Colors.red.shade700
+                        : Colors.green.shade800,
+              ),
             ),
           ),
         if (currentName != null && currentName.isNotEmpty) ...[
@@ -559,6 +578,40 @@ class _WebAdminSettingsScreenState
     );
   }
 
+  /// Exception 접두어 없이 사용자용 문구만 남긴다.
+  String _publishErrorText(Object error) {
+    if (error is DuplicateTeacherException) return error.userMessage;
+    var text = error.toString();
+    if (text.startsWith('Exception: ')) {
+      text = text.substring('Exception: '.length);
+    }
+    return text.trim().isEmpty ? '알 수 없는 오류가 발생했습니다.' : text;
+  }
+
+  /// 게시 실패를 화면에 고정하고, 다음 프레임에 스낵바를 띄운다.
+  /// (웹 FilePicker 직후 동기 스낵바가 무시되는 경우 대비)
+  void _showPublishFailure(String message) {
+    if (!mounted) return;
+    setState(() {
+      _publishing = false;
+      _publishMessage = null;
+      _publishFailed = true;
+      _publishResult = '게시 실패: $message';
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        SnackBarHelper.showError(
+          context,
+          '게시 실패: $message',
+          duration: const Duration(seconds: 6),
+        );
+      } catch (_) {
+        // 스낵바 실패해도 화면의 _publishResult로 안내한다.
+      }
+    });
+  }
+
   /// 공용 시간표 원스텝 게시 (웹·관리자 전용).
   ///
   /// 엑셀 선택 → 파싱 → 저장 → 이름·학기 확인 → 등록 → 날짜별 생성 →
@@ -601,28 +654,43 @@ class _WebAdminSettingsScreenState
       _publishMessage = '엑셀 파일을 읽는 중…';
     });
     await Future<void>.delayed(Duration.zero);
+
+    var finishedCleanly = false;
     try {
-      // 2. 파싱
+      // 2. 파싱 (동기 작업 전후로 한 프레임씩 양보해 웹 UI가 멈추지 않게 함)
       final excel = await ExcelService.readExcelFromBytes(bytes);
+      if (!mounted) return;
       if (excel == null) {
-        throw Exception('엑셀 파일을 읽을 수 없습니다.');
+        _showPublishFailure('엑셀 파일을 읽을 수 없습니다.');
+        return;
       }
-      final timetableData = ExcelService.parseTimetableData(excel);
+
+      await _setPublishMessage('시간표를 분석하는 중…');
+      final timetableData = await Future(
+        () => ExcelService.parseTimetableData(excel),
+      );
+      if (!mounted) return;
       if (timetableData == null) {
-        throw Exception('시간표 데이터를 파싱할 수 없습니다.');
+        _showPublishFailure(
+          ExcelService.lastParseFailureReason ??
+              '시간표 데이터를 파싱할 수 없습니다.',
+        );
+        return;
       }
 
       // 3. JSON 저장 (바이트 기반)
+      await _setPublishMessage('시간표를 저장하는 중…');
       final storage = TimetableStorageService();
       final hashes = await storage.saveTimetableDataForRegistryFromBytes(
         timetableData,
         fileName: fileName,
         bytes: bytes,
       );
-      if (hashes == null) {
-        throw Exception('시간표 저장에 실패했습니다.');
-      }
       if (!mounted) return;
+      if (hashes == null) {
+        _showPublishFailure('시간표 저장에 실패했습니다.');
+        return;
+      }
 
       // 4. 이름·학기 확인 (기본 이름은 파일명)
       final defaultName = fileName.replaceAll(
@@ -663,10 +731,11 @@ class _WebAdminSettingsScreenState
             semesterStart: registration.semester.startDate,
             semesterEnd: registration.semester.endDate,
           );
-      if (entry == null) {
-        throw Exception('시간표 등록에 실패했습니다.');
-      }
       if (!mounted) return;
+      if (entry == null) {
+        _showPublishFailure('시간표 등록에 실패했습니다.');
+        return;
+      }
 
       // 6. 날짜별 생성·저장 + 활성 전환
       await _setPublishMessage('\'$timetableName\' 수업을 만드는 중…');
@@ -709,22 +778,21 @@ class _WebAdminSettingsScreenState
       if (!mounted) return;
       final result = "게시 완료 (버전 $version)";
       setState(() {
+        _publishing = false;
+        _publishMessage = null;
         _publishFailed = false;
         _publishResult = result;
         _publishedName = entry.name;
       });
       SnackBarHelper.showSuccess(context, "$result · 현재 시간표: '${entry.name}'");
+      finishedCleanly = true;
     } catch (e) {
       AppLogger.error('공용 시간표 게시 실패: $e', e);
-      if (mounted) {
-        setState(() {
-          _publishFailed = true;
-          _publishResult = '게시 실패: $e';
-        });
-        SnackBarHelper.showError(context, '게시 실패: $e');
-      }
+      _showPublishFailure(_publishErrorText(e));
+      finishedCleanly = true;
     } finally {
-      if (mounted) {
+      // early return / 예외 외 경로에서 스피너가 남지 않게 한다.
+      if (!finishedCleanly && mounted && _publishing) {
         setState(() {
           _publishing = false;
           _publishMessage = null;
