@@ -8,6 +8,11 @@ import '../utils/day_utils.dart';
 import '../utils/timetable_data_source.dart';
 import '../utils/non_exchangeable_manager.dart';
 import 'base_exchange_service.dart';
+import '../models/exchange_result.dart';
+
+// ExchangeResult는 2026-10-03에 models로 옮겼다. 기존 import 경로
+// (`exchange_service.dart`)를 쓰던 호출부가 깨지지 않도록 다시 export 한다.
+export '../models/exchange_result.dart' show ExchangeResult;
 
 /// 1:1 교체 서비스 클래스
 /// 교체 관련 비즈니스 로직을 담당
@@ -1271,54 +1276,5 @@ class ExchangeService extends BaseExchangeService {
     clearCellSelection();
     _clearTargetCell();
     _exchangeOptions.clear();
-  }
-}
-
-/// 교체 결과를 나타내는 클래스
-class ExchangeResult {
-  final bool isSelected;
-  final bool isDeselected;
-  final bool isNoAction;
-  final String? teacherName;
-  final String? day;
-  final int? period;
-
-  ExchangeResult._({
-    required this.isSelected,
-    required this.isDeselected,
-    required this.isNoAction,
-    this.teacherName,
-    this.day,
-    this.period,
-  });
-
-  /// 교체 대상이 선택됨
-  factory ExchangeResult.selected(String teacherName, String day, int period) {
-    return ExchangeResult._(
-      isSelected: true,
-      isDeselected: false,
-      isNoAction: false,
-      teacherName: teacherName,
-      day: day,
-      period: period,
-    );
-  }
-
-  /// 교체 대상이 해제됨
-  factory ExchangeResult.deselected() {
-    return ExchangeResult._(
-      isSelected: false,
-      isDeselected: true,
-      isNoAction: false,
-    );
-  }
-
-  /// 아무 동작하지 않음
-  factory ExchangeResult.noAction() {
-    return ExchangeResult._(
-      isSelected: false,
-      isDeselected: false,
-      isNoAction: true,
-    );
   }
 }
