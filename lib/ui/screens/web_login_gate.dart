@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -196,12 +197,38 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
   Future<void> _enterSession({required bool admin}) async {
     if (!mounted) return;
     setState(() {
-      _syncStage = '시간표 준비 중';
+      _syncStage = '서버 시간표 확인 중';
       _downloadProgress = null;
     });
     ref.read(webLoginStatusProvider.notifier).state = WebLoginStatus.checking;
-    var stage = '브라우저 저장소 초기화';
+    var stage = '서버 시간표 확인';
     try {
+      final sync = SharedTimetableSyncService();
+      // Firestore 메타만 먼저 본다 — 없거나 최시면 SQLite/Storage를 열지 않는다.
+      SharedTimetableRemoteMeta? meta;
+      try {
+        meta = await sync.fetchRemoteMeta();
+      } catch (e) {
+        AppLogger.warning('공용 시간표 메타 조회 실패 — 캐시로 계속: $e');
+      }
+
+      if (meta != null && await sync.canSkipFullSync(meta)) {
+        AppLogger.info(
+          meta.isEmpty
+              ? '공용 시간표 없음 — 바로 접속'
+              : '공용 시간표 변경 없음(v${meta.version}) — 바로 접속',
+        );
+        if (!mounted) return;
+        ref.read(webLoginStatusProvider.notifier).state =
+            admin ? WebLoginStatus.adminOk : WebLoginStatus.viewerOk;
+        // 빈 원격인데 로컬만 남은 경우 백그라운드로 정리(접속은 막지 않음).
+        if (meta.isEmpty && meta.exists) {
+          unawaited(_syncSharedInBackground(sync, meta));
+        }
+        return;
+      }
+
+      setState(() => _syncStage = '시간표 준비 중');
       // FutureProvider는 실패한 결과도 보관하므로 재시도 전에 초기화한다.
       if (ref.read(timetableDatabaseProvider).hasError) {
         ref.invalidate(timetableDatabaseProvider);
@@ -210,8 +237,9 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
         ref.invalidate(timetableRepositoryProvider);
       }
       final repo = await ref.read(timetableRepositoryProvider.future);
-      await SharedTimetableSyncService().syncSharedTimetable(
+      await sync.syncSharedTimetable(
         repo: repo,
+        prefetchedMeta: meta,
         onStage: (value) {
           stage = value;
           if (mounted) setState(() => _syncStage = value);
@@ -228,6 +256,26 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
     if (!mounted) return;
     ref.read(webLoginStatusProvider.notifier).state =
         admin ? WebLoginStatus.adminOk : WebLoginStatus.viewerOk;
+  }
+
+  /// 접속을 막지 않고 빈 공용 시간표를 로컬에 반영한다.
+  Future<void> _syncSharedInBackground(
+    SharedTimetableSyncService sync,
+    SharedTimetableRemoteMeta meta,
+  ) async {
+    try {
+      if (ref.read(timetableDatabaseProvider).hasError) {
+        ref.invalidate(timetableDatabaseProvider);
+      }
+      if (ref.read(timetableRepositoryProvider).hasError) {
+        ref.invalidate(timetableRepositoryProvider);
+      }
+      final repo = await ref.read(timetableRepositoryProvider.future);
+      await sync.syncSharedTimetable(repo: repo, prefetchedMeta: meta);
+      ref.invalidate(timetableRegistryProvider);
+    } catch (e, st) {
+      AppLogger.error('공용 시간표 백그라운드 정리 실패: $e', e, st);
+    }
   }
 
   @override

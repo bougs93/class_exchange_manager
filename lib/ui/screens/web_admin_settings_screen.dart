@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 
 import '../../constants/app_assets.dart';
+import '../../constants/login_notice_default.dart';
 import '../../models/dated_timetable.dart';
 import '../../models/lesson.dart';
 import '../../models/web_login_branding.dart';
@@ -313,18 +314,24 @@ class _WebAdminSettingsScreenState
   }
 
   /// 소스에 묶인 기본 안내 문구를 입력란에 넣는다. 저장은 [접속 화면 저장]으로.
+  ///
+  /// 에셋이 번들에 없으면(핫 리로드만 한 경우) Dart 상수 폴백을 쓴다.
   Future<void> _applyDefaultLoginNotice() async {
+    var text = '';
     try {
-      final text = (await rootBundle.loadString(
-        AppAssets.loginNoticeDefault,
-      )).trim();
-      if (!mounted) return;
-      setState(() => _loginNoticeController.text = text);
-      SnackBarHelper.showInfo(context, '기본 안내 문구를 넣었습니다. 저장을 눌러 반영하세요.');
+      text =
+          (await rootBundle.loadString(AppAssets.loginNoticeDefault))
+              .replaceAll('\r\n', '\n')
+              .trim();
     } catch (e) {
-      if (!mounted) return;
-      SnackBarHelper.showError(context, '기본 안내 문구를 읽지 못했습니다: $e');
+      AppLogger.warning('안내 문구 에셋 로드 실패 — 폴백 사용: $e');
     }
+    if (text.isEmpty) {
+      text = kLoginNoticeDefaultText.replaceAll('\r\n', '\n').trim();
+    }
+    if (!mounted) return;
+    setState(() => _loginNoticeController.text = text);
+    SnackBarHelper.showInfo(context, '기본 안내 문구를 넣었습니다. 저장을 눌러 반영하세요.');
   }
 
   /// 기본 학교명 저장.

@@ -38,6 +38,18 @@ class SharedTimetableInstaller {
     return stats.totalCount > 0 && stats.snapshotCount > 0;
   }
 
+  /// DB를 열지 않고 manifest만으로 캐시를 신뢰할지 본다.
+  ///
+  /// 버전·개수만 맞으면 최신으로 본다. 깨진 캐시는 [isReady]로 다시 받는다.
+  Future<bool> hasTrustedCache(int version) async {
+    final manifest = await storage.loadJson(manifestFile);
+    if (manifest == null || manifest['version'] != version) return false;
+    final id = manifest['id'] as String?;
+    final count = (manifest['count'] as num?)?.toInt() ?? 0;
+    if (id == null) return count == 0;
+    return count > 0;
+  }
+
   Future<void> install({
     required List<Lesson> lessons,
     required int version,

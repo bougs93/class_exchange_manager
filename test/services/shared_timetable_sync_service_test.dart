@@ -63,6 +63,73 @@ void main() {
         isFalse,
       );
     });
+
+    test('isRemoteEmpty — 문서 없음·lessonCount 0·구 bytes=2', () {
+      expect(
+        SharedTimetableSyncService.isRemoteEmpty(exists: false),
+        isTrue,
+      );
+      expect(
+        SharedTimetableSyncService.isRemoteEmpty(
+          exists: true,
+          lessonCount: 0,
+        ),
+        isTrue,
+      );
+      expect(
+        SharedTimetableSyncService.isRemoteEmpty(
+          exists: true,
+          lessonCount: 10,
+        ),
+        isFalse,
+      );
+      expect(
+        SharedTimetableSyncService.isRemoteEmpty(
+          exists: true,
+          bytes: 2,
+        ),
+        isTrue,
+      );
+      expect(
+        SharedTimetableSyncService.isRemoteEmpty(
+          exists: true,
+          bytes: 1000,
+        ),
+        isFalse,
+      );
+      // lessonCount가 있으면 bytes보다 우선한다.
+      expect(
+        SharedTimetableSyncService.isRemoteEmpty(
+          exists: true,
+          lessonCount: 5,
+          bytes: 2,
+        ),
+        isFalse,
+      );
+    });
+
+    test('SharedTimetableRemoteMeta.isEmpty는 isRemoteEmpty를 따른다', () {
+      expect(
+        const SharedTimetableRemoteMeta(exists: false, version: 0).isEmpty,
+        isTrue,
+      );
+      expect(
+        const SharedTimetableRemoteMeta(
+          exists: true,
+          version: 3,
+          lessonCount: 0,
+        ).isEmpty,
+        isTrue,
+      );
+      expect(
+        const SharedTimetableRemoteMeta(
+          exists: true,
+          version: 3,
+          lessonCount: 100,
+        ).isEmpty,
+        isFalse,
+      );
+    });
   });
 
   group('공용 시간표 로컬 반영 (shared_lessons)', () {
