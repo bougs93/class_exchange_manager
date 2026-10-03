@@ -183,9 +183,9 @@ Excel 파일 (읽기 전용) → ExcelService → Models → Providers → UI
 - ✅ Helper 클래스 생성 (Grid, CellTap)
 - ✅ Provider Proxy 패턴 (상태 중앙 집중화)
 - ✅ Composition over Inheritance (11 Mixin → 8 Mixin + 1 Manager)
-- ⚠️ 당시 exchange_screen.dart는 877줄까지 줄었으나, 이후 기능 추가로
-  **다시 1,500줄대로 늘었다**(아래 "현재 대형 파일" 참고). 이 절의 수치는
-  2025년 1월 시점의 기록이며 현재 상태가 아니다.
+- ⚠️ 당시 exchange_screen.dart는 877줄까지 줄었으나, 이후 기능 추가로 **다시
+  크게 늘었다**(아래 "대형 파일 다루기" 참고). 이 절의 수치는 2025년 1월 시점의
+  기록이며 현재 상태가 아니다.
 
 **Phase 4 - 코드 정리 및 최적화 (2025년 10월 완료)**:
 - ✅ Provider 편의 메서드 제거 (select 패턴으로 전환)
@@ -209,7 +209,8 @@ Excel 파일 (읽기 전용) → ExcelService → Models → Providers → UI
 - `lib/ui/screens/exchange_screen/exchange_screen_state_proxy.dart` - Provider 상태 중앙 집중화
 
 **UI 컴포넌트**:
-- `lib/ui/screens/exchange_screen.dart` - 메인 교체 화면 (약 1,570줄, 8 Mixin)
+- `lib/ui/screens/exchange_screen.dart` - 메인 교체 화면 (Mixin 7개 + 상태는
+  전부 Riverpod. `setState` 없음)
 - `lib/ui/screens/exchange_screen/widgets/exchange_app_bar.dart` - AppBar 위젯
 - `lib/ui/screens/exchange_screen/widgets/timetable_tab_content.dart` - 시간표 탭 컨텐츠
 - `lib/ui/screens/start_screen.dart` - 앱 셸. 상단 `UnifiedNavigationBar` +
@@ -265,36 +266,51 @@ Excel 파일 (읽기 전용) → ExcelService → Models → Providers → UI
 > ⚠️ 위 수치는 **2025년 1월 시점의 기록**이다. 이후 웹 전환·결보강·계획서
 > 기능이 더해지며 파일이 다시 커졌다. 현재 상태는 아래 절을 볼 것.
 
-## 현재 대형 파일 (2026-10-04 실측)
+## 대형 파일 다루기
 
-손대기 전에 파일 전체를 읽지 말고, 필요한 부분만 찾아 읽을 것.
+큰 파일은 **통째로 읽지 말고 필요한 부분만 찾아 읽을 것.** 구조부터 보려면
+`grep -nE "^class |Widget _build[A-Za-z]*\(" <파일>`로 윤곽만 뜨는 게 싸다.
+현재 크기가 궁금하면 문서를 믿지 말고 직접 재라:
 
-| 줄 수 | 파일 | 메모 |
-|------:|------|------|
-| 1,579 | `lib/ui/screens/exchange_screen.dart` | Mixin 7개. UI는 이미 Mixin에 있음 |
-| 1,388 | `lib/ui/widgets/timetable_grid_section.dart` | Syncfusion 민감 (아래 이슈 참고) |
-| 1,277 | `.../substitution_output/substitution_output_widget.dart` | |
-|   993 | `lib/services/exchange_history_service.dart` | 미착수 |
-|   960 | `lib/repositories/timetable_repository.dart` | 미착수 |
-|   946 | `.../plan_output/widgets/plan_backup_screen.dart` | 미착수 |
-|   936 | `lib/ui/widgets/unified_exchange_sidebar.dart` | 미착수 |
+```bash
+find lib -name "*.dart" -exec wc -l {} + | sort -rn | head -10
+```
 
-## 파일 분할 이력 (2026-10-03~04)
+### 더 쪼개지 않기로 한 파일
+
+아래 셋은 **안전하게 뺄 수 있는 것을 이미 다 뺐다.** 더 줄이려면 동작이
+바뀔 위험이 커서 중단했으니, 크기만 보고 다시 시도하지 말 것.
+
+- `lib/ui/screens/exchange_screen.dart` — UI는 이미 Mixin(`ExchangeUIBuilder`,
+  `SidebarBuilder`)에 있고, 남은 로직은 State의 private 멤버 15개 이상과 얽혀
+  있다. 위임 getter 묶음은 Mixin 계약을 구현하는 `@override`라 지울 수 없다.
+- `lib/ui/widgets/timetable_grid_section.dart` — Syncfusion 헤더 갱신 버그
+  이력이 있다(아래 "주요 이슈" 참고). `build`·`didUpdateWidget`·`ValueKey`·
+  `_getScaled*`는 건드리지 말 것.
+- `.../substitution_output/substitution_output_widget.dart` — 남은 부분이
+  `setState`/`mounted`/run-ID 가드/`await`가 뒤섞인 오케스트레이션이다.
+
+## 파일 분할 구조 (2026-10-03~04)
 
 대형 파일을 기능 단위로 쪼갰다. **파사드는 그대로 두고 `export`로 기존 import
-경로를 유지**했으므로 호출부는 수정하지 않았다.
+경로를 유지**했으므로 호출부는 한 곳도 수정하지 않았다. 새 코드를 넣을 때도
+이 구조를 따를 것.
 
-| 파일 | 전 → 후 | 분리된 곳 |
-|---|---|---|
-| `notice_message_generator.dart` | 1,031 → 52 | `lib/utils/notice/` |
-| `exchange_service.dart` | 1,324 → 235 | `lib/services/exchange/` |
-| `excel_service.dart` | 1,497 → 430 | `lib/services/excel_parsing/` |
-| `start_settings_card.dart` | 1,047 → 460 | `lib/ui/screens/start_content/settings/` |
-| `timetable_file_screen.dart` | 1,004 → 545 | `lib/ui/screens/timetable_file/` |
-| `content_input_grid.dart` | 1,585 → 755 | `.../plan_output/widgets/content_input/` |
-| `web_admin_settings_screen.dart` | 1,052 → 774 | `lib/ui/screens/web_admin/` |
-| `timetable_data_source.dart` | 1,093 → 833 | `lib/utils/timetable_grid_source/` |
-| `exchange_arrow_painter.dart` | 1,130 → 862 | `timetable_grid/arrow_geometry.dart` |
+| 원래 파일 | 분리된 곳 |
+|---|---|
+| `notice_message_generator.dart` | `lib/utils/notice/` |
+| `exchange_service.dart` | `lib/services/exchange/` |
+| `excel_service.dart` | `lib/services/excel_parsing/` |
+| `exchange_history_service.dart` | `lib/services/exchange_history/` |
+| `timetable_repository.dart` | `lib/repositories/timetable/` |
+| `timetable_data_source.dart` | `lib/utils/timetable_grid_source/` |
+| `exchange_arrow_painter.dart` | `timetable_grid/arrow_geometry.dart` |
+| `start_settings_card.dart` | `lib/ui/screens/start_content/settings/` |
+| `timetable_file_screen.dart` | `lib/ui/screens/timetable_file/` |
+| `web_admin_settings_screen.dart` | `lib/ui/screens/web_admin/` |
+| `content_input_grid.dart` | `.../plan_output/widgets/content_input/` |
+| `plan_backup_screen.dart` | `.../plan_output/widgets/plan_backup/` |
+| `unified_exchange_sidebar.dart` | `lib/ui/widgets/exchange_sidebar/` |
 
 또 `TimetableData`·`ExcelParsingConfig`는 `lib/models/timetable_data.dart`로,
 `ExchangeResult`는 `lib/models/exchange_result.dart`로 옮겼다 — 전에는 이 타입
@@ -336,9 +352,9 @@ dart run tool/build_web.dart --dart-define=...
 
 ## 위젯 테스트 작성법 (이 프로젝트 고유)
 
-테스트는 478개 → **600개**로 늘었다. 새 위젯 테스트를 쓸 때는 아래를 따를 것.
-선례: `test/widgets/timetable_file_screen_test.dart`,
-`test/widgets/substitution_output_widget_test.dart`.
+새 위젯 테스트를 쓸 때는 아래를 따를 것. 선례:
+`test/widgets/timetable_file_screen_test.dart`,
+`test/widgets/unified_exchange_sidebar_test.dart`.
 
 - **`pumpAndSettle()`을 쓰지 말 것** — 이 프로젝트에서는 무한 대기에 빠진다.
   경계가 있는 `pump()` 루프를 쓴다.
