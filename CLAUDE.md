@@ -310,6 +310,30 @@ Excel 파일 (읽기 전용) → ExcelService → Models → Providers → UI
 `SelectedTimetableFileBanner`, `CommonAppBar`, `ExchangeAlgorithm`,
 `ExchangeViewCheckbox`, `TeacherNoticeStatsWidget`, `ClassNoticeStatsWidget`.
 
+## 웹 실행 전 탐색 Worker 생성 (필수)
+
+순환·2중 교체 경로 탐색은 브라우저 Web Worker에서 돈다
+(`tool/exchange_search_worker.dart` → `web/exchange_search_worker.js`).
+이 파일은 **`flutter build web`이 만들어 주지 않는다** — 별도로 컴파일해야 한다.
+
+```bash
+# 웹 실행 전 한 번 (생성물은 .gitignore 처리됨)
+dart run tool/build_web.dart --worker-only
+flutter run -d chrome --web-port=5000
+
+# 배포용 전체 빌드 (Worker + 앱을 함께 만든다)
+dart run tool/build_web.dart --dart-define=...
+```
+
+`web/` 아래 파일은 Flutter가 `build/web/`으로 그대로 복사하므로, Worker를
+**먼저** 만들면 로컬 실행과 배포 빌드가 같은 산출물을 쓴다. CI 워크플로도
+같은 순서다.
+
+> 없으면 순환·2중 교체에서 "교체 탐색 Worker를 불러오지 못했습니다"가 떴었다
+> (2026-10-04). 지금은 Worker가 없으면 본 isolate에서 대신 돌아가도록
+> 폴백이 들어가 있어 **기능은 동작하지만 느리다** — 로그에
+> "본 isolate로 폴백" 경고가 보이면 Worker를 만들지 않은 것이다.
+
 ## 위젯 테스트 작성법 (이 프로젝트 고유)
 
 테스트는 478개 → **600개**로 늘었다. 새 위젯 테스트를 쓸 때는 아래를 따를 것.
