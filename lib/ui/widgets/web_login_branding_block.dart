@@ -9,6 +9,9 @@ import '../../utils/url_launcher_helper.dart';
 ///
 /// 버전 정보 아래에 배치한다.
 /// 학교 로고 → 제목 → 안내 박스 순서.
+///
+/// 안내 박스 폭은 부모가 주는 폭을 그대로 쓴다.
+/// (접속 화면에서만 부모를 폼보다 넓게 잡는다.)
 class WebLoginBrandingBlock extends StatelessWidget {
   const WebLoginBrandingBlock({
     super.key,
@@ -52,49 +55,26 @@ class WebLoginBrandingBlock extends StatelessWidget {
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
           ),
         if (hasTitle && hasNotice) SizedBox(height: compact ? 10 : 12),
-        if (hasNotice) _buildNoticeBox(context),
-      ],
-    );
-  }
-
-  /// 안내 박스만 부모 폭의 1.8배(80% 증가). 레이아웃 폭은 유지해 옆 요소는 안 늘어난다.
-  Widget _buildNoticeBox(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final baseWidth = constraints.maxWidth;
-        final screenCap = MediaQuery.sizeOf(context).width - 24;
-        final noticeWidth = (baseWidth * 1.8).clamp(0.0, screenCap);
-        final box = Container(
-          width: noticeWidth,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFAFAFA),
-            border: Border.all(color: Colors.grey.shade200),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            branding.notice,
-            textAlign: TextAlign.left,
-            style: TextStyle(
-              fontSize: 15,
-              height: 1.45,
-              color: Colors.grey.shade800,
+        if (hasNotice)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFAFAFA),
+              border: Border.all(color: Colors.grey.shade200),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              branding.notice,
+              textAlign: TextAlign.left,
+              style: TextStyle(
+                fontSize: 15,
+                height: 1.45,
+                color: Colors.grey.shade800,
+              ),
             ),
           ),
-        );
-
-        // 박스가 더 넓어도 Column/비밀번호 칸 폭은 그대로 둔다.
-        if (noticeWidth <= baseWidth) return box;
-        return SizedBox(
-          width: baseWidth,
-          child: OverflowBox(
-            alignment: Alignment.center,
-            minWidth: noticeWidth,
-            maxWidth: noticeWidth,
-            child: box,
-          ),
-        );
-      },
+      ],
     );
   }
 
@@ -102,7 +82,11 @@ class WebLoginBrandingBlock extends StatelessWidget {
     final image = _logoImage();
     final framed = ClipRRect(
       borderRadius: BorderRadius.circular(12),
-      child: SizedBox(width: compact ? 88 : 112, height: compact ? 88 : 112, child: image),
+      child: SizedBox(
+        width: compact ? 88 : 112,
+        height: compact ? 88 : 112,
+        child: image,
+      ),
     );
 
     final url = branding.homeUrl.trim();

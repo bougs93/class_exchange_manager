@@ -329,18 +329,50 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
       );
     }
 
+    // 폼(아이콘·비밀번호) 420, 안내 박스는 그 1.26배(≈529 = 예전 756의 70%).
+    // 화면이 좁으면 화면 폭에 맞춤.
+    const formMaxWidth = 420.0;
+    const noticeWidthFactor = 1.26;
+
     return Scaffold(
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child:
-                status == WebLoginStatus.checking
-                    ? _buildSyncProgress()
-                    : _buildLockForm(context),
-          ),
-        ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final noticeMaxWidth = (formMaxWidth * noticeWidthFactor).clamp(
+            0.0,
+            (constraints.maxWidth - 48).clamp(0.0, double.infinity),
+          );
+          return Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: noticeMaxWidth),
+                child:
+                    status == WebLoginStatus.checking
+                        ? ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxWidth: formMaxWidth,
+                          ),
+                          child: _buildSyncProgress(),
+                        )
+                        : _buildLockForm(
+                          context,
+                          formMaxWidth: formMaxWidth,
+                        ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// 폼 영역만 [formMaxWidth]로 좁히고, 안내 박스는 부모(더 넓은) 폭을 쓴다.
+  Widget _formWidth(double formMaxWidth, Widget child) {
+    return Align(
+      alignment: Alignment.center,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: formMaxWidth),
+        child: child,
       ),
     );
   }
@@ -371,11 +403,17 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
     );
   }
 
-  Widget _buildLockForm(BuildContext context) {
+  Widget _buildLockForm(
+    BuildContext context, {
+    required double formMaxWidth,
+  }) {
     if (!FirebaseAppConfig.isConfigured) {
-      return const Text(
-        '서버 설정이 아직 준비되지 않았습니다.\n관리자에게 문의하세요.',
-        textAlign: TextAlign.center,
+      return _formWidth(
+        formMaxWidth,
+        const Text(
+          '서버 설정이 아직 준비되지 않았습니다.\n관리자에게 문의하세요.',
+          textAlign: TextAlign.center,
+        ),
       );
     }
 
@@ -388,140 +426,172 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Center(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: Image.asset(
-              'lib/assets/images/app_icon.png',
-              width: 96,
-              height: 96,
-              fit: BoxFit.cover,
-              errorBuilder:
-                  (_, _, _) => const Icon(
-                    Icons.swap_horiz_rounded,
-                    size: 72,
-                    color: Colors.teal,
+        _formWidth(
+          formMaxWidth,
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: Image.asset(
+                    'lib/assets/images/app_icon.png',
+                    width: 96,
+                    height: 96,
+                    fit: BoxFit.cover,
+                    errorBuilder:
+                        (_, _, _) => const Icon(
+                          Icons.swap_horiz_rounded,
+                          size: 72,
+                          color: Colors.teal,
+                        ),
                   ),
-            ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Center(
+                child: Text(
+                  AppInfo.programName,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Center(
+                child: Text(
+                  'Version : ${AppInfo.versionLabel}',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 20),
-        Center(
-          child: Text(
-            AppInfo.programName,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Center(
-          child: Text(
-            'Version : ${AppInfo.versionLabel}',
-            style: const TextStyle(fontSize: 12, color: Colors.grey),
-          ),
-        ),
-        const SizedBox(height: 20),
+        // 안내 박스만 넓은 부모 폭(폼의 1.26배)을 사용한다.
         WebLoginBrandingBlock(
           branding: _branding,
           localLogoBytes: _logoBytes,
         ),
         const SizedBox(height: 20),
-        TextField(
-          controller: _passwordController,
-          obscureText: true,
-          decoration: InputDecoration(
-            labelText: _showAdmin ? '관리자 비밀번호' : '선생님 접속 비밀번호',
-            border: const OutlineInputBorder(),
-            focusedBorder:
-                _showAdmin
-                    ? OutlineInputBorder(
-                      borderSide: BorderSide(color: adminBorder, width: 2),
-                    )
-                    : null,
-            floatingLabelStyle: _showAdmin ? TextStyle(color: adminFg) : null,
-            suffixIcon: ValueListenableBuilder<TextEditingValue>(
-              valueListenable: _passwordController,
-              builder: (context, value, _) {
-                if (value.text.isEmpty) return const SizedBox.shrink();
-                return IconButton(
-                  tooltip: '지우기',
-                  icon: const Icon(Icons.clear, size: 18),
-                  onPressed: () => _passwordController.clear(),
-                );
-              },
-            ),
+        _formWidth(
+          formMaxWidth,
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: _passwordController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: _showAdmin ? '관리자 비밀번호' : '선생님 접속 비밀번호',
+                  border: const OutlineInputBorder(),
+                  focusedBorder:
+                      _showAdmin
+                          ? OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: adminBorder,
+                              width: 2,
+                            ),
+                          )
+                          : null,
+                  floatingLabelStyle:
+                      _showAdmin ? TextStyle(color: adminFg) : null,
+                  suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: _passwordController,
+                    builder: (context, value, _) {
+                      if (value.text.isEmpty) return const SizedBox.shrink();
+                      return IconButton(
+                        tooltip: '지우기',
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () => _passwordController.clear(),
+                      );
+                    },
+                  ),
+                ),
+                onSubmitted:
+                    (_) => _showAdmin ? _submitAdmin() : _submitViewer(),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed:
+                    _busy
+                        ? null
+                        : (_showAdmin ? _submitAdmin : _submitViewer),
+                style:
+                    _showAdmin
+                        ? ElevatedButton.styleFrom(
+                          backgroundColor: adminBg,
+                          foregroundColor: adminFg,
+                        )
+                        : null,
+                child:
+                    _busy
+                        ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                        : Text(
+                          _showAdmin ? '관리자로 들어가기' : '선생님 들어가기',
+                        ),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed:
+                    _busy
+                        ? null
+                        : () => setState(() {
+                          _showAdmin = !_showAdmin;
+                          _showMasterForm = false;
+                          // 모드 전환 시 이전 입력값이 남지 않도록 비운다.
+                          _passwordController.clear();
+                        }),
+                style:
+                    _showAdmin
+                        ? TextButton.styleFrom(foregroundColor: adminFg)
+                        : null,
+                // 모드 전환 링크는 원래(선생님) 색 유지, 마스터 안내는 관리자 색.
+                child: Text(_showAdmin ? '선생님 접속화면으로' : '관리자 로그인'),
+              ),
+              if (_showAdmin && !_showMasterForm)
+                TextButton(
+                  onPressed: () => setState(() => _showMasterForm = true),
+                  style: TextButton.styleFrom(foregroundColor: adminFg),
+                  child: const Text('비밀번호를 잊으셨나요?'),
+                ),
+              if (_showAdmin && _showMasterForm) ...[
+                const Divider(height: 24),
+                const Text('마스터 로그인', textAlign: TextAlign.center),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _masterIdController,
+                  decoration: const InputDecoration(
+                    labelText: '마스터 ID',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _masterPasswordController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: '마스터 비밀번호',
+                    border: OutlineInputBorder(),
+                  ),
+                  onSubmitted: (_) => _submitMaster(),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: _submitMaster,
+                  child: const Text('마스터로 들어가기'),
+                ),
+              ],
+            ],
           ),
-          onSubmitted: (_) => _showAdmin ? _submitAdmin() : _submitViewer(),
         ),
-        const SizedBox(height: 12),
-        ElevatedButton(
-          onPressed: _busy ? null : (_showAdmin ? _submitAdmin : _submitViewer),
-          style:
-              _showAdmin
-                  ? ElevatedButton.styleFrom(
-                    backgroundColor: adminBg,
-                    foregroundColor: adminFg,
-                  )
-                  : null,
-          child:
-              _busy
-                  ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                  : Text(_showAdmin ? '관리자로 들어가기' : '선생님 들어가기'),
-        ),
-        const SizedBox(height: 8),
-        TextButton(
-          onPressed:
-              _busy
-                  ? null
-                  : () => setState(() {
-                    _showAdmin = !_showAdmin;
-                    _showMasterForm = false;
-                    // 모드 전환 시 이전 입력값이 남지 않도록 비운다.
-                    _passwordController.clear();
-                  }),
-          style:
-              _showAdmin
-                  ? TextButton.styleFrom(foregroundColor: adminFg)
-                  : null,
-          // 모드 전환 링크는 원래(선생님) 색 유지, 마스터 안내는 관리자 색.
-          child: Text(_showAdmin ? '선생님 접속화면으로' : '관리자 로그인'),
-        ),
-        if (_showAdmin && !_showMasterForm)
-          TextButton(
-            onPressed: () => setState(() => _showMasterForm = true),
-            style: TextButton.styleFrom(foregroundColor: adminFg),
-            child: const Text('비밀번호를 잊으셨나요?'),
-          ),
-        if (_showAdmin && _showMasterForm) ...[
-          const Divider(height: 24),
-          const Text('마스터 로그인', textAlign: TextAlign.center),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _masterIdController,
-            decoration: const InputDecoration(
-              labelText: '마스터 ID',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _masterPasswordController,
-            obscureText: true,
-            decoration: const InputDecoration(
-              labelText: '마스터 비밀번호',
-              border: OutlineInputBorder(),
-            ),
-            onSubmitted: (_) => _submitMaster(),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton(
-            onPressed: _submitMaster,
-            child: const Text('마스터로 들어가기'),
-          ),
-        ],
       ],
     );
   }
