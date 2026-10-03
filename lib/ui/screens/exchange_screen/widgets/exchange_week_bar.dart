@@ -18,7 +18,7 @@ import '../../personal_schedule_screen/exchange_week_collector.dart';
 
 /// 교체 화면 상단 주차 선택 바 (§10.5)
 ///
-/// 행 구성: [계획서 선택 | 날짜·교체 반영 | 날짜 수정 안내·바로가기 | ◀ 주차 칩 ▶]
+/// 행 구성: [계획서 선택 | 날짜·교체 반영 | (OFF 시 날짜 수정 안내) | (ON 시 주차 칩)]
 /// - 계획서 칩: 결보강 작성의 기준. 선택은 전역(lastUsedProfileId)에 반영
 /// - 날짜 범·건수 텍스트는 삭제 — 건수는 주 칩 뱃지로, 범위 밖 안내는
 ///   해당 주 칩의 주황 테두리로 표시한다
@@ -137,16 +137,15 @@ class ExchangeWeekBar extends ConsumerWidget {
           const ToolbarGroupDivider(),
           // 날짜·교체 반영 버튼 (스위치 대신)
           ..._buildDateAndExchangeSwitches(context, ref, theme, showWeekHeader),
-          const ToolbarGroupDivider(),
-          // 날짜 수정 안내 + 바로가기 (여백이 있을 때 표시)
-          if (showWeekHeader)
-            Flexible(child: _buildDateScheduleHint(context, ref))
-          else
+          // 날짜 반영 ON(주차 칩 표시)일 때는 공간 부족으로 안내 숨김
+          if (!showWeekHeader) ...[
+            const ToolbarGroupDivider(),
             Expanded(child: _buildDateScheduleHint(context, ref)),
+          ],
           // ◀ ▶·주차 칩은 날짜 반영 ON에서만 — OFF는 주 개념이 없는 한 장짜리 화면이다
           // (선택 주를 이번 주로 고정하는 이유는 `_setShowWeekHeader` 참고)
           if (showWeekHeader) ...[
-            const SizedBox(width: 6),
+            const ToolbarGroupDivider(),
             _buildWeekNavButton(
               theme,
               icon: Icons.chevron_left,
@@ -192,39 +191,40 @@ class ExchangeWeekBar extends ConsumerWidget {
     );
   }
 
-  /// 결강·교체 날짜 수정 안내 + 결보강 일정 바로가기
+  /// 결강·교체 날짜 수정 안내 — [결보강 일정] 탭 시 해당 화면으로 이동
   Widget _buildDateScheduleHint(BuildContext context, WidgetRef ref) {
     final tokens = context.tokens;
+    final baseStyle = TextStyle(fontSize: 12, color: tokens.textSecondary);
+    final linkStyle = TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
+      color: tokens.primary,
+      decoration: TextDecoration.underline,
+      decorationColor: tokens.primary,
+    );
+
     return Align(
       alignment: Alignment.centerLeft,
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.info_outline, size: 14, color: tokens.textSecondary),
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              '결강·교체 날짜는 계획서 > 결보강 일정에서 수정하세요',
+              '결강·교체 날짜는 계획서 > ',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12, color: tokens.textSecondary),
+              style: baseStyle,
             ),
           ),
-          const SizedBox(width: 6),
-          TextButton(
-            onPressed: () => navigateToPlanDateSelection(ref),
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              foregroundColor: tokens.primary,
-              textStyle: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => navigateToPlanDateSelection(ref),
+              child: Text('결보강 일정', style: linkStyle),
             ),
-            child: const Text('바로가기'),
           ),
+          Text('에서 수정하세요', style: baseStyle),
         ],
       ),
     );

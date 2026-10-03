@@ -1132,6 +1132,8 @@ class SubstitutionOutputWidgetState
                   context.tokens.monochromeMenuAccents
                       ? context.tokens.primary
                       : PlanOutputMenu.substitutionOutput.color,
+              linkText: '결보강 일정',
+              onLinkTap: () => navigateToPlanDateSelection(ref),
             ),
             ContentToolbarLayout.hintToToolbarSpacer,
 
