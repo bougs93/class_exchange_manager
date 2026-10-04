@@ -225,8 +225,51 @@ void main() {
       ], MessageOption.option3);
       expect(
         groups.first.messages.single.content,
-        "3-7 수업변경 안내\n10.07 수 2교시 3-7 수학 정호성\n10.06 화 6교시 3-7 기술가정 정원길",
+        "3-7 수업변경 안내\n10.06 화 6교시 3-7 기술가정 정원길\n10.07 수 2교시 3-7 수학 정호성",
       );
+    });
+
+    test('수업 안내(option3)는 결강일·교체일 줄을 풀어 날짜 순으로 정렬한다', () {
+      final groups = NoticeMessageGenerator.generateClassMessages([
+        basic(
+          exchangeId: 'a',
+          absenceDate: '2026.10.07',
+          absenceDay: '수',
+          period: '1',
+          subject: '사회',
+          teacher: '우민수',
+          substitutionDate: '2026.10.05',
+          substitutionDay: '월',
+          substitutionPeriod: '1',
+          substitutionSubject: '기술가정',
+          substitutionTeacher: '구길동',
+          grade: '3',
+          className: '8',
+        ),
+        basic(
+          exchangeId: 'b',
+          absenceDate: '2026.10.09',
+          absenceDay: '금',
+          period: '2',
+          subject: '기술가정',
+          teacher: '구길동',
+          substitutionDate: '2026.10.08',
+          substitutionDay: '목',
+          substitutionPeriod: '6',
+          substitutionSubject: '사회',
+          substitutionTeacher: '신철수',
+          grade: '3',
+          className: '8',
+        ),
+      ], MessageOption.option3);
+
+      final lines = groups.first.messages.single.content.split('\n');
+      expect(lines.skip(1).map((l) => l.substring(0, 5)).toList(), [
+        '10.05',
+        '10.07',
+        '10.08',
+        '10.09',
+      ]);
     });
 
     test('보강 - option3(수업 안내)', () {
@@ -236,7 +279,7 @@ void main() {
       expect(groups.first.groupIdentifier, '2-3');
       expect(
         groups.first.messages.single.content,
-        "2-3 수업변경 안내\n'10.08 목 3교시 2-3 도덕 이도덕' 수업입니다.",
+        "2-3 수업변경 안내\n10.08 목 3교시 2-3 도덕 이도덕",
       );
     });
 
@@ -252,9 +295,9 @@ void main() {
       expect(
         content,
         "1-1 수업변경 안내\n"
-        "'10.01 목 1교시 1-1 화학 순환B' -> '10.01 목 1교시 1-1 물리 순환A'\n"
-        "'10.02 금 2교시 1-1 생물 순환C' -> '10.02 금 2교시 1-1 화학 순환B'\n"
-        "'10.03 토 3교시 1-1 물리 순환A' -> '10.03 토 3교시 1-1 생물 순환C'",
+        "10.01 목 1교시 1-1 화학 순환B -> 10.01 목 1교시 1-1 물리 순환A\n"
+        "10.02 금 2교시 1-1 생물 순환C -> 10.02 금 2교시 1-1 화학 순환B\n"
+        "10.03 토 3교시 1-1 물리 순환A -> 10.03 토 3교시 1-1 생물 순환C",
       );
     });
   });

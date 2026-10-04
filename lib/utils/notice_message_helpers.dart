@@ -103,8 +103,8 @@ class MessageFormatter {
           category == ExchangeCategory.circularFourPlus ? '->' : '<->';
       final baseLine =
           category == ExchangeCategory.circularFourPlus
-              ? "'${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.plainSubstitutionTeacher}' $arrow '${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.plainTeacher}'"
-              : "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.plainTeacher}' $arrow '${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.plainSubstitutionTeacher}'";
+              ? "${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.plainSubstitutionTeacher} $arrow ${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.plainTeacher}'"
+              : "${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.plainTeacher} $arrow ${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.plainSubstitutionTeacher}";
       return '$baseLine 교체 가능하신지요?';
     } else if (option == MessageOption.option2) {
       // 교체 안내 형태 (날짜는 월.일 형식으로 표시)
@@ -112,16 +112,16 @@ class MessageFormatter {
           category == ExchangeCategory.circularFourPlus ? '->' : '<->';
 
       if (category == ExchangeCategory.circularFourPlus) {
-        return "'${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.plainSubstitutionTeacher}' $arrow '${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.plainTeacher}'";
+        return "${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.plainSubstitutionTeacher} $arrow ${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.plainTeacher}";
       } else {
-        return "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.plainTeacher}' $arrow '${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.plainSubstitutionTeacher}'";
+        return "${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.plainTeacher} $arrow ${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.plainSubstitutionTeacher}";
       }
     } else {
       // 수업 안내 형태 (날짜는 월.일 형식으로 표시)
       if (category == ExchangeCategory.circularFourPlus) {
-        return "'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.substitutionSubject} ${data.plainSubstitutionTeacher}' 수업입니다.";
+        return "${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.substitutionSubject} ${data.plainSubstitutionTeacher}";
       } else {
-        return "'${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.plainSubstitutionTeacher}' 수업입니다.";
+        return "${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.plainSubstitutionTeacher}";
       }
     }
   }

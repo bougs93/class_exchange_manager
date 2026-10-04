@@ -1,5 +1,6 @@
 import '../../models/notice_message.dart';
 import '../../providers/substitution_plan_viewmodel.dart';
+import '../date_format_utils.dart';
 import '../logger.dart';
 import '../notice_message_helpers.dart';
 import 'notice_exchange_category.dart';
@@ -158,15 +159,24 @@ ${exchangeLines.join('\n')}''',
     // 헤더 메시지 추가 (한 번만)
     messageLines.add('${dataList.first.fullClassName} 수업변경 안내');
 
-    // 교체 유형별로 메시지 생성 (헤더 제외)
-    for (final data in dataList) {
-      final content =
-          data.substitutionDate.isNotEmpty
-              ? _generateClassSubstitutionMessage(data, messageOption, false)
-              : _generateClassSupplementMessage(data, false);
+    if (messageOption == MessageOption.option3) {
+      // 수업 안내: 교체 1건이 두 줄(결강일·교체일)이라, 줄 단위로 풀어서
+      // 날짜 → 교시 순으로 정렬한다 (건 단위 정렬만으로는 교체일이 앞서는 줄이 생김)
+      messageLines.addAll(_buildChronologicalLines(dataList));
+    } else {
+      // 교체 유형별로 메시지 생성 (헤더 제외)
+      for (final data in dataList) {
+        final content =
+            data.substitutionDate.isNotEmpty
+                ? _generateClassSubstitutionMessage(data, messageOption, false)
+                : _generateClassSupplementMessage(
+                  data,
+                  withSuffix: messageOption == MessageOption.option1,
+                );
 
-      if (content.isNotEmpty) {
-        messageLines.add(content);
+        if (content.isNotEmpty) {
+          messageLines.add(content);
+        }
       }
     }
 
@@ -199,19 +209,9 @@ ${exchangeLines.join('\n')}''',
       // 질문 형태
       final exchangeLine = _buildClassExchangeArrowLine(data, isFirstMessage);
       return '$exchangeLine 교체 가능하신지요?';
-    } else if (messageOption == MessageOption.option2) {
+    } else {
       // 교체 안내 형태
       return _buildClassExchangeArrowLine(data, isFirstMessage);
-    } else {
-      // 수업 안내 형태
-      if (isFirstMessage) {
-        return '''${data.fullClassName} 수업변경 안내
-${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.substitutionSubject} ${data.plainSubstitutionTeacher}
-${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.fullClassName} ${data.subject} ${data.plainTeacher}''';
-      } else {
-        return '''${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.substitutionSubject} ${data.plainSubstitutionTeacher}
-${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.fullClassName} ${data.subject} ${data.plainTeacher}''';
-      }
     }
   }
 
@@ -233,15 +233,90 @@ ${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.full
   }
 
   /// 학급 보강 메시지 생성
+  ///
+  /// [withSuffix]가 true일 때만 끝에 "수업입니다."를 붙인다
+  /// (질문 형태에서만 쓰고, 교체 안내·수업 안내에서는 뺀다).
   static String _generateClassSupplementMessage(
-    SubstitutionPlanData data,
-    bool isFirstMessage,
-  ) {
-    if (isFirstMessage) {
-      return '''${data.fullClassName} 수업변경 안내
-'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.supplementSubject} ${data.plainSupplementTeacher}' 수업입니다.''';
-    } else {
-      return ''''${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.supplementSubject} ${data.plainSupplementTeacher}' 수업입니다.''';
-    }
+    SubstitutionPlanData data, {
+    required bool withSuffix,
+  }) {
+    final line =
+        '${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.supplementSubject} ${data.plainSupplementTeacher}';
+    return withSuffix ? '$line 수업입니다.' : line;
   }
+
+  /// 수업 안내(option3) 본문 줄 — 결강일 줄·교체일 줄을 풀어 날짜 → 교시 순 정렬
+  ///
+  /// 날짜·교시가 같으면 입력 순서를 유지한다(Dart 정렬은 불안정하므로 순번 비교).
+  /// 날짜를 읽지 못한 줄은 맨 뒤로 보낸다.
+  static List<String> _buildChronologicalLines(
+    List<SubstitutionPlanData> dataList,
+  ) {
+    final entries = <_DatedNoticeLine>[];
+
+    void add(String date, String period, String text) {
+      entries.add(
+        _DatedNoticeLine(
+          date: DateFormatUtils.parseYearMonthDay(date),
+          period: int.tryParse(period) ?? 9999,
+          order: entries.length,
+          text: text,
+        ),
+      );
+    }
+
+    for (final data in dataList) {
+      if (data.substitutionDate.isNotEmpty) {
+        add(
+          data.absenceDate,
+          data.period,
+          '${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.substitutionSubject} ${data.plainSubstitutionTeacher}',
+        );
+        add(
+          data.substitutionDate,
+          data.substitutionPeriod,
+          '${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.fullClassName} ${data.subject} ${data.plainTeacher}',
+        );
+      } else {
+        add(
+          data.absenceDate,
+          data.period,
+          _generateClassSupplementMessage(data, withSuffix: false),
+        );
+      }
+    }
+
+    entries.sort((a, b) {
+      final aDate = a.date;
+      final bDate = b.date;
+      if (aDate != null && bDate != null) {
+        final c = aDate.compareTo(bDate);
+        if (c != 0) return c;
+      } else if (aDate != null) {
+        return -1;
+      } else if (bDate != null) {
+        return 1;
+      }
+      final p = a.period.compareTo(b.period);
+      if (p != 0) return p;
+      return a.order.compareTo(b.order);
+    });
+
+    return entries.map((e) => e.text).toList();
+  }
+}
+
+/// 날짜·교시 정렬용 안내 한 줄
+class _DatedNoticeLine {
+  const _DatedNoticeLine({
+    required this.date,
+    required this.period,
+    required this.order,
+    required this.text,
+  });
+
+  final DateTime? date;
+  final int period;
+  final int order;
+  final String text;
 }
