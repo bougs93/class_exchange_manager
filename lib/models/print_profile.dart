@@ -263,6 +263,36 @@ class PrintProfileStore {
     );
   }
 
+  /// 지워졌던 계획서를 다시 넣은 스토어 (결보강 전체 삭제 되돌리기용).
+  ///
+  /// 그 사이 새로 만든 계획서는 그대로 두고, 같은 id가 이미 있으면 덮지 않는다.
+  /// 마지막 사용 계획서·선택 교사는 현재 값이 비어 있을 때만 채운다.
+  PrintProfileStore mergeRestored(
+    List<PrintProfile> restored, {
+    String? lastUsedProfileId,
+    String? lastSelectedTeacher,
+  }) {
+    final existingIds = profiles.map((p) => p.id).toSet();
+    return PrintProfileStore(
+      profiles: [
+        ...profiles,
+        ...restored.where((p) => !existingIds.contains(p.id)),
+      ],
+      lastUsedProfileId: this.lastUsedProfileId ?? lastUsedProfileId,
+      lastSelectedTeacher: this.lastSelectedTeacher ?? lastSelectedTeacher,
+    );
+  }
+
+  /// [ids]에 해당하는 계획서를 뺀 스토어. 마지막 사용 계획서가 빠지면 비운다.
+  PrintProfileStore withoutProfiles(Set<String> ids) {
+    return PrintProfileStore(
+      profiles: profiles.where((p) => !ids.contains(p.id)).toList(),
+      lastUsedProfileId:
+          ids.contains(lastUsedProfileId) ? null : lastUsedProfileId,
+      lastSelectedTeacher: lastSelectedTeacher,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
     'profiles': profiles.map((p) => p.toJson()).toList(),
     'lastUsedProfileId': lastUsedProfileId,

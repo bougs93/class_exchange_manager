@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:async';
 import '../../../models/exchange_node.dart';
@@ -9,6 +9,7 @@ import '../../../models/dual_exchange_path.dart';
 import '../../../models/supplement_exchange_path.dart';
 import '../../../models/exchange_history_item.dart';
 import '../../../models/print_profile.dart';
+import '../../../models/exchange_clear_snapshot.dart';
 import '../../../constants/korean_fonts.dart';
 import '../../../utils/logger.dart';
 import '../../../utils/snackbar_helper.dart';
@@ -20,6 +21,7 @@ import '../../../providers/exchange_view_provider.dart';
 import '../../../providers/exchange_screen_provider.dart';
 import '../../../providers/selected_week_provider.dart';
 import '../../../providers/print_profile_provider.dart';
+import '../../../providers/substitution_plan_provider.dart';
 import '../../../providers/timetable_registry_provider.dart';
 import '../../../utils/day_utils.dart';
 import '../../../utils/date_format_utils.dart';
@@ -452,6 +454,18 @@ class ExchangeExecutor {
     }
   }
 
+  /// 결보강 전체 삭제 직전 상태(계획서·보강 과목) 스냅샷.
+  ///
+  /// 전체 삭제 시 `clearExchangeList(bulkExtra:)`에 넘겨 두면, 되돌리기 한 번에
+  /// 교체 목록과 함께 이 상태도 복원된다.
+  ExchangeClearSnapshot captureClearSnapshot() {
+    return ExchangeClearSnapshot.capture(
+      store: ref.read(printProfileStoreProvider),
+      supplementSubjects:
+          ref.read(substitutionPlanProvider).savedSupplementSubjects,
+    );
+  }
+
   /// 되돌리기 기능
   Future<void> undoLastExchange(
     BuildContext context,
@@ -460,88 +474,151 @@ class ExchangeExecutor {
     final historyService = ref.read(exchangeHistoryServiceProvider);
     final result = historyService.undoLastExchange();
 
-    if (result != null) {
-      final item = result.item;
-      // §10.5 확정: 되돌리기는 '전체 최근 1건'을 되돌리되, 그 교체가 속한 주로
-      // 화면을 자동 이동한다. 다른 주의 교체를 되돌리면 화면이 점프하므로
-      // 안내가 필수다 — 없으면 "버튼을 눌렀더니 화면이 멋대로 바뀌었다"가 된다.
-      //
-      // 날짜 반영 OFF에서는 이동하지 않는다 — OFF는 "선택 주 = 항상 이번 주"
-      // 불변 조건을 지켜야 한다(주가 화면에 안 보이는데 몰래 바뀌면, 다음 교체가
-      // 엉뚱한 주 날짜로 저장된다). `ExchangeWeekBar._setShowWeekHeader` 참고.
-      final jumpedToOtherWeek =
-          ref.read(showWeekHeaderProvider) &&
-          !ExchangeWeekCollector.isSameWeek(
-            ref.read(selectedWeekProvider),
-            item.weekMonday,
-          );
-      if (jumpedToOtherWeek) {
-        ref.read(selectedWeekProvider.notifier).state = item.weekMonday;
-      }
-
-      _applyExchangeStateAfterHistoryChange(item);
-
-      // 삭제 되돌리기 등으로 목록에 다시 보이면 계획서 체크도 선택으로 맞춘다.
-      // hydrate보다 먼저 끝나야 선택이 다시 꺼지지 않는다.
-      if (_isActiveAfterHistoryChange(
-        wasDelete: result.wasDelete,
-        isRedo: false,
-      )) {
-        await _selectRestoredExchangeInPlans(item);
-      }
-
-      historyService.printExchangeList();
-      historyService.printUndoHistory();
-      historyService.printRedoHistory();
-
-      ref
-          .read(stateResetProvider.notifier)
-          .resetExchangeStates(reason: '되돌리기 - 선택 상태 초기화');
-
-      dataSource?.notifyDataChanged();
-
-      // S5.4 (D6/OQ-2): 되돌리기는 그대로 수행하되, 이후 교체가 이 교체의
-      // 결과를 전제로 하고 있으면 안내만 덧붙인다 — 막지 않는다.
-      final dependents = findDependentExchanges(
-        target: item,
-        allEventsInOrder: historyService.getExchangeList(),
-      );
-
-      final weekLabel = ExchangeWeekCollector.monthWeekLabel(item.weekMonday);
-      final baseMessage =
-          result.wasDelete
-              ? '삭제된 교체 "${item.description}"가 복원되었습니다'
-              : jumpedToOtherWeek
-              ? '$weekLabel의 교체를 되돌렸습니다'
-              : '교체 "${item.description}"가 되돌려졌습니다';
-      final message =
-          dependents.isEmpty
-              ? baseMessage
-              : '$baseMessage (참고: 이후 교체 ${dependents.length}건이 이 교체를 전제로 합니다)';
-
-      if (!context.mounted) return;
-      SnackBarHelper.showWithAction(
-        context,
-        message,
-        backgroundColor: Colors.orange,
-        duration: const Duration(seconds: 2),
-      );
-    } else {
+    if (result == null || result.items.isEmpty) {
       SnackBarHelper.showWithAction(
         context,
         '되돌릴 교체가 없습니다',
         backgroundColor: Colors.grey,
         duration: const Duration(seconds: 2),
       );
+      return;
     }
+
+    final items = result.items;
+    final item = items.first;
+
+    // 전체 삭제 되돌리기면 함께 지워졌던 계획서·보강 과목도 복원한다.
+    // 아래 계획서 선택 복원이 대상 계획서를 찾을 수 있도록 먼저 한다.
+    final snapshot = result.bulkExtra;
+    if (result.wasBulk && snapshot is ExchangeClearSnapshot) {
+      ref
+          .read(substitutionPlanProvider.notifier)
+          .restoreSupplementSubjects(snapshot.supplementSubjects);
+      await ref
+          .read(printProfileStoreProvider.notifier)
+          .restoreProfiles(
+            snapshot.profiles,
+            lastUsedProfileId: snapshot.lastUsedProfileId,
+            lastSelectedTeacher: snapshot.lastSelectedTeacher,
+          );
+    }
+
+    // 묶음이면 전원 같은 주일 때만 그 주로 이동한다 — 주가 엇갈리면
+    // 어느 주로 가야 할지 하나로 정할 수 없으므로 제자리에 둔다.
+    // 단일이면 항상 전원(1건) 같은 주라 기존 동작과 같다.
+    final jumpWeek =
+        items.every(
+              (e) => ExchangeWeekCollector.isSameWeek(
+                e.weekMonday,
+                item.weekMonday,
+              ),
+            )
+            ? item.weekMonday
+            : null;
+    // §10.5 확정: 되돌리기는 '전체 최근 1건'을 되돌리되, 그 교체가 속한 주로
+    // 화면을 자동 이동한다. 다른 주의 교체를 되돌리면 화면이 점프하므로
+    // 안내가 필수다 — 없으면 "버튼을 눌렀더니 화면이 멋대로 바뀌었다"가 된다.
+    //
+    // 날짜 반영 OFF에서는 이동하지 않는다 — OFF는 "선택 주 = 항상 이번 주"
+    // 불변 조건을 지켜야 한다(주가 화면에 안 보이는데 몰래 바뀌면, 다음 교체가
+    // 엉뚱한 주 날짜로 저장된다). `ExchangeWeekBar._setShowWeekHeader` 참고.
+    final jumpedToOtherWeek =
+        jumpWeek != null &&
+        ref.read(showWeekHeaderProvider) &&
+        !ExchangeWeekCollector.isSameWeek(
+          ref.read(selectedWeekProvider),
+          jumpWeek,
+        );
+    if (jumpedToOtherWeek) {
+      ref.read(selectedWeekProvider.notifier).state = jumpWeek;
+    }
+
+    _applyExchangeStateAfterHistoryChange(item);
+
+    // 삭제 되돌리기 등으로 목록에 다시 보이면 계획서 체크도 선택으로 맞춘다.
+    // hydrate보다 먼저 끝나야 선택이 다시 꺼지지 않는다.
+    // 묶음 복원이면 복원된 것 중 활성(되돌려 두지 않은) 항목만 선택한다 —
+    // 전체 삭제 전에 이미 되돌려 둔 교체는 목록에 보이지 않기 때문이다.
+    if (_isActiveAfterHistoryChange(
+      wasDelete: result.wasDelete,
+      isRedo: false,
+    )) {
+      for (final restored in items.where((e) => !e.isReverted)) {
+        await _selectRestoredExchangeInPlans(restored);
+      }
+    }
+
+    historyService.printExchangeList();
+    historyService.printUndoHistory();
+    historyService.printRedoHistory();
+
+    ref
+        .read(stateResetProvider.notifier)
+        .resetExchangeStates(reason: '되돌리기 - 선택 상태 초기화');
+
+    dataSource?.notifyDataChanged();
+
+    // S5.4 (D6/OQ-2): 되돌리기는 그대로 수행하되, 이후 교체가 이 교체의
+    // 결과를 전제로 하고 있으면 안내만 덧붙인다 — 막지 않는다.
+    // 묶음이면 복원된 전체의 의존을 합친다(중복 제거). 함께 복원된 교체끼리의
+    // 의존은 모두 충족된 상태이므로 세지 않는다.
+    final allEvents = historyService.getExchangeList();
+    final restoredIds = items.map((e) => e.id).toSet();
+    final dependentIds = <String>{};
+    for (final restored in items) {
+      for (final dependent in findDependentExchanges(
+        target: restored,
+        allEventsInOrder: allEvents,
+      )) {
+        if (!restoredIds.contains(dependent.id)) {
+          dependentIds.add(dependent.id);
+        }
+      }
+    }
+
+    final weekLabel = ExchangeWeekCollector.monthWeekLabel(item.weekMonday);
+    final baseMessage =
+        result.wasBulk
+            ? '삭제된 교체 ${items.length}건이 복원되었습니다'
+            : result.wasDelete
+            ? '삭제된 교체 "${item.description}"가 복원되었습니다'
+            : jumpedToOtherWeek
+            ? '$weekLabel의 교체를 되돌렸습니다'
+            : '교체 "${item.description}"가 되돌려졌습니다';
+    final message =
+        dependentIds.isEmpty
+            ? baseMessage
+            : '$baseMessage (참고: 이후 교체 ${dependentIds.length}건이 이 교체를 전제로 합니다)';
+
+    if (!context.mounted) return;
+    SnackBarHelper.showWithAction(
+      context,
+      message,
+      backgroundColor: Colors.orange,
+      duration: const Duration(seconds: 2),
+    );
   }
 
   /// 다시 실행 기능 (되돌리기 후 1단계 복구)
   Future<void> redoLastExchange(BuildContext context) async {
     final historyService = ref.read(exchangeHistoryServiceProvider);
-    final result = historyService.redoLastExchange();
+    // 전체 삭제를 다시 적용할 때는 재삭제 직전 상태로 스냅샷을 다시 떠서,
+    // 복원 후 고친 계획서·보강 과목이 다음 되돌리기에서 사라지지 않게 한다.
+    final result = historyService.redoLastExchange(
+      recaptureBulkExtra:
+          (previous) =>
+              previous is ExchangeClearSnapshot
+                  ? previous.recapture(
+                    store: ref.read(printProfileStoreProvider),
+                    supplementSubjects:
+                        ref
+                            .read(substitutionPlanProvider)
+                            .savedSupplementSubjects,
+                  )
+                  : previous,
+    );
 
-    if (result == null) {
+    if (result == null || result.items.isEmpty) {
       SnackBarHelper.showWithAction(
         context,
         '다시 실행할 교체가 없습니다',
@@ -550,7 +627,19 @@ class ExchangeExecutor {
       );
       return;
     }
-    final item = result.item;
+    final items = result.items;
+    final item = items.first;
+
+    // 전체 삭제 재적용이면 되돌리기 때 함께 복원했던 계획서·보강 과목도 지운다.
+    final snapshot = result.bulkExtra;
+    if (result.wasBulk && snapshot is ExchangeClearSnapshot) {
+      ref
+          .read(substitutionPlanProvider.notifier)
+          .removeSupplementSubjects(snapshot.supplementSubjects.keys);
+      await ref
+          .read(printProfileStoreProvider.notifier)
+          .removeProfiles(snapshot.profileIds);
+    }
 
     _applyExchangeStateAfterHistoryChange(item, isRedo: true);
 
@@ -559,7 +648,9 @@ class ExchangeExecutor {
       wasDelete: result.wasDelete,
       isRedo: true,
     )) {
-      await _selectRestoredExchangeInPlans(item);
+      for (final restored in items) {
+        await _selectRestoredExchangeInPlans(restored);
+      }
     }
 
     historyService.printExchangeList();
@@ -575,7 +666,9 @@ class ExchangeExecutor {
     if (!context.mounted) return;
     SnackBarHelper.showWithAction(
       context,
-      result.wasDelete
+      result.wasBulk
+          ? '교체 ${items.length}건 삭제가 다시 적용되었습니다'
+          : result.wasDelete
           ? '교체 "${item.description}" 삭제가 다시 적용되었습니다'
           : '교체 "${item.description}"가 다시 실행되었습니다',
       backgroundColor: Colors.green,
@@ -617,10 +710,9 @@ class ExchangeExecutor {
       }
       if (targetIds.isEmpty) return;
 
-      await ref.read(printProfileStoreProvider.notifier).markGroupsSelected(
-        groupIds: {exchangeId},
-        profileIds: targetIds,
-      );
+      await ref
+          .read(printProfileStoreProvider.notifier)
+          .markGroupsSelected(groupIds: {exchangeId}, profileIds: targetIds);
     } catch (e) {
       AppLogger.warning('복원 교체 계획서 선택 반영 실패(무시): $e');
     }

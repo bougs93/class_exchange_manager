@@ -1321,7 +1321,7 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
       builder:
           (context) => AlertDialog(
             title: const Text('결보강 전체 삭제'),
-            content: const Text('결보강 내역과 계획서를 모두 삭제하겠습니까?\n이 작업은 되돌릴 수 없습니다.'),
+            content: const Text('결보강 내역과 계획서를 모두 삭제하겠습니까?\n삭제된 내역은 [되돌리기]로 한 번에 복원할 수 있습니다.'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -1351,8 +1351,12 @@ class _TimetableGridSectionState extends ConsumerState<TimetableGridSection>
   void _deleteExchangeList(BuildContext context, WidgetRef ref) async {
     try {
       // 1. 교체 리스트 전체 삭제
+      // 함께 지워질 계획서·보강 과목을 먼저 스냅샷으로 떠서 묶음에 붙인다 —
+      // 되돌리기 한 번에 교체 목록과 함께 복원된다.
       final historyService = ref.read(exchangeHistoryServiceProvider);
-      historyService.clearExchangeList();
+      historyService.clearExchangeList(
+        bulkExtra: _exchangeExecutor.captureClearSnapshot(),
+      );
 
       // 2. 저장된 보강 과목 정보 삭제
       // (결강일·교체일은 교체 항목 자체에 있으므로 위 clearExchangeList()로 이미 함께 삭제됨 — §10.10)

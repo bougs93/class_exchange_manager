@@ -172,6 +172,28 @@ class SubstitutionPlanNotifier extends StateNotifier<SubstitutionPlanState> {
     _saveToStorage();
   }
 
+  /// 결보강 전체 삭제 되돌리기 — 지워졌던 보강 과목을 다시 넣는다.
+  /// 그 사이 새로 정한 과목은 덮지 않는다 (자동 저장 포함).
+  void restoreSupplementSubjects(Map<String, String> subjects) {
+    if (subjects.isEmpty) return;
+    final newSaved = Map<String, String>.from(state.savedSupplementSubjects);
+    subjects.forEach((key, value) => newSaved.putIfAbsent(key, () => value));
+    state = state.copyWith(savedSupplementSubjects: newSaved);
+    _saveToStorage();
+  }
+
+  /// 결보강 전체 삭제 다시 실행 — 복원했던 보강 과목을 다시 지운다 (자동 저장 포함).
+  void removeSupplementSubjects(Iterable<String> exchangeIds) {
+    final newSaved = Map<String, String>.from(state.savedSupplementSubjects);
+    var changed = false;
+    for (final id in exchangeIds) {
+      changed = newSaved.remove(id) != null || changed;
+    }
+    if (!changed) return;
+    state = state.copyWith(savedSupplementSubjects: newSaved);
+    _saveToStorage();
+  }
+
   /// 날짜 범위 설정
   void setDateRange(DateTime? startDate, DateTime? endDate) {
     state = state.copyWith(

@@ -120,14 +120,14 @@ void main() {
       expect(service.canUndo, isTrue);
       expect(service.canRedo, isFalse);
 
-      expect(service.undoLastExchange()?.item.description, 'C');
+      expect(service.undoLastExchange()?.items.single.description, 'C');
       expect(_activeDescriptions(service), ['A', 'B']);
       expect(service.canRedo, isTrue);
 
-      expect(service.undoLastExchange()?.item.description, 'B');
+      expect(service.undoLastExchange()?.items.single.description, 'B');
       expect(_activeDescriptions(service), ['A']);
 
-      expect(service.undoLastExchange()?.item.description, 'A');
+      expect(service.undoLastExchange()?.items.single.description, 'A');
       expect(_activeDescriptions(service), isEmpty);
       expect(service.canUndo, isFalse);
       expect(service.canRedo, isTrue);
@@ -147,13 +147,13 @@ void main() {
       service.undoLastExchange();
       service.undoLastExchange();
 
-      expect(service.redoLastExchange()?.item.description, 'A');
+      expect(service.redoLastExchange()?.items.single.description, 'A');
       expect(_activeDescriptions(service), ['A']);
 
-      expect(service.redoLastExchange()?.item.description, 'B');
+      expect(service.redoLastExchange()?.items.single.description, 'B');
       expect(_activeDescriptions(service), ['A', 'B']);
 
-      expect(service.redoLastExchange()?.item.description, 'C');
+      expect(service.redoLastExchange()?.items.single.description, 'C');
       expect(_activeDescriptions(service), ['A', 'B', 'C']);
       expect(service.canRedo, isFalse);
       expect(service.canUndo, isTrue);
@@ -188,16 +188,126 @@ void main() {
       expect(_activeDescriptions(service), ['A', 'C']);
     });
 
-    test('clearExchangeList → undo/redo 모두 불가', () {
+    test('clearExchangeList → 되돌리기 1번에 전체 복원, 다시 실행하면 재삭제', () {
       _addTestExchange(service, '1', description: 'A');
       _addTestExchange(service, '2', description: 'B');
-      service.undoLastExchange();
+      service.undoLastExchange(); // B 되돌림 → redo 대기 [B]
+      expect(service.canRedo, isTrue);
 
       service.clearExchangeList();
 
-      expect(service.canUndo, isFalse);
-      expect(service.canRedo, isFalse);
       expect(service.getExchangeList(), isEmpty);
+      // redo는 새 조작(전체 삭제)으로 비워진다
+      expect(service.canRedo, isFalse);
+      // 묶음이 undo 스택에 남으므로 되돌리기 가능
+      expect(service.canUndo, isTrue);
+
+      // 되돌리기 1번에 전체 복원 (B는 되돌려진 상태 그대로 돌아온다)
+      final undone = service.undoLastExchange();
+      expect(undone?.wasBulk, isTrue);
+      expect(undone?.wasDelete, isTrue);
+      expect(undone?.items.map((e) => e.description).toList(), ['A', 'B']);
+      expect(_activeDescriptions(service), ['A']);
+      expect(service.canRedo, isTrue);
+
+      // 다시 실행하면 묶음이 통째로 재삭제된다
+      final redone = service.redoLastExchange();
+      expect(redone?.wasBulk, isTrue);
+      expect(_activeDescriptions(service), isEmpty);
+
+      // 되돌리면 다시 전체 복원된다
+      expect(service.undoLastExchange()?.wasBulk, isTrue);
+      expect(_activeDescriptions(service), ['A']);
+    });
+
+    test('전체 삭제 복원 후에도 이전 동작의 되돌리기가 이어진다', () {
+      _addTestExchange(service, '1', description: 'A');
+      _addTestExchange(service, '2', description: 'B');
+
+      service.clearExchangeList();
+      expect(service.getExchangeList(), isEmpty);
+
+      // 1번에 전체 복원
+      service.undoLastExchange();
+      expect(_activeDescriptions(service), ['A', 'B']);
+
+      // 이전 동작(B 실행 취소)이 이어진다 — 단일 기록이 보존됐기 때문
+      final undoneB = service.undoLastExchange();
+      expect(undoneB?.wasBulk, isFalse);
+      expect(undoneB?.items.single.description, 'B');
+      expect(_activeDescriptions(service), ['A']);
+
+      // 그 이전 동작(A 실행 취소)도 이어진다
+      final undoneA = service.undoLastExchange();
+      expect(undoneA?.items.single.description, 'A');
+      expect(_activeDescriptions(service), isEmpty);
+      expect(service.canUndo, isFalse);
+    });
+
+    test('전체 삭제 후 새 실행 → 새 항목이 LIFO 순서로 먼저 되돌려진다', () {
+      _addTestExchange(service, '1', description: 'A');
+
+      service.clearExchangeList();
+
+      _addTestExchange(service, '2', description: 'B');
+
+      // 가장 최근 조작(B 실행)이 먼저 되돌려진다
+      expect(service.undoLastExchange()?.items.single.description, 'B');
+      expect(_activeDescriptions(service), isEmpty);
+
+      // 다음은 묶음(A 전체 삭제)이 되돌려진다
+      final undone = service.undoLastExchange();
+      expect(undone?.wasBulk, isTrue);
+      expect(_activeDescriptions(service), ['A']);
+    });
+
+    test('묶음 복원 후 새 실행 → redo 불가 (표준 동작)', () {
+      _addTestExchange(service, '1', description: 'A');
+
+      service.clearExchangeList();
+      service.undoLastExchange(); // A 복원 → redo 대기
+      expect(service.canRedo, isTrue);
+
+      _addTestExchange(service, '2', description: 'B');
+      expect(service.canRedo, isFalse);
+      expect(_activeDescriptions(service), ['A', 'B']);
+    });
+
+    test('다른 주 교체도 묶음으로 함께 복원된다', () {
+      _addTestExchange(service, '1', description: '8월4주');
+      _addTestExchange(
+        service,
+        '2',
+        description: '9월1주',
+        absenceDate: DateTime(2026, 9, 3),
+        substitutionDate: DateTime(2026, 9, 4),
+      );
+
+      service.clearExchangeList();
+      final undone = service.undoLastExchange();
+
+      expect(undone?.wasBulk, isTrue);
+      expect(_activeDescriptions(service), ['8월4주', '9월1주']);
+    });
+
+    test('계획서 삭제로 묶음 redo 스냅샷이 비면 redo 불가', () {
+      _addTestExchange(service, '1', description: 'A');
+      _addTestExchange(service, '2', description: 'B');
+
+      service.clearExchangeList();
+      service.undoLastExchange(); // 복원 → redo 묶음 [[A, B]] 대기
+      expect(service.canRedo, isTrue);
+
+      // 두 항목을 같은 계획서에 묶은 뒤 계획서 삭제
+      for (final item in service.getExchangeList()) {
+        service.assignProfile(item.id, 'p1');
+      }
+      service.removeExchangeItemsByProfile('p1');
+
+      // 대기 중이던 묶음 redo도 함께 정리된다
+      expect(service.getExchangeList(), isEmpty);
+      expect(service.canRedo, isFalse);
+      expect(service.canUndo, isFalse);
     });
 
     test('removeFromExchangeList → 삭제도 되돌릴 수 있다', () {
@@ -213,14 +323,14 @@ void main() {
 
       // 되돌리면 삭제됐던 B가 복원된다
       final undone = service.undoLastExchange();
-      expect(undone?.item.description, 'B');
+      expect(undone?.items.single.description, 'B');
       expect(undone?.wasDelete, isTrue);
       expect(_activeDescriptions(service), ['A', 'B']);
       expect(service.canRedo, isTrue);
 
       // 다시 실행하면 B가 다시 삭제된다
       final redone = service.redoLastExchange();
-      expect(redone?.item.description, 'B');
+      expect(redone?.items.single.description, 'B');
       expect(redone?.wasDelete, isTrue);
       expect(_activeDescriptions(service), ['A']);
       expect(service.canUndo, isTrue);
@@ -240,7 +350,7 @@ void main() {
       // 삭제 시점에 스택에서 빠졌으므로 건너뛰어진다
       final undone = service.undoLastExchange();
       expect(undone?.wasDelete, isFalse);
-      expect(undone?.item.description, 'A');
+      expect(undone?.items.single.description, 'A');
       expect(_activeDescriptions(service), ['B']);
 
       // 다시 실행하면 A 활성화
@@ -589,6 +699,56 @@ void main() {
 
       final item = service.getExchangeList().single;
       expect(item.nodeDates, isEmpty);
+    });
+  });
+
+  group('묶음 삭제 bulkExtra', () {
+    void seedAndClear() {
+      _addTestExchange(service, '1', description: 'A');
+      _addTestExchange(service, '2', description: 'B');
+      service.clearExchangeList(bulkExtra: 'X');
+    }
+
+    test('undo는 묶음에 붙은 bulkExtra를 돌려준다', () {
+      seedAndClear();
+      final r = service.undoLastExchange();
+      expect(r, isNotNull);
+      expect(r!.wasBulk, isTrue);
+      expect(r.bulkExtra, 'X');
+    });
+
+    test('콜백 없는 redo는 X를 돌려주고 다음 undo도 X를 돌려준다', () {
+      seedAndClear();
+      service.undoLastExchange();
+      final redo = service.redoLastExchange();
+      expect(redo!.wasBulk, isTrue);
+      expect(redo.bulkExtra, 'X');
+      expect(service.undoLastExchange()!.bulkExtra, 'X');
+    });
+
+    test('recaptureBulkExtra가 있으면 redo는 X, 다음 undo는 Y', () {
+      seedAndClear();
+      service.undoLastExchange();
+      Object? seen;
+      final redo = service.redoLastExchange(
+        recaptureBulkExtra: (p) {
+          seen = p;
+          return 'Y';
+        },
+      );
+      expect(redo!.bulkExtra, 'X');
+      expect(seen, 'X');
+      expect(service.undoLastExchange()!.bulkExtra, 'Y');
+    });
+
+    test('단일 undo/redo의 bulkExtra는 null', () {
+      _addTestExchange(service, '1', description: 'A');
+      final undo = service.undoLastExchange();
+      expect(undo!.wasBulk, isFalse);
+      expect(undo.bulkExtra, isNull);
+      final redo = service.redoLastExchange();
+      expect(redo!.wasBulk, isFalse);
+      expect(redo.bulkExtra, isNull);
     });
   });
 }

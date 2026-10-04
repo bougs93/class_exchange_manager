@@ -79,6 +79,33 @@ class PrintProfileStoreNotifier extends StateNotifier<PrintProfileStore> {
     return success;
   }
 
+  /// 결보강 전체 삭제 되돌리기 — 지워졌던 계획서를 다시 넣는다.
+  ///
+  /// 메모리를 먼저 갱신해 직후의 선택 복원(`markGroupsSelected`)이 바로
+  /// 대상을 찾을 수 있게 하고, 디스크 저장은 이어서 한다.
+  Future<bool> restoreProfiles(
+    List<PrintProfile> profiles, {
+    String? lastUsedProfileId,
+    String? lastSelectedTeacher,
+  }) async {
+    if (_timetableId == null) return false;
+    final next = state.mergeRestored(
+      profiles,
+      lastUsedProfileId: lastUsedProfileId,
+      lastSelectedTeacher: lastSelectedTeacher,
+    );
+    state = next;
+    return _storage.saveStore(_timetableId, next);
+  }
+
+  /// 결보강 전체 삭제 다시 실행 — 되돌리기로 복원했던 계획서를 다시 지운다.
+  Future<bool> removeProfiles(Set<String> profileIds) async {
+    if (_timetableId == null || profileIds.isEmpty) return false;
+    final next = state.withoutProfiles(profileIds);
+    state = next;
+    return _storage.saveStore(_timetableId, next);
+  }
+
   /// 계획서 이름 변경
   Future<bool> renameProfile(String profileId, String newName) async {
     if (_timetableId == null) return false;

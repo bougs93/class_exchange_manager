@@ -231,10 +231,21 @@ class ExchangeHistoryService {
     _enqueueExchangeListSave('가져온 결보강 내역 저장 실패');
   }
 
-  /// 교체 리스트 전체 삭제
-  void clearExchangeList() {
+  /// 교체 리스트 전체 삭제.
+  ///
+  /// 지워지는 항목들을 묶음 스냅샷으로 undo 스택에 남기므로, 되돌리기 한 번에
+  /// 통째로 복원된다. 단일 되돌리기 기록은 지우지 않는다 — 묶음 복원 후에도
+  /// 이전 동작의 되돌리기가 이어져야 한다. redo는 새 조작이므로 비운다.
+  ///
+  /// [bulkExtra]는 교체 목록 밖에서 함께 지워지는 상태(계획서·보강 과목)의
+  /// 스냅샷이다. 서비스는 해석하지 않고 묶음에 붙여 두었다가 되돌리기 결과로
+  /// 돌려준다.
+  void clearExchangeList({Object? bulkExtra}) {
+    if (_exchangeList.isNotEmpty) {
+      _stacks.pushBulkUndo(List.of(_exchangeList), extra: bulkExtra);
+    }
     _exchangeList.clear();
-    _stacks.clear();
+    _stacks.clearRedo();
     _clearLocalStorage();
 
     // 🔥 교체 리스트 변경 추적: 버전 증가
@@ -247,11 +258,11 @@ class ExchangeHistoryService {
     return _stacks.undoStack;
   }
 
-  /// 되돌리기 가능 여부
-  bool get canUndo => _stacks.canUndo;
+  /// 되돌리기 가능 여부 (단일·묶음 중 하나라도 있으면 가능)
+  bool get canUndo => _stacks.canUndo || _stacks.hasBulkUndo;
 
-  /// 다시 실행 가능 여부 (되돌리기 직후에만)
-  bool get canRedo => _stacks.canRedo;
+  /// 다시 실행 가능 여부 (되돌리기 직후에만, 묶음 포함)
+  bool get canRedo => _stacks.canRedo || _stacks.hasBulkRedo;
 
   /// 다시 실행 스택 조회
   List<ExchangeHistoryItem> getRedoStack() {
@@ -261,10 +272,49 @@ class ExchangeHistoryService {
   /// 가장 최근 교체 작업 되돌리기
   /// 되돌리기 버튼 클릭 시 호출
   ///
-  /// Returns: 되돌린 항목과 삭제-되돌리기 여부.
+  /// Returns: 되돌린 항목들과 삭제-되돌리기 여부, 묶음(전체 삭제) 복원 여부.
   /// 삭제 되돌리기(`wasDelete: true`)면 목록에서 지워졌던 항목이 복원된다
   /// (맨 뒤에 다시 추가된다 — 원래 순서는 보장하지 않는다).
-  ({ExchangeHistoryItem item, bool wasDelete})? undoLastExchange() {
+  /// 묶음 복원(`wasBulk: true`)이면 `items`에 복원된 전체가 담긴다.
+  /// 단일(`wasBulk: false`)이면 `items`는 1건이다.
+  /// `bulkExtra`는 묶음에 붙어 있던 스냅샷이다(단일이면 null).
+  ({
+    List<ExchangeHistoryItem> items,
+    bool wasDelete,
+    bool wasBulk,
+    Object? bulkExtra,
+  })?
+  undoLastExchange() {
+    // 묶음 삭제(전체 삭제) 되돌리기: 한 번에 전체 복원한다.
+    // 단일보다 새 조작이면(또는 단일 스택이 비었으면) 묶음을 먼저 처리한다.
+    if (_stacks.isBulkUndoNewest) {
+      final entry = _stacks.popBulkUndo();
+      if (entry == null) return null;
+      final restored =
+          entry.items
+              .where((s) => _exchangeList.every((i) => i.id != s.id))
+              .toList();
+      for (final item in restored) {
+        _exchangeList.add(item);
+      }
+      if (restored.isNotEmpty) {
+        // 실제로 복원된 것만 redo에 남긴다 — 복원 전에 이미 있던 항목까지
+        // redo가 지워버리는 사고를 막는다. 저장은 묶음당 1회로 합친다
+        // (어차피 전체 리스트 스냅샷을 큐에 넣는 구조라 결과가 같다).
+        _enqueueExchangeListSave('묶음 삭제 되돌리기 저장 실패');
+        _exchangeListVersion++;
+        _notifyVersionChanged();
+        _stacks.pushBulkRedo(restored, extra: entry.extra);
+      }
+      AppLogger.exchangeInfo('묶음 삭제 되돌리기: ${restored.length}건 복원');
+      return (
+        items: restored,
+        wasDelete: true,
+        wasBulk: true,
+        bulkExtra: entry.extra,
+      );
+    }
+
     if (_stacks.isUndoEmpty) return null;
 
     final item = _stacks.removeLastUndo();
@@ -281,7 +331,12 @@ class ExchangeHistoryService {
 
       _stacks.addToRedo(item);
       _stacks.addDeletedRedoMark(item.id);
-      return (item: item, wasDelete: true);
+      return (
+        items: [item],
+        wasDelete: true,
+        wasBulk: false,
+        bulkExtra: null,
+      );
     }
 
     final index = _exchangeList.indexWhere((i) => i.id == item.id);
@@ -301,15 +356,62 @@ class ExchangeHistoryService {
     // 다시 실행 스택에 추가
     _stacks.addToRedo(item);
 
-    return (item: item, wasDelete: false);
+    return (
+      items: [item],
+      wasDelete: false,
+      wasBulk: false,
+      bulkExtra: null,
+    );
   }
 
   /// 되돌리기한 교체 1건 다시 실행
   /// 다시 실행 버튼 클릭 시 호출
   ///
-  /// Returns: 복구된 항목과 삭제-다시실행 여부.
+  /// Returns: 복구된 항목들과 삭제-다시실행 여부, 묶음(전체 삭제) 재적용 여부.
   /// 삭제 다시실행(`wasDelete: true`)이면 복원됐던 항목이 다시 삭제된다.
-  ({ExchangeHistoryItem item, bool wasDelete})? redoLastExchange() {
+  ///
+  /// 묶음 재삭제일 때 `bulkExtra`는 되돌리기 때 복원했던 스냅샷이다 — 호출부는
+  /// 이것을 보고 함께 복원했던 상태를 다시 지운다. [recaptureBulkExtra]를 주면
+  /// 재삭제 **직전** 상태로 스냅샷을 다시 떠서 다음 되돌리기에 쓴다(복원 후
+  /// 사용자가 고친 내용을 잃지 않도록). 주지 않으면 기존 스냅샷을 그대로 쓴다.
+  ({
+    List<ExchangeHistoryItem> items,
+    bool wasDelete,
+    bool wasBulk,
+    Object? bulkExtra,
+  })?
+  redoLastExchange({Object? Function(Object? previous)? recaptureBulkExtra}) {
+    // 묶음 복원 다시 실행: 복원됐던 전체를 다시 삭제한다.
+    if (_stacks.isBulkRedoNewest) {
+      final entry = _stacks.popBulkRedo();
+      if (entry == null) return null;
+      final removed =
+          entry.items
+              .where((s) => _exchangeList.any((i) => i.id == s.id))
+              .toList();
+      for (final item in removed) {
+        _exchangeList.removeWhere((i) => i.id == item.id);
+      }
+      if (removed.isNotEmpty) {
+        // 실제로 지워진 것만 undo에 남긴다. 저장은 묶음당 1회로 합친다.
+        _enqueueExchangeListSave('묶음 삭제 다시 실행 저장 실패');
+        _exchangeListVersion++;
+        _notifyVersionChanged();
+        final nextExtra =
+            recaptureBulkExtra != null
+                ? recaptureBulkExtra(entry.extra)
+                : entry.extra;
+        _stacks.pushBulkUndo(removed, extra: nextExtra);
+      }
+      AppLogger.exchangeInfo('묶음 삭제 다시 실행: ${removed.length}건 재삭제');
+      return (
+        items: removed,
+        wasDelete: true,
+        wasBulk: true,
+        bulkExtra: entry.extra,
+      );
+    }
+
     if (_stacks.isRedoEmpty) return null;
 
     final item = _stacks.removeLastRedo();
@@ -325,7 +427,12 @@ class ExchangeHistoryService {
 
       _stacks.pushUndo(item);
       _stacks.addDeletedUndoMark(item.id);
-      return (item: item, wasDelete: true);
+      return (
+        items: [item],
+        wasDelete: true,
+        wasBulk: false,
+        bulkExtra: null,
+      );
     }
 
     final index = _exchangeList.indexWhere((i) => i.id == item.id);
@@ -345,7 +452,12 @@ class ExchangeHistoryService {
     _exchangeListVersion++;
     _notifyVersionChanged();
 
-    return (item: restoredItem, wasDelete: false);
+    return (
+      items: [restoredItem],
+      wasDelete: false,
+      wasBulk: false,
+      bulkExtra: null,
+    );
   }
 
   /// 되돌리기 스택 초기화
@@ -727,11 +839,21 @@ class ExchangeHistoryService {
   /// 되돌리기 히스토리를 콘솔에 출력
   void printUndoHistory() {
     ExchangeHistoryDebugPrinter.printUndoHistory(_stacks.undoStack);
+    if (_stacks.hasBulkUndo) {
+      AppLogger.exchangeInfo(
+        '  [묶음 삭제 되돌리기 대기: ${_stacks.bulkUndoCount}개]',
+      );
+    }
   }
 
   /// 다시 실행 히스토리를 콘솔에 출력
   void printRedoHistory() {
     ExchangeHistoryDebugPrinter.printRedoHistory(_stacks.redoStack);
+    if (_stacks.hasBulkRedo) {
+      AppLogger.exchangeInfo(
+        '  [묶음 삭제 다시실행 대기: ${_stacks.bulkRedoCount}개]',
+      );
+    }
   }
 
   /// 전체 히스토리 통계를 콘솔에 출력
