@@ -275,9 +275,14 @@ class ExchangeOperationManager {
     // UI 업데이트
     stateProxy.setTimetableData(timetableData);
     onCreateSyncfusionGridData();
-    stateProxy.setCurrentMode(ExchangeMode.view);
+    stateProxy.setCurrentMode(ExchangeMode.oneToOneExchange);
+    onClearAllExchangeStates();
+    stateProxy.setAvailableSteps(ExchangeModeSteps.oneToOne);
+    stateProxy.setSelectedStep(null);
+    stateProxy.setSelectedDay(null);
+    onRefreshHeaderTheme();
 
-    AppLogger.exchangeInfo('파일이 선택되고 보기 모드로 전환되었습니다.');
+    AppLogger.exchangeInfo('파일이 선택되고 1:1 교체 모드가 활성화되었습니다.');
 
     // 동명이인이 있으면 구분해서 불러왔음을 알린다
     final duplicateNotice = duplicateTeacherNotice(timetableData.teachers);

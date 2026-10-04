@@ -69,7 +69,7 @@ class CellSelectionState {
     this.targetDay,
     this.targetPeriod,
     this.selectedTeacherName,
-    this.currentMode = ExchangeMode.view,
+    this.currentMode = ExchangeMode.oneToOneExchange,
     this.selectedOneToOnePath,
     this.selectedCircularPath,
     this.selectedDualPath,
