@@ -185,6 +185,65 @@ class NonExchangeableManager {
     }
   }
 
+  /// 그리드(복사본)에서 바뀐 교체불가 상태를 원본 시간표에 반영한다.
+  ///
+  /// 그리드는 원본의 복사본(교체 뷰 합성본 포함)을 들고 있어서, 교체불가를
+  /// 토글해도 경로 탐색이 쓰는 원본(`resolvedTimetableProvider`의 입력)에는
+  /// 반영되지 않았다 — 재시작 전까지 교체불가 칸이 탐색 후보로 계속 나왔다.
+  ///
+  /// [source] 중 [where]에 맞는 칸만 `isExchangeable`/`exchangeReason`을
+  /// 같은 키(교사·요일·교시)의 [base] 칸에 복사한다. 과목·학급은 건드리지 않는다.
+  /// [base]에 없는 칸이 교체불가면 빈 교체불가 TimeSlot을 추가한다
+  /// (`start_screen.dart`의 시작 시 적용과 같은 규칙).
+  static void syncToBase(
+    List<TimeSlot> base,
+    List<TimeSlot> source, {
+    bool Function(TimeSlot slot)? where,
+  }) {
+    final baseIndex = <String, TimeSlot>{};
+    for (final slot in base) {
+      final teacher = slot.teacher;
+      final day = slot.dayOfWeek;
+      final period = slot.period;
+      if (teacher == null || day == null || period == null) continue;
+      baseIndex.putIfAbsent('$teacher|$day|$period', () => slot);
+    }
+
+    for (final slot in source) {
+      final teacher = slot.teacher;
+      final day = slot.dayOfWeek;
+      final period = slot.period;
+      if (teacher == null || day == null || period == null) continue;
+      if (where != null && !where(slot)) continue;
+
+      final key = '$teacher|$day|$period';
+      final isNonExchangeable =
+          !slot.isExchangeable && slot.exchangeReason == '교체불가';
+      final target = baseIndex[key];
+
+      if (target != null) {
+        if (isNonExchangeable) {
+          target.isExchangeable = false;
+          target.exchangeReason = '교체불가';
+        } else if (!target.isExchangeable &&
+            target.exchangeReason == '교체불가') {
+          target.isExchangeable = true;
+          target.exchangeReason = null;
+        }
+      } else if (isNonExchangeable) {
+        final newSlot = TimeSlot(
+          teacher: teacher,
+          dayOfWeek: day,
+          period: period,
+          isExchangeable: false,
+          exchangeReason: '교체불가',
+        );
+        base.add(newSlot);
+        baseIndex[key] = newSlot;
+      }
+    }
+  }
+
   /// 모든 교체불가 설정 초기화
   void resetAllNonExchangeableSettings() {
     int modifiedCount = 0;

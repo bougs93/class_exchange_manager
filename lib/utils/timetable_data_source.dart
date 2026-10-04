@@ -12,7 +12,9 @@ import '../ui/widgets/simplified_timetable_cell.dart';
 import '../providers/cell_selection_provider.dart';
 import '../providers/cell_status_symbol_visibility_provider.dart';
 import '../providers/app_settings_provider.dart';
+import '../providers/exchange_screen_provider.dart';
 import '../providers/non_exchangeable_dated_cells_provider.dart';
+import '../providers/resolved_timetable_provider.dart';
 import '../providers/selected_week_provider.dart';
 import '../providers/services_provider.dart';
 import '../providers/show_week_header_provider.dart';
@@ -588,6 +590,7 @@ class TimetableDataSource extends DataGridSource {
   /// 특정 교사의 모든 TimeSlot을 교체불가로 설정
   void setTeacherAsNonExchangeable(String teacherName) {
     _nonExchangeableManager.setTeacherAsNonExchangeable(teacherName);
+    _syncNonExchangeableToBase(where: (slot) => slot.teacher == teacherName);
     _clearCacheAndNotify();
   }
 
@@ -598,6 +601,7 @@ class TimetableDataSource extends DataGridSource {
     // 교체불가 셀 데이터 저장 (별도 파일로 저장)
     _saveNonExchangeableCells();
 
+    _syncNonExchangeableToBase(where: (slot) => slot.teacher == teacherName);
     _clearCacheAndNotify();
   }
 
@@ -614,7 +618,35 @@ class TimetableDataSource extends DataGridSource {
     // 교체불가 셀 데이터 저장 (별도 파일로 저장)
     _saveNonExchangeableCells();
 
+    final dayNumber = DayUtils.getDayNumber(day);
+    _syncNonExchangeableToBase(
+      where:
+          (slot) =>
+              slot.teacher == teacherName &&
+              slot.dayOfWeek == dayNumber &&
+              slot.period == period,
+    );
     _clearCacheAndNotify();
+  }
+
+  /// 그리드에서 바꾼 교체불가 상태를 원본 시간표에 반영하고 탐색용 합성본을 갱신한다.
+  ///
+  /// 그리드는 원본의 **복사본**을 들고 있다(교체 뷰 ON이면 합성본, OFF여도
+  /// `copy()`). 경로 탐색은 원본에서 다시 합성한 `resolvedTimetableProvider`를
+  /// 쓰므로, 원본에 반영하지 않으면 방금 찍은 교체불가 칸이 탐색 후보로 계속
+  /// 나온다(재시작해야 저장 파일에서 원본으로 구워졌다).
+  ///
+  /// [where]로 토글한 칸만 좁힌다 — 교체 뷰 합성본에서 옮겨온 수업의 플래그가
+  /// 다른 칸으로 번지지 않게 하기 위해서다.
+  void _syncNonExchangeableToBase({bool Function(TimeSlot slot)? where}) {
+    try {
+      final base = ref.read(exchangeScreenProvider).timetableData?.timeSlots;
+      if (base == null || identical(base, _timeSlots)) return;
+      NonExchangeableManager.syncToBase(base, _timeSlots, where: where);
+      ref.invalidate(resolvedTimetableProvider);
+    } catch (e) {
+      AppLogger.error('교체불가 상태를 원본 시간표에 반영하는 중 오류: $e', e);
+    }
   }
 
   /// 교체불가 셀 데이터 저장 (별도 파일로 저장)
@@ -641,6 +673,7 @@ class TimetableDataSource extends DataGridSource {
   /// 모든 교체불가 설정 초기화
   void resetAllNonExchangeableSettings() {
     _nonExchangeableManager.resetAllNonExchangeableSettings();
+    _syncNonExchangeableToBase();
     _clearCacheAndNotify();
   }
 
