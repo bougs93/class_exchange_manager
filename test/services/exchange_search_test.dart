@@ -61,6 +61,22 @@ void main() {
     expect(engine.findDualExchangePaths(slots, []), isEmpty);
   });
 
+  test('dual search skips paths whose blocking lesson is 교체불가', () {
+    // 결강 교사 A의 B시간 수업(2번)이 교체불가면 그 수업을 옮길 수도,
+    // A가 그 시간으로 들어갈 수도 없다.
+    final slots = [
+      lesson('A', 1, '1-1'),
+      lesson('B', 2, '1-1'),
+      lesson('A', 2, '2-1'),
+      lesson('C', 3, '2-1'),
+    ];
+    slots[2]
+      ..isExchangeable = false
+      ..exchangeReason = '교체불가';
+    final engine = DualSearchEngine()..selectCell('A', '월', 1);
+    expect(engine.findDualExchangePaths(slots, []), isEmpty);
+  });
+
   test('worker protocol round trips complete path metadata', () {
     final paths = executeSearch({
       'kind': 'circular',

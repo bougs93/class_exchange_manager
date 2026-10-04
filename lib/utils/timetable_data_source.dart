@@ -638,11 +638,17 @@ class TimetableDataSource extends DataGridSource {
   ///
   /// [where]로 토글한 칸만 좁힌다 — 교체 뷰 합성본에서 옮겨온 수업의 플래그가
   /// 다른 칸으로 번지지 않게 하기 위해서다.
+  ///
+  /// 그리드가 처음 만들어질 때는 원본 리스트를 그대로 받으므로
+  /// (`grid_header_manager.dart`) 그때는 동기화가 필요 없다. 하지만 탐색용
+  /// 합성본은 원본에서 **복사해 둔 것**이라 그 경우에도 반드시 무효화해야 한다.
   void _syncNonExchangeableToBase({bool Function(TimeSlot slot)? where}) {
     try {
       final base = ref.read(exchangeScreenProvider).timetableData?.timeSlots;
-      if (base == null || identical(base, _timeSlots)) return;
-      NonExchangeableManager.syncToBase(base, _timeSlots, where: where);
+      if (base == null) return;
+      if (!identical(base, _timeSlots)) {
+        NonExchangeableManager.syncToBase(base, _timeSlots, where: where);
+      }
       ref.invalidate(resolvedTimetableProvider);
     } catch (e) {
       AppLogger.error('교체불가 상태를 원본 시간표에 반영하는 중 오류: $e', e);
