@@ -11,6 +11,7 @@ import '../../../../services/timetable_storage_service.dart';
 import '../../../../utils/logger.dart';
 import '../../../../utils/non_exchangeable_manager.dart';
 import '../../../../utils/snackbar_helper.dart';
+import '../../../../utils/teacher_display.dart';
 import '../../../../models/exchange_mode.dart';
 import '../../../../providers/exchange_screen_provider.dart';
 import '../../../../providers/services_provider.dart';
@@ -138,11 +139,6 @@ class ExchangeOperationManager {
       } else {
         stateProxy.setErrorMessage('엑셀 파일을 읽을 수 없습니다.');
       }
-    } on DuplicateTeacherException catch (e) {
-      // 교사 이름 중복 오류: 사용자에게 알림하고 엑셀 파일 읽기 중지
-      AppLogger.error('교사 이름 중복 오류: ${e.toString()}');
-      stateProxy.setErrorMessage(e.userMessage);
-      // 엑셀 파일 읽기는 여기서 중지됨 (예외로 인해 더 이상 진행되지 않음)
     } catch (e) {
       stateProxy.setErrorMessage('파일 로딩 중 오류: $e');
     }
@@ -171,11 +167,6 @@ class ExchangeOperationManager {
       } else {
         stateProxy.setErrorMessage('유효하지 않은 엑셀 파일입니다.');
       }
-    } on DuplicateTeacherException catch (e) {
-      // 교사 이름 중복 오류: 사용자에게 알림하고 엑셀 파일 읽기 중지
-      AppLogger.error('교사 이름 중복 오류: ${e.toString()}');
-      stateProxy.setErrorMessage(e.userMessage);
-      // 엑셀 파일 읽기는 여기서 중지됨 (예외로 인해 더 이상 진행되지 않음)
     } catch (e) {
       stateProxy.setErrorMessage('파일 처리 중 오류: $e');
     }
@@ -202,11 +193,6 @@ class ExchangeOperationManager {
 
       // 데이터 저장 및 적용
       await _saveAndApplyTimetableData(timetableData);
-    } on DuplicateTeacherException catch (e) {
-      // 교사 이름 중복 오류: 사용자에게 알림하고 엑셀 파일 읽기 중지
-      AppLogger.error('교사 이름 중복 오류: ${e.toString()}');
-      stateProxy.setErrorMessage(e.userMessage);
-      // 엑셀 파일 읽기는 여기서 중지됨 (예외로 인해 더 이상 진행되지 않음)
     } catch (e) {
       // 기타 예외 처리
       AppLogger.error('시간표 파싱 중 오류: $e');
@@ -225,9 +211,9 @@ class ExchangeOperationManager {
     if (selectedFile == null) return true; // Web 플랫폼
 
     // 활성 시간표 확인 (레지스트리)
-    final activeEntry = await TimetableRegistryService()
-        .loadRegistry()
-        .then((registry) => registry.activeEntry);
+    final activeEntry = await TimetableRegistryService().loadRegistry().then(
+      (registry) => registry.activeEntry,
+    );
 
     // 활성 시간표가 없거나 다른 파일이면: 새 시간표 추가 흐름 → 초기화 확인 불필요
     if (activeEntry == null || activeEntry.filePath != selectedFile.path) {
@@ -292,6 +278,12 @@ class ExchangeOperationManager {
     stateProxy.setCurrentMode(ExchangeMode.view);
 
     AppLogger.exchangeInfo('파일이 선택되고 보기 모드로 전환되었습니다.');
+
+    // 동명이인이 있으면 구분해서 불러왔음을 알린다
+    final duplicateNotice = duplicateTeacherNotice(timetableData.teachers);
+    if (duplicateNotice != null && context.mounted) {
+      SnackBarHelper.showWarning(context, duplicateNotice);
+    }
   }
 
   /// 히스토리와 교체목록록 초기화 (파일 선택 해제 또는 새로 읽기 시 호출)

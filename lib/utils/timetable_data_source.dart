@@ -353,14 +353,6 @@ class TimetableDataSource extends DataGridSource {
   _CellRenderContext _buildRenderContext() {
     final cellState = ref.read(cellSelectionProvider);
 
-    // 교체 가능 교사 목록은 셀마다 선형 탐색하던 것을 키 Set 조회로 바꾼다.
-    final exchangeableKeys = <String>{};
-    for (final teacher in cellState.exchangeableTeachers) {
-      exchangeableKeys.add(
-        '${teacher['name']}_${teacher['day']}_${teacher['period']}',
-      );
-    }
-
     String highlightedTeacher = '';
     try {
       highlightedTeacher = ref.read(activeTeacherNameProvider).trim();
@@ -370,7 +362,6 @@ class TimetableDataSource extends DataGridSource {
 
     return _CellRenderContext(
       cellState: cellState,
-      exchangeableKeys: exchangeableKeys,
       highlightedTeacher: highlightedTeacher,
       oneToOneArrowDirection: ref.read(oneToOneArrowDirectionProvider),
       showStatusSymbols: ref.read(cellStatusSymbolVisibilityProvider),
@@ -410,7 +401,6 @@ class TimetableDataSource extends DataGridSource {
       dataGridCell: dataGridCell,
       teacherName: teacherName,
       isHighlightedTeacher: isHighlightedTeacher,
-      exchangeableKeys: ctx.exchangeableKeys,
       oneToOneArrowDirection: ctx.oneToOneArrowDirection,
       overlayLabels: ctx.overlayLabels,
       isInCircularPath: ctx.isInCircularPath,
@@ -778,7 +768,6 @@ class TimetableDataSource extends DataGridSource {
 class _CellRenderContext {
   _CellRenderContext({
     required this.cellState,
-    required this.exchangeableKeys,
     required this.highlightedTeacher,
     required this.oneToOneArrowDirection,
     required this.showStatusSymbols,
@@ -786,9 +775,6 @@ class _CellRenderContext {
   });
 
   final CellSelectionState cellState;
-
-  /// `교사_요일_교시` 형태의 교체 가능 칸 키 (선형 탐색 제거용)
-  final Set<String> exchangeableKeys;
   final String highlightedTeacher;
   final ArrowDirection oneToOneArrowDirection;
   final bool showStatusSymbols;

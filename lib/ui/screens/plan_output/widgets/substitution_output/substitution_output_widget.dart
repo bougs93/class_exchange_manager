@@ -28,6 +28,7 @@ import '../../../../../constants/korean_fonts.dart';
 import '../../../../../constants/pdf_notes_template.dart';
 import '../../../../../utils/logger.dart';
 import '../../../../../utils/snackbar_helper.dart';
+import '../../../../../utils/teacher_display.dart';
 import 'pdf_settings_section.dart';
 import 'pdf_field_inputs_section.dart';
 import 'pdf_output_button.dart';
@@ -496,7 +497,10 @@ class SubstitutionOutputWidgetState
       setState(() {
         // 결강교사 입력란이 비어있으면 시간표에 지정된 교사로 채우기
         if (_teacherNameController.text.trim().isEmpty) {
-          final teacherName = entry?.teacherName?.trim() ?? '';
+          // 문서에 나가는 값이므로 동명이인 구분 번호는 뗀다
+          final teacherName = plainTeacherName(
+            entry?.teacherName?.trim() ?? '',
+          );
           if (teacherName.isNotEmpty) {
             _teacherNameController.text = teacherName;
             AppLogger.info('시간표 설정에서 교사명 자동 입력: $teacherName');

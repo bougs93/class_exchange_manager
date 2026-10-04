@@ -13,7 +13,6 @@ import 'excel_parsing/excel_timeslot_extractor.dart';
 
 import '../models/timetable_data.dart';
 import 'excel_parsing/excel_constants.dart';
-import 'excel_parsing/duplicate_teacher_exception.dart';
 
 // 아래 타입들은 원래 이 파일에 있었으나 2026-10-03에 분리했다.
 // 기존 import 경로(`excel_service.dart`)를 그대로 쓰던 24개 파일이 깨지지
@@ -21,8 +20,6 @@ import 'excel_parsing/duplicate_teacher_exception.dart';
 export '../models/timetable_data.dart' show ExcelParsingConfig, TimetableData;
 export 'excel_parsing/excel_constants.dart'
     show ExcelServiceConstants, CellOrderPattern;
-export 'excel_parsing/duplicate_teacher_exception.dart'
-    show DuplicateTeacherException;
 
 /// 엑셀 파일을 읽고 처리하는 서비스 클래스
 ///
@@ -249,18 +246,11 @@ class ExcelService {
       }
 
       // 교사 정보 추출 (동적 설정 사용)
-      // 중복된 교사 이름이 발견되면 DuplicateTeacherException이 발생합니다.
-      List<Teacher> teachers;
-      try {
-        teachers = ExcelTeacherExtractor.extractTeacherInfo(
-          sheet,
-          dynamicConfig,
-        );
-      } on DuplicateTeacherException catch (e) {
-        lastParseFailureReason = e.userMessage;
-        developer.log('교사 이름 중복 오류: ${e.toString()}', name: 'ExcelService');
-        rethrow;
-      }
+      // 동명이인은 엑셀 행 순서대로 번호를 붙여(김철수①, 김철수②) 구분된다.
+      final List<Teacher> teachers = ExcelTeacherExtractor.extractTeacherInfo(
+        sheet,
+        dynamicConfig,
+      );
 
       // 요일별 교시 번호 찾기 (동적 설정 사용)
       Map<String, List<int>> periodsByDay = ExcelHeaderFinder.findPeriodsByDay(
@@ -347,13 +337,6 @@ class ExcelService {
       // 디버깅 로그 제거 - 성능 개선
 
       return result;
-    } on DuplicateTeacherException catch (e) {
-      lastParseFailureReason ??= e.userMessage;
-      developer.log(
-        '시간표 파싱 중 교사 이름 중복 오류: ${e.toString()}',
-        name: 'ExcelService',
-      );
-      rethrow;
     } catch (e) {
       return _failParse('시간표 파싱 중 오류가 발생했습니다: $e');
     }

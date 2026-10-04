@@ -553,7 +553,6 @@ class _WebAdminSettingsScreenState
 
   /// Exception 접두어 없이 사용자용 문구만 남긴다.
   String _publishErrorText(Object error) {
-    if (error is DuplicateTeacherException) return error.userMessage;
     var text = error.toString();
     if (text.startsWith('Exception: ')) {
       text = text.substring('Exception: '.length);

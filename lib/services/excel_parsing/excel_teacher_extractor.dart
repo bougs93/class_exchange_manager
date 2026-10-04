@@ -1,6 +1,7 @@
 import 'package:excel/excel.dart';
 import 'dart:developer' as developer;
 import '../../models/teacher.dart';
+import '../../utils/teacher_display.dart';
 import '../excel_service.dart';
 import 'excel_parsing_utils.dart';
 
@@ -13,18 +14,15 @@ class ExcelTeacherExtractor {
   /// 교사 행 개수를 고려하여 모든 교사 이름을 추출합니다.
   /// 빈 셀을 만나면 추가로 지정된 행 수만큼 더 검색하여 마지막 교사까지 찾습니다.
   ///
-  /// 중복된 교사 이름이 발견되면 [DuplicateTeacherException]을 던집니다.
-  ///
-  /// 예외:
-  /// - [DuplicateTeacherException]: 동일한 교사 이름이 중복되어 발견된 경우
+  /// 같은 이름의 교사(동명이인)가 여러 행에 있으면 중단하지 않고 엑셀 행 순서대로
+  /// 원숫자를 붙여 구분합니다(`김철수①`, `김철수②`). 동명이인이 없는 교사의 이름은
+  /// 그대로입니다. 각 교사는 [Teacher.sourceRow]에 자기 행을 기억합니다.
   static List<Teacher> extractTeacherInfo(
     Sheet sheet,
     ExcelParsingConfig config,
   ) {
     try {
       List<Teacher> teachers = [];
-      // 중복 검사를 위한 Map: 교사 이름 -> 첫 번째로 발견된 행 번호
-      Map<String, int> seenNames = {}; // 중복 검사용 (이름 -> 첫 번째 행 번호)
       int consecutiveEmptyRows = 0; // 연속된 빈 행 개수
 
       // 교사 이름이 있는 행 찾기
@@ -58,28 +56,23 @@ class ExcelTeacherExtractor {
         // 교사명 파싱: "A교사(20)" → name: "A교사", id: "20"
         Teacher? teacher = parseTeacherName(teacherCell);
         if (teacher != null) {
-          // 중복 검사: 이미 본 이름인지 확인
-          if (seenNames.containsKey(teacher.name)) {
-            // 중복 발견: 예외 던지기
-            int firstRow = seenNames[teacher.name]!;
-            developer.log(
-              '교사 이름 중복 발견: "$teacher.name"이(가) $firstRow행과 $row행에서 중복되었습니다.',
-              name: 'ExcelTeacherExtractor',
-            );
-            throw DuplicateTeacherException(
-              teacherName: teacher.name,
-              firstRow: firstRow,
-              duplicateRow: row,
-            );
-          }
-
-          // 중복이 아닌 경우: 교사 추가 및 기록
+          teacher.sourceRow = row;
           teachers.add(teacher);
-          seenNames[teacher.name] = row; // 첫 번째로 발견된 행 번호 저장
+        }
+      }
+
+      // 동명이인에게 등장 순서(= 엑셀 행 순서)대로 번호를 붙여 이름을 고유하게 만든다
+      final uniqueNames = uniqueTeacherNames(
+        teachers.map((t) => t.name).toList(),
+      );
+      for (int i = 0; i < teachers.length; i++) {
+        if (teachers[i].name != uniqueNames[i]) {
           developer.log(
-            '교사 발견: $teacher.name ($row행)',
+            '동명이인 구분: ${teachers[i].name} → ${uniqueNames[i]} '
+            '(${teachers[i].sourceRow}행)',
             name: 'ExcelTeacherExtractor',
           );
+          teachers[i].name = uniqueNames[i];
         }
       }
 
@@ -89,11 +82,7 @@ class ExcelTeacherExtractor {
       );
       return teachers;
     } catch (e) {
-      // DuplicateTeacherException은 그대로 전파
-      if (e is DuplicateTeacherException) {
-        rethrow;
-      }
-      // 다른 예외는 로그만 남기고 빈 리스트 반환
+      // 예외는 로그만 남기고 빈 리스트 반환
       developer.log('교사 정보 추출 중 오류 발생: $e', name: 'ExcelTeacherExtractor');
       return [];
     }
@@ -157,6 +146,13 @@ class ExcelTeacherExtractor {
     Teacher teacher,
     int startSearchRow,
   ) {
+    // 파싱 단계에서 행을 기억해 둔 교사는 이름 대신 그 행을 쓴다.
+    // (이름으로 찾으면 동명이인이 모두 첫 번째 행으로 해석된다)
+    final knownRow = teacher.sourceRow;
+    if (knownRow != null) {
+      return knownRow >= startSearchRow ? knownRow : 0;
+    }
+
     try {
       for (int row = startSearchRow; row <= sheet.maxRows; row++) {
         String cellValue = ExcelParsingUtils.getCellValue(

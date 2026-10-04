@@ -40,7 +40,7 @@ class TeacherNoticeOption1Lines {
   /// 기본 교체 옵션1 포맷팅
   static String _formatBasicExchangeOption1(SubstitutionPlanData data) {
     final className = data.fullClassName;
-    return "${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.teacher} <-> ${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.substitutionTeacher} 수업 교체되었습니다.";
+    return "${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 $className ${data.subject} ${data.plainTeacher} <-> ${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 $className ${data.substitutionSubject} ${data.plainSubstitutionTeacher} 수업 교체되었습니다.";
   }
 
   /// 순환교체 4단계+ 옵션1 추가

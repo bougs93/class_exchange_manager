@@ -3,9 +3,6 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../utils/simplified_timetable_theme.dart';
 import '../utils/exchange_algorithm.dart';
 import '../utils/timetable_data_source.dart';
-import '../utils/day_utils.dart';
-import '../models/time_slot.dart';
-import '../models/teacher.dart';
 import 'base_exchange_service.dart';
 import 'search/circular_search.dart';
 
@@ -90,76 +87,6 @@ class CircularExchangeService extends BaseExchangeService with CircularSearch {
     clearCellSelection();
     _exchangeOptions.clear();
     // 캐시 로직 제거됨
-  }
-
-  /// 순환교체용 교체 가능한 교사 정보 가져오기 (1스탭: 같은 학급, 다른 시간대, 양쪽 빈시간)
-  ///
-  /// 1개 스탭 교체에서는:
-  /// - 같은 학급만 교체 가능
-  /// - 다른 시간대여야 함
-  /// - 양쪽 모두 빈 시간이어야 함
-  /// 예: A교사(월1교시, 1학년 1반) ↔ B교사(화2교시, 1학년 1반) - 둘 다 빈시간
-  List<Map<String, dynamic>> getCircularExchangeableTeachers(
-    List<TimeSlot> timeSlots,
-    List<Teacher> teachers,
-  ) {
-    if (selectedTeacher == null ||
-        selectedDay == null ||
-        selectedPeriod == null) {
-      return [];
-    }
-
-    // 선택된 셀의 학급 정보 가져오기
-    String? selectedClassName = getSelectedClassName(timeSlots);
-    if (selectedClassName == null) return [];
-
-    List<Map<String, dynamic>> exchangeableTeachers = [];
-
-    // 같은 학급을 가르치는 교사들 중에서 찾기
-    for (Teacher teacher in teachers) {
-      if (teacher.name == selectedTeacher) continue; // 자기 자신 제외
-
-      // 해당 교사가 다른 시간대에 같은 학급을 가르치는지 확인
-      List<TimeSlot> teacherSlots =
-          timeSlots
-              .where(
-                (slot) =>
-                    slot.teacher == teacher.name &&
-                    slot.className == selectedClassName &&
-                    slot.isNotEmpty &&
-                    !(slot.dayOfWeek == DayUtils.getDayNumber(selectedDay!) &&
-                        slot.period == selectedPeriod), // 다른 시간대
-              )
-              .toList();
-
-      for (TimeSlot teacherSlot in teacherSlots) {
-        // 양쪽 모두 빈 시간인지 확인
-        bool selectedTeacherHasEmptyTime = isTeacherEmptyAtTime(
-          selectedTeacher!,
-          selectedDay!,
-          selectedPeriod!,
-          timeSlots,
-        );
-        bool otherTeacherHasEmptyTime = isTeacherEmptyAtTime(
-          teacher.name,
-          DayUtils.getDayName(teacherSlot.dayOfWeek ?? 0),
-          teacherSlot.period ?? 0,
-          timeSlots,
-        );
-
-        if (selectedTeacherHasEmptyTime && otherTeacherHasEmptyTime) {
-          exchangeableTeachers.add({
-            'teacherName': teacher.name,
-            'day': DayUtils.getDayName(teacherSlot.dayOfWeek ?? 0),
-            'period': teacherSlot.period ?? 0,
-            'className': selectedClassName,
-            'subject': teacherSlot.subject ?? '과목 없음',
-          });
-        }
-      }
-    }
-
-    return exchangeableTeachers;
   }
 
   /// 순환교체용 오버레이 위젯 생성 예시

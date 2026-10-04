@@ -80,7 +80,6 @@ class CellStateHelper {
     required DataGridCell dataGridCell,
     required String teacherName,
     required bool isHighlightedTeacher,
-    required Set<String> exchangeableKeys,
     required ArrowDirection oneToOneArrowDirection,
     required Map<String, String> overlayLabels,
     required bool Function(String teacherName, String day, int period)
@@ -129,7 +128,8 @@ class CellStateHelper {
           cellState.targetTeacher == teacherName &&
           cellState.targetDay == day &&
           cellState.targetPeriod == period,
-      isExchangeableTeacher: exchangeableKeys.contains(cellKey),
+      // 수업 칸은 "교체 가능" 배경·표시를 쓰지 않는다(교사명 열·헤더만 강조)
+      isExchangeableTeacher: false,
       isInCircularPath: isInCircularPath(teacherName, day, period),
       isInDualPath: isInDualPathValue,
       isInSelectedPath: isInSelectedPath,

@@ -68,14 +68,15 @@ class SubstitutionPlanFieldAccessor {
       'grade' => data.grade,
       'className' => data.className,
       'subject' => data.subject,
-      'teacher' => data.teacher,
+      // 교사 이름은 문서에 나가므로 동명이인 구분 번호를 뗀다
+      'teacher' => data.plainTeacher,
       'supplementSubject' => data.supplementSubject,
-      'supplementTeacher' => data.supplementTeacher,
+      'supplementTeacher' => data.plainSupplementTeacher,
       'substitutionDate' => data.substitutionDate,
       'substitutionDay' => data.substitutionDay,
       'substitutionPeriod' => data.substitutionPeriod,
       'substitutionSubject' => data.substitutionSubject,
-      'substitutionTeacher' => data.substitutionTeacher,
+      'substitutionTeacher' => data.plainSubstitutionTeacher,
       'remarks' => data.remarks,
       'groupId' => data.groupId ?? '',
       _ => '', // 알 수 없는 키는 빈 문자열 반환

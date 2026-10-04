@@ -433,16 +433,6 @@ class CellSelectionNotifier extends StateNotifier<CellSelectionState> {
     return state.exchangedDestinationCells.contains(cellKey);
   }
 
-  /// 교체 가능한 교사인지 확인
-  bool isExchangeableTeacher(String teacherName, String day, int period) {
-    return state.exchangeableTeachers.any(
-      (teacher) =>
-          teacher['name'] == teacherName &&
-          teacher['day'] == day &&
-          teacher['period'] == period,
-    );
-  }
-
   /// 현재 선택된 경로가 있는지 확인
   bool get hasSelectedPath {
     return state.selectedOneToOnePath != null ||

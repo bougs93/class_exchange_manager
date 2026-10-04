@@ -5,15 +5,32 @@ class Teacher {
   String subject; // 담당 과목
   String? remarks; // 비고
 
-  Teacher({this.id, required this.name, required this.subject, this.remarks});
+  /// 엑셀에서 이 교사의 이름이 있던 행 (1-based). 파싱 중에만 쓰는 값이라
+  /// `==`/`hashCode`/JSON에는 포함하지 않는다. 동명이인도 각자의 행을 찾게 한다.
+  int? sourceRow;
+
+  Teacher({
+    this.id,
+    required this.name,
+    required this.subject,
+    this.remarks,
+    this.sourceRow,
+  });
 
   /// 복사본 생성
-  Teacher copyWith({int? id, String? name, String? subject, String? remarks}) {
+  Teacher copyWith({
+    int? id,
+    String? name,
+    String? subject,
+    String? remarks,
+    int? sourceRow,
+  }) {
     return Teacher(
       id: id ?? this.id,
       name: name ?? this.name,
       subject: subject ?? this.subject,
       remarks: remarks ?? this.remarks,
+      sourceRow: sourceRow ?? this.sourceRow,
     );
   }
 

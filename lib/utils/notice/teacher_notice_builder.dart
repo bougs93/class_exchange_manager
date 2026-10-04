@@ -2,6 +2,7 @@ import '../../models/notice_message.dart';
 import '../../providers/substitution_plan_viewmodel.dart';
 import '../logger.dart';
 import '../notice_message_helpers.dart';
+import '../teacher_display.dart';
 import 'notice_exchange_category.dart';
 import 'teacher_notice_option1_lines.dart';
 import 'teacher_notice_option2_lines.dart';
@@ -97,7 +98,7 @@ class TeacherNoticeBuilder {
 
       return NoticeMessage(
         identifier: teacherName,
-        content: '''$teacherName 선생님
+        content: '''${plainTeacherName(teacherName)} 선생님
 ${exchangeLines.join('\n')}''',
         exchangeType: NoticeExchangeCategorizer.determineExchangeType(
           sortedDataList,
@@ -121,7 +122,7 @@ ${exchangeLines.join('\n')}''',
 
       return NoticeMessage(
         identifier: teacherName,
-        content: '''$teacherName 선생님
+        content: '''${plainTeacherName(teacherName)} 선생님
 ${exchangeLines.join('\n')}''',
         exchangeType: NoticeExchangeCategorizer.determineExchangeType(
           sortedDataList,
@@ -144,7 +145,7 @@ ${exchangeLines.join('\n')}''',
       if (classLines.isNotEmpty) {
         return NoticeMessage(
           identifier: teacherName,
-          content: '''$teacherName 선생님
+          content: '''${plainTeacherName(teacherName)} 선생님
 ${classLines.join('\n')}''',
           exchangeType: NoticeExchangeCategorizer.determineExchangeType(
             sortedDataList,

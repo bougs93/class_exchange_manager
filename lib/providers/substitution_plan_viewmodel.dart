@@ -4,6 +4,7 @@ import '../utils/day_utils.dart';
 import '../utils/event_date_resolver.dart';
 import '../utils/logger.dart';
 import '../utils/date_format_utils.dart';
+import '../utils/teacher_display.dart';
 import 'services_provider.dart';
 import 'substitution_plan_provider.dart';
 import 'substitution_plan_helpers.dart';
@@ -57,6 +58,12 @@ class SubstitutionPlanData {
 
   /// 학급명 (학년-반)
   String get fullClassName => '$grade-$className';
+
+  /// 문서·안내 문구에 찍을 교사 이름 (동명이인 구분 번호 제거).
+  /// 비교·그룹핑에는 번호가 붙은 [teacher] 등을 그대로 쓴다.
+  String get plainTeacher => plainTeacherName(teacher);
+  String get plainSupplementTeacher => plainTeacherName(supplementTeacher);
+  String get plainSubstitutionTeacher => plainTeacherName(substitutionTeacher);
 
   SubstitutionPlanData copyWith({
     String? exchangeId,
@@ -228,9 +235,7 @@ class SubstitutionPlanViewModel
       for (final item in exchangeList) {
         final nodes = item.originalPath.nodes;
         final exchangeType = item.type;
-        final absenceDateStr = DateFormatUtils.toYearMonthDay(
-          item.absenceDate,
-        );
+        final absenceDateStr = DateFormatUtils.toYearMonthDay(item.absenceDate);
         final substitutionDateStr = DateFormatUtils.toYearMonthDay(
           item.substitutionDate,
         );
@@ -465,12 +470,14 @@ class SubstitutionPlanViewModel
       targetNode.period as int,
     );
     return (
-      absenceDate: source == null
-          ? fallbackAbsenceDate
-          : DateFormatUtils.toYearMonthDay(source.date),
-      substitutionDate: target == null
-          ? fallbackSubstitutionDate
-          : DateFormatUtils.toYearMonthDay(target.date),
+      absenceDate:
+          source == null
+              ? fallbackAbsenceDate
+              : DateFormatUtils.toYearMonthDay(source.date),
+      substitutionDate:
+          target == null
+              ? fallbackSubstitutionDate
+              : DateFormatUtils.toYearMonthDay(target.date),
     );
   }
 
@@ -614,7 +621,9 @@ class SubstitutionPlanViewModel
     _ref.read(substitutionPlanProvider.notifier).clearAllSupplementSubjects();
 
     final clearedPlanData =
-        state.planData.map((data) => data.copyWith(supplementSubject: '')).toList();
+        state.planData
+            .map((data) => data.copyWith(supplementSubject: ''))
+            .toList();
 
     state = state.copyWith(planData: clearedPlanData);
   }

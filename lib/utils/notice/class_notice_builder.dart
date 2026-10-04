@@ -206,11 +206,11 @@ ${exchangeLines.join('\n')}''',
       // 수업 안내 형태
       if (isFirstMessage) {
         return '''${data.fullClassName} 수업변경 안내
-${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.substitutionSubject} ${data.substitutionTeacher}
-${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.fullClassName} ${data.subject} ${data.teacher}''';
+${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.substitutionSubject} ${data.plainSubstitutionTeacher}
+${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.fullClassName} ${data.subject} ${data.plainTeacher}''';
       } else {
-        return '''${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.substitutionSubject} ${data.substitutionTeacher}
-${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.fullClassName} ${data.subject} ${data.teacher}''';
+        return '''${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.substitutionSubject} ${data.plainSubstitutionTeacher}
+${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.fullClassName} ${data.subject} ${data.plainTeacher}''';
       }
     }
   }
@@ -226,10 +226,10 @@ ${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPer
 
     if (isFirstMessage) {
       return '''${data.fullClassName} 수업변경 안내
-${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.subject} ${data.teacher} $arrowFormat ${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.fullClassName} ${data.substitutionSubject} ${data.substitutionTeacher}''';
+${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.subject} ${data.plainTeacher} $arrowFormat ${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.fullClassName} ${data.substitutionSubject} ${data.plainSubstitutionTeacher}''';
     }
 
-    return '''${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.subject} ${data.teacher} $arrowFormat ${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.fullClassName} ${data.substitutionSubject} ${data.substitutionTeacher}''';
+    return '''${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.subject} ${data.plainTeacher} $arrowFormat ${data.formattedSubstitutionDate} ${data.substitutionDay} ${data.substitutionPeriod}교시 ${data.fullClassName} ${data.substitutionSubject} ${data.plainSubstitutionTeacher}''';
   }
 
   /// 학급 보강 메시지 생성
@@ -239,9 +239,9 @@ ${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.full
   ) {
     if (isFirstMessage) {
       return '''${data.fullClassName} 수업변경 안내
-'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.supplementSubject} ${data.supplementTeacher}' 수업입니다.''';
+'${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.supplementSubject} ${data.plainSupplementTeacher}' 수업입니다.''';
     } else {
-      return ''''${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.supplementSubject} ${data.supplementTeacher}' 수업입니다.''';
+      return ''''${data.formattedAbsenceDate} ${data.absenceDay} ${data.period}교시 ${data.fullClassName} ${data.supplementSubject} ${data.plainSupplementTeacher}' 수업입니다.''';
     }
   }
 }
