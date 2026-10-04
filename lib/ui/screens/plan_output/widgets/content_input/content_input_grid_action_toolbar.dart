@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../../theme/design_tokens.dart';
+import '../../../../../utils/plan_sort.dart';
 import '../../../../widgets/content_toolbar_layout.dart';
 import '../../../../widgets/timetable_grid/grid_header_widgets.dart';
 
@@ -25,6 +26,8 @@ class PlanGridActionToolbar extends StatelessWidget {
     required this.onRedo,
     required this.onCopyTable,
     required this.onPrint,
+    required this.sortMode,
+    required this.onSortModeChanged,
   });
 
   /// 현재 모든 교체 건이 선택됐는지 (라벨 '모두 선택' ↔ '선택 해제' 전환용)
@@ -50,6 +53,10 @@ class PlanGridActionToolbar extends StatelessWidget {
   final VoidCallback onCopyTable;
   final VoidCallback onPrint;
 
+  /// 현재 정렬 방식 (결보강 출력과 공유)
+  final PlanSortMode sortMode;
+  final ValueChanged<PlanSortMode> onSortModeChanged;
+
   @override
   Widget build(BuildContext context) {
     const buttonHeight = ContentToolbarLayout.buttonHeight;
@@ -57,7 +64,7 @@ class PlanGridActionToolbar extends StatelessWidget {
 
     return Row(
       children: [
-        // 왼쪽: 새로고침 · 선택 · 삭제 · 되돌리기 · 다시실행
+        // 왼쪽: 새로고침 · 정렬 │ 선택 · 삭제 │ 되돌리기 · 다시실행
         Expanded(
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -76,6 +83,17 @@ class PlanGridActionToolbar extends StatelessWidget {
                   borderColor: ContentToolbarLayout.neutralButtonBorder(tokens),
                   iconSize: ContentToolbarLayout.buttonIconSize,
                   size: buttonHeight,
+                ),
+                const SizedBox(width: ContentToolbarLayout.buttonGap),
+                _SortModeToggle(
+                  mode: sortMode,
+                  onChanged: onSortModeChanged,
+                  height: buttonHeight,
+                ),
+                const SizedBox(width: ContentToolbarLayout.buttonGap),
+                _ToolbarDivider(
+                  height: buttonHeight,
+                  color: ContentToolbarLayout.neutralButtonBorder(tokens),
                 ),
                 const SizedBox(width: ContentToolbarLayout.buttonGap),
                 CompactToolbarLabelButton(
@@ -106,6 +124,11 @@ class PlanGridActionToolbar extends StatelessWidget {
                   height: buttonHeight,
                   fontSize: ContentToolbarLayout.buttonFontSize,
                   iconSize: ContentToolbarLayout.buttonIconSize,
+                ),
+                const SizedBox(width: ContentToolbarLayout.buttonGap),
+                _ToolbarDivider(
+                  height: buttonHeight,
+                  color: ContentToolbarLayout.neutralButtonBorder(tokens),
                 ),
                 const SizedBox(width: ContentToolbarLayout.buttonGap),
                 CompactToolbarLabelButton(
@@ -166,5 +189,75 @@ class PlanGridActionToolbar extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+/// 정렬 방식 세그먼트 버튼 `[등록순 | 날짜순]` — 현재 선택이 강조된다.
+class _SortModeToggle extends StatelessWidget {
+  const _SortModeToggle({
+    required this.mode,
+    required this.onChanged,
+    required this.height,
+  });
+
+  final PlanSortMode mode;
+  final ValueChanged<PlanSortMode> onChanged;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final border = ContentToolbarLayout.neutralButtonBorder(context.tokens);
+    return Tooltip(
+      message: '결보강 일정과 결보강 출력의 행 정렬 방식',
+      child: Container(
+        height: height,
+        decoration: BoxDecoration(
+          border: Border.all(color: border),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _segment('등록순', PlanSortMode.byRegistration),
+            Container(width: 1, color: border),
+            _segment('날짜순', PlanSortMode.byDate),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _segment(String label, PlanSortMode value) {
+    final selected = mode == value;
+    return InkWell(
+      onTap: selected ? null : () => onChanged(value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        alignment: Alignment.center,
+        color: selected ? Colors.blue.shade600 : Colors.transparent,
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: ContentToolbarLayout.buttonFontSize,
+            fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+            color: selected ? Colors.white : Colors.black87,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 툴바 버튼 그룹 사이의 세로 구분선
+class _ToolbarDivider extends StatelessWidget {
+  const _ToolbarDivider({required this.height, required this.color});
+
+  final double height;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(width: 1, height: height * 0.6, color: color);
   }
 }

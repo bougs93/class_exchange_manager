@@ -3,7 +3,7 @@ import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 import '../../../../models/print_profile.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
 import '../../personal_schedule_screen/exchange_week_collector.dart';
-import '../../../../utils/date_format_utils.dart';
+import '../../../../utils/plan_sort.dart';
 import 'content_input_grid_helpers.dart';
 
 /// 주(週) 정보를 알 수 없는 행의 그룹 정렬 키 — 항상 맨 뒤로 정렬되도록
@@ -53,6 +53,9 @@ class SubstitutionPlanDataSource extends DataGridSource {
   /// groupId는 "주 미지정"으로 묶인다.
   final Map<String, DateTime> groupWeeks;
 
+  /// 그룹 안 정렬 방식 (기본: 날짜순)
+  final PlanSortMode sortMode;
+
   SubstitutionPlanDataSource(
     this.planData, {
     this.onDateCellTap,
@@ -64,6 +67,7 @@ class SubstitutionPlanDataSource extends DataGridSource {
     this.selectedProfileId,
     this.onProfileChanged,
     this.groupWeeks = const {},
+    this.sortMode = PlanSortMode.byRegistration,
   }) {
     // 결강일이 속한 주(週) 기준으로 그룹핑 — sortGroupRows로 주 순서 정렬
     addColumnGroup(ColumnGroup(name: '_weekKey', sortGroupRows: true));
@@ -78,36 +82,12 @@ class SubstitutionPlanDataSource extends DataGridSource {
     return _weekSortKey(week);
   }
 
-  /// 화면 표시용 정렬 — 주 그룹 → 결강일 → 결강교시 순
+  /// 화면 표시용 정렬 — 주 그룹 → (날짜순이면) 결강일 → 결강교시 순
   ///
-  /// 주 그룹핑(`_weekKey`)은 유지한 채, 그룹 안의 행이 결강일·교시 순으로
-  /// 나타나도록 정렬한다. 날짜 파싱에 실패한 행은 각 그룹의 맨 뒤로 보낸다.
-  List<SubstitutionPlanData> get _sortedPlanData {
-    final sorted = List<SubstitutionPlanData>.from(planData);
-    sorted.sort((a, b) {
-      final weekCompare = _weekKeyFor(a).compareTo(_weekKeyFor(b));
-      if (weekCompare != 0) return weekCompare;
-
-      final aDate = DateFormatUtils.parseYearMonthDay(a.absenceDate);
-      final bDate = DateFormatUtils.parseYearMonthDay(b.absenceDate);
-      if (aDate != null && bDate != null) {
-        final dateCompare = aDate.compareTo(bDate);
-        if (dateCompare != 0) return dateCompare;
-      } else if (aDate != null) {
-        return -1;
-      } else if (bDate != null) {
-        return 1;
-      }
-
-      final aPeriod = int.tryParse(a.period) ?? 9999;
-      final bPeriod = int.tryParse(b.period) ?? 9999;
-      final periodCompare = aPeriod.compareTo(bPeriod);
-      if (periodCompare != 0) return periodCompare;
-
-      return a.absenceDate.compareTo(b.absenceDate);
-    });
-    return sorted;
-  }
+  /// 주 그룹핑(`_weekKey`)은 유지한 채 그룹 안의 순서만 [sortMode]에 따른다.
+  /// 등록순이면 그룹 안은 입력 순서 그대로다(그룹 간 순서는 그리드가 정렬).
+  List<SubstitutionPlanData> get _sortedPlanData =>
+      sortPlanData(planData, sortMode, groupKeyOf: _weekKeyFor);
 
   @override
   List<DataGridRow> get rows =>

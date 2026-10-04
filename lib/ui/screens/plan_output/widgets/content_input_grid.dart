@@ -9,6 +9,7 @@ import '../../../../models/plan_output_menu.dart';
 import '../../../../models/print_profile.dart';
 import '../../../../providers/plan_crud_actions_provider.dart';
 import '../../../../providers/plan_output_menu_provider.dart';
+import '../../../../providers/plan_sort_mode_provider.dart';
 import '../../../../providers/print_profile_provider.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../../providers/services_provider.dart';
@@ -555,6 +556,9 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     final hasSelection = _checkedGroupIds.isNotEmpty;
 
     return PlanGridActionToolbar(
+      sortMode: ref.watch(planSortModeProvider),
+      onSortModeChanged:
+          (mode) => ref.read(planSortModeProvider.notifier).state = mode,
       allSelected: allSelected,
       hasAnyGroup: allIds.isNotEmpty,
       hasSelection: hasSelection,

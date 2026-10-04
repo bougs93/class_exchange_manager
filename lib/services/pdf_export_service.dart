@@ -7,6 +7,7 @@ import '../providers/substitution_plan_viewmodel.dart';
 import '../utils/pdf_field_config.dart';
 import '../utils/substitution_plan_field_accessor.dart';
 import '../utils/date_format_utils.dart';
+import '../utils/plan_sort.dart';
 import '../constants/korean_fonts.dart';
 import 'pdf_font_cache_manager.dart';
 
@@ -443,6 +444,7 @@ class PdfExportService {
   /// [remarksFontSize] 비고 필드 폰트 크기 (기본값: remarksFontSize)
   /// [fontType] 폰트 종류 (Windows 시스템 폰트 파일명: malgun.ttf, malgunbd.ttf, gulim.ttc, batang.ttc, dotum.ttc, gungsuh.ttc)
   /// [includeRemarks] 비고 필드 출력 여부 (기본값: true)
+  /// [sortMode] 행 정렬 방식 (기본: 날짜순, 등록순이면 [planData] 순서 그대로)
   /// [additionalFields] 추가 필드 데이터 (teacherName, absencePeriod, workStatus, reasonForAbsence, notes, schoolName)
   ///
   /// Returns: PDF 바이트 (성공 시, 웹 저장·공유용). [outputPath]가 있으면
@@ -456,6 +458,7 @@ class PdfExportService {
     String? fontType,
     bool includeRemarks = true,
     Map<String, String>? additionalFields,
+    PlanSortMode sortMode = PlanSortMode.byRegistration,
   }) async {
     try {
       // 폰트 캐시 매니저 생성
@@ -500,27 +503,8 @@ class PdfExportService {
       int successCount = 0;
       int failCount = 0;
 
-      // 결보강 일정 표와 동일한 순서(결강일 → 결강교시)로 정렬
-      final sortedPlanData = List<SubstitutionPlanData>.from(planData)
-        ..sort((a, b) {
-          final aDate = DateFormatUtils.parseYearMonthDay(a.absenceDate);
-          final bDate = DateFormatUtils.parseYearMonthDay(b.absenceDate);
-          if (aDate != null && bDate != null) {
-            final dateCompare = aDate.compareTo(bDate);
-            if (dateCompare != 0) return dateCompare;
-          } else if (aDate != null) {
-            return -1;
-          } else if (bDate != null) {
-            return 1;
-          }
-
-          final aPeriod = int.tryParse(a.period) ?? 9999;
-          final bPeriod = int.tryParse(b.period) ?? 9999;
-          final periodCompare = aPeriod.compareTo(bPeriod);
-          if (periodCompare != 0) return periodCompare;
-
-          return a.absenceDate.compareTo(b.absenceDate);
-        });
+      // 결보강 일정 표와 같은 정렬 모드(날짜순/등록순)로 정렬
+      final sortedPlanData = sortPlanData(planData, sortMode);
 
       // 각 데이터 행에 대해 필드 이름 생성 및 채우기
       for (int rowIndex = 0; rowIndex < sortedPlanData.length; rowIndex++) {

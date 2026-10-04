@@ -11,6 +11,7 @@ import '../../../../../models/timetable_registry.dart';
 import '../../../../../providers/default_school_name_provider.dart';
 import '../../../../../providers/exchange_screen_provider.dart';
 import '../../../../../providers/plan_output_menu_provider.dart';
+import '../../../../../providers/plan_sort_mode_provider.dart';
 import '../../../../../providers/print_profile_provider.dart';
 import '../../../../../providers/services_provider.dart';
 import '../../../../../providers/substitution_plan_viewmodel.dart';
@@ -1186,6 +1187,7 @@ class SubstitutionOutputWidgetState
           remarksFontSize: _remarksFontSize,
           fontType: _selectedFont,
           includeRemarks: _includeRemarks,
+          sortMode: ref.read(planSortModeProvider),
           additionalFields: {
             'teacherName': plainTeacherName(_teacherNameController.text),
             'absencePeriod': _absencePeriodController.text,
@@ -1235,6 +1237,7 @@ class SubstitutionOutputWidgetState
         remarksFontSize: _remarksFontSize,
         fontType: _selectedFont,
         includeRemarks: _includeRemarks,
+        sortMode: ref.read(planSortModeProvider),
         additionalFields: {
           'teacherName': plainTeacherName(_teacherNameController.text),
           'absencePeriod': _absencePeriodController.text,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 
 import '../../../../../models/print_profile.dart';
+import '../../../../../providers/plan_sort_mode_provider.dart';
 import '../../../../../providers/services_provider.dart';
 import '../../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../../../theme/design_tokens.dart';
@@ -93,6 +94,7 @@ class PlanGridDataTable extends ConsumerWidget {
       selectedProfileId: selectedProfileIdForGroup,
       onProfileChanged: onProfileChanged,
       groupWeeks: _buildGroupWeeks(ref),
+      sortMode: ref.watch(planSortModeProvider),
     );
 
     return Expanded(
