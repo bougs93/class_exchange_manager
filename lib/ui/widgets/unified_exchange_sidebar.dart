@@ -441,10 +441,12 @@ class _UnifiedExchangeSidebarState
     );
   }
 
-  /// 노드 탭 — 경로를 고르고 그 칸으로 스크롤한다.
+  /// 노드 탭 — 첫 탭은 경로만 표시하고, 이미 선택된 카드의 노드를
+  /// 누르면 그 칸으로 스크롤한다.
   void _handleNodeTap(ExchangeNode node, String nodeKey, bool isSelected) {
     if (!isSelected) {
       _selectPathFromNodeKey(nodeKey);
+      return;
     }
     _requestNodeScroll(node);
   }

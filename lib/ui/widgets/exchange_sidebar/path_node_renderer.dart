@@ -21,7 +21,8 @@ class PathNodeRenderer extends StatelessWidget {
   final DesignTokens tokens;
   final Function(ExchangeNode) getSubjectName;
 
-  /// 노드 탭 — 경로를 고르고 그 칸으로 스크롤한다.
+  /// 노드 탭 — 첫 탭은 경로만 고르고, 이미 선택된 카드의 노드를
+  /// 누르면 그 칸으로 스크롤한다.
   final void Function(ExchangeNode node, String nodeKey, bool isSelected)
   onNodeTap;
 
