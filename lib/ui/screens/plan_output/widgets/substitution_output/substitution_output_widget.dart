@@ -1187,7 +1187,7 @@ class SubstitutionOutputWidgetState
           fontType: _selectedFont,
           includeRemarks: _includeRemarks,
           additionalFields: {
-            'teacherName': _teacherNameController.text,
+            'teacherName': plainTeacherName(_teacherNameController.text),
             'absencePeriod': _absencePeriodController.text,
             'workStatus': _workStatusController.text,
             'reasonForAbsence': _reasonForAbsenceController.text,
@@ -1236,7 +1236,7 @@ class SubstitutionOutputWidgetState
         fontType: _selectedFont,
         includeRemarks: _includeRemarks,
         additionalFields: {
-          'teacherName': _teacherNameController.text,
+          'teacherName': plainTeacherName(_teacherNameController.text),
           'absencePeriod': _absencePeriodController.text,
           'workStatus': _workStatusController.text,
           'reasonForAbsence': _reasonForAbsenceController.text,

@@ -207,13 +207,13 @@ class ContentInputGridPlanOps {
         row.grade, // 학년
         row.className, // 반
         row.subject, // 과목 (결강)
-        row.teacher, // 교사 (결강)
+        row.plainTeacher, // 교사 (결강) — 외부에 붙여넣는 텍스트라 동명이인 번호 제거
         row.supplementSubject, // 보강/수업변경 과목
-        row.supplementTeacher, // 보강/수업변경 성명
+        row.plainSupplementTeacher, // 보강/수업변경 성명
         '${DateFormatUtils.toMonthDay(row.substitutionDate)}(${row.substitutionDay})', // 교체일(교체 요일) - 월.일 형식
         row.substitutionPeriod, // 교체 교시
         row.substitutionSubject, // 교체 과목
-        row.substitutionTeacher, // 교체 교사
+        row.plainSubstitutionTeacher, // 교체 교사
         row.remarks, // 비고
       ];
       buffer.writeln(cells.join('\t'));
