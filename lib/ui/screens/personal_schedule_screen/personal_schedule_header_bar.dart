@@ -4,8 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../providers/personal_schedule_provider.dart';
 import '../../../providers/substitution_plan_viewmodel.dart';
 import '../../widgets/exchange_control_panel.dart';
+import '../../widgets/header_segmented_toggle.dart';
 import '../../widgets/plan_selector_chip.dart';
-import '../../widgets/timetable_grid/grid_header_widgets.dart';
 import '../../widgets/week_navigator_strip.dart';
 import 'exchange_week_collector.dart';
 
@@ -67,7 +67,7 @@ class PersonalScheduleHeaderBar extends ConsumerWidget {
         children: [
           const PlanSelectorChip(),
           const ToolbarGroupDivider(),
-          _exchangeViewButton(theme),
+          _exchangeViewButton(),
           const ToolbarGroupDivider(),
           Expanded(
             child: WeekNavigatorStrip(
@@ -86,27 +86,14 @@ class PersonalScheduleHeaderBar extends ConsumerWidget {
     );
   }
 
-  Widget _exchangeViewButton(ThemeData theme) {
-    return CompactToolbarLabelButton(
-      onPressed: () => onToggleExchangeView(!isExchangeViewEnabled),
-      icon: Icons.swap_horiz,
-      label: '교체 보기',
+  Widget _exchangeViewButton() {
+    return HeaderSegmentedToggle(
+      value: isExchangeViewEnabled,
+      offLabel: '원본',
+      onLabel: '교체',
       tooltip: isExchangeViewEnabled ? '교체 보기 끄기' : '교체 보기 켜기',
+      onChanged: (v) => onToggleExchangeView(v),
       height: 34,
-      fontSize: 12,
-      iconSize: 16,
-      backgroundColor:
-          isExchangeViewEnabled
-              ? theme.colorScheme.primary.withValues(alpha: 0.2)
-              : Colors.grey.shade100,
-      foregroundColor:
-          isExchangeViewEnabled
-              ? theme.colorScheme.primary
-              : Colors.grey.shade700,
-      borderColor:
-          isExchangeViewEnabled
-              ? theme.colorScheme.primary
-              : Colors.grey.shade400,
     );
   }
 }

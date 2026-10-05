@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../../theme/design_tokens.dart';
 import '../../../../../utils/plan_sort.dart';
 import '../../../../widgets/content_toolbar_layout.dart';
+import '../../../../widgets/header_segmented_toggle.dart';
 import '../../../../widgets/timetable_grid/grid_header_widgets.dart';
 
 /// 결보강 일정 그리드(`ContentInputGrid`) 상단 액션 버튼 바.
@@ -206,45 +207,16 @@ class _SortModeToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final border = ContentToolbarLayout.neutralButtonBorder(context.tokens);
-    return Tooltip(
-      message: '결보강 일정과 결보강 출력의 행 정렬 방식',
-      child: Container(
-        height: height,
-        decoration: BoxDecoration(
-          border: Border.all(color: border),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _segment('등록순', PlanSortMode.byRegistration),
-            Container(width: 1, color: border),
-            _segment('날짜순', PlanSortMode.byDate),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _segment(String label, PlanSortMode value) {
-    final selected = mode == value;
-    return InkWell(
-      onTap: selected ? null : () => onChanged(value),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        alignment: Alignment.center,
-        color: selected ? Colors.blue.shade600 : Colors.transparent,
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: ContentToolbarLayout.buttonFontSize,
-            fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-            color: selected ? Colors.white : Colors.black87,
+    return HeaderSegmentedToggle(
+      value: mode == PlanSortMode.byDate,
+      offLabel: '등록순',
+      onLabel: '날짜순',
+      onChanged:
+          (v) => onChanged(
+            v ? PlanSortMode.byDate : PlanSortMode.byRegistration,
           ),
-        ),
-      ),
+      height: height,
+      tooltip: '결보강 일정과 결보강 출력의 행 정렬 방식',
     );
   }
 }

@@ -12,9 +12,9 @@ import '../../../../theme/design_tokens.dart';
 import '../../../../utils/week_date_calculator.dart';
 import '../../../../utils/week_semester_status.dart';
 import '../../../widgets/exchange_control_panel.dart';
+import '../../../widgets/header_segmented_toggle.dart';
 import '../../../widgets/plan_selector_chip.dart';
 import '../../../widgets/week_navigator_strip.dart';
-import '../../../widgets/timetable_grid/grid_header_widgets.dart';
 import '../../personal_schedule_screen/exchange_week_collector.dart';
 
 /// 교체 화면 상단 주차 선택 바 (§10.5)
@@ -129,8 +129,8 @@ class ExchangeWeekBar extends ConsumerWidget {
           // 계획서 선택 — 결보강 작성의 기준
           const PlanSelectorChip(),
           const ToolbarGroupDivider(),
-          // 날짜·교체 반영 버튼 (스위치 대신)
-          ..._buildDateAndExchangeSwitches(context, ref, theme, showWeekHeader),
+          // 날짜·교체 반영 세그먼트 (스위치 대신)
+          ..._buildDateAndExchangeSwitches(ref, showWeekHeader),
           // 날짜 반영 ON(주차 칩 표시)일 때는 공간 부족으로 안내 숨김
           if (!showWeekHeader) ...[
             const ToolbarGroupDivider(),
@@ -211,126 +211,77 @@ class ExchangeWeekBar extends ConsumerWidget {
         status == WeekSemesterStatus.afterRange;
   }
 
-  /// "날짜 반영"·"교체" 버튼 — 통합 여부는 "준비 > 기타 설정"의
+  /// "날짜 반영"·"교체" 세그먼트 — 통합 여부는 "준비 > 기타 설정"의
   /// [combinedViewSwitchProvider]로 사용자가 고른다(2026-09-30, 기본 통합).
-  /// 통합이면 버튼 하나로 둘 다 같이 켜고 끄고, 아니면 예전처럼 각각
+  /// 통합이면 세그먼트 하나로 둘 다 같이 켜고 끄고, 아니면 예전처럼 각각
   /// 따로 켜고 끌 수 있게 나눠서 보여준다(둘 중 하나만 켜야 하는 경우가
   /// 실제로 있다는 사용자 확인에 따라 계속 남겨둔 선택지).
   ///
-  /// 스위치 대신 버튼으로 그린 이유: 계획서 칩·주 이동 버튼과 같은 행에
-  /// 두기 위해 같은 버튼 계열로 통일한다. ON/OFF는 색으로 구분한다.
+  /// 계획서 `[등록순 | 날짜순]`과 같은 [HeaderSegmentedToggle]로 그린다.
+  /// 분리 모드에서 두 토글이 나란히 서므로 날짜 토글의 꺼짐 쪽은 "원본"이 아니라
+  /// "날짜 없음"으로 써서 `[날짜 없음 | 날짜 반영] [원본 | 교체]`로 구분한다.
+  /// 양쪽 라벨이 항상 보이므로 색으로만 구분하던 기존 단일 토글보다
+  /// 현재 상태가 명확하다.
   List<Widget> _buildDateAndExchangeSwitches(
-    BuildContext context,
     WidgetRef ref,
-    ThemeData theme,
     bool showWeekHeader,
   ) {
-    // onToggleExchangeView가 없으면(시간표 미로드 등) "교체" 버튼 자체를
+    // onToggleExchangeView가 없으면(시간표 미로드 등) "교체" 세그먼트 자체를
     // 못 그리므로, 통합 모드든 아니든 "날짜 반영" 하나만 보여준다.
     if (onToggleExchangeView == null) {
       return [
-        _reflectToggleButton(
-          theme,
+        HeaderSegmentedToggle(
           value: showWeekHeader,
-          icon: Icons.calendar_month,
-          label: '날짜 반영',
+          offLabel: '날짜 없음',
+          onLabel: '날짜 반영',
           tooltip: showWeekHeader ? '날짜 반영 끄기' : '날짜 반영 켜기',
-          onPressed: () => _setShowWeekHeader(ref, !showWeekHeader),
+          onChanged: (v) => _setShowWeekHeader(ref, v),
+          height: 34,
         ),
       ];
     }
 
     final combined = ref.watch(combinedViewSwitchProvider);
     if (!combined) {
+      final isExchangeViewEnabled = ref.watch(isExchangeViewEnabledProvider);
       return [
-        _reflectToggleButton(
-          theme,
+        HeaderSegmentedToggle(
           value: showWeekHeader,
-          icon: Icons.calendar_month,
-          label: '날짜 반영',
+          offLabel: '날짜 없음',
+          onLabel: '날짜 반영',
           tooltip: showWeekHeader ? '날짜 반영 끄기' : '날짜 반영 켜기',
-          onPressed: () => _setShowWeekHeader(ref, !showWeekHeader),
+          onChanged: (v) => _setShowWeekHeader(ref, v),
+          height: 34,
         ),
         const SizedBox(width: 6),
-        _exchangeViewToggleButton(ref, theme),
+        HeaderSegmentedToggle(
+          value: isExchangeViewEnabled,
+          offLabel: '원본',
+          onLabel: '교체',
+          tooltip:
+              isExchangeViewEnabled ? '교체된 시간표 보기 끄기' : '교체된 시간표 보기 켜기',
+          onChanged: (v) => onToggleExchangeView!.call(v),
+          height: 34,
+        ),
       ];
     }
 
-    // 통합 버튼 — 둘 다 켜져 있을 때만 ON으로 보이고, 누르면 둘 다
+    // 통합 세그먼트 — 둘 다 켜져 있을 때만 ON으로 보이고, 누르면 둘 다
     // 같은 값으로 맞춘다.
     final isExchangeViewEnabled = ref.watch(isExchangeViewEnabledProvider);
     final combinedOn = showWeekHeader && isExchangeViewEnabled;
     return [
-      _toggleButton(
-        theme,
+      HeaderSegmentedToggle(
         value: combinedOn,
-        icon: Icons.event_repeat,
-        label: '날짜·교체 반영',
+        offLabel: '원본',
+        onLabel: '날짜·교체',
         tooltip: combinedOn ? '날짜·교체 반영 끄기' : '날짜·교체 반영 켜기',
-        onPressed: () {
-          final next = !combinedOn;
-          _setShowWeekHeader(ref, next);
-          onToggleExchangeView!.call(next);
+        onChanged: (v) {
+          _setShowWeekHeader(ref, v);
+          onToggleExchangeView!.call(v);
         },
+        height: 34,
       ),
     ];
-  }
-
-  /// "교체" 단독 토글 버튼 (스위치 분리 모드용).
-  Widget _exchangeViewToggleButton(WidgetRef ref, ThemeData theme) {
-    final isEnabled = ref.watch(isExchangeViewEnabledProvider);
-    return _toggleButton(
-      theme,
-      value: isEnabled,
-      icon: Icons.swap_horiz,
-      label: '교체',
-      tooltip: isEnabled ? '교체된 시간표 보기 끄기' : '교체된 시간표 보기 켜기',
-      onPressed: () => onToggleExchangeView!.call(!isEnabled),
-    );
-  }
-
-  /// "날짜 반영" 단독 토글 버튼 (스위치 분리 모드·시간표 미로드용).
-  Widget _reflectToggleButton(
-    ThemeData theme, {
-    required bool value,
-    required IconData icon,
-    required String label,
-    required String tooltip,
-    required VoidCallback onPressed,
-  }) {
-    return _toggleButton(
-      theme,
-      value: value,
-      icon: icon,
-      label: label,
-      tooltip: tooltip,
-      onPressed: onPressed,
-    );
-  }
-
-  /// ON/OFF를 색으로 구분하는 토글 버튼.
-  Widget _toggleButton(
-    ThemeData theme, {
-    required bool value,
-    required IconData icon,
-    required String label,
-    required String tooltip,
-    required VoidCallback onPressed,
-  }) {
-    return CompactToolbarLabelButton(
-      onPressed: onPressed,
-      icon: icon,
-      label: label,
-      tooltip: tooltip,
-      height: 34,
-      fontSize: 12,
-      iconSize: 16,
-      backgroundColor:
-          value
-              ? theme.colorScheme.primary.withValues(alpha: 0.2)
-              : Colors.grey.shade100,
-      foregroundColor: value ? theme.colorScheme.primary : Colors.grey.shade700,
-      borderColor: value ? theme.colorScheme.primary : Colors.grey.shade400,
-    );
   }
 }
