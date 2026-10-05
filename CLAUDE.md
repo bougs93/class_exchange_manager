@@ -401,6 +401,8 @@ PowerShell `Get-Content`/`Set-Content`로 줄을 잘라 다시 쓰면 **한글 U
   `resolveEventDates(item).forMove(move)`를 쓴다 (칸 좌표 = 쪽·교사·요일·교시로 조회).
 - `forSlot(요일, 교시)`는 순환·2중 노드 날짜용이다. 1:1·보강에서 구분할 수
   없으면 null을 돌려준다.
+- 계획서 행 `exchangeId`에는 교체 이력 id(`groupId`)가 들어간다 — 같은
+  교사·요일·교시·과목을 다른 주에 교체해도 행이 섞이지 않게 하기 위함이다.
 - 회귀 테스트: `test/utils/same_weekday_cross_week_test.dart`
 - SQLite `lessons`에 이미 잘못 투영된 값은 DB 스키마 v6 마이그레이션이
   `projected_seq`를 무효화해 다음 조회 때 다시 계산한다.

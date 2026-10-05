@@ -13,12 +13,16 @@ import '../../../../utils/week_date_calculator.dart';
 import '../../../../utils/week_semester_status.dart';
 import '../../../widgets/exchange_control_panel.dart';
 import '../../../widgets/plan_selector_chip.dart';
+import '../../../widgets/week_navigator_strip.dart';
 import '../../../widgets/timetable_grid/grid_header_widgets.dart';
 import '../../personal_schedule_screen/exchange_week_collector.dart';
 
 /// 교체 화면 상단 주차 선택 바 (§10.5)
 ///
-/// 행 구성: [계획서 선택 | 날짜·교체 반영 | (OFF 시 날짜 수정 안내) | (ON 시 주차 칩)]
+/// 행 구성: [계획서 선택 | 날짜·교체 반영 | (OFF 시 날짜 수정 안내) |
+///           (ON 시 ◀ [이번주] | 주차 칩 ▶)]
+/// - `◀ [이번주] | 주차 칩 ▶`은 시간표 화면과 같은 [WeekNavigatorStrip]을 쓴다.
+///   이번 주 표시는 버튼이 맡으므로 주차 칩 라벨은 항상 "N월N주"다
 /// - 계획서 칩: 결보강 작성의 기준. 선택은 전역(lastUsedProfileId)에 반영
 /// - 날짜 범·건수 텍스트는 삭제 — 건수는 주 칩 뱃지로, 범위 밖 안내는
 ///   해당 주 칩의 주황 테두리로 표시한다
@@ -53,16 +57,6 @@ class ExchangeWeekBar extends ConsumerWidget {
       offset,
     );
     onWeekChanged?.call();
-  }
-
-  /// 칩 라벨 — 이번 주는 "이번주"로 쓴다. 교체가 없어도 보고 있는 주는
-  /// 칩으로 뜨는데(아래 build 참고), 표시가 없으면 "교체 없는 주가 왜 있지?"로 보인다.
-  static String _chipLabel(DateTime week) {
-    final isThisWeek = ExchangeWeekCollector.isSameWeek(
-      week,
-      WeekDateCalculator.getThisWeekMonday(),
-    );
-    return isThisWeek ? '이번주' : ExchangeWeekCollector.monthWeekLabel(week);
   }
 
   void _selectWeek(WidgetRef ref, DateTime weekMonday) {
@@ -146,44 +140,18 @@ class ExchangeWeekBar extends ConsumerWidget {
           // (선택 주를 이번 주로 고정하는 이유는 `_setShowWeekHeader` 참고)
           if (showWeekHeader) ...[
             const ToolbarGroupDivider(),
-            _buildWeekNavButton(
-              theme,
-              icon: Icons.chevron_left,
-              tooltip: '이전 주',
-              onPressed: () => _moveWeek(ref, -1),
-            ),
             Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    for (final week in chipWeeks)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: _WeekChip(
-                          label: _chipLabel(week),
-                          count: exchangeCountForWeek(counts, week),
-                          substitutionCount: exchangeCountForWeek(
-                            substitutionCounts,
-                            week,
-                          ),
-                          selected: ExchangeWeekCollector.isSameWeek(
-                            week,
-                            selectedWeek,
-                          ),
-                          outOfRange: _isOutOfRangeWeek(week, datedSemester),
-                          onTap: () => _selectWeek(ref, week),
-                        ),
-                      ),
-                  ],
-                ),
+              child: WeekNavigatorStrip(
+                weeks: chipWeeks,
+                selectedWeek: selectedWeek,
+                countOf: (week) => exchangeCountForWeek(counts, week),
+                substitutionCountOf:
+                    (week) => exchangeCountForWeek(substitutionCounts, week),
+                isOutOfRange: (week) => _isOutOfRangeWeek(week, datedSemester),
+                onSelectWeek: (week) => _selectWeek(ref, week),
+                onPrevious: () => _moveWeek(ref, -1),
+                onNext: () => _moveWeek(ref, 1),
               ),
-            ),
-            _buildWeekNavButton(
-              theme,
-              icon: Icons.chevron_right,
-              tooltip: '다음 주',
-              onPressed: () => _moveWeek(ref, 1),
             ),
           ],
         ],
@@ -241,28 +209,6 @@ class ExchangeWeekBar extends ConsumerWidget {
     );
     return status == WeekSemesterStatus.beforeRange ||
         status == WeekSemesterStatus.afterRange;
-  }
-
-  /// 주 이동 버튼 — 기존 가는 아이콘보다 배경·테두리를 주어 잘 보이게 한다.
-  Widget _buildWeekNavButton(
-    ThemeData theme, {
-    required IconData icon,
-    required String tooltip,
-    required VoidCallback onPressed,
-  }) {
-    return IconButton(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 22),
-      tooltip: tooltip,
-      visualDensity: VisualDensity.compact,
-      style: IconButton.styleFrom(
-        backgroundColor: theme.colorScheme.surfaceContainerHighest.withValues(
-          alpha: 0.6,
-        ),
-        side: BorderSide(color: theme.dividerColor),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-    );
   }
 
   /// "날짜 반영"·"교체" 버튼 — 통합 여부는 "준비 > 기타 설정"의
@@ -386,80 +332,5 @@ class ExchangeWeekBar extends ConsumerWidget {
       foregroundColor: value ? theme.colorScheme.primary : Colors.grey.shade700,
       borderColor: value ? theme.colorScheme.primary : Colors.grey.shade400,
     );
-  }
-}
-
-/// 주차 칩 — 라벨 + 결강 건수(파란 배지) + 교체·보강 수업만 걸린 건수(회색 배지).
-/// 학기 범위 밖 주는 주황 테두리로 표시한다.
-class _WeekChip extends StatelessWidget {
-  final String label;
-  final int count;
-  final int substitutionCount;
-  final bool selected;
-  final bool outOfRange;
-  final VoidCallback onTap;
-
-  const _WeekChip({
-    required this.label,
-    required this.count,
-    required this.substitutionCount,
-    required this.selected,
-    this.outOfRange = false,
-    required this.onTap,
-  });
-
-  Widget _badge(int value, Color color) {
-    return Container(
-      margin: const EdgeInsets.only(left: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        '$value',
-        style: const TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final alpha = selected ? 1.0 : 0.6;
-
-    final chip = ChoiceChip(
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label),
-          if (count > 0)
-            _badge(count, theme.colorScheme.primary.withValues(alpha: alpha)),
-          if (substitutionCount > 0)
-            _badge(substitutionCount, Colors.grey.withValues(alpha: alpha)),
-        ],
-      ),
-      selected: selected,
-      showCheckmark: false,
-      onSelected: (_) => onTap(),
-      labelStyle: TextStyle(
-        fontSize: 12,
-        fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-        color: selected ? theme.colorScheme.onPrimaryContainer : null,
-      ),
-      selectedColor: theme.colorScheme.primaryContainer,
-      side:
-          outOfRange
-              ? BorderSide(color: Colors.orange.shade700, width: 1.5)
-              : null,
-      visualDensity: VisualDensity.compact,
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    );
-    if (!outOfRange) return chip;
-    return Tooltip(message: '학기 범위 밖 주입니다', child: chip);
   }
 }

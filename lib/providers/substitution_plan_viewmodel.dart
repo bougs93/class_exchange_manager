@@ -189,14 +189,19 @@ class SubstitutionPlanViewModel
   late final ExchangeNodeParser _parser;
 
   /// 교체 항목의 고유 식별자 생성
+  ///
+  /// [groupId](교체 이력 항목 id)를 반드시 앞에 붙인다. 같은 교사·요일·교시·과목을
+  /// 다른 주에 각각 교체하면 나머지 값이 전부 같아져서, 계획서에서 10.14 행을
+  /// 눌러도 10.07 행의 날짜·보강 과목이 바뀌었다(2026-10-05 수정).
   String _generateExchangeId(
+    String groupId,
     String teacher,
     String day,
     String period,
     String subject, {
     String? suffix,
   }) {
-    final base = '${teacher}_$day${period}_$subject';
+    final base = '${groupId}_${teacher}_$day${period}_$subject';
     return suffix != null ? '${base}_$suffix' : base;
   }
 
@@ -328,6 +333,7 @@ class SubstitutionPlanViewModel
     final sourceNode = nodes[0];
     final targetNode = nodes[1];
     final exchangeId = _generateExchangeId(
+      groupId,
       sourceNode.teacherName,
       sourceNode.day,
       sourceNode.period.toString(),
@@ -375,6 +381,7 @@ class SubstitutionPlanViewModel
       final sourceNode = nodes[0];
       final targetNode = nodes[1];
       final exchangeId = _generateExchangeId(
+        groupId,
         sourceNode.teacherName,
         sourceNode.day,
         sourceNode.period.toString(),
@@ -416,6 +423,7 @@ class SubstitutionPlanViewModel
         // 비고란 번호: 역순 (i=0일 때 3, i=1일 때 2, i=2일 때 1)
         final stepNumber = nodes.length - 1 - i;
         final exchangeId = _generateExchangeId(
+          groupId,
           sourceNode.teacherName,
           sourceNode.day,
           sourceNode.period.toString(),
@@ -518,6 +526,7 @@ class SubstitutionPlanViewModel
 
     // 최종 교체
     final finalExchangeId = _generateExchangeId(
+      groupId,
       substituteNode.teacherName,
       substituteNode.day,
       substituteNode.period.toString(),
@@ -545,6 +554,7 @@ class SubstitutionPlanViewModel
 
     // 중간 교체
     final intermediateExchangeId = _generateExchangeId(
+      groupId,
       intermediateNode1.teacherName,
       intermediateNode1.day,
       intermediateNode1.period.toString(),
@@ -588,6 +598,7 @@ class SubstitutionPlanViewModel
     final sourceNode = nodes[0];
     final targetNode = nodes[1];
     final exchangeId = _generateExchangeId(
+      groupId,
       sourceNode.teacherName,
       sourceNode.day,
       sourceNode.period.toString(),
