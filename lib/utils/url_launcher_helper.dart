@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 import 'snackbar_helper.dart';
 
 /// URL 실행 유틸리티
@@ -10,14 +11,23 @@ class UrlLauncherHelper {
   ///
   /// [url]: 열려는 URL 문자열
   /// [context]: (선택) 에러 메시지 표시를 위한 BuildContext
+  /// [newTab]: true면 웹에서 새 탭으로 연다 (`_blank`)
   ///
   /// 반환값: URL 실행 성공 여부
-  static Future<bool> launchURL(String url, {BuildContext? context}) async {
+  static Future<bool> launchURL(
+    String url, {
+    BuildContext? context,
+    bool newTab = true,
+  }) async {
     try {
       final uri = Uri.parse(url);
 
       if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+          webOnlyWindowName: newTab ? '_blank' : '_self',
+        );
         return true;
       } else {
         debugPrint('URL 실행 불가: $url');

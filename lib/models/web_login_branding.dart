@@ -16,6 +16,12 @@ class WebLoginBranding {
   /// 학교 홈페이지 URL (로고 탭 시 이동)
   final String homeUrl;
 
+  /// 사용법 버튼에 보일 이름 (비우면 기본값 `사용법 보기`)
+  final String guideButtonLabel;
+
+  /// 사용법 버튼 링크 (비우면 버튼 숨김, 새 탭으로 연다)
+  final String guideButtonUrl;
+
   /// 학교 로고 다운로드 URL (비어 있으면 로고 미표시)
   final String logoUrl;
 
@@ -25,10 +31,15 @@ class WebLoginBranding {
   /// 로고 갱신 시각(ms). 이미지 캐시 무효화용.
   final int logoUpdatedAt;
 
+  /// 사용법 버튼 기본 이름.
+  static const String defaultGuideButtonLabel = '사용법 보기';
+
   const WebLoginBranding({
     this.title = '',
     this.notice = '',
     this.homeUrl = '',
+    this.guideButtonLabel = '',
+    this.guideButtonUrl = '',
     this.logoUrl = '',
     this.logoBase64 = '',
     this.logoUpdatedAt = 0,
@@ -47,6 +58,15 @@ class WebLoginBranding {
   bool get hasLogo =>
       logoBase64.isNotEmpty || logoUrl.trim().isNotEmpty;
 
+  /// 링크가 있을 때만 사용법 버튼을 보여 준다.
+  bool get hasGuideButton => guideButtonUrl.trim().isNotEmpty;
+
+  /// 화면에 그릴 버튼 이름 (비어 있으면 기본값).
+  String get displayGuideButtonLabel {
+    final label = guideButtonLabel.trim();
+    return label.isEmpty ? defaultGuideButtonLabel : label;
+  }
+
   factory WebLoginBranding.fromMap(Map<String, dynamic>? data) {
     if (data == null) return const WebLoginBranding();
     final title = (data['loginMessage'] ?? data['LoginMessage']) as String?;
@@ -54,6 +74,8 @@ class WebLoginBranding {
       title: title?.trim() ?? '',
       notice: (data['loginNotice'] as String?)?.trim() ?? '',
       homeUrl: (data['schoolHomeUrl'] as String?)?.trim() ?? '',
+      guideButtonLabel: (data['guideButtonLabel'] as String?)?.trim() ?? '',
+      guideButtonUrl: (data['guideButtonUrl'] as String?)?.trim() ?? '',
       logoUrl: (data['schoolLogoUrl'] as String?)?.trim() ?? '',
       logoBase64: (data['schoolLogoBase64'] as String?)?.trim() ?? '',
       logoUpdatedAt: (data['schoolLogoUpdatedAt'] as num?)?.toInt() ?? 0,
@@ -64,6 +86,8 @@ class WebLoginBranding {
     'loginMessage': title,
     'loginNotice': notice,
     'schoolHomeUrl': homeUrl,
+    'guideButtonLabel': guideButtonLabel,
+    'guideButtonUrl': guideButtonUrl,
     'schoolLogoUrl': logoUrl,
     'schoolLogoBase64': logoBase64,
     'schoolLogoUpdatedAt': logoUpdatedAt,
@@ -73,6 +97,8 @@ class WebLoginBranding {
     String? title,
     String? notice,
     String? homeUrl,
+    String? guideButtonLabel,
+    String? guideButtonUrl,
     String? logoUrl,
     String? logoBase64,
     int? logoUpdatedAt,
@@ -81,6 +107,8 @@ class WebLoginBranding {
       title: title ?? this.title,
       notice: notice ?? this.notice,
       homeUrl: homeUrl ?? this.homeUrl,
+      guideButtonLabel: guideButtonLabel ?? this.guideButtonLabel,
+      guideButtonUrl: guideButtonUrl ?? this.guideButtonUrl,
       logoUrl: logoUrl ?? this.logoUrl,
       logoBase64: logoBase64 ?? this.logoBase64,
       logoUpdatedAt: logoUpdatedAt ?? this.logoUpdatedAt,

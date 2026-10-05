@@ -25,6 +25,7 @@ import '../../utils/snackbar_helper.dart';
 import '../widgets/web_login_screen_preview.dart';
 import 'timetable_file_register_dialog.dart';
 import 'web_admin/web_admin_default_school_name_section.dart';
+import 'web_admin/web_admin_guide_button_section.dart';
 import 'web_admin/web_admin_login_branding_section.dart';
 import 'web_admin/web_admin_password_section.dart';
 import 'web_admin/web_admin_publish_section.dart';
@@ -34,7 +35,7 @@ import 'web_login_gate.dart';
 ///
 /// - 접속자 비밀번호 변경 (새 salt 발급 + 해시 저장)
 /// - 관리자 비밀번호 변경
-/// - 접속 화면 브랜딩 (제목·안내·학교 로고·홈페이지)
+/// - 접속 화면 브랜딩 (제목·안내·사용법 버튼·학교 로고·홈페이지)
 /// - 로그아웃 (세션 삭제)
 ///
 /// 관리자 권한(`webLoginStatusProvider == adminOk`)일 때만 진입시킨다.
@@ -55,6 +56,8 @@ class _WebAdminSettingsScreenState
   final _loginMessageController = TextEditingController();
   final _loginNoticeController = TextEditingController();
   final _schoolHomeUrlController = TextEditingController();
+  final _guideButtonLabelController = TextEditingController();
+  final _guideButtonUrlController = TextEditingController();
   final _defaultSchoolNameController = TextEditingController();
 
   /// 브랜딩 서비스 — **직접 생성하지 않고 Provider를 거친다.**
@@ -114,6 +117,8 @@ class _WebAdminSettingsScreenState
         _loginMessageController.text = branding.title;
         _loginNoticeController.text = branding.notice;
         _schoolHomeUrlController.text = branding.homeUrl;
+        _guideButtonLabelController.text = branding.guideButtonLabel;
+        _guideButtonUrlController.text = branding.guideButtonUrl;
         _pendingLogoBytes = null;
         _removeLogo = false;
         if (schoolName != null) _defaultSchoolNameController.text = schoolName;
@@ -140,6 +145,8 @@ class _WebAdminSettingsScreenState
     _loginMessageController.dispose();
     _loginNoticeController.dispose();
     _schoolHomeUrlController.dispose();
+    _guideButtonLabelController.dispose();
+    _guideButtonUrlController.dispose();
     _defaultSchoolNameController.dispose();
     super.dispose();
   }
@@ -212,6 +219,8 @@ class _WebAdminSettingsScreenState
       title: _loginMessageController.text.trim(),
       notice: _loginNoticeController.text.trim(),
       homeUrl: _schoolHomeUrlController.text.trim(),
+      guideButtonLabel: _guideButtonLabelController.text.trim(),
+      guideButtonUrl: _guideButtonUrlController.text.trim(),
       logoUrl: _removeLogo ? '' : _branding.logoUrl,
       logoBase64: _removeLogo ? '' : _branding.logoBase64,
       logoUpdatedAt: _removeLogo ? 0 : _branding.logoUpdatedAt,
@@ -268,6 +277,18 @@ class _WebAdminSettingsScreenState
         SnackBarHelper.showError(
           context,
           '홈페이지 주소는 http:// 또는 https:// 로 시작해야 합니다.',
+        );
+        return;
+      }
+    }
+
+    final guideUrl = _guideButtonUrlController.text.trim();
+    if (guideUrl.isNotEmpty) {
+      final uri = Uri.tryParse(guideUrl);
+      if (uri == null || !(uri.isScheme('http') || uri.isScheme('https'))) {
+        SnackBarHelper.showError(
+          context,
+          '사용법 링크 주소는 http:// 또는 https:// 로 시작해야 합니다.',
         );
         return;
       }
@@ -402,23 +423,6 @@ class _WebAdminSettingsScreenState
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             children: [
-              WebAdminPasswordSection(
-                saving: _saving,
-                viewerPasswordController: _viewerPasswordController,
-                viewerPasswordConfirmController:
-                    _viewerPasswordConfirmController,
-                viewerVisible: _viewerVisible,
-                onToggleViewerVisible:
-                    () => setState(() => _viewerVisible = !_viewerVisible),
-                onSaveViewerPassword: _saveViewerPassword,
-                adminPasswordController: _adminPasswordController,
-                adminPasswordConfirmController: _adminPasswordConfirmController,
-                adminVisible: _adminVisible,
-                onToggleAdminVisible:
-                    () => setState(() => _adminVisible = !_adminVisible),
-                onSaveAdminPassword: _saveAdminPassword,
-              ),
-              const Divider(height: 24),
               WebAdminLoginBrandingSection(
                 saving: _saving,
                 displayLogoBytes: _displayLogoBytes,
@@ -445,6 +449,13 @@ class _WebAdminSettingsScreenState
                 onSave: _saveDefaultSchoolName,
               ),
               const Divider(height: 24),
+              WebAdminGuideButtonSection(
+                saving: _saving,
+                labelController: _guideButtonLabelController,
+                urlController: _guideButtonUrlController,
+                onSave: _saveLoginBranding,
+              ),
+              const Divider(height: 24),
               WebAdminPublishSection(
                 publishing: _publishing,
                 publishMessage: _publishMessage,
@@ -454,6 +465,23 @@ class _WebAdminSettingsScreenState
                 deleting: _deleting,
                 onDelete: _deleteCurrentTimetable,
                 onPublish: _publishSharedTimetable,
+              ),
+              const Divider(height: 24),
+              WebAdminPasswordSection(
+                saving: _saving,
+                viewerPasswordController: _viewerPasswordController,
+                viewerPasswordConfirmController:
+                    _viewerPasswordConfirmController,
+                viewerVisible: _viewerVisible,
+                onToggleViewerVisible:
+                    () => setState(() => _viewerVisible = !_viewerVisible),
+                onSaveViewerPassword: _saveViewerPassword,
+                adminPasswordController: _adminPasswordController,
+                adminPasswordConfirmController: _adminPasswordConfirmController,
+                adminVisible: _adminVisible,
+                onToggleAdminVisible:
+                    () => setState(() => _adminVisible = !_adminVisible),
+                onSaveAdminPassword: _saveAdminPassword,
               ),
             ],
           ),

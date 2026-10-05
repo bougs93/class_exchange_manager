@@ -175,6 +175,7 @@ void main() {
       expect(find.text('접속자 비밀번호 변경'), findsOneWidget);
       expect(find.text('관리자 비밀번호 변경'), findsOneWidget);
       expect(find.text('접속 화면 (학교 로고·안내)'), findsOneWidget);
+      expect(find.text('사용법 버튼'), findsOneWidget);
       expect(find.text('기본 학교명 설정'), findsOneWidget);
       expect(find.text('공용 시간표 올리기'), findsOneWidget);
     });

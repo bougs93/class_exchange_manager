@@ -170,9 +170,10 @@ class WebLoginBrandingBlock extends StatelessWidget {
     final hasLogo =
         showLogo && (localLogoBytes != null || branding.hasLogo);
     final hasTitle = branding.title.isNotEmpty;
+    final hasGuideButton = branding.hasGuideButton;
     final hasNotice = branding.notice.isNotEmpty;
 
-    if (!hasLogo && !hasTitle && !hasNotice) {
+    if (!hasLogo && !hasTitle && !hasGuideButton && !hasNotice) {
       return const SizedBox.shrink();
     }
 
@@ -196,7 +197,26 @@ class WebLoginBrandingBlock extends StatelessWidget {
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
           ),
-        if (hasTitle && hasNotice) SizedBox(height: compact ? 10 : 12),
+        // 제목 바로 아래 — 관리자가 설정한 사용법 링크(새 탭)
+        if (hasGuideButton) ...[
+          if (hasTitle) SizedBox(height: compact ? 8 : 10),
+          Center(
+            child: OutlinedButton.icon(
+              onPressed:
+                  () => UrlLauncherHelper.launchURL(
+                    branding.guideButtonUrl.trim(),
+                    context: context,
+                  ),
+              icon: const Icon(Icons.open_in_new, size: 16),
+              label: Text(branding.displayGuideButtonLabel),
+              style: OutlinedButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          ),
+        ],
+        if ((hasTitle || hasGuideButton) && hasNotice)
+          SizedBox(height: compact ? 10 : 12),
         if (hasNotice)
           Container(
             width: double.infinity,
