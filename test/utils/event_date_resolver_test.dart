@@ -74,7 +74,7 @@ CircularExchangePath _circularPath() {
 
 void main() {
   group('resolveEventDates — 1:1(확정 쌍)', () {
-    test('요일이 일치하면 confirmedPair를 반환하고 period는 무시한다', () {
+    test('요일·교시가 일치하면 confirmedPair를 반환한다', () {
       final item = ExchangeHistoryItem.fromExchangePath(
         _oneToOnePath(sourceDay: '수', sourcePeriod: 1, targetDay: '월', targetPeriod: 1),
         absenceDate: DateTime(2026, 10, 14), // 수
@@ -83,15 +83,18 @@ void main() {
 
       final r = resolveEventDates(item);
 
-      // day=3(수), period는 아무 값이나 줘도 absenceDate가 나온다.
-      final wedAnyPeriod = r.forSlot(3, 99);
-      expect(wedAnyPeriod!.date, DateTime(2026, 10, 14));
-      expect(wedAnyPeriod.source, CellDateSource.confirmedPair);
-      expect(wedAnyPeriod.isConfirmed, isTrue);
+      final wed = r.forSlot(3, 1);
+      expect(wed!.date, DateTime(2026, 10, 14));
+      expect(wed.source, CellDateSource.confirmedPair);
+      expect(wed.isConfirmed, isTrue);
 
-      final monAnyPeriod = r.forSlot(1, 1);
-      expect(monAnyPeriod!.date, DateTime(2026, 10, 12));
-      expect(monAnyPeriod.source, CellDateSource.confirmedPair);
+      final mon = r.forSlot(1, 1);
+      expect(mon!.date, DateTime(2026, 10, 12));
+      expect(mon.source, CellDateSource.confirmedPair);
+
+      // 교시는 무시하지 않는다 — 같은 요일이 다른 주에 걸칠 수 있기 때문이다
+      // (same_weekday_cross_week_test.dart). 교체가 건드리지 않는 슬롯은 추정이다.
+      expect(r.forSlot(3, 99)!.source, CellDateSource.estimated);
     });
 
     test('1:1 항목에 nodeDates를 억지로 넣어도(게이팅) 영향이 없다', () {

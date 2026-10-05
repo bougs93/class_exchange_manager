@@ -45,13 +45,9 @@ class EventCellDates {
     cells: [],
   );
 
-  /// dayNumber(1~5) → 그 요일에 해당하는 실제 날짜.
-  ///
-  /// 같은 이벤트 안에서 결강일 쪽 요일과 교체일 쪽 요일이 같을 수는 없으므로
-  /// (다르니까 두 날짜가 필요한 것) 충돌 없이 1:1로 채워진다.
-  Map<int, DateTime> get dateByDayNumber => {
-    for (final cell in cells) DayUtils.getDayNumber(cell.dayName): cell.date,
-  };
+  // ⚠ 요일 → 날짜 맵(`dateByDayNumber`)을 만들지 말 것. 결강일과 교체일은
+  // 다른 주의 같은 요일일 수 있어 한쪽이 덮어써진다(2026-10-05 버그).
+  // 날짜는 칸 좌표로 찾는다 — `resolveEventDates(...).forMove` 참고.
 }
 
 /// 특정 주(週)에 대해 실제 날짜 기준으로 스코프된 X/○ 셀 키 집합.

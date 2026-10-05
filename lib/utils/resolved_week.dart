@@ -330,8 +330,9 @@ class ResolvedWeek {
       final resolution = resolveEventDates(event);
 
       for (final move in exchangePathMoves(event.originalPath)) {
-        final fromDate = resolution.forSlot(move.fromDay, move.fromPeriod)?.date;
-        final toDate = resolution.forSlot(move.toDay, move.toPeriod)?.date;
+        final dates = resolution.forMove(move);
+        final fromDate = dates.from?.date;
+        final toDate = dates.to?.date;
         if (fromDate == null || toDate == null) {
           // 이론상 발생하지 않아야 하지만, 방어적으로 기존 방식으로 폴백
           if (inViewedWeek(event.absenceDate)) _applyMove(cells, move);

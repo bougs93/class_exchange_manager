@@ -14,7 +14,7 @@ import 'database_platform.dart';
 /// - 웹: `sqflite_common_ffi_web` (sqlite3.wasm + IndexedDB)
 /// 스키마·쿼리·마이그레이션은 전 플랫폼 공통이다.
 class TimetableDatabase {
-  static const int schemaVersion = 5;
+  static const int schemaVersion = 6;
   static const String defaultFileName = 'dated_timetable.db';
 
   /// 기본 앱 데이터 디렉터리 아래에 DB 파일을 열고, 없으면 스키마를 생성한다.
@@ -64,6 +64,14 @@ class TimetableDatabase {
           // 좁힐 수 있다(교체가 실제로 건드리는 칸은 보통 학기 전체의 일부일
           // 뿐이다).
           await _createDirtyLessonKeysTable(db);
+        }
+        if (oldVersion < 6) {
+          // 2026-10-05: 1:1·보강의 결강일·교체일이 같은 요일(다른 주)이면
+          // 날짜를 요일만으로 찾다가 한쪽이 덮어써져, 잘못된 날짜로 lessons가
+          // 투영돼 있다. 재생 표시를 무효화해 다음 조회 때 replayInto가 고친
+          // 규칙으로 다시 계산하게 한다(옛 잘못된 좌표는 dirty_lesson_keys에
+          // 남아 있으므로 함께 템플릿으로 리셋된다).
+          await db.execute('UPDATE timetables SET projected_seq = -1');
         }
       },
     );

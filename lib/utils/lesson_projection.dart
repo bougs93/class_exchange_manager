@@ -32,8 +32,9 @@ List<Lesson> project({
   for (final event in activeEvents) {
     final resolution = resolveEventDates(event);
     for (final move in exchangePathMoves(event.originalPath)) {
-      final fromDate = resolution.forSlot(move.fromDay, move.fromPeriod)?.date;
-      final toDate = resolution.forSlot(move.toDay, move.toPeriod)?.date;
+      final dates = resolution.forMove(move);
+      final fromDate = dates.from?.date;
+      final toDate = dates.to?.date;
       if (fromDate == null || toDate == null) continue;
       _applyMove(cells, move, fromDate, toDate, timetableId);
     }
@@ -52,8 +53,9 @@ List<TouchedCell> touchedCellsFor(ExchangeHistoryItem event) {
   final resolution = resolveEventDates(event);
   final cells = <TouchedCell>[];
   for (final move in exchangePathMoves(event.originalPath)) {
-    final fromDate = resolution.forSlot(move.fromDay, move.fromPeriod)?.date;
-    final toDate = resolution.forSlot(move.toDay, move.toPeriod)?.date;
+    final dates = resolution.forMove(move);
+    final fromDate = dates.from?.date;
+    final toDate = dates.to?.date;
     if (fromDate == null || toDate == null) continue;
     cells.add(TouchedCell(teacher: move.fromTeacher, date: fromDate, period: move.fromPeriod));
     cells.add(TouchedCell(teacher: move.toTeacher, date: toDate, period: move.toPeriod));

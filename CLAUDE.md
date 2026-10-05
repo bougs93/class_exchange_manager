@@ -392,6 +392,19 @@ PowerShell `Get-Content`/`Set-Content`로 줄을 잘라 다시 쓰면 **한글 U
 
 ## 주요 이슈 및 해결 방법
 
+### 교체 칸의 날짜를 요일만으로 찾지 말 것 (2026-10-05)
+
+결강일과 교체일은 **다른 주의 같은 요일**일 수 있다(예: 10.07(수) 4교시 ↔
+10.14(수) 6교시). 예전 `dateByDayNumber`(요일 → 날짜 맵)는 한쪽 날짜가 다른
+쪽을 덮어써서, 날짜·교체 반영 화면에서 결강일 주의 교체가 사라졌다.
+- 셀 이동(`CellMove`)에 날짜를 붙일 때는 **반드시**
+  `resolveEventDates(item).forMove(move)`를 쓴다 (칸 좌표 = 쪽·교사·요일·교시로 조회).
+- `forSlot(요일, 교시)`는 순환·2중 노드 날짜용이다. 1:1·보강에서 구분할 수
+  없으면 null을 돌려준다.
+- 회귀 테스트: `test/utils/same_weekday_cross_week_test.dart`
+- SQLite `lessons`에 이미 잘못 투영된 값은 DB 스키마 v6 마이그레이션이
+  `projected_seq`를 무효화해 다음 조회 때 다시 계산한다.
+
 ### Syncfusion DataGrid 동적 헤더 업데이트 이슈 (2025년 1월)
 
 **문제**: 교체 모드에서 셀 선택 시 테이블 헤더 UI가 업데이트되지 않음
