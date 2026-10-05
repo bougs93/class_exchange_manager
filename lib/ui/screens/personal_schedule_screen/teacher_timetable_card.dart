@@ -279,16 +279,15 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
             ),
           ),
           // 이미지 복사 버튼 — 화면에만 표시, 캡처 이미지에는 포함하지 않음
-          // 웹 미지원: 브라우저 클립보드는 이미지 쓰기에 제약이 있어 숨긴다.
-          if (!kIsWeb)
-            Positioned(
-              top:
-                  (TeacherCardGridConstants.cardHeaderHeight -
-                      TeacherCardGridConstants.copyButtonReserveWidth) /
-                  2,
-              right: TeacherCardGridConstants.cardInnerPadding,
-              child: _buildCopyImageButton(highlightColor),
-            ),
+          // 웹도 pasteboard의 Clipboard API(image/png)로 동일하게 복사한다.
+          Positioned(
+            top:
+                (TeacherCardGridConstants.cardHeaderHeight -
+                    TeacherCardGridConstants.copyButtonReserveWidth) /
+                2,
+            right: TeacherCardGridConstants.cardInnerPadding,
+            child: _buildCopyImageButton(highlightColor),
+          ),
         ],
       ),
     );
