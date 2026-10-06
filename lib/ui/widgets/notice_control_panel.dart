@@ -9,7 +9,9 @@ import 'package:path_provider/path_provider.dart';
 import '../../constants/korean_fonts.dart';
 import '../../constants/screen_usage_hints.dart';
 import '../../models/notice_message.dart';
+import '../../models/usage_event.dart';
 import '../../providers/notice_message_provider.dart';
+import '../../providers/web_services_provider.dart';
 import '../../services/class_notice_pdf_service.dart';
 import '../../theme/design_tokens.dart';
 import '../../utils/snackbar_helper.dart';
@@ -554,6 +556,9 @@ class NoticeControlPanel extends ConsumerWidget {
       }
 
       final fileName = ClassNoticePdfService.buildFileName();
+      final usage = ref.read(usageStatsServiceProvider);
+      usage.record(UsageEvent.classOutput);
+      void onSaved() => usage.record(UsageEvent.pdfSave);
 
       if (kIsWeb) {
         await Navigator.of(context).push(
@@ -562,6 +567,7 @@ class NoticeControlPanel extends ConsumerWidget {
                 (context) => PdfPreviewScreen(
                   pdfBytes: pdfBytes,
                   initialFileName: fileName,
+                  onSaved: onSaved,
                 ),
           ),
         );
@@ -582,6 +588,7 @@ class NoticeControlPanel extends ConsumerWidget {
               (context) => PdfPreviewScreen(
                 pdfPath: tempPath,
                 initialFileName: fileName,
+                onSaved: onSaved,
               ),
         ),
       );

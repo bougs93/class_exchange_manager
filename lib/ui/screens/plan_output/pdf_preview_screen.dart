@@ -26,11 +26,15 @@ class PdfPreviewScreen extends StatefulWidget {
   /// 저장 다이얼로그 파일명의 초기값 (없으면 오늘 날짜 기준 이름 사용)
   final String? initialFileName;
 
+  /// 저장에 성공했을 때 호출된다 (사용 통계용 — 화면 동작과 무관).
+  final VoidCallback? onSaved;
+
   const PdfPreviewScreen({
     super.key,
     this.pdfPath,
     this.pdfBytes,
     this.initialFileName,
+    this.onSaved,
   }) : assert(
          pdfPath != null || pdfBytes != null,
          'pdfPath와 pdfBytes 중 하나는 반드시 있어야 합니다.',
@@ -555,6 +559,7 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
           bytes: widget.pdfBytes!,
           filename: '${_getSaveFileName()}.pdf',
         );
+        widget.onSaved?.call();
         return;
       }
 
@@ -587,6 +592,7 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
       final targetFile = File(outputPath);
       final bytes = await sourceFile.readAsBytes();
       await targetFile.writeAsBytes(bytes);
+      widget.onSaved?.call();
 
       if (mounted) {
         _showSnackBar('PDF 저장 완료', Colors.green);

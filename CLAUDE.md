@@ -390,6 +390,27 @@ PowerShell `Get-Content`/`Set-Content`로 줄을 잘라 다시 쓰면 **한글 U
 조용히 깨진다**(실제 발생). `sed -i 'N,Md'`나 편집 도구를 쓰고, 대량 삭제 후엔
 `grep -c '[가-힣]'`로 전후를 대조할 것.
 
+## 웹 사용 통계 (2026-10-06)
+
+웹 전용(`kIsWeb && FirebaseAppConfig.isConfigured`) 사용량 수집. 비웹·미설정이면
+`usageStatsServiceProvider`가 no-op 서비스를 돌려준다.
+
+- **교사 화면은 변하지 않는다** — 수집은 조용히(대화상자·스낵바·배너 없음),
+  Firestore 오류는 `AppLogger.warning`으로만 남기고 삼킨다. 통계 UI는 관리자
+  화면(`WebAdminSettingsScreen`의 `WebAdminUsageStatsSection` → `UsageStatsScreen`)에만 있다.
+- 저장: `usageStats/{KST yyyy-MM-dd}` 일별 문서 (`totals`, `teachers.<교사명>`,
+  `visitors.<익명 uid>`), `FieldValue.increment` merge. 서비스는 메모리 버퍼에
+  쌓다 15초 디바운스로 쓰고, `visit`는 즉시, 앱 수명주기가 hidden/paused일 때 플러시.
+- 수집 지점: 접속 `web_login_gate.dart` `_enterSession`, 탭 `start_screen.dart`
+  `ref.listen(navigationProvider)`, 계획서 생성 `exchange_executor.dart`·
+  `content_input_grid.dart`, 계획서 출력 `substitution_output_widget.dart`,
+  학급 출력 `notice_control_panel.dart`, PDF 저장 `PdfPreviewScreen.onSaved` 콜백.
+- 집계는 `lib/utils/usage_stats_aggregator.dart`(순수 함수, 주는 월요일 시작).
+  저장소는 `UsageStatsBackend`로 추상화되어 테스트는 `test/helpers/fake_usage_backend.dart`를 쓴다.
+- ⚠️ `firestore.rules`의 `usageStats` 규칙은 CI가 배포하지 않는다 —
+  `firebase deploy --only firestore:rules`로 **수동 배포**해야 한다.
+  관리자 판정이 클라이언트라 일반 접속자의 읽기/삭제를 규칙으로 막지 못한다(허용된 리스크).
+
 ## 주요 이슈 및 해결 방법
 
 ### 교체 칸의 날짜를 요일만으로 찾지 말 것 (2026-10-05)

@@ -1,7 +1,12 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../config/firebase_app_config.dart';
 import '../services/shared_timetable_sync_service.dart';
+import '../services/usage_stats_service.dart';
 import '../services/web_branding_service.dart';
+import 'timetable_registry_provider.dart';
 
 /// 웹 전용 서비스 Provider 모음.
 ///
@@ -33,3 +38,41 @@ final sharedTimetableSyncServiceProvider = Provider<SharedTimetableSyncService>(
     return SharedTimetableSyncService();
   },
 );
+
+/// 웹 사용 통계 수집·조회 서비스 Provider.
+///
+/// 같은 이유로 **지연 생성**한다. 비웹이거나 Firebase 설정이 없으면 아무 것도
+/// 하지 않는 no-op 서비스를 돌려주므로 데스크톱 빌드·테스트는 Firebase를
+/// 건드리지 않는다. 브라우저 탭이 숨겨질 때(앱 수명주기 hidden/paused) 남은
+/// 버퍼를 즉시 쓴다.
+final usageStatsServiceProvider = Provider<UsageStatsService>((ref) {
+  if (!kIsWeb || !FirebaseAppConfig.isConfigured) {
+    return UsageStatsService.disabled();
+  }
+  final service = UsageStatsService(
+    enabled: true,
+    backend: FirestoreUsageBackend(),
+    // 기록 시점에 읽는다 — 활성 시간표(교사)가 바뀌어도 그때 값을 쓴다.
+    teacherName: () => ref.read(activeTeacherNameProvider),
+    uid: currentFirebaseUid,
+  );
+  final observer = _UsageFlushObserver(service);
+  WidgetsBinding.instance.addObserver(observer);
+  ref.onDispose(() {
+    WidgetsBinding.instance.removeObserver(observer);
+    service.dispose();
+  });
+  return service;
+});
+
+class _UsageFlushObserver with WidgetsBindingObserver {
+  _UsageFlushObserver(this._service);
+  final UsageStatsService _service;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      _service.flush();
+    }
+  }
+}

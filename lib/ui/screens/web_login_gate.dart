@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/firebase_app_config.dart';
+import '../../models/usage_event.dart';
 import '../../models/web_login_branding.dart';
+import '../../providers/web_services_provider.dart';
 import '../../providers/timetable_repository_provider.dart';
 import '../../providers/timetable_registry_provider.dart';
 import '../../providers/shared_timetable_meta_provider.dart';
@@ -202,6 +204,12 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
   /// 계속 보이고, 받은 적이 없으면 공용 시간표 없이 시작한다. 이후 접속
   /// 때마다 다시 시도되므로 서버가 복구되면 저절로 받아진다.
   Future<void> _enterSession({required bool admin}) async {
+    await _enterSessionInner(admin: admin);
+    // 통계는 조용히 기록만 한다(화면 변화 없음, 실패는 서비스가 삼킨다).
+    if (mounted) ref.read(usageStatsServiceProvider).record(UsageEvent.visit);
+  }
+
+  Future<void> _enterSessionInner({required bool admin}) async {
     if (!mounted) return;
     setState(() {
       _syncStage = '서버 시간표 확인 중';

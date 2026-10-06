@@ -29,6 +29,7 @@ import 'web_admin/web_admin_guide_button_section.dart';
 import 'web_admin/web_admin_login_branding_section.dart';
 import 'web_admin/web_admin_password_section.dart';
 import 'web_admin/web_admin_publish_section.dart';
+import 'web_admin/web_admin_usage_stats_section.dart';
 import 'web_login_gate.dart';
 
 /// 관리자용 접속 설정 변경 화면 (웹 전용, 웹 전환 2단계).
@@ -466,6 +467,8 @@ class _WebAdminSettingsScreenState
                 onDelete: _deleteCurrentTimetable,
                 onPublish: _publishSharedTimetable,
               ),
+              const Divider(height: 24),
+              const WebAdminUsageStatsSection(),
               const Divider(height: 24),
               WebAdminPasswordSection(
                 saving: _saving,

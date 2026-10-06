@@ -1,0 +1,76 @@
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:class_exchange_manager/models/usage_event.dart';
+import 'package:class_exchange_manager/services/usage_stats_service.dart';
+
+import '../helpers/fake_usage_backend.dart';
+
+void main() {
+  UsageStatsService make(FakeUsageBackend b, {String name = '김교사'}) =>
+      UsageStatsService(
+        enabled: true,
+        backend: b,
+        teacherName: () => name,
+        uid: () => 'uid1',
+        flushDelay: const Duration(seconds: 15),
+        now: () => DateTime.utc(2026, 10, 6, 16, 0), // KST 10-07 01:00
+      );
+
+  testWidgets('이벤트는 15초 디바운스 후 한 번에 쓰고 KST 날짜 문서를 쓴다', (tester) async {
+    final b = FakeUsageBackend();
+    final s = make(b);
+    s.record(UsageEvent.tab, tabIndex: 1);
+    s.record(UsageEvent.tab, tabIndex: 1);
+    s.record(UsageEvent.pdfSave);
+    await tester.pump(const Duration(seconds: 5));
+    expect(b.writes, isEmpty);
+    await tester.pump(const Duration(seconds: 11));
+    expect(b.writes.length, 1);
+    final d = b.writes.single;
+    expect(d.dayId, '2026-10-07');
+    expect(d.totals['tab_1'], 2);
+    expect(d.totals['pdfSave'], 1);
+    expect(d.teachers['김교사']!['tab_1'], 2);
+    expect(d.visitors, {'uid1'});
+  });
+
+  testWidgets('visit는 즉시 플러시, 빈 교사명은 (이름 미설정)', (tester) async {
+    final b = FakeUsageBackend();
+    final s = make(b, name: '  ');
+    s.record(UsageEvent.visit);
+    await tester.pump();
+    expect(b.writes.length, 1);
+    expect(b.writes.single.teachers.keys, [kUsageUnnamedTeacher]);
+  });
+
+  testWidgets('쓰기 실패는 삼키고 예외를 던지지 않는다', (tester) async {
+    final b = FakeUsageBackend(failWrites: true);
+    final s = make(b);
+    s.record(UsageEvent.visit);
+    await tester.pump();
+    expect(b.writes, isEmpty);
+  });
+
+  test('disabled 서비스는 no-op', () async {
+    final s = UsageStatsService.disabled();
+    s.record(UsageEvent.visit);
+    await s.flush();
+    expect(await s.countRange(), 0);
+  });
+
+  test('범위 삭제와 전체 삭제', () async {
+    final b = FakeUsageBackend(
+      days: const [
+        UsageDay(date: '2026-10-01'),
+        UsageDay(date: '2026-10-05'),
+        UsageDay(date: '2026-10-09'),
+      ],
+    );
+    final s = make(b);
+    final from = DateTime(2026, 10, 2);
+    final to = DateTime(2026, 10, 8);
+    expect(await s.countRange(from: from, to: to), 1);
+    expect(await s.deleteRange(from: from, to: to), 1);
+    expect(await s.deleteRange(), 2);
+  });
+}

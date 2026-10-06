@@ -8,6 +8,8 @@ import '../../../../../constants/screen_usage_hints.dart';
 import '../../../../../models/plan_output_menu.dart';
 import '../../../../../models/print_profile.dart';
 import '../../../../../models/timetable_registry.dart';
+import '../../../../../models/usage_event.dart';
+import '../../../../../providers/web_services_provider.dart';
 import '../../../../../providers/default_school_name_provider.dart';
 import '../../../../../providers/exchange_screen_provider.dart';
 import '../../../../../providers/plan_output_menu_provider.dart';
@@ -1147,6 +1149,10 @@ class SubstitutionOutputWidgetState
     }
   }
 
+  /// 사용 통계: PDF 저장 성공 기록 (조용히).
+  void _recordPdfSaved() =>
+      ref.read(usageStatsServiceProvider).record(UsageEvent.pdfSave);
+
   /// 출력 미리 보기 처리
   Future<void> _handlePreview() async {
     if (!mounted) return;
@@ -1205,6 +1211,8 @@ class SubstitutionOutputWidgetState
           return;
         }
 
+        ref.read(usageStatsServiceProvider).record(UsageEvent.planOutput);
+
         // 4. PDF 출력 설정 저장 (문서 출력 버튼 클릭 시, 양식별로 저장)
         await _saveCurrentSettings();
 
@@ -1216,6 +1224,7 @@ class SubstitutionOutputWidgetState
                   (context) => PdfPreviewScreen(
                     pdfBytes: pdfBytes,
                     initialFileName: buildPdfSaveFileName(planData),
+                    onSaved: _recordPdfSaved,
                   ),
             ),
           );
@@ -1255,6 +1264,8 @@ class SubstitutionOutputWidgetState
         return;
       }
 
+      ref.read(usageStatsServiceProvider).record(UsageEvent.planOutput);
+
       // 4. PDF 출력 설정 저장 (문서 출력 버튼 클릭 시, 양식별로 저장)
       await _saveCurrentSettings();
 
@@ -1266,6 +1277,7 @@ class SubstitutionOutputWidgetState
                 (context) => PdfPreviewScreen(
                   pdfPath: tempPath,
                   initialFileName: buildPdfSaveFileName(planData),
+                  onSaved: _recordPdfSaved,
                 ),
           ),
         );

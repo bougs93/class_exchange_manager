@@ -6,6 +6,7 @@ import '../../../../constants/korean_fonts.dart';
 import '../../../../constants/screen_usage_hints.dart';
 import 'package:flutter/services.dart';
 import '../../../../models/plan_output_menu.dart';
+import '../../../../models/usage_event.dart';
 import '../../../../models/print_profile.dart';
 import '../../../../providers/plan_crud_actions_provider.dart';
 import '../../../../providers/plan_output_menu_provider.dart';
@@ -14,6 +15,7 @@ import '../../../../providers/print_profile_provider.dart';
 import '../../../../providers/substitution_plan_viewmodel.dart';
 import '../../../../providers/services_provider.dart';
 import '../../../../providers/state_reset_provider.dart';
+import '../../../../providers/web_services_provider.dart';
 import '../../../../theme/design_tokens.dart';
 import '../../../../ui/widgets/content_toolbar_layout.dart';
 import '../../../../ui/widgets/content_usage_hint_bar.dart';
@@ -366,6 +368,7 @@ class _ContentInputGridState extends ConsumerState<ContentInputGrid>
     if (!mounted) return;
 
     if (success) {
+      ref.read(usageStatsServiceProvider).record(UsageEvent.planCreate);
       _onGroupProfileChanged(groupId, profile.id);
       SnackBarHelper.showSuccess(context, "계획서 '$name'을(를) 만들어 지정했습니다.");
     } else {

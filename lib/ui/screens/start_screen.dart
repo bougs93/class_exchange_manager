@@ -26,6 +26,8 @@ import '../../services/app_settings_storage_service.dart';
 import '../../services/non_exchangeable_data_storage_service.dart';
 import '../../services/excel_service.dart';
 import '../../models/time_slot.dart';
+import '../../models/usage_event.dart';
+import '../../providers/web_services_provider.dart';
 import 'dart:io';
 
 /// 메인 셸 — 상단 네비게이션과 각 탭 화면(IndexedStack)
@@ -314,6 +316,15 @@ class _StartScreenState extends ConsumerState<StartScreen> {
   @override
   Widget build(BuildContext context) {
     final selectedIndex = ref.watch(navigationProvider);
+
+    // 사용 통계: 탭 진입 기록(조용히, UI 변화 없음)
+    ref.listen<int>(navigationProvider, (previous, next) {
+      if (previous != next) {
+        ref
+            .read(usageStatsServiceProvider)
+            .record(UsageEvent.tab, tabIndex: next);
+      }
+    });
 
     // 활성 시간표 전환 시 저장 데이터(시간표 본문·교체 목록·그리드) 재로드
     ref.listen<int>(timetableSwitchVersionProvider, (previous, next) {

@@ -9,6 +9,7 @@ import '../../../models/dual_exchange_path.dart';
 import '../../../models/supplement_exchange_path.dart';
 import '../../../models/exchange_history_item.dart';
 import '../../../models/print_profile.dart';
+import '../../../models/usage_event.dart';
 import '../../../models/exchange_clear_snapshot.dart';
 import '../../../constants/korean_fonts.dart';
 import '../../../utils/logger.dart';
@@ -23,6 +24,7 @@ import '../../../providers/selected_week_provider.dart';
 import '../../../providers/print_profile_provider.dart';
 import '../../../providers/substitution_plan_provider.dart';
 import '../../../providers/timetable_registry_provider.dart';
+import '../../../providers/web_services_provider.dart';
 import '../../../utils/day_utils.dart';
 import '../../../utils/date_format_utils.dart';
 import '../../../utils/exchange_cell_dates.dart';
@@ -240,6 +242,7 @@ class ExchangeExecutor {
         await ref
             .read(printProfileStoreProvider.notifier)
             .setLastUsedProfile(profile.id);
+        ref.read(usageStatsServiceProvider).record(UsageEvent.planCreate);
         AppLogger.info("계획서 자동 생성(교체 실행): '${profile.name}' ($teacher)");
       } finally {
         _isCreatingPlan = false;
