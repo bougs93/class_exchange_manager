@@ -23,7 +23,7 @@ class AppInfo {
   static const String programName = '수업 교체 도우미 beta';
 
   /// 앱 버전 (이 값만 수정 — pubspec.yaml은 tool/bump_version.dart가 자동 동기화)
-  static const String version = '3.1.138';
+  static const String version = '3.1.139';
 
   /// 마지막 수정 일시 (빌드 정보).
   ///

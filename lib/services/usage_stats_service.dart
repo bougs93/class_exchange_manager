@@ -133,25 +133,21 @@ class FirestoreUsageBackend implements UsageStatsBackend {
     for (var i = 0; i < batchDocs.length; i += _batchLimit) {
       final batch = _firestore.batch();
       for (final d in batchDocs.skip(i).take(_batchLimit)) {
-        final data = d.data();
-        final totals = Map<String, dynamic>.from(data['totals'] as Map? ?? {});
-        final teacher = Map<String, dynamic>.from(
-          (data['teachers'] as Map?)?[teacherName] as Map? ?? {},
-        );
-        // 합계에서 교사분을 차감한다. 버퍼·재시도로 어긋난 경우 음수가
-        // 되지 않게 0에서 자른다.
-        for (final e in teacher.entries) {
-          if (e.value is num && e.key != 'lastSeen') {
-            final current = (totals[e.key] as num?)?.toInt() ?? 0;
-            totals[e.key] = current - (e.value as num).toInt() < 0
-                ? 0
-                : current - (e.value as num).toInt();
-          }
-        }
-        batch.update(d.reference, {
-          'totals': totals,
-          'teachers.$teacherName': FieldValue.delete(),
-        });
+        final teacher =
+            (d.data()['teachers'] as Map?)?[teacherName] as Map? ?? const {};
+        // 교사명은 FieldPath로 감싼다 — 'teachers.$name' 문자열은 이름에
+        // '.'이 있으면 엉뚱한 경로를 지우고(합계만 빠짐), '/'·'[' 등은 assert로 터진다.
+        // 합계는 통째로 덮어쓰지 않고 increment(-n)으로 뺀다 — 그 사이에
+        // 들어온 다른 사용자의 기록을 지우지 않기 위해.
+        final update = <Object, Object?>{
+          FieldPath(['teachers', teacherName]): FieldValue.delete(),
+          for (final e in teacher.entries)
+            if (e.value is num && e.key != 'lastSeen')
+              FieldPath(['totals', e.key.toString()]): FieldValue.increment(
+                -(e.value as num).toInt(),
+              ),
+        };
+        batch.update<Map<Object, Object?>>(d.reference, update);
       }
       await batch.commit();
       touched += batchDocs.skip(i).take(_batchLimit).length;

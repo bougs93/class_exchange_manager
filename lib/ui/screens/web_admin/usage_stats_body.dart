@@ -123,7 +123,12 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
     _load();
   }
 
+  /// 조회 순번 — 기간을 연달아 바꾸면 늦게 도착한 옛 응답이 새 결과를
+  /// 덮어쓰지 않게 마지막 요청만 반영한다.
+  int _loadSeq = 0;
+
   Future<void> _load() async {
+    final seq = ++_loadSeq;
     setState(() {
       _loading = true;
       _error = null;
@@ -132,7 +137,7 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
       final days = await ref
           .read(usageStatsServiceProvider)
           .fetchRange(_from, _to);
-      if (!mounted) return;
+      if (!mounted || seq != _loadSeq) return;
       setState(() {
         _summary = UsageStatsAggregator.aggregate(days, _unit);
         _loading = false;
@@ -140,7 +145,7 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
       });
     } catch (e) {
       AppLogger.warning('사용 통계 조회 실패: $e');
-      if (!mounted) return;
+      if (!mounted || seq != _loadSeq) return;
       setState(() {
         _error = '통계를 불러오지 못했습니다. 네트워크와 Firestore 규칙을 확인하세요.';
         _loading = false;
@@ -359,20 +364,16 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
   List<Widget> _buildBody(UsageSummary s) {
     return [
       _sectionTitle('기간 합계'),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          _card('접속 수', s.count(UsageKeys.visits)),
-          _card('고유 접속자', s.uniqueVisitors),
-          _card('사용 교사 수', s.activeTeachers),
-          _card('계획서 생성', s.count(UsageKeys.planCreate)),
-          _card('계획서 출력', s.count(UsageKeys.planOutput)),
-          _card('학급 출력', s.count(UsageKeys.classOutput)),
-          _card('계획서 PDF 저장', s.count(UsageKeys.planPdfSave)),
-          _card('학급 PDF 저장', s.count(UsageKeys.classPdfSave)),
-        ],
-      ),
+      _statLine([
+        ('접속', s.count(UsageKeys.visits)),
+        ('고유 접속자', s.uniqueVisitors),
+        ('사용 교사', s.activeTeachers),
+        ('계획서 생성', s.count(UsageKeys.planCreate)),
+        ('계획서 출력', s.count(UsageKeys.planOutput)),
+        ('학급 출력', s.count(UsageKeys.classOutput)),
+        ('계획서 PDF', s.count(UsageKeys.planPdfSave)),
+        ('학급 PDF', s.count(UsageKeys.classPdfSave)),
+      ]),
       const SizedBox(height: 20),
       _sectionTitle(switch (_unit) {
         UsagePeriodUnit.day => '일별 추이',
@@ -404,26 +405,38 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
     ),
   );
 
-  Widget _card(String label, int value) {
-    return Container(
-      width: 104,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.black26),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-          const SizedBox(height: 2),
-          Text(
-            '$value',
-            key: ValueKey('usage-card-$label'),
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+  /// 기간 합계 칩 한 줄: `[라벨 숫자]` 작은 칩 (폭이 좁을 때만 칩 단위로 줄바꿈).
+  Widget _statLine(List<(String, int)> items) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        for (final (label, value) in items)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.black26),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '$label ',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                Text(
+                  '$value',
+                  key: ValueKey('usage-stat-$label'),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
+      ],
     );
   }
 
@@ -474,7 +487,13 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
   Widget _buildTabBars(UsageSummary s) {
     final counts = [for (final k in UsageKeys.tabKeys) s.count(k)];
     final maxCount = counts.fold<int>(0, (a, b) => a > b ? a : b);
-    return Column(
+    // 표들과 균형을 맞추려고 막대 영역 폭을 제한한다 (전체 폭을 쓰면
+    // 듬성듬성해 보인다).
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Column(
       children: [
         for (var i = 0; i < counts.length; i++)
           Padding(
@@ -521,7 +540,9 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
               ],
             ),
           ),
-      ],
+        ],
+        ),
+      ),
     );
   }
 

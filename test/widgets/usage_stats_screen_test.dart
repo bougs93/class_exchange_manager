@@ -50,16 +50,16 @@ void main() {
   testWidgets('요약 수치와 교사 표를 보여 준다', (tester) async {
     await pumpScreen(tester);
     expect(
-      tester.widget<Text>(find.byKey(const ValueKey('usage-card-접속 수'))).data,
+      tester.widget<Text>(find.byKey(const ValueKey('usage-stat-접속'))).data,
       '5',
     );
     expect(
-      tester.widget<Text>(find.byKey(const ValueKey('usage-card-고유 접속자'))).data,
+      tester.widget<Text>(find.byKey(const ValueKey('usage-stat-고유 접속자'))).data,
       '2',
     );
     expect(
       tester
-          .widget<Text>(find.byKey(const ValueKey('usage-card-사용 교사 수')))
+          .widget<Text>(find.byKey(const ValueKey('usage-stat-사용 교사')))
           .data,
       '2',
     );
@@ -102,7 +102,7 @@ void main() {
     await pumpFrames(tester);
 
     expect(
-      tester.widget<Text>(find.byKey(const ValueKey('usage-card-접속 수'))).data,
+      tester.widget<Text>(find.byKey(const ValueKey('usage-stat-접속'))).data,
       '5',
     );
     expect(tester.takeException(), isNull);
@@ -128,7 +128,7 @@ void main() {
 
     expect(find.text('김교사'), findsNothing);
     expect(
-      tester.widget<Text>(find.byKey(const ValueKey('usage-card-접속 수'))).data,
+      tester.widget<Text>(find.byKey(const ValueKey('usage-stat-접속'))).data,
       '2',
     );
     expect(backend.days.single.teachers.keys, isNot(contains('김교사')));
