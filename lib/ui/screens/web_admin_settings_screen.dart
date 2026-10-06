@@ -260,8 +260,7 @@ class _WebAdminSettingsScreenState
     if (ok) {
       await WebAuthService.saveSession(viewer: true, admin: true);
       if (!mounted) return;
-      ref.read(webLoginStatusProvider.notifier).state =
-          WebLoginStatus.adminOk;
+      ref.read(webLoginStatusProvider.notifier).state = WebLoginStatus.adminOk;
       _masterIdController.clear();
       _masterPasswordController.clear();
       setState(() => _passwordRoleIsViewer = false);
@@ -523,16 +522,24 @@ class _WebAdminSettingsScreenState
   /// 넓으면 게시·삭제를 나란히, 좁으면 세로로 쌓는다. 삭제 버튼은
   /// 위험 구역 카드에만 둔다 (`showDeleteButton: false`).
   Widget _buildPublishTab() {
-    final publishCard = WebAdminPublishSection(
-      publishing: _publishing,
-      publishMessage: _publishMessage,
-      publishResult: _publishResult,
-      publishFailed: _publishFailed,
-      publishedName: _publishedName,
-      deleting: _deleting,
-      onDelete: _deleteCurrentTimetable,
-      onPublish: _publishSharedTimetable,
-      showDeleteButton: false,
+    final publishCard = Container(
+      // 위험 구역 카드와 균형을 맞추려고 중립 테두리 카드로 감싼다.
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.black12),
+      ),
+      child: WebAdminPublishSection(
+        publishing: _publishing,
+        publishMessage: _publishMessage,
+        publishResult: _publishResult,
+        publishFailed: _publishFailed,
+        publishedName: _publishedName,
+        deleting: _deleting,
+        onDelete: _deleteCurrentTimetable,
+        onPublish: _publishSharedTimetable,
+        showDeleteButton: false,
+      ),
     );
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -655,84 +662,86 @@ class _WebAdminSettingsScreenState
   Widget _buildBrandingTab() {
     // 로드 전에는 입력·저장을 모두 잠근다 (saving 플래그 재사용).
     final editingLocked = _saving || !_brandingLoaded;
+    // 입력 폼은 640으로 묶어 가운데에 둔다 — 바깥 1000 폭 그대로 쓰면
+    // 입력란이 지나치게 넓어진다 (비밀번호 탭 420과 같은 이유).
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       children: [
-        if (!_brandingLoaded)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.orange.shade50,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: Colors.orange.shade200),
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 640),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (!_brandingLoaded)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.orange.shade200),
+                    ),
+                    child: Text(
+                      _saving
+                          ? '접속 화면 설정을 불러오는 중…'
+                          : '설정을 불러오지 못했습니다. 저장이 비활성화됩니다.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.orange.shade800,
+                      ),
+                    ),
+                  ),
+                if (!_brandingLoaded) const SizedBox(height: 8),
+                WebAdminLoginBrandingSection(
+                  saving: editingLocked,
+                  displayLogoBytes: _displayLogoBytes,
+                  showRemoveLogoButton:
+                      _displayLogoBytes != null ||
+                      (!_removeLogo && _branding.logoUrl.isNotEmpty),
+                  onPickLogo: _pickSchoolLogo,
+                  onRemoveLogo:
+                      () => setState(() {
+                        _pendingLogoBytes = null;
+                        _removeLogo = true;
+                      }),
+                  schoolHomeUrlController: _schoolHomeUrlController,
+                  loginMessageController: _loginMessageController,
+                  loginNoticeController: _loginNoticeController,
+                  onApplyDefaultNotice: _applyDefaultLoginNotice,
+                  onShowPreview: _showLoginPreview,
+                  onSaveBranding: _saveBrandingAndSchool,
+                  showSaveButton: false,
+                ),
+                const Divider(height: 24),
+        WebAdminDefaultSchoolNameSection(
+                  saving: editingLocked,
+                  controller: _defaultSchoolNameController,
+                  onSave: _saveBrandingAndSchool,
+                  showSaveButton: false,
+                ),
+                const Divider(height: 24),
+                WebAdminGuideButtonSection(
+                  saving: editingLocked,
+                  labelController: _guideButtonLabelController,
+                  urlController: _guideButtonUrlController,
+                  onSave: _saveBrandingAndSchool,
+                  showSaveButton: false,
+                ),
+                const Divider(height: 24),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: ElevatedButton(
+                    onPressed: editingLocked ? null : _saveBrandingAndSchool,
+                    child: const Text('접속 화면 저장'),
+                  ),
+                ),
+              ],
             ),
-            child: Text(
-              _saving
-                  ? '접속 화면 설정을 불러오는 중…'
-                  : '설정을 불러오지 못했습니다. 저장이 비활성화됩니다.',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.orange.shade800,
-              ),
-            ),
-          ),
-        if (!_brandingLoaded) const SizedBox(height: 8),
-        WebAdminLoginBrandingSection(
-          saving: editingLocked,
-          displayLogoBytes: _displayLogoBytes,
-          showRemoveLogoButton:
-              _displayLogoBytes != null ||
-              (!_removeLogo && _branding.logoUrl.isNotEmpty),
-          onPickLogo: _pickSchoolLogo,
-          onRemoveLogo:
-              () => setState(() {
-                _pendingLogoBytes = null;
-                _removeLogo = true;
-              }),
-          schoolHomeUrlController: _schoolHomeUrlController,
-          loginMessageController: _loginMessageController,
-          loginNoticeController: _loginNoticeController,
-          onApplyDefaultNotice: _applyDefaultLoginNotice,
-          onShowPreview: _showLoginPreview,
-          onSaveBranding: _saveBrandingAndSchool,
-          showSaveButton: false,
-        ),
-        const Divider(height: 24),
-        ExpansionTile(
-          tilePadding: EdgeInsets.zero,
-          title: const Text(
-            '고급: 기본 학교명·사용법 버튼',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-          ),
-          subtitle: const Text(
-            '대부분의 학교는 건드릴 필요 없습니다.',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
-          ),
-          children: [
-            WebAdminDefaultSchoolNameSection(
-              saving: editingLocked,
-              controller: _defaultSchoolNameController,
-              onSave: _saveBrandingAndSchool,
-              showSaveButton: false,
-            ),
-            const Divider(height: 24),
-            WebAdminGuideButtonSection(
-              saving: editingLocked,
-              labelController: _guideButtonLabelController,
-              urlController: _guideButtonUrlController,
-              onSave: _saveBrandingAndSchool,
-              showSaveButton: false,
-            ),
-          ],
-        ),
-        const Divider(height: 24),
-        Align(
-          alignment: Alignment.centerRight,
-          child: ElevatedButton(
-            onPressed: editingLocked ? null : _saveBrandingAndSchool,
-            child: const Text('접속 화면 저장'),
           ),
         ),
       ],
@@ -754,99 +763,110 @@ class _WebAdminSettingsScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-        Center(
-          child: SegmentedButton<bool>(
-            showSelectedIcon: false,
-            style: const ButtonStyle(visualDensity: VisualDensity.compact),
-            segments: const [
-              ButtonSegment(value: true, label: Text('접속자')),
-              ButtonSegment(value: false, label: Text('관리자')),
-            ],
-            selected: {_passwordRoleIsViewer},
-            onSelectionChanged:
-                _saving
-                    ? null
-                    : (s) => setState(() => _passwordRoleIsViewer = s.first),
-            ),
-          ),
-          const SizedBox(height: 12),
-          WebAdminPasswordField(
-          controller:
-              isViewer ? _viewerPasswordController : _adminPasswordController,
-          label: isViewer ? '새 접속자 비밀번호 (4자 이상)' : '새 관리자 비밀번호 (4자 이상)',
-          visible: isViewer ? _viewerVisible : _adminVisible,
-          onToggle:
-              isViewer
-                  ? () => setState(() => _viewerVisible = !_viewerVisible)
-                  : () => setState(() => _adminVisible = !_adminVisible),
-        ),
-        const SizedBox(height: 8),
-        WebAdminPasswordField(
-          controller:
-              isViewer
-                  ? _viewerPasswordConfirmController
-                  : _adminPasswordConfirmController,
-          label: isViewer ? '새 접속자 비밀번호 확인' : '새 관리자 비밀번호 확인',
-          visible: isViewer ? _viewerVisible : _adminVisible,
-          onToggle:
-              isViewer
-                  ? () => setState(() => _viewerVisible = !_viewerVisible)
-                  : () => setState(() => _adminVisible = !_adminVisible),
-        ),
-        const SizedBox(height: 6),
-        Align(
-          alignment: Alignment.centerRight,
-          child: ElevatedButton(
-            onPressed:
-                _saving
-                    ? null
-                    : (isViewer ? _saveViewerPassword : _saveAdminPassword),
-            style: ElevatedButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-            ),
-            child: Text(isViewer ? '접속자 비밀번호 저장' : '관리자 비밀번호 저장'),
-          ),
-        ),
-        const Divider(height: 24),
-        ExpansionTile(
-          tilePadding: EdgeInsets.zero,
-          title: const Text(
-            '비밀번호를 잊으셨나요?',
-            style: TextStyle(fontSize: 12),
-          ),
-          children: [
-            TextField(
-              controller: _masterIdController,
-              decoration: const InputDecoration(
-                labelText: '마스터 ID',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _masterPasswordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: '마스터 비밀번호',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              onSubmitted: (_) => _submitMasterRecovery(),
-            ),
-            const SizedBox(height: 6),
-            Align(
-              alignment: Alignment.centerRight,
-              child: OutlinedButton(
-                onPressed: _saving ? null : _submitMasterRecovery,
-                style: OutlinedButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
+                Center(
+                  child: SegmentedButton<bool>(
+                    showSelectedIcon: false,
+                    style: const ButtonStyle(
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    segments: const [
+                      ButtonSegment(value: true, label: Text('접속자')),
+                      ButtonSegment(value: false, label: Text('관리자')),
+                    ],
+                    selected: {_passwordRoleIsViewer},
+                    onSelectionChanged:
+                        _saving
+                            ? null
+                            : (s) =>
+                                setState(() => _passwordRoleIsViewer = s.first),
+                  ),
                 ),
-                child: const Text('마스터로 인증하기'),
-              ),
-            ),
-          ],
-        ),
+                const SizedBox(height: 12),
+                WebAdminPasswordField(
+                  controller:
+                      isViewer
+                          ? _viewerPasswordController
+                          : _adminPasswordController,
+                  label: isViewer ? '새 접속자 비밀번호 (4자 이상)' : '새 관리자 비밀번호 (4자 이상)',
+                  visible: isViewer ? _viewerVisible : _adminVisible,
+                  onToggle:
+                      isViewer
+                          ? () =>
+                              setState(() => _viewerVisible = !_viewerVisible)
+                          : () =>
+                              setState(() => _adminVisible = !_adminVisible),
+                ),
+                const SizedBox(height: 8),
+                WebAdminPasswordField(
+                  controller:
+                      isViewer
+                          ? _viewerPasswordConfirmController
+                          : _adminPasswordConfirmController,
+                  label: isViewer ? '새 접속자 비밀번호 확인' : '새 관리자 비밀번호 확인',
+                  visible: isViewer ? _viewerVisible : _adminVisible,
+                  onToggle:
+                      isViewer
+                          ? () =>
+                              setState(() => _viewerVisible = !_viewerVisible)
+                          : () =>
+                              setState(() => _adminVisible = !_adminVisible),
+                ),
+                const SizedBox(height: 6),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: ElevatedButton(
+                    onPressed:
+                        _saving
+                            ? null
+                            : (isViewer
+                                ? _saveViewerPassword
+                                : _saveAdminPassword),
+                    style: ElevatedButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    child: Text(isViewer ? '접속자 비밀번호 저장' : '관리자 비밀번호 저장'),
+                  ),
+                ),
+                const Divider(height: 24),
+                ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  title: const Text(
+                    '비밀번호를 잊으셨나요?',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  children: [
+                    TextField(
+                      controller: _masterIdController,
+                      decoration: const InputDecoration(
+                        labelText: '마스터 ID',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _masterPasswordController,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: '마스터 비밀번호',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      onSubmitted: (_) => _submitMasterRecovery(),
+                    ),
+                    const SizedBox(height: 6),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: OutlinedButton(
+                        onPressed: _saving ? null : _submitMasterRecovery,
+                        style: OutlinedButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        child: const Text('마스터로 인증하기'),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),

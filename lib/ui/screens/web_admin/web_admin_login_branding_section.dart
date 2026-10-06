@@ -109,7 +109,11 @@ class WebAdminLoginBrandingSection extends StatelessWidget {
         const SizedBox(height: 8),
         TextField(
           controller: loginNoticeController,
-          maxLines: 4,
+          // 내용에 따라 늘어나고, 안에서 스크롤되지 않는다 (바깥 ListView가
+          // 스크롤한다). maxLines 고정은 긴 안내가 안에서 잘리게 만든다.
+          minLines: 4,
+          maxLines: null,
+          keyboardType: TextInputType.multiline,
           decoration: const InputDecoration(
             labelText: '안내 문구 (사각형 박스)',
             hintText: '선생님 전용입니다. 비밀번호를 입력해 주세요.',

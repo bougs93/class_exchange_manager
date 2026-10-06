@@ -199,7 +199,8 @@ void main() {
       // 꾸미기 탭
       await goTab(tester, '꾸미기');
       expect(find.text('접속 화면 (학교 로고·안내)'), findsOneWidget);
-      expect(find.text('고급: 기본 학교명·사용법 버튼'), findsOneWidget);
+      expect(find.text('기본 학교명 설정'), findsOneWidget);
+      expect(find.text('사용법 버튼'), findsOneWidget);
       // 섹션별 저장 버튼은 통합 버튼 하나로 합쳐졌다
       expect(find.text('기본 학교명 저장'), findsNothing);
       expect(find.text('사용법 버튼 저장'), findsNothing);
