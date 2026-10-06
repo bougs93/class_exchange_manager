@@ -25,7 +25,7 @@ class FakeCircularExchangeSettingsStorage
     implements CircularExchangeSettingsStorage {
   bool enabled;
 
-  FakeCircularExchangeSettingsStorage({this.enabled = false});
+  FakeCircularExchangeSettingsStorage({this.enabled = true});
 
   @override
   Future<bool> getCircularExchangeEnabled() async => enabled;
@@ -39,7 +39,7 @@ class FakeCircularExchangeSettingsStorage
 
 Widget _buildSelector({
   required bool dualExchangeEnabled,
-  bool circularExchangeEnabled = false,
+  bool circularExchangeEnabled = true,
   ExchangeMode currentMode = ExchangeMode.view,
 }) {
   return ProviderScope(
@@ -93,10 +93,10 @@ void main() {
     expect(find.text('2중교체'), findsOneWidget);
   });
 
-  testWidgets('기본값 → 2중교체 ON, 순환교체 OFF', (tester) async {
+  testWidgets('기본값 → 2중교체 ON, 순환교체 ON', (tester) async {
     await tester.pumpWidget(_buildSelector(dualExchangeEnabled: true));
 
     expect(find.text('2중교체'), findsOneWidget);
-    expect(find.text('순환교체'), findsNothing);
+    expect(find.text('순환교체'), findsOneWidget);
   });
 }

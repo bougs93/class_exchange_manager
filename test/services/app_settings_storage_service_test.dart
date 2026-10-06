@@ -59,7 +59,7 @@ void main() {
     test('기타 설정 기본값 상수', () {
       expect(AppSettingsDefaults.languageCode, 'ko');
       expect(AppSettingsDefaults.dualExchangeEnabled, isTrue);
-      expect(AppSettingsDefaults.circularExchangeEnabled, isFalse);
+      expect(AppSettingsDefaults.circularExchangeEnabled, isTrue);
       expect(
         AppSettingsDefaults.oneToOneArrowDirection,
         ArrowDirection.bidirectional,

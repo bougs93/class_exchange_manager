@@ -61,7 +61,7 @@ class CircularExchangeEnabledNotifier extends StateNotifier<bool> {
     bool skipInitialLoad = false,
     bool? initialValue,
   }) : _storageService = storageService ?? AppSettingsStorageService(),
-       super(initialValue ?? false) {
+       super(initialValue ?? true) {
     if (!skipInitialLoad && initialValue == null) {
       _loadInitial();
     }
@@ -75,7 +75,7 @@ class CircularExchangeEnabledNotifier extends StateNotifier<bool> {
       state = enabled;
     } catch (e) {
       AppLogger.error('순환 교체 설정 초기 로드 실패: $e', e);
-      state = false;
+      state = true;
     }
   }
 

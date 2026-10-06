@@ -10,7 +10,7 @@ class AppSettingsDefaults {
 
   static const String languageCode = 'ko';
   static const bool dualExchangeEnabled = true;
-  static const bool circularExchangeEnabled = false;
+  static const bool circularExchangeEnabled = true;
   static const ArrowDirection oneToOneArrowDirection =
       ArrowDirection.bidirectional;
   static const ArrowDirection dualArrowDirection = ArrowDirection.bidirectional;
@@ -258,19 +258,19 @@ class AppSettingsStorageService
   /// 순환 교체 기능 사용 여부 로드
   ///
   /// 반환값:
-  /// - `Future<bool>`: 활성화 여부 (기본값: false)
+  /// - `Future<bool>`: 활성화 여부 (기본값: true)
   @override
   Future<bool> getCircularExchangeEnabled() async {
     try {
       final settings = await loadAppSettings();
       if (settings == null) {
-        return false;
+        return true;
       }
 
-      return settings['circularExchangeEnabled'] as bool? ?? false;
+      return settings['circularExchangeEnabled'] as bool? ?? true;
     } catch (e) {
       AppLogger.error('순환 교체 설정 로드 중 오류: $e', e);
-      return false;
+      return true;
     }
   }
 
