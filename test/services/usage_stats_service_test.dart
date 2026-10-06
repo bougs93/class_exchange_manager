@@ -87,4 +87,34 @@ void main() {
     expect(await s.deleteRange(from: from, to: to), 1);
     expect(await s.deleteRange(), 2);
   });
+
+  test('교사 삭제는 해당 교사만 지우고 합계에서 차감한다', () async {
+    final b = FakeUsageBackend(
+      days: [
+        UsageDay(
+          date: '2026-10-05',
+          totals: const {UsageKeys.visits: 5},
+          teachers: const {
+            '김교사': {UsageKeys.visits: 3},
+            '이교사': {UsageKeys.visits: 2},
+          },
+          visitors: const {'a', 'b'},
+        ),
+      ],
+    );
+    final s = make(b);
+    final from = DateTime(2026, 10, 1);
+    final to = DateTime(2026, 10, 31);
+    expect(
+      await s.deleteTeacher(from: from, to: to, teacher: '김교사'),
+      1,
+    );
+    final day = b.days.single;
+    expect(day.teachers.keys, ['이교사']);
+    expect(day.totals[UsageKeys.visits], 2);
+    // 방문자(uid)는 교사 귀속이 아니라 남긴다
+    expect(day.visitors, {'a', 'b'});
+    // 없는 교사는 0
+    expect(await s.deleteTeacher(from: from, to: to, teacher: '박교사'), 0);
+  });
 }

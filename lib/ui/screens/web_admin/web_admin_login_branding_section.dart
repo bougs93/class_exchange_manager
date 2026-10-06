@@ -23,6 +23,7 @@ class WebAdminLoginBrandingSection extends StatelessWidget {
     required this.onApplyDefaultNotice,
     required this.onShowPreview,
     required this.onSaveBranding,
+    this.showSaveButton = true,
   });
 
   final bool saving;
@@ -42,6 +43,12 @@ class WebAdminLoginBrandingSection extends StatelessWidget {
   final VoidCallback onApplyDefaultNotice;
   final VoidCallback onShowPreview;
   final VoidCallback onSaveBranding;
+
+  /// 저장 버튼 표시 여부 (기본 true).
+  ///
+  /// 접속 설정 꾸미기 탭은 학교명·사용법 버튼까지 한 번에 저장하는
+  /// 통합 버튼을 탭 하단에 두므로, 섹션별 버튼은 false로 숨긴다.
+  final bool showSaveButton;
 
   @override
   Widget build(BuildContext context) {
@@ -130,14 +137,16 @@ class WebAdminLoginBrandingSection extends StatelessWidget {
               ),
               child: const Text('미리보기'),
             ),
-            const SizedBox(width: 8),
-            ElevatedButton(
-              onPressed: saving ? null : onSaveBranding,
-              style: ElevatedButton.styleFrom(
-                visualDensity: VisualDensity.compact,
+            if (showSaveButton) ...[
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: saving ? null : onSaveBranding,
+                style: ElevatedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                ),
+                child: const Text('접속 화면 저장'),
               ),
-              child: const Text('접속 화면 저장'),
-            ),
+            ],
           ],
         ),
       ],

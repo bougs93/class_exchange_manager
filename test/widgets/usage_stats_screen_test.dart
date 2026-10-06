@@ -90,5 +90,50 @@ void main() {
   testWidgets('좁은 폭에서도 오버플로가 없다', (tester) async {
     await pumpScreen(tester, width: 320);
     expect(tester.takeException(), isNull);
+    // 잘린 표 쪽으로 스크롤할 수 있음이 드러나야 한다
+    expect(find.byType(Scrollbar), findsWidgets);
+  });
+
+  testWidgets('새로고침 버튼을 누르면 다시 불러와도 수치가 유지된다', (tester) async {
+    await pumpScreen(tester);
+    expect(find.text('새로고침'), findsOneWidget);
+
+    await tester.tap(find.text('새로고침'));
+    await pumpFrames(tester);
+
+    expect(
+      tester.widget<Text>(find.byKey(const ValueKey('usage-card-접속 수'))).data,
+      '5',
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('교사 행 삭제는 확인 후 해당 교사만 지우고 합계를 차감한다', (
+    tester,
+  ) async {
+    await pumpScreen(tester);
+    expect(find.text('김교사'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.byTooltip("'김교사' 통계 삭제"),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byTooltip("'김교사' 통계 삭제"));
+    await pumpFrames(tester);
+    expect(find.textContaining("'김교사'"), findsWidgets);
+
+    await tester.tap(find.text('삭제'));
+    await pumpFrames(tester);
+
+    expect(find.text('김교사'), findsNothing);
+    expect(
+      tester.widget<Text>(find.byKey(const ValueKey('usage-card-접속 수'))).data,
+      '2',
+    );
+    expect(backend.days.single.teachers.keys, isNot(contains('김교사')));
+    expect(tester.takeException(), isNull);
+    // 스낵바 타이머 정리
+    await tester.pump(const Duration(seconds: 10));
   });
 }

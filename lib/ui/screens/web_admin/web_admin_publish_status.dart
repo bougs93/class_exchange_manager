@@ -19,6 +19,7 @@ class WebAdminPublishStatus extends ConsumerWidget {
     required this.publishedName,
     required this.deleting,
     required this.onDelete,
+    this.showDeleteButton = true,
   });
 
   final bool publishing;
@@ -28,6 +29,12 @@ class WebAdminPublishStatus extends ConsumerWidget {
   final String? publishedName;
   final bool deleting;
   final VoidCallback? onDelete;
+
+  /// 삭제 버튼 표시 여부 (기본 true).
+  ///
+  /// 접속 설정 시간표 탭은 삭제를 별도 위험 구역 카드로 분리하므로
+  /// false로 둔다 — 같은 화면에 삭제 버튼이 두 개 생기지 않게 한다.
+  final bool showDeleteButton;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -92,7 +99,7 @@ class WebAdminPublishStatus extends ConsumerWidget {
                   style: const TextStyle(fontSize: 12),
                 ),
               ),
-              if (active != null)
+              if (active != null && showDeleteButton)
                 TextButton(
                   onPressed: deleting ? null : onDelete,
                   style: TextButton.styleFrom(

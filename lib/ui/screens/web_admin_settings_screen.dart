@@ -12,6 +12,8 @@ import '../../constants/login_notice_default.dart';
 import '../../models/dated_timetable.dart';
 import '../../models/lesson.dart';
 import '../../models/web_login_branding.dart';
+import '../../constants/nav_indices.dart';
+import '../../providers/navigation_provider.dart';
 import '../../providers/timetable_registry_provider.dart';
 import '../../providers/web_services_provider.dart';
 import '../../providers/timetable_repository_provider.dart';
@@ -20,16 +22,18 @@ import '../../services/semester_timetable_generator.dart';
 import '../../services/timetable_storage_service.dart';
 import '../../services/web_auth_service.dart';
 import '../../services/web_branding_service.dart';
+import '../../models/usage_event.dart';
 import '../../utils/logger.dart';
+import '../../utils/usage_stats_aggregator.dart';
 import '../../utils/snackbar_helper.dart';
 import '../widgets/web_login_screen_preview.dart';
 import 'timetable_file_register_dialog.dart';
 import 'web_admin/web_admin_default_school_name_section.dart';
 import 'web_admin/web_admin_guide_button_section.dart';
 import 'web_admin/web_admin_login_branding_section.dart';
-import 'web_admin/web_admin_password_section.dart';
+import 'web_admin/web_admin_password_field.dart';
 import 'web_admin/web_admin_publish_section.dart';
-import 'web_admin/web_admin_usage_stats_section.dart';
+import 'web_admin/usage_stats_body.dart';
 import 'web_login_gate.dart';
 
 /// 관리자용 접속 설정 변경 화면 (웹 전용, 웹 전환 2단계).
@@ -82,6 +86,12 @@ class _WebAdminSettingsScreenState
   String _pendingLogoContentType = 'image/png';
   bool _removeLogo = false;
   bool _saving = false;
+
+  /// 서버 설정을 한 번이라도 온전히 읽어온 뒤 true.
+  ///
+  /// false인 채로 저장하면 빈 입력란이 기존값을 덮어써 버리므로,
+  /// 꾸미기 탭의 저장 버튼은 이 플래그가 서기 전까지 비활성화한다.
+  bool _brandingLoaded = false;
   bool _publishing = false;
   bool _deleting = false;
   bool _publishFailed = false;
@@ -91,6 +101,15 @@ class _WebAdminSettingsScreenState
   bool _viewerVisible = false;
   bool _adminVisible = false;
 
+  /// 비밀번호 탭의 역할 선택 (true=접속자, false=관리자).
+  ///
+  /// 입력란 4개를 2개로 공유한다. 컨트롤러는 역할별로 그대로 유지해,
+  /// 전환해도 상대방이 입력하던 값이 지워지지 않는다.
+  bool _passwordRoleIsViewer = true;
+
+  final _masterIdController = TextEditingController();
+  final _masterPasswordController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -98,6 +117,10 @@ class _WebAdminSettingsScreenState
   }
 
   /// 현재 로그인 브랜딩·기본 학교명을 입력란에 미리 채운다.
+  ///
+  /// 기본 학교명 조회는 별도 try/catch로 감싼다 — 이 조회가 실패해도
+  /// 브랜딩 입력란은 채워져야 하고, 그래야 저장 버튼도 활성화된다.
+  /// (한 번에 묶여 있으면 학교명 조회 실패가 브랜딩 표시까지 막았다.)
   Future<void> _loadCurrentMessage() async {
     try {
       final branding = await _brandingService.load();
@@ -105,12 +128,17 @@ class _WebAdminSettingsScreenState
           branding.hasLogo
               ? await _brandingService.resolveLogoBytes(branding)
               : null;
-      final doc = await FirebaseFirestore.instance
-          .collection('config')
-          .doc('public')
-          .get()
-          .timeout(FirebaseAppConfig.networkTimeout);
-      final schoolName = doc.data()?['defaultSchoolName'] as String?;
+      String? schoolName;
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('config')
+            .doc('public')
+            .get()
+            .timeout(FirebaseAppConfig.networkTimeout);
+        schoolName = doc.data()?['defaultSchoolName'] as String?;
+      } catch (e) {
+        AppLogger.warning('기본 학교명 조회 실패 — 학교명란을 비운 채 표시: $e');
+      }
       if (!mounted) return;
       setState(() {
         _branding = branding;
@@ -123,10 +151,12 @@ class _WebAdminSettingsScreenState
         _pendingLogoBytes = null;
         _removeLogo = false;
         if (schoolName != null) _defaultSchoolNameController.text = schoolName;
+        _brandingLoaded = true;
       });
     } catch (e) {
-      // 조회 실패 시 빈칸 유지 — 화면은 열어 두되 원인은 로그로 남긴다.
-      // 아무 기록 없이 삼키면 "저장한 설정이 왜 안 보이지?"를 추적할 수 없다.
+      // 조회 실패 시 빈칸 유지 + 저장 비활성화 — 화면은 열어 두되 원인은
+      // 로그로 남긴다. 아무 기록 없이 삼키면 "저장한 설정이 왜 안 보이지?"
+      // 를 추적할 수 없다.
       AppLogger.warning('접속 설정 조회 실패 — 입력란을 비운 채 표시: $e');
     }
   }
@@ -149,6 +179,8 @@ class _WebAdminSettingsScreenState
     _guideButtonLabelController.dispose();
     _guideButtonUrlController.dispose();
     _defaultSchoolNameController.dispose();
+    _masterIdController.dispose();
+    _masterPasswordController.dispose();
     super.dispose();
   }
 
@@ -215,6 +247,30 @@ class _WebAdminSettingsScreenState
     }
   }
 
+  /// 마스터 복구 인증 (비밀번호 분실 대비).
+  ///
+  /// 접속 게이트의 마스터 폼과 같은 판정이다. 성공하면 관리자 세션을
+  /// 갱신하고 관리자 비번 변경 폼으로 안내한다.
+  Future<void> _submitMasterRecovery() async {
+    final ok = WebAuthService.verifyMaster(
+      _masterIdController.text.trim(),
+      _masterPasswordController.text,
+    );
+    if (!mounted) return;
+    if (ok) {
+      await WebAuthService.saveSession(viewer: true, admin: true);
+      if (!mounted) return;
+      ref.read(webLoginStatusProvider.notifier).state =
+          WebLoginStatus.adminOk;
+      _masterIdController.clear();
+      _masterPasswordController.clear();
+      setState(() => _passwordRoleIsViewer = false);
+      SnackBarHelper.showInfo(context, '마스터 계정으로 인증됐습니다. 새 관리자 비밀번호를 설정하세요.');
+    } else {
+      SnackBarHelper.showError(context, '마스터 ID 또는 비밀번호가 맞지 않습니다.');
+    }
+  }
+
   WebLoginBranding _draftBranding() {
     return _branding.copyWith(
       title: _loginMessageController.text.trim(),
@@ -270,7 +326,18 @@ class _WebAdminSettingsScreenState
     });
   }
 
-  Future<void> _saveLoginBranding() async {
+  /// 꾸미기 탭 저장 1개 — 브랜딩 + 기본 학교명을 한 번에 저장한다.
+  ///
+  /// 반드시 단일 `_runGuarded` 블록 안에 두 쓰기를 넣는다. 예전처럼
+  /// 브랜딩 저장과 학교명 저장을 따로 `_runGuarded`로 감싸 순차 호출하면,
+  /// 첫 번째가 `_saving=true`로 두는 동안 두 번째가 '처리 중'으로 잘려
+  /// 학교명이 조용히 저장되지 않는다.
+  ///
+  /// 교사·학교명은 전역 설정이 아니라 시간표 속성이다(문서 §2) — 기본
+  /// 학교명은 "준비 > 학교명"과 "계획서 > 결보강 출력 > 학교명"이 아직
+  /// 비어 있을 때만 채워 주는 1회성 추천값일 뿐이고, 교사가 각자 다르게
+  /// 입력하면 그 값이 그대로 유지된다(2026-10-02 요청).
+  Future<void> _saveBrandingAndSchool() async {
     final homeUrl = _schoolHomeUrlController.text.trim();
     if (homeUrl.isNotEmpty) {
       final uri = Uri.tryParse(homeUrl);
@@ -295,6 +362,7 @@ class _WebAdminSettingsScreenState
       }
     }
 
+    final schoolName = _defaultSchoolNameController.text.trim();
     final pendingBytes = _pendingLogoBytes;
     final error = await _runGuarded(() async {
       var next = _draftBranding();
@@ -317,6 +385,13 @@ class _WebAdminSettingsScreenState
         // 저장 직후 network URL 대신 방금 올린 바이트를 계속 보여 준다.
         _storedLogoBytes = pendingBytes;
       }
+      await FirebaseFirestore.instance.collection('config').doc('public').set({
+        'defaultSchoolName': schoolName,
+      }, SetOptions(merge: true));
+      // `defaultSchoolNameProvider`는 Firestore 문서를 실시간 구독하는
+      // StreamProvider라 여기서 따로 무효화하지 않아도 된다 — 이 저장이
+      // 끝나는 순간 열려 있는 모든 탭(관리자 포함)에 새 값이 자동으로
+      // 푸시된다.
       _pendingLogoBytes = null;
       _removeLogo = false;
     });
@@ -363,33 +438,6 @@ class _WebAdminSettingsScreenState
     SnackBarHelper.showInfo(context, '기본 안내 문구를 넣었습니다. 저장을 눌러 반영하세요.');
   }
 
-  /// 기본 학교명 저장.
-  ///
-  /// 교사·학교명은 전역 설정이 아니라 시간표 속성이다(문서 §2) — 이 값은
-  /// 그 규칙을 바꾸지 않는다. "준비 > 학교명"과 "계획서 > 결보강 출력 >
-  /// 학교명"이 아직 비어 있을 때만 채워 주는 1회성 추천값일 뿐이고, 교사가
-  /// 각자 다르게 입력하면 그 값이 그대로 유지된다(2026-10-02 요청).
-  Future<void> _saveDefaultSchoolName() async {
-    final schoolName = _defaultSchoolNameController.text.trim();
-    final error = await _runGuarded(() async {
-      await FirebaseFirestore.instance.collection('config').doc('public').set({
-        'defaultSchoolName': schoolName,
-      }, SetOptions(merge: true));
-    });
-    if (!mounted) return;
-    if (error == null) {
-      // `defaultSchoolNameProvider`는 Firestore 문서를 실시간 구독하는
-      // StreamProvider라 여기서 따로 무효화하지 않아도 된다 — 이 저장이
-      // 끝나는 순간 열려 있는 모든 탭(관리자 포함)에 새 값이 자동으로
-      // 푸시된다. (처음엔 한 번만 읽는 FutureProvider였는데, 관리자와
-      // 교사가 서로 다른 탭을 쓰면 교사 쪽에 무효화 신호가 닿지 않아
-      // 반영되지 않았다 — 2026-10-02 실제 보고로 스트림 방식으로 바꿨다.)
-      SnackBarHelper.showSuccess(context, '기본 학교명을 변경했습니다.');
-    } else {
-      SnackBarHelper.showError(context, '저장 실패: $error');
-    }
-  }
-
   /// Firestore 작업을 실행하고, 실패 시 오류 문자열을 반환한다 (성공 시 null).
   Future<String?> _runGuarded(Future<void> Function() task) async {
     if (_saving) return '처리 중입니다. 잠시 후 다시 시도하세요.';
@@ -420,76 +468,390 @@ class _WebAdminSettingsScreenState
       ),
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            children: [
-              WebAdminLoginBrandingSection(
-                saving: _saving,
-                displayLogoBytes: _displayLogoBytes,
-                showRemoveLogoButton:
-                    _displayLogoBytes != null ||
-                    (!_removeLogo && _branding.logoUrl.isNotEmpty),
-                onPickLogo: _pickSchoolLogo,
-                onRemoveLogo:
-                    () => setState(() {
-                      _pendingLogoBytes = null;
-                      _removeLogo = true;
-                    }),
-                schoolHomeUrlController: _schoolHomeUrlController,
-                loginMessageController: _loginMessageController,
-                loginNoticeController: _loginNoticeController,
-                onApplyDefaultNotice: _applyDefaultLoginNotice,
-                onShowPreview: _showLoginPreview,
-                onSaveBranding: _saveLoginBranding,
-              ),
-              const Divider(height: 24),
-              WebAdminDefaultSchoolNameSection(
-                saving: _saving,
-                controller: _defaultSchoolNameController,
-                onSave: _saveDefaultSchoolName,
-              ),
-              const Divider(height: 24),
-              WebAdminGuideButtonSection(
-                saving: _saving,
-                labelController: _guideButtonLabelController,
-                urlController: _guideButtonUrlController,
-                onSave: _saveLoginBranding,
-              ),
-              const Divider(height: 24),
-              WebAdminPublishSection(
-                publishing: _publishing,
-                publishMessage: _publishMessage,
-                publishResult: _publishResult,
-                publishFailed: _publishFailed,
-                publishedName: _publishedName,
-                deleting: _deleting,
-                onDelete: _deleteCurrentTimetable,
-                onPublish: _publishSharedTimetable,
-              ),
-              const Divider(height: 24),
-              const WebAdminUsageStatsSection(),
-              const Divider(height: 24),
-              WebAdminPasswordSection(
-                saving: _saving,
-                viewerPasswordController: _viewerPasswordController,
-                viewerPasswordConfirmController:
-                    _viewerPasswordConfirmController,
-                viewerVisible: _viewerVisible,
-                onToggleViewerVisible:
-                    () => setState(() => _viewerVisible = !_viewerVisible),
-                onSaveViewerPassword: _saveViewerPassword,
-                adminPasswordController: _adminPasswordController,
-                adminPasswordConfirmController: _adminPasswordConfirmController,
-                adminVisible: _adminVisible,
-                onToggleAdminVisible:
-                    () => setState(() => _adminVisible = !_adminVisible),
-                onSaveAdminPassword: _saveAdminPassword,
-              ),
-            ],
+          // 탭2·탭4는 넓은 화면에서 2열 카드를 쓰므로 1000까지 허용한다.
+          // 비밀번호 탭은 안에서 420으로 다시 좁힌다.
+          constraints: const BoxConstraints(maxWidth: 1000),
+          child: DefaultTabController(
+            length: 4,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: _AdminStatusStrip(
+                    publishing: _publishing,
+                    publishMessage: _publishMessage,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // 게시 중에는 탭을 옮기지 못하게 막는다 — 진행 문구가
+                // 시간표 탭 안에 있어 옮기면 "멈춘 것처럼" 보인다.
+                IgnorePointer(
+                  ignoring: _publishing,
+                  child: const TabBar(
+                    tabs: [
+                      Tab(text: '시간표'),
+                      Tab(text: '꾸미기'),
+                      Tab(text: '비밀번호'),
+                      Tab(text: '통계'),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: TabBarView(
+                    physics:
+                        _publishing
+                            ? const NeverScrollableScrollPhysics()
+                            : null,
+                    children: [
+                      _buildPublishTab(),
+                      _buildBrandingTab(),
+                      _buildPasswordTab(),
+                      const UsageStatsBody(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  /// 탭1: 공용 시간표 올리기 + 위험 구역(삭제) 분리.
+  ///
+  /// 넓으면 게시·삭제를 나란히, 좁으면 세로로 쌓는다. 삭제 버튼은
+  /// 위험 구역 카드에만 둔다 (`showDeleteButton: false`).
+  Widget _buildPublishTab() {
+    final publishCard = WebAdminPublishSection(
+      publishing: _publishing,
+      publishMessage: _publishMessage,
+      publishResult: _publishResult,
+      publishFailed: _publishFailed,
+      publishedName: _publishedName,
+      deleting: _deleting,
+      onDelete: _deleteCurrentTimetable,
+      onPublish: _publishSharedTimetable,
+      showDeleteButton: false,
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final List<Widget> cards;
+        if (constraints.maxWidth >= 700) {
+          cards = [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: publishCard),
+                const SizedBox(width: 12),
+                Expanded(child: _buildPublishDangerCard()),
+              ],
+            ),
+          ];
+        } else {
+          cards = [
+            publishCard,
+            const SizedBox(height: 12),
+            _buildPublishDangerCard(),
+          ];
+        }
+        return ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          children: [
+            ...cards,
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _publishing ? null : _openPrepareScreen,
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                ),
+                icon: const Icon(Icons.arrow_back_outlined, size: 16),
+                label: const Text('준비 화면에서 시간표 추가·관리'),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 시간표 삭제 위험 구역 카드 (기기+서버 함께 삭제, 복구 불가).
+  Widget _buildPublishDangerCard() {
+    final active = ref.watch(activeTimetableEntryProvider);
+    final name = active?.name;
+    final busy = _deleting || _publishing;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.red.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.warning_amber_rounded,
+                size: 16,
+                color: Colors.red.shade700,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '위험 구역',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.red.shade700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            name != null ? '현재 시간표: $name' : '삭제할 시간표가 없습니다.',
+            style: const TextStyle(fontSize: 12),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            '기기와 서버의 공용 시간표가 함께 지워지며 되돌릴 수 없습니다.',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton(
+              onPressed:
+                  (active == null || busy) ? null : _deleteCurrentTimetable,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.red,
+                visualDensity: VisualDensity.compact,
+              ),
+              child: Text(_deleting ? '삭제 중…' : '현재 시간표 삭제'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 준비 화면(시간표 추가·관리)으로 돌아간다.
+  ///
+  /// 웹 접속자는 시간표 추가·관리를 하지 않으므로(`_canManageTimetable`),
+  /// 이 화면에 들어온 건 관리자뿐이라 바로 이동해도 된다.
+  void _openPrepareScreen() {
+    ref.read(navigationProvider.notifier).state = NavIndices.start;
+    Navigator.of(context).pop();
+  }
+
+  /// 탭2: 접속 화면 꾸미기 (로고·제목·안내 + 고급 접힘 + 저장 1개).
+  ///
+  /// 저장은 셋이 같은 `_saveBrandingAndSchool` 하나로 합쳐졌다. 서버에서
+  /// 설정을 읽기 전(`_brandingLoaded == false`)에는 저장을 막는다 —
+  /// 빈 입력란이 기존값을 덮어써 버리기 때문이다.
+  Widget _buildBrandingTab() {
+    // 로드 전에는 입력·저장을 모두 잠근다 (saving 플래그 재사용).
+    final editingLocked = _saving || !_brandingLoaded;
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      children: [
+        if (!_brandingLoaded)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.orange.shade200),
+            ),
+            child: Text(
+              _saving
+                  ? '접속 화면 설정을 불러오는 중…'
+                  : '설정을 불러오지 못했습니다. 저장이 비활성화됩니다.',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.orange.shade800,
+              ),
+            ),
+          ),
+        if (!_brandingLoaded) const SizedBox(height: 8),
+        WebAdminLoginBrandingSection(
+          saving: editingLocked,
+          displayLogoBytes: _displayLogoBytes,
+          showRemoveLogoButton:
+              _displayLogoBytes != null ||
+              (!_removeLogo && _branding.logoUrl.isNotEmpty),
+          onPickLogo: _pickSchoolLogo,
+          onRemoveLogo:
+              () => setState(() {
+                _pendingLogoBytes = null;
+                _removeLogo = true;
+              }),
+          schoolHomeUrlController: _schoolHomeUrlController,
+          loginMessageController: _loginMessageController,
+          loginNoticeController: _loginNoticeController,
+          onApplyDefaultNotice: _applyDefaultLoginNotice,
+          onShowPreview: _showLoginPreview,
+          onSaveBranding: _saveBrandingAndSchool,
+          showSaveButton: false,
+        ),
+        const Divider(height: 24),
+        ExpansionTile(
+          tilePadding: EdgeInsets.zero,
+          title: const Text(
+            '고급: 기본 학교명·사용법 버튼',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+          ),
+          subtitle: const Text(
+            '대부분의 학교는 건드릴 필요 없습니다.',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          children: [
+            WebAdminDefaultSchoolNameSection(
+              saving: editingLocked,
+              controller: _defaultSchoolNameController,
+              onSave: _saveBrandingAndSchool,
+              showSaveButton: false,
+            ),
+            const Divider(height: 24),
+            WebAdminGuideButtonSection(
+              saving: editingLocked,
+              labelController: _guideButtonLabelController,
+              urlController: _guideButtonUrlController,
+              onSave: _saveBrandingAndSchool,
+              showSaveButton: false,
+            ),
+          ],
+        ),
+        const Divider(height: 24),
+        Align(
+          alignment: Alignment.centerRight,
+          child: ElevatedButton(
+            onPressed: editingLocked ? null : _saveBrandingAndSchool,
+            child: const Text('접속 화면 저장'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 탭3: 비밀번호 변경 (접속자/관리자 세그먼트 공유 입력란 + 마스터 복구).
+  ///
+  /// 입력 폼은 가운데 420으로 좁힌다 (바깥 1000 폭 그대로 쓰면
+  /// 입력란이 지나치게 넓어진다).
+  Widget _buildPasswordTab() {
+    final isViewer = _passwordRoleIsViewer;
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      children: [
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+        Center(
+          child: SegmentedButton<bool>(
+            showSelectedIcon: false,
+            style: const ButtonStyle(visualDensity: VisualDensity.compact),
+            segments: const [
+              ButtonSegment(value: true, label: Text('접속자')),
+              ButtonSegment(value: false, label: Text('관리자')),
+            ],
+            selected: {_passwordRoleIsViewer},
+            onSelectionChanged:
+                _saving
+                    ? null
+                    : (s) => setState(() => _passwordRoleIsViewer = s.first),
+            ),
+          ),
+          const SizedBox(height: 12),
+          WebAdminPasswordField(
+          controller:
+              isViewer ? _viewerPasswordController : _adminPasswordController,
+          label: isViewer ? '새 접속자 비밀번호 (4자 이상)' : '새 관리자 비밀번호 (4자 이상)',
+          visible: isViewer ? _viewerVisible : _adminVisible,
+          onToggle:
+              isViewer
+                  ? () => setState(() => _viewerVisible = !_viewerVisible)
+                  : () => setState(() => _adminVisible = !_adminVisible),
+        ),
+        const SizedBox(height: 8),
+        WebAdminPasswordField(
+          controller:
+              isViewer
+                  ? _viewerPasswordConfirmController
+                  : _adminPasswordConfirmController,
+          label: isViewer ? '새 접속자 비밀번호 확인' : '새 관리자 비밀번호 확인',
+          visible: isViewer ? _viewerVisible : _adminVisible,
+          onToggle:
+              isViewer
+                  ? () => setState(() => _viewerVisible = !_viewerVisible)
+                  : () => setState(() => _adminVisible = !_adminVisible),
+        ),
+        const SizedBox(height: 6),
+        Align(
+          alignment: Alignment.centerRight,
+          child: ElevatedButton(
+            onPressed:
+                _saving
+                    ? null
+                    : (isViewer ? _saveViewerPassword : _saveAdminPassword),
+            style: ElevatedButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+            ),
+            child: Text(isViewer ? '접속자 비밀번호 저장' : '관리자 비밀번호 저장'),
+          ),
+        ),
+        const Divider(height: 24),
+        ExpansionTile(
+          tilePadding: EdgeInsets.zero,
+          title: const Text(
+            '비밀번호를 잊으셨나요?',
+            style: TextStyle(fontSize: 12),
+          ),
+          children: [
+            TextField(
+              controller: _masterIdController,
+              decoration: const InputDecoration(
+                labelText: '마스터 ID',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _masterPasswordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: '마스터 비밀번호',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onSubmitted: (_) => _submitMasterRecovery(),
+            ),
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerRight,
+              child: OutlinedButton(
+                onPressed: _saving ? null : _submitMasterRecovery,
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                ),
+                child: const Text('마스터로 인증하기'),
+              ),
+            ),
+          ],
+        ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -800,5 +1162,114 @@ class _WebAdminSettingsScreenState
         });
       }
     }
+  }
+}
+
+/// 4탭 위에 고정되는 상태 스트립 (현재 시간표 + 게시 진행 + 오늘 요약).
+///
+/// 탭을 옮겨도 보이는 자리라, 게시 중 진행률이 여기서도 보인다.
+class _AdminStatusStrip extends ConsumerWidget {
+  const _AdminStatusStrip({
+    required this.publishing,
+    required this.publishMessage,
+  });
+
+  final bool publishing;
+  final String? publishMessage;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final active = ref.watch(activeTimetableEntryProvider);
+    final headline =
+        publishing
+            ? (publishMessage ?? '공용 시간표를 올리는 중…')
+            : (active != null ? '현재 시간표: ${active.name}' : '게시된 시간표 없음');
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.black12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              if (publishing)
+                const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                const Icon(
+                  Icons.check_circle_outline,
+                  size: 16,
+                  color: Colors.grey,
+                ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  headline,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const _TodayStatsLine(),
+        ],
+      ),
+    );
+  }
+}
+
+/// 상태 스트립의 오늘 요약 한 줄 (실패해도 조용히 문구만 바꾼다).
+class _TodayStatsLine extends ConsumerStatefulWidget {
+  const _TodayStatsLine();
+
+  @override
+  ConsumerState<_TodayStatsLine> createState() => _TodayStatsLineState();
+}
+
+class _TodayStatsLineState extends ConsumerState<_TodayStatsLine> {
+  String _summary = '오늘 통계를 불러오는 중…';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadToday();
+  }
+
+  Future<void> _loadToday() async {
+    String text;
+    try {
+      final today = DateTime.parse(UsageStatsAggregator.todayKstId());
+      final days = await ref
+          .read(usageStatsServiceProvider)
+          .fetchRange(today, today);
+      final s = UsageStatsAggregator.aggregate(days, UsagePeriodUnit.day);
+      text = '오늘 접속 ${s.count(UsageKeys.visits)}회 · 사용 교사 ${s.activeTeachers}명';
+    } catch (e) {
+      AppLogger.warning('오늘 사용 통계 조회 실패: $e');
+      text = '오늘 통계를 불러오지 못했습니다.';
+    }
+    if (!mounted) return;
+    setState(() => _summary = text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      _summary,
+      style: const TextStyle(fontSize: 12, color: Colors.grey),
+    );
   }
 }

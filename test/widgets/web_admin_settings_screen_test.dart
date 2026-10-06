@@ -140,6 +140,14 @@ void main() {
     }
   }
 
+  /// 탭을 두드리고 전환 애니메이션이 끝날 때까지 흘려보낸다.
+  Future<void> goTab(WidgetTester tester, String label) async {
+    await tester.tap(find.text(label));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+
   group('WebAdminSettingsScreen 렌더링', () {
     testWidgets('화면이 예외 없이 렌더링된다', (tester) async {
       await pumpAt(
@@ -150,34 +158,57 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.text('접속 설정 (관리자)'), findsOneWidget);
+      // 4탭 + 상태 스트립
+      for (final tab in ['시간표', '꾸미기', '비밀번호', '통계']) {
+        expect(find.text(tab), findsOneWidget);
+      }
     });
 
-    testWidgets('비밀번호 입력란 4개(접속자 2 + 관리자 2)가 보인다', (tester) async {
+    testWidgets('비밀번호 탭은 기본 접속자 2칸, 전환 시 관리자 2칸이 보인다', (
+      tester,
+    ) async {
       await pumpAt(
         tester,
         buildScreen(overrides: buildOverrides()),
         width: 650,
       );
+      await goTab(tester, '비밀번호');
 
       expect(find.text('새 접속자 비밀번호 (4자 이상)'), findsOneWidget);
       expect(find.text('새 접속자 비밀번호 확인'), findsOneWidget);
+      expect(find.text('새 관리자 비밀번호 (4자 이상)'), findsNothing);
+
+      await tester.tap(find.text('관리자'));
+      await tester.pump();
       expect(find.text('새 관리자 비밀번호 (4자 이상)'), findsOneWidget);
       expect(find.text('새 관리자 비밀번호 확인'), findsOneWidget);
+      expect(find.text('새 접속자 비밀번호 (4자 이상)'), findsNothing);
     });
 
-    testWidgets('섹션 제목이 모두 보인다', (tester) async {
+    testWidgets('탭별 제목이 보인다', (tester) async {
       await pumpAt(
         tester,
         buildScreen(overrides: buildOverrides()),
         width: 650,
       );
 
-      expect(find.text('접속자 비밀번호 변경'), findsOneWidget);
-      expect(find.text('관리자 비밀번호 변경'), findsOneWidget);
-      expect(find.text('접속 화면 (학교 로고·안내)'), findsOneWidget);
-      expect(find.text('사용법 버튼'), findsOneWidget);
-      expect(find.text('기본 학교명 설정'), findsOneWidget);
+      // 시간표 탭 (기본)
       expect(find.text('공용 시간표 올리기'), findsOneWidget);
+      expect(find.text('위험 구역'), findsOneWidget);
+
+      // 꾸미기 탭
+      await goTab(tester, '꾸미기');
+      expect(find.text('접속 화면 (학교 로고·안내)'), findsOneWidget);
+      expect(find.text('고급: 기본 학교명·사용법 버튼'), findsOneWidget);
+      // 섹션별 저장 버튼은 통합 버튼 하나로 합쳐졌다
+      expect(find.text('기본 학교명 저장'), findsNothing);
+      expect(find.text('사용법 버튼 저장'), findsNothing);
+      expect(find.text('접속 화면 저장'), findsOneWidget);
+
+      // 통계 탭 (임베드 본문)
+      await goTab(tester, '통계');
+      expect(find.text('기간 합계'), findsOneWidget);
+      expect(find.text('초기화'), findsOneWidget);
     });
   });
 
@@ -212,42 +243,55 @@ void main() {
   });
 
   group('WebAdminSettingsScreen 오버플로', () {
-    testWidgets('650px 너비에서 오버플로가 없다', (tester) async {
+    Future<void> checkAllTabs(WidgetTester tester) async {
+      for (final tab in ['시간표', '꾸미기', '비밀번호', '통계']) {
+        await goTab(tester, tab);
+        // 통계 탭 임베드 본문의 비동기 로드를 흘려보낸다
+        for (var i = 0; i < 5; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        expect(tester.takeException(), isNull);
+      }
+    }
+
+    testWidgets('650px 너비에서 전 탭 오버플로가 없다', (tester) async {
       await pumpAt(
         tester,
         buildScreen(overrides: buildOverrides()),
         width: 650,
       );
 
-      expect(tester.takeException(), isNull);
+      await checkAllTabs(tester);
     });
 
-    testWidgets('420px 좁은 너비에서도 오버플로가 없다', (tester) async {
+    testWidgets('420px 좁은 너비에서 전 탭 오버플로가 없다', (tester) async {
       await pumpAt(
         tester,
         buildScreen(overrides: buildOverrides()),
         width: 420,
       );
 
-      expect(tester.takeException(), isNull);
+      await checkAllTabs(tester);
+    });
+
+    testWidgets('1000px 넓은 너비에서 전 탭 오버플로가 없다', (tester) async {
+      await pumpAt(
+        tester,
+        buildScreen(overrides: buildOverrides()),
+        width: 1000,
+      );
+
+      await checkAllTabs(tester);
     });
   });
 
   group('WebAdminSettingsScreen 버튼 상태', () {
-    testWidgets('저장 버튼들이 처음엔 활성화되어 있다', (tester) async {
+    testWidgets('시간표 탭의 게시 버튼이 처음엔 활성화되어 있다', (tester) async {
       await pumpAt(
         tester,
         buildScreen(overrides: buildOverrides()),
         width: 650,
       );
-
-      final saveButton = tester.widget<ElevatedButton>(
-        find.ancestor(
-          of: find.text('접속자 비밀번호 저장'),
-          matching: find.byType(ElevatedButton),
-        ),
-      );
-      expect(saveButton.onPressed, isNotNull);
 
       final publishButton = tester.widget<ElevatedButton>(
         find.ancestor(
@@ -258,12 +302,40 @@ void main() {
       expect(publishButton.onPressed, isNotNull);
     });
 
+    testWidgets('비밀번호 탭의 역할별 저장 버튼이 활성화되어 있다', (tester) async {
+      await pumpAt(
+        tester,
+        buildScreen(overrides: buildOverrides()),
+        width: 650,
+      );
+      await goTab(tester, '비밀번호');
+
+      final viewerSave = tester.widget<ElevatedButton>(
+        find.ancestor(
+          of: find.text('접속자 비밀번호 저장'),
+          matching: find.byType(ElevatedButton),
+        ),
+      );
+      expect(viewerSave.onPressed, isNotNull);
+
+      await tester.tap(find.text('관리자'));
+      await tester.pump();
+      final adminSave = tester.widget<ElevatedButton>(
+        find.ancestor(
+          of: find.text('관리자 비밀번호 저장'),
+          matching: find.byType(ElevatedButton),
+        ),
+      );
+      expect(adminSave.onPressed, isNotNull);
+    });
+
     testWidgets('비밀번호 보기 토글을 누르면 두 입력란이 함께 평문으로 바뀐다', (tester) async {
       await pumpAt(
         tester,
         buildScreen(overrides: buildOverrides()),
         width: 650,
       );
+      await goTab(tester, '비밀번호');
 
       final toggles = find.byIcon(Icons.visibility_outlined);
       expect(toggles, findsWidgets);
@@ -282,11 +354,92 @@ void main() {
         buildScreen(overrides: buildOverrides()),
         width: 650,
       );
+      await goTab(tester, '꾸미기');
 
       expect(tester.takeException(), isNull);
       // 로고가 없을 때는 '로고 제거' 버튼이 보이지 않는다.
       expect(find.text('로고 제거'), findsNothing);
       expect(find.text('로고 선택'), findsOneWidget);
+    });
+  });
+
+  group('WebAdminSettingsScreen 꾸미기 탭 합성 저장', () {
+    // 브랜딩 저장 + 학교명 저장이 단일 _runGuarded 블록에서 한 번에
+    // 실행되는지 검증한다. 두 _runGuarded로 나누면 두 번째가 '처리 중'으로
+    // 잘려 학교명이 조용히 저장되지 않는다.
+    // (학교명 Firestore 쓰기 자체는 테스트에 Firebase 앱이 없어 실패하고,
+    //  가짜 브랜딩 저장은 그 앞에서 이미 실행된다.)
+    testWidgets('꾸미기 탭 저장을 누르면 브랜딩 저장이 정확히 1회 실행된다', (
+      tester,
+    ) async {
+      final fake = FakeBrandingService();
+      await pumpAt(
+        tester,
+        buildScreen(overrides: buildOverrides(brandingService: fake)),
+        width: 650,
+      );
+
+      await tester.tap(find.text('꾸미기'));
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+
+      expect(find.text('접속 화면 (학교 로고·안내)'), findsOneWidget);
+      await tester.tap(find.text('접속 화면 저장'));
+      for (var i = 0; i < 5; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await tester.pump();
+      }
+
+      expect(tester.takeException(), isNull);
+      expect(fake.saveCallCount, 1);
+      // 실패 스낵바의 강제 닫힘 타이머 정리
+      await tester.pump(const Duration(seconds: 10));
+    });
+  });
+
+  group('WebAdminSettingsScreen 비밀번호 탭 세그먼트', () {
+    // 접속자/관리자가 입력란 2개를 공유하고, 전환해도 상대방 입력이
+    // 지워지지 않는지 검증한다.
+    testWidgets('세그먼트 전환 시 상대방 입력이 보존된다', (tester) async {
+      await pumpAt(
+        tester,
+        buildScreen(overrides: buildOverrides()),
+        width: 650,
+      );
+
+      await tester.tap(find.text('비밀번호'));
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+
+      final viewerField = find.widgetWithText(
+        TextField,
+        '새 접속자 비밀번호 (4자 이상)',
+      );
+      expect(viewerField, findsOneWidget);
+      expect(
+        find.widgetWithText(TextField, '새 관리자 비밀번호 (4자 이상)'),
+        findsNothing,
+      );
+
+      await tester.enterText(viewerField, 'abcd1234');
+      await tester.pump();
+
+      await tester.tap(find.text('관리자'));
+      await tester.pump();
+      expect(
+        find.widgetWithText(TextField, '새 관리자 비밀번호 (4자 이상)'),
+        findsOneWidget,
+      );
+      expect(viewerField, findsNothing);
+
+      await tester.tap(find.text('접속자'));
+      await tester.pump();
+      expect(tester.widget<TextField>(viewerField).controller?.text, 'abcd1234');
+      expect(tester.takeException(), isNull);
     });
   });
 }

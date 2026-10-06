@@ -11,12 +11,17 @@ class WebAdminGuideButtonSection extends StatelessWidget {
     required this.labelController,
     required this.urlController,
     required this.onSave,
+    this.showSaveButton = true,
   });
 
   final bool saving;
   final TextEditingController labelController;
   final TextEditingController urlController;
   final VoidCallback onSave;
+
+  /// 저장 버튼 표시 여부 (기본 true) — 꾸미기 탭은 통합 버튼을 쓰므로
+  /// false로 숨긴다.
+  final bool showSaveButton;
 
   @override
   Widget build(BuildContext context) {
@@ -56,16 +61,17 @@ class WebAdminGuideButtonSection extends StatelessWidget {
           keyboardType: TextInputType.url,
         ),
         const SizedBox(height: 6),
-        Align(
-          alignment: Alignment.centerRight,
-          child: ElevatedButton(
-            onPressed: saving ? null : onSave,
-            style: ElevatedButton.styleFrom(
-              visualDensity: VisualDensity.compact,
+        if (showSaveButton)
+          Align(
+            alignment: Alignment.centerRight,
+            child: ElevatedButton(
+              onPressed: saving ? null : onSave,
+              style: ElevatedButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+              ),
+              child: const Text('사용법 버튼 저장'),
             ),
-            child: const Text('사용법 버튼 저장'),
           ),
-        ),
       ],
     );
   }

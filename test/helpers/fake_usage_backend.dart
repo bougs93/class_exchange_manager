@@ -34,4 +34,35 @@ class FakeUsageBackend implements UsageStatsBackend {
     days.removeWhere((d) => _in(d.date, f, t));
     return before - days.length;
   }
+
+  @override
+  Future<int> deleteTeacher(String? f, String? t, String teacherName) async {
+    var touched = 0;
+    final next =
+        days.map((d) {
+          if (!_in(d.date, f, t) || !d.teachers.containsKey(teacherName)) {
+            return d;
+          }
+          touched++;
+          final removed = d.teachers[teacherName]!;
+          final totals = Map<String, int>.of(d.totals);
+          for (final e in removed.entries) {
+            totals[e.key] = (totals[e.key] ?? 0) - e.value < 0
+                ? 0
+                : (totals[e.key] ?? 0) - e.value;
+          }
+          final teachers = Map<String, Map<String, int>>.of(d.teachers)
+            ..remove(teacherName);
+          return UsageDay(
+            date: d.date,
+            totals: totals,
+            teachers: teachers,
+            visitors: d.visitors,
+          );
+        }).toList();
+    days
+      ..clear()
+      ..addAll(next);
+    return touched;
+  }
 }

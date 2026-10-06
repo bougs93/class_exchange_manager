@@ -37,6 +37,11 @@ abstract class UsageStatsBackend {
   /// 범위 안 문서를 지우고 지운 개수를 돌려준다. [fromId]·[toId]가 null이면 전체.
   Future<int> deleteRange(String? fromId, String? toId);
   Future<int> countRange(String? fromId, String? toId);
+
+  /// 범위 안 문서에서 해당 교사 항목만 지우고, 합계에서 그 교사분을
+  /// 차감한다. 손댄 문서 수를 돌려준다. 방문자(uid)는 교사 귀속이
+  /// 아니라 남긴다.
+  Future<int> deleteTeacher(String? fromId, String? toId, String teacherName);
 }
 
 /// Firestore 구현. Firestore 인스턴스는 처음 쓸 때 가져온다(지연).
@@ -108,6 +113,50 @@ class FirestoreUsageBackend implements UsageStatsBackend {
       await batch.commit();
     }
     return docs.length;
+  }
+
+  @override
+  Future<int> deleteTeacher(
+    String? fromId,
+    String? toId,
+    String teacherName,
+  ) async {
+    final snap = await _range(fromId, toId).get();
+    var touched = 0;
+    final batchDocs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    for (final d in snap.docs) {
+      final raw = d.data()['teachers'];
+      if (raw is Map && raw.containsKey(teacherName)) {
+        batchDocs.add(d);
+      }
+    }
+    for (var i = 0; i < batchDocs.length; i += _batchLimit) {
+      final batch = _firestore.batch();
+      for (final d in batchDocs.skip(i).take(_batchLimit)) {
+        final data = d.data();
+        final totals = Map<String, dynamic>.from(data['totals'] as Map? ?? {});
+        final teacher = Map<String, dynamic>.from(
+          (data['teachers'] as Map?)?[teacherName] as Map? ?? {},
+        );
+        // 합계에서 교사분을 차감한다. 버퍼·재시도로 어긋난 경우 음수가
+        // 되지 않게 0에서 자른다.
+        for (final e in teacher.entries) {
+          if (e.value is num && e.key != 'lastSeen') {
+            final current = (totals[e.key] as num?)?.toInt() ?? 0;
+            totals[e.key] = current - (e.value as num).toInt() < 0
+                ? 0
+                : current - (e.value as num).toInt();
+          }
+        }
+        batch.update(d.reference, {
+          'totals': totals,
+          'teachers.$teacherName': FieldValue.delete(),
+        });
+      }
+      await batch.commit();
+      touched += batchDocs.skip(i).take(_batchLimit).length;
+    }
+    return touched;
   }
 }
 
@@ -235,6 +284,20 @@ class UsageStatsService {
     if (!_active) return 0;
     _buffer.clear();
     return _backend!.deleteRange(_id(from), _id(to));
+  }
+
+  /// 선택 기간에서 해당 교사의 통계만 지운다 (합계도 함께 차감).
+  ///
+  /// 아직 버퍼에 쌓인 기록을 먼저 flush한 뒤 지운다 — 안 그러면
+  /// flush가 지운 교사를 다시 살려낸다. 지운 게 없으면 0을 돌려준다.
+  Future<int> deleteTeacher({
+    required DateTime from,
+    required DateTime to,
+    required String teacher,
+  }) async {
+    if (!_active || teacher.isEmpty) return 0;
+    await flush();
+    return _backend!.deleteTeacher(_id(from), _id(to), teacher);
   }
 
   String? _id(DateTime? d) => d == null ? null : UsageStatsAggregator.dateId(d);

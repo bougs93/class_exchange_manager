@@ -18,6 +18,7 @@ class WebAdminPublishSection extends StatelessWidget {
     required this.deleting,
     required this.onDelete,
     required this.onPublish,
+    this.showDeleteButton = true,
   });
 
   final bool publishing;
@@ -28,6 +29,10 @@ class WebAdminPublishSection extends StatelessWidget {
   final bool deleting;
   final VoidCallback? onDelete;
   final VoidCallback onPublish;
+
+  /// 삭제 버튼 표시 여부 — 시간표 탭은 삭제를 위험 구역 카드로 분리하므로
+  /// 호출부에서 false를 준다.
+  final bool showDeleteButton;
 
   @override
   Widget build(BuildContext context) {
@@ -53,6 +58,7 @@ class WebAdminPublishSection extends StatelessWidget {
           publishedName: publishedName,
           deleting: deleting,
           onDelete: onDelete,
+          showDeleteButton: showDeleteButton,
         ),
         const SizedBox(height: 6),
         Align(
