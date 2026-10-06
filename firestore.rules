@@ -24,10 +24,13 @@ service cloud.firestore {
     // usageStats/{yyyy-MM-dd}: 웹 사용 통계(일별 카운터). 관리자는 Firebase
     // 상 별도 신원이 아니라 클라이언트에서만 판정되므로, 규칙으로 일반
     // 접속자의 읽기/삭제를 막을 수 없다(config/auth와 같은, 이미 허용된
-    // 리스크). 문서 id는 날짜 형식만 허용한다.
+    // 리스크). 쓰기는 문서 id가 날짜 형식일 때만 허용한다.
+    // 읽기(list)에는 id 조건을 걸면 안 된다 — 범위 쿼리는 규칙이 모든 결과를
+    // 증명할 수 있어야 하는데 정규식은 증명이 안 돼 쿼리 전체가 거부된다.
     match /usageStats/{day} {
-      allow read, write: if request.auth != null
-                         && day.matches('^\\d{4}-\\d{2}-\\d{2}$');
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                   && day.matches('^\\d{4}-\\d{2}-\\d{2}$');
     }
   }
 }
