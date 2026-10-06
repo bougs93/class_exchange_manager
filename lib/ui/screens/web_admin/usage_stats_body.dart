@@ -27,6 +27,17 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
   @override
   bool get wantKeepAlive => true;
 
+  // ---- 글자 스타일 (화면 전체 공통) ----
+  // 제목 14 굵게 · 본문/표/버튼 12 · 보조 문구는 진한 회색(흰 바탕 대비 확보).
+  static final Color _muted = Colors.grey.shade700;
+  static const TextStyle _controlText = TextStyle(fontSize: 12);
+  static final TextStyle _tableHeading = TextStyle(
+    fontSize: 12,
+    fontWeight: FontWeight.w600,
+    color: Colors.grey.shade700,
+  );
+  static const TextStyle _tableData = TextStyle(fontSize: 12);
+
   UsagePeriodUnit _unit = UsagePeriodUnit.day;
   _Preset _preset = _Preset.last30;
   late DateTime _from;
@@ -276,7 +287,10 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
             child: Center(child: CircularProgressIndicator()),
           )
         else if (_error != null)
-          Text(_error!, style: const TextStyle(color: Colors.red))
+          Text(
+            _error!,
+            style: TextStyle(fontSize: 12, color: Colors.red.shade700),
+          )
         else if (_summary != null)
           ..._buildBody(_summary!),
         const SizedBox(height: 20),
@@ -304,10 +318,13 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
             runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              const Text('보기 단위', style: TextStyle(fontSize: 12)),
+              const Text('보기 단위', style: _controlText),
               SegmentedButton<UsagePeriodUnit>(
                 showSelectedIcon: false,
-                style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                style: const ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  textStyle: WidgetStatePropertyAll(_controlText),
+                ),
                 segments: const [
                   ButtonSegment(value: UsagePeriodUnit.day, label: Text('일')),
                   ButtonSegment(value: UsagePeriodUnit.week, label: Text('주')),
@@ -328,6 +345,8 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
               _presetChip('최근 30일', _Preset.last30),
               ChoiceChip(
                 label: const Text('직접 지정'),
+                labelStyle: _controlText,
+                visualDensity: VisualDensity.compact,
                 selected: _preset == _Preset.custom,
                 onSelected: (_) => _pickRange(),
               ),
@@ -336,7 +355,7 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
           const SizedBox(height: 6),
           Text(
             '기간: ${_fmt(_from)} ~ ${_fmt(_to)}',
-            style: const TextStyle(fontSize: 12, color: Colors.grey),
+            style: TextStyle(fontSize: 12, color: _muted),
           ),
           Row(
             children: [
@@ -344,7 +363,7 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
                 Expanded(
                   child: Text(
                     '업데이트: ${_two(_refreshedAt!.hour)}:${_two(_refreshedAt!.minute)}',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    style: TextStyle(fontSize: 12, color: _muted),
                   ),
                 )
               else
@@ -353,6 +372,7 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
                 onPressed: (_loading || _busy) ? null : _load,
                 style: TextButton.styleFrom(
                   visualDensity: VisualDensity.compact,
+                  textStyle: _controlText,
                 ),
                 icon: const Icon(Icons.refresh, size: 16),
                 label: const Text('새로고침'),
@@ -368,6 +388,8 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
 
   Widget _presetChip(String label, _Preset preset) => ChoiceChip(
     label: Text(label),
+    labelStyle: _controlText,
+    visualDensity: VisualDensity.compact,
     selected: _preset == preset,
     onSelected: (_) => _applyPreset(preset),
   );
@@ -397,11 +419,11 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
       _buildTabBars(s),
       const SizedBox(height: 20),
       _sectionTitle('교사별 사용'),
-      const Text(
+      Text(
         '교사 이름이 그대로 저장됩니다. 이름을 설정하지 않은 사용은 '
         "'$kUsageUnnamedTeacher'으로, 관리자로 로그인한 사용은 "
         "'$kUsageAdminBucket'로 묶입니다.",
-        style: TextStyle(fontSize: 12, color: Colors.grey),
+        style: TextStyle(fontSize: 12, color: _muted),
       ),
       const SizedBox(height: 6),
       _buildTeacherTable(s),
@@ -412,7 +434,7 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
     padding: const EdgeInsets.only(bottom: 8),
     child: Text(
       text,
-      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
     ),
   );
 
@@ -432,15 +454,12 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  '$label ',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
+                Text('$label ', style: TextStyle(fontSize: 12, color: _muted)),
                 Text(
                   '$value',
                   key: ValueKey('usage-stat-$label'),
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -473,8 +492,8 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
         headingRowHeight: 30,
         dataRowMinHeight: 26,
         dataRowMaxHeight: 28,
-        headingTextStyle: const TextStyle(fontSize: 11),
-        dataTextStyle: const TextStyle(fontSize: 11),
+        headingTextStyle: _tableHeading,
+        dataTextStyle: _tableData,
         columns: [
           const DataColumn(label: Text('기간')),
           for (final c in _teacherCols)
@@ -484,7 +503,7 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
           for (final b in s.buckets)
             DataRow(
               cells: [
-                DataCell(Text(b.label)),
+                DataCell(Text(_bucketText(b.label))),
                 for (final c in _teacherCols)
                   DataCell(Text('${b.count(c.$2)}')),
               ],
@@ -493,6 +512,15 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
       ),
       _trendScrollController,
     );
+  }
+
+  /// 추이 표 기간 칸 표시. 주 단위는 월요일 id를 `MM.dd~MM.dd`로 풀어 쓴다.
+  String _bucketText(String label) {
+    if (_unit != UsagePeriodUnit.week) return label;
+    final monday = DateTime.tryParse(label);
+    if (monday == null) return label;
+    String md(DateTime d) => '${_two(d.month)}.${_two(d.day)}';
+    return '${md(monday)}~${md(monday.add(const Duration(days: 6)))}';
   }
 
   Widget _buildTabBars(UsageSummary s) {
@@ -531,7 +559,7 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
                               width: w,
                               height: 14,
                               decoration: BoxDecoration(
-                                color: Colors.blue.shade400,
+                                color: Theme.of(context).colorScheme.primary,
                                 borderRadius: BorderRadius.circular(3),
                               ),
                             ),
@@ -583,8 +611,8 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
         headingRowHeight: 30,
         dataRowMinHeight: 26,
         dataRowMaxHeight: 28,
-        headingTextStyle: const TextStyle(fontSize: 11),
-        dataTextStyle: const TextStyle(fontSize: 11),
+        headingTextStyle: _tableHeading,
+        dataTextStyle: _tableData,
         columns: [
           DataColumn(label: const Text('교사'), onSort: onSort),
           for (final c in _teacherCols)
@@ -618,6 +646,13 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
     );
   }
 
+  static final ButtonStyle _dangerButton = OutlinedButton.styleFrom(
+    foregroundColor: Colors.red.shade700,
+    side: BorderSide(color: Colors.red.shade200),
+    textStyle: _controlText,
+    visualDensity: VisualDensity.compact,
+  );
+
   /// 초기화 위험 구역 — 시간표 탭의 위험 구역 카드와 같은 뼈대.
   Widget _buildReset() {
     return Container(
@@ -634,15 +669,15 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
           Text(
             '초기화',
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
               color: Colors.red.shade700,
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             '삭제한 통계는 되돌릴 수 없습니다.',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
+            style: TextStyle(fontSize: 12, color: _muted),
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -651,11 +686,12 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
             children: [
               OutlinedButton(
                 onPressed: _busy ? null : () => _delete(all: false),
+                style: _dangerButton,
                 child: const Text('선택한 기간 삭제'),
               ),
               OutlinedButton(
                 onPressed: _busy ? null : () => _delete(all: true),
-                style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                style: _dangerButton,
                 child: const Text('전체 초기화'),
               ),
             ],
