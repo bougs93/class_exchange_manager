@@ -279,77 +279,88 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
           Text(_error!, style: const TextStyle(color: Colors.red))
         else if (_summary != null)
           ..._buildBody(_summary!),
-        const Divider(height: 32),
+        const SizedBox(height: 20),
         _buildReset(),
       ],
     );
   }
 
   Widget _buildControls() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            const Text('보기 단위', style: TextStyle(fontSize: 12)),
-            SegmentedButton<UsagePeriodUnit>(
-              showSelectedIcon: false,
-              style: const ButtonStyle(visualDensity: VisualDensity.compact),
-              segments: const [
-                ButtonSegment(value: UsagePeriodUnit.day, label: Text('일')),
-                ButtonSegment(value: UsagePeriodUnit.week, label: Text('주')),
-                ButtonSegment(value: UsagePeriodUnit.month, label: Text('월')),
-              ],
-              selected: {_unit},
-              onSelectionChanged: (s) => _changeUnit(s.first),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 4,
-          children: [
-            _presetChip('이번 주', _Preset.week),
-            _presetChip('이번 달', _Preset.month),
-            _presetChip('최근 30일', _Preset.last30),
-            ChoiceChip(
-              label: const Text('직접 지정'),
-              selected: _preset == _Preset.custom,
-              onSelected: (_) => _pickRange(),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Text(
-          '기간: ${_fmt(_from)} ~ ${_fmt(_to)}',
-          style: const TextStyle(fontSize: 12, color: Colors.grey),
-        ),
-        Row(
-          children: [
-            if (_refreshedAt != null)
-              Expanded(
-                child: Text(
-                  '업데이트: ${_two(_refreshedAt!.hour)}:${_two(_refreshedAt!.minute)}',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              )
-            else
-              const Spacer(),
-            TextButton.icon(
-              onPressed: (_loading || _busy) ? null : _load,
-              style: TextButton.styleFrom(
-                visualDensity: VisualDensity.compact,
+    // 단위·기간·새로고침을 한 카드로 묶는다 — 흩어진 조작부가
+    // 본문과 시각적으로 분리되게 한다.
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.black12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              const Text('보기 단위', style: TextStyle(fontSize: 12)),
+              SegmentedButton<UsagePeriodUnit>(
+                showSelectedIcon: false,
+                style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                segments: const [
+                  ButtonSegment(value: UsagePeriodUnit.day, label: Text('일')),
+                  ButtonSegment(value: UsagePeriodUnit.week, label: Text('주')),
+                  ButtonSegment(value: UsagePeriodUnit.month, label: Text('월')),
+                ],
+                selected: {_unit},
+                onSelectionChanged: (s) => _changeUnit(s.first),
               ),
-              icon: const Icon(Icons.refresh, size: 16),
-              label: const Text('새로고침'),
-            ),
-          ],
-        ),
-      ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              _presetChip('이번 주', _Preset.week),
+              _presetChip('이번 달', _Preset.month),
+              _presetChip('최근 30일', _Preset.last30),
+              ChoiceChip(
+                label: const Text('직접 지정'),
+                selected: _preset == _Preset.custom,
+                onSelected: (_) => _pickRange(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '기간: ${_fmt(_from)} ~ ${_fmt(_to)}',
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          Row(
+            children: [
+              if (_refreshedAt != null)
+                Expanded(
+                  child: Text(
+                    '업데이트: ${_two(_refreshedAt!.hour)}:${_two(_refreshedAt!.minute)}',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                )
+              else
+                const Spacer(),
+              TextButton.icon(
+                onPressed: (_loading || _busy) ? null : _load,
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                ),
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('새로고침'),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -494,53 +505,53 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 520),
         child: Column(
-      children: [
-        for (var i = 0; i < counts.length; i++)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 3),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 52,
-                  child: Text(
-                    UsageKeys.tabLabels[i],
-                    style: const TextStyle(fontSize: 12),
-                  ),
+          children: [
+            for (var i = 0; i < counts.length; i++)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 52,
+                      child: Text(
+                        UsageKeys.tabLabels[i],
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, c) {
+                          final w =
+                              maxCount == 0
+                                  ? 0.0
+                                  : c.maxWidth * counts[i] / maxCount;
+                          return Align(
+                            alignment: Alignment.centerLeft,
+                            child: Container(
+                              width: w,
+                              height: 14,
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade400,
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 40,
+                      child: Text(
+                        '${counts[i]}',
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
                 ),
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, c) {
-                      final w =
-                          maxCount == 0
-                              ? 0.0
-                              : c.maxWidth * counts[i] / maxCount;
-                      return Align(
-                        alignment: Alignment.centerLeft,
-                        child: Container(
-                          width: w,
-                          height: 14,
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade400,
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 40,
-                  child: Text(
-                    '${counts[i]}',
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+              ),
+          ],
         ),
       ),
     );
@@ -607,32 +618,50 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
     );
   }
 
+  /// 초기화 위험 구역 — 시간표 탭의 위험 구역 카드와 같은 뼈대.
   Widget _buildReset() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sectionTitle('초기화'),
-        const Text(
-          '삭제한 통계는 되돌릴 수 없습니다.',
-          style: TextStyle(fontSize: 12, color: Colors.grey),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            OutlinedButton(
-              onPressed: _busy ? null : () => _delete(all: false),
-              child: const Text('선택한 기간 삭제'),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.red.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '초기화',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: Colors.red.shade700,
             ),
-            OutlinedButton(
-              onPressed: _busy ? null : () => _delete(all: true),
-              style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('전체 초기화'),
-            ),
-          ],
-        ),
-      ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            '삭제한 통계는 되돌릴 수 없습니다.',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton(
+                onPressed: _busy ? null : () => _delete(all: false),
+                child: const Text('선택한 기간 삭제'),
+              ),
+              OutlinedButton(
+                onPressed: _busy ? null : () => _delete(all: true),
+                style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('전체 초기화'),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
