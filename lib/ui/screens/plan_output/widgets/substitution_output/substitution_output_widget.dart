@@ -1151,7 +1151,7 @@ class SubstitutionOutputWidgetState
 
   /// 사용 통계: PDF 저장 성공 기록 (조용히).
   void _recordPdfSaved() =>
-      ref.read(usageStatsServiceProvider).record(UsageEvent.pdfSave);
+      ref.read(usageStatsServiceProvider).record(UsageEvent.planPdfSave);
 
   /// 출력 미리 보기 처리
   Future<void> _handlePreview() async {

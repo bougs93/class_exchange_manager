@@ -121,11 +121,13 @@ class UsageStatsService {
     required this.enabled,
     UsageStatsBackend? backend,
     String Function()? teacherName,
+    bool Function()? isAdmin,
     String? Function()? uid,
     this.flushDelay = const Duration(seconds: 15),
     DateTime Function()? now,
   }) : _backend = backend,
        _teacherName = teacherName,
+       _isAdmin = isAdmin,
        _uid = uid,
        _now = now ?? DateTime.now;
 
@@ -134,6 +136,7 @@ class UsageStatsService {
     : enabled = false,
       _backend = null,
       _teacherName = null,
+      _isAdmin = null,
       _uid = null,
       flushDelay = Duration.zero,
       _now = DateTime.now;
@@ -141,6 +144,7 @@ class UsageStatsService {
   final bool enabled;
   final UsageStatsBackend? _backend;
   final String Function()? _teacherName;
+  final bool Function()? _isAdmin;
   final String? Function()? _uid;
   final Duration flushDelay;
   final DateTime Function() _now;
@@ -160,7 +164,11 @@ class UsageStatsService {
 
       final nowTime = _now();
       final dayId = UsageStatsAggregator.todayKstId(nowTime);
-      var name = (_teacherName?.call() ?? '').trim();
+      // 관리자 세션은 교사명과 상관없이 따로 묶는다.
+      var name =
+          (_isAdmin?.call() ?? false)
+              ? kUsageAdminBucket
+              : (_teacherName?.call() ?? '').trim();
       if (name.isEmpty) name = kUsageUnnamedTeacher;
 
       final delta = _buffer.putIfAbsent(dayId, () => UsageDelta(dayId));

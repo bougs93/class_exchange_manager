@@ -17,8 +17,11 @@ enum UsageEvent {
   /// 계획서 출력
   planOutput,
 
-  /// PDF 저장
-  pdfSave,
+  /// 계획서(결보강) PDF 저장
+  planPdfSave,
+
+  /// 학급 안내 PDF 저장
+  classPdfSave,
 }
 
 /// Firestore 문서에 쓰는 카운터 필드 키.
@@ -29,7 +32,8 @@ class UsageKeys {
   static const String planCreate = 'planCreate';
   static const String classOutput = 'classOutput';
   static const String planOutput = 'planOutput';
-  static const String pdfSave = 'pdfSave';
+  static const String planPdfSave = 'planPdfSave';
+  static const String classPdfSave = 'classPdfSave';
 
   static String tab(int index) => 'tab_$index';
 
@@ -43,7 +47,8 @@ class UsageKeys {
     planCreate,
     classOutput,
     planOutput,
-    pdfSave,
+    planPdfSave,
+    classPdfSave,
   ];
 
   /// 탭 번호별 한글 라벨 (상단 탭 이름과 동일).
@@ -67,14 +72,19 @@ class UsageKeys {
         return classOutput;
       case UsageEvent.planOutput:
         return planOutput;
-      case UsageEvent.pdfSave:
-        return pdfSave;
+      case UsageEvent.planPdfSave:
+        return planPdfSave;
+      case UsageEvent.classPdfSave:
+        return classPdfSave;
     }
   }
 }
 
 /// 교사명이 비어 있을 때 쓰는 버킷 이름.
 const String kUsageUnnamedTeacher = '(이름 미설정)';
+
+/// 관리자로 로그인한 세션의 사용을 묶는 버킷 이름 (교사명과 무관).
+const String kUsageAdminBucket = '(관리자)';
 
 /// 하루치 사용 통계 문서 (`usageStats/yyyy-MM-dd`).
 class UsageDay {

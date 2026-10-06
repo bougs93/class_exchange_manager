@@ -72,7 +72,7 @@ void main() {
         day(
           '2026-10-06',
           teachers: {
-            '김교사': {UsageKeys.visits: 1, UsageKeys.pdfSave: 2},
+            '김교사': {UsageKeys.visits: 1, UsageKeys.planPdfSave: 2},
             kUsageUnnamedTeacher: {UsageKeys.visits: 1},
           },
         ),
@@ -86,7 +86,7 @@ void main() {
       expect(s.activeTeachers, 2);
       final kim = s.teachers.firstWhere((t) => t.name == '김교사');
       expect(kim.count(UsageKeys.visits), 3);
-      expect(kim.count(UsageKeys.pdfSave), 2);
+      expect(kim.count(UsageKeys.planPdfSave), 2);
       expect(kim.lastSeen, '2026-10-08');
       expect(s.teachers.any((t) => t.name == kUsageUnnamedTeacher), isTrue);
     });

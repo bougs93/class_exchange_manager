@@ -28,9 +28,9 @@ void main() {
       days: [
         UsageDay(
           date: today,
-          totals: const {UsageKeys.visits: 5, UsageKeys.pdfSave: 2, 'tab_1': 4},
+          totals: const {UsageKeys.visits: 5, UsageKeys.planPdfSave: 2, 'tab_1': 4},
           teachers: const {
-            '김교사': {UsageKeys.visits: 3, UsageKeys.pdfSave: 2},
+            '김교사': {UsageKeys.visits: 3, UsageKeys.planPdfSave: 2},
             kUsageUnnamedTeacher: {UsageKeys.visits: 2},
           },
           visitors: const {'a', 'b'},

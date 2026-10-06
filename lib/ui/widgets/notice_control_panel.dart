@@ -558,7 +558,7 @@ class NoticeControlPanel extends ConsumerWidget {
       final fileName = ClassNoticePdfService.buildFileName();
       final usage = ref.read(usageStatsServiceProvider);
       usage.record(UsageEvent.classOutput);
-      void onSaved() => usage.record(UsageEvent.pdfSave);
+      void onSaved() => usage.record(UsageEvent.classPdfSave);
 
       if (kIsWeb) {
         await Navigator.of(context).push(

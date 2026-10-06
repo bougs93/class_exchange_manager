@@ -6,6 +6,7 @@ import '../config/firebase_app_config.dart';
 import '../services/shared_timetable_sync_service.dart';
 import '../services/usage_stats_service.dart';
 import '../services/web_branding_service.dart';
+import '../ui/screens/web_login_gate.dart' show WebLoginStatus, webLoginStatusProvider;
 import 'timetable_registry_provider.dart';
 
 /// 웹 전용 서비스 Provider 모음.
@@ -54,6 +55,7 @@ final usageStatsServiceProvider = Provider<UsageStatsService>((ref) {
     backend: FirestoreUsageBackend(),
     // 기록 시점에 읽는다 — 활성 시간표(교사)가 바뀌어도 그때 값을 쓴다.
     teacherName: () => ref.read(activeTeacherNameProvider),
+    isAdmin: () => ref.read(webLoginStatusProvider) == WebLoginStatus.adminOk,
     uid: currentFirebaseUid,
   );
   final observer = _UsageFlushObserver(service);

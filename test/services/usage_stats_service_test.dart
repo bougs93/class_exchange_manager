@@ -21,7 +21,7 @@ void main() {
     final s = make(b);
     s.record(UsageEvent.tab, tabIndex: 1);
     s.record(UsageEvent.tab, tabIndex: 1);
-    s.record(UsageEvent.pdfSave);
+    s.record(UsageEvent.planPdfSave);
     await tester.pump(const Duration(seconds: 5));
     expect(b.writes, isEmpty);
     await tester.pump(const Duration(seconds: 11));
@@ -29,7 +29,7 @@ void main() {
     final d = b.writes.single;
     expect(d.dayId, '2026-10-07');
     expect(d.totals['tab_1'], 2);
-    expect(d.totals['pdfSave'], 1);
+    expect(d.totals['planPdfSave'], 1);
     expect(d.teachers['김교사']!['tab_1'], 2);
     expect(d.visitors, {'uid1'});
   });
@@ -41,6 +41,20 @@ void main() {
     await tester.pump();
     expect(b.writes.length, 1);
     expect(b.writes.single.teachers.keys, [kUsageUnnamedTeacher]);
+  });
+
+  testWidgets('관리자 세션은 교사명과 무관하게 (관리자)로 묶는다', (tester) async {
+    final b = FakeUsageBackend();
+    final s = UsageStatsService(
+      enabled: true,
+      backend: b,
+      teacherName: () => '김교사',
+      isAdmin: () => true,
+      uid: () => 'uid1',
+    );
+    s.record(UsageEvent.visit);
+    await tester.pump();
+    expect(b.writes.single.teachers.keys, [kUsageAdminBucket]);
   });
 
   testWidgets('쓰기 실패는 삼키고 예외를 던지지 않는다', (tester) async {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../constants/nav_indices.dart';
 import '../../../models/usage_event.dart';
 import '../../../providers/web_services_provider.dart';
 import '../../../utils/logger.dart';
@@ -35,13 +36,23 @@ class _UsageStatsScreenState extends ConsumerState<UsageStatsScreen> {
   int _sortColumn = 1;
   bool _sortAscending = false;
 
-  /// 교사 표 열: (제목, 카운터 키). 0열(교사명)·마지막 열(마지막 사용일)은 별도.
-  static const List<(String, String)> _teacherCols = [
+  /// 추이 표·교사 표 공통 열: (제목, 카운터 키).
+  /// 교사 표의 0열(교사명)·마지막 열(마지막 사용일)은 별도.
+  static final List<(String, String)> _teacherCols = [
     ('접속', UsageKeys.visits),
+    // 페이지별 진입 횟수 (상단 탭 이동 기준)
+    for (final i in const [
+      NavIndices.exchange,
+      NavIndices.planOutput,
+      NavIndices.notice,
+      NavIndices.personalSchedule,
+    ])
+      (UsageKeys.tabLabels[i], UsageKeys.tab(i)),
     ('생성', UsageKeys.planCreate),
     ('계획서 출력', UsageKeys.planOutput),
     ('학급 출력', UsageKeys.classOutput),
-    ('PDF 저장', UsageKeys.pdfSave),
+    ('계획서 PDF 저장', UsageKeys.planPdfSave),
+    ('학급 PDF 저장', UsageKeys.classPdfSave),
   ];
 
   @override
@@ -273,7 +284,8 @@ class _UsageStatsScreenState extends ConsumerState<UsageStatsScreen> {
           _card('계획서 생성', s.count(UsageKeys.planCreate)),
           _card('계획서 출력', s.count(UsageKeys.planOutput)),
           _card('학급 출력', s.count(UsageKeys.classOutput)),
-          _card('PDF 저장', s.count(UsageKeys.pdfSave)),
+          _card('계획서 PDF 저장', s.count(UsageKeys.planPdfSave)),
+          _card('학급 PDF 저장', s.count(UsageKeys.classPdfSave)),
         ],
       ),
       const SizedBox(height: 20),
@@ -290,7 +302,8 @@ class _UsageStatsScreenState extends ConsumerState<UsageStatsScreen> {
       _sectionTitle('교사별 사용'),
       const Text(
         '교사 이름이 그대로 저장됩니다. 이름을 설정하지 않은 사용은 '
-        "'$kUsageUnnamedTeacher'으로 묶입니다.",
+        "'$kUsageUnnamedTeacher'으로, 관리자로 로그인한 사용은 "
+        "'$kUsageAdminBucket'로 묶입니다.",
         style: TextStyle(fontSize: 12, color: Colors.grey),
       ),
       const SizedBox(height: 6),
@@ -338,24 +351,18 @@ class _UsageStatsScreenState extends ConsumerState<UsageStatsScreen> {
         headingRowHeight: 36,
         dataRowMinHeight: 32,
         dataRowMaxHeight: 36,
-        columns: const [
-          DataColumn(label: Text('기간')),
-          DataColumn(label: Text('접속'), numeric: true),
-          DataColumn(label: Text('생성'), numeric: true),
-          DataColumn(label: Text('계획서 출력'), numeric: true),
-          DataColumn(label: Text('학급 출력'), numeric: true),
-          DataColumn(label: Text('PDF 저장'), numeric: true),
+        columns: [
+          const DataColumn(label: Text('기간')),
+          for (final c in _teacherCols)
+            DataColumn(label: Text(c.$1), numeric: true),
         ],
         rows: [
           for (final b in s.buckets)
             DataRow(
               cells: [
                 DataCell(Text(b.label)),
-                DataCell(Text('${b.count(UsageKeys.visits)}')),
-                DataCell(Text('${b.count(UsageKeys.planCreate)}')),
-                DataCell(Text('${b.count(UsageKeys.planOutput)}')),
-                DataCell(Text('${b.count(UsageKeys.classOutput)}')),
-                DataCell(Text('${b.count(UsageKeys.pdfSave)}')),
+                for (final c in _teacherCols)
+                  DataCell(Text('${b.count(c.$2)}')),
               ],
             ),
         ],
