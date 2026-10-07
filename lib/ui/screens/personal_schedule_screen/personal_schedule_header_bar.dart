@@ -19,6 +19,11 @@ class PersonalScheduleHeaderBar extends ConsumerWidget {
     required this.relatedPlanData,
     required this.isExchangeViewEnabled,
     required this.onToggleExchangeView,
+    required this.isTeacherViewEnabled,
+    required this.onToggleTeacherView,
+    required this.teacherNames,
+    required this.selectedTeacherName,
+    required this.onSelectTeacher,
     this.semesterStart,
     this.semesterEnd,
   });
@@ -27,6 +32,11 @@ class PersonalScheduleHeaderBar extends ConsumerWidget {
   final List<SubstitutionPlanData> relatedPlanData;
   final bool isExchangeViewEnabled;
   final ValueChanged<bool> onToggleExchangeView;
+  final bool isTeacherViewEnabled;
+  final ValueChanged<bool> onToggleTeacherView;
+  final List<String> teacherNames;
+  final String? selectedTeacherName;
+  final ValueChanged<String> onSelectTeacher;
   final DateTime? semesterStart;
   final DateTime? semesterEnd;
 
@@ -69,18 +79,55 @@ class PersonalScheduleHeaderBar extends ConsumerWidget {
           const ToolbarGroupDivider(),
           _exchangeViewButton(),
           const ToolbarGroupDivider(),
-          Expanded(
-            child: WeekNavigatorStrip(
-              weeks: chipWeeks,
-              selectedWeek: currentWeek,
-              countOf:
-                  (week) =>
-                      weekCounts[ExchangeWeekCollector.weekKey(week)] ?? 0,
-              onSelectWeek: notifier.moveToWeek,
-              onPrevious: notifier.moveToPreviousWeek,
-              onNext: notifier.moveToNextWeek,
-            ),
+          HeaderSegmentedToggle(
+            value: isTeacherViewEnabled,
+            offLabel: '주간 카드',
+            onLabel: '교사별',
+            onChanged: onToggleTeacherView,
+            height: 34,
           ),
+          const ToolbarGroupDivider(),
+          Expanded(
+            child:
+                isTeacherViewEnabled
+                    ? _teacherButtons(context)
+                    : WeekNavigatorStrip(
+                      weeks: chipWeeks,
+                      selectedWeek: currentWeek,
+                      countOf:
+                          (week) =>
+                              weekCounts[ExchangeWeekCollector.weekKey(week)] ??
+                              0,
+                      onSelectWeek: notifier.moveToWeek,
+                      onPrevious: notifier.moveToPreviousWeek,
+                      onNext: notifier.moveToNextWeek,
+                    ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _teacherButtons(BuildContext context) {
+    if (teacherNames.isEmpty) {
+      return Text(
+        '결보강 계획서에 표시할 교사가 없습니다.',
+        style: Theme.of(context).textTheme.bodySmall,
+      );
+    }
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final name in teacherNames)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: ChoiceChip(
+                label: Text(name),
+                selected: name == selectedTeacherName,
+                onSelected: (_) => onSelectTeacher(name),
+              ),
+            ),
         ],
       ),
     );

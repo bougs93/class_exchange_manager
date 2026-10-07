@@ -7,11 +7,13 @@ import '../../../providers/substitution_plan_viewmodel.dart';
 import '../../../services/excel_service.dart';
 import '../../../theme/design_tokens.dart';
 import '../../../utils/personal_exchange_info_extractor.dart';
+import '../../../utils/week_date_calculator.dart';
 import '../../../providers/zoom_provider.dart';
 import '../../../ui/mixins/scroll_management_mixin.dart';
 import 'teacher_card_grid_constants.dart';
 import 'teacher_card_teacher_collector.dart';
 import 'teacher_timetable_card.dart';
+import 'exchange_week_collector.dart';
 
 /// 교사별 시간표 카드를 그리드(Wrap) 형태로 배치합니다.
 ///
@@ -22,6 +24,7 @@ class TeacherCardGridView extends ConsumerStatefulWidget {
   final TimetableData timetableData;
   final List<TimeSlot> timeSlots;
   final List<DateTime> weekDates;
+  final List<DateTime>? weekMondays;
   final bool isExchangeViewEnabled;
   final PersonalScheduleState scheduleState;
 
@@ -34,6 +37,7 @@ class TeacherCardGridView extends ConsumerStatefulWidget {
     required this.timetableData,
     required this.timeSlots,
     required this.weekDates,
+    this.weekMondays,
     required this.isExchangeViewEnabled,
     required this.scheduleState,
     required this.relatedPlanData,
@@ -91,38 +95,56 @@ class _TeacherCardGridViewState extends ConsumerState<TeacherCardGridView>
           spacing: TeacherCardGridConstants.cardOuterPadding,
           runSpacing: TeacherCardGridConstants.cardOuterPadding,
           alignment: WrapAlignment.start,
-          children:
-              widget.targets.map((target) {
-                final exchangeInfoList =
-                    PersonalExchangeInfoExtractor.extractExchangeInfo(
-                      planData: planData,
-                      teacherName: target.name,
-                      weekDates: widget.weekDates,
-                    );
-
-                return TeacherTimetableCard(
-                  key: ValueKey(target.name),
-                  teacherName: target.name,
-                  subject: _findTeacherSubject(
-                    widget.timetableData,
-                    target.name,
+          children: [
+            for (final target in widget.targets)
+              if (widget.weekMondays == null)
+                _buildCard(target, widget.weekDates, null, zoomFactor, planData)
+              else
+                for (final week in widget.weekMondays!)
+                  _buildCard(
+                    target,
+                    WeekDateCalculator.getWeekDatesWithAvailableDays(
+                      week,
+                      widget.timetableData.timeSlots,
+                    ),
+                    '${week.year}년 ${ExchangeWeekCollector.monthWeekLabel(week)}',
+                    zoomFactor,
+                    planData,
                   ),
-                  roleLabel: target.roleLabel,
-                  dateStatusMessage: target.dateStatusMessage,
-                  onDateStatusTap:
-                      target.hasUnspecifiedDate
-                          ? () => navigateToPlanDateSelection(ref)
-                          : null,
-                  timeSlots: widget.timeSlots,
-                  weekDates: widget.weekDates,
-                  zoomFactor: zoomFactor,
-                  exchangeInfoList: exchangeInfoList,
-                  isExchangeViewEnabled: widget.isExchangeViewEnabled,
-                  isHighlighted: target.isSaved,
-                );
-              }).toList(),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildCard(
+    TeacherCardTarget target,
+    List<DateTime> dates,
+    String? weekLabel,
+    double zoomFactor,
+    List<SubstitutionPlanData> planData,
+  ) {
+    return TeacherTimetableCard(
+      key: ValueKey('${target.name}-$weekLabel'),
+      teacherName: target.name,
+      weekLabel: weekLabel,
+      subject: _findTeacherSubject(widget.timetableData, target.name),
+      roleLabel: target.roleLabel,
+      dateStatusMessage: target.dateStatusMessage,
+      onDateStatusTap:
+          target.hasUnspecifiedDate
+              ? () => navigateToPlanDateSelection(ref)
+              : null,
+      timeSlots: widget.timeSlots,
+      weekDates: dates,
+      zoomFactor: zoomFactor,
+      exchangeInfoList: PersonalExchangeInfoExtractor.extractExchangeInfo(
+        planData: planData,
+        teacherName: target.name,
+        weekDates: dates,
+      ),
+      isExchangeViewEnabled: widget.isExchangeViewEnabled,
+      isHighlighted: target.isSaved,
     );
   }
 

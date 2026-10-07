@@ -18,6 +18,7 @@ import 'teacher_card_grid_constants.dart';
 /// - 카드 본문: 교시 × 요일 미니 [SfDataGrid]
 class TeacherTimetableCard extends StatefulWidget {
   final String teacherName;
+  final String? weekLabel;
   final String? subject;
   final String? roleLabel;
   final String? dateStatusMessage;
@@ -37,6 +38,7 @@ class TeacherTimetableCard extends StatefulWidget {
   const TeacherTimetableCard({
     super.key,
     required this.teacherName,
+    this.weekLabel,
     this.subject,
     this.roleLabel,
     this.dateStatusMessage,
@@ -342,6 +344,13 @@ class _TeacherTimetableCardState extends State<TeacherTimetableCard> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                if (widget.weekLabel != null) ...[
+                  const SizedBox(width: 8),
+                  Text(
+                    widget.weekLabel!,
+                    style: TextStyle(fontSize: 11, color: tokens.textSecondary),
+                  ),
+                ],
                 if (hasRoleLabel) ...[
                   const SizedBox(width: 6),
                   _buildRoleBadge(roleLabel),

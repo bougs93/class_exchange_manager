@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/timetable_registry_provider.dart';
 import '../../providers/exchange_screen_provider.dart';
@@ -50,6 +50,8 @@ class _PersonalScheduleScreenState
   /// 시간표 화면 기본값: 교체 뷰 활성화
   bool _isExchangeViewEnabled = true;
   bool _hasInitializedExchangeView = false;
+  bool _isTeacherViewEnabled = true;
+  String? _selectedPlanTeacher;
 
   /// Excel 파싱 원본 슬롯 (교체 관리 화면의 요일 기준 변경과 분리)
   List<TimeSlot>? _originalTimeSlots;
@@ -379,10 +381,30 @@ class _PersonalScheduleScreenState
           selectedProfileId: selectedProfileId,
           deselectedGroupIds: deselectedGroupIds,
         );
+    final planTeacherData = ref.watch(checkedSubstitutionPlanDataProvider);
     final cardTargets = TeacherCardTeacherCollector.collect(
       savedTeacherName: teacherName,
       planData: relatedPlanData,
     );
+    final planTeacherTargets = TeacherCardTeacherCollector.collect(
+      savedTeacherName: null,
+      planData: planTeacherData,
+    );
+    final selectedPlanTeacher =
+        planTeacherTargets.any((target) => target.name == _selectedPlanTeacher)
+            ? _selectedPlanTeacher
+            : planTeacherTargets.isEmpty
+            ? null
+            : planTeacherTargets.any((target) => target.name == teacherName)
+            ? teacherName
+            : planTeacherTargets.first.name;
+    final teacherPlanData =
+        selectedPlanTeacher == null
+            ? <SubstitutionPlanData>[]
+            : PersonalExchangeInfoExtractor.plansRelatedToTeacher(
+              planTeacherData,
+              selectedPlanTeacher,
+            );
 
     // 선택 교사·헤더 계획서 행의 결강·교체 날짜가 속한 주차만 표시
     final activeEntry = ref.watch(activeTimetableEntryProvider);
@@ -392,6 +414,23 @@ class _PersonalScheduleScreenState
       semesterStart: activeEntry?.semesterStart,
       semesterEnd: activeEntry?.semesterEnd,
     );
+    final teacherWeeks =
+        ExchangeWeekCollector.collectWeekMondays(
+          teacherPlanData,
+          referenceDate: scheduleState.currentWeekMonday,
+          semesterStart: activeEntry?.semesterStart,
+          semesterEnd: activeEntry?.semesterEnd,
+        ).where((week) {
+          final dates = WeekDateCalculator.getWeekDatesWithAvailableDays(
+            week,
+            timetableData.timeSlots,
+          );
+          return PersonalExchangeInfoExtractor.extractExchangeInfo(
+            planData: teacherPlanData,
+            teacherName: selectedPlanTeacher!,
+            weekDates: dates,
+          ).isNotEmpty;
+        }).toList();
 
     return Scaffold(
       body: Column(
@@ -404,6 +443,18 @@ class _PersonalScheduleScreenState
             onToggleExchangeView: (enabled) {
               _handleExchangeViewToggle(enabled, weekDates);
             },
+            isTeacherViewEnabled: _isTeacherViewEnabled,
+            onToggleTeacherView:
+                (enabled) => setState(() {
+                  _isTeacherViewEnabled = enabled;
+                }),
+            teacherNames:
+                planTeacherTargets.map((target) => target.name).toList(),
+            selectedTeacherName: selectedPlanTeacher,
+            onSelectTeacher:
+                (name) => setState(() {
+                  _selectedPlanTeacher = name;
+                }),
             semesterStart: activeEntry?.semesterStart,
             semesterEnd: activeEntry?.semesterEnd,
           ),
@@ -418,15 +469,39 @@ class _PersonalScheduleScreenState
                   children: [
                     _buildZoomToolbar(tokens, _isExchangeViewEnabled),
                     Expanded(
-                      child: TeacherCardGridView(
-                        targets: cardTargets,
-                        timetableData: timetableData,
-                        timeSlots: timeSlotsToUse,
-                        weekDates: weekDates,
-                        isExchangeViewEnabled: _isExchangeViewEnabled,
-                        scheduleState: scheduleState,
-                        relatedPlanData: relatedPlanData,
-                      ),
+                      child:
+                          _isTeacherViewEnabled && teacherWeeks.isEmpty
+                              ? Center(
+                                child: Text(
+                                  selectedPlanTeacher == null
+                                      ? '결보강 계획서에 표시할 교사가 없습니다.'
+                                      : '이 교사의 날짜가 지정된 결보강 일정이 없습니다.',
+                                  style: TextStyle(color: tokens.textMuted),
+                                ),
+                              )
+                              : TeacherCardGridView(
+                                targets:
+                                    _isTeacherViewEnabled
+                                        ? planTeacherTargets
+                                            .where(
+                                              (target) =>
+                                                  target.name ==
+                                                  selectedPlanTeacher,
+                                            )
+                                            .toList()
+                                        : cardTargets,
+                                timetableData: timetableData,
+                                timeSlots: timeSlotsToUse,
+                                weekDates: weekDates,
+                                weekMondays:
+                                    _isTeacherViewEnabled ? teacherWeeks : null,
+                                isExchangeViewEnabled: _isExchangeViewEnabled,
+                                scheduleState: scheduleState,
+                                relatedPlanData:
+                                    _isTeacherViewEnabled
+                                        ? teacherPlanData
+                                        : relatedPlanData,
+                              ),
                     ),
                     Padding(
                       padding: const EdgeInsets.only(
@@ -476,10 +551,7 @@ class _PersonalScheduleScreenState
 
   /// 3열 — 줌 + 교체 보기 상태 안내 (주차 칩·토글은 2열 헤더)
   Widget _buildZoomToolbar(DesignTokens tokens, bool isExchangeViewEnabled) {
-    final statusText =
-        isExchangeViewEnabled
-            ? '결보강이 반영된 시간표입니다'
-            : '원본 시간표입니다';
+    final statusText = isExchangeViewEnabled ? '결보강이 반영된 시간표입니다' : '원본 시간표입니다';
 
     return Column(
       mainAxisSize: MainAxisSize.min,
