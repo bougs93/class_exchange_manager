@@ -381,15 +381,12 @@ class _PersonalScheduleScreenState
           selectedProfileId: selectedProfileId,
           deselectedGroupIds: deselectedGroupIds,
         );
-    final planTeacherData = ref.watch(checkedSubstitutionPlanDataProvider);
     final cardTargets = TeacherCardTeacherCollector.collect(
       savedTeacherName: teacherName,
       planData: relatedPlanData,
     );
-    final planTeacherTargets = TeacherCardTeacherCollector.collect(
-      savedTeacherName: null,
-      planData: planTeacherData,
-    );
+    // 교사별 버튼은 주간 카드에 나오는 교사와 같아야 한다 (같은 목록·같은 계획서 행)
+    final planTeacherTargets = cardTargets;
     final selectedPlanTeacher =
         planTeacherTargets.any((target) => target.name == _selectedPlanTeacher)
             ? _selectedPlanTeacher
@@ -402,7 +399,7 @@ class _PersonalScheduleScreenState
         selectedPlanTeacher == null
             ? <SubstitutionPlanData>[]
             : PersonalExchangeInfoExtractor.plansRelatedToTeacher(
-              planTeacherData,
+              relatedPlanData,
               selectedPlanTeacher,
             );
 
