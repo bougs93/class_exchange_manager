@@ -1,11 +1,11 @@
 {
     "schema_version": 2,
-    "commit": "e2c309b38b0b5ebd80f7bcd269a5aaa02d6ba2a9",
-    "indexed_at": "2026-08-29T22:52:01Z",
-    "project": "D-Project-flutter_Teacher_Swap_Manager-class_exchange_manager",
-    "nodes": 3758,
-    "edges": 15761,
-    "original_size": 17694720,
-    "compressed_size": 1622593,
-    "compression_level": 9
+    "commit": "ca4014d976e3d65f1f3e6373560ddd9b6b782594",
+    "indexed_at": "2026-10-09T16:01:51Z",
+    "project": "class_exchange_manager",
+    "nodes": 6434,
+    "edges": 30570,
+    "original_size": 29687808,
+    "compressed_size": 4439959,
+    "compression_level": 3
 }

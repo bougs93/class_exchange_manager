@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -111,7 +112,10 @@ void main() {
   Widget buildScreen({required List<Override> overrides}) {
     return ProviderScope(
       overrides: overrides,
-      child: const MaterialApp(home: WebAdminSettingsScreen()),
+      child: const MaterialApp(
+        localizationsDelegates: [FlutterQuillLocalizations.delegate],
+        home: WebAdminSettingsScreen(),
+      ),
     );
   }
 

@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 
 import '../../constants/app_assets.dart';
 import '../../constants/app_info.dart';
@@ -26,8 +27,7 @@ class WebLoginIdentityHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final logoSize = compact ? 80.0 : 96.0;
     final gap = compact ? 16.0 : 20.0;
-    final hasSchoolLogo =
-        localLogoBytes != null || branding.hasLogo;
+    final hasSchoolLogo = localLogoBytes != null || branding.hasLogo;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -140,7 +140,7 @@ class WebLoginSchoolLogo extends StatelessWidget {
   }
 }
 
-/// 접속 화면용 학교 브랜딩 블록 (제목 · 안내 박스).
+/// 접속 화면용 학교 브랜딩 블록 (제목 · 안내).
 ///
 /// 로고는 [WebLoginIdentityHeader]에서 프로그램 로고 옆에 둔다.
 /// [showLogo]가 true이면 예전처럼 이 블록 안에 학교 로고도 그린다.
@@ -167,8 +167,7 @@ class WebLoginBrandingBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final gap = compact ? 12.0 : 16.0;
-    final hasLogo =
-        showLogo && (localLogoBytes != null || branding.hasLogo);
+    final hasLogo = showLogo && (localLogoBytes != null || branding.hasLogo);
     final hasTitle = branding.title.isNotEmpty;
     final hasGuideButton = branding.hasGuideButton;
     final hasNotice = branding.notice.isNotEmpty;
@@ -192,10 +191,11 @@ class WebLoginBrandingBlock extends StatelessWidget {
           SizedBox(height: gap),
         ],
         if (hasTitle)
-          Text(
-            branding.title,
+          BrandingHtmlView(
+            html: branding.displayTitleHtml,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
           ),
         // 제목 바로 아래 — 관리자가 설정한 사용법 링크(새 탭)
         if (hasGuideButton) ...[
@@ -217,26 +217,64 @@ class WebLoginBrandingBlock extends StatelessWidget {
         ],
         if ((hasTitle || hasGuideButton) && hasNotice)
           SizedBox(height: compact ? 10 : 12),
+        // 박스 장식 없이 서식 그대로 보여 준다 (2026-10-09 요청).
         if (hasNotice)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFAFAFA),
-              border: Border.all(color: Colors.grey.shade200),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              branding.notice,
-              textAlign: TextAlign.left,
-              style: TextStyle(
-                fontSize: 13,
-                height: 1.45,
-                color: Colors.grey.shade800,
-              ),
-            ),
+          BrandingHtmlView(
+            html: branding.displayNoticeHtml,
+            textAlign: TextAlign.left,
+            fontSize: 13,
+            lineHeight: 1.45,
           ),
       ],
+    );
+  }
+}
+
+/// 제목·안내 문구용 HTML 표시 위젯.
+///
+/// 저장값이 서식 도입 전 일반 텍스트면 [WebLoginBranding]이 표시용 HTML로
+/// 바꿔 준다. 링크는 새 탭(외부 브라우저)으로 연다.
+class BrandingHtmlView extends StatelessWidget {
+  const BrandingHtmlView({
+    super.key,
+    required this.html,
+    this.textAlign = TextAlign.left,
+    this.fontSize = 13,
+    this.fontWeight,
+    this.lineHeight,
+  });
+
+  final String html;
+  final TextAlign textAlign;
+  final double fontSize;
+  final FontWeight? fontWeight;
+  final double? lineHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    // 제목은 기본 가운데 정렬 — div로 감싸면 안쪽 명시 정렬이 우선한다.
+    final data =
+        textAlign == TextAlign.center && html.trim().isNotEmpty
+            ? '<div style="text-align: center;">$html</div>'
+            : html;
+    return HtmlWidget(
+      data,
+      textStyle: TextStyle(
+        fontSize: fontSize,
+        height: lineHeight,
+        color: Colors.grey.shade800,
+        fontWeight: fontWeight,
+      ),
+      customStylesBuilder:
+          (element) => switch (element.localName) {
+            'a' => {'color': '#00796B'},
+            'p' => {'margin': '0'},
+            _ => null,
+          },
+      onTapUrl: (url) {
+        UrlLauncherHelper.launchURL(url.trim(), context: context);
+        return true;
+      },
     );
   }
 }

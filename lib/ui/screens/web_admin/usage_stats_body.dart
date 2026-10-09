@@ -488,7 +488,8 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
   }
 
   Widget _buildTrend(UsageSummary s) {
-    if (s.buckets.isEmpty) return const Text('기록이 없습니다.');
+    final buckets = s.buckets.where((b) => b.count(UsageKeys.visits) > 0);
+    if (buckets.isEmpty) return const Text('기록이 없습니다.');
     return _hScroll(
       DataTable(
         columnSpacing: 10,
@@ -503,7 +504,7 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
             DataColumn(label: Text(c.$1), numeric: true),
         ],
         rows: [
-          for (final b in s.buckets)
+          for (final b in buckets)
             DataRow(
               cells: [
                 DataCell(Text(_bucketText(b.label))),

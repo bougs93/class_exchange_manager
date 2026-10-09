@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import 'branded_html_editor.dart';
 import 'web_admin_logo_preview.dart';
 
 /// 접속 화면(학교 로고·안내) 브랜딩 섹션.
@@ -61,8 +62,9 @@ class WebAdminLoginBrandingSection extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         const Text(
-          '프로그램 로고 옆에 학교 로고가, 아래에 제목·안내 박스가 보입니다. '
-          '로고를 누르면 홈페이지로 이동합니다.',
+          '프로그램 로고 옆에 학교 로고가, 아래에 제목·안내가 보입니다. '
+          '로고를 누르면 홈페이지로 이동합니다. '
+          '제목·안내는 툴바로 서식(굵게·색·크기·폰트·정렬·링크)을 넣을 수 있습니다.',
           style: TextStyle(fontSize: 12, color: Colors.grey),
         ),
         const SizedBox(height: 10),
@@ -97,29 +99,20 @@ class WebAdminLoginBrandingSection extends StatelessWidget {
           keyboardType: TextInputType.url,
         ),
         const SizedBox(height: 8),
-        TextField(
+        BrandedHtmlEditor(
           controller: loginMessageController,
-          maxLines: 2,
-          decoration: const InputDecoration(
-            labelText: '제목 (예: 월계중학교 2026년 2학기 시간표)',
-            border: OutlineInputBorder(),
-            isDense: true,
-          ),
+          labelText: '제목 (예: 월계중학교 2026년 2학기 시간표)',
+          hintText: '접속 화면에 굵게·가운데로 보입니다.',
+          minHeight: 56,
+          enabled: !saving,
+          previewAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
-        TextField(
+        BrandedHtmlEditor(
           controller: loginNoticeController,
-          // 내용에 따라 늘어나고, 안에서 스크롤되지 않는다 (바깥 ListView가
-          // 스크롤한다). maxLines 고정은 긴 안내가 안에서 잘리게 만든다.
-          minLines: 4,
-          maxLines: null,
-          keyboardType: TextInputType.multiline,
-          decoration: const InputDecoration(
-            labelText: '안내 문구 (사각형 박스)',
-            hintText: '선생님 전용입니다. 비밀번호를 입력해 주세요.',
-            border: OutlineInputBorder(),
-            alignLabelWithHint: true,
-          ),
+          labelText: '안내 문구',
+          hintText: '선생님 전용입니다. 비밀번호를 입력해 주세요.',
+          enabled: !saving,
         ),
         const SizedBox(height: 6),
         Align(

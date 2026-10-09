@@ -351,7 +351,7 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
       );
     }
 
-    // 폼(아이콘·비밀번호) 420, 안내 박스는 그 1.26배(≈529 = 예전 756의 70%).
+    // 폼(아이콘·비밀번호) 420, 안내 영역은 그 1.26배(≈529 = 예전 756의 70%).
     // 화면이 좁으면 화면 폭에 맞춤.
     const formMaxWidth = 420.0;
     const noticeWidthFactor = 1.26;
@@ -385,7 +385,7 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
     );
   }
 
-  /// 폼 영역만 [formMaxWidth]로 좁히고, 안내 박스는 부모(더 넓은) 폭을 쓴다.
+  /// 폼 영역만 [formMaxWidth]로 좁히고, 안내 영역은 부모(더 넓은) 폭을 쓴다.
   Widget _formWidth(double formMaxWidth, Widget child) {
     return Align(
       alignment: Alignment.center,
@@ -450,8 +450,8 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
           ),
         ),
         const SizedBox(height: 20),
-        // 제목·안내 박스(로고는 헤더에서 프로그램 로고 옆에 표시).
-        // 안내 박스만 넓은 부모 폭(폼의 1.26배)을 사용한다.
+        // 제목·안내(로고는 헤더에서 프로그램 로고 옆에 표시).
+        // 안내만 넓은 부모 폭(폼의 1.26배)을 사용한다.
         WebLoginBrandingBlock(branding: _branding, localLogoBytes: _logoBytes),
         const SizedBox(height: 20),
         _formWidth(

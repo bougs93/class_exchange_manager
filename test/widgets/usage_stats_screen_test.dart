@@ -28,7 +28,11 @@ void main() {
       days: [
         UsageDay(
           date: today,
-          totals: const {UsageKeys.visits: 5, UsageKeys.planPdfSave: 2, 'tab_1': 4},
+          totals: const {
+            UsageKeys.visits: 5,
+            UsageKeys.planPdfSave: 2,
+            'tab_1': 4,
+          },
           teachers: const {
             '김교사': {UsageKeys.visits: 3, UsageKeys.planPdfSave: 2},
             kUsageUnnamedTeacher: {UsageKeys.visits: 2},
@@ -58,9 +62,7 @@ void main() {
       '2',
     );
     expect(
-      tester
-          .widget<Text>(find.byKey(const ValueKey('usage-stat-사용 교사')))
-          .data,
+      tester.widget<Text>(find.byKey(const ValueKey('usage-stat-사용 교사'))).data,
       '2',
     );
     expect(find.text('김교사'), findsOneWidget);
@@ -108,9 +110,25 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('교사 행 삭제는 확인 후 해당 교사만 지우고 합계를 차감한다', (
-    tester,
-  ) async {
+  testWidgets('접속 기록이 없는 날짜는 추이에 표시하지 않는다', (tester) async {
+    await pumpScreen(tester);
+    final emptyDate = UsageStatsAggregator.dateId(
+      DateTime.parse(
+        UsageStatsAggregator.todayKstId(),
+      ).subtract(const Duration(days: 1)),
+    );
+    backend.days.add(UsageDay(date: emptyDate));
+    await tester.tap(find.text('새로고침'));
+    await pumpFrames(tester);
+    expect(find.text(emptyDate), findsNothing);
+
+    backend.days.removeAt(0);
+    await tester.tap(find.text('새로고침'));
+    await pumpFrames(tester);
+    expect(find.text('기록이 없습니다.'), findsWidgets);
+  });
+
+  testWidgets('교사 행 삭제는 확인 후 해당 교사만 지우고 합계를 차감한다', (tester) async {
     await pumpScreen(tester);
     expect(find.text('김교사'), findsOneWidget);
 

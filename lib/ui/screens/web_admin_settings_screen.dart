@@ -433,7 +433,8 @@ class _WebAdminSettingsScreenState
   /// Dart 상수 기본 안내 문구를 입력란에 넣는다. 저장은 [접속 화면 저장]으로.
   void _applyDefaultLoginNotice() {
     final text = kLoginNoticeDefaultText.replaceAll('\r\n', '\n').trim();
-    setState(() => _loginNoticeController.text = text);
+    // 입력란은 이제 HTML 소스라 일반 텍스트 기본값은 표시용 HTML로 바꿔 넣는다.
+    setState(() => _loginNoticeController.text = BrandingHtml.toHtml(text));
     SnackBarHelper.showInfo(context, '기본 안내 문구를 넣었습니다. 저장을 눌러 반영하세요.');
   }
 
@@ -718,7 +719,7 @@ class _WebAdminSettingsScreenState
                   showSaveButton: false,
                 ),
                 const Divider(height: 24),
-        WebAdminDefaultSchoolNameSection(
+                WebAdminDefaultSchoolNameSection(
                   saving: editingLocked,
                   controller: _defaultSchoolNameController,
                   onSave: _saveBrandingAndSchool,
