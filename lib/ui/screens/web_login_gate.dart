@@ -205,14 +205,14 @@ class _WebLoginGateState extends ConsumerState<WebLoginGate> {
   /// 때마다 다시 시도되므로 서버가 복구되면 저절로 받아진다.
   Future<void> _enterSession({required bool admin}) async {
     await _enterSessionInner(admin: admin);
-    // 통계는 조용히 기록만 한다(화면 변화 없음, 실패는 서비스가 삼킨다).
-    // 교사명은 시간표 레지스트리에서 오므로, 아직 로드 중이면 잠깐 기다린다 —
-    // 그러지 않으면 모든 접속이 '(이름 미설정)'으로 잡힌다. 최대 10초.
-    for (var i = 0; i < 20 && mounted; i++) {
-      if (!ref.read(timetableRegistryProvider).isLoading) break;
-      await Future<void>.delayed(const Duration(milliseconds: 500));
+    if (!admin) {
+      // 교사명은 시간표 레지스트리에서 오므로, 아직 로드 중이면 잠깐 기다린다.
+      for (var i = 0; i < 20 && mounted; i++) {
+        if (!ref.read(timetableRegistryProvider).isLoading) break;
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+      }
+      if (mounted) ref.read(usageStatsServiceProvider).record(UsageEvent.visit);
     }
-    if (mounted) ref.read(usageStatsServiceProvider).record(UsageEvent.visit);
   }
 
   Future<void> _enterSessionInner({required bool admin}) async {

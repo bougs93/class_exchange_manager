@@ -67,6 +67,25 @@ void main() {
       expect(s.uniqueVisitors, 3);
     });
 
+    test('기존 관리자 기록은 합계와 교사 목록에서 제외한다', () {
+      final s = UsageStatsAggregator.aggregate([
+        day(
+          '2026-10-07',
+          visits: 3,
+          extra: {UsageKeys.planCreate: 2},
+          teachers: {
+            kUsageAdminBucket: {UsageKeys.visits: 2, UsageKeys.planCreate: 1},
+            '김교사': {UsageKeys.visits: 1, UsageKeys.planCreate: 1},
+          },
+        ),
+      ], UsagePeriodUnit.day);
+      expect(s.count(UsageKeys.visits), 1);
+      expect(s.count(UsageKeys.planCreate), 1);
+      expect(s.buckets.single.count(UsageKeys.visits), 1);
+      expect(s.teachers.map((t) => t.name), ['김교사']);
+      expect(s.activeTeachers, 1);
+    });
+
     test('교사별 합계·마지막 사용일·이름 미설정 버킷', () {
       final s = UsageStatsAggregator.aggregate([
         day(

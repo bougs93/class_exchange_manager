@@ -61,13 +61,15 @@ class UsageStatsAggregator {
       final label = bucketLabel(d.date, unit);
       final bucket = buckets.putIfAbsent(label, () => <String, int>{});
       for (final key in UsageKeys.all) {
-        final v = d.totals[key];
-        if (v == null || v == 0) continue;
+        final v =
+            (d.totals[key] ?? 0) - (d.teachers[kUsageAdminBucket]?[key] ?? 0);
+        if (v <= 0) continue;
         totals[key] = (totals[key] ?? 0) + v;
         bucket[key] = (bucket[key] ?? 0) + v;
       }
       visitors.addAll(d.visitors);
       for (final e in d.teachers.entries) {
+        if (e.key == kUsageAdminBucket) continue;
         final t = teachers.putIfAbsent(e.key, () => <String, int>{});
         for (final key in UsageKeys.all) {
           final v = e.value[key];

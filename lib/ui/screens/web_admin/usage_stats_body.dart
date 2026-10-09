@@ -407,6 +407,10 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
         ('계획서 PDF', s.count(UsageKeys.planPdfSave)),
         ('학급 PDF', s.count(UsageKeys.classPdfSave)),
       ]),
+      Text(
+        '이전 기록의 고유 접속자는 관리자 접속을 구분할 수 없어 포함될 수 있습니다.',
+        style: TextStyle(fontSize: 12, color: _muted),
+      ),
       const SizedBox(height: 20),
       _sectionTitle(switch (_unit) {
         UsagePeriodUnit.day => '일별 추이',
@@ -421,8 +425,7 @@ class _UsageStatsBodyState extends ConsumerState<UsageStatsBody>
       _sectionTitle('교사별 사용'),
       Text(
         '교사 이름이 그대로 저장됩니다. 이름을 설정하지 않은 사용은 '
-        "'$kUsageUnnamedTeacher'으로, 관리자로 로그인한 사용은 "
-        "'$kUsageAdminBucket'로 묶입니다.",
+        "'$kUsageUnnamedTeacher'으로 묶입니다. 관리자 사용은 집계에서 제외됩니다.",
         style: TextStyle(fontSize: 12, color: _muted),
       ),
       const SizedBox(height: 6),

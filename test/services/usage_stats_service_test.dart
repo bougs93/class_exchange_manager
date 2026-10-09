@@ -43,7 +43,7 @@ void main() {
     expect(b.writes.single.teachers.keys, [kUsageUnnamedTeacher]);
   });
 
-  testWidgets('관리자 세션은 교사명과 무관하게 (관리자)로 묶는다', (tester) async {
+  testWidgets('관리자 세션의 이벤트는 저장하지 않는다', (tester) async {
     final b = FakeUsageBackend();
     final s = UsageStatsService(
       enabled: true,
@@ -53,8 +53,10 @@ void main() {
       uid: () => 'uid1',
     );
     s.record(UsageEvent.visit);
+    s.record(UsageEvent.tab, tabIndex: 1);
+    await s.flush();
     await tester.pump();
-    expect(b.writes.single.teachers.keys, [kUsageAdminBucket]);
+    expect(b.writes, isEmpty);
   });
 
   testWidgets('쓰기 실패는 삼키고 예외를 던지지 않는다', (tester) async {
@@ -105,10 +107,7 @@ void main() {
     final s = make(b);
     final from = DateTime(2026, 10, 1);
     final to = DateTime(2026, 10, 31);
-    expect(
-      await s.deleteTeacher(from: from, to: to, teacher: '김교사'),
-      1,
-    );
+    expect(await s.deleteTeacher(from: from, to: to, teacher: '김교사'), 1);
     final day = b.days.single;
     expect(day.teachers.keys, ['이교사']);
     expect(day.totals[UsageKeys.visits], 2);

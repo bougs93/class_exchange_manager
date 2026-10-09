@@ -204,16 +204,13 @@ class UsageStatsService {
   void record(UsageEvent event, {int? tabIndex}) {
     if (!_active) return;
     try {
+      if (_isAdmin?.call() ?? false) return;
       final key = UsageKeys.keyFor(event, tabIndex: tabIndex);
       if (key == null) return;
 
       final nowTime = _now();
       final dayId = UsageStatsAggregator.todayKstId(nowTime);
-      // 관리자 세션은 교사명과 상관없이 따로 묶는다.
-      var name =
-          (_isAdmin?.call() ?? false)
-              ? kUsageAdminBucket
-              : (_teacherName?.call() ?? '').trim();
+      var name = (_teacherName?.call() ?? '').trim();
       if (name.isEmpty) name = kUsageUnnamedTeacher;
 
       final delta = _buffer.putIfAbsent(dayId, () => UsageDelta(dayId));
